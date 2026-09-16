@@ -449,7 +449,8 @@ struct AppShellView: View {
     }
   }
 
-  private var observedShell: some View {
+  // Keep these modifier groups separate so Swift can type-check each expression.
+  private var welcomeShell: some View {
     shellLayout
     .disabled(welcomeSetup.isPresented || welcomeSetup.tour != nil)
     .accessibilityHidden(welcomeSetup.isPresented)
@@ -463,6 +464,10 @@ struct AppShellView: View {
         WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
       }
     }
+  }
+
+  private var commandObservedShell: some View {
+    welcomeShell
     .onPreferenceChange(SelectionComposerHeight.self) { height in
       guard isSelectionComposer, height > 0 else { return }
       NotificationCenter.default.post(name: .selectionComposerHeightChanged, object: height)
@@ -513,6 +518,10 @@ struct AppShellView: View {
     .onReceive(NotificationCenter.default.publisher(for: .settingsRequested)) { _ in
       isModePalettePresented = false
     }
+  }
+
+  private var observedShell: some View {
+    commandObservedShell
     .onReceive(NotificationCenter.default.publisher(for: .panelPresented)) { _ in
       selectionAccess.refresh()
       localChat.applicationBecameActive()
