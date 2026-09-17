@@ -68,6 +68,12 @@ final class LocalChatViewModel: ObservableObject {
     return copy
   } }
 
+  private var latestSelectionDraft: String? {
+    messages.reversed().compactMap { selectionRevisions[$0.id] }.first { revision in
+      attachedContexts.contains { $0.id == revision.contextID }
+    }?.text
+  }
+
   private func contextualMessage(_ prompt: String, responseInstructions: Bool = true) -> ChatMessage {
     var message = ThinkCommand.message(prompt)
     message.contexts = attachedContexts.isEmpty ? nil : attachedContexts
@@ -75,7 +81,7 @@ final class LocalChatViewModel: ObservableObject {
     if responseInstructions && (mode == .translate || attachedContexts.contains { $0.kind == .selectedText }) {
       message.selectionResponseMode = mode
     }
-    message.selectionDraft = messages.reversed().compactMap { selectionRevisions[$0.id]?.text }.first
+    message.selectionDraft = latestSelectionDraft
     return message
   }
 
@@ -1048,7 +1054,7 @@ final class LocalChatViewModel: ObservableObject {
         "Create one concise web search query that helps answer the user's question about the attached context. "
         + "Return only the query, without quotes or commentary. Question: " + query)
       message.contexts = attachedContexts
-      if let draft = messages.reversed().compactMap({ selectionRevisions[$0.id]?.text }).first {
+      if let draft = latestSelectionDraft {
         message.contexts?.append(ConversationContext(sourceName: "Proposed revision", text: draft))
       }
       let prepared: PreparedConversation

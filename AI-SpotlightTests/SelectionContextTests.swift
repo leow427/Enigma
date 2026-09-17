@@ -92,6 +92,25 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(provider.requests.count, 3, "Read-only follow-ups do not run recovery")
   }
 
+  func testRemovingSelectionExcludesManualDraftFromLaterTranslation() async throws {
+    let provider = SelectionTestCloud(output: revisionOutput)
+    let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(),
+      replaceSelection: { _, _ in XCTFail("Removed selection must not paste"); return true },
+      cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
+      sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
+    let context = ConversationContext(sourceName: "Editor", text: "Private captured source")
+    chat.startTemporaryChat(context: context)
+    await completeRevisionRequest(chat, cloud: true)
+    chat.updateSelectionRevision(messageID: try XCTUnwrap(chat.messages.last?.id), text: "Private manual draft")
+    chat.removeContext(id: context.id)
+    await completeRevisionRequest(chat, prompt: "/translate Bonjour", cloud: true)
+    let request = try XCTUnwrap(provider.requests.last)
+    XCTAssertFalse(request.messages.contains { $0.content.contains("Private captured source") })
+    XCTAssertFalse(request.messages.contains { $0.content.contains("Private manual draft") })
+    XCTAssertTrue(request.messages.last?.content.contains(SelectionResponseMode.translate.instructions) == true)
+    XCTAssertEqual(chat.selectionRevisions.count, 1)
+  }
+
   func testTranslationWithoutSelectionUsesRequestOnlyGuidance() async throws {
     let engine = SelectionTestEngine(output: "Hello")
     let chat = LocalChatViewModel(engine: engine,

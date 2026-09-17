@@ -16,7 +16,8 @@ monitors refresh when switching apps, so granting access does not require a rest
 
 The source is captured before the panel becomes key. The small “Selected text ·
 App” card stays above the composer across follow-ups. Removing it revokes the
-replacement capability and excludes the attachment from subsequent requests.
+replacement capability and excludes the attachment and its manually edited draft
+from subsequent requests, including translations.
 Earlier answers may naturally mention material already discussed. Questions remain
 ordinary conversation messages. Editing is an explicit per-request command.
 
@@ -254,7 +255,8 @@ Existing cancellation, clipboard, context-removal and automatic-replacement chec
 continue to run with explicit `/edit` requests. The native slash-menu render includes
 both new commands. Automated fixtures verify routing and permissions.
 
-Local verification passed: `build`, the full test suite (525 tests, 10 opt-in tests
+For the initial command change, local verification passed: `build`, the full test
+suite (525 tests, 10 opt-in tests
 skipped, zero failures), and `analyze`. The opt-in Gemma 4 12B smoke test also passed
 separately using synthetic text. It explained `numbers.map { $0 * 2 }`, translated
 “Bonjour, le monde !” to “Hello, world!” by default and “¡Hola, mundo!” when Spanish
@@ -262,3 +264,10 @@ was requested, with and without `/translate`. None of those responses produced a
 revision card. Explicit `/edit` and revision recovery still produced valid drafts.
 These examples confirm the configured model's behavior, not translation quality
 for every language or model. No source-application paste was performed.
+
+The draft-removal follow-up passed `build`, `analyze`, and all 51 selection tests
+(one live-model opt-in skipped). A subsequent full local run covered 526 tests but
+had window-focus failures and extra keyboard input in the scrolling fixture.
+All 16 window-command tests passed on retry; the scrolling retry also received
+extra keystrokes. Its assertions were not changed or skipped. Use the isolated
+GitHub Actions run on the published commit for the final full-suite result.
