@@ -18,7 +18,7 @@ The source is captured before the panel becomes key. The small “Selected text 
 App” card stays above the composer across follow-ups. Removing it revokes the
 replacement capability and excludes the attachment from subsequent requests.
 Earlier answers may naturally mention material already discussed. Questions remain
-ordinary conversation messages; there are no rewrite/explain/verify workflows.
+ordinary conversation messages. Editing is an explicit per-request command.
 
 ## Architecture and privacy
 
@@ -65,36 +65,60 @@ addressed to the source process and marked to distinguish them from user input.
 
 ## Revision cards and automatic replacement
 
-When the user asks to revise the selected text, the model gives a short
-acknowledgement followed by a separate **Revised text** card. **Edit** turns the
-card into an editable draft; **Done** returns to its preview. **Replace text**
-pastes that draft with one click. Follow-up requests receive the latest proposed
-revision, including manual changes. Each response retains its own draft in the
-temporary conversation. Normal questions, explanations, and verification requests
-remain ordinary conversation responses.
+Selected text is **read-only by default**. Asking “What does this code do?”
+produces an explanation. Highlighting text never authorizes an edit, and a normal
+answer never runs revision recovery or becomes a replacement card.
+
+- **`/edit make this more professional`** asks for one revised-text draft. The model
+  responds to the actual request and briefly describes the changes before showing
+  the **Revised text** card. A question or unclear change can still receive an
+  answer or clarification instead of an invented rewrite.
+- **`/translate`** or **`/translate this`** detects the source language and translates
+  to English. **`/translate to Spanish`** uses the requested target language.
+  Translation is an ordinary read-only answer, without a revision card or paste.
+  Natural requests such as “translate this” and “translate this to Spanish” follow
+  the same language defaults without requiring a slash command.
+- Requests for a rewrite without `/edit` receive guidance to use `/edit`. The command
+  applies only to the current request: follow-up edits also need `/edit`, while
+  questions about a previous draft remain read-only.
+
+Both commands appear in slash completion and work with the existing thinking,
+search, and capture commands. Quoted commands, code examples, URLs, paths, selected
+source text, and previous turns cannot enable editing. If `/edit` and `/translate`
+appear together, translation takes precedence and stays read-only. Standalone
+`/translate` works with the attached selection; without source text, the model asks
+for text to translate. `/translate` also restricts File Mode to read-only access.
+
+**Edit** turns a revision card into an editable draft; **Done** returns to its
+preview. **Replace text** pastes that draft with one click. Follow-ups receive the
+latest proposed revision, including manual changes, as source material relevant
+to the current request. Each response retains its own draft in the temporary chat.
 
 **Settings → Selection Context → Automatically replace selected text** is off by
-default. When enabled before a request begins, a successfully completed revision
-is pasted directly, with no revision card or confirmation click. It never applies
-ordinary responses, malformed/incomplete revisions, failed or cancelled requests,
-or a response whose context has been removed. Turning the setting on does not
-apply responses already in progress; turning it off cancels pending automatic
-work and makes unsent drafts available for manual review.
+default. When enabled before an explicit `/edit` request begins, a successfully
+completed revision is pasted directly, with no revision card or confirmation click.
+It never applies ordinary responses, translations, malformed/incomplete revisions,
+failed or cancelled requests, or a response whose context has been removed.
+Turning the setting on does not apply responses already in progress; turning it
+off cancels pending automatic work and makes unsent drafts available for review.
 
-The provider-neutral prompt asks the model to choose whether a revision is
-appropriate, then emit acknowledgement plus one explicit JSON revision payload.
-The UI hides that payload while streaming. Only a valid completed payload can
-be applied; formatting failures show a notice instead. No keyword-based rewrite
-workflow or separate intent-classification model is used. Local, cloud, vision,
-Auto and File Mode share this request formatting; web-search query refinement
-receives the latest draft as source material without the editing-output protocol.
-Revision state and formatting metadata are session-only. If a completed response
-omits the revision block (including a list of options), one additional request to
-the same model interprets the user's intent and prepares a single revision as JSON.
-It includes the original selection, conversation and latest manually edited draft.
-An explicit `answer` result leaves ordinary conversation unchanged. Invalid recovery
-shows a visible notice; it never treats arbitrary prose as replacement text or
-retries a paste. This recovery can add latency and still depends on model compliance.
+The host resolves commands from the current user request before adding context.
+Request-only instructions guide explanations, editing, and translation; selected
+text and previous drafts remain untrusted source material. Only `/edit` with an
+attached selection enables the revision output protocol, recovery, and replacement.
+Even an unsolicited, valid model revision payload cannot create a card or paste
+for a read-only request. Local, cloud, vision, Auto and File Mode use this same gate.
+Web-search query refinement receives the latest draft without response-format
+instructions. Revision metadata is session-only and is cleared from request history.
+
+For an explicit edit that omits the required payload, one bounded recovery request
+to the same model can prepare the revision. It includes the original selection,
+conversation and latest manually edited draft. A request-specific acknowledgement
+is preserved; an `answer` result leaves the response unchanged. Invalid recovery
+shows a notice and never treats arbitrary prose as replacement text or retries a
+paste. Ordinary questions and translations do not incur this extra model request.
+Language detection, translation quality, and wording still depend on the selected
+model; the editing permission boundary is enforced by the application.
 
 Capture still occurs only on double-Option (or the configured backup). Bounded
 readiness retries allow an editor time to expose a fresh AX selection. Cmd+C may
@@ -157,10 +181,11 @@ and [Apple event monitoring](https://developer.apple.com/library/archive/documen
 
 The September 10 recovery fix was exercised against the installed Google Gemma 4
 12B model in Auto mode with synthetic text: “make the text sound more professional”
-produced a revision card. The real model also converted a deliberately unformatted
+produced a revision card. The updated smoke test uses `/edit` and also exercises
+code explanation, English-default translation, and explicit Spanish translation. The real model also converted a deliberately unformatted
 options response into a valid single revision. Neither check pasted into a source
 application. Run this opt-in check with `TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1`
-and `scripts/verify-xcode.sh test '-only-testing:EnigmaTests/SelectionContextTests/testInstalledGemmaAutoProducesRevisionCard'`
+and `scripts/verify-xcode.sh test '-only-testing:EnigmaTests/SelectionContextTests/testInstalledGemmaHandlesSelectionCommands'`
 when that model is selected locally.
 
 
@@ -218,3 +243,22 @@ in the stable development-signed app.
 ![Compact selection composer](images/selection-compact-composer.png)
 
 ![Expanded selection conversation](images/selection-expanded-conversation.png)
+
+## Explicit command regression coverage
+
+The September 17 command changes cover local/cloud questions and translations,
+English-default and explicit-target request guidance, unsolicited revision payloads,
+follow-ups after editing, Auto and screen text routing, command composition and
+literal examples, request-only metadata, and read-only File Mode translation.
+Existing cancellation, clipboard, context-removal and automatic-replacement checks
+continue to run with explicit `/edit` requests. The native slash-menu render includes
+both new commands. Automated fixtures verify routing and permissions.
+
+Local verification passed: `build`, the full test suite (525 tests, 10 opt-in tests
+skipped, zero failures), and `analyze`. The opt-in Gemma 4 12B smoke test also passed
+separately using synthetic text. It explained `numbers.map { $0 * 2 }`, translated
+“Bonjour, le monde !” to “Hello, world!” by default and “¡Hola, mundo!” when Spanish
+was requested, with and without `/translate`. None of those responses produced a
+revision card. Explicit `/edit` and revision recovery still produced valid drafts.
+These examples confirm the configured model's behavior, not translation quality
+for every language or model. No source-application paste was performed.

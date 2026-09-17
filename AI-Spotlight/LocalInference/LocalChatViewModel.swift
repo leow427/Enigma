@@ -63,15 +63,18 @@ final class LocalChatViewModel: ObservableObject {
     var copy = message
     // The current attachment is authoritative. Removing it also removes it from future requests.
     copy.contexts = nil
-    copy.selectionEditingEnabled = false
+    copy.selectionResponseMode = nil
     copy.selectionDraft = nil
     return copy
   } }
 
-  private func contextualMessage(_ prompt: String, editing: Bool = true) -> ChatMessage {
+  private func contextualMessage(_ prompt: String, responseInstructions: Bool = true) -> ChatMessage {
     var message = ThinkCommand.message(prompt)
     message.contexts = attachedContexts.isEmpty ? nil : attachedContexts
-    message.selectionEditingEnabled = editing && attachedContexts.contains { $0.kind == .selectedText }
+    let mode = SelectionResponseMode(prompt: prompt)
+    if responseInstructions && (mode == .translate || attachedContexts.contains { $0.kind == .selectedText }) {
+      message.selectionResponseMode = mode
+    }
     message.selectionDraft = messages.reversed().compactMap { selectionRevisions[$0.id]?.text }.first
     return message
   }
@@ -370,7 +373,8 @@ final class LocalChatViewModel: ObservableObject {
       return
     }
     let model = installedModel
-    let level = local ? model.map { LocalFileCapabilities.production.access(for: $0) } ?? .readOnly : .readWrite
+    let level: FileAccessLevel = SelectionResponseMode(prompt: prompt) == .translate ? .readOnly
+      : local ? model.map { LocalFileCapabilities.production.access(for: $0) } ?? .readOnly : .readWrite
     let fileTools: AgentFileTools
     do { fileTools = try files.begin(access: level, isLocal: local, prompt: prompt, cloudAvailability: fileCloudAvailability) }
     catch { files.error = error.localizedDescription; return }
@@ -380,7 +384,7 @@ final class LocalChatViewModel: ObservableObject {
     var userMessage = contextualMessage(prompt)
     userMessage.attachments = files.selection?.attachments.map { MessageAttachment(name: $0.name, isDirectory: $0.isDirectory) }
     let history = requestMessages + [userMessage]
-    let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID)
+    let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
     state = .preparing
@@ -432,7 +436,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func shouldSearch(_ prompt: String, explicitlyEnabled: Bool) -> Bool {
     explicitlyEnabled || (searchSettings?.canSearchAutomatically == true
-      && WebSearchPolicy.needsFreshInformation(ConversationContextPrompt.expand(contextualMessage(prompt, editing: false)).content))
+      && WebSearchPolicy.needsFreshInformation(ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content))
   }
 
   func submit(_ prompt: String, searchEnabled: Bool = false, onAccepted: @escaping @MainActor () -> Void = {}) {
@@ -451,7 +455,7 @@ final class LocalChatViewModel: ObservableObject {
     let request = LocalModelRequest(messages: requestMessages + [userMessage])
     let active = beginGeneration(
       route: Route(mode: .local, providerID: "local", modelID: installedModel?.id ?? "", usesNetwork: searchEnabled),
-      modelDisplayName: installedModel?.displayName ?? "Local model"
+      modelDisplayName: installedModel?.displayName ?? "Local model", userMessage: userMessage
     )
     contextNotice = nil
     state = .preparing
@@ -551,7 +555,7 @@ final class LocalChatViewModel: ObservableObject {
     let pixels = decision.sendsImage ? attachment?.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) : nil
     if decision.sendsImage && pixels == nil { state = .failed(ScreenCaptureError.invalidImage.localizedDescription); return }
     idleUnloadTask?.cancel()
-    let active = beginGeneration(route: model.route(searchEnabled: searchEnabled), modelDisplayName: model.id)
+    let active = beginGeneration(route: model.route(searchEnabled: searchEnabled), modelDisplayName: model.id, userMessage: userMessage)
     state = .preparing
     contextNotice = nil
     screenRouteDecision = attachment == nil ? nil : decision
@@ -775,7 +779,7 @@ final class LocalChatViewModel: ObservableObject {
     }
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
-    let active = beginGeneration(route: route, modelDisplayName: trimmedModelID)
+    let active = beginGeneration(route: route, modelDisplayName: trimmedModelID, userMessage: userMessage)
     append(userMessage, to: sessionID)
     append(ChatMessage(id: responseID, role: .assistant, content: ""), to: sessionID)
     contextNotice = prepared.notice
@@ -816,7 +820,7 @@ final class LocalChatViewModel: ObservableObject {
     _ userMessage: ChatMessage, route: Route, onAccepted: @escaping @MainActor () -> Void
   ) {
     let history = requestMessages + [userMessage]
-    let active = beginGeneration(route: route, modelDisplayName: route.modelID)
+    let active = beginGeneration(route: route, modelDisplayName: route.modelID, userMessage: userMessage)
     state = .searching
     pendingUserMessage = userMessage
     generationTask = Task { [weak self] in
@@ -877,7 +881,7 @@ final class LocalChatViewModel: ObservableObject {
     let decision = (searchEnabled || AutoRouter.shouldRun(for: .auto, cloud: cloud))
       ? AutoRouter.decide(AutoRouter.Request(
         selectedMode: .auto, webSearchEnabled: searchEnabled,
-        prompt: ConversationContextPrompt.expand(contextualMessage(prompt, editing: false)).content, contextMessages: requestMessages,
+        prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content, contextMessages: requestMessages,
         localModel: installedModel, cloud: cloud
       ))
       : AutoRouter.localFallback(localModel: installedModel)
@@ -1107,14 +1111,16 @@ final class LocalChatViewModel: ObservableObject {
     return result
   }
 
-  private func beginGeneration(route: Route, modelDisplayName: String) -> ActiveRequest {
+  private func beginGeneration(route: Route, modelDisplayName: String, userMessage: ChatMessage) -> ActiveRequest {
     requestLocationContext = nil
     let request = ActiveRequest(id: UUID(), route: route, modelDisplayName: modelDisplayName)
     pendingUserMessage = nil
     hasReceivedResponse = false
     activeRequest = request
-    selectionEditRequest = attachedContexts.first(where: { $0.kind == .selectedText }).map {
-      (request.id, $0.id, selectionEditingSettings.automaticallyReplace)
+    selectionEditRequest = nil
+    if userMessage.selectionResponseMode == .edit,
+       let context = userMessage.contexts?.first(where: { $0.kind == .selectedText }) {
+      selectionEditRequest = (request.id, context.id, selectionEditingSettings.automaticallyReplace)
     }
     activityMessageID = nil
     activity = AssistantActivity(id: request.id)
@@ -1122,7 +1128,9 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func selectionDisplayMessage(_ message: ChatMessage) -> ChatMessage {
-    guard isTemporaryChat, message.role == .assistant, !attachedContexts.isEmpty || selectionRevisions[message.id] != nil else { return message }
+    guard isTemporaryChat, message.role == .assistant else { return message }
+    let request = messages.prefix { $0.id != message.id }.last { $0.role == .user }
+    guard request?.selectionResponseMode == .edit || selectionRevisions[message.id] != nil else { return message }
     var copy = message
     copy.content = SelectionRevisionResponse.visibleText(message.content, streaming: activeRequest != nil)
     return copy
@@ -1149,7 +1157,7 @@ final class LocalChatViewModel: ObservableObject {
 
   private func recoverSelectionResponse(active: ActiveRequest) async throws -> SelectionRevisionResponse.Recovery? {
     // One bounded model recovery, using the same provider and context. Never retry a paste.
-    var instruction = contextualMessage(SelectionRevisionResponse.recoveryInstructions, editing: false)
+    var instruction = contextualMessage(SelectionRevisionResponse.recoveryInstructions, responseInstructions: false)
     if let draft = instruction.selectionDraft {
       instruction.contexts?.append(ConversationContext(kind: .file, sourceName: "Latest proposed revision", text: draft))
     }

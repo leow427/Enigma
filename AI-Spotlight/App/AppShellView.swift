@@ -1323,7 +1323,7 @@ struct AppShellView: View {
       submitScreenAttachment(attachment)
       return
     }
-    guard canSubmit, !commands.prompt.isEmpty else { return }
+    guard canSubmit, commands.hasPrompt else { return }
     let originalDraft = draft
     let prompt = commands.submissionPrompt
     let accepted: @MainActor () -> Void = {
@@ -1349,7 +1349,7 @@ struct AppShellView: View {
   private func submitScreenAttachment(_ attachment: ScreenAttachment) {
     let originalDraft = draft
     let commands = ComposerCommands(draft)
-    guard !commands.prompt.isEmpty else { return }
+    guard commands.hasPrompt else { return }
     let prompt = commands.submissionPrompt
     let cloudText = cloudSettings.isConfigured
       ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
@@ -1526,7 +1526,7 @@ private struct KeyboardShortcutsHelpView: View {
             Text("Normal").tag(0.35)
             Text("Relaxed").tag(0.5)
           }
-          Text("Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Editing requests show a revised-text card with Edit and Replace text. Settings → Selection Context offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded.")
+          Text("Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection Context offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded.")
             .font(.caption).foregroundStyle(.secondary)
           Label(selectionAccess.isGranted ? "Accessibility enabled" : "Accessibility permission required",
                 systemImage: selectionAccess.isGranted ? "checkmark.circle" : "hand.raised")
@@ -1804,9 +1804,9 @@ struct SettingsView: View {
               }
               Section("Text editing") {
                 Toggle("Automatically replace selected text", isOn: $selectionEditing.automaticallyReplace)
-                Text("When enabled, completed editing responses are pasted directly into the source app, without a preview card or Replace text click. Normal questions are answered as usual.")
+                Text("When enabled, completed /edit responses are pasted directly into the source app, without a preview card or Replace text click. Questions and /translate stay read-only.")
                   .font(.caption).foregroundStyle(.secondary)
-                Text("When off, review the revised text, edit it yourself, or ask for more changes before choosing Replace text. Text is captured only when you double-tap Option.")
+                Text("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you double-tap Option.")
                   .font(.caption).foregroundStyle(.secondary)
               }
             }.formStyle(.grouped)

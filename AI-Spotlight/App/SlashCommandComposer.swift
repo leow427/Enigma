@@ -275,6 +275,8 @@ private extension SlashCommand {
     case .screen: .purple
     case .snapshot: .orange
     case .think: .pink
+    case .edit: .green
+    case .translate: .teal
     }
   }
 }

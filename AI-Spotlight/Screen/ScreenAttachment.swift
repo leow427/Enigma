@@ -59,6 +59,8 @@ struct ComposerCommands: Equatable {
   let search: Bool
   let snapshot: Bool
   let think: Bool
+  let edit: Bool
+  let translate: Bool
 
   init(_ draft: String) {
     let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
@@ -67,9 +69,14 @@ struct ComposerCommands: Equatable {
     search = commands.contains(.search)
     snapshot = commands.contains(.snapshot)
     think = commands.contains(.think)
+    translate = commands.contains(.translate)
+    edit = commands.contains(.edit) && !translate
   }
 
-  var submissionPrompt: String { (think ? "/think " : "") + prompt }
+  var hasPrompt: Bool { !prompt.isEmpty || edit || translate }
+  var submissionPrompt: String {
+    (think ? "/think " : "") + (translate ? "/translate " : edit ? "/edit " : "") + prompt
+  }
   var captureDraft: String { (snapshot ? "/snapshot" : "/screen") + (submissionPrompt.isEmpty ? "" : " " + submissionPrompt) }
 }
 

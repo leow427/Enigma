@@ -147,6 +147,24 @@ final class FileModeUITests: XCTestCase {
     XCTAssertTrue(chat.messages.contains { $0.content == "Normal chat" })
   }
 
+  func testTranslateKeepsFileAccessReadOnlyEvenWithEditCommand() async throws {
+    let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
+    let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: FileTranslationInference(),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    await files.activate(from: .menu)
+    let finished = expectation(description: "Read-only translation completed")
+    let token = chat.$state.dropFirst().filter { $0 == .idle }.prefix(1).sink { _ in finished.fulfill() }
+    chat.submitFiles("/edit /translate hello.txt to Spanish", mode: .local, cloudProvider: .chatGPT, cloudModelID: "unused")
+    await fulfillment(of: [finished], timeout: 3)
+    token.cancel()
+    XCTAssertNil(files.error)
+    XCTAssertTrue(files.visibleChanges.isEmpty)
+    XCTAssertTrue(chat.selectionRevisions.isEmpty)
+    XCTAssertEqual(try String(contentsOf: project.appendingPathComponent("hello.txt"), encoding: .utf8), "Hello")
+    XCTAssertTrue(chat.messages.last?.content.contains("Hola") == true)
+  }
+
   func testLocalModeEditsThroughProductionGrantAndSupportsUndo() async throws {
     let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: FileUITestInference(),
@@ -310,4 +328,12 @@ private actor FileTestEngine: LocalModelEngine {
     AsyncThrowingStream { $0.yield("Normal chat"); $0.finish() }
   }
   func unload() async {}
+}
+
+private actor FileTranslationInference: LocalToolInference {
+  func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    XCTAssertEqual(Set(tools.map(\.name)), Set(AgentFileTools.definitions(access: .readOnly).map(\.name)))
+    XCTAssertTrue(messages.last?.content?.contains(SelectionResponseMode.translate.instructions) == true)
+    return AgentInferenceMessage(role: "assistant", content: "Hola")
+  }
 }

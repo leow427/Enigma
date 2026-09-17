@@ -4,8 +4,11 @@ The composer shows only **File Mode** as an attachment tool. Use **/screen** to
 capture the full desktop (all connected displays in their desktop arrangement),
 or **/snapshot** to select a region. Either command with a question captures and
 sends; the command alone attaches and waits. Retake repeats the attachment's
-capture type. Leading `/think`, `/screen`, `/snapshot`, and `/search` commands can
-be combined. Commands inside the actual question remain literal text.
+capture type. `/think`, `/screen`, `/snapshot`, `/search`, `/edit`, and `/translate`
+can be combined anywhere in the draft. Quoted commands and code examples remain
+literal text. For example, `/screen /translate to Spanish` captures and requests a
+read-only translation. See [Selection Context](Selection-Context.md) for editing
+and translation behavior.
 
 Use **/think your question** to request more reasoning for one answer. The local
 server enables thinking and reserves 2,048 output tokens, with 1,024 available for

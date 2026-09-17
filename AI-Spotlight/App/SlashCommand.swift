@@ -2,7 +2,7 @@ import Foundation
 
 /// The same catalog drives execution, syntax coloring, and completion.
 enum SlashCommand: String, CaseIterable, Identifiable {
-  case search, screen, snapshot, think
+  case search, screen, snapshot, think, edit, translate
 
   var id: String { rawValue }
   var token: String { "/" + rawValue }
@@ -12,6 +12,8 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .screen: "display.2"
     case .snapshot: "viewfinder"
     case .think: "brain"
+    case .edit: "pencil"
+    case .translate: "character.bubble"
     }
   }
   var description: String {
@@ -20,6 +22,8 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .screen: "Capture all displays"
     case .snapshot: "Select a screen region to capture"
     case .think: "Think more deeply for this answer"
+    case .edit: "Revise selected text with your instructions"
+    case .translate: "Translate to English or a language you name"
     }
   }
 

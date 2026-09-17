@@ -14,8 +14,8 @@ final class ScreenViewTests: XCTestCase {
     let text = "Explain /think using /"
     let view = NSHostingView(rootView: SlashCommandComposer(text: .constant(text),
       isFocused: .constant(true), isEnabled: true, submit: {})
-      .padding(.top, 240).padding(16).frame(width: 480).environment(\.colorScheme, .dark))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 280),
+      .padding(.top, 360).padding(16).frame(width: 480).environment(\.colorScheme, .dark))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
       styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
     window.orderFront(nil)

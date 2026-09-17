@@ -349,6 +349,40 @@ final class SlashCommandTests: XCTestCase {
     }
   }
 
+  func testEditAndTranslateComposeWithToolsAndStandaloneCommands() throws {
+    let edit = ComposerCommands("/search /think /edit make it shorter")
+    XCTAssertTrue(edit.search)
+    XCTAssertTrue(edit.think)
+    XCTAssertTrue(edit.edit)
+    XCTAssertEqual(edit.submissionPrompt, "/think /edit make it shorter")
+    XCTAssertEqual(SelectionResponseMode(prompt: edit.submissionPrompt), .edit)
+    let translation = ComposerCommands("/screen /edit /translate to Spanish")
+    XCTAssertTrue(translation.screen)
+    XCTAssertTrue(translation.translate)
+    XCTAssertFalse(translation.edit)
+    XCTAssertEqual(translation.captureDraft, "/screen /translate to Spanish")
+    XCTAssertEqual(SelectionResponseMode(prompt: translation.submissionPrompt), .translate)
+    XCTAssertTrue(ComposerCommands("/translate").hasPrompt)
+    XCTAssertTrue(ComposerCommands("/edit").hasPrompt)
+    XCTAssertFalse(ComposerCommands("/think /search").hasPrompt)
+    for literal in ["`/edit`", "\"/edit\"", "```swift\n/edit\n```", "/editor", "/edit/file", "https://example.com/edit", "\\/edit"] {
+      XCTAssertEqual(SelectionResponseMode(prompt: literal), .answer, literal)
+    }
+    XCTAssertEqual(SlashCommand.completion(in: "/ed", selection: NSRange(location: 3, length: 0))?.commands, [.edit])
+    XCTAssertEqual(SlashCommand.completion(in: "/tr", selection: NSRange(location: 3, length: 0))?.commands, [.translate])
+    XCTAssertEqual(SelectionResponseMode(prompt: "/EDIT make it shorter"), .edit)
+    XCTAssertEqual(SelectionResponseMode(prompt: "/TRANSLATE"), .translate)
+  }
+
+  func testScreenCapturePreservesTranslationIntent() async {
+    let capture = CaptureModeProbe()
+    let coordinator = ScreenComposerCoordinator(captureService: capture)
+    coordinator.draft = "/screen /translate to Spanish"
+    let prompt = await coordinator.capture(submittedCommand: true)
+    XCTAssertEqual(prompt, "/translate to Spanish")
+    XCTAssertEqual(SelectionResponseMode(prompt: coordinator.draft), .translate)
+  }
+
   func testCompletionUsesCaretAndReplacesWholeToken() throws {
     let text = "🙂 explain /sn here"
     let range = (text as NSString).range(of: "/sn")
