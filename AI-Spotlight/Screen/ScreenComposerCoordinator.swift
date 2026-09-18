@@ -22,13 +22,14 @@ final class ScreenComposerCoordinator: ObservableObject {
     self.ocrService = ocrService
   }
 
-  /// Returns an automatic submission only for a successful leading /screen with a question.
+  /// Consume capture commands only; search stays visible and editable until this turn is accepted.
   func capture(submittedCommand: Bool = false) async -> String? {
     guard !isBusy else { return nil }
     let originalDraft = draft
     let commands = ComposerCommands(draft)
     let desktop = submittedCommand ? !commands.snapshot : lastCaptureWasDesktop
-    let remainder = submittedCommand && commands.screen ? commands.submissionPrompt : nil
+    let remainder = submittedCommand && commands.screen
+      ? SlashCommand.removing([.screen, .snapshot], from: draft) : nil
     let operation = UUID()
     revision = operation
     isCapturing = true
@@ -58,7 +59,7 @@ final class ScreenComposerCoordinator: ObservableObject {
       }
       guard draft == originalDraft else { return nil }
       if let remainder { draft = remainder }
-      return remainder.flatMap { ThinkCommand.message($0).content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+      return remainder.flatMap { ComposerCommands($0).hasPrompt ? $0 : nil }
     } catch is CancellationError {
       return nil
     } catch {

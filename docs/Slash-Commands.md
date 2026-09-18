@@ -1,13 +1,15 @@
 # Slash commands
 
 Recognized commands stay blue in the composer and work at the start, middle, or
-end of a message. Search activates its existing tool control without removing
-`/search` from the draft. Capture commands run when you submit. `/think` applies
-only to the current answer, including File Mode requests.
+end of a message. `/search` applies only to the current message and stays visible
+until acceptance. Deleting it cancels explicit search; subsequent messages follow
+the automatic-search preference. Both composer layouts show automatic search’s
+On state and an Off action when active. Capture commands run when you submit.
+`/think` applies only to the current answer, including File Mode requests.
 
 | Command | Action |
 | --- | --- |
-| `/search` | Search the web |
+| `/search` | Search the web for this message only |
 | `/screen` | Capture all displays |
 | `/snapshot` | Select a screen region |
 | `/think` | Request more careful reasoning |

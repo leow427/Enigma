@@ -118,6 +118,26 @@ final class ScreenCaptureTests: XCTestCase {
     XCTAssertFalse(screen.isEnabled)
   }
 
+  func testCaptureKeepsSearchVisibleUntilThisTurnIsAcceptedOrEdited() async {
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub())
+    for draft in ["/screen /search explain this", "/search /snapshot explain this", "/SCREEN /SEARCH explain this"] {
+      screen.draft = draft
+      let automatic = await screen.capture(submittedCommand: true)
+      XCTAssertNotNil(automatic)
+      XCTAssertTrue(ComposerCommands(screen.draft).search)
+      XCTAssertFalse(ComposerCommands(screen.draft).screen)
+      screen.draft = SlashCommand.removing([.search], from: screen.draft)
+      XCTAssertFalse(ComposerCommands(screen.draft).search)
+    }
+    screen.draft = "/screen /search"
+    let automatic = await screen.capture(submittedCommand: true)
+    XCTAssertNil(automatic, "A search command alone must not submit an empty question")
+    XCTAssertEqual(screen.draft, "/search")
+    XCTAssertNotNil(screen.attachment)
+    screen.clearDraft()
+    XCTAssertFalse(ComposerCommands(screen.draft).search)
+  }
+
   func testCaptureDeletesTemporaryFileAndUsesUniquePNGPaths() async throws {
     var urls: [URL] = []
     var environment = ScreenCaptureService.Environment()

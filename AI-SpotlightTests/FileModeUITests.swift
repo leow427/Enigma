@@ -246,8 +246,6 @@ final class FileModeUITests: XCTestCase {
     let preview = VStack(alignment: .leading, spacing: 18) {
       Text("File Mode").font(.title2.weight(.semibold))
       HStack {
-        WebSearchControls(isEnabled: .constant(false), isPresented: .constant(false), isBusy: false,
-          openSettings: {}, attachFiles: {})
         FileModeToolButton(files: files, isBusy: false, activate: {})
         Text("Ask anything").foregroundStyle(.secondary)
         Spacer()

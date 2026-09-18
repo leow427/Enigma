@@ -1,16 +1,5 @@
 import Foundation
 
-enum SearchCommand {
-  /// Only a leading, complete command is consumed; quoted or embedded text stays intact.
-  static func remainder(in draft: String) -> String? {
-    let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard text.lowercased().hasPrefix("/search") else { return nil }
-    let remainder = text.dropFirst(7)
-    guard remainder.isEmpty || remainder.first?.isWhitespace == true else { return nil }
-    return remainder.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-}
-
 struct GroundedConversation: Sendable {
   let prepared: PreparedConversation
   let sources: [WebSearchSource]

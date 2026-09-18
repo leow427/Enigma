@@ -283,7 +283,7 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  func testPlusMenuIconsHaveCompactIntrinsicSizesWithoutChangingAssets() throws {
+  func testToolMenuImagesHaveCompactIntrinsicSizesWithoutChangingAssets() throws {
     for name in ["ScreenCapture", "WebSearch"] {
       let source = try XCTUnwrap(NSImage(named: name))
       let originalSize = source.size
@@ -317,19 +317,15 @@ final class ScreenViewTests: XCTestCase {
     add(attachment)
   }
 
-  func testHideInactiveToolsReclaimsSpaceAndPreservesActiveToolsAndDrafts() async throws {
-    for (searchEnabled, screenEnabled, busy) in [
-      (false, false, false), (true, false, false), (false, true, false),
-      (true, true, false), (false, false, true),
-    ] {
-      let state = ToolControlsTestState()
-      state.searchEnabled = searchEnabled
+  func testHideInactiveScreenToolPreservesAttachmentAndDraft() async throws {
+    for (screenEnabled, busy) in [(false, false), (true, false), (false, true)] {
       let screen = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
       _ = await screen.capture()
       let attachmentID = try XCTUnwrap(screen.attachment?.id)
       screen.isEnabled = screenEnabled
       screen.draft = "Keep this draft"
-      let view = NSHostingView(rootView: ToolControlsTestView(state: state, screen: screen, busy: busy))
+      let view = NSHostingView(rootView: ScreenToolButton(coordinator: screen, isBusy: busy, capture: {}).fixedSize()
+        .transaction { $0.disablesAnimations = true })
       let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 240, height: 50),
                             styleMask: [.borderless], backing: .buffered, defer: false)
       window.contentView = view
@@ -339,13 +335,11 @@ final class ScreenViewTests: XCTestCase {
       NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
       await Task.yield()
       view.layoutSubtreeIfNeeded()
-      XCTAssertEqual(state.searchPresented, searchEnabled || busy)
       XCTAssertEqual(screen.isPresented, screenEnabled || busy)
-      XCTAssertEqual(state.searchEnabled, searchEnabled)
       XCTAssertEqual(screen.isEnabled, screenEnabled)
       XCTAssertEqual(screen.draft, "Keep this draft")
       XCTAssertEqual(screen.attachment?.id, attachmentID)
-      let removed = busy ? 0 : (searchEnabled ? 0 : 1) + (screenEnabled ? 0 : 1)
+      let removed = busy || screenEnabled ? 0 : 1
       XCTAssertEqual(initialWidth - view.fittingSize.width, Double(removed * 40), accuracy: 0.5)
       window.contentView = nil
     }
@@ -928,7 +922,6 @@ final class ScreenViewTests: XCTestCase {
         Text(["Before adding Screen", "Screen off", "Screen on"][index]).font(.caption).foregroundStyle(.secondary)
         HStack(spacing: 10) {
           HStack(spacing: 0) {
-            WebSearchControls(isEnabled: .constant(false), isPresented: .constant(false), isBusy: false, openSettings: {}, captureScreen: {})
             ScreenToolButton(coordinator: coordinator, isBusy: false, capture: {})
           }
           Text("Ask anything").foregroundStyle(.secondary)
@@ -1043,28 +1036,6 @@ private final class RepeatedPanelEngine: LocalModelEngine, @unchecked Sendable {
     return AsyncThrowingStream { $0.yield("The answer is values.count."); $0.finish() }
   }
   func unload() async {}
-}
-
-@MainActor
-private final class ToolControlsTestState: ObservableObject {
-  @Published var searchEnabled = false
-  @Published var searchPresented = true
-}
-
-private struct ToolControlsTestView: View {
-  @ObservedObject var state: ToolControlsTestState
-  @ObservedObject var screen: ScreenComposerCoordinator
-  let busy: Bool
-
-  var body: some View {
-    HStack(spacing: 0) {
-      WebSearchControls(isEnabled: $state.searchEnabled, isPresented: $state.searchPresented,
-                        isBusy: busy, openSettings: {}, captureScreen: {})
-      ScreenToolButton(coordinator: screen, isBusy: busy, capture: {})
-    }
-    .fixedSize()
-    .transaction { $0.disablesAnimations = true }
-  }
 }
 
 private final class ConversationTestDocument: NSView {

@@ -441,8 +441,9 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func shouldSearch(_ prompt: String, explicitlyEnabled: Bool) -> Bool {
+    // Source material may refine an authorized query, but cannot authorize network access.
     explicitlyEnabled || (searchSettings?.canSearchAutomatically == true
-      && WebSearchPolicy.needsFreshInformation(ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content))
+      && WebSearchPolicy.needsFreshInformation(prompt))
   }
 
   func submit(_ prompt: String, searchEnabled: Bool = false, onAccepted: @escaping @MainActor () -> Void = {}) {
@@ -887,7 +888,8 @@ final class LocalChatViewModel: ObservableObject {
     let decision = (searchEnabled || AutoRouter.shouldRun(for: .auto, cloud: cloud))
       ? AutoRouter.decide(AutoRouter.Request(
         selectedMode: .auto, webSearchEnabled: searchEnabled,
-        prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content, contextMessages: requestMessages,
+        prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content,
+        webSearchPrompt: prompt, contextMessages: requestMessages,
         localModel: installedModel, cloud: cloud
       ))
       : AutoRouter.localFallback(localModel: installedModel)

@@ -1,8 +1,8 @@
 import Foundation
 
 /// A local freshness policy, independent of model routing and evidence capacity.
-/// Inspect only the user's question: quoted material, history, files and OCR do
-/// not get to opt a request into network access.
+/// Pass the original current question, never an expanded/serialized context.
+/// Quoted material, history, files and OCR do not get to opt into network access.
 enum WebSearchPolicy {
   static func needsFreshInformation(_ prompt: String, now: Date = Date()) -> Bool {
     let text = questionText(prompt)

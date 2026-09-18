@@ -11,11 +11,14 @@ Settings → Cloud & Search → Web Search · Brave. It becomes active once a Br
 is saved. Questions such as “What happened in the news today?”, “Latest AI news”,
 “What is the latest Swift release?” and “Who is the president of France?” can now
 retrieve evidence without `/search`. Weather, market prices, exchange rates,
-sports scores and upcoming schedules are also recognized. The composer explains
-that current topics may use Brave, including in Local mode.
+sports scores and upcoming schedules are also recognized. Both full and compact
+selection composers show **Auto search · On** with an **Off** action. Off saves
+the manual-only preference for later messages, including in Local mode;
+re-enable it in Settings → Cloud & Search.
 
 The shared `WebSearchPolicy` uses deterministic freshness and lookup cues in the
-current question, with no extra inference call and no simple/complex classifier.
+original current question, before attaching or serializing source content, with
+no extra inference call and no simple/complex classifier.
 This decision controls whether to retrieve, never the source count, evidence
 budget, or selected model. Local (both embedded and server-backed), Cloud and Auto
 all resolve it before entering their existing search pipelines. Requests are
@@ -29,9 +32,9 @@ OCR, attached file contents or model output can opt a request into search. Scree
 questions that do opt in retain the existing query-refinement and image-consent
 flow. File Mode remains a separate workflow and does not automatically search.
 
-Turn the setting off for manual-only search. `/search` and the explicit search
-tool still force retrieval, including for timeless questions; disabling forced
-search returns to the automatic-search preference. Without a saved key, automatic
+Turn the setting off for manual-only search. `/search` still forces retrieval
+for that message, including timeless questions. Removing the command returns
+to the automatic-search preference. Without a saved key, automatic
 retrieval is inactive and normal chat continues. Missing/rejected keys on an
 explicit search, or any failure after automatic retrieval starts, keep the draft
 and show the existing error instead of silently answering without evidence.
@@ -45,35 +48,22 @@ needed. It does not independently verify the freshness of each returned source.
 
 ## Explicit search
 
-The search icon starts hidden. Add and enable it with **+ → Web Search** or a
-leading **/search** command. It pops into place with a short spring animation as
-the text field moves over. Its expanding slot keeps the icon clear of the text
-throughout the animation; Reduce Motion disables the spring. Leading tool commands
-can be combined in either order: `/screen /search question` or
-`/search /screen question`. Submission resolves both commands together before
-capture or generation, including immediate Return after pasting. Commands inside
-the actual question remain literal text.
+Type **/search** anywhere outside quotes or code to search for **this message only**.
+The composer shows **Web Search · This message**. Removing the command before
+sending cancels that explicit request; a later message follows the automatic-search
+preference. A standalone `/search` waits for a question and can simply be deleted.
+There is no persistent manual search toggle or plus-menu search control.
 
-Once added, the icon toggles grey when off and light green when on. Search stays
-selected for subsequent messages until turned off. **+ → Remove Web Search**
-disables search and hides the icon; a new chat also resets it. The composer keeps
-the same height whether the icon is hidden or visible.
+Combine commands in either order: `/screen /search question` or
+`/search /screen question`. After capture, `/search` remains visible in the draft
+until the request is accepted. Capture cancellation and search failure preserve
+the draft for editing or retry. Quoted examples, backtick code, URLs and paths
+remain literal text. See [Slash commands](Slash-Commands.md).
 
-Press **⌘⇧H** while typing to hide Web Search and Screen icons that are switched
-off. Active tools stay visible; the shortcut preserves the draft and any attached
-screenshot, and is inactive during a request or screen capture. You can also use
-**+ → Hide Inactive Tools**. Add tools again through **+**, **/search**, or
-**/screen**. Each hidden icon returns 40 points of space to the text field.
-
-The plus menu uses 16-point copies of the tool images, so native menu items stay
-compact without changing the icons in the composer.
-
-![Compact tool menu labels](images/compact-tool-icons.png)
-
-![Composer with Web Search off and on](images/web-search-composer.png)
-
-This screenshot is an intentional checked-in UI reference; build outputs and test
-result bundles remain outside the repository.
+Search may send relevant attached context to Brave **only after the current
+question or `/search` authorizes retrieval**. An attachment containing
+`"latest news"`, including JSON-escaped quotes, cannot authorize search for
+“What does this mean?”. Attachment text can still refine an authorized query.
 
 For requests without Screen, Local mode sends the current question to Brave and
 the local model generates the answer. Cloud mode passes evidence to the provider,
@@ -160,8 +150,9 @@ API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/docume
 
 `WebSearchTests` covers the API request/response contract, error handling, query
 limits, command parsing, credentials, context fitting, all generation routes,
-search-off behavior, cancellation/replacement, history compatibility, and icon
-rendering. Tests use deterministic fixtures and do not require a live Brave key.
+search-off behavior, cancellation/replacement, history compatibility, and the
+actual native composer. Tests use deterministic fixtures and do not require a
+live Brave key.
 Run the repository's shared build, test, and analyze commands from `AGENTS.md`.
 A live smoke test additionally requires the owner's Brave key and an installed
 local model or configured cloud connection.
@@ -183,3 +174,20 @@ needed. The settings screenshot is rendered by the native SwiftUI test host.
 
 Verification for automatic search: build and static analyzer passed; the full
 suite executed 435 tests with nine optional skips and zero failures.
+
+Part 1 regression coverage exercises typing and removing `/search` in the real
+`AppShellView` editor, explicit search followed by ordinary messages, automatic
+search Off in full and compact selection layouts, and escaped-quote attachments
+across Local, Cloud, Auto and Screen. The retired `WebSearchControls` icon demo
+has been removed; search status tests now exercise the live composer. Temporary
+chat history and retention are unchanged. Native renders are retained as XCTest
+attachments and written to `/tmp/Enigma-auto-search.png` and
+`/tmp/Enigma-compact-auto-search.png`. They use synthetic selected text and
+response/search fixtures, with no live Brave or cloud requests.
+
+The September 18 Part 1 checks reproduced both the sticky command and quoted
+attachment authorization bug before the fix. After the fix, `scripts/verify-xcode.sh build`, `test` and `analyze` passed.
+The full offline suite ran 531 tests, with 10 optional integration/model checks
+skipped and zero failures. The regression matrix confirms that attached freshness phrases do
+not call Brave, while explicit search and fresh-information questions still do.
+Live search quality and real model/provider responses were not evaluated.

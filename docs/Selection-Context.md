@@ -34,7 +34,9 @@ ordinary conversation messages. Editing is an explicit per-request command.
 - Web Search uses the selected model to derive a bounded query from the question
   and attachment, then follows the existing evidence preparation path. Relevant
   selection details can reach Brave when search is enabled (including existing
-  automatic-search preferences); the composer explains this. Capture itself makes
+  automatic-search preferences). Only the original current question determines
+  automatic-search eligibility; attachment text and source names cannot enable it.
+  Both compact and full composers show Auto search On with Off. Capture itself makes
   no network request. Local mode never uses a cloud model to derive a query.
 - One temporary session lives in memory. It does not write the chat archive or count
   against the five saved conversations. It is discarded on a new invocation or on

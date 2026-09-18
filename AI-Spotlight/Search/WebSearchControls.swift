@@ -1,87 +1,42 @@
 import SwiftUI
 
-struct WebSearchControls: View {
-  @Binding var isEnabled: Bool
-  @Binding var isPresented: Bool
-  var isBusy: Bool
+/// Shared by the full chat and compact selection composers; no hidden search state.
+struct WebSearchStatusView: View {
+  @ObservedObject var settings: WebSearchSettings
+  let isExplicit: Bool
+  var compact = false
   var openSettings: () -> Void
-  var captureScreen: (() -> Void)? = nil
-  var attachFiles: (() -> Void)? = nil
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    HStack(spacing: 0) {
-      Menu {
-        if let attachFiles {
-          Button(action: attachFiles) { ToolMenuLabel(title: "Files", imageName: "TemplateAttachment") }
-            .disabled(isBusy)
-        }
-        if let captureScreen {
-          Button(action: captureScreen) { ToolMenuLabel(title: "Screen", imageName: "ScreenCapture") }
-            .disabled(isBusy)
-        }
-        Button {
-          isPresented.toggle()
-          isEnabled = isPresented
-        } label: {
-          ToolMenuLabel(title: isPresented ? "Remove Web Search" : "Web Search", imageName: "WebSearch")
-        }
-        .disabled(isBusy)
-        Divider()
-        Button("Hide Inactive Tools") {
-          NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
-        }
-        .keyboardShortcut("h", modifiers: [.command, .shift])
-        .disabled(isBusy)
-        Button("Web Search Settings…", action: openSettings)
-      } label: {
-        Image(systemName: "plus")
-          .frame(width: 24, height: 24)
-      }
-      .menuStyle(.borderlessButton)
-      .menuIndicator(.hidden)
-      .fixedSize()
-      .accessibilityLabel("Add tools")
-      .help("Add tools, including Files, Screen and Web Search")
-
-      ZStack(alignment: .leading) {
-        if isPresented {
-          Button {
-            isEnabled.toggle()
-          } label: {
-            Image("WebSearch")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .foregroundStyle(isEnabled ? Self.activeColor : Color.secondary)
-              .frame(width: 22, height: 22)
-              .padding(4)
-              .background(isEnabled ? Self.activeColor.opacity(0.12) : .clear,
-                          in: RoundedRectangle(cornerRadius: 7))
-              .contentShape(Rectangle())
+    if isExplicit || settings.canSearchAutomatically {
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 8) {
+          if isExplicit {
+            Label("Web Search · This message", systemImage: "globe")
+              .help("Delete /search from the draft to cancel explicit search for this message.")
           }
-          .buttonStyle(.plain)
-          .disabled(isBusy)
-          .accessibilityLabel("Web Search")
-          .accessibilityValue(isEnabled ? "On" : "Off")
-          .help(isEnabled ? "Web Search is on. Click to turn off." : "Click to turn on Web Search. Hide inactive tools with ⌘⇧H.")
-          .transition(reduceMotion ? .opacity : .scale(scale: 0.6, anchor: .leading).combined(with: .opacity))
+          if settings.canSearchAutomatically {
+            Text("Auto search · On")
+            Button("Off") { settings.automaticallySearch = false }
+              .buttonStyle(.plain)
+              .foregroundStyle(NatureGlass.accent)
+              .accessibilityLabel("Turn off automatic web search")
+              .help("Turn off automatic search for later messages. This preference is saved; /search still works.")
+          }
+          if !settings.hasAPIKey {
+            Button("Add Brave key…", action: openSettings).buttonStyle(.borderless)
+          }
+        }
+        if !compact {
+          Text("Search sends queries to Brave, including relevant attached context.")
         }
       }
-      // The text field moves with this slot; clipping keeps the popping icon
-      // inside the space already reserved for it throughout the transition.
-      .frame(width: isPresented ? 30 : 0, height: 30, alignment: .leading)
-      .clipped()
-      .padding(.leading, isPresented ? 10 : 0)
-    }
-    .fixedSize(horizontal: true, vertical: false)
-    .onReceive(NotificationCenter.default.publisher(for: .hideInactiveToolsRequested)) { _ in
-      guard !isBusy, !isEnabled else { return }
-      isPresented = false
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .help("Search uses Brave, including in Local mode. Only your question or /search can authorize retrieval; attached context may refine the query.")
     }
   }
-
-  static let activeColor = Color(red: 142.0 / 255, green: 216.0 / 255, blue: 160.0 / 255)
 }
 
 struct ToolMenuLabel: View {
@@ -147,7 +102,7 @@ struct WebSearchSettingsSection: View {
       Text("Use a Brave Search key with LLM Context access. Stored in macOS Keychain. Brave usage is billed separately.")
         .font(.caption)
         .foregroundStyle(.secondary)
-      Text("Choose Web Search from + or type /search to add the search icon. This forces search even for timeless questions. Turning it off returns to your automatic-search setting. Press ⌘⇧H to hide tools that are switched off. Search sends your current question to Brave, including in Local mode; your selected model writes the answer.")
+      Text("Type /search to search for this message only, even for timeless questions. Delete it before sending to cancel explicit search. Later messages follow the automatic-search setting; when active, both composers show Auto search · On with Off. Search sends queries to Brave, including in Local mode. Relevant attached context may refine a query only after your question authorizes search; your selected model writes the answer.")
         .font(.caption)
         .foregroundStyle(.secondary)
       Link("Brave Search API dashboard", destination: URL(string: "https://api-dashboard.search.brave.com/")!)

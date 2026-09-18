@@ -29,7 +29,7 @@ struct AutoRouter: Sendable {
       case .noLocalModel:
         "Choose a local model or connect Cloud before using Auto."
       case .unavailableCapability(.webSearch):
-        "Enable Web Search with the search icon or /search to look this up with Brave."
+        "Use /search in your message to look this up with Brave."
       case .unavailableCapability(.coding):
         "No available model is configured for this coding request."
       case .unavailableCapability(.advancedReasoning):
@@ -89,6 +89,7 @@ struct AutoRouter: Sendable {
     let selectedMode: ChatMode
     let webSearchEnabled: Bool
     let prompt: String
+    let webSearchPrompt: String
     let contextMessages: [ChatMessage]
     let localModel: LocalModel?
     let localCapabilities: ModelCapabilities
@@ -99,6 +100,7 @@ struct AutoRouter: Sendable {
       selectedMode: ChatMode,
       webSearchEnabled: Bool = false,
       prompt: String,
+      webSearchPrompt: String? = nil,
       contextMessages: [ChatMessage],
       localModel: LocalModel?,
       localCapabilities: ModelCapabilities? = nil,
@@ -108,6 +110,7 @@ struct AutoRouter: Sendable {
       self.selectedMode = selectedMode
       self.webSearchEnabled = webSearchEnabled
       self.prompt = prompt
+      self.webSearchPrompt = webSearchPrompt ?? prompt
       self.contextMessages = contextMessages
       self.localModel = localModel
       self.additionalInputTokens = max(0, min(additionalInputTokens, 1_000_000))
@@ -192,7 +195,8 @@ struct AutoRouter: Sendable {
   ) -> Decision {
     let prompt = request.prompt.lowercased()
 
-    if requiresWebSearch(prompt), !request.webSearchEnabled {
+    // Attachment content still counts toward routing capacity, but cannot demand search.
+    if requiresWebSearch(request.webSearchPrompt.lowercased()), !request.webSearchEnabled {
       guard cloud.capabilities.supportsWebSearch else {
         return Decision(
           route: nil,

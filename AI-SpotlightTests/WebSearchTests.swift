@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import Vision
 import XCTest
 @testable import Enigma
 
@@ -223,6 +224,139 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(finalQueries, queries)
   }
 
+  func testAttachedFreshnessPhrasesCannotAuthorizeSearchAcrossRoutes() async throws {
+    for route in ["local", "cloud", "auto-local", "auto-cloud", "screen"] {
+      for (source, text) in [("Article", "latest news"), ("Article", #""latest news""#),
+        ("Article", #"\"latest news\""#), ("Article", "```\nlatest news\n```"),
+        ("Article", #"/search "latest news""#), (#""latest news""#, "Ordinary selected text")] {
+        let search = SearchSpy(results: fixtureResults)
+        let engine = SearchLocalEngine()
+        let cloud = SearchCloudProvider()
+        let model = makeModel(engine: engine, search: search, cloud: cloud, automatic: true)
+        await model.refreshInstalledModel()
+        model.startTemporaryChat(context: ConversationContext(sourceName: source, text: text))
+        let prompt = "What does this mean?"
+        XCTAssertFalse(model.shouldSearch(prompt, explicitlyEnabled: false), "\(route): \(text)")
+        switch route {
+        case "local": model.submit(prompt)
+        case "cloud": model.submitCloud(prompt, provider: .chatGPT, modelID: "model")
+        case "auto-local": model.submitAuto(prompt, cloud: nil)
+        case "auto-cloud": model.submitAuto(prompt, cloud: .init(provider: .chatGPT, modelID: "model"))
+        default:
+          model.submitScreen(prompt, attachment: nil, decision: .text(try XCTUnwrap(model.installedModel).screenModel),
+            selectedMode: .local, cloudUploadAllowed: { false })
+        }
+        await finish(model)
+        let queries = await search.queries
+        XCTAssertTrue(queries.isEmpty, "\(route): \(text)")
+        XCTAssertEqual(model.messages.last?.content, "Answer", "The question must still be answered on \(route)")
+        XCTAssertEqual(model.state, .idle)
+        XCTAssertTrue(model.isTemporaryChat)
+      }
+    }
+  }
+
+  func testAttachmentsCanRefineOnlyAnAuthorizedSearch() async {
+    let search = SearchSpy(results: fixtureResults)
+    let cloud = SearchCloudProvider()
+    let model = makeModel(search: search, cloud: cloud, automatic: true)
+    model.startTemporaryChat(context: ConversationContext(sourceName: "Article", text: #"The headline is "latest news"."#))
+    model.submitCloud("What is the latest research on this?", provider: .chatGPT, modelID: "model")
+    await finish(model)
+    var queries = await search.queries
+    XCTAssertEqual(queries, ["Answer"], "The fixture model refines the authorized query")
+    XCTAssertTrue(cloud.requests.first?.messages.last?.content.contains("latest news") == true)
+    model.submitCloud("Don't search. Who is the president?", provider: .chatGPT, modelID: "model")
+    await finish(model)
+    queries = await search.queries
+    XCTAssertEqual(queries.count, 1)
+    model.submitCloud("What does this mean?", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    queries = await search.queries
+    XCTAssertEqual(queries.count, 2, "Deliberate explicit search still permits attachment query refinement")
+  }
+
+  func testActualComposerRemovingSearchCommandAndFollowingTurnsDoNotForceSearch() async throws {
+    let composer = try await makeComposer()
+    defer { composer.window.contentView = nil }
+    let editor = try composer.editor()
+    try await editComposer(editor, text: "/search", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    XCTAssertFalse(composer.model.isBusy)
+    XCTAssertTrue(composer.model.messages.isEmpty)
+    try await editComposer(editor, text: "/search Explain binary trees", in: composer)
+    try await editComposer(editor, text: "Explain binary trees", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    await finish(composer.model)
+    var queries = await composer.search.queries
+    XCTAssertTrue(queries.isEmpty, "Deleting the command before sending must remove explicit search")
+    XCTAssertEqual(composer.model.messages.last?.content, "Answer")
+
+    try await editComposer(editor, text: "/search Explain binary trees", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    await finish(composer.model)
+    queries = await composer.search.queries
+    XCTAssertEqual(queries, ["Explain binary trees"])
+    XCTAssertEqual(composer.screen.draft, "")
+
+    try await editComposer(editor, text: "Explain recursion", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    await finish(composer.model)
+    queries = await composer.search.queries
+    XCTAssertEqual(queries, ["Explain binary trees"], "An accepted /search applies to one turn")
+  }
+
+  func testActualComposersShowAutomaticSearchOnAndOfferWorkingOff() async throws {
+    for compact in [false, true] {
+      let composer = try await makeComposer(automatic: true)
+      defer { composer.window.orderOut(nil); composer.window.contentView = nil }
+      composer.window.makeKeyAndOrderFront(nil)
+      if compact {
+        NotificationCenter.default.post(name: .selectionContextRequested,
+          object: ConversationContext(sourceName: "Article", text: #"A headline says "latest news"."#))
+        composer.window.setContentSize(NSSize(width: 752, height: 200))
+      }
+      for _ in 0..<3 { await Task.yield(); composer.view.layoutSubtreeIfNeeded() }
+      XCTAssertEqual(composer.model.isTemporaryChat, compact)
+      try recordComposer(composer, name: compact ? "compact-auto-search" : "auto-search")
+      try pressAutomaticSearchOff(in: composer)
+      await fulfillment(of: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        MainActor.assumeIsolated { !composer.settings.automaticallySearch }
+      }, object: nil)], timeout: 2)
+
+      let editor = try composer.editor()
+      try await editComposer(editor, text: "What happened today?", in: composer)
+      editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+      await finish(composer.model)
+      var queries = await composer.search.queries
+      XCTAssertTrue(queries.isEmpty, "Off must disable automatic retrieval in both layouts")
+      XCTAssertEqual(composer.model.messages.last?.content, "Answer")
+
+      try await editComposer(editor, text: "/search Explain this", in: composer)
+      editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+      await finish(composer.model)
+      queries = await composer.search.queries
+      XCTAssertEqual(queries.count, 1, "Off preserves deliberate /search")
+    }
+  }
+
+  func testActualComposerDeletingCommandReturnsToAutomaticPreference() async throws {
+    let composer = try await makeComposer(automatic: true)
+    defer { composer.window.contentView = nil }
+    let editor = try composer.editor()
+    try await editComposer(editor, text: "/search What happened today?", in: composer)
+    try await editComposer(editor, text: "What happened today?", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    await finish(composer.model)
+    var queries = await composer.search.queries
+    XCTAssertEqual(queries, ["What happened today?"], "Removing explicit search preserves the automatic preference")
+    try await editComposer(editor, text: "Don't search. Who is the president?", in: composer)
+    editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+    await finish(composer.model)
+    queries = await composer.search.queries
+    XCTAssertEqual(queries, ["What happened today?"])
+  }
+
   func testAutomaticSearchCancellationCannotPublishLateEvidence() async throws {
     let gate = SearchGate()
     let cloud = SearchCloudProvider()
@@ -306,10 +440,11 @@ final class WebSearchTests: XCTestCase {
   func testQueryLimitsAndCommandBoundaries() {
     XCTAssertEqual(BraveSearchClient.query(from: String(repeating: "word ", count: 70)).split(separator: " ").count, 50)
     XCTAssertEqual(BraveSearchClient.query(from: String(repeating: "ø", count: 500)).count, 400)
-    XCTAssertEqual(SearchCommand.remainder(in: " /search  latest news\n"), "latest news")
-    XCTAssertEqual(SearchCommand.remainder(in: "/SEARCH"), "")
-    for text in ["/searching", "Explain /search", "\"/search\"", "normal question"] {
-      XCTAssertNil(SearchCommand.remainder(in: text))
+    for text in [" /search latest news\n", "/SEARCH", "Explain /search"] {
+      XCTAssertTrue(ComposerCommands(text).search)
+    }
+    for text in ["/searching", "\"/search\"", "`/search`", "https://example.com/search", "normal question"] {
+      XCTAssertFalse(ComposerCommands(text).search)
     }
   }
 
@@ -531,54 +666,6 @@ final class WebSearchTests: XCTestCase {
     let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     XCTAssertNil(json["searchSources"])
     XCTAssertEqual(try JSONDecoder().decode(ChatMessage.self, from: data), message)
-  }
-
-  func testSearchIconAssetRendersInBothComposerStates() throws {
-    XCTAssertNotNil(NSImage(named: "WebSearch"), "The supplied SVG must be bundled as an image asset")
-    let hiddenControls = NSHostingView(rootView: WebSearchControls(
-      isEnabled: .constant(false), isPresented: .constant(false), isBusy: false, openSettings: {}
-    ))
-    let visibleControls = NSHostingView(rootView: WebSearchControls(
-      isEnabled: .constant(true), isPresented: .constant(true), isBusy: false, openSettings: {}
-    ))
-    XCTAssertEqual(visibleControls.fittingSize.width - hiddenControls.fittingSize.width, 40, accuracy: 0.5,
-                   "Adding search reserves the icon width plus spacing before the text field")
-    XCTAssertEqual(visibleControls.fittingSize.height, hiddenControls.fittingSize.height,
-                   "Revealing search must not change composer height")
-    let preview = VStack(alignment: .leading, spacing: 20) {
-      ForEach(0..<3) { state in
-        Text(["Before adding Web Search", "Added · Search off", "Added · Search on"][state])
-          .font(.caption).foregroundStyle(.secondary)
-        HStack(spacing: 10) {
-          WebSearchControls(isEnabled: .constant(state == 2), isPresented: .constant(state > 0),
-                            isBusy: false, openSettings: {})
-          Text("Ask anything").foregroundStyle(.secondary)
-          Spacer()
-          Label("Auto", systemImage: "sparkles").font(.callout)
-        }
-        .padding(14)
-        .background(.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
-      }
-    }
-    .padding(24)
-    .frame(width: 660)
-    .background(Color(nsColor: .windowBackgroundColor))
-    // AppKit hosting renders the native Menu control as well as SwiftUI content.
-    let view = NSHostingView(rootView: preview)
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 380),
-                          styleMask: [.borderless], backing: .buffered, defer: false)
-    window.contentView = view
-    view.frame = NSRect(x: 0, y: 0, width: 660, height: 380)
-    view.layoutSubtreeIfNeeded()
-    window.displayIfNeeded()
-    let image = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
-    view.cacheDisplay(in: view.bounds, to: image)
-    let png = try XCTUnwrap(image.representation(using: .png, properties: [:]))
-    try png.write(to: FileManager.default.temporaryDirectory.appending(path: "AI-Spotlight-Search-Preview.png"))
-    let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-    attachment.name = "Web Search composer states"
-    attachment.lifetime = .keepAlways
-    add(attachment)
   }
 
   func testActivityDeduplicatesSourcesAndPreservesBudgetSelection() throws {
@@ -846,6 +933,84 @@ final class WebSearchTests: XCTestCase {
                      snippets: ["Fresh verified fixture"])]
   }
 
+  private func makeComposer(automatic: Bool = false) async throws -> SearchComposerFixture {
+    let defaults = makeDefaults()
+    defaults.set(true, forKey: WelcomeSetup.completedKey)
+    defaults.set(true, forKey: "localModelOnboardingDismissed")
+    defaults.set(ChatMode.local.rawValue, forKey: StartPreferences.modeKey)
+    let directory = FileManager.default.temporaryDirectory.appending(path: "SearchComposer-\(UUID())")
+    addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+    let settings = WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: defaults)
+    settings.automaticallySearch = automatic
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, settings: settings)
+    await model.refreshInstalledModel()
+    let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
+    await advisor.start(installedModels: model.installedModels, presentOnboarding: false)
+    let cloud = CloudSettingsModel(credentialStore: ComposerCloudCredentials(),
+      catalog: CloudModelCatalog(credentialStore: ComposerCloudCredentials(), transport: SearchTransport(), cacheDirectory: directory),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false })
+    let screen = ScreenComposerCoordinator()
+    let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults),
+      cloudSettings: cloud, localChat: model, screen: screen, modelAdvisor: advisor,
+      searchSettings: settings, startPreferences: StartPreferences(defaults: defaults),
+      welcomeSetup: WelcomeSetup(defaults: defaults))
+      .transaction { $0.disablesAnimations = true })
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 752, height: 462),
+      styleMask: [.titled], backing: .buffered, defer: false)
+    window.contentView = view
+    view.layoutSubtreeIfNeeded()
+    await Task.yield()
+    return SearchComposerFixture(window: window, view: view, model: model, screen: screen,
+      search: search, settings: settings)
+  }
+
+  private func editComposer(_ editor: SlashCommandTextView, text: String, in composer: SearchComposerFixture) async throws {
+    composer.view.layoutSubtreeIfNeeded()
+    XCTAssertTrue(editor.isEditable)
+    editor.insertText(text, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+    XCTAssertEqual(composer.screen.draft, text, "Use the real editor binding")
+    // Let SwiftUI observe the edit, including any command activation, before the next edit or send.
+    for _ in 0..<3 { await Task.yield(); composer.view.layoutSubtreeIfNeeded() }
+  }
+
+  private func recordComposer(_ composer: SearchComposerFixture, name: String) throws {
+    let bitmap = try XCTUnwrap(composer.view.bitmapImageRepForCachingDisplay(in: composer.view.bounds))
+    composer.view.cacheDisplay(in: composer.view.bounds, to: bitmap)
+    let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+    try png.write(to: URL(fileURLWithPath: "/tmp/Enigma-\(name).png"))
+    let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
+
+  private func pressAutomaticSearchOff(in composer: SearchComposerFixture) throws {
+    let view = composer.view
+    let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: XCTUnwrap(bitmap.cgImage)).perform([request])
+    let labels = (request.results ?? []).compactMap { $0.topCandidates(1).first }
+    XCTAssertTrue(labels.contains { $0.string.lowercased().contains("auto search") && $0.string.contains("On") })
+    let off = try XCTUnwrap(labels.first { $0.string.range(of: #"\bOff\b"#, options: .regularExpression) != nil })
+    let range = try XCTUnwrap(off.string.range(of: #"\bOff\b"#, options: .regularExpression))
+    let bounds = try XCTUnwrap(off.boundingBox(for: range)).boundingBox
+    let point = NSPoint(x: bounds.midX * view.bounds.width,
+      y: (view.isFlipped ? 1 - bounds.midY : bounds.midY) * view.bounds.height)
+    let window = composer.window
+    let location = view.convert(point, to: nil)
+    // Native controls can track mouseDown synchronously; queue mouseUp first.
+    for type: NSEvent.EventType in [.leftMouseUp, .leftMouseDown] {
+      let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
+        modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+        windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+      if type == .leftMouseUp { NSApp.postEvent(event, atStart: true) }
+      else { window.sendEvent(event) }
+    }
+  }
+
   private func makeDefaults() -> UserDefaults {
     let name = "AutomaticSearchTests-\(UUID())"
     let defaults = UserDefaults(suiteName: name)!
@@ -881,6 +1046,28 @@ final class WebSearchTests: XCTestCase {
     await fulfillment(of: [finished], timeout: 3)
     observation.cancel()
   }
+}
+
+@MainActor
+private struct SearchComposerFixture {
+  let window: NSWindow
+  let view: NSView
+  let model: LocalChatViewModel
+  let screen: ScreenComposerCoordinator
+  let search: SearchSpy
+  let settings: WebSearchSettings
+
+  func editor() throws -> SlashCommandTextView {
+    func descendants(_ node: NSView) -> [NSView] { [node] + node.subviews.flatMap(descendants) }
+    return try XCTUnwrap(descendants(view).compactMap { $0 as? SlashCommandTextView }.first)
+  }
+
+}
+
+private struct ComposerCloudCredentials: CloudCredentialStore {
+  func apiKey(for provider: CloudProviderID) -> String? { nil }
+  func setAPIKey(_ apiKey: String, for provider: CloudProviderID) {}
+  func removeAPIKey(for provider: CloudProviderID) {}
 }
 
 private final class SearchCredentials: WebSearchCredentialStore, @unchecked Sendable {

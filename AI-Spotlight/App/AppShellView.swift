@@ -255,8 +255,7 @@ struct AppShellView: View {
     get { screen.draft }
     nonmutating set { screen.draft = newValue }
   }
-  @State private var isSearchEnabled = false
-  @State private var isSearchPresented = false
+  private var hasSearchCommand: Bool { ComposerCommands(draft).search }
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @ObservedObject private var searchSettings: WebSearchSettings
   @State private var isModelImporterPresented = false
@@ -305,19 +304,6 @@ struct AppShellView: View {
       if let decision = localChat.screenRouteDecision {
         Text(decision.status + (decision.sendsImage ? "" : " · Image not sent"))
           .font(.caption).foregroundStyle(.secondary)
-      }
-      if isSearchEnabled || (searchSettings.canSearchAutomatically && files.selection == nil) {
-        HStack(spacing: 6) {
-          Text(searchSettings.hasAPIKey
-            ? (isSearchEnabled ? "Web Search · Queries sent to Brave may include attached context."
-              : "Auto search · Current topics may use Brave, including relevant attached context.")
-            : "Add a Brave Search API key to search the web.")
-          if !searchSettings.hasAPIKey {
-            Button("Open Cloud & Search Settings", action: openConnectionSettings).buttonStyle(.bordered)
-          }
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
       }
 
       if !selectionAccess.isGranted && localChat.isTemporaryChat {
@@ -401,7 +387,7 @@ struct AppShellView: View {
               }
               if isSelectionComposer { Spacer(minLength: 0) }
 
-              VStack(alignment: .trailing, spacing: 8) {
+              VStack(alignment: .trailing, spacing: isSelectionComposer ? 4 : 8) {
                 if isSelectionComposer {
                   if localChat.attachedContexts.isEmpty {
                     Label("No text selected", systemImage: "text.quote")
@@ -417,19 +403,23 @@ struct AppShellView: View {
                 } else {
                   composerAccessories
                 }
+                if files.selection == nil {
+                  WebSearchStatusView(settings: searchSettings, isExplicit: hasSearchCommand,
+                    compact: isSelectionComposer, openSettings: openConnectionSettings)
+                }
                 composer(compact: geometry.size.width < 900)
               }
               .fixedSize(horizontal: false, vertical: isSelectionComposer)
               .background {
                 if isSelectionComposer {
                   GeometryReader { bounds in
-                    Color.clear.preference(key: SelectionComposerHeight.self, value: bounds.size.height + 20)
+                    Color.clear.preference(key: SelectionComposerHeight.self, value: bounds.size.height + 16)
                   }
                 }
               }
               .padding(.horizontal, isSelectionPresentation ? 12 : 24)
               .padding(.bottom, isSelectionPresentation ? 12 : 32)
-              .padding(.top, 8)
+              .padding(.top, isSelectionComposer ? 4 : 8)
             }
           }
         }
@@ -490,8 +480,6 @@ struct AppShellView: View {
       isSelectionPresentation = true
       isSelectionDetailsPresented = false
       screen.clearDraft()
-      isSearchEnabled = false
-      isSearchPresented = false
       isModePalettePresented = false
       isHelpPresented = false
       applyStartPreferences()
@@ -504,8 +492,6 @@ struct AppShellView: View {
       isSelectionComposer = false
       isSelectionPresentation = false
       screen.clearDraft()
-      isSearchEnabled = false
-      isSearchPresented = false
       applyStartPreferences()
       localChat.newChat()
       isModePalettePresented = false
@@ -635,14 +621,6 @@ struct AppShellView: View {
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       isComposerFocused = tour == nil && !welcomeSetup.isPresented
-    }
-    .onChange(of: draft) { _, value in
-      guard ComposerCommands(value).search else { return }
-      isSearchPresented = true
-      isSearchEnabled = true
-    }
-    .onChange(of: isSearchPresented) { _, _ in
-      isComposerFocused = true
     }
     .onChange(of: selectedMode, initial: true) { _, mode in
       localChat.clearAutoRouteDecision()
@@ -1154,7 +1132,7 @@ struct AppShellView: View {
   }
 
   private var welcomeSubtitle: String {
-    if isSearchEnabled {
+    if hasSearchCommand {
       return selectedMode == .local
         ? "Brave finds web sources. Your local model writes the answer on this Mac."
         : "Brave finds web sources for your selected model to answer with citations."
@@ -1262,7 +1240,7 @@ struct AppShellView: View {
       await files.activate(from: source)
       if files.selection != nil {
         screen.removeAttachment()
-        isSearchEnabled = false
+        draft = SlashCommand.removing([.search], from: draft)
       }
       isComposerFocused = true
     }
@@ -1293,7 +1271,7 @@ struct AppShellView: View {
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
     let commands = ComposerCommands(draft)
     if files.selection != nil {
-      if screen.isEnabled || isSearchEnabled || commands.screen || commands.search {
+      if screen.isEnabled || commands.screen || commands.search {
         files.error = "Turn off Screen and Web Search to work with your attached files."
         return
       }
@@ -1304,12 +1282,6 @@ struct AppShellView: View {
           if draft == prompt { draft = "" }
         }
       return
-    }
-    // Capture can finish and submit again before SwiftUI delivers onChange.
-    // Resolve all requested tools now; no view-update timing controls routing.
-    if commands.search {
-      isSearchPresented = true
-      isSearchEnabled = true
     }
     if commands.screen {
       Task {
@@ -1332,17 +1304,17 @@ struct AppShellView: View {
     }
     switch selectedMode {
     case .local:
-      localChat.submit(prompt, searchEnabled: isSearchEnabled, onAccepted: accepted)
+      localChat.submit(prompt, searchEnabled: commands.search, onAccepted: accepted)
     case .cloud:
       localChat.submitCloud(
         prompt,
         provider: cloudSettings.preferredProvider,
         modelID: cloudSettings.preferredModelID,
-        searchEnabled: isSearchEnabled,
+        searchEnabled: commands.search,
         onAccepted: accepted
       )
     case .auto:
-      localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: isSearchEnabled, onAccepted: accepted)
+      localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: commands.search, onAccepted: accepted)
     }
   }
 
@@ -1354,7 +1326,7 @@ struct AppShellView: View {
     let cloudText = cloudSettings.isConfigured
       ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
                    provider: cloudSettings.preferredProvider).screenModel : nil
-    let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: isSearchEnabled)
+    let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: commands.search)
     let automatic = selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
       selectedMode: .auto, webSearchEnabled: searchEnabled, prompt: prompt,
       contextMessages: localChat.messages, localModel: localChat.installedModel,
@@ -1554,12 +1526,12 @@ private struct KeyboardShortcutsHelpView: View {
           shortcut("Dismiss command suggestions", keys: "Esc")
           shortcut("Insert a new line", keys: "⇧ Return")
           shortcut("Hide inactive tools", keys: "⇧ ⌘ H")
-          shortcut("Enable Web Search", keys: "/search")
+          shortcut("Search for this message only", keys: "/search")
           shortcut("Capture the full desktop", keys: "/screen")
           shortcut("Capture a screen region", keys: "/snapshot")
           shortcut("Think harder for this answer", keys: "/think")
           shortcut("Attach files or a folder", keys: "⇧ ⌥ F")
-          Text("/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /think applies to one answer. Commands can appear anywhere in your message and remain blue in the input. Put literal command examples in quotes or backticks.")
+          Text("/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /search and /think apply to one answer. Delete /search before sending to cancel explicit search. Auto search shows On with Off above the composer. Commands can appear anywhere in your message and remain blue in the input. Put literal command examples in quotes or backticks.")
             .font(.caption).foregroundStyle(.secondary)
 
           Divider()
