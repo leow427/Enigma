@@ -36,8 +36,10 @@ ordinary conversation messages. Editing is an explicit per-request command.
   selection details can reach Brave when search is enabled (including existing
   automatic-search preferences). Only the original current question determines
   automatic-search eligibility; attachment text and source names cannot enable it.
-  Both compact and full composers show Auto search On with Off. Capture itself makes
-  no network request. Local mode never uses a cloud model to derive a query.
+  Automatic search defaults to on with a saved Brave key; its toggle is in
+  Settings → Cloud & Search → Web Search · Brave. Without a key, neither composer
+  offers `/search` or retrieves automatically. Capture itself makes no network
+  request. Local mode never uses a cloud model to derive a query.
 - One temporary session lives in memory. It does not write the chat archive or count
   against the five saved conversations. It is discarded on a new invocation or on
   switching to another chat. Hiding/reopening the panel retains it until then or

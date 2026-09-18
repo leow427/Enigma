@@ -416,6 +416,7 @@ extension View {
 struct WelcomeTourOverlay: View {
   @ObservedObject var setup: WelcomeSetup
   let anchors: [WelcomeTourStep: Anchor<CGRect>]
+  let availableCommands: [SlashCommand]
   @State private var cardHeight: CGFloat = 230
   @AccessibilityFocusState private var isHeadingFocused: Bool
   var body: some View {
@@ -460,7 +461,7 @@ struct WelcomeTourOverlay: View {
 
   private var commandPreview: some View {
     VStack(alignment: .leading, spacing: 8) {
-      ForEach(SlashCommand.allCases) { command in
+      ForEach(availableCommands) { command in
         HStack(spacing: 8) {
           Text(command.token).font(.caption.monospaced().weight(.semibold))
             .foregroundStyle(NatureGlass.accent).frame(width: 76, alignment: .leading)

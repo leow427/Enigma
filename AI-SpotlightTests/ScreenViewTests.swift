@@ -13,7 +13,7 @@ final class ScreenViewTests: XCTestCase {
   func testSlashCommandSuggestionsRenderWithHighlightedDraft() async throws {
     let text = "Explain /think using /"
     let view = NSHostingView(rootView: SlashCommandComposer(text: .constant(text),
-      isFocused: .constant(true), isEnabled: true, submit: {})
+      isFocused: .constant(true), isEnabled: true, availableCommands: SlashCommand.allCases, submit: {})
       .padding(.top, 360).padding(16).frame(width: 480).environment(\.colorScheme, .dark))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
       styleMask: [.borderless], backing: .buffered, defer: false)
@@ -612,7 +612,7 @@ final class ScreenViewTests: XCTestCase {
       field.completion?.refresh()
       await Task.yield()
       view.layoutSubtreeIfNeeded()
-      XCTAssertEqual(field.completion?.commands, SlashCommand.allCases)
+      XCTAssertEqual(field.completion?.commands, [.screen, .snapshot, .think, .edit, .translate])
       XCTAssertEqual(view.convert(field.bounds, from: field), composerFrame,
                      "Suggestions must not resize or move the compact composer")
       XCTAssertEqual(field.font?.pointSize, size.width < 900 ? 14 : 15)
@@ -627,8 +627,9 @@ final class ScreenViewTests: XCTestCase {
         view.cacheDisplay(in: view.bounds, to: menuBitmap)
         menuText = try await ScreenOCRService().recognize(XCTUnwrap(menuBitmap.cgImage)).text.lowercased()
         menuPNG = try XCTUnwrap(menuBitmap.representation(using: .png, properties: [:]))
-      } while !menuText.contains("search the web") && ContinuousClock.now < deadline
-      XCTAssertTrue(menuText.contains("search the web"), "Suggestions must be visibly rendered: \(menuText)")
+      } while !menuText.contains("capture all displays") && ContinuousClock.now < deadline
+      XCTAssertTrue(menuText.contains("capture all displays"), "Suggestions must be visibly rendered: \(menuText)")
+      XCTAssertFalse(menuText.contains("search the web"), "Without a key, search must not be offered")
       try menuPNG.write(to: URL(fileURLWithPath: "/tmp/Enigma-Slash-Commands-\(Int(size.width)).png"))
       let menuAttachment = XCTAttachment(data: menuPNG, uniformTypeIdentifier: "public.png")
       menuAttachment.name = "Enigma slash commands \(Int(size.width))"
@@ -757,8 +758,10 @@ final class ScreenViewTests: XCTestCase {
     view.layoutSubtreeIfNeeded()
     try pressActivityStatus(in: view)
     let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    let expectedLabels = ["request activity", "web sources", "code reference"]
     var text = ""
     var png = Data()
+    // The section heading appears before the source finishes expanding into view.
     repeat {
       await Task.yield()
       view.layoutSubtreeIfNeeded()
@@ -767,10 +770,8 @@ final class ScreenViewTests: XCTestCase {
       view.cacheDisplay(in: view.bounds, to: bitmap)
       png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
       text = try await ScreenOCRService().recognize(XCTUnwrap(bitmap.cgImage)).text.lowercased()
-    } while !text.contains("web sources") && ContinuousClock.now < deadline
-    XCTAssertTrue(text.contains("request activity"))
-    XCTAssertTrue(text.contains("web sources"))
-    XCTAssertTrue(text.contains("code reference"))
+    } while !expectedLabels.allSatisfy(text.contains) && ContinuousClock.now < deadline
+    for label in expectedLabels { XCTAssertTrue(text.contains(label), "Expected \(label): \(text)") }
     XCTAssertEqual(chat.messages.last?.activity?.sources, [PanelSearch.source])
     try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Activity-App.png"))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")

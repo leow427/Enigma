@@ -7,6 +7,7 @@ struct SlashCommandComposer: View {
   var isEnabled: Bool
   var fontSize: CGFloat = 15
   var usesPopover = false
+  var availableCommands: [SlashCommand]
   var submit: () -> Void
   @StateObject private var completion = CommandCompletionModel()
 
@@ -17,7 +18,8 @@ struct SlashCommandComposer: View {
           .allowsHitTesting(false).accessibilityHidden(true)
       }
       CommandTextEditor(text: $text, isFocused: $isFocused, isEnabled: isEnabled,
-                        completion: completion, fontSize: fontSize, submit: submit)
+                        completion: completion, availableCommands: availableCommands,
+                        fontSize: fontSize, submit: submit)
         .frame(height: completion.height)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -70,11 +72,13 @@ final class CommandCompletionModel: ObservableObject {
   @Published var selected = 0
   @Published var height: CGFloat = 20
   weak var editor: SlashCommandTextView?
+  var availableCommands = SlashCommand.allCases
   private var active: SlashCommand.Completion?
 
   func refresh() {
     guard let editor, editor.isEditable, !editor.hasMarkedText() else { dismiss(); return }
-    let next = SlashCommand.completion(in: editor.string, selection: editor.selectedRange())
+    let next = SlashCommand.completion(in: editor.string, selection: editor.selectedRange(),
+                                      availableCommands: availableCommands)
     if next != active { selected = 0 }
     active = next
     let matches = next?.commands ?? []
@@ -98,8 +102,9 @@ final class CommandCompletionModel: ObservableObject {
   }
 
   func accept(_ command: SlashCommand) {
-    guard let editor, let active, editor.isEditable,
-          SlashCommand.completion(in: editor.string, selection: editor.selectedRange()) == active else { return }
+    guard let editor, let active, editor.isEditable, active.commands.contains(command),
+          SlashCommand.completion(in: editor.string, selection: editor.selectedRange(),
+                                  availableCommands: availableCommands) == active else { return }
     let source = editor.string as NSString
     let end = NSMaxRange(active.range)
     let hasSpace = end < source.length && source.substring(with: NSRange(location: end, length: 1)).first?.isWhitespace == true
@@ -190,6 +195,7 @@ private struct CommandTextEditor: NSViewRepresentable {
   @Binding var isFocused: Bool
   var isEnabled: Bool
   var completion: CommandCompletionModel
+  var availableCommands: [SlashCommand]
   var fontSize: CGFloat = 15
   var submit: () -> Void
 
@@ -216,6 +222,7 @@ private struct CommandTextEditor: NSViewRepresentable {
     editor.delegate = context.coordinator
     editor.completion = completion
     completion.editor = editor
+    completion.availableCommands = availableCommands
     scroll.documentView = editor
     return scroll
   }
@@ -225,6 +232,10 @@ private struct CommandTextEditor: NSViewRepresentable {
     guard let editor = scroll.documentView as? SlashCommandTextView else { return }
     editor.isEditable = isEnabled
     editor.submit = submit
+    if completion.availableCommands != availableCommands {
+      completion.availableCommands = availableCommands
+      DispatchQueue.main.async { completion.refresh() }
+    }
     editor.focusChanged = { focused in
       DispatchQueue.main.async { context.coordinator.parent.isFocused = focused }
     }

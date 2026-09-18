@@ -420,6 +420,28 @@ final class SlashCommandTests: XCTestCase {
                    NSRange(location: 0, length: 9))
   }
 
+  func testRemovingSearchAvailabilityRejectsStaleCompletion() throws {
+    let editor = SlashCommandTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 40))
+    let model = CommandCompletionModel()
+    model.editor = editor
+    editor.completion = model
+    editor.string = "/se"
+    editor.setSelectedRange(NSRange(location: 3, length: 0))
+    model.refresh()
+    XCTAssertEqual(model.commands, [.search])
+    model.availableCommands = SlashCommand.available(hasSearchKey: false)
+    // A queued click or key event cannot use the old menu before its refresh.
+    model.accept(.search)
+    XCTAssertEqual(editor.string, "/se")
+    model.refresh()
+    XCTAssertTrue(model.commands.isEmpty)
+    model.availableCommands = SlashCommand.available(hasSearchKey: true)
+    model.refresh()
+    XCTAssertEqual(model.commands, [.search])
+    model.accept(.search)
+    XCTAssertEqual(editor.string, "/search ")
+  }
+
   func testKeyboardCompletionDismissalAndNewlines() throws {
     let editor = SlashCommandTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 40))
     let model = CommandCompletionModel()

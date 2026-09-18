@@ -416,10 +416,6 @@ struct AppShellView: View {
                 } else {
                   composerAccessories
                 }
-                if files.selection == nil {
-                  WebSearchStatusView(settings: searchSettings, isExplicit: hasSearchCommand,
-                    compact: isSelectionComposer, openSettings: openConnectionSettings)
-                }
                 composer(compact: geometry.size.width < 900)
               }
               .fixedSize(horizontal: false, vertical: isSelectionComposer)
@@ -459,7 +455,8 @@ struct AppShellView: View {
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
       if welcomeSetup.tour != nil {
-        WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors)
+        WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
+          availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
       }
     }
     .overlay {
@@ -594,7 +591,7 @@ struct AppShellView: View {
       }
     }
     .sheet(isPresented: $isHelpPresented) {
-      KeyboardShortcutsHelpView()
+      KeyboardShortcutsHelpView(searchSettings: searchSettings)
     }
     .fileImporter(
       isPresented: $isModelImporterPresented,
@@ -781,6 +778,7 @@ struct AppShellView: View {
           && !welcomeSetup.isPresented && welcomeSetup.tour == nil,
         fontSize: compact ? 14 : 15,
         usesPopover: isSelectionComposer,
+        availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey),
         submit: submitDraft
       ).welcomeTourTarget(.composer)
 
@@ -1494,6 +1492,7 @@ private extension ChatMode {
 }
 
 private struct KeyboardShortcutsHelpView: View {
+  @ObservedObject var searchSettings: WebSearchSettings
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
   @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
   @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleOptionEnabled = true
@@ -1548,12 +1547,16 @@ private struct KeyboardShortcutsHelpView: View {
           shortcut("Dismiss command suggestions", keys: "Esc")
           shortcut("Insert a new line", keys: "⇧ Return")
           shortcut("Hide inactive tools", keys: "⇧ ⌘ H")
-          shortcut("Search for this message only", keys: "/search")
+          if searchSettings.hasAPIKey {
+            shortcut("Search for this message only", keys: "/search")
+            Text("/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud & Search → Web Search · Brave.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
           shortcut("Capture the full desktop", keys: "/screen")
           shortcut("Capture a screen region", keys: "/snapshot")
           shortcut("Think harder for this answer", keys: "/think")
           shortcut("Attach files or a folder", keys: "⇧ ⌥ F")
-          Text("/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /search and /think apply to one answer. Delete /search before sending to cancel explicit search. Auto search shows On with Off above the composer. Commands can appear anywhere in your message and remain blue in the input. Put literal command examples in quotes or backticks.")
+          Text("/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /think applies to one answer. Commands can appear anywhere in your message and remain blue in the input. Put literal command examples in quotes or backticks.")
             .font(.caption).foregroundStyle(.secondary)
 
           Divider()

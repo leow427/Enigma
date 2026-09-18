@@ -3,8 +3,9 @@
 Recognized commands stay blue in the composer and work at the start, middle, or
 end of a message. `/search` applies only to the current message and stays visible
 until acceptance. Deleting it cancels explicit search; subsequent messages follow
-the automatic-search preference. Both composer layouts show automatic search’s
-On state and an Off action when active. Capture commands run when you submit.
+the automatic-search preference in Settings → Cloud & Search → Web Search · Brave.
+Automatic search defaults to on and requires a saved Brave key. Capture commands
+run when you submit.
 `/think` applies only to the current answer, including File Mode requests.
 
 | Command | Action |
@@ -15,6 +16,9 @@ On state and an Off action when active. Capture commands run when you submit.
 | `/think` | Request more careful reasoning |
 
 Type `/` anywhere after whitespace to see commands, icons, and descriptions.
+`/search` is offered only with a saved Brave key, including in Help and the welcome
+tour. Saving or removing a key updates suggestions immediately without editing
+the draft. The automatic-search preference does not hide deliberate `/search`.
 Suggestions filter by the text before the caret, case-insensitively. Use ↑/↓ to
 select, Tab or Return to complete, or click a suggestion. Escape dismisses the
 list before hiding the panel. Shift-Return inserts a newline. Completion edits

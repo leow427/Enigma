@@ -1,6 +1,6 @@
 # Web Search
 
-Add a Brave Search API key with **LLM Context** access in **Settings → Web Search · Brave**.
+Add a Brave Search API key with **LLM Context** access in **Settings → Cloud & Search → Web Search · Brave**.
 The key is stored in macOS Keychain under a separate search service, never in
 preferences or chat history. Brave API usage is separate from model-provider usage.
 
@@ -11,10 +11,9 @@ Settings → Cloud & Search → Web Search · Brave. It becomes active once a Br
 is saved. Questions such as “What happened in the news today?”, “Latest AI news”,
 “What is the latest Swift release?” and “Who is the president of France?” can now
 retrieve evidence without `/search`. Weather, market prices, exchange rates,
-sports scores and upcoming schedules are also recognized. Both full and compact
-selection composers show **Auto search · On** with an **Off** action. Off saves
-the manual-only preference for later messages, including in Local mode;
-re-enable it in Settings → Cloud & Search.
+sports scores and upcoming schedules are also recognized. The composer has no
+automatic-search status row. Use the Settings toggle to turn automatic search off
+or back on; the preference is saved for later messages, including in Local mode.
 
 The shared `WebSearchPolicy` uses deterministic freshness and lookup cues in the
 original current question, before attaching or serializing source content, with
@@ -35,7 +34,9 @@ flow. File Mode remains a separate workflow and does not automatically search.
 Turn the setting off for manual-only search. `/search` still forces retrieval
 for that message, including timeless questions. Removing the command returns
 to the automatic-search preference. Without a saved key, automatic
-retrieval is inactive and normal chat continues. Missing/rejected keys on an
+retrieval is inactive, `/search` is hidden from command suggestions, Help and the
+welcome tour, and normal chat continues. Saving or removing a key updates open
+suggestions without changing the draft. Missing/rejected keys on a manually typed
 explicit search, or any failure after automatic retrieval starts, keep the draft
 and show the existing error instead of silently answering without evidence.
 
@@ -48,8 +49,8 @@ needed. It does not independently verify the freshness of each returned source.
 
 ## Explicit search
 
-Type **/search** anywhere outside quotes or code to search for **this message only**.
-The composer shows **Web Search · This message**. Removing the command before
+With a saved Brave key, type **/search** anywhere outside quotes or code to search
+for **this message only**. The command stays visible in the draft. Removing it before
 sending cancels that explicit request; a later message follows the automatic-search
 preference. A standalone `/search` waits for a question and can simply be deleted.
 There is no persistent manual search toggle or plus-menu search control.
@@ -177,10 +178,12 @@ suite executed 435 tests with nine optional skips and zero failures.
 
 Part 1 regression coverage exercises typing and removing `/search` in the real
 `AppShellView` editor, explicit search followed by ordinary messages, automatic
-search Off in full and compact selection layouts, and escaped-quote attachments
-across Local, Cloud, Auto and Screen. The retired `WebSearchControls` icon demo
-has been removed; search status tests now exercise the live composer. Temporary
-chat history and retention are unchanged. Native renders are retained as XCTest
+search preferences in full and compact selection layouts, and escaped-quote
+attachments across Local, Cloud, Auto and Screen. The retired `WebSearchControls`
+icon demo and composer status row have been removed; UI tests exercise the live
+composer, default-on behavior, Settings opt-out, missing keys and live command
+availability when saving or removing a key. Temporary chat history and retention
+are unchanged. Native renders are retained as XCTest
 attachments and written to `/tmp/Enigma-auto-search.png` and
 `/tmp/Enigma-compact-auto-search.png`. They use synthetic selected text and
 response/search fixtures, with no live Brave or cloud requests.
@@ -191,3 +194,11 @@ The full offline suite ran 531 tests, with 10 optional integration/model checks
 skipped and zero failures. The regression matrix confirms that attached freshness phrases do
 not call Brave, while explicit search and fresh-information questions still do.
 Live search quality and real model/provider responses were not evaluated.
+
+The September 18 composer follow-up passes build, static analysis and the full
+537-test suite, with 10 optional skips and zero failures. Both composer layouts
+verify default automatic search, preserved opt-outs, no retrieval without a key,
+and immediate suggestion updates when credentials change. An initial full run
+caught a search-activity screenshot taken mid-expansion; the test now waits for
+all three expected labels before asserting them. Its assertions remain intact.
+The updated Settings screenshot uses a fixture key; no live Brave calls were made.

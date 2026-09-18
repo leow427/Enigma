@@ -36,6 +36,10 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     let commands: [SlashCommand]
   }
 
+  static func available(hasSearchKey: Bool) -> [SlashCommand] {
+    allCases.filter { $0 != .search || hasSearchKey }
+  }
+
   // Quoted examples and code are literal. Requiring whitespace before a slash
   // avoids interpreting URLs, paths, and escaped commands as tool requests.
   private static let candidates = try! NSRegularExpression(
@@ -62,7 +66,8 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     return (result as String).trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  static func completion(in text: String, selection: NSRange) -> Completion? {
+  static func completion(in text: String, selection: NSRange,
+                         availableCommands: [SlashCommand] = allCases) -> Completion? {
     guard selection.length == 0, selection.location != NSNotFound else { return nil }
     let source = text as NSString
     guard let range = ranges(in: text).first(where: {
@@ -70,7 +75,7 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     }) else { return nil }
     let prefix = source.substring(with: NSRange(location: range.location + 1,
       length: selection.location - range.location - 1)).lowercased()
-    let matches = allCases.filter { $0.rawValue.hasPrefix(prefix) }
+    let matches = availableCommands.filter { $0.rawValue.hasPrefix(prefix) }
     guard !matches.isEmpty else { return nil }
     return Completion(range: range, commands: matches)
   }

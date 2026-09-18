@@ -1,7 +1,6 @@
 import Combine
 import Foundation
 import SwiftUI
-import Vision
 import XCTest
 @testable import Enigma
 
@@ -306,37 +305,77 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(queries, ["Explain binary trees"], "An accepted /search applies to one turn")
   }
 
-  func testActualComposersShowAutomaticSearchOnAndOfferWorkingOff() async throws {
+  func testActualComposersUseDefaultAutomaticSearchAndHonorSettingsOptOut() async throws {
     for compact in [false, true] {
-      let composer = try await makeComposer(automatic: true)
+      let composer = try await makeComposer(automatic: nil)
       defer { composer.window.orderOut(nil); composer.window.contentView = nil }
-      composer.window.makeKeyAndOrderFront(nil)
-      if compact {
-        NotificationCenter.default.post(name: .selectionContextRequested,
-          object: ConversationContext(sourceName: "Article", text: #"A headline says "latest news"."#))
-        composer.window.setContentSize(NSSize(width: 752, height: 200))
-      }
-      for _ in 0..<3 { await Task.yield(); composer.view.layoutSubtreeIfNeeded() }
-      XCTAssertEqual(composer.model.isTemporaryChat, compact)
-      try recordComposer(composer, name: compact ? "compact-auto-search" : "auto-search")
-      try pressAutomaticSearchOff(in: composer)
-      await fulfillment(of: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-        MainActor.assumeIsolated { !composer.settings.automaticallySearch }
-      }, object: nil)], timeout: 2)
+      await showComposer(composer, compact: compact)
+      XCTAssertTrue(composer.settings.automaticallySearch, "Automatic search defaults to on")
+      XCTAssertTrue(composer.settings.canSearchAutomatically)
+      let labels = try await recordComposer(composer, name: compact ? "compact-auto-search" : "auto-search")
+      XCTAssertTrue(labels.contains("local"), "The composer must be visibly rendered: \(labels)")
+      XCTAssertFalse(labels.contains("auto search"), "The confusing status row is removed")
+      XCTAssertFalse(labels.contains("off"), "The composer no longer has a misleading Off label")
 
       let editor = try composer.editor()
       try await editComposer(editor, text: "What happened today?", in: composer)
       editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
       await finish(composer.model)
       var queries = await composer.search.queries
-      XCTAssertTrue(queries.isEmpty, "Off must disable automatic retrieval in both layouts")
+      XCTAssertEqual(queries.count, 1, "Fresh questions search by default in both layouts")
+
+      composer.settings.automaticallySearch = false
+      try await editComposer(editor, text: "What is the latest news?", in: composer)
+      editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+      await finish(composer.model)
+      queries = await composer.search.queries
+      XCTAssertEqual(queries.count, 1, "The Settings preference still disables automatic retrieval")
       XCTAssertEqual(composer.model.messages.last?.content, "Answer")
 
+      try await editComposer(editor, text: "/", in: composer)
+      XCTAssertTrue(try XCTUnwrap(editor.completion).commands.contains(.search),
+                    "A saved key still offers deliberate search when automatic search is off")
       try await editComposer(editor, text: "/search Explain this", in: composer)
       editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
       await finish(composer.model)
       queries = await composer.search.queries
-      XCTAssertEqual(queries.count, 1, "Off preserves deliberate /search")
+      XCTAssertEqual(queries.count, 2, "The Settings opt-out preserves deliberate /search")
+    }
+  }
+
+  func testActualComposersRequireKeyForAutomaticSearchAndSearchSuggestions() async throws {
+    for compact in [false, true] {
+      let composer = try await makeComposer(automatic: nil, hasKey: false)
+      defer { composer.window.orderOut(nil); composer.window.contentView = nil }
+      await showComposer(composer, compact: compact)
+      XCTAssertTrue(composer.settings.automaticallySearch)
+      XCTAssertFalse(composer.settings.canSearchAutomatically)
+      let editor = try composer.editor()
+      let completion = try XCTUnwrap(editor.completion)
+      try await editComposer(editor, text: "/", in: composer)
+      XCTAssertEqual(completion.commands, [.screen, .snapshot, .think, .edit, .translate])
+      completion.accept(.search)
+      XCTAssertEqual(editor.string, "/", "An unavailable search suggestion cannot be selected")
+      try await editComposer(editor, text: "/se", in: composer)
+      XCTAssertTrue(completion.commands.isEmpty)
+
+      try composer.settings.saveAPIKey("fixture")
+      await waitForCommands([.search], in: completion)
+      XCTAssertTrue(composer.settings.canSearchAutomatically)
+      XCTAssertEqual(editor.string, "/se", "Saving a key updates suggestions without editing the draft")
+      try composer.settings.removeAPIKey()
+      await waitForCommands([], in: completion)
+      XCTAssertFalse(composer.settings.canSearchAutomatically)
+      XCTAssertEqual(editor.string, "/se", "Removing a key hides an already open search suggestion")
+
+      for question in ["What happened today?", "What does this mean?"] {
+        try await editComposer(editor, text: question, in: composer)
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        await finish(composer.model)
+        let queries = await composer.search.queries
+        XCTAssertTrue(queries.isEmpty, "Without a key, normal chat continues without retrieval")
+        XCTAssertEqual(composer.model.messages.last?.content, "Answer")
+      }
     }
   }
 
@@ -933,15 +972,15 @@ final class WebSearchTests: XCTestCase {
                      snippets: ["Fresh verified fixture"])]
   }
 
-  private func makeComposer(automatic: Bool = false) async throws -> SearchComposerFixture {
+  private func makeComposer(automatic: Bool? = false, hasKey: Bool = true) async throws -> SearchComposerFixture {
     let defaults = makeDefaults()
     defaults.set(true, forKey: WelcomeSetup.completedKey)
     defaults.set(true, forKey: "localModelOnboardingDismissed")
     defaults.set(ChatMode.local.rawValue, forKey: StartPreferences.modeKey)
     let directory = FileManager.default.temporaryDirectory.appending(path: "SearchComposer-\(UUID())")
     addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-    let settings = WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: defaults)
-    settings.automaticallySearch = automatic
+    let settings = WebSearchSettings(credentials: SearchCredentials(hasKey ? "fixture" : nil), defaults: defaults)
+    if let automatic { settings.automaticallySearch = automatic }
     let search = SearchSpy(results: fixtureResults)
     let model = makeModel(search: search, settings: settings)
     await model.refreshInstalledModel()
@@ -974,7 +1013,24 @@ final class WebSearchTests: XCTestCase {
     for _ in 0..<3 { await Task.yield(); composer.view.layoutSubtreeIfNeeded() }
   }
 
-  private func recordComposer(_ composer: SearchComposerFixture, name: String) throws {
+  private func showComposer(_ composer: SearchComposerFixture, compact: Bool) async {
+    composer.window.makeKeyAndOrderFront(nil)
+    if compact {
+      NotificationCenter.default.post(name: .selectionContextRequested,
+        object: ConversationContext(sourceName: "Article", text: #"A headline says "latest news"."#))
+      composer.window.setContentSize(NSSize(width: 752, height: 200))
+    }
+    for _ in 0..<3 { await Task.yield(); composer.view.layoutSubtreeIfNeeded() }
+    XCTAssertEqual(composer.model.isTemporaryChat, compact)
+  }
+
+  private func waitForCommands(_ commands: [SlashCommand], in completion: CommandCompletionModel) async {
+    await fulfillment(of: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      MainActor.assumeIsolated { completion.commands == commands }
+    }, object: nil)], timeout: 2)
+  }
+
+  private func recordComposer(_ composer: SearchComposerFixture, name: String) async throws -> String {
     let bitmap = try XCTUnwrap(composer.view.bitmapImageRepForCachingDisplay(in: composer.view.bounds))
     composer.view.cacheDisplay(in: composer.view.bounds, to: bitmap)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
@@ -983,32 +1039,7 @@ final class WebSearchTests: XCTestCase {
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
-  }
-
-  private func pressAutomaticSearchOff(in composer: SearchComposerFixture) throws {
-    let view = composer.view
-    let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
-    view.cacheDisplay(in: view.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
-    try VNImageRequestHandler(cgImage: XCTUnwrap(bitmap.cgImage)).perform([request])
-    let labels = (request.results ?? []).compactMap { $0.topCandidates(1).first }
-    XCTAssertTrue(labels.contains { $0.string.lowercased().contains("auto search") && $0.string.contains("On") })
-    let off = try XCTUnwrap(labels.first { $0.string.range(of: #"\bOff\b"#, options: .regularExpression) != nil })
-    let range = try XCTUnwrap(off.string.range(of: #"\bOff\b"#, options: .regularExpression))
-    let bounds = try XCTUnwrap(off.boundingBox(for: range)).boundingBox
-    let point = NSPoint(x: bounds.midX * view.bounds.width,
-      y: (view.isFlipped ? 1 - bounds.midY : bounds.midY) * view.bounds.height)
-    let window = composer.window
-    let location = view.convert(point, to: nil)
-    // Native controls can track mouseDown synchronously; queue mouseUp first.
-    for type: NSEvent.EventType in [.leftMouseUp, .leftMouseDown] {
-      let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
-        modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-        windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-      if type == .leftMouseUp { NSApp.postEvent(event, atStart: true) }
-      else { window.sendEvent(event) }
-    }
+    return try await ScreenOCRService().recognize(XCTUnwrap(bitmap.cgImage)).text.lowercased()
   }
 
   private func makeDefaults() -> UserDefaults {
