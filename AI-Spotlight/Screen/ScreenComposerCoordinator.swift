@@ -4,9 +4,8 @@ import Combine
 @MainActor
 final class ScreenComposerCoordinator: ObservableObject {
   @Published var draft = ""
-  @Published var isEnabled = false
-  @Published var isPresented = false
   @Published private(set) var attachment: ScreenAttachment?
+  var isEnabled: Bool { attachment != nil }
   @Published private(set) var isCapturing = false
   @Published private(set) var isReading = false
   var isBusy: Bool { isCapturing || isReading }
@@ -42,8 +41,6 @@ final class ScreenComposerCoordinator: ObservableObject {
       guard revision == operation else { return nil }
       attachment = try ScreenAttachment(image: image, source: desktop ? .fullDesktop : .screenRegion)
       lastCaptureWasDesktop = desktop
-      isPresented = true
-      isEnabled = true
       isCapturing = false
       isReading = true
       attachment?.status = .reading
@@ -92,7 +89,6 @@ final class ScreenComposerCoordinator: ObservableObject {
   func removeAttachment() {
     revision = UUID()
     attachment = nil
-    isEnabled = false
     error = nil
     needsScreenRecordingSettings = false
   }
@@ -100,7 +96,6 @@ final class ScreenComposerCoordinator: ObservableObject {
   func clearDraft() {
     removeAttachment()
     draft = ""
-    isPresented = false
   }
 }
 

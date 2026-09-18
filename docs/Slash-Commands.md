@@ -31,6 +31,13 @@ backtick code, URLs, paths, and unknown commands remain literal text. Repeated
 commands activate once; `/snapshot` takes precedence over `/screen` if both occur.
 Screen and Search remain incompatible with attached File Mode selections.
 
+Submitting `/screen` or `/snapshot` alone attaches an image and waits for your
+question. Both the full panel and compact selection bar show a thumbnail with
+**Retake** and **Remove**. Retake repeats the capture type; Remove excludes the
+image and extracted OCR from your next request. Cloud image consent previews
+the capture and names its scope and selected provider. See
+[Screen](Screen-Skill.md) for the saved permission and OCR distinction.
+
 ![Command suggestions with icons and a blue command in the draft](images/slash-commands.png)
 
 The screenshot above is intentionally checked in as UI review documentation.

@@ -317,34 +317,6 @@ final class ScreenViewTests: XCTestCase {
     add(attachment)
   }
 
-  func testHideInactiveScreenToolPreservesAttachmentAndDraft() async throws {
-    for (screenEnabled, busy) in [(false, false), (true, false), (false, true)] {
-      let screen = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
-      _ = await screen.capture()
-      let attachmentID = try XCTUnwrap(screen.attachment?.id)
-      screen.isEnabled = screenEnabled
-      screen.draft = "Keep this draft"
-      let view = NSHostingView(rootView: ScreenToolButton(coordinator: screen, isBusy: busy, capture: {}).fixedSize()
-        .transaction { $0.disablesAnimations = true })
-      let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 240, height: 50),
-                            styleMask: [.borderless], backing: .buffered, defer: false)
-      window.contentView = view
-      view.layoutSubtreeIfNeeded()
-      await Task.yield()
-      let initialWidth = view.fittingSize.width
-      NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
-      await Task.yield()
-      view.layoutSubtreeIfNeeded()
-      XCTAssertEqual(screen.isPresented, screenEnabled || busy)
-      XCTAssertEqual(screen.isEnabled, screenEnabled)
-      XCTAssertEqual(screen.draft, "Keep this draft")
-      XCTAssertEqual(screen.attachment?.id, attachmentID)
-      let removed = busy || screenEnabled ? 0 : 1
-      XCTAssertEqual(initialWidth - view.fittingSize.width, Double(removed * 40), accuracy: 0.5)
-      window.contentView = nil
-    }
-  }
-
   func testSentImagesStaySmallAndPreserveTheirProportions() throws {
     let sizes: [NSSize] = [
       NSSize(width: 1600, height: 800),
@@ -898,58 +870,307 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  func testScreenIconSlotAndNativeComposerStates() async throws {
-    let icon = try XCTUnwrap(NSImage(named: "ScreenCapture"))
-    let pixels = try XCTUnwrap(icon.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    let bitmapIcon = NSBitmapImageRep(cgImage: pixels)
-    let visiblePixels = (0..<bitmapIcon.pixelsWide).reduce(0) { count, x in
-      count + (0..<bitmapIcon.pixelsHigh).filter { y in (bitmapIcon.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5 }.count
+  func testCompactCaptureShowsRetakeAndRemoveAndExcludesRemovedImageFromNextRequest() async throws {
+    for command in ["/screen", "/snapshot"] {
+      let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud)
+      defer { fixture.controller.hide(); fixture.window.contentView = nil }
+      try await editScreenshotComposer(command, in: fixture)
+      try submitComposer(in: fixture.view)
+      await waitForScreenshotState { fixture.screen.attachment != nil && !fixture.screen.isBusy }
+      XCTAssertEqual(fixture.screen.draft, "")
+      XCTAssertTrue(fixture.chat.isTemporaryChat)
+      XCTAssertTrue(fixture.controller.isSelectionComposer, "A standalone capture must wait for a question")
+      XCTAssertTrue(fixture.engine.requests.isEmpty)
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      XCTAssertNil(fixture.window.attachedSheet)
+      XCTAssertEqual(fixture.screen.attachment?.source, command == "/screen" ? .fullDesktop : .screenRegion)
+      let originalID = try XCTUnwrap(fixture.screen.attachment?.id)
+      let text = try screenshotText(in: fixture.view, name: "compact-\(command.dropFirst())")
+      XCTAssertTrue(text.contains(command == "/screen" ? "all displays" : "screen region"), text)
+      XCTAssertTrue(text.contains("attached"), text)
+      XCTAssertTrue(text.contains("retake"), text)
+      XCTAssertTrue(text.contains("remove"), text)
+      let editor = try composerField(in: fixture.view)
+      XCTAssertTrue(fixture.view.bounds.contains(fixture.view.convert(editor.bounds, from: editor)))
+
+      try await editScreenshotComposer("Explain the attached passage", in: fixture)
+      NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
+      await settleScreenshotView(fixture.view)
+      XCTAssertEqual(fixture.screen.attachment?.id, originalID)
+      try pressScreenshotControl("Retake", in: fixture.view)
+      await waitForScreenshotState { fixture.screen.attachment?.id != originalID && !fixture.screen.isBusy }
+      XCTAssertEqual(fixture.capture.desktopCount, command == "/screen" ? 2 : 0)
+      XCTAssertEqual(fixture.capture.regionCount, command == "/snapshot" ? 2 : 0)
+      XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
+      await settleScreenshotView(fixture.view)
+      try pressScreenshotControl("Remove", in: fixture.view)
+      await waitForScreenshotState { fixture.screen.attachment == nil }
+      XCTAssertFalse(fixture.screen.isEnabled)
+      XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
+      await settleScreenshotView(fixture.view)
+      XCTAssertFalse(try screenshotText(in: fixture.view).contains("retake"))
+      try submitComposer(in: fixture.view)
+      await waitForScreenshotState { !fixture.cloudProvider.requests.isEmpty && !fixture.chat.isBusy }
+      let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+      XCTAssertNil(request.image)
+      XCTAssertFalse(request.allowsCloudImages)
+      XCTAssertTrue(request.messages.last?.content.contains("Selected passage fixture") == true)
+      XCTAssertFalse(request.messages.contains { $0.content.contains("values.count") || $0.imagePreview != nil })
+      XCTAssertNil(fixture.chat.messages.first?.imagePreview)
+      XCTAssertTrue(fixture.engine.requests.isEmpty)
+      XCTAssertFalse(fixture.settings.allowCloudScreenshots)
     }
-    XCTAssertGreaterThan(visiblePixels, 100, "A loaded but blank SVG must fail rendering verification")
-    let hidden = ScreenComposerCoordinator()
-    let off = ScreenComposerCoordinator()
-    off.isPresented = true
-    let on = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
-    _ = await on.capture()
-    let hiddenView = NSHostingView(rootView: ScreenToolButton(coordinator: hidden, isBusy: false, capture: {}))
-    let offView = NSHostingView(rootView: ScreenToolButton(coordinator: off, isBusy: false, capture: {}))
-    XCTAssertEqual(offView.fittingSize.width - hiddenView.fittingSize.width, 40, accuracy: 0.5)
-    XCTAssertEqual(offView.fittingSize.height, hiddenView.fittingSize.height)
-    let attachment = try XCTUnwrap(on.attachment)
-    let preview = VStack(alignment: .leading, spacing: 16) {
-      Text("Screen").font(.title2.weight(.semibold))
-      ForEach(Array([hidden, off, on].enumerated()), id: \.offset) { index, coordinator in
-        Text(["Before adding Screen", "Screen off", "Screen on"][index]).font(.caption).foregroundStyle(.secondary)
-        HStack(spacing: 10) {
-          HStack(spacing: 0) {
-            ScreenToolButton(coordinator: coordinator, isBusy: false, capture: {})
-          }
-          Text("Ask anything").foregroundStyle(.secondary)
-          Spacer()
-          Label("Auto", systemImage: "sparkles")
-        }
-        .padding(14)
-        .background(.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+  }
+
+  func testRealComposerConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
+    for (command, provider) in [("/screen", CloudProviderID.openAI), ("/snapshot", .anthropic)] {
+      let fixture = try await makeScreenshotComposer(compact: command == "/snapshot", mode: .cloud, provider: provider)
+      defer { fixture.controller.hide(); fixture.window.contentView = nil }
+      try await editScreenshotComposer(command + " What color is this?", in: fixture)
+      try submitComposer(in: fixture.view)
+      await waitForScreenshotState { fixture.window.attachedSheet != nil }
+      let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+      await settleScreenshotView(sheet)
+      XCTAssertEqual(sheet.window?.sharingType, .none as NSWindow.SharingType)
+      let text = try screenshotText(in: sheet, name: "consent-\(command.dropFirst())")
+      // Vision's top reading can confuse OpenAI's I with l; retain its alternate readings.
+      let labels = try screenshotLabels(in: sheet, candidates: 3).map(\.string)
+      XCTAssertTrue(labels.contains(command == "/screen" ? "Send full desktop to OpenAI?" : "Send selected region to Anthropic?"), "\(labels)")
+      XCTAssertTrue(text.contains(command == "/screen" ? "send full desktop to" : "send selected region to"), text)
+      XCTAssertTrue(text.contains(command == "/screen" ? "captures the full desktop, including all displays" : "captures the selected region"), text)
+      XCTAssertTrue(text.contains("values.count"), "The actual captured image must be previewed: \(text)")
+      XCTAssertTrue(text.contains("future region and full-desktop screenshots"), text)
+      XCTAssertTrue(text.contains("whichever cloud provider"), text)
+      XCTAssertTrue(text.contains("without uploading an image"), text)
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+      let attachmentID = fixture.screen.attachment?.id
+      try pressScreenshotControl("Keep Screenshots Local", in: sheet)
+      await waitForScreenshotState { fixture.window.attachedSheet == nil }
+      XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+      XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
+      XCTAssertEqual(fixture.screen.attachment?.id, attachmentID)
+      XCTAssertEqual(fixture.screen.draft, "What color is this?")
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      try submitComposer(in: fixture.view)
+      XCTAssertEqual(fixture.screen.attachment?.routingDecision, .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage))
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      XCTAssertNil(fixture.window.attachedSheet)
+    }
+  }
+
+  func testRealComposerConsentAllowsImageAndRevocationBlocksNextCapture() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .gemini)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/screen What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    await waitForScreenshotState { fixture.window.attachedSheet != nil }
+    let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+    await settleScreenshotView(sheet)
+    XCTAssertTrue(try screenshotText(in: sheet).contains("send full desktop to gemini"))
+    try pressScreenshotControl("Allow & Send", in: sheet)
+    await waitForScreenshotState { fixture.cloudProvider.requests.count == 1 && !fixture.chat.isBusy }
+    XCTAssertTrue(fixture.settings.allowCloudScreenshots)
+    XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
+    let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+    XCTAssertNotNil(request.image)
+    XCTAssertTrue(request.allowsCloudImages)
+    XCTAssertEqual(request.route.providerID, CloudProviderID.gemini.rawValue)
+    XCTAssertNil(fixture.screen.attachment)
+    XCTAssertEqual(fixture.screen.draft, "")
+    fixture.settings.allowCloudScreenshots = false
+    try await editScreenshotComposer("/snapshot What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    await waitForScreenshotState { fixture.screen.error != nil && !fixture.screen.isBusy }
+    XCTAssertEqual(fixture.cloudProvider.requests.count, 1)
+    XCTAssertNotNil(fixture.screen.attachment)
+    XCTAssertEqual(fixture.screen.draft, "What color is this?")
+    XCTAssertNil(fixture.window.attachedSheet)
+  }
+
+  func testRealComposerNeverApprovesAReplacedCaptureOrDestination() async throws {
+    for replaceImage in [false, true] {
+      let fixture = try await makeScreenshotComposer(mode: .cloud)
+      defer { fixture.controller.hide(); fixture.window.contentView = nil }
+      try await editScreenshotComposer("/snapshot What color is this?", in: fixture)
+      try submitComposer(in: fixture.view)
+      await waitForScreenshotState { fixture.window.attachedSheet != nil }
+      let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+      await settleScreenshotView(sheet)
+      if replaceImage {
+        _ = await fixture.screen.capture()
+      } else {
+        fixture.cloud.preferredProvider = .anthropic
+        fixture.cloud.preferredModelID = "claude-sonnet-4-6"
       }
-      Text("Screenshot attached · ready for a question").font(.caption).foregroundStyle(.secondary)
-      ScreenAttachmentView(attachment: attachment, isEnabled: true, isBusy: false, remove: {}, retake: {})
+      try pressScreenshotControl("Allow & Send", in: sheet)
+      await waitForScreenshotState { fixture.window.attachedSheet == nil }
+      XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      XCTAssertNotNil(fixture.screen.attachment)
+      XCTAssertEqual(fixture.screen.draft, "What color is this?")
     }
-    .padding(24).frame(width: 700).background(Color(nsColor: .windowBackgroundColor))
-    let view = NSHostingView(rootView: preview)
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 480), styleMask: [.borderless], backing: .buffered, defer: false)
-    window.contentView = view
-    view.frame = NSRect(x: 0, y: 0, width: 700, height: 480)
+  }
+
+  func testRealComposerOCRDoesNotRequestImageConsentAndLocalCannotUpload() async throws {
+    for mode in [ChatMode.local, .cloud] {
+      let fixture = try await makeScreenshotComposer(mode: mode)
+      defer { fixture.controller.hide(); fixture.window.contentView = nil }
+      if mode == .local { fixture.settings.answerCloudPermission(allow: true) }
+      try await editScreenshotComposer("/snapshot Read the text", in: fixture)
+      try submitComposer(in: fixture.view)
+      await waitForScreenshotState {
+        (mode == .local ? !fixture.engine.requests.isEmpty : !fixture.cloudProvider.requests.isEmpty) && !fixture.chat.isBusy
+      }
+      XCTAssertNil(fixture.window.attachedSheet)
+      if mode == .cloud {
+        let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+        XCTAssertNil(request.image)
+        XCTAssertFalse(request.allowsCloudImages)
+        XCTAssertTrue(request.messages.last?.content.contains("values.count") == true)
+        XCTAssertFalse(fixture.settings.hasExplainedCloudPermission)
+      } else {
+        XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+        try await editScreenshotComposer("/screen What color is this?", in: fixture)
+        try submitComposer(in: fixture.view)
+        await waitForScreenshotState { fixture.screen.error != nil && !fixture.screen.isBusy }
+        XCTAssertTrue(fixture.screen.error?.contains("selected local model is text-only") == true)
+        XCTAssertNotNil(fixture.screen.attachment)
+        XCTAssertEqual(fixture.screen.draft, "What color is this?")
+        XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+        XCTAssertNil(fixture.window.attachedSheet)
+      }
+    }
+  }
+
+  func testRealComposerScreenRecordingDenialKeepsCompactDraft() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    fixture.capture.denied = true
+    try await editScreenshotComposer("/screen What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    await waitForScreenshotState { fixture.screen.needsScreenRecordingSettings && !fixture.screen.isBusy }
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+    XCTAssertTrue(fixture.window.isVisible)
+    XCTAssertNil(fixture.screen.attachment)
+    XCTAssertEqual(fixture.screen.draft, "/screen What color is this?")
+    XCTAssertEqual(fixture.capture.desktopCount, 0)
+    XCTAssertTrue(fixture.engine.requests.isEmpty)
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertNil(fixture.window.attachedSheet)
+  }
+
+  private func makeScreenshotComposer(compact: Bool = false, mode: ChatMode = .local,
+                                      provider: CloudProviderID = .openAI) async throws -> ScreenshotComposerFixture {
+    let suite = "ScreenshotComposer-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defaults.set(true, forKey: WelcomeSetup.completedKey)
+    defaults.set(true, forKey: "localModelOnboardingDismissed")
+    defaults.set(mode.rawValue, forKey: StartPreferences.modeKey)
+    let directory = FileManager.default.temporaryDirectory.appending(path: suite)
+    addTeardownBlock {
+      defaults.removePersistentDomain(forName: suite)
+      try? FileManager.default.removeItem(at: directory)
+    }
+    let model = LocalModel(id: "text", displayName: "Fixture text model", fileURL: directory.appending(path: "text.gguf"))
+    let engine = RepeatedPanelEngine(model: model)
+    let cloudProvider = ComposerScreenProvider()
+    let search = WebSearchSettings(credentials: PanelSearchCredentials(), defaults: defaults)
+    let chat = LocalChatViewModel(engine: engine,
+      cloudProviders: CloudProviderRegistry(openAI: cloudProvider, anthropic: cloudProvider, chatGPT: cloudProvider, gemini: cloudProvider),
+      webSearch: PanelSearch(), searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
+    await chat.refreshInstalledModel()
+    let capture = ComposerCapture()
+    let screen = ScreenComposerCoordinator(captureService: capture, ocrService: PreviewOCR())
+    let settings = ScreenSettings(defaults: defaults)
+    let credentials = ScreenTestCredentialStore(keys: [provider: "fixture"])
+    let cloud = CloudSettingsModel(credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(), cacheDirectory: directory),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false })
+    cloud.preferredProvider = provider
+    cloud.preferredModelID = provider == .gemini ? "gemini-2.5-flash" : provider == .anthropic ? "claude-sonnet-4-6" : "gpt-4o-mini"
+    let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
+    await advisor.start(installedModels: [model], presentOnboarding: false)
+    let appearance = GlassAppearanceSettings(defaults: defaults)
+    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
+      localChat: chat, screen: screen, screenSettings: settings, modelAdvisor: advisor, searchSettings: search,
+      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults))
+      .transaction { $0.disablesAnimations = true })
+    let sizes = PanelSizeStore(defaults: defaults)
+    sizes.save(NSSize(width: 752, height: 462))
+    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view, reduceMotion: { true })
+    controller.show()
+    await settleScreenshotView(view)
+    let window = try XCTUnwrap(view.window)
+    if compact {
+      let visible = try XCTUnwrap(window.screen?.visibleFrame)
+      controller.presentSelectionContext(ConversationContext(sourceName: "Test editor", text: "Selected passage fixture"),
+        cursor: NSPoint(x: visible.midX, y: visible.midY), selection: nil, visible: visible)
+      await settleScreenshotView(view)
+    }
+    return ScreenshotComposerFixture(controller: controller, window: window, view: view, screen: screen,
+      capture: capture, chat: chat, engine: engine, cloud: cloud, cloudProvider: cloudProvider, settings: settings)
+  }
+
+  private func editScreenshotComposer(_ text: String, in fixture: ScreenshotComposerFixture) async throws {
+    let editor = try composerField(in: fixture.view)
+    XCTAssertTrue(editor.isEditable)
+    editor.insertText(text, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+    XCTAssertEqual(fixture.screen.draft, text)
+    await settleScreenshotView(fixture.view)
+  }
+
+  private func settleScreenshotView(_ view: NSView) async {
+    for _ in 0..<5 { await Task.yield(); view.layoutSubtreeIfNeeded(); view.window?.displayIfNeeded() }
+  }
+
+  private func waitForScreenshotState(_ condition: @escaping () -> Bool) async {
+    let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in condition() }, object: nil)
+    await fulfillment(of: [ready], timeout: 5)
+  }
+
+  private func screenshotLabels(in view: NSView, name: String? = nil, candidates: Int = 1) throws -> [VNRecognizedText] {
     view.layoutSubtreeIfNeeded()
-    window.displayIfNeeded()
+    view.window?.displayIfNeeded()
     let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
-    let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-    try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Screen-Preview.png"))
-    let rendered = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-    rendered.name = "Screen composer states"
-    rendered.lifetime = .keepAlways
-    add(rendered)
+    if let name {
+      let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+      try png.write(to: URL(fileURLWithPath: "/tmp/Enigma-\(name).png"))
+      let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+      attachment.name = name
+      attachment.lifetime = .keepAlways
+      add(attachment)
+    }
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: XCTUnwrap(bitmap.cgImage)).perform([request])
+    return (request.results ?? []).flatMap { $0.topCandidates(candidates) }
   }
+
+  private func screenshotText(in view: NSView, name: String? = nil) throws -> String {
+    try screenshotLabels(in: view, name: name).map(\.string).joined(separator: " ").lowercased()
+  }
+
+  private func pressScreenshotControl(_ title: String, in view: NSView) throws {
+    let label = try XCTUnwrap(screenshotLabels(in: view).first { $0.string.contains(title) }, "Visible control: \(title)")
+    let range = try XCTUnwrap(label.string.range(of: title))
+    let bounds = try XCTUnwrap(label.boundingBox(for: range)).boundingBox
+    let point = NSPoint(x: bounds.midX * view.bounds.width,
+      y: (view.isFlipped ? 1 - bounds.midY : bounds.midY) * view.bounds.height)
+    let window = try XCTUnwrap(view.window)
+    // Synthetic events do not perform the window activation of a physical click.
+    window.makeKeyAndOrderFront(nil)
+    let location = view.convert(point, to: nil)
+    for type: NSEvent.EventType in [.leftMouseUp, .leftMouseDown] {
+      let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
+        modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+        windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+      if type == .leftMouseUp { NSApp.postEvent(event, atStart: true) }
+      else { window.sendEvent(event) }
+    }
+  }
+
 }
 
 private struct PresenceOnlyCredentials: CloudCredentialStore, WebSearchCredentialStore {
@@ -1046,4 +1267,46 @@ private final class ConversationTestDocument: NSView {
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
   override var isFlipped: Bool { usesFlippedCoordinates }
+}
+
+@MainActor
+private struct ScreenshotComposerFixture {
+  let controller: SpotlightPanelController
+  let window: NSWindow
+  let view: NSView
+  let screen: ScreenComposerCoordinator
+  let capture: ComposerCapture
+  let chat: LocalChatViewModel
+  let engine: RepeatedPanelEngine
+  let cloud: CloudSettingsModel
+  let cloudProvider: ComposerScreenProvider
+  let settings: ScreenSettings
+}
+
+@MainActor
+private final class ComposerCapture: ScreenCapturing {
+  var denied = false
+  private(set) var regionCount = 0
+  private(set) var desktopCount = 0
+  func prepareForCapture() throws {
+    if denied { throw ScreenCaptureError.permissionDenied }
+  }
+  func capture() async throws -> NSImage? {
+    regionCount += 1
+    return try await PreviewCapture().capture()
+  }
+  func captureDesktop() async throws -> NSImage? {
+    desktopCount += 1
+    return try await PreviewCapture().capture()
+  }
+}
+
+private final class ComposerScreenProvider: ChatProvider, @unchecked Sendable {
+  private let lock = NSLock()
+  private var captured: [ChatRequest] = []
+  var requests: [ChatRequest] { lock.withLock { captured } }
+  func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
+    lock.withLock { captured.append(request) }
+    return AsyncThrowingStream { $0.yield(.token("Fixture answer")); $0.yield(.completed); $0.finish() }
+  }
 }

@@ -6,6 +6,10 @@ always enabled and survives closing/reopening the windows. The panel stays
 visible and editable locally; capture exclusion does not dismiss it or stop a
 response. The existing manual hide shortcuts are unchanged.
 
+The screenshot-consent preview applies the same flag to its separate sheet
+window when the preview content attaches. It has the same capture-client
+limitations described below; its screenshot is not persisted to chat history.
+
 ## Zoom compatibility
 
 Zoom is the primary target. The flag requests exclusion from capture clients
@@ -34,7 +38,8 @@ Enigma does not change Zoom's preferences.
    result is an interactive local panel with the underlying content visible to
    the participant, without a blank rectangle or panel shadow.
 3. Start sharing both before and after opening Enigma. Stop/restart the
-   share, reopen the panel, and open Settings and the model menu. Check each
+   share, reopen the panel, and open Settings, the screenshot-consent preview,
+   and the model menu. Check each
    surface on the receiving screen.
 4. Repeat with the capture modes offered by the installed Zoom version,
    especially Auto and any legacy option. Separately test sharing an individual

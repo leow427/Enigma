@@ -225,6 +225,15 @@ access or a capture notice. Mode/model selection and slash suggestions also use
 popovers so they remain usable outside the short bar. Multi-line drafts resize the
 bar to the measured height of the preview and composer.
 
+Standalone `/screen` and `/snapshot` captures also add a screenshot thumbnail
+directly above the input, labeled **Full desktop · All displays** or **Screen region**.
+**Retake** repeats that capture type; **Remove** discards its image and OCR from
+the next request without removing the selected-text card or question. The bar
+resizes to keep these controls visible before sending; the details popover is
+not needed to find the screenshot. Cloud image consent previews the capture
+and names its actual scope and destination provider, as described in
+[Screen](Screen-Skill.md).
+
 The first accepted prompt grows the same panel upward from the bar with a brief
 spring overshoot. The composer stays at the bottom; the conversation and context
 appear above it. Placement keeps the window within the current display, shifting

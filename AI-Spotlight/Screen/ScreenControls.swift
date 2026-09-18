@@ -1,50 +1,7 @@
 import SwiftUI
 
-struct ScreenToolButton: View {
-  @ObservedObject var coordinator: ScreenComposerCoordinator
-  let isBusy: Bool
-  let capture: () -> Void
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-  var body: some View {
-    ZStack(alignment: .leading) {
-      if coordinator.isPresented {
-      Button {
-        if coordinator.attachment == nil { capture() }
-        else { coordinator.isEnabled.toggle() }
-      } label: {
-        Image("ScreenCapture")
-          .renderingMode(.template)
-          .resizable().scaledToFit()
-          .foregroundStyle(coordinator.isEnabled ? Color.orange : Color.secondary)
-          .frame(width: 22, height: 22)
-          .padding(4)
-          .background(coordinator.isEnabled ? Color.orange.opacity(0.12) : .clear,
-                      in: RoundedRectangle(cornerRadius: 7))
-          .scaleEffect(coordinator.isEnabled ? 1 : 0.9)
-      }
-      .buttonStyle(.plain)
-      .disabled(isBusy || coordinator.isBusy)
-      .accessibilityLabel("Screen")
-      .accessibilityValue(coordinator.isEnabled ? "On" : "Off")
-      .help(coordinator.isEnabled ? "Turn Screen off for this prompt" : "Turn Screen on. Hide inactive tools with ⌘⇧H.")
-      .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.72), value: coordinator.isEnabled)
-      .transition(reduceMotion ? .opacity : .scale(scale: 0.6, anchor: .leading).combined(with: .opacity))
-      }
-    }
-    .frame(width: coordinator.isPresented ? 30 : 0, height: 30, alignment: .leading)
-    .clipped()
-    .padding(.leading, coordinator.isPresented ? 10 : 0)
-    .onReceive(NotificationCenter.default.publisher(for: .hideInactiveToolsRequested)) { _ in
-      guard !isBusy, !coordinator.isBusy, !coordinator.isEnabled else { return }
-      coordinator.isPresented = false
-    }
-  }
-}
-
 struct ScreenAttachmentView: View {
   let attachment: ScreenAttachment
-  let isEnabled: Bool
   let isBusy: Bool
   let remove: () -> Void
   let retake: () -> Void
@@ -55,19 +12,65 @@ struct ScreenAttachmentView: View {
         .resizable().scaledToFit().frame(width: 76, height: 52)
         .background(.black.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .accessibilityLabel(attachment.source == .fullDesktop ? "Captured full desktop" : "Captured screen region")
+        .accessibilityLabel("Captured \(attachment.source.captureScope)")
       VStack(alignment: .leading, spacing: 3) {
-        Text(attachment.source == .fullDesktop ? "Full desktop" : "Screen region").font(.caption.weight(.medium))
-        Text(isEnabled ? attachment.status.rawValue : "Off · excluded from prompt")
+        Text(attachment.source.label).font(.caption.weight(.medium))
+        Text("Attached · \(attachment.status.rawValue)")
           .font(.caption2).foregroundStyle(.secondary)
       }
-      Spacer()
+      Spacer(minLength: 0)
       Button("Retake", action: retake).disabled(isBusy)
-      Button(action: remove) { Image(systemName: "xmark.circle.fill") }
-        .buttonStyle(.plain).accessibilityLabel("Remove screenshot").disabled(isBusy)
+        .accessibilityLabel("Retake screenshot")
+      Button("Remove", action: remove).disabled(isBusy)
+        .accessibilityLabel("Remove screenshot")
     }
+    .buttonStyle(.bordered).controlSize(.small)
     .padding(10)
     .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-    .opacity(isEnabled ? 1 : 0.65)
+  }
+}
+
+struct ScreenUploadConsentView: View {
+  let consent: ScreenUploadConsent
+  let allow: () -> Void
+  let decline: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      Text(consent.title).font(.headline)
+      Image(nsImage: consent.attachment.originalImage)
+        .resizable().scaledToFit().frame(maxWidth: .infinity).frame(height: 160)
+        .background(.black.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityLabel("Preview of \(consent.attachment.source.captureScope)")
+      Text(consent.explanation)
+      Text(ScreenSettings.savedPermissionExplanation)
+      Text(ScreenSettings.ocrExplanation).font(.caption).foregroundStyle(.secondary)
+      HStack {
+        Button("Keep Screenshots Local", action: decline)
+          .buttonStyle(.borderedProminent).tint(Color(white: 0.3))
+          .keyboardShortcut(.cancelAction)
+        Spacer()
+        Button("Allow & Send", action: allow)
+          .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+      }
+    }
+    .font(.callout)
+    .fixedSize(horizontal: false, vertical: true)
+    .padding(24).frame(width: 500)
+    .tint(NatureGlass.accent)
+    .background(ScreenConsentWindowPrivacy())
+  }
+}
+
+/// The preview sheet is a separate window; give it the panel's existing capture exclusion.
+private struct ScreenConsentWindowPrivacy: NSViewRepresentable {
+  func makeNSView(context: Context) -> PrivacyView { PrivacyView() }
+  func updateNSView(_ view: PrivacyView, context: Context) {}
+
+  final class PrivacyView: NSView {
+    override func viewDidMoveToWindow() {
+      super.viewDidMoveToWindow()
+      window?.sharingType = .none
+    }
   }
 }

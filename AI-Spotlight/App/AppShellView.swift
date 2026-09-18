@@ -248,9 +248,9 @@ struct AppShellView: View {
   @ObservedObject private var files: FileModeCoordinator
   @State private var isFileCloudConsentPresented = false
   @StateObject private var screen: ScreenComposerCoordinator
-  @ObservedObject private var screenSettings = ScreenSettings.shared
+  @ObservedObject private var screenSettings: ScreenSettings
   @ObservedObject private var connectivity = ScreenConnectivity.shared
-  @State private var isScreenPermissionPresented = false
+  @State private var screenUploadConsent: ScreenUploadConsent?
   private var draft: String {
     get { screen.draft }
     nonmutating set { screen.draft = newValue }
@@ -273,6 +273,7 @@ struct AppShellView: View {
     cloudProviders: CloudProviderRegistry = .live,
     localChat: LocalChatViewModel? = nil,
     screen: ScreenComposerCoordinator = ScreenComposerCoordinator(),
+    screenSettings: ScreenSettings = .shared,
     modelAdvisor: LocalModelAdvisor = .shared,
     searchSettings: WebSearchSettings = .shared,
     startPreferences: StartPreferences = .shared,
@@ -282,6 +283,7 @@ struct AppShellView: View {
     self.cloudSettings = cloudSettings
     self.modelAdvisor = modelAdvisor
     self.searchSettings = searchSettings
+    self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
     self.startPreferences = startPreferences
     _selectedMode = State(initialValue: startPreferences.mode)
@@ -329,10 +331,8 @@ struct AppShellView: View {
       if let notice = selectionContext.notice, localChat.isTemporaryChat {
         Text(notice).font(.caption).foregroundStyle(.secondary)
       }
-      if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
-        ScreenAttachmentView(attachment: attachment, isEnabled: screen.isEnabled,
-                             isBusy: localChat.isBusy || screen.isBusy,
-                             remove: screen.removeAttachment, retake: captureScreen)
+      if let attachment = screen.attachment, !isSelectionComposer, localChat.pendingUserMessage == nil {
+        screenshotAttachment(attachment)
       }
       if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
         VStack(alignment: .leading, spacing: 6) {
@@ -340,7 +340,7 @@ struct AppShellView: View {
           Text("Cloud image analysis needs your approval. Text can still be read locally.")
             .font(.caption).foregroundStyle(.secondary)
           HStack {
-            Button("Review screenshot permission…") { isScreenPermissionPresented = true }
+            Button("Review screenshot permission…", action: reviewScreenPermission)
             Button("Open Screen Settings", action: openConnectionSettings)
           }
           .buttonStyle(.bordered).controlSize(.small)
@@ -364,6 +364,16 @@ struct AppShellView: View {
       }
       FileChangeSummaryView(files: files, isBusy: localChat.isBusy)
     }
+  }
+
+  private func screenshotAttachment(_ attachment: ScreenAttachment) -> some View {
+    ScreenAttachmentView(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
+      remove: screen.removeAttachment, retake: captureScreen)
+      .sheet(item: $screenUploadConsent, onDismiss: { isComposerFocused = !localChat.isBusy }) { consent in
+        ScreenUploadConsentView(consent: consent,
+          allow: { answerScreenPermission(consent, allow: true) },
+          decline: { answerScreenPermission(consent, allow: false) })
+      }
   }
 
   private var shellLayout: some View {
@@ -399,6 +409,9 @@ struct AppShellView: View {
                     SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
                       localChat.removeContext(id: context.id)
                     }
+                  }
+                  if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
+                    screenshotAttachment(attachment)
                   }
                 } else {
                   composerAccessories
@@ -562,16 +575,6 @@ struct AppShellView: View {
           if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draft = handoff.prompt }
         }
       }))
-    .alert("Allow screenshot uploads?", isPresented: $isScreenPermissionPresented) {
-      Button("Allow & Send") {
-        screenSettings.answerCloudPermission(allow: true)
-        submitDraft()
-      }
-      Button("Keep Screenshots Local", role: .cancel) {
-        screenSettings.answerCloudPermission(allow: false)
-        screen.error = "Screenshot kept on this Mac. Use a local vision model, or enable uploads in Screen settings."
-      }
-    } message: { Text(ScreenSettings.permissionExplanation) }
     .onChange(of: localChat.isBusy) { _, busy in
       // A disabled TextField cannot take focus at first-token acceptance.
       // Restore its editor only after the owning request has finished.
@@ -1350,7 +1353,7 @@ struct AppShellView: View {
     screen.error = nil
     switch decision {
     case .needsCloudPermission:
-      isScreenPermissionPresented = true
+      reviewScreenPermission()
     case .blocked(let reason):
       screen.error = reason
     case .text, .vision:
@@ -1362,6 +1365,25 @@ struct AppShellView: View {
           if screen.attachment?.id == attachment.id { screen.removeAttachment() }
           isComposerFocused = true
         }
+    }
+  }
+
+  private func reviewScreenPermission() {
+    guard selectedMode != .local, let attachment = screen.attachment else { return }
+    isSelectionDetailsPresented = false
+    screenUploadConsent = ScreenUploadConsent(attachment: attachment, provider: cloudSettings.preferredProvider)
+  }
+
+  private func answerScreenPermission(_ consent: ScreenUploadConsent, allow: Bool) {
+    screenUploadConsent = nil
+    // A replaced draft or destination must not inherit an unseen image's approval.
+    guard screen.attachment?.id == consent.attachment.id,
+          cloudSettings.preferredProvider == consent.provider, selectedMode != .local else { return }
+    screenSettings.answerCloudPermission(allow: allow)
+    if allow {
+      submitDraft() // Recheck the current route and permission before sending pixels.
+    } else {
+      screen.error = "Screenshot kept on this Mac. Use a local vision model, or enable uploads in Screen settings."
     }
   }
 

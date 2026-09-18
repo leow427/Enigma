@@ -3,7 +3,16 @@ import AppKit
 /// Full-resolution draft data. Neither originals nor sent-message previews enter chat storage.
 @MainActor
 struct ScreenAttachment: Identifiable {
-  enum Source: String { case screenRegion, fullDesktop }
+  enum Source: String {
+    case screenRegion, fullDesktop
+
+    var label: String {
+      self == .fullDesktop ? "Full desktop · All displays" : "Screen region"
+    }
+    var captureScope: String {
+      self == .fullDesktop ? "the full desktop, including all displays" : "the selected region"
+    }
+  }
   enum Status: String { case captured = "Screenshot", reading = "Reading text…", localOCR = "Local OCR", vision = "Vision" }
   let id = UUID()
   let originalImage: NSImage

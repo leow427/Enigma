@@ -10,6 +10,14 @@ literal text. For example, `/screen /translate to Spanish` captures and requests
 read-only translation. See [Selection Context](Selection-Context.md) for editing
 and translation behavior.
 
+Both the full panel and compact selection composer show the attached screenshot
+directly above the input, with a thumbnail, capture scope, **Retake**, and **Remove**.
+The desktop label explicitly includes all displays. A standalone capture waits
+for a question without expanding the compact conversation. Remove discards the
+image and its OCR from the next request while preserving the question and any
+selected text. Hide Inactive Tools does not hide or disable an attachment; the
+obsolete Screen toggle has been removed.
+
 Use **/think your question** to request more reasoning for one answer. The local
 server enables thinking and reserves 2,048 output tokens, with 1,024 available for
 reasoning; ordinary replies keep their existing 512-token budget. File Mode also
@@ -54,6 +62,18 @@ and its explanation remain in **Screen** settings, off by default. Revocation is
 checked before every image-bearing request and after retrieval. Cloud OCR can send
 extracted text under the existing routing policy; permission specifically controls
 image uploads. Local mode keeps both OCR and pixels local to model inference.
+
+When cloud image permission is needed, the consent sheet names the selected
+provider and the actual capture scope: **selected region** for `/snapshot`, or
+**full desktop, including all displays** for `/screen`. Its preview fits the whole
+captured image without cropping. **Allow & Send** saves the existing global
+preference: future region and full-desktop images may go to whichever cloud
+provider is selected in Auto or Cloud, until disabled in **Settings → Screen**.
+It is not limited to this image or provider. **Keep Screenshots Local** denies
+image uploads and keeps the attachment and draft for another route. OCR text
+remains distinct from image uploads. A capture or provider replaced while the
+sheet is open cannot inherit that sheet's approval.
+See [consent and attachment verification](Screen-Consent-and-Attachments.md).
 
 ## Search controls retrieval
 

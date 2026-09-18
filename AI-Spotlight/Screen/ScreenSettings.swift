@@ -31,7 +31,21 @@ final class ScreenSettings: ObservableObject {
     allowCloudScreenshots = allow
   }
 
-  static let permissionExplanation = "Text is read locally first. This question needs the image itself. Allowing screenshots sends the selected region to your selected cloud provider, where that provider’s data policies apply. This setting applies to future screenshots and can be turned off in Settings. Local mode always keeps screenshots on this Mac."
+  static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Screen. Local mode keeps images on this Mac."
+  static let ocrExplanation = "OCR reads text on this Mac. In Auto or Cloud, extracted text may go to your text model without uploading an image."
+}
+
+@MainActor
+struct ScreenUploadConsent: Identifiable {
+  let id = UUID()
+  let attachment: ScreenAttachment
+  let provider: CloudProviderID
+  var title: String {
+    "Send \(attachment.source == .fullDesktop ? "full desktop" : "selected region") to \(provider.displayName)?"
+  }
+  var explanation: String {
+    "This image captures \(attachment.source.captureScope). It will be sent to \(provider.displayName) for image analysis, under that provider’s data policies."
+  }
 }
 
 struct ScreenSettingsSection: View {
@@ -39,7 +53,9 @@ struct ScreenSettingsSection: View {
   var body: some View {
     Section("Screen") {
       Toggle("Allow screenshots to be sent to cloud models", isOn: $settings.allowCloudScreenshots)
-      Text("Off by default. OCR runs on this Mac. In Auto or Cloud, extracted text may be sent to your text model. Actual screenshot images require this permission; Local mode stays local.")
+      Text("Off by default. " + ScreenSettings.savedPermissionExplanation)
+        .font(.caption).foregroundStyle(.secondary)
+      Text(ScreenSettings.ocrExplanation)
         .font(.caption).foregroundStyle(.secondary)
       Text("The normal model picker selects the model for text and images. Install a recommended package in Local Models for private visual analysis.")
         .font(.caption).foregroundStyle(.secondary)
