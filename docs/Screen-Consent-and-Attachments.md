@@ -49,6 +49,13 @@ capture/OCR and provider boundaries keep these cases offline:
 The obsolete isolated ScreenToolButton render tests are replaced by these live
 shell checks. Test screenshots contain synthetic content only.
 
+Native renders use a fixed 3× scale rather than the runner's display scale, and
+clicks wait for their rendered controls after sheet/capture restoration. Exact
+provider-name OCR uses Gemini and Anthropic to avoid the indistinguishable
+OpenAI `I`/lowercase `l` glyph reading; the approval test verifies OpenAI's actual
+image request destination. Preview checks preserve both lines of captured text
+while allowing OCR's word-spacing differences.
+
 ## UI review
 
 These native test renders are checked in as UI documentation. The sheet's native
@@ -71,6 +78,16 @@ material background is a separate surface; bitmap caching records its content.
   includes all new composer checks, existing search regressions, and the
   unchanged welcome and selection tests.
 - `git diff --check`: passed.
+
+The follow-up full local run passed all 24 Screen view tests but hit an
+intermittent `testChatBecomesEditableImmediatelyAfterEveryWelcomeExit` failure
+(the click hit an `NSClipView`). A comparison using the pre-change `51b9b25`
+source reproduced the same failure in two of three fresh test-host launches.
+Welcome code and assertions remain unchanged; this is a known local verification
+limitation, separate from the screenshot cases. The initial CI failures in the
+new screenshot checks concerned OCR glyph/spacing differences and control
+readiness; their corrected render and native mouse-event helpers retain the
+scope, preview, removal, and request-permission assertions above.
 
 The empty composer retains its existing layout. The shared screenshot card and
 its consent sheet are mounted only when an attachment exists; dismissing consent

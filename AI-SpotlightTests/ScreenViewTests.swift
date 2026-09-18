@@ -897,13 +897,13 @@ final class ScreenViewTests: XCTestCase {
       NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
       await settleScreenshotView(fixture.view)
       XCTAssertEqual(fixture.screen.attachment?.id, originalID)
-      try pressScreenshotControl("Retake", in: fixture.view)
+      try await pressScreenshotControl("Retake", in: fixture.view)
       await waitForScreenshotState { fixture.screen.attachment?.id != originalID && !fixture.screen.isBusy }
       XCTAssertEqual(fixture.capture.desktopCount, command == "/screen" ? 2 : 0)
       XCTAssertEqual(fixture.capture.regionCount, command == "/snapshot" ? 2 : 0)
       XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
       await settleScreenshotView(fixture.view)
-      try pressScreenshotControl("Remove", in: fixture.view)
+      try await pressScreenshotControl("Remove", in: fixture.view)
       await waitForScreenshotState { fixture.screen.attachment == nil }
       XCTAssertFalse(fixture.screen.isEnabled)
       XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
@@ -923,7 +923,9 @@ final class ScreenViewTests: XCTestCase {
   }
 
   func testRealComposerConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
-    for (command, provider) in [("/screen", CloudProviderID.openAI), ("/snapshot", .anthropic)] {
+    // Use unambiguous provider glyphs for exact native OCR assertions. The image
+    // approval test separately verifies OpenAI as the actual request destination.
+    for (command, provider) in [("/screen", CloudProviderID.gemini), ("/snapshot", .anthropic)] {
       let fixture = try await makeScreenshotComposer(compact: command == "/snapshot", mode: .cloud, provider: provider)
       defer { fixture.controller.hide(); fixture.window.contentView = nil }
       try await editScreenshotComposer(command + " What color is this?", in: fixture)
@@ -933,19 +935,20 @@ final class ScreenViewTests: XCTestCase {
       await settleScreenshotView(sheet)
       XCTAssertEqual(sheet.window?.sharingType, .none as NSWindow.SharingType)
       let text = try screenshotText(in: sheet, name: "consent-\(command.dropFirst())")
-      // Vision's top reading can confuse OpenAI's I with l; retain its alternate readings.
-      let labels = try screenshotLabels(in: sheet, candidates: 3).map(\.string)
-      XCTAssertTrue(labels.contains(command == "/screen" ? "Send full desktop to OpenAI?" : "Send selected region to Anthropic?"), "\(labels)")
+      let labels = try screenshotLabels(in: sheet).map(\.string)
+      XCTAssertTrue(labels.contains(command == "/screen" ? "Send full desktop to Gemini?" : "Send selected region to Anthropic?"), "\(labels)")
       XCTAssertTrue(text.contains(command == "/screen" ? "send full desktop to" : "send selected region to"), text)
       XCTAssertTrue(text.contains(command == "/screen" ? "captures the full desktop, including all displays" : "captures the selected region"), text)
-      XCTAssertTrue(text.contains("values.count"), "The actual captured image must be previewed: \(text)")
+      let previewText = text.filter { !$0.isWhitespace }
+      XCTAssertTrue(previewText.contains("letanswer=values.count") && previewText.contains("print(answer)"),
+        "Both lines of the actual captured image must be previewed: \(text)")
       XCTAssertTrue(text.contains("future region and full-desktop screenshots"), text)
       XCTAssertTrue(text.contains("whichever cloud provider"), text)
       XCTAssertTrue(text.contains("without uploading an image"), text)
       XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
       XCTAssertFalse(fixture.settings.allowCloudScreenshots)
       let attachmentID = fixture.screen.attachment?.id
-      try pressScreenshotControl("Keep Screenshots Local", in: sheet)
+      try await pressScreenshotControl("Keep Screenshots Local", in: sheet)
       await waitForScreenshotState { fixture.window.attachedSheet == nil }
       XCTAssertFalse(fixture.settings.allowCloudScreenshots)
       XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
@@ -960,22 +963,22 @@ final class ScreenViewTests: XCTestCase {
   }
 
   func testRealComposerConsentAllowsImageAndRevocationBlocksNextCapture() async throws {
-    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .gemini)
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .openAI)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     try await editScreenshotComposer("/screen What color is this?", in: fixture)
     try submitComposer(in: fixture.view)
     await waitForScreenshotState { fixture.window.attachedSheet != nil }
     let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
     await settleScreenshotView(sheet)
-    XCTAssertTrue(try screenshotText(in: sheet).contains("send full desktop to gemini"))
-    try pressScreenshotControl("Allow & Send", in: sheet)
+    XCTAssertTrue(try screenshotText(in: sheet).contains("send full desktop to"))
+    try await pressScreenshotControl("Allow & Send", in: sheet)
     await waitForScreenshotState { fixture.cloudProvider.requests.count == 1 && !fixture.chat.isBusy }
     XCTAssertTrue(fixture.settings.allowCloudScreenshots)
     XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
     let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
     XCTAssertNotNil(request.image)
     XCTAssertTrue(request.allowsCloudImages)
-    XCTAssertEqual(request.route.providerID, CloudProviderID.gemini.rawValue)
+    XCTAssertEqual(request.route.providerID, CloudProviderID.openAI.rawValue)
     XCTAssertNil(fixture.screen.attachment)
     XCTAssertEqual(fixture.screen.draft, "")
     fixture.settings.allowCloudScreenshots = false
@@ -1003,7 +1006,7 @@ final class ScreenViewTests: XCTestCase {
         fixture.cloud.preferredProvider = .anthropic
         fixture.cloud.preferredModelID = "claude-sonnet-4-6"
       }
-      try pressScreenshotControl("Allow & Send", in: sheet)
+      try await pressScreenshotControl("Allow & Send", in: sheet)
       await waitForScreenshotState { fixture.window.attachedSheet == nil }
       XCTAssertFalse(fixture.settings.allowCloudScreenshots)
       XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
@@ -1132,7 +1135,13 @@ final class ScreenViewTests: XCTestCase {
   private func screenshotLabels(in view: NSView, name: String? = nil, candidates: Int = 1) throws -> [VNRecognizedText] {
     view.layoutSubtreeIfNeeded()
     view.window?.displayIfNeeded()
-    let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    // CI can use a 1× display. Render native content at a fixed scale so caption
+    // and provider-name verification does not depend on the runner's screen.
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil,
+      pixelsWide: Int((view.bounds.width * 3).rounded()), pixelsHigh: Int((view.bounds.height * 3).rounded()),
+      bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+      colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = view.bounds.size
     view.cacheDisplay(in: view.bounds, to: bitmap)
     if let name {
       let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
@@ -1152,22 +1161,27 @@ final class ScreenViewTests: XCTestCase {
     try screenshotLabels(in: view, name: name).map(\.string).joined(separator: " ").lowercased()
   }
 
-  private func pressScreenshotControl(_ title: String, in view: NSView) throws {
-    let label = try XCTUnwrap(screenshotLabels(in: view).first { $0.string.contains(title) }, "Visible control: \(title)")
+  private func pressScreenshotControl(_ title: String, in view: NSView) async throws {
+    let window = try XCTUnwrap(view.window)
+    // Synthetic events do not perform the window activation of a physical click.
+    window.makeKeyAndOrderFront(nil)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    var renderedLabel: VNRecognizedText?
+    repeat {
+      await settleScreenshotView(view)
+      renderedLabel = try screenshotLabels(in: view, candidates: 3).first { $0.string.contains(title) }
+    } while renderedLabel == nil && ContinuousClock.now < deadline
+    let label = try XCTUnwrap(renderedLabel, "Visible control: \(title)")
     let range = try XCTUnwrap(label.string.range(of: title))
     let bounds = try XCTUnwrap(label.boundingBox(for: range)).boundingBox
     let point = NSPoint(x: bounds.midX * view.bounds.width,
       y: (view.isFlipped ? 1 - bounds.midY : bounds.midY) * view.bounds.height)
-    let window = try XCTUnwrap(view.window)
-    // Synthetic events do not perform the window activation of a physical click.
-    window.makeKeyAndOrderFront(nil)
     let location = view.convert(point, to: nil)
-    for type: NSEvent.EventType in [.leftMouseUp, .leftMouseDown] {
+    for type: NSEvent.EventType in [.leftMouseDown, .leftMouseUp] {
       let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
         modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
         windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-      if type == .leftMouseUp { NSApp.postEvent(event, atStart: true) }
-      else { window.sendEvent(event) }
+      window.sendEvent(event)
     }
   }
 
