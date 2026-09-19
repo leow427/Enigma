@@ -61,6 +61,7 @@ final class WebSearchTests: XCTestCase {
       let context = localRequests.last?.prompt ?? cloud.requests.last?.messages.last?.content ?? ""
       XCTAssertTrue(context.contains("Approximate current location: Chicago"))
       XCTAssertEqual(model.messages.first?.content, prompt)
+      await model.sessionWriter.waitForPendingWrites()
       let saved = String(decoding: try JSONEncoder().encode(store.load()), as: UTF8.self)
       XCTAssertFalse(saved.contains("41.88"))
       model.submitCloud("Weather in Copenhagen", provider: .chatGPT, modelID: "model")
@@ -606,6 +607,7 @@ final class WebSearchTests: XCTestCase {
       XCTAssertEqual(model.messages.first?.content, prompt)
       XCTAssertEqual(model.messages.last?.searchSources, fixtureResults.map(\.source))
       XCTAssertEqual(model.messages.last?.content, "Answer")
+      await model.sessionWriter.waitForPendingWrites()
       let saved = try XCTUnwrap(store.load().first?.messages)
       XCTAssertEqual(saved.map(\.id), model.messages.map(\.id))
       XCTAssertEqual(saved.map(\.role), model.messages.map(\.role))

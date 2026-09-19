@@ -328,6 +328,7 @@ final class CloudModeTests: XCTestCase {
       viewModel.submitCloud(draft, provider: provider, modelID: "manual", onAccepted: { draft = "" })
       XCTAssertEqual(draft, "")
       await fulfillment(of: [ended], timeout: 2)
+      await viewModel.sessionWriter.waitForPendingWrites()
       XCTAssertEqual(Array(store.load()[0].messages.prefix(4)), persistedOriginal)
       XCTAssertEqual(store.load()[0].messages.count, 6)
       XCTAssertNotNil(viewModel.contextNotice)

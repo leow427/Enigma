@@ -8,13 +8,18 @@ import XCTest
 final class FileModeUITests: XCTestCase {
   private var root: URL!
   private var project: URL!
+  private var sessionWriters: [ChatSessionWriter] = []
   override func setUp() async throws {
     root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     project = root.appendingPathComponent("MyProject")
     try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
     try Data("Hello".utf8).write(to: project.appendingPathComponent("hello.txt"))
   }
-  override func tearDown() async throws { try FileManager.default.removeItem(at: root) }
+  override func tearDown() async throws {
+    for writer in sessionWriters { await writer.waitForPendingWrites() }
+    sessionWriters = []
+    try FileManager.default.removeItem(at: root)
+  }
 
   func testInactiveFileButtonHasVisibleHitTarget() {
     let files = FileModeCoordinator(journalDirectory: root.appendingPathComponent("Recovery"))
@@ -64,6 +69,7 @@ final class FileModeUITests: XCTestCase {
     let picker = FileTestPicker([project])
     let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     let screen = ScreenComposerCoordinator()
     screen.draft = "Keep my draft"
     let suite = "FileModePanel-\(UUID())"
@@ -97,8 +103,10 @@ final class FileModeUITests: XCTestCase {
     let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
     let store = ChatSessionStore(applicationSupportDirectory: root)
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, sessionStore: store)
+    sessionWriters.append(chat.sessionWriter)
     await files.activate(from: .menu)
     let sessionID = try XCTUnwrap(chat.selectedSessionID)
+    await chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(store.load().first?.workspace, files.selection)
     chat.newChat()
     XCTAssertNil(files.selection)
@@ -116,6 +124,7 @@ final class FileModeUITests: XCTestCase {
     let chat = LocalChatViewModel(engine: engine, files: files, fileInference: inference,
       fileCloudAvailability: { XCTFail("Safe writes must not check cloud availability"); return .available(modelID: "unused") },
       sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     await chat.refreshInstalledModel()
     await files.activate(from: .menu)
     let finished = expectation(description: "Local file task completed")
@@ -151,6 +160,7 @@ final class FileModeUITests: XCTestCase {
     let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: FileTranslationInference(),
       sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     await chat.refreshInstalledModel()
     await files.activate(from: .menu)
     let finished = expectation(description: "Read-only translation completed")
@@ -169,6 +179,7 @@ final class FileModeUITests: XCTestCase {
     let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: FileUITestInference(),
       sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     await chat.refreshInstalledModel()
     await files.activate(from: .menu)
     let finished = expectation(description: "Local edit completed")
@@ -190,6 +201,7 @@ final class FileModeUITests: XCTestCase {
     let inference = FileUITestInference(path: "code.swift")
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: inference,
       fileCloudAvailability: { .available(modelID: "configured-codex") }, sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     await chat.refreshInstalledModel()
     await files.activate(from: .menu)
     let finished = expectation(description: "Protected edit paused")
@@ -217,6 +229,7 @@ final class FileModeUITests: XCTestCase {
     let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, fileInference: FileUITestInference(path: "code.swift"),
       fileCloudAvailability: { .unavailable(reason: "No compatible cloud model.") }, sessionStore: .init(applicationSupportDirectory: root))
+    sessionWriters.append(chat.sessionWriter)
     await chat.refreshInstalledModel()
     await files.activate(from: .menu)
     let finished = expectation(description: "Fallback edit completed")

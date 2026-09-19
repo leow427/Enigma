@@ -933,6 +933,7 @@ final class SelectionContextTests: XCTestCase {
       XCTAssertTrue(engine.lastRequest?.prompt.contains(context.text) == true)
       XCTAssertEqual(chat.messages.filter { $0.role == .user }.last?.content, prompt)
     }
+    await chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("chats.json")), savedData)
     chat.removeContext(id: context.id)
     XCTAssertEqual(chat.attachedContexts, [])
@@ -944,6 +945,7 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertFalse(chat.isTemporaryChat)
     XCTAssertEqual(chat.sessions.count, 5)
     XCTAssertEqual(chat.messages.first?.content, "Keep me")
+    await chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("chats.json")), savedData)
   }
 

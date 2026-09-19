@@ -715,6 +715,7 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertTrue(window.firstResponder === (try composerField(in: view)), "The completed request must return keyboard focus to the composer")
       XCTAssertFalse(window.ignoresMouseEvents)
     }
+    await chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(store.load().first?.messages.filter { $0.role == .user }.map(\.content),
       ["Explain the code in capture 1.", "Explain the code in capture 2."])
 
@@ -1064,8 +1065,50 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNil(fixture.window.attachedSheet)
   }
 
+  func testRealComposerStopAndTypingRemainResponsiveWhileArchiveWriteIsBlocked() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: "StreamingComposer-\(UUID())")
+    addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+    let probe = ChatArchiveWriteProbe(store: ChatSessionStore(applicationSupportDirectory: directory), blockFirst: true)
+    defer { probe.release() }
+    let writer = ChatSessionWriter(write: probe.write)
+    let stream = AsyncThrowingStream<String, Error>.makeStream()
+    let cancelled = expectation(description: "Stop cancels the producer while disk is blocked")
+    stream.continuation.onTermination = { if case .cancelled = $0 { cancelled.fulfill() } }
+    let fixture = try await makeScreenshotComposer(sessionWriter: writer, response: stream.stream)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("Stream a response", in: fixture)
+    try submitComposer(in: fixture.view)
+    await fulfillment(of: [probe.started], timeout: 2)
+    let visible = expectation(description: "Fast stream is visible while disk is blocked")
+    let observation = fixture.chat.$sessions.filter { $0.first?.messages.last?.content.count == 500 }
+      .prefix(1).sink { _ in visible.fulfill() }
+    for _ in 0..<500 { stream.continuation.yield("x") }
+    await fulfillment(of: [visible], timeout: 5)
+    observation.cancel()
+    await settleScreenshotView(fixture.view)
+    XCTAssertFalse(try composerField(in: fixture.view).isEditable, "Preserve the existing busy-composer policy")
+
+    // Exercise the actual shell's Stop command and native editor binding. No
+    // archive release or wall-clock latency threshold is needed to prove progress.
+    NotificationCenter.default.post(name: .stopStreamingRequested, object: nil)
+    await fulfillment(of: [cancelled], timeout: 2)
+    await waitForScreenshotState { (try? self.composerField(in: fixture.view).isEditable) == true }
+    try await editScreenshotComposer("Typing works before the archive finishes", in: fixture)
+    XCTAssertFalse(fixture.chat.isBusy)
+    XCTAssertEqual(probe.snapshots.count, 1)
+    XCTAssertEqual(fixture.chat.messages.last?.content, String(repeating: "x", count: 500))
+    XCTAssertEqual(fixture.screen.draft, "Typing works before the archive finishes")
+
+    probe.release()
+    await writer.waitForPendingWrites()
+    XCTAssertEqual(probe.snapshots.count, 2)
+    XCTAssertEqual(probe.store.load().first?.messages.last?.content, String(repeating: "x", count: 500))
+  }
+
   private func makeScreenshotComposer(compact: Bool = false, mode: ChatMode = .local,
-                                      provider: CloudProviderID = .openAI) async throws -> ScreenshotComposerFixture {
+                                      provider: CloudProviderID = .openAI,
+                                      sessionWriter: ChatSessionWriter? = nil,
+                                      response: AsyncThrowingStream<String, Error>? = nil) async throws -> ScreenshotComposerFixture {
     let suite = "ScreenshotComposer-\(UUID())"
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
     defaults.set(true, forKey: WelcomeSetup.completedKey)
@@ -1077,12 +1120,13 @@ final class ScreenViewTests: XCTestCase {
       try? FileManager.default.removeItem(at: directory)
     }
     let model = LocalModel(id: "text", displayName: "Fixture text model", fileURL: directory.appending(path: "text.gguf"))
-    let engine = RepeatedPanelEngine(model: model)
+    let engine = RepeatedPanelEngine(model: model, response: response)
     let cloudProvider = ComposerScreenProvider()
     let search = WebSearchSettings(credentials: PanelSearchCredentials(), defaults: defaults)
     let chat = LocalChatViewModel(engine: engine,
       cloudProviders: CloudProviderRegistry(openAI: cloudProvider, anthropic: cloudProvider, chatGPT: cloudProvider, gemini: cloudProvider),
-      webSearch: PanelSearch(), searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
+      webSearch: PanelSearch(), searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory),
+      sessionWriter: sessionWriter)
     await chat.refreshInstalledModel()
     let capture = ComposerCapture()
     let screen = ScreenComposerCoordinator(captureService: capture, ocrService: PreviewOCR())
@@ -1258,10 +1302,14 @@ private struct PreviewOCR: ScreenOCRReading {
 
 private final class RepeatedPanelEngine: LocalModelEngine, @unchecked Sendable {
   let model: LocalModel
+  private let response: AsyncThrowingStream<String, Error>?
   private let lock = NSLock()
   private var captured: [LocalModelRequest] = []
   var requests: [LocalModelRequest] { lock.withLock { captured } }
-  init(model: LocalModel) { self.model = model }
+  init(model: LocalModel, response: AsyncThrowingStream<String, Error>? = nil) {
+    self.model = model
+    self.response = response
+  }
   func installedModel() async -> LocalModel? { model }
   func installedModels() async -> [LocalModel] { [model] }
   func install(_ model: LocalModel) async throws {}
@@ -1269,6 +1317,7 @@ private final class RepeatedPanelEngine: LocalModelEngine, @unchecked Sendable {
   func download(_ model: LocalModelDescriptor, progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel { self.model }
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
     lock.withLock { captured.append(request) }
+    if let response { return response }
     return AsyncThrowingStream { $0.yield("The answer is values.count."); $0.finish() }
   }
   func unload() async {}

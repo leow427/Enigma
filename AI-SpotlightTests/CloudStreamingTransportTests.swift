@@ -240,6 +240,7 @@ final class CloudStreamingTransportTests: XCTestCase {
       XCTAssertFalse(viewModel.isBusy)
       XCTAssertNil(viewModel.activeRequest)
       XCTAssertEqual(viewModel.messages.map(\.content), ["Question", "Saved partial 🦊"])
+      await viewModel.sessionWriter.waitForPendingWrites()
       XCTAssertEqual(store.load().first?.messages.map(\.content), ["Question", "Saved partial 🦊"])
     }
   }

@@ -132,7 +132,6 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   var isBusy: Bool {
-    // A persistence error must not make a live request accept another submission.
     if isApplyingSelection || activeRequest != nil || generationTask != nil || installationTask != nil || files.isWorking || files.isPicking { return true }
     switch state {
     case .installing, .deleting, .downloading, .benchmarking, .preparing, .refiningSearch, .searching, .streaming: return true
@@ -151,7 +150,7 @@ final class LocalChatViewModel: ObservableObject {
   private var requestLocationContext: String?
   private let webSearch: any WebSearchProvider
   private let cloudProviders: CloudProviderRegistry
-  private let sessionStore: ChatSessionStore
+  let sessionWriter: ChatSessionWriter
   private let idleUnloadDelay: Duration
   private let sleep: Sleep
   private var generationTask: Task<Void, Never>?
@@ -173,6 +172,7 @@ final class LocalChatViewModel: ObservableObject {
     searchSettings: WebSearchSettings? = nil,
     locationProvider: (any LocationProviding)? = nil,
     sessionStore: ChatSessionStore = ChatSessionStore(),
+    sessionWriter: ChatSessionWriter? = nil,
     idleUnloadDelay: Duration = .seconds(300),
     sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) }
   ) {
@@ -193,7 +193,7 @@ final class LocalChatViewModel: ObservableObject {
     self.searchSettings = searchSettings
     self.locationProvider = locationProvider
     self.cloudProviders = cloudProviders
-    self.sessionStore = sessionStore
+    self.sessionWriter = sessionWriter ?? ChatSessionWriter { try sessionStore.save($0) }
     self.idleUnloadDelay = idleUnloadDelay
     self.sleep = sleep
     sessions = sessionStore.load()
@@ -924,6 +924,7 @@ final class LocalChatViewModel: ObservableObject {
     generationTask = nil
     state = .idle
     task.cancel()
+    sessionWriter.flush()
     return task
   }
 
@@ -969,6 +970,7 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func applicationBecameInactive() {
+    sessionWriter.flush()
     idleUnloadTask?.cancel()
     idleUnloadTask = Task { [weak self, engine, visionEngine, idleUnloadDelay, sleep] in
       do {
@@ -1013,7 +1015,8 @@ final class LocalChatViewModel: ObservableObject {
     }
     sessions[sessionIndex].messages[messageIndex].content.append(fragment)
     sessions[sessionIndex].lastActivityAt = .now
-    sortAndPersistSessions()
+    // Appending the assistant message already put this session first and applied retention.
+    persistSessions(immediately: false)
   }
 
   private func sortAndPersistSessions() {
@@ -1024,10 +1027,12 @@ final class LocalChatViewModel: ObservableObject {
     persistSessions()
   }
 
-  private func persistSessions() {
+  private func persistSessions(immediately: Bool = true) {
     guard !isTemporaryChat else { return }
-    do { try sessionStore.save(sessions.filter { $0.id != temporarySessionID }) }
-    catch { state = .failed("Unable to save chats: \(error.localizedDescription)") }
+    sessionWriter.schedule(immediately: immediately) { [weak self] in
+      guard let self else { return nil }
+      return self.sessions.filter { $0.id != self.temporarySessionID }
+    }
   }
 
   private func finishInstallation() {
@@ -1240,5 +1245,6 @@ final class LocalChatViewModel: ObservableObject {
     pendingUserMessage = nil
     generationTask = nil
     state = error.map { .failed($0.localizedDescription) } ?? .idle
+    sessionWriter.flush()
   }
 }

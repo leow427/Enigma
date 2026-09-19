@@ -220,6 +220,7 @@ final class LocalInferenceTests: XCTestCase {
     viewModel.submit("Third question")
     await waitUntil { viewModel.state == .idle && viewModel.messages.count == 6 }
     XCTAssertEqual(engine.requests[3].messages.map(\.content), ["First question", "response", "Second question", "response", "Third question"])
+    await viewModel.sessionWriter.waitForPendingWrites()
     let saved = try XCTUnwrap(store.load().first { $0.id == firstSession }?.messages)
     XCTAssertEqual(saved.map(\.id), viewModel.messages.map(\.id))
     XCTAssertEqual(saved.map(\.role), viewModel.messages.map(\.role))
@@ -242,6 +243,7 @@ final class LocalInferenceTests: XCTestCase {
     viewModel.submit("current")
     await waitUntil { viewModel.state == .idle && engine.requests.count == 1 }
     XCTAssertEqual(engine.requests[0].messages.map(\.content), ["recent", "recent reply", "current"])
+    await viewModel.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(Array(store.load()[0].messages.prefix(4)), persistedOriginal)
     XCTAssertEqual(store.load()[0].messages.count, 6)
     XCTAssertNotNil(viewModel.contextNotice)
@@ -251,22 +253,27 @@ final class LocalInferenceTests: XCTestCase {
   func testContextRejectionPreservesDraftAndDoesNotPersistOrGenerate() async {
     let engine = MockLocalModelEngine(installedModel: fixtureModel())
     let store = makeSessionStore()
-    let viewModel = LocalChatViewModel(engine: engine, sessionStore: store)
+    let probe = ChatArchiveWriteProbe(store: store)
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: store,
+      sessionWriter: ChatSessionWriter(write: probe.write))
     let original = "  " + String(repeating: "x", count: 40_000) + "\n"
     var draft = original
     viewModel.submit(draft, onAccepted: { draft = "" })
     await waitUntil { if case .failed = viewModel.state { return true }; return false }
     XCTAssertEqual(draft, original)
     XCTAssertTrue(engine.requests.isEmpty)
+    await viewModel.sessionWriter.waitForPendingWrites()
     XCTAssertTrue(store.load().isEmpty)
     for provider in CloudProviderID.allCases {
       viewModel.submitCloud(draft, provider: provider, modelID: "manual", onAccepted: { draft = "" })
       XCTAssertEqual(draft, original)
       XCTAssertTrue(viewModel.messages.isEmpty)
+      await viewModel.sessionWriter.waitForPendingWrites()
       XCTAssertTrue(store.load().isEmpty)
       guard case .failed(let message) = viewModel.state else { return XCTFail("Expected context rejection") }
       XCTAssertTrue(message.contains("Shorten"))
     }
+    XCTAssertTrue(probe.snapshots.isEmpty, "A rejected draft must not schedule an archive write")
   }
 
   @MainActor

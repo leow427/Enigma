@@ -413,14 +413,118 @@ final class RequestLifecycleTests: XCTestCase {
     await fulfillment(of: [stream.started], timeout: 2)
     XCTAssertEqual(viewModel.activeRequest?.route.modelID, "fixture", "Capture the engine's model even before library refresh")
     await receive("Partial", from: stream, in: viewModel)
-    guard case .failed(let message) = viewModel.state else { return XCTFail("Expected persistence failure") }
-    XCTAssertTrue(message.contains("Unable to save chats"))
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(viewModel.state, .streaming, "Best-effort history failures must not replace request feedback")
     XCTAssertTrue(viewModel.isBusy)
     viewModel.submit("B")
     XCTAssertEqual(engine.requests.map(\.prompt), ["A"])
     await viewModel.stopStreaming()?.value
     await fulfillment(of: [stream.cancelled], timeout: 2)
+    await viewModel.sessionWriter.waitForPendingWrites()
     XCTAssertFalse(viewModel.isBusy)
+    XCTAssertEqual(viewModel.state, .idle)
+  }
+
+  func testFastLocalStreamPublishesEveryFragmentAndStopDoesNotWaitForArchive() async throws {
+    let probe = ChatArchiveWriteProbe(store: makeStore(), blockFirst: true)
+    defer { probe.release() }
+    let delay = ControlledChatSaveDelay()
+    let writer = ChatSessionWriter(sleep: { await delay.wait($0) }, write: probe.write)
+    let stream = ControlledStream<String>()
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(streams: [stream]),
+      sessionStore: probe.store, sessionWriter: writer)
+    viewModel.submit("Fast stream")
+    await fulfillment(of: [stream.started, probe.started], timeout: 2)
+    let received = expectation(description: "All fragments visible while disk is blocked")
+    var lengths: Set<Int> = []
+    let observation = viewModel.$sessions.sink { sessions in
+      let count = sessions.first?.messages.last?.content.count ?? 0
+      if lengths.insert(count).inserted && count == 1_000 { received.fulfill() }
+    }
+    for _ in 0..<1_000 { stream.continuation.yield("x") }
+    await fulfillment(of: [received, delay.started], timeout: 5)
+    observation.cancel()
+    XCTAssertEqual(lengths, Set(0...1_000), "Visible updates must not be coalesced")
+    XCTAssertEqual(probe.snapshots.count, 1)
+    XCTAssertTrue(viewModel.isBusy)
+    await viewModel.stopStreaming()?.value
+    await fulfillment(of: [stream.cancelled], timeout: 2)
+    XCTAssertFalse(viewModel.isBusy)
+    XCTAssertNil(viewModel.activeRequest)
+    XCTAssertEqual(viewModel.messages.last?.activity?.phase, .cancelled)
+    XCTAssertEqual(probe.snapshots.count, 1, "Stop must finish before the blocked archive write")
+
+    await delay.release()
+    probe.release()
+    await writer.waitForPendingWrites()
+    XCTAssertEqual(probe.snapshots.count, 2, "1,000 fragments should produce only the initial and final writes")
+    XCTAssertEqual(probe.store.load().first?.messages.map(\.content), ["Fast stream", String(repeating: "x", count: 1_000)])
+    let evidence = XCTAttachment(string: "1,000 local fragments: all 1,000 incremental lengths published; 2 background archive writes (initial + Stop). Stop and producer cancellation completed with the first write blocked.")
+    evidence.lifetime = .keepAlways
+    add(evidence)
+  }
+
+  func testCloudCompletionAndFailureFlushPartialHistoryWithoutWaitingForDelay() async {
+    for fails in [false, true] {
+      let probe = ChatArchiveWriteProbe(store: makeStore(), blockFirst: true)
+      defer { probe.release() }
+      let delay = ControlledChatSaveDelay()
+      let writer = ChatSessionWriter(sleep: { await delay.wait($0) }, write: probe.write)
+      let stream = ControlledStream<ChatEvent>()
+      let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
+        cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: [stream])),
+        sessionStore: probe.store, sessionWriter: writer)
+      viewModel.submitCloud("Question", provider: .chatGPT, modelID: "model")
+      await fulfillment(of: [stream.started, probe.started], timeout: 2)
+      await receive(.token("Partial"), from: stream, in: viewModel)
+      await fulfillment(of: [delay.started], timeout: 2)
+      let ended = expectation(description: "Request ended without waiting for disk")
+      let observation = viewModel.$state.sink {
+        if $0 == .idle || $0 == .failed("Controlled failure") { ended.fulfill() }
+      }
+      if fails { stream.continuation.finish(throwing: LifecycleError.failed) }
+      else { stream.continuation.finish() }
+      await fulfillment(of: [ended], timeout: 2)
+      observation.cancel()
+      XCTAssertFalse(viewModel.isBusy)
+      probe.release()
+      // Do not release the coalescing clock until the final write is complete.
+      await fulfillment(of: [probe.secondFinished], timeout: 2)
+      await writer.waitForPendingWrites()
+      XCTAssertEqual(probe.snapshots.count, 2)
+      XCTAssertEqual(probe.store.load().first?.messages.map(\.content), ["Question", "Partial"])
+      await delay.release()
+    }
+  }
+
+  func testTemporaryChatAndRetentionSurvivePendingArchiveWrites() async {
+    let probe = ChatArchiveWriteProbe(store: makeStore(), blockFirst: true)
+    defer { probe.release() }
+    let writer = ChatSessionWriter(write: probe.write)
+    let stream = ControlledStream<String>()
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(streams: [stream]),
+      sessionStore: probe.store, sessionWriter: writer)
+    viewModel.newChat()
+    let evicted = viewModel.selectedSessionID
+    await fulfillment(of: [probe.started], timeout: 2)
+    for _ in 0..<6 { viewModel.newChat() }
+    viewModel.startTemporaryChat(context: nil)
+    let temporary = viewModel.selectedSessionID
+    viewModel.submit("Never archive this")
+    await fulfillment(of: [stream.started], timeout: 2)
+    await receive("Temporary answer", from: stream, in: viewModel)
+    await viewModel.stopStreaming()?.value
+    probe.release()
+    await writer.waitForPendingWrites()
+    XCTAssertEqual(probe.snapshots.count, 2)
+    let saved = probe.store.load()
+    XCTAssertEqual(saved.count, 5)
+    XCTAssertFalse(saved.contains { $0.id == temporary || $0.id == evicted })
+    XCTAssertTrue(saved.flatMap(\.messages).isEmpty)
+    viewModel.newChat()
+    await writer.waitForPendingWrites()
+    XCTAssertEqual(probe.store.load().map(\.id), viewModel.sessions.map(\.id))
+    XCTAssertFalse(viewModel.sessions.contains { $0.id == temporary })
   }
 
   private func queue<Element>(_ ending: QueuedEnding, on stream: ControlledStream<Element>, token: Element) {
@@ -439,7 +543,7 @@ final class RequestLifecycleTests: XCTestCase {
   }
 
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>, in viewModel: LocalChatViewModel) async {
-    let received = expectation(description: "Token persisted")
+    let received = expectation(description: "Token presented")
     let observation = viewModel.$sessions.dropFirst().prefix(1).sink { _ in received.fulfill() }
     stream.continuation.yield(token)
     await fulfillment(of: [received], timeout: 2)

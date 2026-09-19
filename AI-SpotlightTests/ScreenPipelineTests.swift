@@ -228,6 +228,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertEqual(fixture.chat.messages.last?.activity?.phase, .completed)
     XCTAssertEqual(fixture.chat.messages.last?.activity?.sources, [PipelineSearch.source])
     XCTAssertTrue(fixture.chat.messages.last?.activity?.phases.contains(.refiningSearch) == true)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(fixture.store.load().first?.messages.map(\.content), [prompt, "local vision answer"])
   }
 
@@ -366,6 +367,7 @@ final class ScreenPipelineTests: XCTestCase {
         XCTAssertTrue(context.contains("Memory evidence fixture"))
         XCTAssertTrue(context.contains("untrusted web data"))
         XCTAssertTrue(context.contains("untrusted source content"))
+        await fixture.chat.sessionWriter.waitForPendingWrites()
         let saved = try XCTUnwrap(fixture.store.load().first).messages
         XCTAssertEqual(saved.first?.content, prompt)
         XCTAssertNil(saved.first?.imagePreview)
@@ -543,6 +545,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertTrue(requests.last?.prompt.contains("untrusted source content") == true)
     XCTAssertTrue(fixture.cloud.requests.isEmpty)
     XCTAssertEqual(fixture.chat.messages.first?.content, automatic)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertFalse(fixture.store.load().flatMap(\.messages).contains { $0.content.contains("Text extracted locally") })
     XCTAssertNil(screen.attachment)
     XCTAssertEqual(screen.draft, "")
@@ -568,6 +571,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertNil(request.image)
     XCTAssertFalse(request.allowsCloudImages)
     XCTAssertTrue(request.messages.last?.content.contains(ocr) == true)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(fixture.store.load().first?.messages.first?.content, "explain this code")
   }
 
@@ -590,6 +594,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertEqual(bitmap.pixelsWide, 240)
     XCTAssertEqual(bitmap.pixelsHigh, 120)
     XCTAssertNil(request.messages.last?.imagePreview)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertNil(fixture.store.load().first?.messages.first?.imagePreview)
   }
 
