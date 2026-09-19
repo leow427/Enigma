@@ -70,7 +70,7 @@ previously dismissed model onboarding are migrated without an unsolicited wizard
 
 To test in the development app:
 
-1. Run the shared **AI-Spotlight** scheme from Xcode using the usual stable
+1. Run the shared **Enigma** scheme from Xcode using the usual stable
    development signing identity.
 2. Open **Settings → General → Replay Welcome Setup**. This also brings back a
    hidden chat panel. The sidebar's Developer Tools contains the same replay

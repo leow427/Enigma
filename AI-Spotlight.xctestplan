@@ -13,7 +13,7 @@
     "targetForVariableExpansion" : {
       "containerPath" : "container:AI-Spotlight.xcodeproj",
       "identifier" : "A50000000000000000000001",
-      "name" : "AI Spotlight"
+      "name" : "Enigma"
     }
   },
   "testTargets" : [
@@ -21,7 +21,7 @@
       "target" : {
         "containerPath" : "container:AI-Spotlight.xcodeproj",
         "identifier" : "A50000000000000000000002",
-        "name" : "AI SpotlightTests"
+        "name" : "EnigmaTests"
       }
     }
   ],

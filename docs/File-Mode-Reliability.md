@@ -116,6 +116,14 @@ Across **558 recorded evaluation attempts**, every started attempt has a finish 
 
 ## Reproduction and evidence
 
+The evaluator selects `EnigmaTests/FileModeReliabilityEvaluationTests` through the shared `Enigma` scheme and `AI-Spotlight.xctestplan`. To check suite selection without running inference, leave the evaluation opt-in variables unset and run:
+
+```sh
+scripts/verify-xcode.sh test -only-testing:EnigmaTests/FileModeReliabilityEvaluationTests
+```
+
+This should select `testInstalledModelEvaluation` and report one opt-in skip. A skipped test is not a live evaluation result. The Python runner supplies the opt-in variables and fails if no records or no completed attempts are produced, even if Xcode exits successfully.
+
 ```sh
 # Default: 20 core attempts at each output limit with 8192 context.
 python3 scripts/evaluate-file-mode.py --output /tmp/file-core.jsonl --phase validation

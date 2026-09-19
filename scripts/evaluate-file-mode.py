@@ -147,7 +147,7 @@ def main():
         environment["TEST_RUNNER_AI_SPOTLIGHT_FILE_EVAL_" + key] = str(value)
     with log.open("x") as stream:
         result = subprocess.run(["scripts/verify-xcode.sh", "test",
-            "-only-testing:AI SpotlightTests/FileModeReliabilityEvaluationTests"],
+            "-only-testing:EnigmaTests/FileModeReliabilityEvaluationTests"],
             cwd=repository, env=environment, stdout=stream, stderr=subprocess.STDOUT)
     if not output.exists():
         print("No evaluation records were produced. Check the log and test-runner environment.")

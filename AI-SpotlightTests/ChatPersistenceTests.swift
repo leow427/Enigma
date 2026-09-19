@@ -24,11 +24,13 @@ final class ChatPersistenceTests: XCTestCase {
   func testStoreRecoversToAnEmptyArchiveWhenJSONIsUnreadable() throws {
     let root = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
-    let directory = root.appending(path: "AI Spotlight", directoryHint: .isDirectory)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    try Data("not json".utf8).write(to: directory.appending(path: "chats.json"))
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    let session = ChatSession(title: "Temporary chat")
+    try store.save([session])
+    XCTAssertEqual(store.load().map(\.title), [session.title])
+    try Data("not json".utf8).write(to: root.appending(path: "chats.json"))
 
-    XCTAssertEqual(ChatSessionStore(applicationSupportDirectory: root).load(), [])
+    XCTAssertEqual(store.load(), [])
   }
 
   func testBundledModelManifestHasValidDownloadMetadata() throws {
