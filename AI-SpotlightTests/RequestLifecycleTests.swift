@@ -20,7 +20,7 @@ final class RequestLifecycleTests: XCTestCase {
       XCTAssertEqual(viewModel.presentationMessages.first?.content, "A")
       XCTAssertTrue(viewModel.isWaitingForResponse)
       await fulfillment(of: [first.started], timeout: 2)
-      await receive("A partial", from: first, in: viewModel)
+      await receive("A partial", from: first, in: viewModel, expecting: "A partial")
       let firstSession = try XCTUnwrap(viewModel.selectedSessionID)
       let firstID = try XCTUnwrap(viewModel.activeRequest?.id)
 
@@ -45,7 +45,7 @@ final class RequestLifecycleTests: XCTestCase {
       viewModel.submit("Unintended third request")
       XCTAssertEqual(engine.requests.map(\.prompt), ["A", "B"])
 
-      await receive("B partial", from: second, in: viewModel)
+      await receive("B partial", from: second, in: viewModel, expecting: "B partial")
       let newTask = try XCTUnwrap(viewModel.stopStreaming())
       await newTask.value
       await fulfillment(of: [second.cancelled], timeout: 2)
@@ -67,7 +67,7 @@ final class RequestLifecycleTests: XCTestCase {
       )
       viewModel.submitCloud("A", provider: .chatGPT, modelID: "first-model")
       await fulfillment(of: [first.started], timeout: 2)
-      await receive(.token("A partial"), from: first, in: viewModel)
+      await receive(.token("A partial"), from: first, in: viewModel, expecting: "A partial")
       let sessionID = viewModel.selectedSessionID
       queue(ending, on: first, token: .token("stale A"))
       let oldTask = try XCTUnwrap(viewModel.stopStreaming())
@@ -85,7 +85,7 @@ final class RequestLifecycleTests: XCTestCase {
       viewModel.submitCloud("Unintended third request", provider: .chatGPT, modelID: "third")
       XCTAssertEqual(provider.requests.count, 2)
 
-      await receive(.token("B partial"), from: second, in: viewModel)
+      await receive(.token("B partial"), from: second, in: viewModel, expecting: "B partial")
       await viewModel.stopStreaming()?.value
       await fulfillment(of: [second.cancelled], timeout: 2)
       XCTAssertEqual(viewModel.state, .idle)
@@ -181,7 +181,7 @@ final class RequestLifecycleTests: XCTestCase {
     XCTAssertEqual(viewModel.autoRouteDecision?.reason, .cloudUnavailable)
     XCTAssertEqual(engine.requests.count, 1)
     XCTAssertTrue(provider.requests.isEmpty)
-    await receive("Local answer", from: stream, in: viewModel)
+    await receive("Local answer", from: stream, in: viewModel, expecting: "Local answer")
     await viewModel.stopStreaming()?.value
   }
 
@@ -244,7 +244,7 @@ final class RequestLifecycleTests: XCTestCase {
       viewModel.submitCloud("A", provider: provider, modelID: "model-a")
       await fulfillment(of: [first.started], timeout: 2)
       first.continuation.yield(.response(statusCode: 200))
-      await receive(apiToken("A partial", provider: provider), from: first, in: viewModel)
+      await receive(apiToken("A partial", provider: provider), from: first, in: viewModel, expecting: "A partial")
       first.continuation.yield(apiToken("stale A", provider: provider))
       let oldTask = try XCTUnwrap(viewModel.stopStreaming())
       viewModel.newChat()
@@ -255,7 +255,7 @@ final class RequestLifecycleTests: XCTestCase {
       XCTAssertEqual(viewModel.activeRequest, active)
       XCTAssertTrue(viewModel.isBusy)
       second.continuation.yield(.response(statusCode: 200))
-      await receive(apiToken("B partial", provider: provider), from: second, in: viewModel)
+      await receive(apiToken("B partial", provider: provider), from: second, in: viewModel, expecting: "B partial")
       XCTAssertEqual(viewModel.messages.map(\.content), ["B", "B partial"])
       await viewModel.stopStreaming()?.value
       await fulfillment(of: [second.cancelled], timeout: 2)
@@ -310,7 +310,7 @@ final class RequestLifecycleTests: XCTestCase {
     let active = try XCTUnwrap(viewModel.activeRequest)
     XCTAssertEqual(active.displayName, "Cloud · ChatGPT via Codex · captured-model")
     await fulfillment(of: [stream.started], timeout: 2)
-    await receive(.token("Partial"), from: stream, in: viewModel)
+    await receive(.token("Partial"), from: stream, in: viewModel, expecting: "Partial")
     // The mode control calls this when the next mode changes. Its decision must
     // not be the source of the active request's route label.
     viewModel.clearAutoRouteDecision()
@@ -333,7 +333,7 @@ final class RequestLifecycleTests: XCTestCase {
     )
     viewModel.submitCloud("A", provider: .chatGPT, modelID: "model")
     await fulfillment(of: [stream.started], timeout: 2)
-    await receive(.token("Partial"), from: stream, in: viewModel)
+    await receive(.token("Partial"), from: stream, in: viewModel, expecting: "Partial")
     let failed = expectation(description: "Current failure is displayed")
     let observation = viewModel.$state.sink { if case .failed = $0 { failed.fulfill() } }
     stream.continuation.finish(throwing: LifecycleError.failed)
@@ -412,7 +412,7 @@ final class RequestLifecycleTests: XCTestCase {
     viewModel.submit("A")
     await fulfillment(of: [stream.started], timeout: 2)
     XCTAssertEqual(viewModel.activeRequest?.route.modelID, "fixture", "Capture the engine's model even before library refresh")
-    await receive("Partial", from: stream, in: viewModel)
+    await receive("Partial", from: stream, in: viewModel, expecting: "Partial")
     await viewModel.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(viewModel.state, .streaming, "Best-effort history failures must not replace request feedback")
     XCTAssertTrue(viewModel.isBusy)
@@ -476,7 +476,7 @@ final class RequestLifecycleTests: XCTestCase {
         sessionStore: probe.store, sessionWriter: writer)
       viewModel.submitCloud("Question", provider: .chatGPT, modelID: "model")
       await fulfillment(of: [stream.started, probe.started], timeout: 2)
-      await receive(.token("Partial"), from: stream, in: viewModel)
+      await receive(.token("Partial"), from: stream, in: viewModel, expecting: "Partial")
       await fulfillment(of: [delay.started], timeout: 2)
       let ended = expectation(description: "Request ended without waiting for disk")
       let observation = viewModel.$state.sink {
@@ -512,7 +512,7 @@ final class RequestLifecycleTests: XCTestCase {
     let temporary = viewModel.selectedSessionID
     viewModel.submit("Never archive this")
     await fulfillment(of: [stream.started], timeout: 2)
-    await receive("Temporary answer", from: stream, in: viewModel)
+    await receive("Temporary answer", from: stream, in: viewModel, expecting: "Temporary answer")
     await viewModel.stopStreaming()?.value
     probe.release()
     await writer.waitForPendingWrites()
@@ -542,9 +542,15 @@ final class RequestLifecycleTests: XCTestCase {
     return .data(Data("data: \(payload)\n\n".utf8))
   }
 
-  private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>, in viewModel: LocalChatViewModel) async {
-    let received = expectation(description: "Token presented")
-    let observation = viewModel.$sessions.dropFirst().prefix(1).sink { _ in received.fulfill() }
+  private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,
+                                in viewModel: LocalChatViewModel, expecting content: String) async {
+    let received = expectation(description: "Presented token: \(content)")
+    let sessionID = viewModel.selectedSessionID
+    // Activity and route updates also publish sessions. Only the expected text
+    // in this request's session proves the consumer has received the token.
+    let observation = viewModel.$sessions.filter {
+      $0.first(where: { $0.id == sessionID })?.messages.last?.content == content
+    }.prefix(1).sink { _ in received.fulfill() }
     stream.continuation.yield(token)
     await fulfillment(of: [received], timeout: 2)
     observation.cancel()

@@ -1,6 +1,20 @@
 import SwiftUI
 
+// Hosted tests can attach noninteractive native markers to locate real controls.
+// Normal app views supply no marker; actions still go through the actual buttons.
+private struct ScreenControlMarkerKey: EnvironmentKey {
+  static let defaultValue: (@MainActor @Sendable (String) -> AnyView)? = nil
+}
+
+extension EnvironmentValues {
+  var screenControlMarker: (@MainActor @Sendable (String) -> AnyView)? {
+    get { self[ScreenControlMarkerKey.self] }
+    set { self[ScreenControlMarkerKey.self] = newValue }
+  }
+}
+
 struct ScreenAttachmentView: View {
+  @Environment(\.screenControlMarker) private var controlMarker
   let attachment: ScreenAttachment
   let isBusy: Bool
   let remove: () -> Void
@@ -21,8 +35,10 @@ struct ScreenAttachmentView: View {
       Spacer(minLength: 0)
       Button("Retake", action: retake).disabled(isBusy)
         .accessibilityLabel("Retake screenshot")
+        .background { controlMarker?("Retake") }
       Button("Remove", action: remove).disabled(isBusy)
         .accessibilityLabel("Remove screenshot")
+        .background { controlMarker?("Remove") }
     }
     .buttonStyle(.bordered).controlSize(.small)
     .padding(10)
@@ -31,6 +47,7 @@ struct ScreenAttachmentView: View {
 }
 
 struct ScreenUploadConsentView: View {
+  @Environment(\.screenControlMarker) private var controlMarker
   let consent: ScreenUploadConsent
   let allow: () -> Void
   let decline: () -> Void
@@ -49,9 +66,11 @@ struct ScreenUploadConsentView: View {
         Button("Keep Screenshots Local", action: decline)
           .buttonStyle(.borderedProminent).tint(Color(white: 0.3))
           .keyboardShortcut(.cancelAction)
+          .background { controlMarker?("Keep Screenshots Local") }
         Spacer()
         Button("Allow & Send", action: allow)
           .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+          .background { controlMarker?("Allow & Send") }
       }
     }
     .font(.callout)

@@ -243,6 +243,7 @@ final class ScreenCaptureTests: XCTestCase {
     XCTAssertNil(screen.attachment)
     XCTAssertFalse(screen.isBusy)
     XCTAssertFalse(controller.isCapturingScreen)
+    try await waitForUI("cancelled capture to restore keyboard focus") { window.isKeyWindow }
     XCTAssertTrue(window.isVisible)
     XCTAssertTrue(window.isKeyWindow)
     NotificationCenter.default.post(name: .screenCaptureEnded, object: nil)

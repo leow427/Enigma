@@ -89,6 +89,10 @@ new screenshot checks concerned OCR glyph/spacing differences and control
 readiness; their corrected render and native mouse-event helpers retain the
 scope, preview, removal, and request-permission assertions above.
 
+The later [test reliability follow-up](Test-Reliability.md) replaces OCR-based
+click targeting and fixed welcome/focus delays while preserving these behavior
+and permission assertions. The results above describe the original Part 2 runs.
+
 The empty composer retains its existing layout. The shared screenshot card and
 its consent sheet are mounted only when an attachment exists; dismissing consent
 restores composer focus. Screenshot settings and provider fixtures use isolated

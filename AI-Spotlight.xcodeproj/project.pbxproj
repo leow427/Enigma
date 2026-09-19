@@ -45,6 +45,7 @@
 		749A74810619BC2371A900AB /* AI-SpotlightTests/ScreenNativeSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B9B38819695DE62E80CBE1 /* AI-SpotlightTests/ScreenNativeSmokeTests.swift */; };
 		7558BA92C2D5C3CE65628DD2 /* AI-Spotlight/Files/LocalFileRuntimeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52189CDD3B416D1EA547D5A /* AI-Spotlight/Files/LocalFileRuntimeSetup.swift */; };
 		7DA95EF27FA01D16D79D8564 /* AI-SpotlightTests/ScreenTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FFFAEF314B962C515678BC9 /* AI-SpotlightTests/ScreenTestSupport.swift */; };
+		B70000000000000000000002 /* AppUITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000001 /* AppUITestSupport.swift */; };
 		82A42145C9B572B1BAFD7D74 /* AI-SpotlightTests/LocalVisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83494E8BB06B4D31BD549663 /* AI-SpotlightTests/LocalVisionTests.swift */; };
 		83D50AC929DE904DAFAD9A60 /* AI-Spotlight/Screen/ScreenRoutingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 719D8CBD719A760BFDB4DF71 /* AI-Spotlight/Screen/ScreenRoutingPolicy.swift */; };
 		85E2E0F86DCBFAAE24CCDACC /* AI-Spotlight/Chat/MultimodalContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703B0466136101680BB0167F /* AI-Spotlight/Chat/MultimodalContent.swift */; };
@@ -167,6 +168,7 @@
 		65367875DCBEC279D08F684E /* AI-Spotlight/Files/FileModeControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/FileModeControls.swift"; sourceTree = SOURCE_ROOT; };
 		6737F803E809057721E621C7 /* AI-SpotlightTests/FileAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/FileAgentTests.swift"; sourceTree = SOURCE_ROOT; };
 		6FFFAEF314B962C515678BC9 /* AI-SpotlightTests/ScreenTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/ScreenTestSupport.swift"; sourceTree = SOURCE_ROOT; };
+		B70000000000000000000001 /* AppUITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/AppUITestSupport.swift"; sourceTree = SOURCE_ROOT; };
 		703B0466136101680BB0167F /* AI-Spotlight/Chat/MultimodalContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/MultimodalContent.swift"; sourceTree = SOURCE_ROOT; };
 		719D8CBD719A760BFDB4DF71 /* AI-Spotlight/Screen/ScreenRoutingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/ScreenRoutingPolicy.swift"; sourceTree = SOURCE_ROOT; };
 		7CED3473E2C0640A46466B8F /* AI-Spotlight/Files/WorkspaceAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/WorkspaceAccess.swift"; sourceTree = SOURCE_ROOT; };
@@ -310,6 +312,7 @@
 				83494E8BB06B4D31BD549663 /* AI-SpotlightTests/LocalVisionTests.swift */,
 				5B5EF3ECB645A8E5BE4CCF4D /* AI-Spotlight/LocalInference/LlamaServerVisionEngine.swift */,
 				6FFFAEF314B962C515678BC9 /* AI-SpotlightTests/ScreenTestSupport.swift */,
+				B70000000000000000000001 /* AppUITestSupport.swift */,
 				C542D9E2DAF3988DEF908F68 /* AI-SpotlightTests/ScreenProviderTests.swift */,
 				E27CB37860D9B990072ECD9D /* AI-Spotlight/LocalInference/LocalMultimodalClient.swift */,
 				31C7C96CC8B68E10665AB266 /* AI-Spotlight/Cloud/GeminiContentClient.swift */,
@@ -671,6 +674,7 @@
 				0AF3BC1AE08E378481D15AE6 /* AI-SpotlightTests/ScreenPipelineTests.swift in Sources */,
 				82A42145C9B572B1BAFD7D74 /* AI-SpotlightTests/LocalVisionTests.swift in Sources */,
 				7DA95EF27FA01D16D79D8564 /* AI-SpotlightTests/ScreenTestSupport.swift in Sources */,
+				B70000000000000000000002 /* AppUITestSupport.swift in Sources */,
 				2F715B4E2EEB2D2248A01C88 /* AI-SpotlightTests/ScreenProviderTests.swift in Sources */,
 				0A2F49485CA3846EE1AC4B0E /* AI-SpotlightTests/ScreenRoutingTests.swift in Sources */,
 				8D4A4990E8B9E4E923600F9E /* AI-SpotlightTests/ScreenOCRTests.swift in Sources */,

@@ -156,6 +156,7 @@ actor CodexAppServer: CodexRPCTransport {
   private let configuration: CodexRuntimeConfiguration
   private let executable: @Sendable () -> URL?
   private let requestTimeout: Duration
+  private let sleep: @Sendable (Duration) async throws -> Void
   private var process: Process?
   private var input: FileHandle?
   private var readerTask: Task<Void, Never>?
@@ -174,11 +175,13 @@ actor CodexAppServer: CodexRPCTransport {
   init(
     configuration: CodexRuntimeConfiguration = .live,
     executable: @escaping @Sendable () -> URL? = { CodexRuntimeConfiguration.executableURL() },
-    requestTimeout: Duration = .seconds(60)
+    requestTimeout: Duration = .seconds(60),
+    sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
   ) {
     self.configuration = configuration
     self.executable = executable
     self.requestTimeout = requestTimeout
+    self.sleep = sleep
   }
 
   func request(_ method: String, params: CodexValue) async throws -> CodexValue {
@@ -342,9 +345,9 @@ actor CodexAppServer: CodexRPCTransport {
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { continuation in
         pending[id] = continuation
-        timeouts[id] = Task { [weak self, requestTimeout] in
+        timeouts[id] = Task { [weak self, requestTimeout, sleep] in
           do {
-            try await Task.sleep(for: requestTimeout)
+            try await sleep(requestTimeout)
             await self?.finish(id, result: .failure(CodexError.timedOut))
           } catch {}
         }

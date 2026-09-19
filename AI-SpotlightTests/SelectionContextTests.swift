@@ -671,12 +671,17 @@ final class SelectionContextTests: XCTestCase {
     defaults.set(true, forKey: WelcomeSetup.completedKey)
     defaults.set(true, forKey: "localModelOnboardingDismissed")
     defaults.set(ChatMode.local.rawValue, forKey: StartPreferences.modeKey)
-    defer {
+    addTeardownBlock {
       try? FileManager.default.removeItem(at: directory)
-      UserDefaults().removePersistentDomain(forName: suite)
+      defaults.removePersistentDomain(forName: suite)
     }
     let engine = SelectionTestEngine(output: "The highlighted passage asks the team to send a report today.", hold: true)
     let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
+    addTeardownBlock { @MainActor in
+      await chat.stopStreaming()?.value
+      engine.finishHeldStream()
+      await chat.sessionWriter.waitForPendingWrites()
+    }
     await chat.refreshInstalledModel()
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [try XCTUnwrap(chat.installedModel)], presentOnboarding: false)
@@ -685,16 +690,23 @@ final class SelectionContextTests: XCTestCase {
     let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, localChat: chat,
       screen: screen, modelAdvisor: advisor, startPreferences: StartPreferences(defaults: defaults),
       welcomeSetup: WelcomeSetup(defaults: defaults)))
-    let controller = SpotlightPanelController(glassAppearance: appearance, contentView: view)
+    let sizes = PanelSizeStore(defaults: defaults)
+    sizes.save(NSSize(width: 752, height: 462))
+    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view)
     controller.show()
-    defer { chat.stopStreaming(); engine.finishHeldStream(); controller.hide() }
-    try await Task.sleep(for: .milliseconds(200))
+    defer { controller.hide(); view.window?.contentView = nil }
+    try await waitForUI("selection composer to become editable", in: view) {
+      composerEditor(in: view)?.isEditable == true
+    }
     let window = try XCTUnwrap(view.window)
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
     controller.presentSelectionContext(ConversationContext(sourceName: "Test editor", text: "Please send the report today."),
       cursor: NSPoint(x: visible.midX, y: visible.minY + 120), selection: nil, visible: visible)
-    try await Task.sleep(for: .milliseconds(250))
-    view.layoutSubtreeIfNeeded()
+    try await waitForUI("compact selected passage and clickable editor", in: view) {
+      guard let editor = composerEditor(in: view) else { return false }
+      return controller.isSelectionComposer && window.frame.height < 150 && chat.attachedContexts.count == 1
+        && composerAcceptsClicks(in: view) && view.bounds.contains(view.convert(editor.bounds, from: editor))
+    }
     XCTAssertTrue(controller.isSelectionComposer)
     XCTAssertLessThan(window.frame.height, 150)
     XCTAssertTrue(chat.isTemporaryChat)
@@ -725,19 +737,26 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertTrue(controller.isSelectionComposer)
     XCTAssertNil(chat.activeRequest)
     screen.draft = "Explain this passage"
-    try await Task.sleep(for: .milliseconds(50))
+    try await waitForUI("draft to reach the native editor", in: view) { editor.string == screen.draft }
+    let expandedFrame = SelectionPanelExpansion.frame(from: window.frame, visible: visible)
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
       modifierFlags: [], timestamp: 1, windowNumber: window.windowNumber, context: nil,
       characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)))
-    try await Task.sleep(for: .milliseconds(700))
+    try await waitForUI("accepted prompt and completed panel expansion (compact: \(controller.isSelectionComposer), frame: \(window.frame), requests: \(engine.requestCount), draft: \(screen.draft))", in: view) {
+      !controller.isSelectionComposer && window.frame == expandedFrame && engine.lastRequest != nil && screen.draft.isEmpty
+    }
     XCTAssertFalse(controller.isSelectionComposer)
+    XCTAssertEqual(window.frame, expandedFrame)
     XCTAssertGreaterThan(window.frame.height, 420)
     XCTAssertTrue(visible.contains(window.frame))
     XCTAssertEqual(screen.draft, "")
     XCTAssertTrue(engine.lastRequest?.prompt.contains("Please send the report today.") == true)
     try render("conversation")
     controller.presentSelectionContext(nil, cursor: NSPoint(x: visible.midX, y: visible.minY + 120), selection: nil, visible: visible)
-    try await Task.sleep(for: .milliseconds(150))
+    try await waitForUI("empty compact composer after a new selection", in: view) {
+      controller.isSelectionComposer && window.frame.height < 150 && chat.messages.isEmpty
+        && composerEditor(in: view)?.isEditable == true
+    }
     XCTAssertTrue(controller.isSelectionComposer)
     XCTAssertLessThan(window.frame.height, 150)
     XCTAssertTrue(chat.messages.isEmpty)

@@ -865,6 +865,11 @@ extension LocalModelSelectionTests {
     let profile = hardware(memory: 32)
     let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil, detect: { _ in profile })
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), sessionStore: ChatSessionStore(applicationSupportDirectory: root))
+    let screen = ScreenComposerCoordinator()
+    addTeardownBlock { @MainActor in
+      await chat.stopStreaming()?.value
+      await chat.sessionWriter.waitForPendingWrites()
+    }
     let credentials = ScreenTestCredentialStore()
     let cloud = CloudSettingsModel(credentialStore: credentials,
       catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(), cacheDirectory: root),
@@ -874,34 +879,31 @@ extension LocalModelSelectionTests {
     preferences.mode = .cloud
     let appearance = GlassAppearanceSettings(defaults: defaults)
     let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
-      localChat: chat, modelAdvisor: advisor,
+      localChat: chat, screen: screen, modelAdvisor: advisor,
       searchSettings: WebSearchSettings(credentials: WelcomeEmptySearchCredentials(), defaults: defaults),
       startPreferences: preferences, welcomeSetup: setup)
       .transaction { $0.disablesAnimations = true })
     let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: PanelSizeStore(defaults: defaults),
       contentView: view, welcomeSetup: setup)
     controller.show()
-    defer { controller.hide() }
-    func settle() async throws {
-      try await Task.sleep(for: .milliseconds(150))
-      view.layoutSubtreeIfNeeded()
-    }
-    func editor(in parent: NSView) -> SlashCommandTextView? {
-      if let editor = parent as? SlashCommandTextView { return editor }
-      return parent.subviews.lazy.compactMap { editor(in: $0) }.first
-    }
-    try await settle()
+    defer { controller.hide(); view.window?.contentView = nil }
+    try await waitForUI("welcome host to install the composer", in: view) { composerEditor(in: view) != nil }
     for exit in 0..<3 {
       setup.replay()
-      try await settle()
-      XCTAssertFalse(try XCTUnwrap(editor(in: view)).isEditable)
+      try await waitForUI("welcome replay to disable the composer", in: view) {
+        composerEditor(in: view)?.isEditable == false
+      }
+      XCTAssertFalse(try XCTUnwrap(composerEditor(in: view)).isEditable)
       setup.finish(takeTour: exit != 0)
       if exit == 1 { setup.endTour() }
       if exit == 2 {
         for _ in WelcomeTourStep.allCases { setup.nextTourStep() }
       }
-      try await settle()
-      let composer = try XCTUnwrap(editor(in: view))
+      try await waitForUI("welcome exit \(exit) to enable, focus, and uncover the composer", in: view) {
+        guard let composer = composerEditor(in: view) else { return false }
+        return composer.isEditable && composer.window?.firstResponder === composer && composerAcceptsClicks(in: view)
+      }
+      let composer = try XCTUnwrap(composerEditor(in: view))
       XCTAssertTrue(composer.isEditable, "Welcome exit \(exit) must enable the composer")
       XCTAssertTrue(composer.window?.firstResponder === composer, "Welcome exit \(exit) must focus the composer")
       XCTAssertEqual(preferences.mode, .auto)
@@ -909,8 +911,10 @@ extension LocalModelSelectionTests {
       let point = composer.convert(NSPoint(x: composer.bounds.midX, y: composer.bounds.midY), to: view.superview)
       let hit = try XCTUnwrap(view.hitTest(point))
       XCTAssertTrue(hit === composer || hit.isDescendant(of: composer), "Welcome exit \(exit) must allow clicks through to chat; hit \(hit), point \(point)")
-      composer.insertText("Ready to chat", replacementRange: NSRange(location: 0, length: composer.string.utf16.count))
-      XCTAssertEqual(composer.string, "Ready to chat")
+      let draft = "Ready to chat after exit \(exit)"
+      composer.insertText(draft, replacementRange: NSRange(location: 0, length: composer.string.utf16.count))
+      XCTAssertEqual(composer.string, draft)
+      XCTAssertEqual(screen.draft, draft, "Typing must reach the composer binding after every exit")
     }
   }
 

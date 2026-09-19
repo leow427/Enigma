@@ -245,7 +245,7 @@ final class AppCommandTests: XCTestCase {
   }
 
   @MainActor
-  func testSettingsWindowOpensAndReopensWithoutASwiftUIScene() throws {
+  func testSettingsWindowOpensAndReopensWithoutASwiftUIScene() async throws {
     let controller = SettingsWindowController(contentView: NSView())
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
@@ -254,12 +254,14 @@ final class AppCommandTests: XCTestCase {
     XCTAssertTrue(window.titlebarAppearsTransparent)
     XCTAssertEqual(window.backgroundColor, NSColor(NatureGlass.forestTop))
     controller.showSettings()
+    try await waitForUI("Settings to become key") { window.isKeyWindow }
     XCTAssertTrue(window.isVisible)
     XCTAssertTrue(window.isKeyWindow)
     window.performClose(nil)
     XCTAssertFalse(window.isVisible)
 
     controller.showSettings()
+    try await waitForUI("reopened Settings to become key") { window.isKeyWindow }
     XCTAssertTrue(controller.window === window)
     XCTAssertEqual(window.sharingType, .none)
     XCTAssertTrue(window.isVisible)
@@ -267,7 +269,7 @@ final class AppCommandTests: XCTestCase {
   }
 
   @MainActor
-  func testOpeningAdvancedSettingsPreservesChatVisibilityAndDraft() throws {
+  func testOpeningAdvancedSettingsPreservesChatVisibilityAndDraft() async throws {
     let draft = NSTextField(string: "Keep this unsent message")
     let panel = SpotlightPanelController(
       glassAppearance: GlassAppearanceSettings(),
@@ -283,6 +285,7 @@ final class AppCommandTests: XCTestCase {
 
     panel.show()
     delegate.openSettings()
+    try await waitForUI("advanced Settings to become key") { window.isKeyWindow }
     XCTAssertTrue(panel.isVisible)
     XCTAssertTrue(window.isVisible)
     XCTAssertTrue(window.isKeyWindow)

@@ -122,31 +122,85 @@ final class CodexSubscriptionTests: XCTestCase {
     try await server.prepareFileMode()
   }
 
-  func testAppServerEOFAndTimeoutDoNotLeaveRequestsHanging() async throws {
+  func testAppServerTimesOutAnUnansweredRequestAfterInitialization() async throws {
     let root = try temporaryDirectory()
-    defer { try? FileManager.default.removeItem(at: root) }
-    let executable = try makeExecutable(in: root, script: """
+    addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+    let executable = try makeUnansweredServer(in: root)
+    let deadline = ControlledCodexDeadline()
+    let server = CodexAppServer(configuration: .init(directory: root.appending(path: "runtime")),
+      executable: { executable }, sleep: { try await deadline.sleep($0) })
+    addTeardownBlock { await server.disconnect() }
+    // A timeout during startup must not satisfy the unanswered-request assertion.
+    let notifications = try await initializeTestServer(server)
+    let received = expectation(description: "Fake process received the unanswered request")
+    let observer = Task {
+      for try await notification in notifications.stream where notification.method == "fixture/received" {
+        XCTAssertEqual(notification.params["method"].string, "unanswered")
+        received.fulfill()
+        return
+      }
+    }
+    defer { observer.cancel() }
+    let completed = expectation(description: "Unanswered request timed out")
+    let request = Task {
+      do {
+        _ = try await server.request("unanswered", params: .object([:]))
+        XCTFail("Expected a timeout")
+      } catch { XCTAssertEqual(error as? CodexError, .timedOut) }
+      completed.fulfill()
+    }
+    defer { request.cancel() }
+    await fulfillment(of: [received, deadline.armed], timeout: 5)
+    await deadline.expire()
+    await fulfillment(of: [completed], timeout: 5)
+    await notifications.cancel()
+  }
+
+  func testAppServerEOFDisconnectsAnUnansweredRequest() async throws {
+    let root = try temporaryDirectory()
+    addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+    let executable = try makeUnansweredServer(in: root)
+    let server = CodexAppServer(configuration: .init(directory: root.appending(path: "runtime")),
+      executable: { executable }, requestTimeout: .seconds(5))
+    addTeardownBlock { await server.disconnect() }
+    let notifications = try await initializeTestServer(server)
+    let completed = expectation(description: "EOF disconnects the request")
+    let request = Task {
+      do {
+        _ = try await server.request("exit", params: .object([:]))
+        XCTFail("Expected disconnection")
+      } catch { XCTAssertEqual(error as? CodexError, .disconnected) }
+      completed.fulfill()
+    }
+    defer { request.cancel() }
+    await fulfillment(of: [completed], timeout: 5)
+    await notifications.cancel()
+  }
+
+  private func makeUnansweredServer(in root: URL) throws -> URL {
+    try makeExecutable(in: root, script: """
       #!/bin/sh
       while IFS= read -r line; do
+        id=$(/usr/bin/printf '%s' "$line" | /usr/bin/sed -n 's/.*"id":\\([0-9][0-9]*\\).*/\\1/p')
         case "$line" in
-          *'"method":"initialize"'*) /usr/bin/printf '%s\\n' '{"id":1,"result":{}}' ;;
+          *'"method":"initialize"'*) /usr/bin/printf '{"id":%s,"result":{}}\\n' "$id" ;;
+          *'"method":"unanswered"'*) /usr/bin/printf '%s\\n' '{"method":"fixture/received","params":{"method":"unanswered"}}' ;;
           *'"method":"exit"'*) exit 0 ;;
         esac
       done
       """)
-    let server = CodexAppServer(
-      configuration: .init(directory: root.appending(path: "runtime")),
-      executable: { executable }, requestTimeout: .seconds(1)
-    )
-    do {
-      _ = try await server.request("unanswered", params: .object([:]))
-      XCTFail("Expected a timeout")
-    } catch { XCTAssertEqual(error as? CodexError, .timedOut) }
-    do {
-      _ = try await server.request("exit", params: .object([:]))
-      XCTFail("Expected disconnection")
-    } catch { XCTAssertEqual(error as? CodexError, .disconnected) }
-    await server.disconnect()
+  }
+
+  private func initializeTestServer(_ server: CodexAppServer) async throws -> CodexNotificationSubscription {
+    let initialized = expectation(description: "Real pipe initialization completed")
+    let startup = Task {
+      defer { initialized.fulfill() }
+      return try await server.notifications()
+    }
+    defer { startup.cancel() }
+    let result = await XCTWaiter.fulfillment(of: [initialized], timeout: 5)
+    _ = try XCTUnwrap(result == .completed ? true : nil, "The fake process must initialize before testing request failure")
+    return try await startup.value
   }
 
   func testSignInAndSignOutInvalidateTheSeparateFileModeConnection() async throws {
@@ -559,5 +613,31 @@ private struct NoNetworkTransport: CloudNetworkTransport {
   func stream(for request: URLRequest) -> AsyncThrowingStream<CloudNetworkEvent, Error> {
     XCTFail("Subscription mode must not use an API-key transport")
     return AsyncThrowingStream { $0.finish(throwing: CodexError.invalidResponse) }
+  }
+}
+
+/// Advance only the deadline under test; initialization still uses the real pipe.
+private actor ControlledCodexDeadline {
+  nonisolated let armed: XCTestExpectation = {
+    let expectation = XCTestExpectation(description: "Initialization and request deadlines armed")
+    expectation.expectedFulfillmentCount = 2
+    return expectation
+  }()
+  private var pending: [UUID: AsyncThrowingStream<Void, Error>.Continuation] = [:]
+
+  func sleep(_ duration: Duration) async throws {
+    XCTAssertEqual(duration, .seconds(60), "Keep the production request deadline")
+    let id = UUID()
+    let (stream, continuation) = AsyncThrowingStream<Void, Error>.makeStream()
+    pending[id] = continuation
+    defer { pending.removeValue(forKey: id) }
+    armed.fulfill()
+    var iterator = stream.makeAsyncIterator()
+    _ = try await iterator.next()
+    try Task.checkCancellation()
+  }
+
+  func expire() {
+    for continuation in pending.values { continuation.yield(()); continuation.finish() }
   }
 }
