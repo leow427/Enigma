@@ -1,14 +1,13 @@
 @preconcurrency import Carbon
-import Foundation
+import AppKit
+import ApplicationServices
 
 enum GlobalHotKey: CaseIterable {
-  case togglePanel
   case openSettings
   case selectionContext
 
   var keyCode: UInt32 {
     switch self {
-    case .togglePanel: UInt32(kVK_Space)
     case .openSettings: UInt32(kVK_ANSI_S)
     case .selectionContext: UInt32(kVK_Space)
     }
@@ -18,7 +17,6 @@ enum GlobalHotKey: CaseIterable {
 
   fileprivate var identifier: UInt32 {
     switch self {
-    case .togglePanel: 1
     case .openSettings: 2
     case .selectionContext: 3
     }
@@ -26,7 +24,6 @@ enum GlobalHotKey: CaseIterable {
 
   fileprivate var displayName: String {
     switch self {
-    case .togglePanel: "Option-Space"
     case .openSettings: "Option-S"
     case .selectionContext: "Shift-Option-Space"
     }
@@ -145,4 +142,85 @@ private func globalHotKeyEventHandler(
   guard let event, let userData else { return OSStatus(eventNotHandledErr) }
   let monitor = Unmanaged<GlobalHotKeyMonitor>.fromOpaque(userData).takeUnretainedValue()
   return monitor.receive(event)
+}
+
+// A modifier-only shortcut cannot be registered as a Carbon hot key.
+struct PanelShortcutChord {
+  private var waitingForRelease = false
+
+  mutating func synchronize(modifiers: NSEvent.ModifierFlags) {
+    waitingForRelease = !modifiers.intersection([.option, .control]).isEmpty
+  }
+
+  mutating func flagsChanged(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+    let flags = modifiers.intersection([.option, .control, .command, .shift, .function])
+    if flags.intersection([.option, .control]).isEmpty {
+      waitingForRelease = false
+      return false
+    }
+    guard !waitingForRelease else { return false }
+    guard flags.subtracting([.option, .control]).isEmpty else {
+      waitingForRelease = true
+      return false
+    }
+    guard [UInt16(58), 61, 59, 62].contains(keyCode), flags == [.option, .control] else { return false }
+    waitingForRelease = true
+    return true
+  }
+}
+
+@MainActor
+final class PanelShortcutMonitor {
+  private var global: Any?
+  private var local: Any?
+  private var activationObserver: NSObjectProtocol?
+  private var accessibilityGranted = false
+  private var detector = PanelShortcutChord()
+  private let handler: @MainActor () -> Void
+
+  init(handler: @escaping @MainActor () -> Void) { self.handler = handler }
+
+  func start() {
+    guard local == nil else { return }
+    accessibilityGranted = AXIsProcessTrusted()
+    detector.synchronize(modifiers: NSEvent.modifierFlags)
+    activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated {
+        guard let self else { return }
+        if self.accessibilityGranted != AXIsProcessTrusted() {
+          self.stop()
+          self.start()
+        }
+      }
+    }
+    global = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+      self?.receive(event)
+    }
+    local = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+      self?.receive(event)
+      return event
+    }
+  }
+
+  func stop() {
+    if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+    activationObserver = nil
+    if let global { NSEvent.removeMonitor(global) }
+    if let local { NSEvent.removeMonitor(local) }
+    global = nil
+    local = nil
+    detector = PanelShortcutChord()
+  }
+
+  private func receive(_ event: NSEvent) {
+    guard !IsSecureEventInputEnabled() else {
+      detector.synchronize(modifiers: event.modifierFlags)
+      return
+    }
+    if detector.flagsChanged(keyCode: event.keyCode, modifiers: event.modifierFlags) {
+      handler()
+    }
+  }
 }

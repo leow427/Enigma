@@ -1527,7 +1527,9 @@ private struct KeyboardShortcutsHelpView: View {
           Text("System Settings → Privacy & Security → Accessibility. Enable \(SelectionAccessibilityAccess.appName) (Enigma). If it is missing, use + to add the app you are running.")
             .font(.caption).foregroundStyle(.secondary)
           Button("Open Accessibility Settings…") { selectionAccess.requestAccess() }
-          shortcut("Show or hide Enigma", keys: "⌥ Space")
+          shortcut("Show or hide Enigma", keys: "⌥ ⌃")
+          Text("Press Option and Control together. Accessibility permission lets this shortcut work while another app is active.")
+            .font(.caption).foregroundStyle(.secondary)
           shortcut("Open Advanced Settings", keys: "⌥ S")
 
           Divider()

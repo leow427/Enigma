@@ -152,9 +152,9 @@ final class AppCommandTests: XCTestCase {
     XCTAssertTrue(controller.isVisible)
   }
 
-  func testGlobalHotKeysUseOptionSpaceAndOptionS() {
-    XCTAssertEqual(GlobalHotKey.togglePanel.keyCode, UInt32(kVK_Space))
-    XCTAssertEqual(GlobalHotKey.togglePanel.modifiers, UInt32(optionKey))
+  func testGlobalHotKeysUseOptionSAndShiftOptionSpace() {
+    XCTAssertEqual(GlobalHotKey.selectionContext.keyCode, UInt32(kVK_Space))
+    XCTAssertEqual(GlobalHotKey.selectionContext.modifiers, UInt32(optionKey | shiftKey))
     XCTAssertEqual(GlobalHotKey.openSettings.keyCode, UInt32(kVK_ANSI_S))
     XCTAssertEqual(GlobalHotKey.openSettings.modifiers, UInt32(optionKey))
   }

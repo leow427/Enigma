@@ -4,7 +4,8 @@
 
 Highlight text in another app and tap **Option twice** to start a new temporary
 Enigma chat bar close to the pointer. **Shift–Option–Space** is the conventional backup.
-Option–Space still toggles the existing panel. Help contains all shortcuts,
+Option–Control toggles the existing panel (press both modifier keys together).
+Accessibility permission is required to use this shortcut while another app is active. Help contains all shortcuts,
 an Accessibility status and Settings button, a choice of Option/Command/Shift for the
 solo double tap, an enable switch, and Fast/Normal/Relaxed timing.
 

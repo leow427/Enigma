@@ -395,7 +395,7 @@ enum WelcomeTourStep: Int, CaseIterable {
     case .commands: "Type / in the message box to browse commands. Use ↑ and ↓, then Tab or Return to choose one before adding your question."
     case .files: "Open the file picker to work with a file or folder. Enigma asks for access to what you choose."
     case .model: "Choose Local, Cloud, or Auto and select a model. Local answers on your Mac; Cloud uses your connected provider; Auto selects a route."
-    case .help: "Find keyboard shortcuts here. Settings is nearby for models, connections, and replaying welcome setup. Use Option–Space to hide or summon Enigma."
+    case .help: "Find keyboard shortcuts here. Settings is nearby for models, connections, and replaying welcome setup. Press Option and Control together to hide or summon Enigma."
     }
   }
 }

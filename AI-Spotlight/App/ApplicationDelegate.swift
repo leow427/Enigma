@@ -5,6 +5,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var menuBarController: MenuBarController?
   private var panelController: SpotlightPanelController?
   private var globalHotKeyMonitors: [GlobalHotKeyMonitor] = []
+  private var panelShortcut: PanelShortcutMonitor?
   private var selectionShortcut: SelectionShortcutMonitor?
   private var settingsWindowController: SettingsWindowController?
 
@@ -44,16 +45,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     let menuBarController = MenuBarController(panelController: panelController)
     menuBarController.install()
 
-    let togglePanelHotKeyMonitor = GlobalHotKeyMonitor(hotKey: .togglePanel) { [weak self] in
+    let panelShortcut = PanelShortcutMonitor { [weak self] in
       self?.selectionShortcut?.reset()
       panelController.toggle()
     }
-    do {
-      try togglePanelHotKeyMonitor.start()
-      globalHotKeyMonitors.append(togglePanelHotKeyMonitor)
-    } catch {
-      NSLog("Unable to register the Enigma shortcut: %@", error.localizedDescription)
-    }
+    panelShortcut.start()
+    self.panelShortcut = panelShortcut
 
     let openSettingsHotKeyMonitor = GlobalHotKeyMonitor(hotKey: .openSettings) { [weak self] in
       self?.selectionShortcut?.reset()
@@ -88,6 +85,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 
   func applicationWillTerminate(_ notification: Notification) {
     NotificationCenter.default.removeObserver(self)
+    panelShortcut?.stop()
     selectionShortcut?.stop()
     globalHotKeyMonitors.forEach { $0.stop() }
     globalHotKeyMonitors.removeAll()
