@@ -145,7 +145,15 @@ Text, OCR, image planning and final-answer requests reuse the process and weight
 Each request supplies its prepared conversation; prompt-cache reuse is disabled,
 and no conversation or screenshots are saved by the server. Switching models,
 request cancellation/failure, application termination, and explicit unloading close that child and its
-network session. Idle unloading occurs after five minutes without generation.
+network session. Idle unloading occurs after 60 seconds without model work, even
+while the chat remains open. Preparation, generation and performance checks cancel
+the previous deadline; the next idle period starts when that work finishes.
 Cleanup from an older request cannot terminate a newer model process. Startup and
 shutdown are bounded, with forced child termination if graceful shutdown stalls.
-The embedded b5046 bridge remains only for existing text-only installations.
+The embedded b5046 bridge remains only for existing text-only installations. Its
+60-second deadline starts after a reply completes, fails or is stopped, rather
+than depending on the panel losing focus. Reopening the panel does not cancel or
+extend an existing deadline. File Mode still unloads immediately after its task.
+Unloading frees the model and inference context (or terminates the server); the
+installed files and chat history remain available. The next local request loads
+the model again, so its first reply may take longer after an idle period.

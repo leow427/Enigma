@@ -51,12 +51,15 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   private var idleTask: Task<Void, Never>?
   private var idleID: UUID?
   private let idleDelay: Duration
+  private let idleSleep: @Sendable (Duration) async throws -> Void
   private let fileMaximumTokens: Int
   private let fileContextOverride: Int?
   private let fileDiagnostics: (@Sendable (CodexValue) async -> Void)?
-  init(idleDelay: Duration = .seconds(300), fileMaximumTokens: Int = 1_024,
-       fileContextOverride: Int? = nil, fileDiagnostics: (@Sendable (CodexValue) async -> Void)? = nil) {
+  init(idleDelay: Duration = LocalModelIdlePolicy.unloadDelay, fileMaximumTokens: Int = 1_024,
+       fileContextOverride: Int? = nil, fileDiagnostics: (@Sendable (CodexValue) async -> Void)? = nil,
+       idleSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
     self.idleDelay = idleDelay
+    self.idleSleep = idleSleep
     self.fileMaximumTokens = fileMaximumTokens
     self.fileContextOverride = fileContextOverride
     self.fileDiagnostics = fileDiagnostics
@@ -355,9 +358,9 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
 
   private func scheduleIdleUnload(id: UUID) {
     idleID = id
-    idleTask = Task { [weak self, idleDelay] in
+    idleTask = Task { [weak self, idleDelay, idleSleep] in
       do {
-        try await Task.sleep(for: idleDelay)
+        try await idleSleep(idleDelay)
         try Task.checkCancellation()
         await self?.unloadIfIdle(id: id)
       } catch { }

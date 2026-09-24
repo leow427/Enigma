@@ -172,14 +172,120 @@ final class LocalInferenceTests: XCTestCase {
     let viewModel = LocalChatViewModel(
       engine: engine,
       sessionStore: makeSessionStore(),
-      idleUnloadDelay: .seconds(300),
-      sleep: { _ in }
+      sleep: { XCTAssertEqual($0, .seconds(60)) }
     )
 
     viewModel.applicationBecameInactive()
     await waitUntil { engine.unloadCount == 1 }
 
     XCTAssertEqual(engine.unloadCount, 1)
+  }
+
+  @MainActor
+  func testCompletedReplyUnloadsAfterOneMinuteEvenWithTheChatOpen() async {
+    let deadline = ControlledLocalIdleSleep()
+    addTeardownBlock { await deadline.close() }
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in
+      AsyncThrowingStream { $0.yield("Reply"); $0.finish() }
+    })
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore(),
+      sleep: { try await deadline.sleep($0) })
+
+    viewModel.submit("Hello")
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+    XCTAssertEqual(viewModel.state, .idle)
+    XCTAssertEqual(engine.unloadCount, 0)
+    // Repeated panel and app notifications must neither cancel nor reset the deadline.
+    viewModel.applicationBecameInactive()
+    viewModel.applicationBecameActive()
+    viewModel.applicationBecameInactive()
+    viewModel.applicationBecameActive()
+    await deadline.expire(0)
+    await waitUntil { engine.unloadCount == 1 }
+
+    XCTAssertEqual(viewModel.messages.map(\.content), ["Hello", "Reply"])
+    let delays = await deadline.delays
+    XCTAssertEqual(delays, [.seconds(60)])
+    viewModel.submit("Follow-up")
+    await waitUntil { engine.requests.count == 2 && viewModel.state == .idle }
+    XCTAssertEqual(engine.requests.last?.messages.map(\.content), ["Hello", "Reply", "Follow-up"])
+  }
+
+  @MainActor
+  func testFollowupCancelsOldIdleDeadlineAndStartsANewOneAfterFinishing() async {
+    let deadline = ControlledLocalIdleSleep(expectedSleeps: 2)
+    addTeardownBlock { await deadline.close() }
+    let (followup, continuation) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { request in
+      request.prompt == "Follow-up" ? followup : AsyncThrowingStream { $0.yield("Reply"); $0.finish() }
+    })
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore(),
+      sleep: { try await deadline.sleep($0) })
+    viewModel.submit("Hello")
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+
+    viewModel.submit("Follow-up")
+    await waitUntil { engine.requests.count == 2 }
+    viewModel.applicationBecameInactive()
+    // Deliberately wake a cancelled sleeper while the replacement is still generating.
+    await deadline.expire(0)
+    continuation.yield("Still working")
+    await waitUntil { viewModel.messages.last?.content == "Still working" }
+    XCTAssertEqual(engine.unloadCount, 0)
+    XCTAssertTrue(viewModel.isBusy)
+
+    continuation.finish()
+    await fulfillment(of: [deadline.armed[1]], timeout: 2)
+    XCTAssertEqual(engine.unloadCount, 0)
+    await deadline.expire(1)
+    await waitUntil { engine.unloadCount == 1 }
+    let delays = await deadline.delays
+    XCTAssertEqual(delays, [.seconds(60), .seconds(60)])
+  }
+
+  @MainActor
+  func testRejectedCloudRequestPreservesPendingLocalUnload() async {
+    let deadline = ControlledLocalIdleSleep()
+    addTeardownBlock { await deadline.close() }
+    let engine = MockLocalModelEngine(installedModel: fixtureModel())
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore(),
+      sleep: { try await deadline.sleep($0) })
+    viewModel.submit("Hello")
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+
+    viewModel.submitCloud("Invalid chat model", provider: .openAI, modelID: "dall-e-3")
+    XCTAssertEqual(viewModel.state, .failed(CloudProviderError.unsupportedModel(.openAI, modelID: "dall-e-3").localizedDescription))
+    XCTAssertFalse(viewModel.isBusy)
+    await deadline.expire(0)
+    await waitUntil { engine.unloadCount == 1 }
+  }
+
+  @MainActor
+  func testStoppedAndFailedRepliesStillScheduleIdleUnloading() async {
+    for shouldStop in [true, false] {
+      let deadline = ControlledLocalIdleSleep()
+      addTeardownBlock { await deadline.close() }
+      let (stream, continuation) = AsyncThrowingStream<String, Error>.makeStream()
+      let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in stream })
+      let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore(),
+        sleep: { try await deadline.sleep($0) })
+      viewModel.submit("Hello")
+      continuation.yield("Partial reply")
+      await waitUntil { viewModel.messages.last?.content == "Partial reply" }
+      if shouldStop {
+        await viewModel.stopStreaming()?.value
+      } else {
+        continuation.finish(throwing: MockError.failed)
+      }
+      await fulfillment(of: [deadline.armed[0]], timeout: 2)
+      XCTAssertFalse(viewModel.isBusy)
+      XCTAssertEqual(engine.unloadCount, 0)
+      await deadline.expire(0)
+      await waitUntil { engine.unloadCount == 1 }
+      XCTAssertEqual(viewModel.messages.last?.content, "Partial reply")
+      let delays = await deadline.delays
+      XCTAssertEqual(delays, [.seconds(60)])
+    }
   }
 
   func testLlamaEngineDoesNotLoadWithoutAnInstalledModel() async {
@@ -319,6 +425,40 @@ private enum MockError: LocalizedError {
   case failed
 
   var errorDescription: String? { "The mocked stream failed." }
+}
+
+/// Lets lifecycle tests fire old and current deadlines without wall-clock delays.
+/// Cancellation is intentionally ignored so the production ownership checks run.
+actor ControlledLocalIdleSleep {
+  nonisolated let armed: [XCTestExpectation]
+  private(set) var delays: [Duration] = []
+  private var pending: [Int: CheckedContinuation<Void, Never>] = [:]
+  private var isClosed = false
+
+  init(expectedSleeps: Int = 1) {
+    armed = (0..<expectedSleeps).map { XCTestExpectation(description: "Idle deadline \($0) armed") }
+  }
+
+  func sleep(_ duration: Duration) async throws {
+    guard !isClosed else { throw CancellationError() }
+    let index = delays.count
+    delays.append(duration)
+    await withCheckedContinuation { continuation in
+      pending[index] = continuation
+      if armed.indices.contains(index) { armed[index].fulfill() }
+    }
+  }
+
+  func expire(_ index: Int) {
+    pending.removeValue(forKey: index)?.resume()
+  }
+
+  func close() {
+    isClosed = true
+    let waiters = pending.values
+    pending.removeAll()
+    for continuation in waiters { continuation.resume() }
+  }
 }
 
 private final class MockLocalModelEngine: LocalModelEngine, @unchecked Sendable {

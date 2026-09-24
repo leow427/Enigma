@@ -173,7 +173,7 @@ final class LocalChatViewModel: ObservableObject {
     locationProvider: (any LocationProviding)? = nil,
     sessionStore: ChatSessionStore = ChatSessionStore(),
     sessionWriter: ChatSessionWriter? = nil,
-    idleUnloadDelay: Duration = .seconds(300),
+    idleUnloadDelay: Duration = LocalModelIdlePolicy.unloadDelay,
     sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) }
   ) {
     self.selectionEditingSettings = selectionEditingSettings
@@ -226,7 +226,7 @@ final class LocalChatViewModel: ObservableObject {
     guard !isBusy else { return }
     stopStreaming()
     installationTask?.cancel()
-    idleUnloadTask?.cancel()
+    cancelIdleUnload()
     state = .installing
     let didAccessSecurityScope = sourceURL.startAccessingSecurityScopedResource()
     let modelName = sourceURL.deletingPathExtension().lastPathComponent
@@ -245,8 +245,7 @@ final class LocalChatViewModel: ObservableObject {
         await self.refreshInstalledModel()
         try Task.checkCancellation()
         if vision == nil { await self.benchmarkInstalledModel(prediction: nil) }
-        self.state = .idle
-        self.installationTask = nil
+        self.finishInstallation()
       } catch is CancellationError {
         self?.finishInstallation()
       } catch {
@@ -259,7 +258,7 @@ final class LocalChatViewModel: ObservableObject {
     guard !isBusy else { return }
     stopStreaming()
     installationTask?.cancel()
-    idleUnloadTask?.cancel()
+    cancelIdleUnload()
     state = .downloading(ModelDownloadProgress(receivedByteCount: 0, expectedByteCount: descriptor.downloadByteCount))
     installationTask = Task { [weak self, engine] in
       do {
@@ -277,8 +276,7 @@ final class LocalChatViewModel: ObservableObject {
         } else {
           await self.benchmarkInstalledModel(prediction: prediction)
         }
-        self.state = .idle
-        self.installationTask = nil
+        self.finishInstallation()
       } catch is CancellationError {
         self?.finishInstallation()
       } catch {
@@ -294,7 +292,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func runModelBenchmark() {
     guard !isBusy, let installedModel else { return }
-    idleUnloadTask?.cancel()
+    cancelIdleUnload()
     state = .benchmarking
     installationTask = Task { [weak self] in
       guard let self else { return }
@@ -329,6 +327,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func selectModel(id: String) {
     guard !isBusy else { return }
+    cancelIdleUnload()
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
     Task { [weak self, engine] in
@@ -338,8 +337,10 @@ final class LocalChatViewModel: ObservableObject {
         guard let self else { return }
         await self.refreshInstalledModel()
         self.state = .idle
+        self.scheduleIdleUnload()
       } catch {
         self?.state = .failed(error.localizedDescription)
+        self?.scheduleIdleUnload()
       }
     }
   }
@@ -347,7 +348,7 @@ final class LocalChatViewModel: ObservableObject {
   func deleteModel(id: String) {
     guard !isBusy, installedModels.contains(where: { $0.id == id }) else { return }
     stopStreaming()
-    idleUnloadTask?.cancel()
+    cancelIdleUnload()
     benchmarkNotice = nil
     state = .deleting
     installationTask = Task { [weak self, engine] in
@@ -456,7 +457,6 @@ final class LocalChatViewModel: ObservableObject {
       return
     }
     screenRouteDecision = nil
-    idleUnloadTask?.cancel()
     let responseID = UUID()
     let userMessage = contextualMessage(trimmedPrompt)
     let request = LocalModelRequest(messages: requestMessages + [userMessage])
@@ -561,7 +561,6 @@ final class LocalChatViewModel: ObservableObject {
     let history = requestMessages + [current]
     let pixels = decision.sendsImage ? attachment?.originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) : nil
     if decision.sendsImage && pixels == nil { state = .failed(ScreenCaptureError.invalidImage.localizedDescription); return }
-    idleUnloadTask?.cancel()
     let active = beginGeneration(route: model.route(searchEnabled: searchEnabled), modelDisplayName: model.id, userMessage: userMessage)
     state = .preparing
     contextNotice = nil
@@ -760,7 +759,6 @@ final class LocalChatViewModel: ObservableObject {
     let searchEnabled = shouldSearch(trimmedPrompt, explicitlyEnabled: searchEnabled)
     screenRouteDecision = nil
     guard !ThinkCommand.message(trimmedPrompt).content.isEmpty, !trimmedModelID.isEmpty, !isBusy else { return }
-    idleUnloadTask?.cancel()
     let route = Route(
       mode: .cloud,
       providerID: providerID.rawValue,
@@ -925,6 +923,7 @@ final class LocalChatViewModel: ObservableObject {
     state = .idle
     task.cancel()
     sessionWriter.flush()
+    scheduleIdleUnload()
     return task
   }
 
@@ -965,22 +964,39 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func applicationBecameActive() {
-    idleUnloadTask?.cancel()
-    idleUnloadTask = nil
+    scheduleIdleUnload()
   }
 
   func applicationBecameInactive() {
     sessionWriter.flush()
+    scheduleIdleUnload()
+  }
+
+  private func cancelIdleUnload() {
     idleUnloadTask?.cancel()
-    idleUnloadTask = Task { [weak self, engine, visionEngine, idleUnloadDelay, sleep] in
+    idleUnloadTask = nil
+  }
+
+  private func scheduleIdleUnload() {
+    // Focus changes and reading an open chat do not extend the model's lifetime.
+    // File picking and applying a finished selection also do not use inference.
+    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, installationTask == nil else { return }
+    switch state {
+    case .idle, .failed: break
+    default: return
+    }
+    idleUnloadTask = Task { [weak self, engine, idleUnloadDelay, sleep] in
       do {
         try await sleep(idleUnloadDelay)
         try Task.checkCancellation()
-        guard self?.isBusy == false else { return }
+        guard let self else { return }
+        self.idleUnloadTask = nil
+        guard self.activeRequest == nil, self.generationTask == nil, self.installationTask == nil else { return }
+        // The server manages its own idle timer on its actor, where it can check
+        // active inference atomically. A UI timer must not terminate a new request.
         await engine.unload()
-        await visionEngine.unload()
       } catch {
-        // Cancellation means the app became active before the idle policy elapsed.
+        // A new request or model operation superseded this idle period.
       }
     }
   }
@@ -1038,6 +1054,7 @@ final class LocalChatViewModel: ObservableObject {
   private func finishInstallation() {
     state = .idle
     installationTask = nil
+    scheduleIdleUnload()
   }
 
   private func updateDownloadProgress(_ progress: ModelDownloadProgress) {
@@ -1049,6 +1066,7 @@ final class LocalChatViewModel: ObservableObject {
     if Task.isCancelled { finishInstallation(); return }
     state = .failed(error.localizedDescription)
     installationTask = nil
+    scheduleIdleUnload()
   }
 
   private func search(_ query: String, locationPrompt: String? = nil, maximumTokens: Int, requestID: UUID) async throws -> [WebSearchResult] {
@@ -1125,6 +1143,7 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   private func beginGeneration(route: Route, modelDisplayName: String, userMessage: ChatMessage) -> ActiveRequest {
+    cancelIdleUnload()
     requestLocationContext = nil
     let request = ActiveRequest(id: UUID(), route: route, modelDisplayName: modelDisplayName)
     pendingUserMessage = nil
@@ -1246,5 +1265,6 @@ final class LocalChatViewModel: ObservableObject {
     generationTask = nil
     state = error.map { .failed($0.localizedDescription) } ?? .idle
     sessionWriter.flush()
+    scheduleIdleUnload()
   }
 }

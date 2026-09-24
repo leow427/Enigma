@@ -652,6 +652,67 @@ final class LocalVisionTests: XCTestCase {
     try await waitForRuntimeCondition { await runtime.runtimeProcessIdentifier() == nil }
   }
 
+  func testResidentRuntimeDefaultIdleDeadlineReleasesPreparedAndGeneratedModels() async throws {
+    for prepareOnly in [true, false] {
+      let directory = try temporaryDirectory()
+      defer { try? FileManager.default.removeItem(at: directory) }
+      let model = try controlledRuntimeModel(in: directory)
+      let deadline = ControlledLocalIdleSleep()
+      let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
+      addTeardownBlock { await runtime.unload(); await deadline.close() }
+      let messages = [ChatMessage(role: .user, content: "Hello")]
+      if prepareOnly {
+        _ = try await runtime.prepare(messages: messages, image: nil, model: model)
+      } else {
+        _ = try await ScreenSearchContext.collect(runtime.stream(messages: messages, image: nil, model: model), maximumBytes: 100)
+      }
+      await fulfillment(of: [deadline.armed[0]], timeout: 2)
+      let identifier = await runtime.runtimeProcessIdentifier()
+      let pid = try XCTUnwrap(identifier)
+      let delays = await deadline.delays
+      XCTAssertEqual(delays, [.seconds(60)])
+
+      await deadline.expire(0)
+      try await waitForRuntimeCondition { await runtime.runtimeProcessIdentifier() == nil }
+      try await waitForRuntimeCondition { Darwin.kill(pid, 0) != 0 }
+    }
+  }
+
+  func testResidentRuntimeOldIdleDeadlineCannotInterruptFollowup() async throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let model = try controlledRuntimeModel(in: directory)
+    let deadline = ControlledLocalIdleSleep(expectedSleeps: 2)
+    let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
+    addTeardownBlock { await runtime.unload(); await deadline.close() }
+    _ = try await ScreenSearchContext.collect(runtime.stream(messages: [ChatMessage(role: .user, content: "Hello")],
+      image: nil, model: model), maximumBytes: 100)
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+    let originalPID = await runtime.runtimeProcessIdentifier()
+
+    let followup = Task {
+      try await ScreenSearchContext.collect(runtime.stream(messages: [ChatMessage(role: .user, content: "hold")],
+        image: nil, model: model), maximumBytes: 100)
+    }
+    defer { followup.cancel() }
+    try await waitForRuntimeCondition { FileManager.default.fileExists(atPath: directory.appending(path: "request-started").path) }
+    await deadline.expire(0)
+    let activePID = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(activePID, originalPID)
+    followup.cancel()
+    do { _ = try await followup.value; XCTFail("Expected cancellation") } catch { }
+    try await waitForRuntimeCondition { await runtime.runtimeProcessIdentifier() == nil }
+
+    _ = try await ScreenSearchContext.collect(runtime.stream(messages: [ChatMessage(role: .user, content: "Retry")],
+      image: nil, model: model), maximumBytes: 100)
+    await fulfillment(of: [deadline.armed[1]], timeout: 2)
+    let replacementPID = await runtime.runtimeProcessIdentifier()
+    XCTAssertNotNil(replacementPID)
+    await deadline.expire(1)
+    try await waitForRuntimeCondition { await runtime.runtimeProcessIdentifier() == nil }
+    if let replacementPID { try await waitForRuntimeCondition { Darwin.kill(replacementPID, 0) != 0 } }
+  }
+
   func testApplicationTerminationDoesNotLeaveTheModelProcessRunning() async throws {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

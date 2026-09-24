@@ -1,5 +1,9 @@
 import Foundation
 
+enum LocalModelIdlePolicy {
+  static let unloadDelay: Duration = .seconds(60)
+}
+
 struct LocalModel: Codable, Sendable, Equatable, Identifiable {
   let id: String
   let displayName: String
