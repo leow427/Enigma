@@ -107,30 +107,6 @@ struct EnigmaLocalModelOperationView: View {
   }
 }
 
-/// A thin download bar: a `border` track with an `accentText` fill.
-private struct EnigmaProgressBar: View {
-  let fraction: Double
-  @Environment(\.enigmaPalette) private var palette
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @Environment(\.colorSchemeContrast) private var contrast
-
-  var body: some View {
-    let clamped = min(1, max(0, fraction))
-    Capsule()
-      .fill(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color)
-      .overlay(alignment: .leading) {
-        GeometryReader { proxy in
-          Capsule().fill(palette.accentText.color).frame(width: proxy.size.width * clamped)
-        }
-      }
-      .frame(width: 120, height: 4)
-      .animation(reduceMotion ? nil : EnigmaMotion.pageChange.animation, value: clamped)
-      .accessibilityElement()
-      .accessibilityLabel("Download progress")
-      .accessibilityValue("\(Int(clamped * 100)) percent")
-  }
-}
-
 /// The model sheet in the new design. Same choices and actions as
 /// `LocalModelOnboardingView`.
 struct EnigmaLocalModelOnboardingView: View {

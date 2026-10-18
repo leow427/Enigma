@@ -26,11 +26,7 @@ struct HuggingFaceDownloadSheet: View {
         }.disabled(downloads.isDownloading)
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 12) {
-            ForEach(repository.siblings.filter { filter.isEmpty || $0.rfilename.localizedCaseInsensitiveContains(filter) }
-              .sorted { left, right in
-                if left.isWeight != right.isWeight { return left.isWeight }
-                return left.rfilename < right.rfilename
-              }) { file in
+            ForEach(repository.listedFiles(matching: filter)) { file in
               Toggle(isOn: Binding(get: { selected.contains(file.id) }, set: { enabled in
                 if enabled { selected.insert(file.id) } else { selected.remove(file.id) }
               })) {
@@ -45,17 +41,9 @@ struct HuggingFaceDownloadSheet: View {
         }
         .natureSurface(radius: 14)
         .disabled(downloads.isDownloading)
-        let bytes = repository.siblings.filter { selected.contains($0.id) }.reduce(Int64(0)) { $0 + $1.size }
+        let bytes = repository.byteCount(of: selected)
         Button("Download \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))…") {
-          let panel = NSOpenPanel()
-          panel.canChooseDirectories = true
-          panel.canChooseFiles = false
-          panel.canCreateDirectories = true
-          panel.allowsMultipleSelection = false
-          panel.prompt = "Download Here"
-          panel.message = "Choose a folder for \(model.name)."
-          panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-          if panel.runModal() == .OK, let directory = panel.url {
+          if let directory = HuggingFaceDownloadFolder.choose(for: model.name) {
             downloads.download(repository, selected: selected, into: directory)
           }
         }
@@ -89,6 +77,40 @@ struct HuggingFaceDownloadSheet: View {
       } catch is CancellationError { }
       catch { self.error = error.localizedDescription }
     }
+  }
+}
+
+extension HuggingFaceRepository {
+  /// The files the download sheet lists: those matching `filter`, weights
+  /// first, then by name.
+  func listedFiles(matching filter: String) -> [HuggingFaceRepositoryFile] {
+    siblings.filter { filter.isEmpty || $0.rfilename.localizedCaseInsensitiveContains(filter) }
+      .sorted { left, right in
+        if left.isWeight != right.isWeight { return left.isWeight }
+        return left.rfilename < right.rfilename
+      }
+  }
+
+  /// The total size of the selected files.
+  func byteCount(of selected: Set<String>) -> Int64 {
+    siblings.filter { selected.contains($0.id) }.reduce(Int64(0)) { $0 + $1.size }
+  }
+}
+
+/// Where downloaded model files go: a folder the person picks, starting in Downloads.
+enum HuggingFaceDownloadFolder {
+  /// Nil when the person cancels.
+  @MainActor
+  static func choose(for modelName: String) -> URL? {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.canCreateDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.prompt = "Download Here"
+    panel.message = "Choose a folder for \(modelName)."
+    panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    return panel.runModal() == .OK ? panel.url : nil
   }
 }
 
@@ -137,23 +159,21 @@ struct DiscoverPackageRow: View {
             .font(.caption).foregroundStyle(NatureGlass.accent)
         }
         Spacer()
-        let existing = chat.installedModels.first { $0.id == assessment.id }
-        let current = existing.map { !assessment.model.requiresUpdate($0) } ?? false
-        if assessment.canInstall {
-          Button(current ? (chat.installedModel?.id == assessment.id ? "Selected" : "Use")
-            : (existing == nil ? "Install" : "Update")) {
-            if current { chat.selectModel(id: assessment.id) }
-            else { chat.downloadModel(assessment.model) }
-          }
-          .disabled(chat.isBusy || (current && chat.installedModel?.id == assessment.id))
-        } else {
+        let state = LocalModelSettingsLogic.packageAction(for: assessment, installed: chat.installedModels,
+                                                          activeID: chat.installedModel?.id, isBusy: chat.isBusy)
+        switch state.action {
+        case .use(let isSelected):
+          Button(isSelected ? "Selected" : "Use") { chat.selectModel(id: assessment.id) }
+            .disabled(!state.isEnabled)
+        case .install, .update:
+          Button(state.action == .install ? "Install" : "Update") { chat.downloadModel(assessment.model) }
+            .disabled(!state.isEnabled)
+        case .downloadFiles:
           Button("Download files", action: downloadFiles)
         }
       }
-      if !assessment.fit.canRun {
-        Text(assessment.permitsMemoryOverride
-          ? "Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it."
-          : "Compatibility warning: \(assessment.reason) You can still download its files.")
+      if let warning = LocalModelSettingsLogic.fitWarning(for: assessment) {
+        Text(warning)
           .font(.caption).foregroundStyle(.orange)
       }
       if assessment.model.modelSupportsAudio == true {

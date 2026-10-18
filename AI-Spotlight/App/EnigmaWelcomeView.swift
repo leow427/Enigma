@@ -17,6 +17,7 @@ struct EnigmaWelcomeView: View {
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.enigmaAppearance) private var appearance
   @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
   @AppStorage(SelectionShortcutMonitor.enabledKey) private var selectionShortcutEnabled = true
   @State private var selectedID: String?
@@ -85,14 +86,12 @@ struct EnigmaWelcomeView: View {
         .allowsHitTesting(false)
     }
     .sheet(isPresented: $showConnections) {
-      // Phase 5: open the new Settings here instead.
-      SettingsView(settings: cloud, initialDestination: .cloud)
-        .overlay(alignment: .topTrailing) {
-          Button("Back to Setup") { showConnections = false }.padding(20)
-        }
-        .frame(width: 820, height: 660)
-        // The old Settings is drawn for the dark scheme the old UI forces.
-        .environment(\.colorScheme, .dark)
+      EnigmaConnectionSettingsSheet(cloud: cloud, advisor: advisor, chat: chat, search: search) {
+        showConnections = false
+      }
+      // The sheet sits in the old UI's window, so it takes the theme
+      // without changing that window's scheme.
+      .enigmaEmbeddedTheme(appearance)
     }
     .task { await advisor.detectHardware() }
     .onAppear(perform: placeCharacter)
@@ -623,5 +622,38 @@ struct EnigmaWelcomeTourCard: View {
                          lineWidth: 1 / displayScale)
     }
     .task(id: step) { isHeadingFocused = true }
+  }
+}
+
+/// "More connection settings": the new Settings on Cloud and search, under a
+/// bar of its own with Back to setup, so the button never covers a row.
+struct EnigmaConnectionSettingsSheet: View {
+  static let size = CGSize(width: 820, height: 660)
+  static let barHeight: CGFloat = 48
+
+  let cloud: CloudSettingsModel
+  let advisor: LocalModelAdvisor
+  let chat: LocalChatViewModel
+  let search: WebSearchSettings
+  let back: () -> Void
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    VStack(spacing: 0) {
+      HStack {
+        Text("Connection settings")
+          .font(EnigmaTypography.ui(13, weight: .medium))
+          .foregroundStyle(palette.textSecondary.color)
+        Spacer()
+        Button("Back to setup", action: back).enigmaButtonStyle(.secondary)
+      }
+      .padding(.horizontal, 16)
+      .frame(height: Self.barHeight)
+      EnigmaHairline()
+      EnigmaSettingsView(settings: cloud, initialDestination: .cloud, advisor: advisor, chat: chat, search: search,
+                         size: CGSize(width: Self.size.width, height: Self.size.height - Self.barHeight))
+    }
+    .frame(width: Self.size.width, height: Self.size.height)
+    .background(palette.background.color)
   }
 }

@@ -63,10 +63,7 @@ struct LocalModelDiscoveryView: View {
       pageRequest?.cancel()
       if source == .hub { await discovery.search(query) }
     }
-    .task {
-      await chat.refreshInstalledModel()
-      await advisor.start(installedModels: chat.installedModels, presentOnboarding: false)
-    }
+    .task { await LocalModelSettingsLogic.prepare(advisor: advisor, chat: chat) }
     .onDisappear { pageRequest?.cancel() }
     .sheet(item: $downloadModel) { model in HuggingFaceDownloadSheet(model: model) }
   }
@@ -100,14 +97,12 @@ struct LocalModelDiscoveryView: View {
           }
         }
         .controlSize(.small)
-        if let assessment, !assessment.fit.canRun {
-          Text(assessment.permitsMemoryOverride
-            ? "Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it."
-            : "Compatibility warning: \(assessment.reason) You can still download its files.")
+        if let assessment, let warning = LocalModelSettingsLogic.fitWarning(for: assessment) {
+          Text(warning)
             .font(.caption).foregroundStyle(.orange)
         }
       }
-      if chat.isBusy || operationFailed {
+      if LocalModelSettingsLogic.showsDiscoverOperation(state: chat.state, isBusy: chat.isBusy) {
         LocalModelOperationView(chat: chat, advisor: advisor)
       }
     }
@@ -117,37 +112,30 @@ struct LocalModelDiscoveryView: View {
     .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(NatureGlass.accent.opacity(0.25)) }
   }
 
-  private var operationFailed: Bool {
-    if case .failed = chat.state { return true }
-    return false
-  }
-
   @ViewBuilder
   private func featuredAction(_ model: LocalModelDescriptor, assessment: LocalModelAssessment?) -> some View {
-    let installed = chat.installedModels.first { $0.id == model.id }
-    let isCurrent = installed.map { !model.requiresUpdate($0) } ?? false
-    let selected = chat.installedModel?.id == model.id
-    if let assessment, !assessment.canInstall {
+    let state = LocalModelSettingsLogic.featuredAction(for: model, assessment: assessment,
+                                                       installed: chat.installedModels,
+                                                       activeID: chat.installedModel?.id, isBusy: chat.isBusy)
+    switch state.action {
+    case .downloadFiles:
       Button("Download Q4 files") { downloadModel = HuggingFaceModelListing(id: model.huggingFaceRepositoryID) }
-    } else {
-      Button(isCurrent ? (selected ? "Selected" : "Use Model") : (installed == nil ? "Install Q4_K_M" : "Update Q4_K_M")) {
-        if isCurrent { chat.selectModel(id: model.id) }
-        else { chat.downloadModel(model) }
-      }
-      .buttonStyle(.borderedProminent)
-      .disabled(chat.isBusy || assessment == nil || (isCurrent && selected))
+    case .use(let isSelected):
+      Button(isSelected ? "Selected" : "Use Model") { chat.selectModel(id: model.id) }
+        .buttonStyle(.borderedProminent)
+        .disabled(!state.isEnabled)
+    case .install, .update:
+      Button(state.action == .install ? "Install Q4_K_M" : "Update Q4_K_M") { chat.downloadModel(model) }
+        .buttonStyle(.borderedProminent)
+        .disabled(!state.isEnabled)
     }
   }
 
   @ViewBuilder
   private var selectedPackages: some View {
-    let packages = advisor.recommendations(installedModels: chat.installedModels).assessments.filter {
-      guard $0.id != LocalModelDiscovery.featuredModelID,
-            query.scope != .audio || $0.model.modelSupportsAudio == true else { return false }
-      let text = "\($0.model.displayName) \($0.model.maker) \($0.model.quantization)"
-      return query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        || text.localizedCaseInsensitiveContains(query.search.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
+    let packages = LocalModelSettingsLogic.discoverPackages(
+      advisor.recommendations(installedModels: chat.installedModels).assessments,
+      scope: query.scope, search: query.search)
     if advisor.hardware == nil {
       ProgressView("Preparing model choices…")
     } else if packages.isEmpty {

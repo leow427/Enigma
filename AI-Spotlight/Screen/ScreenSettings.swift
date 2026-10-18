@@ -33,6 +33,7 @@ final class ScreenSettings: ObservableObject {
 
   static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Screen. Local mode keeps images on this Mac."
   static let ocrExplanation = "OCR reads text on this Mac. In Auto or Cloud, extracted text may go to your text model without uploading an image."
+  static let modelPickerNote = "The normal model picker selects the model for text and images. Install a recommended package in Local Models for private visual analysis."
 }
 
 @MainActor
@@ -57,7 +58,7 @@ struct ScreenSettingsSection: View {
         .font(.caption).foregroundStyle(.secondary)
       Text(ScreenSettings.ocrExplanation)
         .font(.caption).foregroundStyle(.secondary)
-      Text("The normal model picker selects the model for text and images. Install a recommended package in Local Models for private visual analysis.")
+      Text(ScreenSettings.modelPickerNote)
         .font(.caption).foregroundStyle(.secondary)
     }
   }

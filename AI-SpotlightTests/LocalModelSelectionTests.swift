@@ -881,7 +881,7 @@ extension LocalModelSelectionTests {
     let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
       localChat: chat, screen: screen, modelAdvisor: advisor,
       searchSettings: WebSearchSettings(credentials: WelcomeEmptySearchCredentials(), defaults: defaults),
-      startPreferences: preferences, welcomeSetup: setup)
+      startPreferences: preferences, welcomeSetup: setup, newUI: NewUIPreference(defaults: defaults))
       .transaction { $0.disablesAnimations = true })
     let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: PanelSizeStore(defaults: defaults),
       contentView: view, welcomeSetup: setup)
@@ -944,7 +944,8 @@ extension LocalModelSelectionTests {
     setup.step = .welcome
     let shell = AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
       localChat: chat, modelAdvisor: advisor, searchSettings: search,
-      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: setup)
+      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: setup,
+      newUI: NewUIPreference(defaults: defaults))
     try render(shell, size: NSSize(width: 640, height: 420), name: "welcome-window-rounded", roundedWindow: true)
     setup.finish(takeTour: true)
     for sidebar in [false, true] {
@@ -956,7 +957,8 @@ extension LocalModelSelectionTests {
         setup.finish(takeTour: true)
         for _ in 0..<step.rawValue { setup.nextTourStep() }
         let view = AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
-          localChat: chat, modelAdvisor: advisor, searchSettings: search, startPreferences: preferences, welcomeSetup: setup)
+          localChat: chat, modelAdvisor: advisor, searchSettings: search, startPreferences: preferences, welcomeSetup: setup,
+          newUI: NewUIPreference(defaults: defaults))
         try render(view, size: NSSize(width: 1000, height: 780), name: "welcome-tour-\(step)-\(sidebar)")
         try render(view, size: NSSize(width: 640, height: 420), name: "welcome-tour-small-\(step)-\(sidebar)")
       }

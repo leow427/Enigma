@@ -441,7 +441,8 @@ final class EnigmaWelcomeTests: XCTestCase {
     func shell(newUI: NewUIPreference, preferences: StartPreferences? = nil) -> AppShellView {
       AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search,
-        startPreferences: preferences ?? StartPreferences(defaults: defaults), welcomeSetup: setup, newUI: newUI)
+        startPreferences: preferences ?? StartPreferences(defaults: defaults), welcomeSetup: setup, newUI: newUI,
+        appearance: EnigmaAppearancePreference(defaults: defaults))
     }
   }
 }

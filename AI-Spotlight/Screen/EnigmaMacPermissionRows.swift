@@ -7,6 +7,8 @@ import SwiftUI
 struct EnigmaMacPermissionRows: View {
   @ObservedObject private var selection = SelectionAccessibilityAccess.shared
   @State private var screenGranted = CGPreflightScreenCaptureAccess()
+  /// Selection settings show only Accessibility, as `MacPermissionControls(showScreen: false)` does.
+  var showScreen = true
 
   static func status(isEnabled: Bool) -> (EnigmaStatusLine.Status, String) {
     isEnabled ? (.on, "enabled") : (.off, "action needed")
@@ -17,9 +19,11 @@ struct EnigmaMacPermissionRows: View {
       row("Accessibility", isEnabled: selection.isGranted,
           explanation: "Required to attach selected text with double-Option and replace text in other apps.",
           settingsName: "Accessibility", action: selection.requestAccess)
-      row("Screen Recording", isEnabled: screenGranted,
-          explanation: "Required for /screen and /snapshot. Captures happen only when you request them.",
-          settingsName: "Screen Recording", action: MacPermissionControls.openScreenSettings)
+      if showScreen {
+        row("Screen Recording", isEnabled: screenGranted,
+            explanation: "Required for /screen and /snapshot. Captures happen only when you request them.",
+            settingsName: "Screen Recording", action: MacPermissionControls.openScreenSettings)
+      }
       EnigmaHairline()
       EnigmaConnectionNote("Enable \(SelectionAccessibilityAccess.appName) in System Settings. If an older copy is already listed, remove it and add the app you’re running, then quit and reopen Enigma.")
         .padding(.top, 10)

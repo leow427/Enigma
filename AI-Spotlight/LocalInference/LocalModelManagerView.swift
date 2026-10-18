@@ -170,7 +170,7 @@ struct LocalModelManagerSection: View {
         Text("\(hardware.chip) · \(hardware.inferenceMemoryBudget, format: .byteCount(style: .memory)) available for inference")
           .font(.caption).foregroundStyle(.secondary)
       }
-      if chat.state != .idle || chat.benchmarkNotice != nil || advisor.latestBenchmark(for: chat.installedModel) != nil || advisor.notice != nil {
+      if LocalModelSettingsLogic.showsOperation(chat: chat, advisor: advisor) {
         LocalModelOperationView(chat: chat, advisor: advisor)
       }
       Text("One selected model handles chat, screenshots and search answers. Every recommended package includes image support.")
@@ -226,10 +226,7 @@ struct LocalModelManagerSection: View {
       Text("Approved model catalog · Version \(advisor.manifest.version)")
         .font(.caption).foregroundStyle(.secondary)
     }
-    .task {
-      await chat.refreshInstalledModel()
-      await advisor.start(installedModels: chat.installedModels, presentOnboarding: false)
-    }
+    .task { await LocalModelSettingsLogic.prepare(advisor: advisor, chat: chat) }
     .fileImporter(isPresented: $isImporterPresented,
       allowedContentTypes: [UTType(filenameExtension: "gguf") ?? .data], allowsMultipleSelection: false) { result in
       if case .success(let urls) = result, let url = urls.first { chat.installModel(from: url) }
@@ -250,29 +247,30 @@ struct LocalModelManagerSection: View {
       HStack(alignment: .top) {
         Text(rank.map { "\($0). \(assessment.model.displayName)" } ?? assessment.model.displayName).font(.subheadline.weight(.medium))
         Spacer(minLength: 8)
+        let state = LocalModelSettingsLogic.managerAction(for: assessment, installed: chat.installedModels,
+                                                          activeID: chat.installedModel?.id, isBusy: chat.isBusy)
+        switch state.action {
+        case .use(let isSelected):
+          Button(isSelected ? "Selected" : "Use") {
+            chat.selectModel(id: assessment.id)
+          }
+          .disabled(!state.isEnabled)
+        case .update:
+          Button(assessment.permitsMemoryOverride ? "Update Anyway" : "Update") { chat.downloadModel(assessment.model) }
+            .disabled(!state.isEnabled)
+        case .install:
+          Button("Install") { chat.downloadModel(assessment.model) }.disabled(!state.isEnabled)
+        case .downloadFiles:
+          Button("Download files") {
+            downloadListing = HuggingFaceModelListing(id: assessment.model.huggingFaceRepositoryID)
+          }
+        }
         if let installed = chat.installedModels.first(where: { $0.id == assessment.id }) {
-          if !assessment.model.requiresUpdate(installed) {
-            Button(chat.installedModel?.id == assessment.id ? "Selected" : "Use") {
-              chat.selectModel(id: assessment.id)
-            }
-            .disabled(chat.isBusy || !assessment.canInstall || chat.installedModel?.id == assessment.id)
-          } else {
-            Button(assessment.permitsMemoryOverride ? "Update Anyway" : "Update") { chat.downloadModel(assessment.model) }
-              .disabled(chat.isBusy || !assessment.canInstall)
-          }
           deleteButton(installed)
-        } else {
-          if assessment.canInstall {
-            Button("Install") { chat.downloadModel(assessment.model) }.disabled(chat.isBusy)
-          } else {
-            Button("Download files") {
-              downloadListing = HuggingFaceModelListing(id: assessment.model.huggingFaceRepositoryID)
-            }
-          }
         }
       }
       if assessment.permitsMemoryOverride {
-        Text("Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it.")
+        Text(LocalModelSettingsLogic.memoryWarning)
           .font(.caption).foregroundStyle(.orange)
       }
       Text(assessment.model.summary).font(.subheadline).foregroundStyle(.secondary)

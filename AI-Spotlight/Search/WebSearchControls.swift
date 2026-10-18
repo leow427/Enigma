@@ -39,22 +39,10 @@ struct WebSearchSettingsSection: View {
       SecureField(settings.hasAPIKey ? "Replace stored Brave API key" : "Brave Search API key", text: $apiKey)
         .textFieldStyle(.roundedBorder)
       HStack {
-        Button("Save Key") {
-          do {
-            try settings.saveAPIKey(apiKey)
-            apiKey = ""
-            error = nil
-          } catch { self.error = error.localizedDescription }
-        }
-        .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        Button("Remove Key", role: .destructive) {
-          do {
-            try settings.removeAPIKey()
-            apiKey = ""
-            error = nil
-          } catch { self.error = error.localizedDescription }
-        }
-        .disabled(!settings.hasAPIKey)
+        Button("Save Key") { error = settings.saveAPIKey(from: &apiKey) }
+          .disabled(!WebSearchSettings.canSaveAPIKey(apiKey))
+        Button("Remove Key", role: .destructive) { error = settings.removeAPIKey(clearing: &apiKey) }
+          .disabled(!settings.hasAPIKey)
         if settings.hasAPIKey {
           Label("Key saved", systemImage: "checkmark.circle")
             .foregroundStyle(.green)

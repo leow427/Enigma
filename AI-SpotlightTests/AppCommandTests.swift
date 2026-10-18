@@ -246,7 +246,7 @@ final class AppCommandTests: XCTestCase {
 
   @MainActor
   func testSettingsWindowOpensAndReopensWithoutASwiftUIScene() async throws {
-    let controller = SettingsWindowController(contentView: NSView())
+    let controller = try isolatedSettingsWindowController()
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
 
@@ -275,7 +275,7 @@ final class AppCommandTests: XCTestCase {
       glassAppearance: GlassAppearanceSettings(),
       contentView: draft
     )
-    let settings = SettingsWindowController(contentView: NSView())
+    let settings = try isolatedSettingsWindowController()
     let window = try XCTUnwrap(settings.window)
     let delegate = ApplicationDelegate(panelController: panel, settingsWindowController: settings)
     defer {
@@ -302,6 +302,17 @@ final class AppCommandTests: XCTestCase {
     panel.hide()
     delegate.openSettings()
     XCTAssertFalse(panel.isVisible, "Opening Settings must also respect an already hidden chat.")
+  }
+
+  /// The old Settings window, whatever the installed app's "Use new UI" and
+  /// appearance settings are.
+  @MainActor
+  private func isolatedSettingsWindowController() throws -> SettingsWindowController {
+    let name = "AppCommandTests-Settings-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+    addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
+    return SettingsWindowController(contentView: NSView(), newUI: NewUIPreference(defaults: defaults),
+                                    appearance: EnigmaAppearancePreference(defaults: defaults))
   }
 
   func testPanelFrameIsCenteredAndConstrainedToDisplay() {

@@ -91,6 +91,32 @@ struct MessagesDialogs: ViewModifier {
   }
 }
 
+/// What Settings shows for the macOS permissions /messages uses, shared by the
+/// old section and `EnigmaMessagesSettingsSection`.
+enum MessagesPermissionStatus {
+  /// Full Disk Access as Settings reports it: true when the Messages history
+  /// opens, nil when this Mac has no Messages history yet, and false otherwise.
+  static func fullDiskAccess(check: () throws -> Void = { try MessagesDatabase().checkAccess() }) -> Bool? {
+    do {
+      try check()
+      return true
+    } catch MessagesError.databaseMissing {
+      return nil
+    } catch {
+      return false
+    }
+  }
+
+  static func fullDiskAccessDetail(_ access: Bool?) -> String {
+    access == nil ? "Messages has no history on this Mac yet."
+      : "Required to read and search your Messages history. Enigma opens it read-only."
+  }
+
+  static let contactsDetail = "Optional. Shows names instead of phone numbers and finds people by name. macOS asks the first time you use /messages."
+  static let automationDetail = "macOS asks to let Enigma control Messages the first time you approve a send. If you declined, turn on Messages under Enigma."
+  static let privacyNote = "Every send waits for your approval of the recipient and exact text. With a local model or Auto, Messages stays on this Mac. With a cloud model, the messages and contacts it looks up are sent to that provider."
+}
+
 /// Settings → General: what /messages needs from macOS and where its data goes.
 struct MessagesSettingsSection: View {
   @State private var fullDiskAccess: Bool?
@@ -99,18 +125,18 @@ struct MessagesSettingsSection: View {
   var body: some View {
     Section("Messages · /messages") {
       status("Full Disk Access", enabled: fullDiskAccess == true,
-        detail: fullDiskAccess == nil ? "Messages has no history on this Mac yet." : "Required to read and search your Messages history. Enigma opens it read-only.",
+        detail: MessagesPermissionStatus.fullDiskAccessDetail(fullDiskAccess),
         button: "Open Full Disk Access Settings…", pane: .fullDiskAccess)
       status("Contacts", enabled: contacts == .authorized,
-        detail: "Optional. Shows names instead of phone numbers and finds people by name. macOS asks the first time you use /messages.",
+        detail: MessagesPermissionStatus.contactsDetail,
         button: "Open Contacts Settings…", pane: .contacts)
       VStack(alignment: .leading, spacing: 6) {
         Text("Automation").font(.headline)
-        Text("macOS asks to let Enigma control Messages the first time you approve a send. If you declined, turn on Messages under Enigma.")
+        Text(MessagesPermissionStatus.automationDetail)
           .font(.subheadline)
         Button("Open Automation Settings…") { NSWorkspace.shared.open(MessagesPrivacyPane.automation.url) }
       }
-      Text("Every send waits for your approval of the recipient and exact text. With a local model or Auto, Messages stays on this Mac. With a cloud model, the messages and contacts it looks up are sent to that provider.")
+      Text(MessagesPermissionStatus.privacyNote)
         .font(.caption).foregroundStyle(.secondary)
     }
     .onAppear(perform: refresh)
@@ -119,9 +145,7 @@ struct MessagesSettingsSection: View {
 
   private func refresh() {
     contacts = CNContactStore.authorizationStatus(for: .contacts)
-    do { try MessagesDatabase().checkAccess(); fullDiskAccess = true }
-    catch MessagesError.databaseMissing { fullDiskAccess = nil }
-    catch { fullDiskAccess = false }
+    fullDiskAccess = MessagesPermissionStatus.fullDiskAccess()
   }
 
   private func status(_ title: String, enabled: Bool, detail: String, button: String, pane: MessagesPrivacyPane) -> some View {

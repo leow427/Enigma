@@ -236,6 +236,8 @@ private struct NatureButtonStyle: ButtonStyle {
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
   @ObservedObject private var newUI: NewUIPreference
+  /// System, Paper, or Ink for the new screens.
+  @ObservedObject private var appearance: EnigmaAppearancePreference
   /// The window's character. The new welcome shows it; later phases share it.
   @StateObject private var character = EnigmaCharacterController()
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
@@ -274,7 +276,8 @@ struct AppShellView: View {
     searchSettings: WebSearchSettings = .shared,
     startPreferences: StartPreferences = .shared,
     welcomeSetup: WelcomeSetup = .shared,
-    newUI: NewUIPreference = .shared
+    newUI: NewUIPreference = .shared,
+    appearance: EnigmaAppearancePreference = .shared
   ) {
     self.glassAppearance = glassAppearance
     self.cloudSettings = cloudSettings
@@ -283,6 +286,7 @@ struct AppShellView: View {
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
     self.newUI = newUI
+    self.appearance = appearance
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
     _screen = StateObject(wrappedValue: screen)
@@ -460,10 +464,9 @@ struct AppShellView: View {
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
       if welcomeSetup.tour != nil {
         if newUI.isEnabled {
-          // Phase 5: pass the appearance setting instead of System.
           EnigmaWelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
             availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
-            .enigmaEmbeddedTheme(.system)
+            .enigmaEmbeddedTheme(appearance.appearance)
         } else {
           WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
             availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
@@ -478,7 +481,7 @@ struct AppShellView: View {
             // Phase 6: move the stage to the window root, so the character can
             // fall from the welcome into the main page.
             .enigmaCharacterStage(character)
-            .enigmaEmbeddedTheme(.system)
+            .enigmaEmbeddedTheme(appearance.appearance)
         } else {
           WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
         }
@@ -573,7 +576,7 @@ struct AppShellView: View {
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       if newUI.isEnabled {
         EnigmaLocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
-          .enigmaEmbeddedTheme(.system)
+          .enigmaEmbeddedTheme(appearance.appearance)
       } else {
         LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
       }
@@ -1796,7 +1799,7 @@ struct SettingsView: View {
                   .font(.caption).foregroundStyle(.secondary)
                 Text(location.status).font(.caption).foregroundStyle(.secondary)
                 Button("Open Location Services Settings") {
-                  NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!)
+                  NSWorkspace.shared.open(LocationService.privacySettingsURL)
                 }
               }
               MessagesSettingsSection()
@@ -1857,21 +1860,14 @@ struct SettingsView: View {
         }
 
         if settings.models.isEmpty {
-          Text(settings.modelDiscoveryNotice
-            ?? "Refresh models to find compatible chat choices, or enter a model ID manually.")
+          Text(CloudSettingsForm.emptyModelsNotice(in: settings))
             .font(.caption)
             .foregroundStyle(.secondary)
         } else {
           Picker("Preferred model", selection: $settings.preferredModelID) {
-            if settings.preferredModelID.isEmpty {
-              Text("Choose a model").tag("")
-            }
-            ForEach(settings.models) { model in
-              Text(model.displayName).tag(model.id)
-            }
-            if !settings.preferredModelID.isEmpty,
-               !settings.models.contains(where: { $0.id == settings.preferredModelID }) {
-              Text("Manual · \(settings.preferredModelID)").tag(settings.preferredModelID)
+            ForEach(CloudSettingsForm.modelChoices(models: settings.models,
+                                                   preferredModelID: settings.preferredModelID)) { choice in
+              Text(choice.title).tag(choice.id)
             }
           }
         }
@@ -1901,13 +1897,10 @@ struct SettingsView: View {
         }
 
         HStack {
-          Button(settings.isDiscovering ? "Refreshing…" : "Refresh Models") {
+          Button(CloudSettingsForm.refreshTitle(isDiscovering: settings.isDiscovering)) {
             Task { await settings.discoverModels(forceRefresh: true) }
           }
-          .disabled(
-            settings.isDiscovering
-              || !settings.hasCloudAccess(for: settings.preferredProvider)
-          )
+          .disabled(!CloudSettingsForm.canRefreshModels(in: settings))
           if settings.isDiscovering {
             ProgressView()
               .controlSize(.small)
@@ -1962,21 +1955,9 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .navigationTitle("Enigma Settings")
-    .task {
-      await settings.refreshChatGPTAccount()
-      await settings.refreshClaudeCodeAccount()
-      await settings.loadCachedModels()
-      if settings.hasCloudAccess(for: settings.preferredProvider), settings.models.isEmpty {
-        await settings.discoverModels()
-      }
-    }
+    .task { await CloudSettingsForm.load(settings) }
     .onChange(of: settings.preferredProvider) { _, provider in
-      Task {
-        if provider == .chatGPT { await settings.refreshChatGPTAccount() }
-        if provider == .claudeCode { await settings.refreshClaudeCodeAccount() }
-        guard settings.preferredProvider == provider, settings.hasCloudAccess(for: provider) else { return }
-        await settings.discoverModels()
-      }
+      Task { await CloudSettingsForm.preferredProviderChanged(to: provider, in: settings) }
     }
   }
 
@@ -1986,63 +1967,51 @@ struct SettingsView: View {
   ) -> some View {
     HStack {
       Button("Save to Keychain") {
-        do {
-          try settings.saveAPIKey(apiKey.wrappedValue, for: provider)
-          apiKey.wrappedValue = ""
-          formError = nil
-        } catch {
-          formError = error.localizedDescription
-        }
+        formError = CloudSettingsForm.saveAPIKey(&apiKey.wrappedValue, for: provider, in: settings)
       }
-      .disabled(apiKey.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      .disabled(!CloudSettingsForm.canSave(apiKey.wrappedValue))
 
       Button("Remove") {
-        do {
-          try settings.removeAPIKey(for: provider)
-          formError = nil
-        } catch {
-          formError = error.localizedDescription
-        }
+        formError = CloudSettingsForm.removeAPIKey(for: provider, in: settings)
       }
-      .disabled(!settings.hasAPIKey(for: provider))
+      .disabled(!CloudSettingsForm.canRemoveAPIKey(for: provider, in: settings))
 
       Spacer()
 
       Button("Test Connection") {
         Task { await settings.testConnection(to: provider) }
       }
-      .disabled(
-        !settings.hasAPIKey(for: provider)
-          || settings.connectionState(for: provider) == .testing
-      )
+      .disabled(!CloudSettingsForm.canTestConnection(to: provider, in: settings))
     }
   }
 
   @ViewBuilder
   private func connectionStatus(for provider: CloudProviderID) -> some View {
-    switch settings.connectionState(for: provider) {
-    case .idle:
-      if settings.hasAPIKey(for: provider) {
-        Label("API key stored in Keychain", systemImage: "key.fill")
+    if let status = CloudSettingsForm.connectionStatus(for: provider, in: settings) {
+      switch status.kind {
+      case .stored:
+        Label(status.text, systemImage: "key.fill")
           .foregroundStyle(.secondary)
+      case .testing:
+        HStack {
+          ProgressView()
+            .controlSize(.small)
+          Text(status.text)
+        }
+        .foregroundStyle(.secondary)
+      case .connected:
+        VStack(alignment: .leading, spacing: 4) {
+          Label(status.text, systemImage: "checkmark.circle")
+          if let detail = status.detail {
+            Text(detail)
+              .font(.caption)
+          }
+        }
+        .foregroundStyle(.secondary)
+      case .failed:
+        Label(status.text, systemImage: "exclamationmark.triangle.fill")
+          .foregroundStyle(.red)
       }
-    case .testing:
-      HStack {
-        ProgressView()
-          .controlSize(.small)
-        Text("Testing connection…")
-      }
-      .foregroundStyle(.secondary)
-    case .connected(let modelCount):
-      VStack(alignment: .leading, spacing: 4) {
-        Label("API reachable · Compatible chat models: \(modelCount)", systemImage: "checkmark.circle")
-        Text("Model-list check only. Sending and billing were not tested.")
-          .font(.caption)
-      }
-      .foregroundStyle(.secondary)
-    case .failed(let message):
-      Label(message, systemImage: "exclamationmark.triangle.fill")
-        .foregroundStyle(.red)
     }
   }
 }

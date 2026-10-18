@@ -163,3 +163,83 @@ private struct FocusHarness: View {
       .background(palette.background.color)
   }
 }
+
+// MARK: Settings controls
+
+extension EnigmaControlsTests {
+  func testSwitchTrackAndKnobFollowThePaletteAndStayVisible() {
+    for palette in [EnigmaPalette.paper, .ink] {
+      XCTAssertEqual(EnigmaSwitch.trackColor(isOn: true, in: palette, increasedContrast: false), palette.accent)
+      XCTAssertEqual(EnigmaSwitch.trackColor(isOn: false, in: palette, increasedContrast: false), palette.border)
+      XCTAssertEqual(EnigmaSwitch.trackColor(isOn: false, in: palette, increasedContrast: true).opacity,
+                     palette.border.opacity * 2, accuracy: 0.0001, "Increase Contrast doubles the track")
+      XCTAssertEqual(EnigmaSwitch.knobColor(isOn: true, in: palette), palette.onAccent)
+      // The knob stands out from its track in both states.
+      XCTAssertGreaterThanOrEqual(EnigmaSwitch.knobColor(isOn: true, in: palette).contrastRatio(on: palette.accent), 3)
+      let offTrack = palette.border.composited(over: palette.background)
+      XCTAssertGreaterThanOrEqual(EnigmaSwitch.knobColor(isOn: false, in: palette).contrastRatio(on: offTrack), 1.3)
+    }
+    XCTAssertEqual(EnigmaSwitch.knobColor(isOn: false, in: .paper), EnigmaPalette.paper.menu, "White, as in the mockup")
+    XCTAssertEqual(EnigmaSwitch.knobColor(isOn: false, in: .ink), EnigmaPalette.ink.textPrimary)
+  }
+
+  func testSwitchKnobSpringsAcrossTheTrackExceptUnderReduceMotion() {
+    XCTAssertEqual(EnigmaSwitch.knobTravel, 13, "As in the mockup")
+    XCTAssertEqual(EnigmaSwitch.knobOffset(isOn: false), 0)
+    XCTAssertEqual(EnigmaSwitch.knobOffset(isOn: true), 13)
+    XCTAssertNil(EnigmaSwitch.knobAnimation(reduceMotion: true))
+    XCTAssertNotNil(EnigmaSwitch.knobAnimation(reduceMotion: false))
+    XCTAssertLessThan(EnigmaMotion.switchKnob.dampingFraction, 0.85, "A switch is allowed a real bounce")
+  }
+
+  func testSegmentTitlesAreAllReadable() {
+    for palette in [EnigmaPalette.paper, .ink] {
+      for selected in [false, true] {
+        XCTAssertGreaterThanOrEqual(EnigmaSegmentStyle.titleColor(isSelected: selected, isHovered: false, in: palette)
+          .contrastRatio(on: palette.background), 4.5)
+      }
+      XCTAssertEqual(EnigmaSegmentStyle.titleColor(isSelected: true, isHovered: false, in: palette), palette.textPrimary)
+      XCTAssertEqual(EnigmaSegmentStyle.titleColor(isSelected: false, isHovered: true, in: palette), palette.textPrimary)
+    }
+  }
+
+  func testMenusOpenBelowOrAboveAndStayInTheWindow() {
+    let container = CGSize(width: 800, height: 600)
+    let rightTop = EnigmaMenuPlacement(anchor: CGRect(x: 600, y: 100, width: 120, height: 26), container: container)
+    XCTAssertFalse(rightTop.opensUpward)
+    XCTAssertTrue(rightTop.alignsTrailing)
+    XCTAssertEqual(rightTop.alignment, .topTrailing)
+    XCTAssertEqual(rightTop.offset, CGSize(width: -80, height: 130))
+    XCTAssertEqual(rightTop.maximumHeight, 600 - 126 - 4 - 8)
+
+    let leftBottom = EnigmaMenuPlacement(anchor: CGRect(x: 40, y: 540, width: 120, height: 26), container: container)
+    XCTAssertTrue(leftBottom.opensUpward)
+    XCTAssertFalse(leftBottom.alignsTrailing)
+    XCTAssertEqual(leftBottom.alignment, .bottomLeading)
+    XCTAssertEqual(leftBottom.offset, CGSize(width: 40, height: -(600 - 540 + 4)))
+    XCTAssertEqual(leftBottom.maximumHeight, 540 - 4 - 8)
+    XCTAssertEqual(leftBottom.scaleAnchor.x, 40 / 800, accuracy: 0.0001)
+    XCTAssertEqual(leftBottom.scaleAnchor.y, 536 / 600.0, accuracy: 0.0001)
+    XCTAssertEqual(EnigmaMotion.menu.dampingFraction, 1, "Menus never overshoot")
+  }
+
+  @MainActor
+  func testMenuChoicesMarkTheSelectionAndSetIt() {
+    var value = "b"
+    let binding = Binding(get: { value }, set: { value = $0 })
+    let section = EnigmaMenuSection.choosing([EnigmaOption("a", "A"), EnigmaOption("b", "B"),
+                                              EnigmaOption("c", "C", isEnabled: false)], selection: binding)
+    XCTAssertEqual(section.items.map(\.isSelected), [false, true, false])
+    XCTAssertEqual(section.items.map(\.isEnabled), [true, true, false])
+    section.items[0].action()
+    XCTAssertEqual(value, "a")
+
+    let presenter = EnigmaMenuPresenter()
+    let first = UUID()
+    presenter.present(.init(id: first, label: "Menu", anchor: .zero, minimumWidth: 160, sections: [section]))
+    presenter.dismiss(UUID())
+    XCTAssertEqual(presenter.presentation?.id, first, "Another menu's dismissal leaves this one open")
+    presenter.dismiss(first)
+    XCTAssertNil(presenter.presentation)
+  }
+}

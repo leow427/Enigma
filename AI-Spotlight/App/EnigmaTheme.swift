@@ -190,6 +190,8 @@ enum EnigmaMotion {
 extension EnvironmentValues {
   /// The palette new views draw with. Set it at the window root with `.enigmaTheme(_:)`.
   @Entry var enigmaPalette: EnigmaPalette = .paper
+  /// The appearance the palette came from, so a sheet can apply the same one.
+  @Entry var enigmaAppearance: EnigmaAppearance = .system
 }
 
 extension View {
@@ -208,6 +210,7 @@ private struct EnigmaThemeModifier: ViewModifier {
     let scheme = appearance.colorScheme ?? systemScheme
     content
       .environment(\.enigmaPalette, appearance.palette(for: scheme))
+      .environment(\.enigmaAppearance, appearance)
       .environment(\.colorScheme, scheme)
       .preferredColorScheme(appearance.colorScheme)
   }
@@ -265,6 +268,7 @@ private struct EnigmaEmbeddedThemeModifier: ViewModifier {
     let scheme = appearance.colorScheme ?? system.colorScheme
     content
       .environment(\.enigmaPalette, appearance.palette(for: scheme))
+      .environment(\.enigmaAppearance, appearance)
       .environment(\.colorScheme, scheme)
   }
 }
