@@ -194,6 +194,10 @@ reaches parity, so `main` always ships a working app.
 2. **Separate state from views.** Move chat, composer, and history state out
    of `AppShellView.swift` into small models, without changing visuals. Add
    tests for those models. This is the safety net for every later phase.
+   The models are `ShellPresentation` (which panels are open, the routing
+   mode, and composer focus), `ComposerSubmission` (what Send does with a
+   draft), and `ChatHistoryList` (the sidebar's history rows). New screens
+   should drive these same models instead of copying the logic.
 3. **Character component.** Build `EnigmaCharacter` alone, with previews for
    each state, Reduce Motion support, and a CPU check.
 4. **Welcome screen,** behind the flag.

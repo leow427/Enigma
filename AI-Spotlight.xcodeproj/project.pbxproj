@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BC98F7A133F41BA336F106D1 /* AI-Spotlight/App/ShellPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */; };
+		422E561946FB6455B45F5292 /* AI-Spotlight/App/ComposerSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */; };
+		C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */; };
+		80004CBDDB61209435345505 /* AI-SpotlightTests/AppShellStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */; };
 		2A6F2F64373438103BD3CAF7 /* AI-Spotlight/App/EnigmaTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */; };
 		D1CB335B96CD3A7AB1BFC837 /* AI-Spotlight/App/NewUIPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */; };
 		FC2B0BD85645C62439050546 /* AI-SpotlightTests/EnigmaThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */; };
@@ -152,6 +156,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ShellPresentation.swift"; sourceTree = SOURCE_ROOT; };
+		352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ComposerSubmission.swift"; sourceTree = SOURCE_ROOT; };
+		3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ChatHistoryList.swift"; sourceTree = SOURCE_ROOT; };
+		411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/AppShellStateTests.swift"; sourceTree = SOURCE_ROOT; };
 		D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaTheme.swift"; sourceTree = SOURCE_ROOT; };
 		BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/NewUIPreference.swift"; sourceTree = SOURCE_ROOT; };
 		7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaThemeTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -313,6 +321,10 @@
 			isa = PBXGroup;
 			children = (
 				C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */,
+				854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */,
+				352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */,
+				3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */,
+				411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */,
 				D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */,
 				BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */,
 				7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */,
@@ -627,6 +639,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
+				BC98F7A133F41BA336F106D1 /* AI-Spotlight/App/ShellPresentation.swift in Sources */,
+				422E561946FB6455B45F5292 /* AI-Spotlight/App/ComposerSubmission.swift in Sources */,
+				C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */,
 				2A6F2F64373438103BD3CAF7 /* AI-Spotlight/App/EnigmaTheme.swift in Sources */,
 				D1CB335B96CD3A7AB1BFC837 /* AI-Spotlight/App/NewUIPreference.swift in Sources */,
 				3531F85A5FF9A9B5118210B7 /* AI-Spotlight/Cloud/CloudToolCalling.swift in Sources */,
@@ -726,6 +741,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
+				80004CBDDB61209435345505 /* AI-SpotlightTests/AppShellStateTests.swift in Sources */,
 				FC2B0BD85645C62439050546 /* AI-SpotlightTests/EnigmaThemeTests.swift in Sources */,
 				051D2015ABFB2B36D0C65AEF /* AI-SpotlightTests/MessagesTests.swift in Sources */,
 				CC5400000000000000000001,

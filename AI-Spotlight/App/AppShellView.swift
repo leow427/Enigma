@@ -237,10 +237,6 @@ struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
   @ObservedObject private var selectionContext = SelectionContextService.shared
-  @State private var isSelectionComposer = false
-  @State private var isSelectionPresentation = false
-  @State private var isSelectionDetailsPresented = false
-  @State private var expandedActivities: Set<UUID> = []
   @ObservedObject var glassAppearance: GlassAppearanceSettings
   @ObservedObject private var cloudSettings: CloudSettingsModel
   @StateObject private var localChat: LocalChatViewModel
@@ -260,12 +256,8 @@ struct AppShellView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @ObservedObject private var searchSettings: WebSearchSettings
   @State private var isModelImporterPresented = false
-  @State private var isModePalettePresented = false
-  @State private var isHelpPresented = false
   @ObservedObject private var startPreferences: StartPreferences
-  @State private var isSidebarVisible: Bool
-  @State private var selectedMode: ChatMode
-  @State private var isComposerFocused = false
+  @State private var shell: ShellPresentation
 
   init(
     glassAppearance: GlassAppearanceSettings,
@@ -287,8 +279,7 @@ struct AppShellView: View {
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
     self.startPreferences = startPreferences
-    _selectedMode = State(initialValue: startPreferences.mode)
-    _isSidebarVisible = State(initialValue: startPreferences.showsSidebar)
+    _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
     _screen = StateObject(wrappedValue: screen)
     let chat = localChat ?? localEngine.map { LocalChatViewModel(engine: $0, cloudProviders: cloudProviders) } ?? .shared
     _localChat = StateObject(wrappedValue: chat)
@@ -333,7 +324,7 @@ struct AppShellView: View {
       if let notice = selectionContext.notice, localChat.isTemporaryChat {
         Text(notice).font(.caption).foregroundStyle(.secondary)
       }
-      if let attachment = screen.attachment, !isSelectionComposer, localChat.pendingUserMessage == nil {
+      if let attachment = screen.attachment, !shell.isSelectionComposer, localChat.pendingUserMessage == nil {
         screenshotAttachment(attachment)
       }
       if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
@@ -367,7 +358,7 @@ struct AppShellView: View {
         MessagesIssueView(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
       }
       if files.selection != nil || files.error != nil || files.protectedWrite != nil {
-        FileModeAttachmentView(files: files, access: fileAccess, isCloud: selectedMode == .cloud, isBusy: localChat.isBusy,
+        FileModeAttachmentView(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud, isBusy: localChat.isBusy,
           useCodex: { isFileCloudConsentPresented = true })
       }
       FileChangeSummaryView(files: files, isBusy: localChat.isBusy)
@@ -377,7 +368,7 @@ struct AppShellView: View {
   private func screenshotAttachment(_ attachment: ScreenAttachment) -> some View {
     ScreenAttachmentView(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
       remove: screen.removeAttachment, retake: captureScreen)
-      .sheet(item: $screenUploadConsent, onDismiss: { isComposerFocused = !localChat.isBusy }) { consent in
+      .sheet(item: $screenUploadConsent, onDismiss: { shell.isComposerFocused = !localChat.isBusy }) { consent in
         ScreenUploadConsentView(consent: consent,
           allow: { answerScreenPermission(consent, allow: true) },
           decline: { answerScreenPermission(consent, allow: false) })
@@ -391,7 +382,7 @@ struct AppShellView: View {
 
       GeometryReader { geometry in
         HStack(spacing: 0) {
-          if isSidebarVisible && !isSelectionComposer {
+          if shell.isSidebarVisible && !shell.isSelectionComposer {
             sidebar(compact: geometry.size.width < 900)
               .frame(width: min(288, max(200, geometry.size.width * 0.27)))
           }
@@ -399,14 +390,14 @@ struct AppShellView: View {
           // composer outside a small panel.
           GeometryReader { _ in
             VStack(spacing: 0) {
-              if !isSelectionComposer {
-                if !isSidebarVisible { hiddenSidebarNavigation }
+              if !shell.isSelectionComposer {
+                if !shell.isSidebarVisible { hiddenSidebarNavigation }
                 conversation
               }
-              if isSelectionComposer { Spacer(minLength: 0) }
+              if shell.isSelectionComposer { Spacer(minLength: 0) }
 
-              VStack(alignment: .trailing, spacing: isSelectionComposer ? 4 : 8) {
-                if isSelectionComposer {
+              VStack(alignment: .trailing, spacing: shell.isSelectionComposer ? 4 : 8) {
+                if shell.isSelectionComposer {
                   if localChat.attachedContexts.isEmpty {
                     Label("No text selected", systemImage: "text.quote")
                       .font(.caption).foregroundStyle(.secondary)
@@ -426,29 +417,29 @@ struct AppShellView: View {
                 }
                 composer(compact: geometry.size.width < 900)
               }
-              .fixedSize(horizontal: false, vertical: isSelectionComposer)
+              .fixedSize(horizontal: false, vertical: shell.isSelectionComposer)
               .background {
-                if isSelectionComposer {
+                if shell.isSelectionComposer {
                   GeometryReader { bounds in
                     Color.clear.preference(key: SelectionComposerHeight.self, value: bounds.size.height + 16)
                   }
                 }
               }
-              .padding(.horizontal, isSelectionPresentation ? 12 : 24)
-              .padding(.bottom, isSelectionPresentation ? 12 : 32)
-              .padding(.top, isSelectionComposer ? 4 : 8)
+              .padding(.horizontal, shell.isSelectionPresentation ? 12 : 24)
+              .padding(.bottom, shell.isSelectionPresentation ? 12 : 32)
+              .padding(.top, shell.isSelectionComposer ? 4 : 8)
             }
           }
         }
       }
 
-      if isModePalettePresented && !isSelectionComposer {
+      if shell.isModePalettePresented && !shell.isSelectionComposer {
         modePalette
       }
     }
     .tint(NatureGlass.accent)
     .preferredColorScheme(.dark)
-    .frame(minWidth: 640, minHeight: isSelectionPresentation ? 0 : 420)
+    .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -477,16 +468,15 @@ struct AppShellView: View {
   private var commandObservedShell: some View {
     welcomeShell
     .onPreferenceChange(SelectionComposerHeight.self) { height in
-      guard isSelectionComposer, height > 0 else { return }
+      guard shell.isSelectionComposer, height > 0 else { return }
       NotificationCenter.default.post(name: .selectionComposerHeightChanged, object: height)
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelExpanded)) { _ in
-      isSelectionComposer = false
-      isSelectionDetailsPresented = false
+      shell.leaveSelectionComposer()
     }
     .onReceive(NotificationCenter.default.publisher(for: .sidebarToggleRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
-      isSidebarVisible.toggle()
+      shell.isSidebarVisible.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .fileModeRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
@@ -494,33 +484,22 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionContextRequested)) { notification in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
-      isSelectionComposer = true
-      isSelectionPresentation = true
-      isSelectionDetailsPresented = false
       screen.clearDraft()
-      isModePalettePresented = false
-      isHelpPresented = false
-      applyStartPreferences()
-      isSidebarVisible = false
+      shell.beginSelectionComposer(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar)
       localChat.startTemporaryChat(context: notification.object as? ConversationContext)
-      isComposerFocused = true
     }
     .onReceive(NotificationCenter.default.publisher(for: .newChatRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
-      isSelectionComposer = false
-      isSelectionPresentation = false
       screen.clearDraft()
-      applyStartPreferences()
+      shell.startNewChat(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar)
       localChat.newChat()
-      isModePalettePresented = false
-      isComposerFocused = true
     }
     .onReceive(NotificationCenter.default.publisher(for: .modePaletteRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
-      isModePalettePresented.toggle()
+      shell.isModePalettePresented.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .settingsRequested)) { _ in
-      isModePalettePresented = false
+      shell.isModePalettePresented = false
     }
   }
 
@@ -530,7 +509,7 @@ struct AppShellView: View {
       selectionAccess.refresh()
       localChat.applicationBecameActive()
       Task { await modelAdvisor.refreshCatalog() }
-      isComposerFocused = true
+      shell.isComposerFocused = true
     }
     .onReceive(NotificationCenter.default.publisher(for: .panelHidden)) { _ in
       localChat.applicationBecameInactive()
@@ -547,8 +526,7 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .recentChatCycleRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
-      isSelectionComposer = false
-      isSelectionPresentation = false
+      shell.cycleRecentChat()
       localChat.cycleRecentChat()
     }
   }
@@ -556,16 +534,16 @@ struct AppShellView: View {
   private var selectionObservedShell: some View {
     observedShell
     .onChange(of: localChat.state) { _, state in
-      if isSelectionComposer, case .failed = state { isSelectionDetailsPresented = true }
+      if shell.isSelectionComposer, case .failed = state { shell.revealSelectionProblem() }
     }
     .onChange(of: screen.error) { _, error in
-      if isSelectionComposer, error != nil { isSelectionDetailsPresented = true }
+      if shell.isSelectionComposer, error != nil { shell.revealSelectionProblem() }
     }
     .onChange(of: files.error) { _, error in
-      if isSelectionComposer, error != nil { isSelectionDetailsPresented = true }
+      if shell.isSelectionComposer, error != nil { shell.revealSelectionProblem() }
     }
     .onChange(of: messages.issue) { _, issue in
-      if isSelectionComposer, issue != nil { isSelectionDetailsPresented = true }
+      if shell.isSelectionComposer, issue != nil { shell.revealSelectionProblem() }
     }
   }
 
@@ -578,7 +556,7 @@ struct AppShellView: View {
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
       isBusy: localChat.isBusy, useCodex: {
         cloudSettings.preferredProvider = .chatGPT
-        selectedMode = .cloud
+        shell.selectedMode = .cloud
         if let handoff = files.prepareProtectedCloudDraft() {
           cloudSettings.preferredModelID = handoff.modelID
           if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draft = handoff.prompt }
@@ -587,12 +565,10 @@ struct AppShellView: View {
     .onChange(of: localChat.isBusy) { _, busy in
       // A disabled TextField cannot take focus at first-token acceptance.
       // Restore its editor only after the owning request has finished.
-      isComposerFocused = !busy
+      shell.requestBusyChanged(busy)
     }
     .onChange(of: localChat.selectedSessionID) { _, _ in
-      if isSelectionPresentation && !localChat.isTemporaryChat {
-        isSelectionComposer = false
-        isSelectionPresentation = false
+      if shell.sessionChanged(isTemporaryChat: localChat.isTemporaryChat) {
         NotificationCenter.default.post(name: .selectionPanelResetRequested, object: nil)
       }
       if localChat.activeRequest == nil { screen.removeAttachment() }
@@ -602,7 +578,7 @@ struct AppShellView: View {
         localChat.stopStreaming()
       }
     }
-    .sheet(isPresented: $isHelpPresented) {
+    .sheet(isPresented: $shell.isHelpPresented) {
       KeyboardShortcutsHelpView(searchSettings: searchSettings)
     }
     .fileImporter(
@@ -612,7 +588,7 @@ struct AppShellView: View {
     ) { result in
       if case .success(let urls) = result, let url = urls.first {
         localChat.installModel(from: url)
-        selectedMode = .local
+        shell.selectedMode = .local
       }
     }
     .task {
@@ -621,20 +597,13 @@ struct AppShellView: View {
       await modelAdvisor.start(installedModels: localChat.installedModels, presentOnboarding: false)
     }
     .onChange(of: welcomeSetup.isPresented) { _, presented in
-      isComposerFocused = !presented && welcomeSetup.tour == nil
-      if !presented {
-        selectedMode = .auto
-        startPreferences.mode = .auto
-      }
-      if presented {
-        isModePalettePresented = false
-        isHelpPresented = false
-      }
+      shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
+      if !presented { startPreferences.mode = .auto }
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
-      isComposerFocused = tour == nil && !welcomeSetup.isPresented
+      shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
     }
-    .onChange(of: selectedMode, initial: true) { _, mode in
+    .onChange(of: shell.selectedMode, initial: true) { _, mode in
       localChat.clearAutoRouteDecision()
       guard mode == .cloud || mode == .auto else { return }
       Task {
@@ -654,10 +623,10 @@ struct AppShellView: View {
 
   private var hiddenSidebarNavigation: some View {
     HStack(spacing: 12) {
-      Button { isSidebarVisible = true } label: { Image(systemName: "sidebar.left") }
+      Button { shell.isSidebarVisible = true } label: { Image(systemName: "sidebar.left") }
         .welcomeTourTarget(.history)
         .accessibilityLabel("Show chat history").help("Show chat history · double-tap Control")
-      Button { isHelpPresented = true } label: { Label("Help", systemImage: "questionmark.circle") }.welcomeTourTarget(.help)
+      Button { shell.isHelpPresented = true } label: { Label("Help", systemImage: "questionmark.circle") }.welcomeTourTarget(.help)
       Spacer()
       Button(action: openSettings) { Image(systemName: "gearshape") }.accessibilityLabel("Settings")
       Button { NotificationCenter.default.post(name: .newChatRequested, object: nil) } label: {
@@ -678,7 +647,7 @@ struct AppShellView: View {
               .foregroundStyle(NatureGlass.accent).frame(width: compact ? 28 : 40, height: compact ? 28 : 40).accessibilityHidden(true)
             Text("Enigma").font(.system(size: compact ? 15 : 19, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
             Spacer(minLength: 0)
-            Button { isSidebarVisible = false } label: {
+            Button { shell.isSidebarVisible = false } label: {
               Image(systemName: "sidebar.left").font(.system(size: 14)).frame(width: 24, height: 32)
             }.buttonStyle(NatureButtonStyle()).accessibilityLabel("Hide chat history").welcomeTourTarget(.history)
               .help("Hide chat history · double-tap Control")
@@ -695,22 +664,19 @@ struct AppShellView: View {
           .id("welcomeHistory")
 
           VStack(spacing: 4) {
-            if localChat.sessions.isEmpty {
-              sidebarRow(title: "New Chat", selected: true, compact: compact) {
-                NotificationCenter.default.post(name: .newChatRequested, object: nil)
-              }
-            }
-            ForEach(localChat.sessions.prefix(5)) { session in
-              sidebarRow(title: session.title, date: session.messages.isEmpty ? nil : session.lastActivityAt,
-                         selected: localChat.selectedSessionID == session.id, compact: compact) {
-                localChat.selectSession(id: session.id)
+            ForEach(ChatHistoryList.rows(sessions: localChat.sessions, selectedSessionID: localChat.selectedSessionID)) { row in
+              sidebarRow(title: row.title, date: row.date, selected: row.isSelected, compact: compact) {
+                switch row.target {
+                case .newChat: NotificationCenter.default.post(name: .newChatRequested, object: nil)
+                case .session(let id): localChat.selectSession(id: id)
+                }
               }
             }
           }
 
           VStack(alignment: .leading, spacing: 0) {
             Divider().overlay(NatureGlass.secondary.opacity(0.25)).padding(.horizontal, 16)
-            Button { isHelpPresented = true } label: {
+            Button { shell.isHelpPresented = true } label: {
               Label("Help", systemImage: "questionmark.circle")
                 .frame(maxWidth: .infinity, alignment: .leading).frame(height: 42).contentShape(Rectangle())
             }.buttonStyle(NatureButtonStyle()).welcomeTourTarget(.help).id("welcomeHelp")
@@ -765,8 +731,8 @@ struct AppShellView: View {
   private func composer(compact: Bool) -> some View {
     let isResponding = localChat.activeRequest != nil
     return HStack(spacing: compact ? 8 : 16) {
-      if isSelectionComposer {
-        Button { isSelectionDetailsPresented.toggle() } label: {
+      if shell.isSelectionComposer {
+        Button { shell.isSelectionDetailsPresented.toggle() } label: {
           Image(systemName: selectionContext.notice != nil || !selectionAccess.isGranted
             ? "exclamationmark.bubble" : "text.quote")
             .foregroundStyle(NatureGlass.accent)
@@ -775,7 +741,7 @@ struct AppShellView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Selection context and status")
         .help(localChat.attachedContexts.first?.title ?? "Selection context and status")
-        .popover(isPresented: $isSelectionDetailsPresented, arrowEdge: .top) {
+        .popover(isPresented: $shell.isSelectionDetailsPresented, arrowEdge: .top) {
           ScrollView { composerAccessories.padding(16) }.frame(width: 420, height: 300)
         }
       }
@@ -786,20 +752,20 @@ struct AppShellView: View {
       SlashCommandComposer(
         text: Binding(get: { localChat.pendingUserMessage == nil ? screen.draft : "" },
                       set: { screen.draft = $0 }),
-        isFocused: Binding(get: { isComposerFocused && !welcomeSetup.isPresented && welcomeSetup.tour == nil },
-                           set: { isComposerFocused = $0 }),
+        isFocused: Binding(get: { shell.isComposerFocused && !welcomeSetup.isPresented && welcomeSetup.tour == nil },
+                           set: { shell.isComposerFocused = $0 }),
         isEnabled: !(localChat.isBusy || screen.isBusy || files.isWorking || files.isPicking)
           && !welcomeSetup.isPresented && welcomeSetup.tour == nil,
         fontSize: compact ? 14 : 15,
-        usesPopover: isSelectionComposer,
+        usesPopover: shell.isSelectionComposer,
         availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey),
         submit: submitDraft
       ).welcomeTourTarget(.composer)
 
-      Button { isModePalettePresented.toggle() } label: {
+      Button { shell.isModePalettePresented.toggle() } label: {
         HStack(spacing: 8) {
-          if !compact { Image(systemName: selectedMode.systemImage) }
-          Text(selectedMode.displayName)
+          if !compact { Image(systemName: shell.selectedMode.systemImage) }
+          Text(shell.selectedMode.displayName)
           Image(systemName: "chevron.down").font(.system(size: 10))
         }
         .font(.system(size: 14, weight: .medium))
@@ -807,7 +773,7 @@ struct AppShellView: View {
         .background(.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
         .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.1)) }
       }.buttonStyle(NatureButtonStyle()).fixedSize()
-      .popover(isPresented: Binding(get: { isSelectionComposer && isModePalettePresented }, set: { isModePalettePresented = $0 })) {
+      .popover(isPresented: Binding(get: { shell.isSelectionComposer && shell.isModePalettePresented }, set: { shell.isModePalettePresented = $0 })) {
         modePalette.frame(width: 400, height: 380)
       }
       .accessibilityLabel("Mode and model").welcomeTourTarget(.model)
@@ -832,8 +798,8 @@ struct AppShellView: View {
     .overlay {
       if localChat.activeRequest != nil { ThinkingComposerGlow().allowsHitTesting(false) }
     }
-    .shadow(color: NatureGlass.accent.opacity(isComposerFocused ? 0.08 : 0), radius: 12)
-    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isComposerFocused)
+    .shadow(color: NatureGlass.accent.opacity(shell.isComposerFocused ? 0.08 : 0), radius: 12)
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: shell.isComposerFocused)
   }
 
   @ViewBuilder
@@ -854,7 +820,7 @@ struct AppShellView: View {
           Text("How can I help?")
             .font(.system(size: compact ? 23 : 32, weight: .semibold)).tracking(-0.8)
           compactModeControls
-          if selectedMode == .local && localChat.installedModel == nil {
+          if shell.selectedMode == .local && localChat.installedModel == nil {
             Button("Choose GGUF Model") { isModelImporterPresented = true }
               .buttonStyle(.borderedProminent).disabled(localChat.isBusy)
           }
@@ -880,7 +846,7 @@ struct AppShellView: View {
           }
         }
         .padding(24)
-        .background(ConversationScrollObserver(contentRevision: (localChat.presentationMessages.last?.content ?? "") + String(localChat.presentationMessages.count) + (localChat.activity?.status ?? "") + String(expandedActivities.count)).allowsHitTesting(false))
+        .background(ConversationScrollObserver(contentRevision: (localChat.presentationMessages.last?.content ?? "") + String(localChat.presentationMessages.count) + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)).allowsHitTesting(false))
       }
       .defaultScrollAnchor(.bottom, for: .initialOffset)
       .defaultScrollAnchor(.top, for: .alignment)
@@ -908,16 +874,14 @@ struct AppShellView: View {
   }
 
   private func activityExpansion(_ id: UUID) -> Binding<Bool> {
-    Binding(get: { expandedActivities.contains(id) }, set: { expanded in
-      if expanded { expandedActivities.insert(id) } else { expandedActivities.remove(id) }
-    })
+    Binding(get: { shell.isActivityExpanded(id) }, set: { shell.setActivity(id, expanded: $0) })
   }
 
   private var requestPhase: String { localChat.activity?.status ?? "Preparing…" }
 
   @ViewBuilder
   private var inactiveRouteStatus: some View {
-    switch selectedMode {
+    switch shell.selectedMode {
     case .local:
       HStack(spacing: 8) {
         switch localChat.state {
@@ -1061,15 +1025,15 @@ struct AppShellView: View {
   private var compactModeControls: some View {
     HStack(spacing: 0) {
       ForEach(ChatMode.allCases) { mode in
-        Button { selectedMode = mode } label: {
+        Button { shell.selectedMode = mode } label: {
           Label(mode.displayName, systemImage: mode.systemImage)
             .font(.system(size: 14, weight: .medium))
             .frame(maxWidth: .infinity).frame(height: 38)
-            .foregroundStyle(selectedMode == mode ? NatureGlass.canvas : NatureGlass.primary)
-            .background(selectedMode == mode ? NatureGlass.accent : .clear, in: Capsule())
+            .foregroundStyle(shell.selectedMode == mode ? NatureGlass.canvas : NatureGlass.primary)
+            .background(shell.selectedMode == mode ? NatureGlass.accent : .clear, in: Capsule())
         }
         .buttonStyle(NatureButtonStyle())
-        .accessibilityAddTraits(selectedMode == mode ? .isSelected : [])
+        .accessibilityAddTraits(shell.selectedMode == mode ? .isSelected : [])
       }
     }
     .padding(8).frame(maxWidth: 320)
@@ -1082,10 +1046,7 @@ struct AppShellView: View {
     ZStack {
       Color.black.opacity(0.12)
         .ignoresSafeArea()
-        .onTapGesture {
-          isModePalettePresented = false
-          isComposerFocused = true
-        }
+        .onTapGesture { shell.dismissModePalette() }
 
       VStack(alignment: .leading, spacing: 8) {
         Text(localChat.activeRequest == nil ? "Mode & Model" : "Next request · Mode & Model")
@@ -1094,16 +1055,14 @@ struct AppShellView: View {
 
         ForEach(ChatMode.allCases) { mode in
           Button {
-            selectedMode = mode
-            isModePalettePresented = false
-            isComposerFocused = true
+            shell.chooseMode(mode)
           } label: {
             HStack(spacing: 10) {
               Image(systemName: mode.systemImage)
                 .frame(width: 18)
               Text(mode.displayName)
               Spacer()
-              if selectedMode == mode {
+              if shell.selectedMode == mode {
                 Image(systemName: "checkmark")
               }
             }
@@ -1117,7 +1076,7 @@ struct AppShellView: View {
         Divider()
 
         Group {
-          switch selectedMode {
+          switch shell.selectedMode {
           case .local:
             modelMenu
           case .cloud:
@@ -1138,31 +1097,25 @@ struct AppShellView: View {
   }
 
   private var canSubmit: Bool {
-    switch selectedMode {
-    case .local:
-      localChat.installedModel != nil && !localChat.isBusy
-    case .cloud:
-      cloudSettings.isConfigured && !localChat.isBusy
-    case .auto:
-      (localChat.installedModel != nil || autoCloudConfiguration != nil) && !localChat.isBusy
-    }
+    ComposerSubmission.canSubmit(mode: shell.selectedMode, hasLocalModel: localChat.installedModel != nil,
+      isCloudConfigured: cloudSettings.isConfigured, hasAutoCloud: autoCloudConfiguration != nil, isBusy: localChat.isBusy)
   }
 
   private var welcomeSubtitle: String {
     if hasSearchCommand {
-      return selectedMode == .local
+      return shell.selectedMode == .local
         ? "Brave finds web sources. Your local model writes the answer on this Mac."
         : "Brave finds web sources for your selected model to answer with citations."
     }
     if searchSettings.canSearchAutomatically && files.selection == nil {
       return "Questions needing fresh information search Brave automatically. Your selected model writes the answer."
     }
-    if selectedMode == .local {
+    if shell.selectedMode == .local {
       return localChat.installedModel == nil
         ? "Choose a GGUF model once, then chat completely offline."
         : "Runs on this Mac with no network requests."
     }
-    if selectedMode == .cloud {
+    if shell.selectedMode == .cloud {
       if cloudSettings.preferredProvider == .chatGPT {
         return cloudSettings.isConfigured
           ? "Uses your ChatGPT plan's Codex allowance. Usage limits apply."
@@ -1252,7 +1205,7 @@ struct AppShellView: View {
   }
 
   private var fileAccess: FileAccessLevel {
-    if selectedMode == .cloud { return cloudSettings.preferredProvider == .chatGPT ? .readWrite : .readOnly }
+    if shell.selectedMode == .cloud { return cloudSettings.preferredProvider == .chatGPT ? .readWrite : .readOnly }
     return localChat.installedModel.map { LocalFileCapabilities.production.access(for: $0) } ?? .readOnly
   }
 
@@ -1264,7 +1217,7 @@ struct AppShellView: View {
         screen.removeAttachment()
         draft = SlashCommand.removing([.search], from: draft)
       }
-      isComposerFocused = true
+      shell.isComposerFocused = true
     }
   }
 
@@ -1272,91 +1225,74 @@ struct AppShellView: View {
     guard !localChat.isBusy else { return }
     Task {
       _ = await screen.capture()
-      isComposerFocused = true
+      shell.isComposerFocused = true
     }
   }
 
-  private func applyStartPreferences() {
-    selectedMode = startPreferences.mode
-    isSidebarVisible = startPreferences.showsSidebar
-  }
-
   private func expandSelectionConversation() {
-    guard isSelectionComposer else { return }
+    guard shell.isSelectionComposer else { return }
     NotificationCenter.default.post(name: .selectionPanelExpandRequested, object: nil)
-    isSelectionComposer = false
-    isSelectionDetailsPresented = false
+    shell.leaveSelectionComposer()
   }
 
   private func submitDraft() {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
-    let commands = ComposerCommands(draft)
-    if files.selection != nil {
-      if screen.isEnabled || commands.screen || commands.search || commands.messages {
-        files.error = "Turn off Screen, Web Search, and Messages to work with your attached files."
-        return
-      }
-      let prompt = draft
-      localChat.submitFiles(prompt, mode: selectedMode, cloudProvider: cloudSettings.preferredProvider,
+    let submission = ComposerSubmission.plan(ComposerSubmission.Context(
+      draft: draft, hasFileSelection: files.selection != nil, hasScreenshot: screen.isEnabled), canSubmit: canSubmit)
+    switch submission {
+    case .none:
+      return
+    case .fileConflict:
+      files.error = ComposerSubmission.fileConflictMessage
+    case .files(let prompt):
+      localChat.submitFiles(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
         cloudModelID: cloudSettings.preferredModelID) {
           expandSelectionConversation()
           if draft == prompt { draft = "" }
         }
-      return
-    }
-    if commands.messages {
-      // Message contents must never become a web search query or share a request with a capture.
-      if commands.screen || commands.search || screen.attachment != nil {
-        messages.report("/messages can't be combined with Screen or Web Search. Remove /screen, /snapshot, /search, or the screenshot, then send again.")
-        return
-      }
-      guard commands.hasPrompt else { return }
-      submitMessages(commands.submissionPrompt)
-      return
-    }
-    if commands.screen {
+    case .messagesConflict:
+      messages.report(ComposerSubmission.messagesConflictMessage)
+    case .messages(let prompt):
+      submitMessages(prompt)
+    case .captureScreen:
       Task {
         let automaticPrompt = await screen.capture(submittedCommand: true)
-        isComposerFocused = true
+        shell.isComposerFocused = true
         if automaticPrompt != nil { submitDraft() }
       }
-      return
-    }
-    if screen.isEnabled, let attachment = screen.attachment {
-      submitScreenAttachment(attachment)
-      return
-    }
-    guard canSubmit, commands.hasPrompt else { return }
-    let originalDraft = draft
-    let prompt = commands.submissionPrompt
-    let accepted: @MainActor () -> Void = {
-      expandSelectionConversation()
-      if draft == originalDraft { draft = "" }
-    }
-    switch selectedMode {
-    case .local:
-      localChat.submit(prompt, searchEnabled: commands.search, onAccepted: accepted)
-    case .cloud:
-      localChat.submitCloud(
-        prompt,
-        provider: cloudSettings.preferredProvider,
-        modelID: cloudSettings.preferredModelID,
-        searchEnabled: commands.search,
-        onAccepted: accepted
-      )
-    case .auto:
-      localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: commands.search, onAccepted: accepted)
+    case .screenAttachment:
+      if let attachment = screen.attachment { submitScreenAttachment(attachment) }
+    case .chat(let prompt, let searchEnabled):
+      let originalDraft = draft
+      let accepted: @MainActor () -> Void = {
+        expandSelectionConversation()
+        if draft == originalDraft { draft = "" }
+      }
+      switch shell.selectedMode {
+      case .local:
+        localChat.submit(prompt, searchEnabled: searchEnabled, onAccepted: accepted)
+      case .cloud:
+        localChat.submitCloud(
+          prompt,
+          provider: cloudSettings.preferredProvider,
+          modelID: cloudSettings.preferredModelID,
+          searchEnabled: searchEnabled,
+          onAccepted: accepted
+        )
+      case .auto:
+        localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: searchEnabled, onAccepted: accepted)
+      }
     }
   }
 
   private func submitMessages(_ prompt: String) {
-    if selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
+    if shell.selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
       messages.requestDisclosure(for: cloudSettings.preferredProvider, prompt: prompt)
       return
     }
     let originalDraft = draft
-    localChat.submitMessages(prompt, mode: selectedMode, cloudProvider: cloudSettings.preferredProvider,
+    localChat.submitMessages(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
       cloudModelID: cloudSettings.preferredModelID) {
         expandSelectionConversation()
         if draft == originalDraft { draft = "" }
@@ -1372,7 +1308,7 @@ struct AppShellView: View {
       ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
                    provider: cloudSettings.preferredProvider).screenModel : nil
     let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: commands.search)
-    let automatic = selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
+    let automatic = shell.selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
       selectedMode: .auto, webSearchEnabled: searchEnabled, prompt: prompt,
       contextMessages: localChat.messages, localModel: localChat.installedModel,
       additionalInputTokens: attachment.ocrText.utf8.count + 512
@@ -1385,7 +1321,7 @@ struct AppShellView: View {
     }
     let request = ScreenRoutingPolicy.Request(
       prompt: prompt, ocr: ScreenOCRResult(text: attachment.ocrText, confidence: attachment.ocrConfidence),
-      mode: selectedMode, localText: localChat.installedModel?.screenModel, cloudText: cloudText,
+      mode: shell.selectedMode, localText: localChat.installedModel?.screenModel, cloudText: cloudText,
       autoRoute: automatic?.route,
       allowCloudScreenshots: screenSettings.allowCloudScreenshots,
       hasExplainedCloudPermission: screenSettings.hasExplainedCloudPermission, isOffline: connectivity.isOffline
@@ -1399,20 +1335,20 @@ struct AppShellView: View {
     case .blocked(let reason):
       screen.error = reason
     case .text, .vision:
-      localChat.submitScreen(prompt, attachment: attachment, decision: decision, selectedMode: selectedMode,
+      localChat.submitScreen(prompt, attachment: attachment, decision: decision, selectedMode: shell.selectedMode,
         searchEnabled: searchEnabled,
         cloudUploadAllowed: { screenSettings.allowCloudScreenshots && screenSettings.hasExplainedCloudPermission }) {
           expandSelectionConversation()
           if draft == originalDraft { draft = "" }
           if screen.attachment?.id == attachment.id { screen.removeAttachment() }
-          isComposerFocused = true
+          shell.isComposerFocused = true
         }
     }
   }
 
   private func reviewScreenPermission() {
-    guard selectedMode != .local, let attachment = screen.attachment else { return }
-    isSelectionDetailsPresented = false
+    guard shell.selectedMode != .local, let attachment = screen.attachment else { return }
+    shell.isSelectionDetailsPresented = false
     screenUploadConsent = ScreenUploadConsent(attachment: attachment, provider: cloudSettings.preferredProvider)
   }
 
@@ -1420,7 +1356,7 @@ struct AppShellView: View {
     screenUploadConsent = nil
     // A replaced draft or destination must not inherit an unseen image's approval.
     guard screen.attachment?.id == consent.attachment.id,
-          cloudSettings.preferredProvider == consent.provider, selectedMode != .local else { return }
+          cloudSettings.preferredProvider == consent.provider, shell.selectedMode != .local else { return }
     screenSettings.answerCloudPermission(allow: allow)
     if allow {
       submitDraft() // Recheck the current route and permission before sending pixels.
@@ -1441,14 +1377,12 @@ struct AppShellView: View {
   }
 
   private func openConnectionSettings() {
-    isModePalettePresented = false
-    isComposerFocused = false
+    shell.prepareForSettings()
     NotificationCenter.default.post(name: .settingsRequested, object: SettingsView.SettingsDestination.cloud)
   }
 
   private func openSettings() {
-    isModePalettePresented = false
-    isComposerFocused = false
+    shell.prepareForSettings()
     NotificationCenter.default.post(name: .settingsRequested, object: nil)
   }
 }
