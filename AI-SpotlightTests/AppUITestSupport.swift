@@ -76,8 +76,8 @@ func clickTestControl(_ name: String, in view: NSView,
 }
 
 /// The test bundle's principal class. Some tests deliberately activate the host
-/// (Settings uses NSApp.activate); afterwards, focus returns to the app the
-/// developer was using so a local run does not hold the keyboard.
+/// (Settings uses NSApp.activate); in a background run, focus then returns to the
+/// app the developer was using so a local run does not hold the keyboard.
 @MainActor @objc(TestFocusObserver)
 final class TestFocusObserver: NSObject, @preconcurrency XCTestObservation {
   private var developerApp: NSRunningApplication?
@@ -91,7 +91,7 @@ final class TestFocusObserver: NSObject, @preconcurrency XCTestObservation {
   func testCaseWillStart(_ testCase: XCTestCase) { rememberDeveloperApp() }
 
   func testCaseDidFinish(_ testCase: XCTestCase) {
-    guard NSApp.isActive, let developerApp, !developerApp.isTerminated else { return }
+    guard ApplicationDelegate.runsTestsInBackground, NSApp.isActive, let developerApp, !developerApp.isTerminated else { return }
     NSApp.yieldActivation(to: developerApp)
     developerApp.activate()
   }

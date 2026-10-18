@@ -36,6 +36,13 @@ esac
 unregister_verification_apps
 trap unregister_verification_apps EXIT HUP INT TERM
 
+# Run the hosted test app in the background so local runs do not take focus.
+# xcodebuild passes TEST_RUNNER_-prefixed variables to the host without the prefix.
+# Set ENIGMA_FOREGROUND_TESTS=1 to reproduce CI's foreground host instead.
+if [ "${ENIGMA_FOREGROUND_TESTS:-0}" != 1 ]; then
+  export TEST_RUNNER_ENIGMA_BACKGROUND_TESTS=1
+fi
+
 cd "$repository_root"
 xcodebuild "$verification_action" \
   -project AI-Spotlight.xcodeproj \

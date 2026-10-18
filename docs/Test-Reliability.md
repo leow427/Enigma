@@ -85,19 +85,25 @@ failure detection from a measured long-term failure rate.
 
 ## Running tests while using the Mac
 
-The hosted test app runs in the background. When it is launched under XCTest, it
-uses the accessory activation policy, so it has no Dock icon, and it returns focus to
-the app that was in front before the run. Some tests intentionally activate the host,
-for example when Settings calls `NSApp.activate`. After each of these tests, the test
-bundle's principal class, `TestFocusObserver` in `AppUITestSupport.swift`, returns
-focus to the developer's app. Assertions and test coverage are unchanged. A background
-app can be throttled by App Nap, so the host holds a user-initiated, latency-critical
-activity for its lifetime. This keeps timing-sensitive UI tests at the same priority they
-had when the host was frontmost.
+`scripts/verify-xcode.sh` runs the hosted test app in the background. It sets
+`TEST_RUNNER_ENIGMA_BACKGROUND_TESTS=1`, which xcodebuild passes to the host as
+`ENIGMA_BACKGROUND_TESTS`. The host then uses the accessory activation policy, so it
+has no Dock icon, and returns focus to the app that was in front before the run.
+Some tests intentionally activate the host, for example when Settings calls
+`NSApp.activate`. After each of these tests, the test bundle's principal class,
+`TestFocusObserver` in `AppUITestSupport.swift`, returns focus to the developer's app.
+Assertions are unchanged.
 
-The frontmost app was sampled every 0.1 s during a full run (563 tests) while
+The frontmost app was sampled every 0.1 s during a full local run (563 tests) while
 another app was in front. Before this change, Enigma was frontmost for about 5 s.
-After it, Enigma was never sampled as frontmost.
+After it, Enigma was frontmost in at most one sample.
+
+Background mode is local only. CI (`xcodebuild test`) and Xcode's Test action keep the
+foreground host. On GitHub's macOS runners,
+`ScreenViewTests/testRealComposerStopAndTypingRemainResponsiveWhileArchiveWriteIsBlocked`
+did not publish 500 stream fragments within its 5 s limit when the host was in the
+background, including with App Nap disabled. It passed locally in background mode.
+To reproduce CI's conditions locally, run the helper with `ENIGMA_FOREGROUND_TESTS=1`.
 
 Hosted UI tests still show Enigma's floating, non-activating panels on screen.
 Several of them make a panel key, so keystrokes typed at that moment may go to the
