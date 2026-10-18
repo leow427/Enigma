@@ -1652,6 +1652,7 @@ private struct DeveloperToolsView: View {
   @ObservedObject var glassAppearance: GlassAppearanceSettings
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel
+  @ObservedObject private var newUI = NewUIPreference.shared
   @State private var isExpanded = false
 
   var body: some View {
@@ -1670,6 +1671,11 @@ private struct DeveloperToolsView: View {
             Text("Metal working set: \(limit, format: .byteCount(style: .memory))")
           }
         }
+        Divider()
+        Toggle("Use new UI", isOn: $newUI.isEnabled)
+        Text("Applies immediately. Screens switch to the new design as they're rebuilt.")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
         Divider()
         Toggle("Liquid Glass", isOn: $glassAppearance.isEnabled)
 
