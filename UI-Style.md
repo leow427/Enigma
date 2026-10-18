@@ -1,5 +1,12 @@
 # UI Style Specification
 
+> **Revamp in progress.** A new direction (Paper and Ink themes, opaque
+> surfaces, and a flat animated character) is being built behind the
+> **Use new UI** setting in Developer Tools. New UI work follows
+> [docs/design/ui-revamp/README.md](docs/design/ui-revamp/README.md). The
+> liquid-glass guidance below still describes the default UI until the
+> switchover.
+
 ## Core Direction
 
 The primary visual direction is a minimalistic liquid glass interface. This is the most important design principle and should guide the entire experience.
