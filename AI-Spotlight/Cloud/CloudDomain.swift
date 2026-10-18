@@ -35,6 +35,7 @@ enum CodexThinkingCapacity: String, CaseIterable, Identifiable, Sendable {
 
 enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   case chatGPT = "chatgpt-codex"
+  case claudeCode = "claude-code"
   case openAI = "openai"
   case anthropic
   case gemini
@@ -44,6 +45,7 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   var displayName: String {
     switch self {
     case .chatGPT: "ChatGPT via Codex"
+    case .claudeCode: "Claude via Claude Code"
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .gemini: "Gemini"

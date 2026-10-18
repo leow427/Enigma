@@ -628,6 +628,8 @@ struct AppShellView: View {
       Task {
         if cloudSettings.preferredProvider == .chatGPT {
           await cloudSettings.refreshChatGPTAccount()
+        } else if cloudSettings.preferredProvider == .claudeCode {
+          await cloudSettings.refreshClaudeCodeAccount()
         }
         if cloudSettings.hasCloudAccess(for: cloudSettings.preferredProvider) {
           await cloudSettings.discoverModels()
@@ -958,7 +960,9 @@ struct AppShellView: View {
         if !cloudSettings.hasCloudAccess(for: cloudSettings.preferredProvider) {
           Text(cloudSettings.preferredProvider == .chatGPT
             ? "Sign in with ChatGPT to use your Codex allowance."
-            : "Add a \(cloudSettings.preferredProvider.displayName) API key.")
+            : cloudSettings.preferredProvider == .claudeCode
+              ? "Sign in to Claude Code to use your Claude plan."
+              : "Add a \(cloudSettings.preferredProvider.displayName) API key.")
           Button("Advanced Settings", action: openSettings)
         } else if !cloudSettings.isConfigured {
           Text(cloudSettings.selectedModelCompatibility.message)
@@ -1151,6 +1155,11 @@ struct AppShellView: View {
         return cloudSettings.isConfigured
           ? "Uses your ChatGPT plan's Codex allowance. Usage limits apply."
           : "Sign in with ChatGPT in Settings—no API key needed."
+      }
+      if cloudSettings.preferredProvider == .claudeCode {
+        return cloudSettings.isConfigured
+          ? "Uses your Claude plan through Claude Code. Usage limits apply."
+          : "Sign in to Claude Code in Settings—no API key needed."
       }
       return cloudSettings.isConfigured
         ? "Uses \(cloudSettings.preferredProvider.displayName) with a stateless request."
@@ -1830,6 +1839,10 @@ struct SettingsView: View {
         ChatGPTConnectionControls(settings: settings)
       }
 
+      Section("Claude Subscription · Claude Code") {
+        ClaudeCodeConnectionControls(settings: settings)
+      }
+
       ScreenSettingsSection(settings: .shared)
 
       WebSearchSettingsSection(settings: .shared)
@@ -1873,6 +1886,14 @@ struct SettingsView: View {
           Picker("Thinking capacity", selection: $settings.codexThinkingCapacity) {
             ForEach(CodexThinkingCapacity.allCases) { capacity in
               Text(capacity.displayName).tag(capacity)
+            }
+          }
+        }
+
+        if settings.preferredProvider == .claudeCode {
+          Picker("Effort", selection: $settings.claudeCodeEffort) {
+            ForEach(ClaudeCodeEffort.allCases) { effort in
+              Text(effort.displayName).tag(effort)
             }
           }
         }
@@ -1941,6 +1962,7 @@ struct SettingsView: View {
     .navigationTitle("Enigma Settings")
     .task {
       await settings.refreshChatGPTAccount()
+      await settings.refreshClaudeCodeAccount()
       await settings.loadCachedModels()
       if settings.hasCloudAccess(for: settings.preferredProvider), settings.models.isEmpty {
         await settings.discoverModels()
@@ -1949,6 +1971,7 @@ struct SettingsView: View {
     .onChange(of: settings.preferredProvider) { _, provider in
       Task {
         if provider == .chatGPT { await settings.refreshChatGPTAccount() }
+        if provider == .claudeCode { await settings.refreshClaudeCodeAccount() }
         guard settings.preferredProvider == provider, settings.hasCloudAccess(for: provider) else { return }
         await settings.discoverModels()
       }

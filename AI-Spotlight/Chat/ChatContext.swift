@@ -27,6 +27,15 @@ enum ModelContextPolicy {
         inputLimit: 32_768
       )
     }
+    if provider == .claudeCode {
+      // Claude Code adds its own protocol text even with a replacement system prompt.
+      return ContextBudget(
+        contextWindow: metadata?.contextWindow ?? 65_536,
+        outputTokens: metadata?.maximumOutputTokens ?? 8_192,
+        overheadTokens: 16_384,
+        inputLimit: 32_768
+      )
+    }
     return ContextBudget(
       contextWindow: metadata?.contextWindow ?? 8_192,
       outputTokens: min(4_096, metadata?.maximumOutputTokens ?? 4_096),
@@ -166,7 +175,7 @@ enum CloudContext {
   /// One UTF-8 byte per token deliberately overestimates text tokenization,
   /// including JSON escaping/role wrappers. Hidden protocol text has its own reserve.
   static func inputTokenCount(_ messages: [ChatMessage], provider: CloudProviderID) throws -> Int {
-    if provider == .chatGPT { return try codexPrompt(messages).utf8.count }
+    if provider == .chatGPT || provider == .claudeCode { return try codexPrompt(messages).utf8.count }
     return try encodedMessages(messages).count
   }
 

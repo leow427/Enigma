@@ -18,6 +18,7 @@ actor CloudModelCatalog {
   private let openAIModelsURL: URL
   private let anthropicModelsURL: URL
   private let codex: CodexSubscriptionClient
+  private let claudeCode: ClaudeCodeSubscriptionClient
 
   init(
     credentialStore: any CloudCredentialStore,
@@ -25,9 +26,11 @@ actor CloudModelCatalog {
     cacheDirectory: URL? = nil,
     openAIModelsURL: URL = URL(string: "https://api.openai.com/v1/models")!,
     anthropicModelsURL: URL = URL(string: "https://api.anthropic.com/v1/models?limit=1000")!,
-    codex: CodexSubscriptionClient = .live
+    codex: CodexSubscriptionClient = .live,
+    claudeCode: ClaudeCodeSubscriptionClient = .live
   ) {
     self.codex = codex
+    self.claudeCode = claudeCode
     self.credentialStore = credentialStore
     self.transport = transport
     let directory = cacheDirectory ?? FileManager.default
@@ -61,8 +64,8 @@ actor CloudModelCatalog {
       return CloudModelCapabilities.chatModels(entry.models, for: provider)
     }
 
-    if provider == .chatGPT {
-      let discovered = try await codex.models()
+    if provider == .chatGPT || provider == .claudeCode {
+      let discovered = provider == .chatGPT ? try await codex.models() : try await claudeCode.models()
       archive.providers[provider.rawValue] = CacheEntry(fetchedAt: now, models: discovered)
       try saveArchive(archive)
       return CloudModelCapabilities.chatModels(discovered, for: provider)
@@ -107,7 +110,7 @@ actor CloudModelCatalog {
     var request = URLRequest(url: url)
     request.httpMethod = "GET"
     switch provider {
-    case .chatGPT:
+    case .chatGPT, .claudeCode:
       throw CodexError.invalidResponse
     case .gemini:
       request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
@@ -125,7 +128,7 @@ actor CloudModelCatalog {
     provider: CloudProviderID
   ) throws -> [CloudModel] {
     switch provider {
-    case .chatGPT:
+    case .chatGPT, .claudeCode:
       throw CodexError.invalidResponse
     case .gemini:
       struct Response: Decodable {

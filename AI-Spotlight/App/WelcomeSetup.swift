@@ -537,3 +537,65 @@ struct ChatGPTConnectionControls: View {
     .task { await settings.refreshChatGPTAccount() }
   }
 }
+
+/// Connects the Claude Code sign-in already used on this Mac; Claude Code owns the login.
+struct ClaudeCodeConnectionControls: View {
+  @ObservedObject var settings: CloudSettingsModel
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      if let account = settings.claudeCodeAccount {
+        Label(account.email ?? "Signed in to Claude Code", systemImage: "checkmark.circle.fill")
+          .foregroundStyle(.green)
+        if let plan = account.plan, !plan.isEmpty {
+          Text("Claude \(plan.capitalized) plan").font(.caption).foregroundStyle(.secondary)
+        }
+        HStack {
+          Button("Use Claude") {
+            settings.preferredProvider = .claudeCode
+            Task { await settings.discoverModels() }
+          }
+          .disabled(settings.preferredProvider == .claudeCode)
+          if settings.preferredProvider == .claudeCode {
+            Label("Selected for Cloud", systemImage: "checkmark").font(.caption).foregroundStyle(.secondary)
+          }
+        }
+      } else if settings.isWaitingForClaudeCodeSignIn {
+        HStack {
+          ProgressView().controlSize(.small)
+          Text("Finish signing in from Terminal and your browser…")
+          Button("Cancel") { settings.cancelClaudeCodeSignIn() }
+        }
+      } else {
+        Button("Sign in to Claude Code") {
+          settings.signInToClaudeCode { NSWorkspace.shared.open($0) }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!settings.isClaudeCodeAvailable)
+      }
+
+      Text("Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Responses are text-only: Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved.")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      if !settings.isClaudeCodeAvailable {
+        Text("Claude Code is required on this Mac. Install it, then check again.")
+          .font(.caption)
+        Link("Claude Code installation instructions", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
+      }
+
+      Button("Check Sign-in Status") {
+        Task { await settings.refreshClaudeCodeAccount() }
+      }
+      .disabled(settings.isWaitingForClaudeCodeSignIn)
+
+      Text("Enigma shares the Claude Code sign-in on this Mac. To disconnect, choose another provider, or run claude auth logout in Terminal to sign out everywhere.")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      if let error = settings.claudeCodeError {
+        Text(error).font(.caption).foregroundStyle(.red)
+      }
+    }
+    .task { await settings.refreshClaudeCodeAccount() }
+  }
+}

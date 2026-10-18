@@ -48,6 +48,11 @@ accessibility testing: its changing code identity can invalidate macOS consent.
 Run the interactive app from Xcode using a stable Apple Development signing
 identity and selected team instead.
 
+To install the current checkout as a signed `/Applications/Enigma.app`, run
+`scripts/install-app.sh`. `scripts/install-app.sh --install-hooks` adds local
+Git hooks that reinstall it after each commit or pull on `main`. See
+`docs/Claude-Code-Setup.md`.
+
 GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 `main` and pull requests. It does not run the helper's separate `build` or
 `analyze` actions, so run those locally when they are relevant to the change.

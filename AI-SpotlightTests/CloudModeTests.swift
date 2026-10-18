@@ -318,6 +318,10 @@ final class CloudModeTests: XCTestCase {
         chatGPT: ContextCompletionProvider(onRequest: { request in
           XCTAssertEqual(request.messages.map(\.content), ["recent", "recent reply", "current"])
           ended.fulfill()
+        }),
+        claudeCode: ContextCompletionProvider(onRequest: { request in
+          XCTAssertEqual(request.messages.map(\.content), ["recent", "recent reply", "current"])
+          ended.fulfill()
         })
       )
       let viewModel = LocalChatViewModel(

@@ -9,21 +9,28 @@ struct CloudProviderRegistry: Sendable {
   let openAI: any ChatProvider
   let anthropic: any ChatProvider
   let chatGPT: any ChatProvider
+  let claudeCode: any ChatProvider
   let gemini: any ChatProvider
 
-  init(openAI: any ChatProvider, anthropic: any ChatProvider, chatGPT: any ChatProvider, gemini: (any ChatProvider)? = nil) {
+  init(
+    openAI: any ChatProvider, anthropic: any ChatProvider, chatGPT: any ChatProvider,
+    gemini: (any ChatProvider)? = nil, claudeCode: (any ChatProvider)? = nil
+  ) {
     self.openAI = openAI
     self.anthropic = anthropic
     self.chatGPT = chatGPT
+    self.claudeCode = claudeCode ?? ClaudeCodeSubscriptionClient.live
     self.gemini = gemini ?? GeminiContentClient(credentialStore: KeychainCredentialStore(), transport: URLSessionCloudTransport.shared)
   }
 
   init(
     credentialStore: any CloudCredentialStore,
     transport: any CloudNetworkTransport,
-    chatGPT: any ChatProvider = CodexSubscriptionClient.live
+    chatGPT: any ChatProvider = CodexSubscriptionClient.live,
+    claudeCode: any ChatProvider = ClaudeCodeSubscriptionClient.live
   ) {
     self.chatGPT = chatGPT
+    self.claudeCode = claudeCode
     gemini = GeminiContentClient(credentialStore: credentialStore, transport: transport)
     openAI = OpenAIResponsesClient(
       credentialStore: credentialStore,
@@ -38,6 +45,7 @@ struct CloudProviderRegistry: Sendable {
   func provider(for id: CloudProviderID) -> any ChatProvider {
     switch id {
     case .chatGPT: chatGPT
+    case .claudeCode: claudeCode
     case .openAI: openAI
     case .anthropic: anthropic
     case .gemini: gemini

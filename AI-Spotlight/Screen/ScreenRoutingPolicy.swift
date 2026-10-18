@@ -81,8 +81,8 @@ extension CloudModelCapabilities {
        "claude-opus-4-20250514", "claude-3-7-sonnet-20250219", "claude-3-5-haiku-20241022"]
     case .gemini:
       ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
-    case .chatGPT:
-      [] // The subscription adapter currently accepts text only.
+    case .chatGPT, .claudeCode:
+      [] // The subscription adapters currently accept text only.
     }
   }
 }

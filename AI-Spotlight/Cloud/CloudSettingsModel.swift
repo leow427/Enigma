@@ -6,6 +6,7 @@ struct CloudPreferencesStore: @unchecked Sendable {
     static let preferredProvider = "aiSpotlight.cloud.preferredProvider"
     static let didAdoptLunaDefault = "aiSpotlight.cloud.didAdoptLunaDefault"
     static let preferredCodexThinkingCapacity = "aiSpotlight.cloud.preferredCodexThinkingCapacity"
+    static let preferredClaudeCodeEffort = "aiSpotlight.cloud.preferredClaudeCodeEffort"
     static func preferredModel(_ provider: CloudProviderID) -> String {
       "aiSpotlight.cloud.preferredModel.\(provider.rawValue)"
     }
@@ -38,10 +39,12 @@ struct CloudPreferencesStore: @unchecked Sendable {
 
   func preferredModel(for provider: CloudProviderID) -> String {
     let model = defaults.string(forKey: Key.preferredModel(provider)) ?? ""
-    if provider == .chatGPT && model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return CodexSubscriptionClient.defaultModelID
+    guard model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return model }
+    switch provider {
+    case .chatGPT: return CodexSubscriptionClient.defaultModelID
+    case .claudeCode: return ClaudeCodeSubscriptionClient.defaultModelID
+    case .openAI, .anthropic, .gemini: return model
     }
-    return model
   }
 
   func setPreferredModel(_ modelID: String, for provider: CloudProviderID) {
@@ -55,6 +58,15 @@ struct CloudPreferencesStore: @unchecked Sendable {
 
   func setPreferredCodexThinkingCapacity(_ capacity: CodexThinkingCapacity) {
     defaults.set(capacity.rawValue, forKey: Key.preferredCodexThinkingCapacity)
+  }
+
+  func preferredClaudeCodeEffort() -> ClaudeCodeEffort {
+    defaults.string(forKey: Key.preferredClaudeCodeEffort)
+      .flatMap(ClaudeCodeEffort.init(rawValue:)) ?? .automatic
+  }
+
+  func setPreferredClaudeCodeEffort(_ effort: ClaudeCodeEffort) {
+    defaults.set(effort.rawValue, forKey: Key.preferredClaudeCodeEffort)
   }
 }
 
@@ -103,6 +115,10 @@ final class CloudSettingsModel: ObservableObject {
     didSet { preferences.setPreferredCodexThinkingCapacity(codexThinkingCapacity) }
   }
 
+  @Published var claudeCodeEffort: ClaudeCodeEffort {
+    didSet { preferences.setPreferredClaudeCodeEffort(claudeCodeEffort) }
+  }
+
   @Published private(set) var models: [CloudModel] = []
   @Published private(set) var hasLoadedModelList = false
   @Published private(set) var discoveryError: String?
@@ -113,13 +129,20 @@ final class CloudSettingsModel: ObservableObject {
   @Published private(set) var isSigningIn = false
   @Published private(set) var accountError: String?
   @Published private(set) var isCodexAvailable: Bool
+  @Published private(set) var claudeCodeAccount: ClaudeCodeAccount?
+  @Published private(set) var isClaudeCodeAvailable: Bool
+  @Published private(set) var isWaitingForClaudeCodeSignIn = false
+  @Published private(set) var claudeCodeError: String?
 
   private let credentialStore: any CloudCredentialStore
   private let catalog: CloudModelCatalog
   private let preferences: CloudPreferencesStore
   private let codex: CodexSubscriptionClient
   private let codexAvailable: @Sendable () -> Bool
+  private let claudeCode: ClaudeCodeSubscriptionClient
+  private let claudeCodeSignInPollInterval: Duration
   private var loginTask: Task<Void, Never>?
+  private var claudeCodeSignInTask: Task<Void, Never>?
   private var discoveryID = UUID()
 
   init(
@@ -127,11 +150,16 @@ final class CloudSettingsModel: ObservableObject {
     catalog: CloudModelCatalog,
     preferences: CloudPreferencesStore = CloudPreferencesStore(),
     codex: CodexSubscriptionClient = .live,
-    codexAvailable: @escaping @Sendable () -> Bool = { CodexRuntimeConfiguration.executableURL() != nil }
+    codexAvailable: @escaping @Sendable () -> Bool = { CodexRuntimeConfiguration.executableURL() != nil },
+    claudeCode: ClaudeCodeSubscriptionClient = .live,
+    claudeCodeSignInPollInterval: Duration = .seconds(2)
   ) {
     self.codex = codex
     self.codexAvailable = codexAvailable
     isCodexAvailable = codexAvailable()
+    self.claudeCode = claudeCode
+    self.claudeCodeSignInPollInterval = claudeCodeSignInPollInterval
+    isClaudeCodeAvailable = claudeCode.isInstalled
     self.credentialStore = credentialStore
     self.catalog = catalog
     self.preferences = preferences
@@ -139,6 +167,7 @@ final class CloudSettingsModel: ObservableObject {
     preferredProvider = provider
     preferredModelID = preferences.preferredModel(for: provider)
     codexThinkingCapacity = preferences.preferredCodexThinkingCapacity()
+    claudeCodeEffort = preferences.preferredClaudeCodeEffort()
   }
 
   var isConfigured: Bool {
@@ -162,8 +191,58 @@ final class CloudSettingsModel: ObservableObject {
   }
 
   func hasCloudAccess(for provider: CloudProviderID) -> Bool {
-    provider == .chatGPT ? chatGPTAccount != nil : hasAPIKey(for: provider)
+    switch provider {
+    case .chatGPT: chatGPTAccount != nil
+    case .claudeCode: claudeCodeAccount != nil
+    case .openAI, .anthropic, .gemini: hasAPIKey(for: provider)
+    }
   }
+
+  func refreshClaudeCodeAccount() async {
+    isClaudeCodeAvailable = claudeCode.isInstalled
+    guard isClaudeCodeAvailable else { claudeCodeAccount = nil; return }
+    do {
+      claudeCodeAccount = try await claudeCode.account()
+      claudeCodeError = nil
+    } catch {
+      claudeCodeAccount = nil
+      claudeCodeError = error.localizedDescription
+    }
+  }
+
+  /// Claude Code owns its browser sign-in, so it runs in Terminal while Enigma
+  /// checks the shared login status until it is complete.
+  func signInToClaudeCode(openScript: @escaping @MainActor (URL) -> Bool) {
+    guard !isWaitingForClaudeCodeSignIn else { return }
+    claudeCodeError = nil
+    do {
+      guard openScript(try claudeCode.runtimeSignInScript()) else {
+        claudeCodeError = "Terminal could not be opened to sign in to Claude Code."
+        return
+      }
+    } catch {
+      claudeCodeError = error.localizedDescription
+      return
+    }
+    isWaitingForClaudeCodeSignIn = true
+    claudeCodeSignInTask = Task {
+      defer { isWaitingForClaudeCodeSignIn = false; claudeCodeSignInTask = nil }
+      for _ in 0..<150 {
+        do { try await Task.sleep(for: claudeCodeSignInPollInterval) } catch { return }
+        if let account = try? await claudeCode.account() {
+          claudeCodeAccount = account
+          claudeCodeError = nil
+          try? await catalog.clearCache(for: .claudeCode)
+          preferredProvider = .claudeCode
+          await discoverModels(forceRefresh: true)
+          return
+        }
+      }
+      claudeCodeError = "Claude Code sign-in was not completed. Try again, or check the Terminal window."
+    }
+  }
+
+  func cancelClaudeCodeSignIn() { claudeCodeSignInTask?.cancel() }
 
   func refreshChatGPTAccount() async {
     guard !isSigningIn else { return }
@@ -213,12 +292,13 @@ final class CloudSettingsModel: ObservableObject {
   }
 
   func hasAPIKey(for provider: CloudProviderID) -> Bool {
-    guard provider != .chatGPT else { return false }
+    guard provider != .chatGPT, provider != .claudeCode else { return false }
     return (try? credentialStore.containsAPIKey(for: provider)) ?? false
   }
 
   func saveAPIKey(_ apiKey: String, for provider: CloudProviderID) throws {
     guard provider != .chatGPT else { throw CodexError.notSignedIn }
+    guard provider != .claudeCode else { throw ClaudeCodeError.notSignedIn }
     let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmedAPIKey.isEmpty else { return }
     try credentialStore.setAPIKey(trimmedAPIKey, for: provider)
@@ -289,6 +369,8 @@ final class CloudSettingsModel: ObservableObject {
     guard preferredModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     if preferredProvider == .chatGPT {
       preferredModelID = CodexSubscriptionClient.defaultModelID
+    } else if preferredProvider == .claudeCode {
+      preferredModelID = ClaudeCodeSubscriptionClient.defaultModelID
     } else if let defaultModel = CloudModelCapabilities.chatModels(models, for: preferredProvider).first {
       preferredModelID = defaultModel.id
     }
