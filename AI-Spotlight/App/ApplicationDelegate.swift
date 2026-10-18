@@ -22,12 +22,34 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     super.init()
   }
 
+  #if DEBUG
+  private static var isTestHost: Bool { NSClassFromString("XCTestCase") != nil }
+  private var appActiveBeforeTests: NSRunningApplication?
+
+  func applicationWillFinishLaunching(_ notification: Notification) {
+    // Keep the test host out of the Dock and hand focus back to the app the
+    // developer was using, so a test run does not take over the Mac.
+    guard Self.isTestHost else { return }
+    NSApp.setActivationPolicy(.accessory)
+    let frontmost = NSWorkspace.shared.frontmostApplication
+    if frontmost?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+      appActiveBeforeTests = frontmost
+    }
+  }
+  #endif
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     // Hosted unit tests create their own controllers and credential fixtures.
     // Starting the real panel here can prompt for personal Keychain entries and
     // show first-run onboarding before XCTest has started executing tests.
     #if DEBUG
-    if NSClassFromString("XCTestCase") != nil { return }
+    if Self.isTestHost {
+      if NSApp.isActive, let appActiveBeforeTests {
+        NSApp.yieldActivation(to: appActiveBeforeTests)
+        appActiveBeforeTests.activate()
+      }
+      return
+    }
     #endif
     NSApp.setActivationPolicy(.accessory)
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),

@@ -82,3 +82,21 @@ failures. The unchanged baseline passed the ten selected cases across three
 fresh launches despite the previously recorded failures; reliability claims
 must therefore distinguish repeat-run evidence, reduced work, and stronger
 failure detection from a measured long-term failure rate.
+
+## Running tests while using the Mac
+
+The hosted test app runs in the background. When it is launched under XCTest, it
+uses the accessory activation policy, so it has no Dock icon, and it returns focus to
+the app that was in front before the run. Some tests intentionally activate the host,
+for example when Settings calls `NSApp.activate`. After each of these tests, the test
+bundle's principal class, `TestFocusObserver` in `AppUITestSupport.swift`, returns
+focus to the developer's app. Assertions and test coverage are unchanged.
+
+The frontmost app was sampled every 0.1 s during a full run (563 tests) while
+another app was in front. Before this change, Enigma was frontmost for about 5 s.
+After it, Enigma was never sampled as frontmost.
+
+Hosted UI tests still show Enigma's floating, non-activating panels on screen.
+Several of them make a panel key, so keystrokes typed at that moment may go to the
+panel for a fraction of a second. That is the production Spotlight-style behavior
+under test, and it is left unchanged.
