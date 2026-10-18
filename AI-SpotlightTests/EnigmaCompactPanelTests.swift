@@ -128,7 +128,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
   func testPanelShowsTheSelectionAndGrowsDownwardIntoTheAnswerOnlyAfterAnAcceptedPrompt() async throws {
     let fixture = try await Fixture(test: self)
     let host = try await CompactPanelHost(fixture, test: self, reduceMotion: false)
-    host.present("Please send the report today.")
+    // Opened near the top of the screen, there's room for the answer below the
+    // input on any display; lower down it moves up to fit, as tested above.
+    host.present("Please send the report today.", cursor: NSPoint(x: host.visible.midX, y: host.visible.maxY - 24))
     try await host.waitForComposer()
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertEqual(fixture.chat.attachedContexts.count, 1)
@@ -151,6 +153,8 @@ final class EnigmaCompactPanelTests: XCTestCase {
     try await waitForUI("the draft in the field", in: host.view) { editor.string == fixture.screen.draft }
     let composerFrame = host.window.frame
     let expanded = SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible)
+    XCTAssertGreaterThanOrEqual(composerFrame.maxY - expanded.height, host.visible.minY,
+                                "The screen has room for the answer below the input (visible \(host.visible))")
     try host.pressReturn()
     try await waitForUI("the accepted prompt and the grown panel (frame \(host.window.frame))", in: host.view) {
       !host.controller.isSelectionComposer && host.window.frame == expanded && fixture.engine.requestCount == 1
