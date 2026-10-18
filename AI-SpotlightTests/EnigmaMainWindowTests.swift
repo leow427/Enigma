@@ -747,7 +747,9 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertTrue(window.performKeyEquivalent(with: try key("k", keyCode: 40, modifiers: .command)))
     try await waitForUI("the mode palette", in: view) { Host.marker("Menu item Auto", in: view) != nil }
     XCTAssertTrue(window.performKeyEquivalent(with: try key("\u{1b}", keyCode: 53, modifiers: [])))
-    try await waitForUI("Escape closes only the menu", in: view) {
+    try await waitForUI("Escape closes only the menu (menu open: \(Host.marker("Menu item Auto", in: view) != nil), "
+                        + "panel visible: \(controller.isVisible), first responder: \(String(describing: window.firstResponder)))",
+                        in: view) {
       Host.marker("Menu item Auto", in: view) == nil && window.firstResponder === composerEditor(in: view)
     }
     XCTAssertTrue(controller.isVisible, "The panel stays open")
