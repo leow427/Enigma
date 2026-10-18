@@ -36,6 +36,14 @@ func composerAcceptsClicks(in view: NSView) -> Bool {
   return hit === editor || hit.isDescendant(of: editor)
 }
 
+extension View {
+  /// Sets Reduce Motion for this view, whatever the Mac's setting. GitHub's
+  /// macOS runners turn it on, which makes the character move instantly and rest.
+  func enigmaTestReduceMotion(_ isOn: Bool) -> some View {
+    environment(\._accessibilityReduceMotion, isOn)
+  }
+}
+
 struct TestControlMarker: NSViewRepresentable {
   let name: String
 

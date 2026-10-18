@@ -524,7 +524,9 @@ final class EnigmaCharacterTests: XCTestCase {
     let controller = EnigmaCharacterController(seed: 6)
     controller.move(to: "main")
     let layout = SlotToggle()
-    let host = NSHostingView(rootView: ToggledStageHarness(controller: controller, layout: layout).enigmaTheme(.paper))
+    // Under Reduce Motion the timeline always rests, so this needs it off.
+    let host = NSHostingView(rootView: ToggledStageHarness(controller: controller, layout: layout)
+      .enigmaTheme(.paper).enigmaTestReduceMotion(false))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 220, height: 240), styleMask: [.borderless],
                           backing: .buffered, defer: false)
     window.contentView = host

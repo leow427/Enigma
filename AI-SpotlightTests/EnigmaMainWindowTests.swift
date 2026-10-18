@@ -942,6 +942,9 @@ extension EnigmaMainWindowTests {
     /// Accessibility, allowed by default and never the Mac's real state. A
     /// test that needs it missing sets its own.
     var selectionAccess = SelectionAccessibilityAccess(checkTrust: { true }, prompt: {}, openSettings: { _ in })
+    /// Reduce Motion, off by default and never the Mac's real setting, which
+    /// GitHub's macOS runners turn on. A test that needs it on sets its own.
+    var reduceMotion = false
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
     private(set) var earlierSessionID: UUID?
@@ -1007,6 +1010,7 @@ extension EnigmaMainWindowTests {
         welcomeSetup: setup, appearance: appearance, character: character,
         selectionAccess: selectionAccess)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+        .enigmaTestReduceMotion(reduceMotion)
         .transaction { $0.disablesAnimations = true }
     }
   }
