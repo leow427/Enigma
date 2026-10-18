@@ -337,12 +337,16 @@ final class EnigmaMainWindowTests: XCTestCase {
             host.shows("Send message") && host.shows(sidebar ? "Hide chat history" : "Show chat history")
               && host.shows("Routing mode: Auto") != docked
           }
+          let names = ["Send message", "Attach files", "Commands", "Mode and model"] + (sidebar
+            ? ["New chat", "Help", "Settings", "Developer Tools"] : ["Show chat history", "Bar help", "Bar settings"])
+          // The composer docks and the sidebar slides on springs, which a slow
+          // machine is still drawing here: measure where they come to rest.
+          try await waitForSettledLayout(in: host, label, markers: names)
           let bounds = host.view.bounds
           let editor = try XCTUnwrap(composerEditor(in: host.view))
           let field = host.view.convert(editor.bounds, from: editor)
           XCTAssertTrue(bounds.contains(field), "The message field is inside the window at \(label): \(field)")
-          for name in ["Send message", "Attach files", "Commands", "Mode and model"] + (sidebar
-            ? ["New chat", "Help", "Settings", "Developer Tools"] : ["Show chat history", "Bar help", "Bar settings"]) {
+          for name in names {
             let marker = try XCTUnwrap(host.marker(name), "\(name) at \(label)")
             let frame = host.view.convert(marker.bounds, from: marker)
             XCTAssertTrue(bounds.insetBy(dx: -0.5, dy: -0.5).contains(frame), "\(name) is inside the window at \(label): \(frame)")
@@ -652,13 +656,18 @@ final class EnigmaMainWindowTests: XCTestCase {
     }
     let start = character.model.position
     fixture.setup.finish(takeTour: false)
-    let samples = try await sampleCharacter(character, in: host, for: .milliseconds(60))
+    // Sampled until it sets off for the main page, however slowly the machine
+    // draws frames: a jump would already be there.
+    let samples = try await sampleCharacter(character, in: host, for: .seconds(3)) { sample in
+      sample.slot?.size == MainWindowCharacter.mainSlotSize
+        && hypot(sample.position.x - start.x, sample.position.y - start.y) > 0.5
+    }
     XCTAssertTrue(samples.allSatisfy(\.present), "The character stays drawn as the welcome leaves")
     let target = try XCTUnwrap(samples.last?.slot, "The character heads for the main page's slot")
     XCTAssertEqual(target.size, MainWindowCharacter.mainSlotSize)
     let last = try XCTUnwrap(samples.last)
     XCTAssertGreaterThan(hypot(last.position.x - target.center.x, last.position.y - target.center.y), 4,
-                         "About 50 ms after the welcome closes it's still on its way, not at \(target.center)")
+                         "As it sets off from the welcome it's still on its way, not at \(target.center)")
     XCTAssertGreaterThan(samples.filter { hypot($0.position.x - start.x, $0.position.y - start.y) > 0.5 }.count, 0,
                          "It moves from where it was drawn")
     try await waitForUI("the character landing on the main page", in: host.view, timeout: .seconds(5)) {
@@ -678,14 +687,21 @@ final class EnigmaMainWindowTests: XCTestCase {
       character.model.slot?.size == WelcomeSetup.CharacterSlot.hero.size && character.isPresent
         && character.model.velocity.dx.magnitude + character.model.velocity.dy.magnitude < 1
     }
+    let start = character.model.position
     fixture.setup.advance()
-    let samples = try await sampleCharacter(character, in: host, for: .milliseconds(60))
+    // Sampled until it sets off for the header, however slowly the machine draws frames.
+    let samples = try await sampleCharacter(character, in: host, for: .seconds(3)) { sample in
+      sample.slot?.size == WelcomeSetup.CharacterSlot.header.size
+        && hypot(sample.position.x - start.x, sample.position.y - start.y) > 0.5
+    }
     XCTAssertTrue(samples.allSatisfy(\.present), "The character stays drawn through the step change")
     let target = try XCTUnwrap(samples.last?.slot)
     XCTAssertEqual(target.size, WelcomeSetup.CharacterSlot.header.size)
     let last = try XCTUnwrap(samples.last)
     XCTAssertGreaterThan(hypot(last.position.x - target.center.x, last.position.y - target.center.y), 4,
                          "It glides into the header instead of appearing there")
+    XCTAssertGreaterThan(samples.filter { hypot($0.position.x - start.x, $0.position.y - start.y) > 0.5 }.count, 0,
+                         "It moves from where it was drawn")
   }
 
   @MainActor
@@ -874,21 +890,42 @@ final class EnigmaMainWindowTests: XCTestCase {
     let slot: EnigmaCharacterModel.Slot?
   }
 
-  /// The character's position over `duration`, drawing the window as it goes.
+  /// The character's position over `duration`, or until a sample is `done`,
+  /// drawing the window as it goes.
   @MainActor
-  private func sampleCharacter(_ character: EnigmaCharacterController, in host: Host,
-                               for duration: Duration) async throws -> [CharacterSample] {
+  private func sampleCharacter(_ character: EnigmaCharacterController, in host: Host, for duration: Duration,
+                               until done: (CharacterSample) -> Bool = { _ in false }) async throws -> [CharacterSample] {
     var samples: [CharacterSample] = []
     let end = ContinuousClock.now.advanced(by: duration)
     repeat {
       await Task.yield()
       host.view.layoutSubtreeIfNeeded()
       host.window.displayIfNeeded()
-      samples.append(CharacterSample(present: character.isPresent, position: character.model.position,
-                                     slot: character.model.slot))
+      let sample = CharacterSample(present: character.isPresent, position: character.model.position,
+                                   slot: character.model.slot)
+      samples.append(sample)
+      if done(sample) { break }
       try await Task.sleep(for: .milliseconds(8))
     } while ContinuousClock.now < end
     return samples
+  }
+
+  /// Waits until the composer field and the `markers` have kept their frames
+  /// for a moment, as once the window's transitions have finished.
+  @MainActor
+  private func waitForSettledLayout(in host: Host, _ label: String, markers: [String],
+                                    file: StaticString = #filePath, line: UInt = #line) async throws {
+    var frames: [CGRect] = []
+    var since = ContinuousClock.now
+    try await waitForUI("the layout to settle at \(label): \(frames)", in: host.view, file: file, line: line) {
+      let views = [composerEditor(in: host.view) as NSView?] + markers.map { host.marker($0) }
+      let current = views.map { view in view.map { host.view.convert($0.bounds, from: $0) } ?? .null }
+      if current != frames {
+        frames = current
+        since = .now
+      }
+      return since.duration(to: .now) >= .milliseconds(200)
+    }
   }
 
   /// Saves the hosted window in Paper and Ink, switching the real appearance setting.
