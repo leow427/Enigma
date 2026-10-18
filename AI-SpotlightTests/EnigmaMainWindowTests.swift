@@ -443,9 +443,10 @@ final class EnigmaMainWindowTests: XCTestCase {
       }
       func isAt(_ place: (send: CGRect, field: CGRect), _ frames: (send: CGRect, field: CGRect)?) -> Bool {
         guard let frames else { return false }
-        return [(frames.send, place.send), (frames.field, place.field)].allSatisfy { frame, place in
-          abs(frame.minX - place.minX) < 1 && abs(frame.minY - place.minY) < 1
+        func matches(_ frame: CGRect, _ target: CGRect) -> Bool {
+          abs(frame.minX - target.minX) < 1 && abs(frame.minY - target.minY) < 1
         }
+        return matches(frames.send, place.send) && matches(frames.field, place.field)
       }
       // Every place the field and Send are seen while the sidebar changes.
       var seen: [(send: CGRect, field: CGRect)] = []
