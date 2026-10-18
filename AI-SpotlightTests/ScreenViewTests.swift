@@ -1141,6 +1141,114 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNil(fixture.window.attachedSheet)
   }
 
+  // The compact panel in the new design: the same capture, consent, and
+  // denial steps, with the screenshot under the panel's input.
+  func testNewUICompactCaptureShowsRetakeAndRemoveAndExcludesRemovedImageFromNextRequest() async throws {
+    for command in ["/screen", "/snapshot"] {
+      let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud, newUI: true)
+      defer { fixture.controller.hide(); fixture.window.contentView = nil }
+      try await editScreenshotComposer(command, in: fixture)
+      try submitComposer(in: fixture.view)
+      try await waitForScreenshotState { fixture.screen.attachment != nil && !fixture.screen.isBusy }
+      XCTAssertEqual(fixture.screen.draft, "")
+      XCTAssertTrue(fixture.chat.isTemporaryChat)
+      XCTAssertTrue(fixture.controller.isSelectionComposer, "A standalone capture must wait for a question")
+      XCTAssertTrue(fixture.engine.requests.isEmpty)
+      XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+      XCTAssertNil(fixture.window.attachedSheet)
+      let originalID = try XCTUnwrap(fixture.screen.attachment?.id)
+      try await waitForUI("the screenshot card inside the grown panel", in: fixture.view) {
+        ["Retake", "Remove"].allSatisfy { name in
+          guard let marker = EnigmaMainWindowTests.Host.marker(name, in: fixture.view) else { return false }
+          return fixture.view.bounds.contains(fixture.view.convert(marker.bounds, from: marker))
+        } && EnigmaMainWindowTests.Host.marker("Compact panel", in: fixture.view) != nil
+      }
+      let text = try screenshotText(in: fixture.view, name: "new-compact-\(command.dropFirst())")
+      XCTAssertTrue(text.contains("attached"), text)
+      XCTAssertTrue(text.contains("selected passage fixture"), text)
+      let editor = try composerField(in: fixture.view)
+      XCTAssertTrue(fixture.view.bounds.contains(fixture.view.convert(editor.bounds, from: editor)))
+
+      try await editScreenshotComposer("Explain the attached passage", in: fixture)
+      try await pressScreenshotControl("Retake", in: fixture.view)
+      try await waitForScreenshotState { fixture.screen.attachment?.id != originalID && !fixture.screen.isBusy }
+      XCTAssertEqual(fixture.capture.desktopCount, command == "/screen" ? 2 : 0)
+      XCTAssertEqual(fixture.capture.regionCount, command == "/snapshot" ? 2 : 0)
+      XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
+      await settleScreenshotView(fixture.view)
+      try await pressScreenshotControl("Remove", in: fixture.view)
+      try await waitForScreenshotState { fixture.screen.attachment == nil }
+      XCTAssertFalse(fixture.screen.isEnabled)
+      XCTAssertEqual(fixture.screen.draft, "Explain the attached passage")
+      try submitComposer(in: fixture.view)
+      try await waitForScreenshotState { !fixture.cloudProvider.requests.isEmpty && !fixture.chat.isBusy }
+      let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+      XCTAssertNil(request.image)
+      XCTAssertFalse(request.allowsCloudImages)
+      XCTAssertTrue(request.messages.last?.content.contains("Selected passage fixture") == true)
+      XCTAssertFalse(request.messages.contains { $0.content.contains("values.count") || $0.imagePreview != nil })
+      XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+      XCTAssertFalse(fixture.controller.isSelectionComposer, "The accepted question grows the panel")
+    }
+  }
+
+  func testNewUICompactConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud, provider: .anthropic, newUI: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/snapshot What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.window.attachedSheet != nil }
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+    let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+    await settleScreenshotView(sheet)
+    XCTAssertEqual(sheet.window?.sharingType, .none as NSWindow.SharingType)
+    let text = try screenshotText(in: sheet)
+    XCTAssertTrue(text.contains("send selected region to"), text)
+    XCTAssertTrue(text.contains("captures the selected region"), text)
+    XCTAssertTrue(text.contains("future region and full-desktop screenshots"), text)
+    XCTAssertTrue(text.contains("without uploading an image"), text)
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    let attachmentID = fixture.screen.attachment?.id
+    try await pressScreenshotControl("Keep Screenshots Local", in: sheet)
+    try await waitForScreenshotState { fixture.window.attachedSheet == nil }
+    XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+    XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
+    XCTAssertEqual(fixture.screen.attachment?.id, attachmentID)
+    XCTAssertEqual(fixture.screen.draft, "What color is this?")
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+    // The kept-local error opens the details, as the old popover opened.
+    try await waitForUI("the details with the screenshot notice", in: fixture.view) {
+      EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) != nil
+    }
+    try submitComposer(in: fixture.view)
+    XCTAssertEqual(fixture.screen.attachment?.routingDecision, .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage))
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertNil(fixture.window.attachedSheet)
+  }
+
+  func testNewUICompactScreenRecordingDenialKeepsDraftAndOffersSettings() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true, newUI: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    fixture.capture.denied = true
+    try await editScreenshotComposer("/screen What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.screen.needsScreenRecordingSettings && !fixture.screen.isBusy }
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+    XCTAssertTrue(fixture.window.isVisible)
+    XCTAssertNil(fixture.screen.attachment)
+    XCTAssertEqual(fixture.screen.draft, "/screen What color is this?")
+    XCTAssertEqual(fixture.capture.desktopCount, 0)
+    XCTAssertTrue(fixture.engine.requests.isEmpty)
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertNil(fixture.window.attachedSheet)
+    try await waitForUI("the details offering Screen Recording settings", in: fixture.view) {
+      guard let button = EnigmaMainWindowTests.Host.marker("Open Screen Recording Settings…", in: fixture.view)
+      else { return false }
+      return fixture.view.bounds.contains(fixture.view.convert(button.bounds, from: button))
+    }
+  }
+
   func testRealComposerStopAndTypingRemainResponsiveWhileArchiveWriteIsBlocked() async throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: "StreamingComposer-\(UUID())")
     addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -1243,6 +1351,7 @@ final class ScreenViewTests: XCTestCase {
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
       newUI: newUIPreference, appearance: EnigmaAppearancePreference(defaults: defaults))
       .environment(\.screenControlMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+      .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .transaction { $0.disablesAnimations = true })
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))

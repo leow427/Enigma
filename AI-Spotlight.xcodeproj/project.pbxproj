@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A7C84667C6870F2F121788A6 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */; };
+		08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */; };
+		FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */; };
 		239B6F451A6401C9971127FB /* AI-Spotlight/Chat/EnigmaConversationLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */; };
 		ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/EnigmaMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */; };
 		CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/EnigmaActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */; };
@@ -195,6 +198,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaCompactPanelTests.swift"; sourceTree = SOURCE_ROOT; };
+		A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanel.swift"; sourceTree = SOURCE_ROOT; };
+		3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanelLogic.swift"; sourceTree = SOURCE_ROOT; };
 		23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaConversationLogic.swift"; sourceTree = SOURCE_ROOT; };
 		2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaMarkdownView.swift"; sourceTree = SOURCE_ROOT; };
 		F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaActivityView.swift"; sourceTree = SOURCE_ROOT; };
@@ -402,6 +408,9 @@
 				4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */,
 				56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */,
 				BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */,
+				586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */,
+				A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */,
+				3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */,
 				23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */,
 				2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */,
 				F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */,
@@ -756,6 +765,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
+				08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */,
+				FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */,
 				239B6F451A6401C9971127FB /* AI-Spotlight/Chat/EnigmaConversationLogic.swift in Sources */,
 				ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/EnigmaMarkdownView.swift in Sources */,
 				CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/EnigmaActivityView.swift in Sources */,
@@ -890,6 +901,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
+				A7C84667C6870F2F121788A6 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift in Sources */,
 				872A6789644682A269790303 /* AI-SpotlightTests/EnigmaConversationTests.swift in Sources */,
 				1901987355208F91135CBFF4 /* AI-SpotlightTests/EnigmaMainWindowTests.swift in Sources */,
 				41210F1C09D1947EA1AB3C67 /* AI-SpotlightTests/EnigmaSettingsTests.swift in Sources */,

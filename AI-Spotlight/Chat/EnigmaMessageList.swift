@@ -15,6 +15,11 @@ struct EnigmaMessageList<Revision: View>: View {
   /// Changes with anything that should keep a reader at the bottom following it.
   let scrollRevision: String
   let activityExpansion: (UUID) -> Binding<Bool>
+  /// Messages gather at the bottom, by a composer under the list, or at the
+  /// top, under the compact panel's input.
+  var gathersAtBottom = true
+  /// The compact panel's narrower margins line the replies up with its input.
+  var horizontalPadding: CGFloat = 24
   /// The /edit revision card under a reply, if it has one.
   @ViewBuilder let revision: (ChatMessage) -> Revision
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -33,11 +38,11 @@ struct EnigmaMessageList<Revision: View>: View {
           }
         }
         .frame(maxWidth: MainPageLayout.columnMaximumWidth)
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, gathersAtBottom ? 20 : 14)
         .padding(.bottom, 14)
-        // Messages gather at the bottom, by the composer, as in the mockup.
-        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .bottom)
+        // Messages gather by the composer, as in the mockups.
+        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: gathersAtBottom ? .bottom : .top)
         .background(ConversationScrollObserver(contentRevision: scrollRevision).allowsHitTesting(false))
         .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.rowEnter.animation,
                    value: transcript.rows.map(\.id))

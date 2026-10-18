@@ -15,6 +15,10 @@ extension Notification.Name {
   static let selectionPanelResetRequested = Notification.Name("enigma.selectionPanelResetRequested")
   static let selectionPanelExpanded = Notification.Name("enigma.selectionPanelExpanded")
   static let selectionComposerHeightChanged = Notification.Name("enigma.selectionComposerHeightChanged")
+  /// The compact panel was placed; the object is the room under it on screen.
+  static let selectionPanelPlaced = Notification.Name("enigma.selectionPanelPlaced")
+  /// The new UI was turned on or off; the object is the compact panel's new style.
+  static let selectionPanelDesignChanged = Notification.Name("enigma.selectionPanelDesignChanged")
   static let selectionContextRequested = Notification.Name("enigma.selectionContextRequested")
   static let sidebarToggleRequested = Notification.Name("aiSpotlight.sidebarToggleRequested")
   static let fileModeRequested = Notification.Name("aiSpotlight.fileModeRequested")

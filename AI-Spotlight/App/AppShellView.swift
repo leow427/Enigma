@@ -243,7 +243,7 @@ struct AppShellView: View {
   @State private var character: EnigmaCharacterController
   /// The Mac's own light or dark setting, for the character's colors under System.
   @ObservedObject private var systemAppearance = EnigmaSystemAppearance.shared
-  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
+  @ObservedObject private var selectionAccess: SelectionAccessibilityAccess
   @ObservedObject private var selectionContext = SelectionContextService.shared
   @ObservedObject var glassAppearance: GlassAppearanceSettings
   @ObservedObject private var cloudSettings: CloudSettingsModel
@@ -268,6 +268,9 @@ struct AppShellView: View {
   @State private var shell: ShellPresentation
   /// Text the new composer's `/` button or a command example types into the field.
   @State private var composerInsertion: SlashCommandInsertion?
+  /// The compact panel sits too low on its screen for lists and menus to open
+  /// under it, so they open above its input.
+  @State private var compactOpensOverlaysAbove = false
 
   init(
     glassAppearance: GlassAppearanceSettings,
@@ -283,9 +286,11 @@ struct AppShellView: View {
     welcomeSetup: WelcomeSetup = .shared,
     newUI: NewUIPreference = .shared,
     appearance: EnigmaAppearancePreference = .shared,
-    character: EnigmaCharacterController? = nil
+    character: EnigmaCharacterController? = nil,
+    selectionAccess: SelectionAccessibilityAccess = .shared
   ) {
     self.glassAppearance = glassAppearance
+    self.selectionAccess = selectionAccess
     self.cloudSettings = cloudSettings
     self.modelAdvisor = modelAdvisor
     self.searchSettings = searchSettings
@@ -303,10 +308,10 @@ struct AppShellView: View {
     self.messages = chat.appleMessages
   }
 
-  /// Notices and cards over the composer. The new frame has its own; the old
-  /// frame and the old compact selection panel keep these.
+  /// Notices and cards over the composer. The new design has its own; the
+  /// old frame and the old compact selection panel keep these.
   @ViewBuilder private var composerAccessories: some View {
-    if usesNewFrame { newComposerAccessories } else { oldComposerAccessories }
+    if newUI.isEnabled { newComposerAccessories() } else { oldComposerAccessories }
   }
 
   private var oldComposerAccessories: some View {
@@ -399,8 +404,11 @@ struct AppShellView: View {
 
   /// The same notices and cards as the old accessories, under the same
   /// conditions and in the same order, in the new design: opaque cards that
-  /// stay readable with Reduce Transparency on.
-  private var newComposerAccessories: some View {
+  /// stay readable with Reduce Transparency on. The compact panel leaves out
+  /// what it shows itself: the selected text in its own line once it has
+  /// grown, and, in its details, the screenshot that sits under its input, so
+  /// the screenshot's consent sheet has one home.
+  private func newComposerAccessories(showsSelectedText: Bool = true, showsScreenshot: Bool = true) -> some View {
     VStack(alignment: .trailing, spacing: 8) {
       // The empty page shows the status under its greeting instead.
       if !isChatEmpty {
@@ -419,15 +427,17 @@ struct AppShellView: View {
       if localChat.isTemporaryChat {
         EnigmaChatNote("Temporary chat · Not saved to history", monospaced: true)
       }
-      ForEach(localChat.attachedContexts) { context in
-        EnigmaSelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
-          localChat.removeContext(id: context.id)
+      if showsSelectedText {
+        ForEach(localChat.attachedContexts) { context in
+          EnigmaSelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
+            localChat.removeContext(id: context.id)
+          }
         }
       }
       if let notice = selectionContext.notice, localChat.isTemporaryChat {
         EnigmaChatNote(notice)
       }
-      if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
+      if showsScreenshot, let attachment = screen.attachment, localChat.pendingUserMessage == nil {
         newScreenshotAttachment(attachment)
       }
       if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
@@ -511,7 +521,8 @@ struct AppShellView: View {
               .background {
                 if shell.isSelectionComposer {
                   GeometryReader { bounds in
-                    Color.clear.preference(key: SelectionComposerHeight.self, value: bounds.size.height + 16)
+                    Color.clear.preference(key: SelectionComposerHeight.self,
+                                           value: SelectionComposerReport(height: bounds.size.height + 16, style: .classic))
                   }
                 }
               }
@@ -538,11 +549,17 @@ struct AppShellView: View {
   }
 
   // Keep these modifier groups separate so Swift can type-check each expression.
-  /// With the flag on, the new frame; the old compact selection panel keeps the old design.
-  private var usesNewFrame: Bool { newUI.isEnabled && !shell.isSelectionComposer }
+  /// With the flag on, the new window frame, unless the compact selection panel is showing.
+  private var usesNewFrame: Bool { newUI.isEnabled && !shell.showsCompactPanel }
 
   @ViewBuilder private var windowFrame: some View {
-    if usesNewFrame { newShellLayout } else { shellLayout }
+    if !newUI.isEnabled {
+      shellLayout
+    } else if shell.showsCompactPanel {
+      compactPanel
+    } else {
+      newShellLayout
+    }
   }
 
   private var welcomeShell: some View {
@@ -590,12 +607,19 @@ struct AppShellView: View {
 
   private var commandObservedShell: some View {
     welcomeShell
-    .onPreferenceChange(SelectionComposerHeight.self) { height in
-      guard shell.isSelectionComposer, height > 0 else { return }
-      NotificationCenter.default.post(name: .selectionComposerHeightChanged, object: height)
+    .onPreferenceChange(SelectionComposerHeight.self) { report in
+      guard shell.isSelectionComposer, report.height > 0 else { return }
+      // The old design reports its height alone, as before; the new one says
+      // the panel grows downward.
+      NotificationCenter.default.post(name: .selectionComposerHeightChanged,
+                                      object: report.style == .classic ? report.height as Any : report as Any)
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelExpanded)) { _ in
       shell.leaveSelectionComposer()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .selectionPanelPlaced)) { notification in
+      guard let roomBelow = notification.object as? CGFloat else { return }
+      compactOpensOverlaysAbove = CompactPanelLayout.opensOverlaysAbove(roomBelow: roomBelow)
     }
     .onReceive(NotificationCenter.default.publisher(for: .sidebarToggleRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
@@ -636,8 +660,11 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .panelHidden)) { _ in
       localChat.applicationBecameInactive()
-      // An open menu doesn't outlive the panel in the new frame.
-      if usesNewFrame { shell.isModePalettePresented = false }
+      // An open menu or the details don't outlive the panel in the new design.
+      if newUI.isEnabled {
+        shell.isModePalettePresented = false
+        shell.isSelectionDetailsPresented = false
+      }
     }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
       selectionAccess.refresh()
@@ -697,11 +724,14 @@ struct AppShellView: View {
     }
     .onChange(of: localChat.presentationMessages.last?.content.utf8.count) { _, _ in
       // One ripple per streamed update, while the character is in the chat to show it.
-      guard usesNewFrame, !welcomeSetup.isPresented, localChat.state == .streaming, character.isPresent else { return }
+      guard newUI.isEnabled, !welcomeSetup.isPresented, localChat.state == .streaming, character.isPresent else { return }
       character.token()
     }
     .onChange(of: newUI.isEnabled) { _, enabled in
       if enabled { settleCharacter(.instant) }
+      // The panel forgets the other design's size.
+      NotificationCenter.default.post(name: .selectionPanelDesignChanged,
+                                      object: enabled ? SelectionPanelExpansion.Style.enigma : .classic)
     }
     .onAppear {
       if newUI.isEnabled { settleCharacter(.instant) }
@@ -720,7 +750,7 @@ struct AppShellView: View {
     }
     .modifier(MessagesDialogs(messages: messages, submit: submitMessages))
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
-      isBusy: localChat.isBusy, reviewAppearance: usesNewFrame ? appearance.appearance : nil, useCodex: {
+      isBusy: localChat.isBusy, reviewAppearance: newUI.isEnabled ? appearance.appearance : nil, useCodex: {
         cloudSettings.preferredProvider = .chatGPT
         shell.selectedMode = .cloud
         if let handoff = files.prepareProtectedCloudDraft() {
@@ -944,6 +974,90 @@ struct AppShellView: View {
       openSettings: { Task { @MainActor in openSettings() } })
   }
 
+  // MARK: Compact panel
+
+  /// The compact selection panel in the new design, with the same actions,
+  /// notices, cards, and consent steps as the old one.
+  private var compactPanel: some View {
+    let composing = shell.isSelectionComposer
+    return EnigmaCompactPanel(
+      isComposing: composing,
+      opensOverlaysAbove: compactOpensOverlaysAbove,
+      hints: CompactPanelHints.hints(isResponding: localChat.activeRequest != nil),
+      selection: {
+        EnigmaCompactSelectionLine(
+          contexts: localChat.attachedContexts, isBusy: localChat.isBusy || selectionContext.isWorking,
+          isComposing: composing,
+          statusNeedsAttention: CompactPanelCharacter.statusNeedsAttention(
+            notice: selectionContext.notice, isAccessibilityGranted: selectionAccess.isGranted),
+          isStatusPresented: shell.isSelectionDetailsPresented,
+          toggleStatus: { shell.isSelectionDetailsPresented.toggle() },
+          remove: { localChat.removeContext(id: $0) })
+      },
+      composer: { compactComposer },
+      attachment: {
+        if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
+          newScreenshotAttachment(attachment)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
+        }
+      },
+      details: {
+        if shell.isSelectionDetailsPresented {
+          EnigmaCompactDetails { newComposerAccessories(showsScreenshot: false) }
+            // Escape closes the details first, as it closed the old popover.
+            .enigmaDismissesOnEscape { shell.isSelectionDetailsPresented = false }
+            .transition(.opacity)
+        }
+      },
+      answer: {
+        EnigmaCompactAnswer(conversation: { compactMessageList },
+                            accessories: { newComposerAccessories(showsSelectedText: false) })
+      })
+    .animation(reduceMotion ? .easeOut(duration: 0.12) : EnigmaMotion.menu.animation,
+               value: shell.isSelectionDetailsPresented)
+    .enigmaMenuHost()
+    .enigmaTheme(appearance.appearance)
+    .frame(minWidth: 640)
+  }
+
+  private var compactComposer: some View {
+    EnigmaCompactComposer(
+      text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
+      availableCommands: availableCommands,
+      placeholder: CompactPanelLayout.placeholder(hasSelection: !localChat.attachedContexts.isEmpty),
+      opensSuggestionsAbove: compactOpensOverlaysAbove,
+      insertion: composerInsertion, submit: submitDraft,
+      files: files, isAttachDisabled: localChat.isBusy || files.isPicking || files.isWorking,
+      attach: { activateFileMode(from: .menu) },
+      chip: CompactRouteChip.text(mode: shell.selectedMode, route: routeIndicator,
+                                  modelName: shell.selectedMode == .auto ? nil : compactModelName),
+      menu: modeAndModelMenu, menuActions: modeAndModelActions,
+      isMenuPresented: $shell.isModePalettePresented,
+      menuClosed: { shell.isComposerFocused = true },
+      isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
+      send: submitDraft, stop: { localChat.stopStreaming() })
+  }
+
+  /// The model a fixed mode uses, for the compact panel's route chip.
+  private var compactModelName: String? {
+    switch shell.selectedMode {
+    case .local: localChat.installedModel?.displayName
+    case .cloud: cloudSettings.preferredModelID.isEmpty ? nil : cloudSettings.preferredModelID
+    case .auto: nil
+    }
+  }
+
+  /// The chat under the compact panel's input: the same list, revision cards,
+  /// and per-chat identity as the main window's, gathered at the top.
+  private var compactMessageList: some View {
+    EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
+                      activityExpansion: activityExpansion, gathersAtBottom: false, horizontalPadding: 16) {
+      newRevisionCard($0)
+    }
+    .id(localChat.selectedSessionID)
+  }
+
   // MARK: Character
 
   private var isTypingInComposer: Bool {
@@ -965,8 +1079,16 @@ struct AppShellView: View {
       routeCanRun: ComposerSubmission.canSubmit(
         mode: shell.selectedMode, hasLocalModel: localChat.installedModel != nil,
         isCloudConfigured: cloudSettings.isConfigured, hasAutoCloud: autoCloudConfiguration != nil, isBusy: false),
-      hasProblem: hasRouteProblem,
+      hasProblem: hasRouteProblem || hasSelectionProblem,
       isTyping: isTypingInComposer))
+  }
+
+  /// In the compact panel, the selection couldn't be read or Accessibility is missing.
+  private var hasSelectionProblem: Bool {
+    CompactPanelCharacter.hasSelectionProblem(
+      isPanel: shell.isSelectionPresentation, isComposing: shell.isSelectionComposer,
+      hasSelection: !localChat.attachedContexts.isEmpty, notice: selectionContext.notice,
+      isAccessibilityGranted: selectionAccess.isGranted, isTemporaryChat: localChat.isTemporaryChat)
   }
 
   /// The last request failed, or Auto can't take the next one. A route that's
@@ -977,11 +1099,12 @@ struct AppShellView: View {
   }
 
   /// Where the character sits outside the welcome: beside the latest reply
-  /// in a chat, and on the main page otherwise.
+  /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
-    guard newUI.isEnabled, !isChatEmpty else { return MainWindowCharacter.mainSlot }
+    let home = shell.showsCompactPanel ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
+    guard newUI.isEnabled, !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
-                                                  activity: localChat.activity) ?? MainWindowCharacter.mainSlot
+                                                  activity: localChat.activity) ?? home
   }
 
   /// Sends the character to its slot in the window with its state there.
@@ -1244,14 +1367,17 @@ struct AppShellView: View {
   /// activity expansion, and revision cards as the old list.
   private var newMessageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
-                      activityExpansion: activityExpansion) { message in
-      if let revision = localChat.selectionRevisions[message.id], !revision.automatic {
-        EnigmaSelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
-          update: { localChat.updateSelectionRevision(messageID: message.id, text: $0) },
-          replace: { Task { await localChat.applySelectionRevision(messageID: message.id) } })
-      }
-    }
+                      activityExpansion: activityExpansion) { newRevisionCard($0) }
     .id(localChat.selectedSessionID)
+  }
+
+  /// The /edit revision card under a reply in the new design, when it has one to review.
+  @ViewBuilder private func newRevisionCard(_ message: ChatMessage) -> some View {
+    if let revision = localChat.selectionRevisions[message.id], !revision.automatic {
+      EnigmaSelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
+        update: { localChat.updateSelectionRevision(messageID: message.id, text: $0) },
+        replace: { Task { await localChat.applySelectionRevision(messageID: message.id) } })
+    }
   }
 
   private var conversationTranscript: ConversationTranscript {
@@ -2503,9 +2629,4 @@ private struct AppShellCharacterStage: ViewModifier {
 private struct CharacterPlacement: Equatable {
   let session: UUID?
   let slot: EnigmaCharacterSlotID
-}
-
-private struct SelectionComposerHeight: PreferenceKey {
-  static let defaultValue: CGFloat = 0
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

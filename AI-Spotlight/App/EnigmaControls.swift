@@ -71,11 +71,14 @@ enum EnigmaButtonKind: Sendable {
   case secondary
   /// Plain text, like Back.
   case text
+  /// A small outlined key that does what it names, like `↵` beside the
+  /// compact panel's input, which sends.
+  case keycap
 
   func fill(in palette: EnigmaPalette, isHovered: Bool) -> EnigmaColor? {
     switch self {
     case .primary, .compactPrimary: palette.accent
-    case .secondary, .text: isHovered ? palette.hover : nil
+    case .secondary, .text, .keycap: isHovered ? palette.hover : nil
     }
   }
 
@@ -83,17 +86,18 @@ enum EnigmaButtonKind: Sendable {
     switch self {
     case .primary, .compactPrimary: palette.onAccent
     case .secondary: palette.textPrimary
-    case .text: isHovered ? palette.textPrimary : palette.textSecondary
+    case .text, .keycap: isHovered ? palette.textPrimary : palette.textSecondary
     }
   }
 
-  var edge: EnigmaEdge? { self == .secondary ? .border : nil }
+  var edge: EnigmaEdge? { self == .secondary || self == .keycap ? .border : nil }
 
   var font: Font {
     switch self {
     case .primary: EnigmaTypography.ui(14, weight: .medium)
     case .secondary, .compactPrimary: EnigmaTypography.ui(12.5, weight: .medium)
     case .text: EnigmaTypography.ui(13, weight: .medium)
+    case .keycap: EnigmaTypography.ui(11)
     }
   }
 
@@ -102,10 +106,20 @@ enum EnigmaButtonKind: Sendable {
     case .primary: EdgeInsets(top: 9, leading: 18, bottom: 9, trailing: 18)
     case .secondary, .compactPrimary: EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
     case .text: EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
+    case .keycap: EdgeInsets(top: 1, leading: 5, bottom: 1, trailing: 5)
     }
   }
 
-  var cornerRadius: CGFloat { self == .primary ? 11 : 8 }
+  /// The smallest clickable size, for kinds that draw smaller than a pointer target.
+  var minimumTarget: CGFloat? { self == .keycap ? 24 : nil }
+
+  var cornerRadius: CGFloat {
+    switch self {
+    case .primary: 11
+    case .keycap: 5
+    default: 8
+    }
+  }
 }
 
 /// Primary, secondary, and text buttons. Apply with `.enigmaButtonStyle(_:)`,
@@ -149,6 +163,9 @@ private struct EnigmaButtonBody: View {
       .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
       .scaleEffect(EnigmaControlStyle.pressScale(isPressed: configuration.isPressed, reduceMotion: reduceMotion))
       .enigmaFocusRing(isFocused && isEnabled, palette: palette, cornerRadius: kind.cornerRadius)
+      // A small key keeps its look but gets a pointer-sized target.
+      .frame(minWidth: kind.minimumTarget, minHeight: kind.minimumTarget)
+      .contentShape(kind == .keycap ? AnyShape(Rectangle()) : AnyShape(shape))
       .animation(reduceMotion ? nil : EnigmaControlStyle.press.animation, value: configuration.isPressed)
       .onHover { isHovered = $0 }
   }
@@ -390,15 +407,7 @@ struct EnigmaCommandLine: View {
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
       Text("›").foregroundStyle(palette.textTertiary.color).accessibilityHidden(true)
-      // Separate texts, so each run's font is certain: key symbols in the
-      // system font, like the mockup's sans spans, and the rest in mono.
-      HStack(alignment: .firstTextBaseline, spacing: 0) {
-        ForEach(Array(Self.runs(command).enumerated()), id: \.offset) { _, run in
-          // Non-breaking spaces, so a space at the edge of a run still takes room.
-          Text(run.text.replacingOccurrences(of: " ", with: "\u{00A0}"))
-            .font(run.isSymbol ? EnigmaTypography.ui(13, weight: .medium) : EnigmaTypography.mono(12, weight: .medium))
-        }
-      }
+      EnigmaKeyedText(command, size: 12, weight: .medium)
       .foregroundStyle(palette.accentText.color)
       .lineLimit(1)
       .frame(width: commandWidth, alignment: .leading)
@@ -410,6 +419,35 @@ struct EnigmaCommandLine: View {
     .font(EnigmaTypography.mono(12))
     .padding(.vertical, 6)
     .accessibilityElement(children: .combine)
+  }
+}
+
+/// Monospace text whose modifier and key symbols, like `⌃` and `⌘`, are set
+/// in the system font, which draws them properly, like the mockup's sans
+/// spans. Each run is a separate text, so its font is certain.
+struct EnigmaKeyedText: View {
+  let text: String
+  var size: CGFloat = 12
+  var weight: Font.Weight = .regular
+  /// Space between symbols, so a pair like `⌃⌃` reads as two keys.
+  var symbolTracking: CGFloat = 0
+
+  init(_ text: String, size: CGFloat = 12, weight: Font.Weight = .regular, symbolTracking: CGFloat = 0) {
+    self.text = text
+    self.size = size
+    self.weight = weight
+    self.symbolTracking = symbolTracking
+  }
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 0) {
+      ForEach(Array(EnigmaCommandLine.runs(text).enumerated()), id: \.offset) { _, run in
+        // Non-breaking spaces, so a space at the edge of a run still takes room.
+        Text(run.text.replacingOccurrences(of: " ", with: "\u{00A0}"))
+          .font(run.isSymbol ? EnigmaTypography.ui(size + 1, weight: .medium) : EnigmaTypography.mono(size, weight: weight))
+          .tracking(run.isSymbol ? symbolTracking : 0)
+      }
+    }
   }
 }
 
@@ -1113,6 +1151,40 @@ extension EnvironmentValues {
   @Entry var enigmaMenuPresenter: EnigmaMenuPresenter? = nil
 }
 
+/// The room the host's open menu needs below its trigger: its measured rows,
+/// or a first guess until they're measured, plus the gap and the margin. Zero
+/// while no menu is open. A container that grows to fit its content, like the
+/// compact panel's window, makes this much room so the menu isn't cut off.
+struct EnigmaMenuRoom<Content: View>: View {
+  /// Before the rows are measured.
+  static var estimatedHeight: CGFloat { 220 }
+
+  @ViewBuilder let content: (CGFloat) -> Content
+  @Environment(\.enigmaMenuPresenter) private var presenter
+
+  var body: some View {
+    if let presenter {
+      Reader(presenter: presenter, content: content)
+    } else {
+      content(0)
+    }
+  }
+
+  static func room(isOpen: Bool, contentHeight: CGFloat?) -> CGFloat {
+    guard isOpen else { return 0 }
+    return (contentHeight ?? estimatedHeight) + EnigmaMenuPlacement.gap + EnigmaMenuPlacement.margin
+  }
+
+  private struct Reader: View {
+    @ObservedObject var presenter: EnigmaMenuPresenter
+    let content: (CGFloat) -> Content
+
+    var body: some View {
+      content(EnigmaMenuRoom.room(isOpen: presenter.presentation != nil, contentHeight: presenter.contentHeight))
+    }
+  }
+}
+
 extension View {
   /// Lets the `EnigmaMenu`s inside this view open above all of it, unclipped
   /// by scroll views. Apply it once at a window or sheet root.
@@ -1159,6 +1231,48 @@ private struct EnigmaMenuHostModifier: ViewModifier {
                      value: presenter.presentation?.id)
         }
       }
+  }
+}
+
+// MARK: Escape
+
+/// Something open in a window that Escape closes before the window does
+/// anything else, like the compact panel's details. A window that takes
+/// Escape as a key equivalent, like the chat panel, asks this after its menus.
+@MainActor
+final class EnigmaEscapeDismissal {
+  private static let live = NSHashTable<EnigmaEscapeDismissal>.weakObjects()
+  weak var window: NSWindow?
+  var dismiss: (() -> Void)?
+
+  init() { Self.live.add(self) }
+
+  /// Closes the latest open thing in `window`. Returns false when there's none.
+  static func dismiss(in window: NSWindow) -> Bool {
+    guard let item = live.allObjects.last(where: { $0.window === window && $0.dismiss != nil }),
+          let dismiss = item.dismiss else { return false }
+    item.dismiss = nil
+    dismiss()
+    return true
+  }
+}
+
+extension View {
+  /// While this view is shown, Escape in its window runs `dismiss` first.
+  func enigmaDismissesOnEscape(_ dismiss: @escaping () -> Void) -> some View {
+    modifier(EnigmaEscapeDismissalModifier(dismiss: dismiss))
+  }
+}
+
+private struct EnigmaEscapeDismissalModifier: ViewModifier {
+  let dismiss: () -> Void
+  @State private var dismissal = EnigmaEscapeDismissal()
+
+  func body(content: Content) -> some View {
+    content
+      .background(EnigmaMenuWindowReader { [dismissal] in dismissal.window = $0 })
+      .onAppear { dismissal.dismiss = dismiss }
+      .onDisappear { dismissal.dismiss = nil }
   }
 }
 

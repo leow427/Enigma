@@ -494,7 +494,7 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
-  func testSelectionPanelKeepsTheOldCompactComposerWithTheFlagOn() async throws {
+  func testSelectionPanelUsesTheNewCompactPanelWithTheFlagOn() async throws {
     let fixture = try await Fixture(test: self)
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
@@ -508,20 +508,22 @@ final class EnigmaMainWindowTests: XCTestCase {
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
     controller.presentSelectionContext(ConversationContext(sourceName: "Test editor", text: "Please send the report today."),
       cursor: NSPoint(x: visible.midX, y: visible.minY + 120), selection: nil, visible: visible)
-    try await waitForUI("the old compact composer", in: view) {
+    try await waitForUI("the new compact panel", in: view) {
       controller.isSelectionComposer && window.frame.height < 150 && fixture.chat.attachedContexts.count == 1
         && composerAcceptsClicks(in: view) && Host.marker("New chat", in: view) == nil
-        && Host.marker("Mode and model", in: view) == nil
+        && Host.marker("Compact panel", in: view) != nil && Host.marker("Mode and model", in: view) != nil
     }
     let editor = try XCTUnwrap(composerEditor(in: view))
-    XCTAssertEqual(editor.commandTextColor, .systemBlue, "The compact panel keeps the old design until phase 8")
+    XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor,
+                   "Since phase 8 the compact panel uses the new design")
     fixture.screen.draft = "Explain this passage"
     try await waitForUI("the draft in the editor", in: view) { editor.string == fixture.screen.draft }
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
       windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
       isARepeat: false, keyCode: 36)))
-    try await waitForUI("the panel growing into the new frame's conversation", in: view) {
+    try await waitForUI("the panel growing into its answer", in: view) {
       !controller.isSelectionComposer && fixture.engine.requestCount == 1
+        && Host.marker("Compact panel answer", in: view) != nil
         && (Host.marker("Send message", in: view) != nil || Host.marker("Stop response", in: view) != nil)
     }
     XCTAssertTrue(view.bounds.contains(view.convert(try XCTUnwrap(composerEditor(in: view)).bounds,
@@ -909,6 +911,11 @@ extension EnigmaMainWindowTests {
     let newUI: NewUIPreference
     let appearance: EnigmaAppearancePreference
     let character = EnigmaCharacterController(seed: 6)
+    /// The chat's /edit setting, isolated from the installed app's.
+    let selectionEditing: SelectionEditingSettings
+    /// Accessibility, allowed by default and never the Mac's real state. A
+    /// test that needs it missing sets its own.
+    var selectionAccess = SelectionAccessibilityAccess(checkTrust: { true }, prompt: {}, openSettings: { _ in })
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
     private(set) var earlierSessionID: UUID?
@@ -940,7 +947,8 @@ extension EnigmaMainWindowTests {
       engine = MainWindowTestEngine(model: model)
       picker = MainWindowTestPicker([folder])
       files = FileModeCoordinator(picker: picker, journalDirectory: root.appending(path: "Recovery"))
-      let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: SelectionEditingSettings(defaults: defaults),
+      selectionEditing = SelectionEditingSettings(defaults: defaults)
+      let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
         replaceSelection: { [pastes] text, _ in pastes.texts.append(text); return true },
         files: files, sessionStore: store)
       self.chat = chat
@@ -972,7 +980,8 @@ extension EnigmaMainWindowTests {
     func shell() -> some View {
       AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
-        welcomeSetup: setup, newUI: newUI, appearance: appearance, character: character)
+        welcomeSetup: setup, newUI: newUI, appearance: appearance, character: character,
+        selectionAccess: selectionAccess)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .transaction { $0.disablesAnimations = true }
     }

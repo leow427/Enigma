@@ -66,6 +66,13 @@ struct ShellPresentation: Equatable {
     return true
   }
 
+  /// The new design shows the compact panel: its composer, then the answer it
+  /// grows into. Opening the sidebar, as double-tap Control does, shows the
+  /// full window's layout in the panel instead, as the old design does.
+  var showsCompactPanel: Bool {
+    isSelectionPresentation && (isSelectionComposer || !isSidebarVisible)
+  }
+
   /// Errors are hidden behind the selection panel's status button, so open it.
   mutating func revealSelectionProblem() {
     if isSelectionComposer { isSelectionDetailsPresented = true }

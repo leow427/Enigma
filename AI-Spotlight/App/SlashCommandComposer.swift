@@ -86,8 +86,19 @@ struct SlashCommandComposer: View {
 
   @ViewBuilder private var inlineSuggestions: some View {
     switch suggestionPlacement {
-    case .above(let gap): suggestions.padding(.bottom, completion.height + gap)
-    case .below(let gap): suggestions.padding(.top, completion.height + gap)
+    case .above(let gap): suggestions.background { suggestionsFrame }.padding(.bottom, completion.height + gap)
+    case .below(let gap): suggestions.background { suggestionsFrame }.padding(.top, completion.height + gap)
+    }
+  }
+
+  /// Where the list is, so a container that grows to fit, like the compact
+  /// panel, can make room for it. The old design has no need.
+  @ViewBuilder private var suggestionsFrame: some View {
+    if style == .enigma {
+      GeometryReader { proxy in
+        Color.clear.preference(key: SlashSuggestionsFrame.self,
+                               value: proxy.frame(in: .named(SlashSuggestionsFrame.coordinateSpace)))
+      }
     }
   }
 
@@ -137,6 +148,17 @@ struct SlashCommandComposer: View {
     .fixedSize(horizontal: false, vertical: true)
   }
 
+}
+
+/// The open command list's frame in the `coordinateSpace` of a container
+/// that names it, or zero while it's closed.
+struct SlashSuggestionsFrame: PreferenceKey {
+  static let coordinateSpace = "SlashSuggestionsSpace"
+  static let defaultValue: CGRect = .zero
+  static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+    let next = nextValue()
+    if next != .zero { value = next }
+  }
 }
 
 /// The command list in the new design: an opaque `menu` surface with a

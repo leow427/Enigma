@@ -50,18 +50,89 @@ struct PanelSizeStore {
 }
 
 enum SelectionPanelExpansion {
+  /// How the compact panel grows. The old design keeps its composer at the
+  /// bottom, so the panel grows upward. The new design keeps the input at the
+  /// top and opens the answer under it, so the panel grows downward, on the
+  /// `EnigmaMotion.panelAnswer` spring.
+  enum Style: Equatable, Sendable {
+    case classic
+    case enigma
+  }
+
   static let composerSize = NSSize(width: 720, height: 92)
 
   static func frame(from composer: NSRect, visible: NSRect) -> NSRect {
+    frame(from: composer, visible: visible, style: .classic)
+  }
+
+  static func frame(from composer: NSRect, visible: NSRect, style: Style) -> NSRect {
     let size = NSSize(width: min(composer.width, visible.width), height: min(600, visible.height))
+    let y = style == .classic ? composer.minY : composer.maxY - size.height
     return NSRect(x: min(max(composer.minX, visible.minX), visible.maxX - size.width),
-      y: min(max(composer.minY, visible.minY), visible.maxY - size.height),
+      y: min(max(y, visible.minY), visible.maxY - size.height),
       width: size.width, height: size.height)
   }
 
   static func progress(at fraction: Double) -> Double {
     guard fraction < 1 else { return 1 }
     return 1 - exp(-7 * fraction) * cos(10 * fraction)
+  }
+
+  /// A spring's progress from 0 to 1 after `time` seconds, starting at rest,
+  /// in the response and damping terms SwiftUI uses.
+  static func springProgress(at time: Double, spring: EnigmaSpring = EnigmaMotion.panelAnswer) -> Double {
+    guard time > 0 else { return 0 }
+    let stiffness = 2 * Double.pi / spring.response
+    let damping = min(spring.dampingFraction, 0.999)
+    let decay = damping * stiffness
+    let frequency = stiffness * (1 - damping * damping).squareRoot()
+    return 1 - exp(-decay * time) * (cos(frequency * time) + decay / frequency * sin(frequency * time))
+  }
+
+  /// How long the spring takes to come within a thousandth of its target.
+  static func settlingDuration(_ spring: EnigmaSpring = EnigmaMotion.panelAnswer) -> Double {
+    log(1000) / (min(spring.dampingFraction, 0.999) * 2 * Double.pi / spring.response)
+  }
+
+  /// The panel's frame part of the way, `progress`, from `start` to `target`.
+  /// The old design keeps its bottom edge in place; the new one its top edge.
+  static func frame(at progress: Double, from start: NSRect, to target: NSRect, visible: NSRect,
+                    style: Style) -> NSRect {
+    let height = min(visible.height, start.height + (target.height - start.height) * progress)
+    let y: CGFloat = switch style {
+    case .classic: start.minY + (target.minY - start.minY) * min(1, progress)
+    case .enigma: start.maxY + (target.maxY - start.maxY) * min(1, progress) - height
+    }
+    return NSRect(x: target.minX, y: min(visible.maxY - height, max(visible.minY, y)), width: target.width, height: height)
+  }
+}
+
+/// What the compact panel's content reports about its composer: how tall it
+/// is, and which way the panel grows. The new design also says how tall it is
+/// at rest, without an open list, menu, or details, and how much of its height
+/// is room above the input for a list or menu that opens upward, so the input
+/// stays where it was.
+struct SelectionComposerReport: Equatable, Sendable {
+  var height: CGFloat
+  var style: SelectionPanelExpansion.Style
+  var restingHeight: CGFloat
+  var roomAbove: CGFloat
+
+  init(height: CGFloat, style: SelectionPanelExpansion.Style, restingHeight: CGFloat? = nil, roomAbove: CGFloat = 0) {
+    self.height = height
+    self.style = style
+    self.restingHeight = restingHeight ?? height
+    self.roomAbove = roomAbove
+  }
+}
+
+/// Carries the compact panel's composer report up to the window, which
+/// posts it to the controller. The tallest report wins.
+struct SelectionComposerHeight: PreferenceKey {
+  static let defaultValue = SelectionComposerReport(height: 0, style: .classic)
+  static func reduce(value: inout SelectionComposerReport, nextValue: () -> SelectionComposerReport) {
+    let next = nextValue()
+    if next.height > value.height { value = next }
   }
 }
 
@@ -74,6 +145,13 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private var normalSize: NSSize?
   private var selectionNormalFrame: NSRect?
   private(set) var isSelectionComposer = false
+  /// The latest composer the content reported, which says how the panel grows.
+  private(set) var selectionComposer: SelectionComposerReport?
+  /// The new design's top edge at rest, where it was placed: an open list,
+  /// menu, or details grows the panel from here, and closing it returns here.
+  private var selectionRestingTop: CGFloat?
+  /// The frame the latest report set, to tell when someone has moved the panel.
+  private var selectionAppliedFrame: NSRect?
   private var expansionTask: Task<Void, Never>?
   private var expansionTarget: NSRect?
 
@@ -124,6 +202,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(endSelectionReplacement), name: .selectionReplacementEnded, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(expandSelectionPanel), name: .selectionPanelExpandRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(selectionDesignChanged(_:)), name: .selectionPanelDesignChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .recentChatCycleRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
@@ -179,21 +258,68 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     isSelectionComposer = true
     panel.minSize = NSSize(width: 640, height: 72)
     let visible = visible ?? panel.screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-    panel.setFrame(SelectionPanelPlacement.frame(size: SelectionPanelExpansion.composerSize,
+    panel.setFrame(SelectionPanelPlacement.frame(size: composerSize,
       cursor: cursor, selection: selection, visible: visible), display: true)
+    selectionRestingTop = panel.frame.maxY
+    selectionAppliedFrame = panel.frame
+    NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
     NotificationCenter.default.post(name: .selectionContextRequested, object: context)
     panel.orderFrontRegardless()
     panel.makeKey()
     NotificationCenter.default.post(name: .panelPresented, object: nil)
   }
 
+  /// The old design opens at its fixed size and reports its height. The new
+  /// design opens at its last reported height, so it doesn't jump on arrival.
+  private var composerSize: NSSize {
+    guard let report = selectionComposer, report.style == .enigma, report.height > 0 else {
+      return SelectionPanelExpansion.composerSize
+    }
+    return NSSize(width: SelectionPanelExpansion.composerSize.width, height: max(72, report.restingHeight))
+  }
+
+  /// Turning the new UI off forgets its panel's height, so the old panel opens
+  /// at its own size, as before.
+  @objc private func selectionDesignChanged(_ notification: Notification) {
+    guard let style = notification.object as? SelectionPanelExpansion.Style, style == .classic else { return }
+    if selectionComposer?.style == .enigma { selectionComposer = nil }
+  }
+
+  private var expansionStyle: SelectionPanelExpansion.Style { selectionComposer?.style ?? .classic }
+
+  /// The content reports its composer's height: a plain number from the old
+  /// design, which grows upward, or a report saying how the panel grows.
   @objc private func resizeSelectionComposer(_ notification: Notification) {
-    guard isSelectionComposer, let height = notification.object as? CGFloat,
-          height.isFinite, let visible = panel.screen?.visibleFrame else { return }
+    let report: SelectionComposerReport
+    if let height = notification.object as? CGFloat {
+      report = SelectionComposerReport(height: height, style: .classic)
+    } else if let reported = notification.object as? SelectionComposerReport {
+      report = reported
+    } else { return }
+    guard isSelectionComposer, report.height.isFinite else { return }
+    let previous = selectionComposer
+    selectionComposer = report
+    guard let visible = panel.screen?.visibleFrame else { return }
     var frame = panel.frame
-    frame.size.height = min(max(72, height), visible.height)
-    frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
-    if abs(frame.height - panel.frame.height) > 1 { panel.setFrame(frame, display: true) }
+    frame.size.height = min(max(72, report.height), visible.height)
+    guard report.style == .enigma else {
+      frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
+      if abs(frame.height - panel.frame.height) > 1 { panel.setFrame(frame, display: true) }
+      return
+    }
+    // Someone moved the panel: where it is now is its new resting place.
+    if let applied = selectionAppliedFrame, panel.frame != applied {
+      selectionRestingTop = panel.frame.maxY - (previous?.roomAbove ?? 0)
+    }
+    // The new design keeps its input in place: it grows down from its resting
+    // top, or up by the room a list or menu needs above the input. Pushed up
+    // to fit the screen, it comes back once the list closes.
+    let top = (selectionRestingTop ?? panel.frame.maxY) + report.roomAbove
+    frame.origin.y = min(max(top - frame.height, visible.minY), visible.maxY - frame.height)
+    if abs(frame.height - panel.frame.height) > 1 || abs(frame.minY - panel.frame.minY) > 1 {
+      panel.setFrame(frame, display: true)
+    }
+    selectionAppliedFrame = panel.frame
   }
 
   @objc func expandSelectionPanel() {
@@ -201,7 +327,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     isSelectionComposer = false
     let start = panel.frame
     let visible = panel.screen?.visibleFrame ?? start
-    let target = SelectionPanelExpansion.frame(from: start, visible: visible)
+    let style = expansionStyle
+    let target = SelectionPanelExpansion.frame(from: start, visible: visible, style: style)
     NotificationCenter.default.post(name: .selectionPanelExpanded, object: nil)
     guard !reduceMotion(), panel.isVisible else {
       panel.setFrame(target, display: true)
@@ -209,17 +336,18 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       return
     }
     expansionTarget = target
+    let duration = style == .classic ? 0.46 : SelectionPanelExpansion.settlingDuration()
     expansionTask = Task { [weak self] in
       let began = ContinuousClock.now
       while !Task.isCancelled {
         guard let self else { return }
         let elapsed = began.duration(to: .now)
         let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        let fraction = min(1, seconds / 0.46)
-        let progress = SelectionPanelExpansion.progress(at: fraction)
-        let height = min(visible.height, start.height + (target.height - start.height) * progress)
-        let y = min(visible.maxY - height, max(visible.minY, start.minY + (target.minY - start.minY) * min(1, progress)))
-        self.panel.setFrame(NSRect(x: target.minX, y: y, width: target.width, height: height), display: true)
+        let fraction = min(1, seconds / duration)
+        let progress = style == .classic ? SelectionPanelExpansion.progress(at: fraction)
+          : fraction >= 1 ? 1 : SelectionPanelExpansion.springProgress(at: seconds)
+        self.panel.setFrame(SelectionPanelExpansion.frame(at: progress, from: start, to: target, visible: visible,
+                                                          style: style), display: true)
         if fraction >= 1 { self.finishExpansion(); return }
         try? await Task.sleep(for: .milliseconds(16))
       }
@@ -376,6 +504,7 @@ private final class SpotlightPanel: NSPanel {
   override func keyDown(with event: NSEvent) {
     guard event.keyCode != 53 else {
       if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return }
+      if EnigmaEscapeDismissal.dismiss(in: self) { return }
       onHide?()
       return
     }
@@ -388,6 +517,8 @@ private final class SpotlightPanel: NSPanel {
       if let editor = firstResponder as? SlashCommandTextView, editor.completion?.dismiss() == true { return true }
       // An open menu in the new design closes first, as the command list does.
       if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return true }
+      // So do the new design's details, as the old popover closed first.
+      if EnigmaEscapeDismissal.dismiss(in: self) { return true }
       onHide?()
       return true
     }
