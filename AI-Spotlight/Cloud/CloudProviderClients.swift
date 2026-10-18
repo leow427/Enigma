@@ -54,9 +54,9 @@ struct CloudProviderRegistry: Sendable {
 }
 
 struct OpenAIResponsesClient: ChatProvider {
-  private let credentialStore: any CloudCredentialStore
-  private let transport: any CloudNetworkTransport
-  private let responsesURL: URL
+  let credentialStore: any CloudCredentialStore
+  let transport: any CloudNetworkTransport
+  let responsesURL: URL
 
   init(
     credentialStore: any CloudCredentialStore,
@@ -195,9 +195,9 @@ private struct OpenAIStreamPayload: Decodable {
 }
 
 struct AnthropicMessagesClient: ChatProvider {
-  private let credentialStore: any CloudCredentialStore
-  private let transport: any CloudNetworkTransport
-  private let messagesURL: URL
+  let credentialStore: any CloudCredentialStore
+  let transport: any CloudNetworkTransport
+  let messagesURL: URL
 
   init(
     credentialStore: any CloudCredentialStore,
@@ -238,11 +238,7 @@ struct AnthropicMessagesClient: ChatProvider {
       "messages": try MultimodalSerialization.messages(prepared.messages, image: request.image, format: .anthropic),
       "stream": true,
     ]
-    if ThinkCommand.enabled(in: prepared.messages) {
-      let manual = ["claude-3", "claude-sonnet-4-202", "claude-opus-4-202", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1", "claude-opus-4-5"].contains { request.route.modelID.hasPrefix($0) }
-      body["thinking"] = manual ? ["type": "enabled", "budget_tokens": 2_048] : ["type": "adaptive"]
-      if !manual { body["output_config"] = ["effort": "high"] }
-    }
+    if ThinkCommand.enabled(in: prepared.messages) { body.merge(Self.thinking(modelID: request.route.modelID)) { $1 } }
     var urlRequest = URLRequest(url: messagesURL)
     urlRequest.httpMethod = "POST"
     urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -250,6 +246,12 @@ struct AnthropicMessagesClient: ChatProvider {
     urlRequest.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
     urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
     return urlRequest
+  }
+
+  static func thinking(modelID: String) -> [String: Any] {
+    let manual = ["claude-3", "claude-sonnet-4-202", "claude-opus-4-202", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1", "claude-opus-4-5"].contains { modelID.hasPrefix($0) }
+    return manual ? ["thinking": ["type": "enabled", "budget_tokens": 2_048]]
+      : ["thinking": ["type": "adaptive"], "output_config": ["effort": "high"]]
   }
 
   private func consume(

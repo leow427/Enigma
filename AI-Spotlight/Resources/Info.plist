@@ -24,6 +24,10 @@
   <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
   <key>LSUIElement</key>
   <true/>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Enigma sends a message through Messages only after you approve its recipient and exact text.</string>
+  <key>NSContactsUsageDescription</key>
+  <string>When you use /messages, Enigma shows contact names instead of phone numbers and finds the people you ask to message.</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSLocationUsageDescription</key>

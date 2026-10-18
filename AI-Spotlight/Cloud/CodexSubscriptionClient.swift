@@ -125,6 +125,11 @@ struct CodexSubscriptionClient: ChatProvider {
   }
 
   func stream(_ request: ChatRequest, fileTools: AgentFileTools?) -> AsyncThrowingStream<ChatEvent, Error> {
+    stream(request, fileTools: fileTools, toolbox: nil)
+  }
+
+  func stream(_ request: ChatRequest, fileTools: AgentFileTools?,
+              toolbox: (any AgentToolbox)?) -> AsyncThrowingStream<ChatEvent, Error> {
     AsyncThrowingStream { continuation in
       let task = Task {
         var threadID: String?
@@ -137,10 +142,12 @@ struct CodexSubscriptionClient: ChatProvider {
           guard try await account() != nil else { throw CodexError.notSignedIn }
           let notifications = try await transport.notifications()
           defer { Task { await notifications.cancel() } }
-          if fileTools != nil { try await transport.prepareFileMode() }
+          if fileTools != nil || toolbox != nil { try await transport.prepareFileMode() }
           let parameters: CodexValue
           if let fileTools {
             parameters = CodexFileMode.threadParameters(model: request.route.modelID, selection: fileTools.workspace.selection)
+          } else if let toolbox {
+            parameters = try CodexToolMode.threadParameters(model: request.route.modelID, toolbox: toolbox)
           } else { parameters = Self.threadParameters(model: request.route.modelID) }
           let started = try await Task {
             try await transport.request("thread/start", params: parameters)
@@ -150,6 +157,14 @@ struct CodexSubscriptionClient: ChatProvider {
           if let fileTools {
             try await transport.setFileHandler(threadID: id) { method, params in
               await CodexFileMode.handle(method: method, params: params, tools: fileTools)
+            }
+          } else if let toolbox {
+            try await transport.setFileHandler(threadID: id) { method, params in
+              if method == "item/tool/call", let name = params["tool"].string {
+                continuation.yield(.activity(.phase(toolbox.phase(for: name))))
+              }
+              defer { continuation.yield(.activity(.phase(.thinking))) }
+              return await CodexToolMode.handle(method: method, params: params, toolbox: toolbox)
             }
           }
           try Task.checkCancellation()
@@ -161,7 +176,7 @@ struct CodexSubscriptionClient: ChatProvider {
                 threadID: id,
                 request: boundedRequest,
                 thinkingCapacity: ThinkCommand.enabled(in: request.messages) ? thinkingCapacity().forExtendedThinking : thinkingCapacity(),
-                workspace: selection
+                workspace: selection, isolatedTools: toolbox != nil
               )
             )
           }.value
@@ -234,7 +249,8 @@ struct CodexSubscriptionClient: ChatProvider {
     threadID: String,
     request: ChatRequest,
     thinkingCapacity: CodexThinkingCapacity = defaultThinkingCapacity,
-    workspace: WorkspaceSelection? = nil
+    workspace: WorkspaceSelection? = nil,
+    isolatedTools: Bool = false
   ) throws -> CodexValue {
     var params: [String: CodexValue] = [
       "threadId": .string(threadID),
@@ -245,6 +261,10 @@ struct CodexSubscriptionClient: ChatProvider {
       params["cwd"] = .string(workspace.cwd.path)
       params["environments"] = .array([])
       params["sandboxPolicy"] = CodexFileMode.sandboxPolicy(selection: workspace)
+    } else if isolatedTools {
+      params["cwd"] = .string(CodexToolMode.workspace.path)
+      params["environments"] = .array([])
+      params["sandboxPolicy"] = .object(["type": .string("readOnly"), "networkAccess": .bool(false)])
     }
     return .object(params)
   }

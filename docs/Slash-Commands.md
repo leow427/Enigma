@@ -14,6 +14,7 @@ run when you submit.
 | `/screen` | Capture all displays |
 | `/snapshot` | Select a screen region |
 | `/think` | Request more careful reasoning |
+| `/messages` | Read, search, and send Apple Messages for this message only |
 
 Type `/` anywhere after whitespace to see commands, icons, and descriptions.
 `/search` is offered only with a saved Brave key, including in Help and the welcome
@@ -25,8 +26,8 @@ list before hiding the panel. Shift-Return inserts a newline. Completion edits
 only the command at the caret and supports Undo.
 
 The menu floats above the latest Enigma composer without moving its attachment,
-model, or send controls. Search uses blue, Screen purple, Snapshot orange, and
-Think pink; each menu icon and its command label share the same color. Draft
+model, or send controls. Search uses blue, Screen purple, Snapshot orange,
+Think pink, and Messages indigo (with its own conversation-bubble icon); each menu icon and its command label share the same color. Draft
 commands retain their blue highlighting. Compact and wide layouts use the
 app’s existing text sizes, and history remains hidden at startup.
 
@@ -34,6 +35,8 @@ Commands must be separate tokens; punctuation may follow them. Quoted examples,
 backtick code, URLs, paths, and unknown commands remain literal text. Repeated
 commands activate once; `/snapshot` takes precedence over `/screen` if both occur.
 Screen and Search remain incompatible with attached File Mode selections.
+`/messages` cannot be combined with Screen, Search, or File Mode; see
+[Messages](Messages.md).
 
 Submitting `/screen` or `/snapshot` alone attaches an image and waits for your
 question. Both the full panel and compact selection bar show a thumbnail with

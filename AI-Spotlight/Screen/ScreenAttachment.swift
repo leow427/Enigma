@@ -70,6 +70,8 @@ struct ComposerCommands: Equatable {
   let think: Bool
   let edit: Bool
   let translate: Bool
+  /// Applies to this message only, like search.
+  let messages: Bool
 
   init(_ draft: String) {
     let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
@@ -80,6 +82,7 @@ struct ComposerCommands: Equatable {
     think = commands.contains(.think)
     translate = commands.contains(.translate)
     edit = commands.contains(.edit) && !translate
+    messages = commands.contains(.messages)
   }
 
   var hasPrompt: Bool { !prompt.isEmpty || edit || translate }

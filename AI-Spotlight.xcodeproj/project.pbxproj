@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */; };
+		051D2015ABFB2B36D0C65AEF /* AI-SpotlightTests/MessagesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */; };
+		3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52106C6B2EDE326668CC17A0 /* AI-Spotlight/Messages/MessagesControls.swift */; };
+		3531F85A5FF9A9B5118210B7 /* AI-Spotlight/Cloud/CloudToolCalling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DB17D0ACF049D6693B3FB09 /* AI-Spotlight/Cloud/CloudToolCalling.swift */; };
+		46129D58435C4940276C6601 /* AI-Spotlight/Messages/MessagesCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA18F29C84C48C66695E675E /* AI-Spotlight/Messages/MessagesCoordinator.swift */; };
+		65AF8D2C28ABA381AA89EF89 /* AI-Spotlight/Chat/AgentToolLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB32C2BB124EF1EAB2EE2851 /* AI-Spotlight/Chat/AgentToolLoop.swift */; };
+		234EF4DAA0A145FA84621CA5 /* AI-Spotlight/Messages/MessagesTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849B4723C61F7FAEDFEEB5C2 /* AI-Spotlight/Messages/MessagesTools.swift */; };
+		3793FB41F8B25A4E56E869D6 /* AI-Spotlight/Messages/MessagesSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A7D1810956D13C7A855471 /* AI-Spotlight/Messages/MessagesSender.swift */; };
+		5F51A1769B47556C425B1737 /* AI-Spotlight/Messages/MessagesContacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77A836B1455D0792FE98E54 /* AI-Spotlight/Messages/MessagesContacts.swift */; };
+		242CD98023FD572834238844 /* AI-Spotlight/Messages/MessagesDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173A386DA7BA5428E6D54BE9 /* AI-Spotlight/Messages/MessagesDatabase.swift */; };
+		1B17241BB2F93B0FB787A0B2 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EE1E1A783052F9D6D79B18 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift */; };
+		8F0137440101729044EAB110 /* AI-Spotlight/Messages/AppleMessageDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475A60D279A435AB95DFBFB7 /* AI-Spotlight/Messages/AppleMessageDate.swift */; };
 		AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000006; };
 		AE9200000000000000000005 /* HuggingFaceDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000005; };
 		AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000004; };
@@ -137,6 +149,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/MessagesToolCallingTests.swift"; sourceTree = SOURCE_ROOT; };
+		9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/MessagesTests.swift"; sourceTree = SOURCE_ROOT; };
+		52106C6B2EDE326668CC17A0 /* AI-Spotlight/Messages/MessagesControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesControls.swift"; sourceTree = SOURCE_ROOT; };
+		9DB17D0ACF049D6693B3FB09 /* AI-Spotlight/Cloud/CloudToolCalling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/CloudToolCalling.swift"; sourceTree = SOURCE_ROOT; };
+		AA18F29C84C48C66695E675E /* AI-Spotlight/Messages/MessagesCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesCoordinator.swift"; sourceTree = SOURCE_ROOT; };
+		CB32C2BB124EF1EAB2EE2851 /* AI-Spotlight/Chat/AgentToolLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/AgentToolLoop.swift"; sourceTree = SOURCE_ROOT; };
+		849B4723C61F7FAEDFEEB5C2 /* AI-Spotlight/Messages/MessagesTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesTools.swift"; sourceTree = SOURCE_ROOT; };
+		F1A7D1810956D13C7A855471 /* AI-Spotlight/Messages/MessagesSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesSender.swift"; sourceTree = SOURCE_ROOT; };
+		B77A836B1455D0792FE98E54 /* AI-Spotlight/Messages/MessagesContacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesContacts.swift"; sourceTree = SOURCE_ROOT; };
+		173A386DA7BA5428E6D54BE9 /* AI-Spotlight/Messages/MessagesDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesDatabase.swift"; sourceTree = SOURCE_ROOT; };
+		20EE1E1A783052F9D6D79B18 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/AttributedBodyDecoder.swift"; sourceTree = SOURCE_ROOT; };
+		475A60D279A435AB95DFBFB7 /* AI-Spotlight/Messages/AppleMessageDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/AppleMessageDate.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/HuggingFaceModelDownloadsTests.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000005 /* HuggingFaceDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/HuggingFaceDownloadView.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/HuggingFaceModelDownloads.swift"; sourceTree = SOURCE_ROOT; };
@@ -282,6 +306,18 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */,
+				9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */,
+				52106C6B2EDE326668CC17A0 /* AI-Spotlight/Messages/MessagesControls.swift */,
+				9DB17D0ACF049D6693B3FB09 /* AI-Spotlight/Cloud/CloudToolCalling.swift */,
+				AA18F29C84C48C66695E675E /* AI-Spotlight/Messages/MessagesCoordinator.swift */,
+				CB32C2BB124EF1EAB2EE2851 /* AI-Spotlight/Chat/AgentToolLoop.swift */,
+				849B4723C61F7FAEDFEEB5C2 /* AI-Spotlight/Messages/MessagesTools.swift */,
+				F1A7D1810956D13C7A855471 /* AI-Spotlight/Messages/MessagesSender.swift */,
+				B77A836B1455D0792FE98E54 /* AI-Spotlight/Messages/MessagesContacts.swift */,
+				173A386DA7BA5428E6D54BE9 /* AI-Spotlight/Messages/MessagesDatabase.swift */,
+				20EE1E1A783052F9D6D79B18 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift */,
+				475A60D279A435AB95DFBFB7 /* AI-Spotlight/Messages/AppleMessageDate.swift */,
 				ED1000000000000000000001,
 				ED1000000000000000000000,
 				CC5300000000000000000001,
@@ -581,6 +617,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
+				3531F85A5FF9A9B5118210B7 /* AI-Spotlight/Cloud/CloudToolCalling.swift in Sources */,
+				46129D58435C4940276C6601 /* AI-Spotlight/Messages/MessagesCoordinator.swift in Sources */,
+				65AF8D2C28ABA381AA89EF89 /* AI-Spotlight/Chat/AgentToolLoop.swift in Sources */,
+				234EF4DAA0A145FA84621CA5 /* AI-Spotlight/Messages/MessagesTools.swift in Sources */,
+				3793FB41F8B25A4E56E869D6 /* AI-Spotlight/Messages/MessagesSender.swift in Sources */,
+				5F51A1769B47556C425B1737 /* AI-Spotlight/Messages/MessagesContacts.swift in Sources */,
+				242CD98023FD572834238844 /* AI-Spotlight/Messages/MessagesDatabase.swift in Sources */,
+				1B17241BB2F93B0FB787A0B2 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift in Sources */,
+				8F0137440101729044EAB110 /* AI-Spotlight/Messages/AppleMessageDate.swift in Sources */,
 				ED2000000000000000000001,
 				ED2000000000000000000000,
 				CC5200000000000000000002,
@@ -668,6 +714,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
+				051D2015ABFB2B36D0C65AEF /* AI-SpotlightTests/MessagesTests.swift in Sources */,
 				CC5400000000000000000001,
 				14069C4454E33368512BA2E9 /* WorkspaceDocumentTests.swift in Sources */,
 				0009134391031E5AE19F8236 /* AI-SpotlightTests/WorkspaceWritePolicyTests.swift in Sources */,

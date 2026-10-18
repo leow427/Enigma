@@ -110,14 +110,33 @@ struct ClaudeCodeRuntime: Sendable {
     return arguments
   }
 
-  func launch(arguments: [String], input: Data?) throws -> ClaudeCodeProcess {
+  /// Tool mode streams JSON lines both ways: Enigma answers MCP requests for its own
+  /// in-process server over the CLI's control protocol, so no helper process or network
+  /// listener exists. Built-in tools stay disabled; only the named Enigma tools are allowed.
+  static func toolArguments(model: String, effort: ClaudeCodeEffort, toolbox: any AgentToolbox) -> [String] {
+    let server = #"{"mcpServers":{"\#(ClaudeCodeToolMode.server)":{"type":"sdk","name":"\#(ClaudeCodeToolMode.server)"}}}"#
+    var arguments = [
+      "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+      "--safe-mode", "--tools", "", "--strict-mcp-config", "--mcp-config", server, "--disable-slash-commands",
+      "--no-session-persistence",
+      "--allowedTools", toolbox.definitions.map { ClaudeCodeToolMode.qualifiedName($0.name) }.joined(separator: ","),
+      "--model", model, "--system-prompt", ClaudeCodeToolMode.systemPrompt(toolbox),
+    ]
+    if effort != .automatic { arguments += ["--effort", effort.rawValue] }
+    return arguments
+  }
+
+  func launch(arguments: [String], input: Data?, interactive: Bool = false) throws -> ClaudeCodeProcess {
     guard let executableURL = executable() else { throw ClaudeCodeError.notInstalled }
     // An empty working directory keeps project instructions out of the session.
     let workspace = directory.appending(path: "workspace", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+    var environment = environment
+    // A send waits for the user's approval inside a tool call.
+    if interactive { environment["MCP_TOOL_TIMEOUT"] = "900000" }
     return try ClaudeCodeProcess(
       executableURL: executableURL, arguments: arguments, environment: environment,
-      currentDirectory: workspace, input: input
+      currentDirectory: workspace, input: input, interactive: interactive
     )
   }
 
@@ -146,11 +165,13 @@ final class ClaudeCodeProcess: @unchecked Sendable {
   private let lock = NSLock()
   private var errorTail = Data()
   private var errorClosed = false
+  private var writer: FileHandle?
 
-  init(executableURL: URL, arguments: [String], environment: [String: String], currentDirectory: URL, input: Data?) throws {
+  init(executableURL: URL, arguments: [String], environment: [String: String], currentDirectory: URL, input: Data?,
+       interactive: Bool = false) throws {
     let outputPipe = Pipe()
     let errorPipe = Pipe()
-    let inputPipe = input.map { _ in Pipe() }
+    let inputPipe = input != nil || interactive ? Pipe() : nil
     process.executableURL = executableURL
     process.arguments = arguments
     process.environment = environment
@@ -176,14 +197,37 @@ final class ClaudeCodeProcess: @unchecked Sendable {
     // The parent must not keep the child's pipe ends alive, or EOF is never delivered.
     try? outputPipe.fileHandleForWriting.close()
     try? errorPipe.fileHandleForWriting.close()
-    if let inputPipe, let input {
-      try? inputPipe.fileHandleForReading.close()
+    if let inputPipe { try? inputPipe.fileHandleForReading.close() }
+    if let inputPipe, interactive {
+      // A write after the CLI exits must fail with EPIPE rather than signal Enigma.
+      _ = fcntl(inputPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
+      writer = inputPipe.fileHandleForWriting
+    } else if let inputPipe, let input {
       let writer = inputPipe.fileHandleForWriting
       DispatchQueue.global(qos: .userInitiated).async {
         try? writer.write(contentsOf: input)
         try? writer.close()
       }
     }
+  }
+
+  /// Writes one stream-json line in interactive mode.
+  func send(_ message: CodexValue) throws {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .withoutEscapingSlashes
+    let data = try encoder.encode(message) + Data([0x0a])
+    lock.lock()
+    defer { lock.unlock() }
+    guard let writer else { throw ClaudeCodeError.invalidResponse }
+    try writer.write(contentsOf: data)
+  }
+
+  func closeInput() {
+    lock.lock()
+    let writer = writer
+    self.writer = nil
+    lock.unlock()
+    try? writer?.close()
   }
 
   var isRunning: Bool { process.isRunning }
@@ -236,6 +280,7 @@ struct ClaudeCodeStreamParser {
     case token(String)
     case completed(result: String?)
     case failed(String)
+    case controlRequest(id: String, request: CodexValue)
   }
 
   private var buffer = Data()
@@ -257,6 +302,9 @@ struct ClaudeCodeStreamParser {
         guard event["type"].string == "content_block_delta", event["delta"]["type"].string == "text_delta",
               let text = event["delta"]["text"].string, !text.isEmpty else { continue }
         events.append(.token(text))
+      case "control_request":
+        guard let id = message["request_id"].string else { throw ClaudeCodeError.invalidResponse }
+        events.append(.controlRequest(id: id, request: message["request"]))
       case "result":
         if message["is_error"].bool == true || message["subtype"].string?.hasPrefix("error") == true {
           events.append(.failed(message["result"].string ?? "Claude Code could not complete the response."))
@@ -373,6 +421,8 @@ struct ClaudeCodeSubscriptionClient: ChatProvider {
               case .failed(let message):
                 throw message.localizedCaseInsensitiveContains("not logged in")
                   ? ClaudeCodeError.notSignedIn : ClaudeCodeError.server(message)
+              case .controlRequest:
+                continue // Ordinary chat declares no tools or MCP servers.
               }
             }
           }

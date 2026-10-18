@@ -246,6 +246,7 @@ struct AppShellView: View {
   @StateObject private var localChat: LocalChatViewModel
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
   @ObservedObject private var files: FileModeCoordinator
+  @ObservedObject private var messages: MessagesCoordinator
   @State private var isFileCloudConsentPresented = false
   @StateObject private var screen: ScreenComposerCoordinator
   @ObservedObject private var screenSettings: ScreenSettings
@@ -292,6 +293,7 @@ struct AppShellView: View {
     let chat = localChat ?? localEngine.map { LocalChatViewModel(engine: $0, cloudProviders: cloudProviders) } ?? .shared
     _localChat = StateObject(wrappedValue: chat)
     self.files = chat.files
+    self.messages = chat.appleMessages
   }
 
   private var composerAccessories: some View {
@@ -357,6 +359,12 @@ struct AppShellView: View {
           }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).natureSurface(radius: 12)
+      }
+      if let approval = messages.pendingSend {
+        MessagesSendApprovalCard(approval: approval) { messages.answer($0) }
+      }
+      if let issue = messages.issue {
+        MessagesIssueView(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
       }
       if files.selection != nil || files.error != nil || files.protectedWrite != nil {
         FileModeAttachmentView(files: files, access: fileAccess, isCloud: selectedMode == .cloud, isBusy: localChat.isBusy,
@@ -556,6 +564,9 @@ struct AppShellView: View {
     .onChange(of: files.error) { _, error in
       if isSelectionComposer, error != nil { isSelectionDetailsPresented = true }
     }
+    .onChange(of: messages.issue) { _, issue in
+      if isSelectionComposer, issue != nil { isSelectionDetailsPresented = true }
+    }
   }
 
   var body: some View {
@@ -563,6 +574,7 @@ struct AppShellView: View {
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
     }
+    .modifier(MessagesDialogs(messages: messages, submit: submitMessages))
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
       isBusy: localChat.isBusy, useCodex: {
         cloudSettings.preferredProvider = .chatGPT
@@ -1281,8 +1293,8 @@ struct AppShellView: View {
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
     let commands = ComposerCommands(draft)
     if files.selection != nil {
-      if screen.isEnabled || commands.screen || commands.search {
-        files.error = "Turn off Screen and Web Search to work with your attached files."
+      if screen.isEnabled || commands.screen || commands.search || commands.messages {
+        files.error = "Turn off Screen, Web Search, and Messages to work with your attached files."
         return
       }
       let prompt = draft
@@ -1291,6 +1303,16 @@ struct AppShellView: View {
           expandSelectionConversation()
           if draft == prompt { draft = "" }
         }
+      return
+    }
+    if commands.messages {
+      // Message contents must never become a web search query or share a request with a capture.
+      if commands.screen || commands.search || screen.attachment != nil {
+        messages.report("/messages can't be combined with Screen or Web Search. Remove /screen, /snapshot, /search, or the screenshot, then send again.")
+        return
+      }
+      guard commands.hasPrompt else { return }
+      submitMessages(commands.submissionPrompt)
       return
     }
     if commands.screen {
@@ -1326,6 +1348,19 @@ struct AppShellView: View {
     case .auto:
       localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: commands.search, onAccepted: accepted)
     }
+  }
+
+  private func submitMessages(_ prompt: String) {
+    if selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
+      messages.requestDisclosure(for: cloudSettings.preferredProvider, prompt: prompt)
+      return
+    }
+    let originalDraft = draft
+    localChat.submitMessages(prompt, mode: selectedMode, cloudProvider: cloudSettings.preferredProvider,
+      cloudModelID: cloudSettings.preferredModelID) {
+        expandSelectionConversation()
+        if draft == originalDraft { draft = "" }
+      }
   }
 
   private func submitScreenAttachment(_ attachment: ScreenAttachment) {
@@ -1798,6 +1833,7 @@ struct SettingsView: View {
                   NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!)
                 }
               }
+              MessagesSettingsSection()
             }.formStyle(.grouped)
           case .local:
             Form { LocalModelManagerSection() }.formStyle(.grouped)

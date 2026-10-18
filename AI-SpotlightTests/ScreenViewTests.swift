@@ -612,7 +612,7 @@ final class ScreenViewTests: XCTestCase {
       field.completion?.refresh()
       await Task.yield()
       view.layoutSubtreeIfNeeded()
-      XCTAssertEqual(field.completion?.commands, [.screen, .snapshot, .think, .edit, .translate])
+      XCTAssertEqual(field.completion?.commands, [.screen, .snapshot, .think, .edit, .translate, .messages])
       XCTAssertEqual(view.convert(field.bounds, from: field), composerFrame,
                      "Suggestions must not resize or move the compact composer")
       XCTAssertEqual(field.font?.pointSize, size.width < 900 ? 14 : 15)

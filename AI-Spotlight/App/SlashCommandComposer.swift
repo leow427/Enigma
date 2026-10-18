@@ -36,8 +36,14 @@ struct SlashCommandComposer: View {
       ForEach(Array(completion.commands.enumerated()), id: \.element) { index, command in
         Button { completion.accept(command) } label: {
           HStack(spacing: 10) {
-            Image(systemName: command.symbol).font(.system(size: 17))
-              .frame(width: 24).foregroundStyle(command.tint)
+            Group {
+              if let asset = command.assetImage {
+                Image(asset).renderingMode(.template).resizable().scaledToFit().frame(width: 19, height: 19)
+              } else {
+                Image(systemName: command.symbol).font(.system(size: 17))
+              }
+            }
+            .frame(width: 24).foregroundStyle(command.tint)
             VStack(alignment: .leading, spacing: 2) {
               Text(command.token).font(.system(size: 13, weight: .semibold)).foregroundStyle(command.tint)
               Text(command.description).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -288,6 +294,7 @@ private extension SlashCommand {
     case .think: .pink
     case .edit: .green
     case .translate: .teal
+    case .messages: MessagesStyle.tint
     }
   }
 }

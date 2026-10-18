@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#000000">
+  <title>Messages</title>
+  <desc>Template icon for Enigma's Messages tools: a conversation bubble and a reply.</desc>
+  <path fill-rule="evenodd" d="M3,37 a37.5,31 0 1,0 75,0 a37.5,31 0 1,0 -75,0 Z M10.5,37 a30,23.5 0 1,0 60,0 a30,23.5 0 1,0 -60,0 Z"/>
+  <path d="M14.5,57 C13.4,64.6 10.6,71.4 5.8,77.2 C5.2,77.9 5.8,79 6.7,78.9 C15.2,77.9 22.1,73.4 27.4,66.1 Z"/>
+  <circle cx="24.5" cy="37" r="5"/>
+  <circle cx="40.5" cy="37" r="5"/>
+  <circle cx="56.5" cy="37" r="5"/>
+  <ellipse cx="77" cy="78" rx="18" ry="15"/>
+  <path d="M83.5,90.5 C85.5,93.3 88.7,95.3 92.8,96.3 C93.7,96.5 94.3,95.4 93.6,94.8 C91.8,93 90.6,90.7 90.2,88.1 Z"/>
+</svg>

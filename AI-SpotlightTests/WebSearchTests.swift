@@ -354,7 +354,7 @@ final class WebSearchTests: XCTestCase {
       let editor = try composer.editor()
       let completion = try XCTUnwrap(editor.completion)
       try await editComposer(editor, text: "/", in: composer)
-      XCTAssertEqual(completion.commands, [.screen, .snapshot, .think, .edit, .translate])
+      XCTAssertEqual(completion.commands, [.screen, .snapshot, .think, .edit, .translate, .messages])
       completion.accept(.search)
       XCTAssertEqual(editor.string, "/", "An unavailable search suggestion cannot be selected")
       try await editComposer(editor, text: "/se", in: composer)

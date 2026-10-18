@@ -10,6 +10,7 @@ enum AssistantActivityEvent: Sendable, Equatable {
 struct AssistantActivity: Sendable, Equatable, Identifiable {
   enum Phase: String, Sendable, Equatable {
     case analyzing, refiningSearch, searching, readingSources, thinking, generating
+    case readingMessages, awaitingApproval
     case completed, cancelled, failed
 
     var label: String {
@@ -20,6 +21,8 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
       case .readingSources: "Reading sources…"
       case .thinking: "Thinking…"
       case .generating: "Generating response…"
+      case .readingMessages: "Reading Messages…"
+      case .awaitingApproval: "Waiting for your approval…"
       case .completed: "Activity"
       case .cancelled: "Stopped"
       case .failed: "Request failed"

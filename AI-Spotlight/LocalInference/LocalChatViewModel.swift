@@ -140,6 +140,11 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   let files: FileModeCoordinator
+  let appleMessages: MessagesCoordinator
+  typealias MessagesToolboxFactory = @MainActor (@escaping @Sendable (MessagesSendApproval) async -> Bool) -> any AgentToolbox
+  private let makeMessagesToolbox: MessagesToolboxFactory
+  private let messagesAccess: @Sendable () throws -> Void
+  private let localToolRuntime: @Sendable (LocalModel) -> Bool
   private let fileInference: any LocalToolInference
   private let fileCodex: CodexSubscriptionClient
   private let fileCloudAvailability: WorkspaceWritePolicy.CloudCheck
@@ -162,6 +167,10 @@ final class LocalChatViewModel: ObservableObject {
     selectionEditingSettings: SelectionEditingSettings = .shared,
     replaceSelection: @escaping @MainActor (String, UUID) async -> Bool = { await SelectionContextService.shared.replace(with: $0, contextID: $1) },
     files: FileModeCoordinator? = nil,
+    appleMessages: MessagesCoordinator? = nil,
+    messagesToolbox: MessagesToolboxFactory? = nil,
+    messagesAccess: (@Sendable () throws -> Void)? = nil,
+    localToolRuntime: (@Sendable (LocalModel) -> Bool)? = nil,
     fileInference: (any LocalToolInference)? = nil,
     fileCodex: CodexSubscriptionClient = .fileMode,
     fileCloudAvailability: WorkspaceWritePolicy.CloudCheck? = nil,
@@ -180,6 +189,10 @@ final class LocalChatViewModel: ObservableObject {
     self.replaceSelection = replaceSelection
     self.engine = engine
     self.files = files ?? FileModeCoordinator()
+    self.appleMessages = appleMessages ?? MessagesCoordinator()
+    makeMessagesToolbox = messagesToolbox ?? { confirm in MessagesTools(confirmSend: confirm) }
+    self.messagesAccess = messagesAccess ?? { try MessagesDatabase().checkAccess() }
+    self.localToolRuntime = localToolRuntime ?? { LocalFileRuntime.executable(for: $0) != nil }
     self.fileInference = fileInference ?? (visionEngine as? any LocalToolInference) ?? LlamaServerVisionEngine()
     self.fileCodex = fileCodex
     self.fileCloudAvailability = fileCloudAvailability ?? {
@@ -430,6 +443,91 @@ final class LocalChatViewModel: ObservableObject {
       if local { await fileInference.unload() }
       await files.finish(workspace: fileTools.workspace)
       if let failure, self?.activeRequest?.id == active.id { files.error = failure.localizedDescription }
+      await self?.finishGeneration(id: active.id, error: failure)
+    }
+    onAccepted()
+  }
+
+  /// `/messages` gives the model the Messages tools for this request only. Auto stays on this
+  /// Mac; only an explicitly selected cloud model receives what the tools return.
+  func submitMessages(_ prompt: String, mode: ChatMode, cloudProvider: CloudProviderID,
+                      cloudModelID: String, onAccepted: @escaping @MainActor () -> Void = {}) {
+    guard !isBusy, !files.isWorking,
+          !ThinkCommand.message(prompt).content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    appleMessages.issue = nil
+    do { try messagesAccess() } catch {
+      appleMessages.report(error)
+      return
+    }
+    let local = mode != .cloud
+    let model = installedModel
+    var provider: (any ToolCallingChatProvider)?
+    if local {
+      guard let model else {
+        appleMessages.report(mode == .auto
+          ? "Messages in Auto stays on this Mac, so it needs a local model. Choose a local model, or choose Cloud to use your cloud model."
+          : "Choose a local model to use Messages, or choose Cloud.")
+        return
+      }
+      guard localToolRuntime(model) else {
+        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local Models → Install Local File Tools, or choose Cloud.")
+        return
+      }
+    } else {
+      guard !cloudModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        appleMessages.report("Choose a cloud model in Settings to use Messages in the cloud.")
+        return
+      }
+      provider = cloudProvider == .chatGPT ? fileCodex : cloudProviders.provider(for: cloudProvider) as? any ToolCallingChatProvider
+      guard provider != nil else {
+        appleMessages.report("\(cloudProvider.displayName) can't use Messages tools. Choose another provider or a local model.")
+        return
+      }
+    }
+    let route = Route(mode: local ? .local : .cloud, providerID: local ? "llama.cpp" : cloudProvider.rawValue,
+      modelID: local ? model!.id : cloudModelID, usesNetwork: !local)
+    let userMessage = contextualMessage(prompt)
+    let history = (requestMessages + [userMessage]).map(ConversationContextPrompt.expand)
+    let toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
+    let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
+    let sessionID = ensureSelectedSession()
+    let responseID = UUID()
+    state = .preparing
+    contextNotice = nil
+    autoRouteDecision = nil
+    screenRouteDecision = nil
+    append(userMessage, to: sessionID)
+    append(ChatMessage(id: responseID, role: .assistant, content: ""), to: sessionID)
+    generationTask = Task { [weak self, fileInference, engine] in
+      var failure: Error?
+      do {
+        try Task.checkCancellation()
+        self?.receiveActivity(.phase(.thinking), requestID: active.id)
+        if local, let model {
+          // The inference-only bridge releases its model before the tool-capable runtime loads it.
+          await engine.unload()
+          let owner = self
+          try await LocalToolAgent(inference: fileInference).run(messages: history, model: model, toolbox: toolbox,
+            onActivity: { event in await owner?.receiveActivity(event, requestID: active.id) }) { text in
+            await owner?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
+          }
+        } else if let provider {
+          let request = ChatRequest(sessionID: sessionID, messages: history, route: route)
+          for try await event in provider.stream(request, toolbox: toolbox) {
+            try Task.checkCancellation()
+            switch event {
+            case .activity(let update): self?.receiveActivity(update, requestID: active.id)
+            case .token(let text): self?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
+            case .completed: break
+            }
+          }
+        }
+        try Task.checkCancellation()
+      } catch is CancellationError { }
+      catch { failure = error }
+      if local { await fileInference.unload() }
+      // A request that ends while an approval is open never sends.
+      self?.appleMessages.answer(false)
       await self?.finishGeneration(id: active.id, error: failure)
     }
     onAccepted()

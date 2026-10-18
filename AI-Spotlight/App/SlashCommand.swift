@@ -2,7 +2,7 @@ import Foundation
 
 /// The same catalog drives execution, syntax coloring, and completion.
 enum SlashCommand: String, CaseIterable, Identifiable {
-  case search, screen, snapshot, think, edit, translate
+  case search, screen, snapshot, think, edit, translate, messages
 
   var id: String { rawValue }
   var token: String { "/" + rawValue }
@@ -14,8 +14,11 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .think: "brain"
     case .edit: "pencil"
     case .translate: "character.bubble"
+    case .messages: "message"
     }
   }
+  /// A template image in the asset catalog, drawn instead of `symbol` where present.
+  var assetImage: String? { self == .messages ? "MessagesTool" : nil }
   var description: String {
     switch self {
     case .search: "Search the web for this answer"
@@ -24,6 +27,7 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .think: "Think more deeply for this answer"
     case .edit: "Revise selected text with your instructions"
     case .translate: "Translate to English or a language you name"
+    case .messages: "Read, search, and send your Messages"
     }
   }
 
