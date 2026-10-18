@@ -1561,11 +1561,13 @@ struct EnigmaMenu<Label: View>: View {
       presenter?.dismiss(id, restoringFocus: false)
       if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
     }
-    // Once the closing list has given focus up, it comes back here.
+    // Once the closing list has given focus up, it goes to `returnFocus` or
+    // comes back here. Handed on any sooner, the leaving list can take it
+    // back, as on macOS 26 when Escape closes the menu.
     .task(id: focusReturnRequest) {
       guard focusReturnRequest > 0 else { return }
       await Task.yield()
-      isFocused = true
+      if let returnFocus { returnFocus() } else { isFocused = true }
     }
     .accessibilityLabel(title)
     .accessibilityValue(accessibilityValue ?? "")
@@ -1585,14 +1587,13 @@ struct EnigmaMenu<Label: View>: View {
     return CGRect(x: anchor.minX, y: bounds.minY, width: anchor.width, height: bounds.height)
   }
 
-  /// Runs once the menu has closed: it clears `isPresented` and hands focus on.
+  /// Runs once the menu has closed: it clears `isPresented` and asks for focus to be handed on.
   private var closeAction: () -> Void {
     let request = $focusReturnRequest
     let isPresented = isPresented
-    let returnFocus = returnFocus
     return {
       if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
-      if let returnFocus { returnFocus() } else { request.wrappedValue += 1 }
+      request.wrappedValue += 1
     }
   }
 
