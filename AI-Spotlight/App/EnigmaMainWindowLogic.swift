@@ -464,8 +464,8 @@ enum KeyboardShortcutsHelp {
     Shortcut("New temporary chat with selection", "\(modifier.symbol) twice")
   }
 
-  static let selectionBackup = Shortcut("Selection Context backup", "⇧ ⌥ Space")
-  static let selectionNote = "Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded."
+  static let selectionBackup = Shortcut("Selection chat backup", "⇧ ⌥ Space")
+  static let selectionNote = "Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and web search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded."
 
   static func accessibilityNote(appName: String) -> String {
     "System Settings → Privacy & Security → Accessibility. Enable \(appName) (Enigma). If it is missing, use + to add the app you are running."

@@ -247,6 +247,20 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertTrue(KeyboardShortcutsHelp.commandsNote().contains("remain highlighted"))
   }
 
+  /// Help and Settings name the selection chat and web search as the
+  /// Settings pages do ("Selection", "Web search · Brave"), not by old names.
+  func testHelpAndSettingsUseTheCurrentPageNames() {
+    let texts = [KeyboardShortcutsHelp.selectionBackup.title, KeyboardShortcutsHelp.selectionNote,
+                 KeyboardShortcutsHelp.searchNote, GeneralSettingsPage.newChatsNote]
+    for text in texts {
+      XCTAssertFalse(text.contains("Selection Context"), text)
+      XCTAssertFalse(text.contains("Web Search settings"), text)
+    }
+    XCTAssertEqual(KeyboardShortcutsHelp.selectionBackup.title, "Selection chat backup")
+    XCTAssertTrue(KeyboardShortcutsHelp.selectionNote.contains("web search settings"))
+    XCTAssertTrue(GeneralSettingsPage.newChatsNote.contains("selection chat"))
+  }
+
   // MARK: Upgrading
 
   /// Settings an earlier version may have saved: "Use new UI" off, on, or

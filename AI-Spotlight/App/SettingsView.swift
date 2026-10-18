@@ -281,6 +281,7 @@ struct GeneralSettingsPage: View {
   let chat: LocalChatViewModel
   @Environment(\.enigmaPalette) private var palette
 
+  static let newChatsNote = "Used at launch, for each new chat, and for each selection chat."
   static let locationExplanation = "When you ask about local weather or nearby places, macOS asks for permission. Your approximate area is sent to Brave Search and included with the answer context. Requires Web Search setup in Cloud and search. No background tracking."
 
   var body: some View {
@@ -311,7 +312,7 @@ struct GeneralSettingsPage: View {
         EnigmaSwitch("Show sidebar", isOn: $startPreferences.showsSidebar)
       }
       EnigmaHairline()
-      EnigmaNote("Used at launch and for each new chat or Selection Context session.").padding(.top, 8)
+      EnigmaNote(Self.newChatsNote).padding(.top, 8)
 
       EnigmaSectionHeader("Location")
       EnigmaRow("Use location for nearby questions", subtitle: Self.locationExplanation) {
