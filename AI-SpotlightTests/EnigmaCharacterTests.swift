@@ -385,7 +385,7 @@ final class EnigmaCharacterTests: XCTestCase {
   // MARK: Controller and pacing
 
   @MainActor
-  func testControllerPlacesThenFallsBetweenSlots() {
+  func testControllerPlacesThenFallsBetweenSlots() async throws {
     let controller = EnigmaCharacterController(seed: 3)
     let slots: [EnigmaCharacterSlotID: Slot] = ["main": mainSlot, "reply": replySlot]
     var time = 100.0
@@ -405,7 +405,11 @@ final class EnigmaCharacterTests: XCTestCase {
     for _ in 0..<(120 * 3) { _ = frame() }
     XCTAssertEqual(controller.model.position, replySlot.center)
 
-    // A slot that leaves the layout hides the character until it returns.
+    // A slot that leaves the layout hides the character until it returns. It
+    // stays drawn for the frame it left in, so a move sent in the same update
+    // starts from where it was, and hides on the next turn of the main loop.
+    XCTAssertFalse(frame(["main": mainSlot]).isEmpty)
+    try await waitForUI("the character to hide") { !controller.isPresent }
     XCTAssertTrue(frame(["main": mainSlot]).isEmpty)
     XCTAssertFalse(frame().isEmpty)
 
@@ -502,6 +506,8 @@ final class EnigmaCharacterTests: XCTestCase {
     XCTAssertNotEqual(controller.neededActivity, .rest, "The slot arriving brings it back")
     try await waitForUI("the timeline to run") { controller.activity != .rest }
 
+    _ = frame([:])
+    try await waitForUI("the character to hide a turn after its slot left") { !controller.isPresent }
     XCTAssertTrue(frame([:]).isEmpty, "The slot left the layout")
     XCTAssertEqual(controller.neededActivity, .rest)
     try await waitForUI("the timeline to rest after the slot left") { controller.activity == .rest }

@@ -70,13 +70,14 @@ final class EnigmaCharacterController: ObservableObject {
   @Published var state: EnigmaCharacterState {
     didSet {
       model.state = state
-      wake()
+      // While nothing is drawn there's nothing to redraw; a slot coming back draws it.
+      if isPresent { wake() }
     }
   }
 
   /// What the character pays attention to, like the composer while someone types.
   @Published var attention: EnigmaCharacterTargetID? {
-    didSet { wake() }
+    didSet { if isPresent { wake() } }
   }
 
   /// The slot the character is at or heading to.
@@ -92,6 +93,9 @@ final class EnigmaCharacterController: ObservableObject {
   private var targets: [EnigmaCharacterTargetID: CGPoint] = [:]
   private var lastFrameTime: TimeInterval?
   private var activityRefreshScheduled = false
+  /// The slots laid out in the latest frame.
+  private var laidOutSlots: Set<EnigmaCharacterSlotID> = []
+  private var hideCheckScheduled = false
 
   init(state: EnigmaCharacterState = .idle, seed: UInt64 = .random(in: .min ... .max)) {
     self.state = state
@@ -109,7 +113,8 @@ final class EnigmaCharacterController: ObservableObject {
   /// A typing nudge toward `target`, or toward `attention` when `target` is nil.
   func key(towards target: EnigmaCharacterTargetID? = nil) {
     guard let id = target ?? attention, let point = targets[id] else { return }
-    if model.key(towards: point) { wake() }
+    // Nothing is drawn, so there's nothing to redraw.
+    if model.key(towards: point), isPresent { wake() }
   }
 
   /// A ripple for a streamed token. Tokens faster than about 22 a second share ripples.
@@ -159,7 +164,7 @@ final class EnigmaCharacterController: ObservableObject {
 
   func pointerMoved(to point: CGPoint?) {
     model.pointer = point
-    if model.needsEveryFrame { wake() }
+    if isPresent, model.needsEveryFrame { wake() }
   }
 
   func contains(_ point: CGPoint) -> Bool { isPresent && model.contains(point) }
@@ -177,10 +182,11 @@ final class EnigmaCharacterController: ObservableObject {
   }
 
   private func sync(_ slots: [EnigmaCharacterSlotID: EnigmaCharacterModel.Slot]) {
+    laidOutSlots = Set(slots.keys)
     guard let id = activeSlot, let slot = slots[id] else {
       // A slot that's gone, like a reply scrolled out of a lazy list, hides the
       // character until it returns. A pending move waits for its slot instead.
-      if pendingTransition == nil { isPresent = false }
+      if pendingTransition == nil, isPresent { scheduleHideCheck() }
       return
     }
     if !isPresent {
@@ -198,6 +204,26 @@ final class EnigmaCharacterController: ObservableObject {
     pendingTransition = nil
     assemblesOnArrival = false
     isPresent = true
+  }
+
+  /// A slot can leave in the same update that sends the character on, as
+  /// when the welcome closes or changes step: the move arrives just after the
+  /// frame that first misses the slot. So the character hides only if its
+  /// slot is still gone, with no move pending, on the next turn of the main
+  /// loop, and a move sent in that update starts from where it was drawn.
+  private func scheduleHideCheck() {
+    guard !hideCheckScheduled else { return }
+    hideCheckScheduled = true
+    Task { @MainActor [weak self] in
+      guard let self else { return }
+      hideCheckScheduled = false
+      guard isPresent, pendingTransition == nil, let id = activeSlot, !laidOutSlots.contains(id) else { return }
+      isPresent = false
+      // Redraw once without the character, even with the timeline paused,
+      // and let the timeline rest.
+      objectWillChange.send()
+      if activity != neededActivity { activity = neededActivity }
+    }
   }
 
   /// What the timeline should do after the latest frame. With nothing drawn,

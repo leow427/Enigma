@@ -29,8 +29,8 @@ struct EnigmaWelcomeView: View {
 
   /// The Brave key field, which the character watches while someone types.
   static let keyFieldTarget: EnigmaCharacterTargetID = "welcome.keyField"
-  /// Matches the old panel's corners, so the welcome covers the whole window.
-  static let windowRadius: CGFloat = 24
+  /// Matches the window's corners, so the welcome covers the whole window.
+  static let windowRadius: CGFloat = EnigmaWindowChrome.cornerRadius
   private static let columnWidth: CGFloat = 560
 
   // MARK: State
@@ -105,9 +105,10 @@ struct EnigmaWelcomeView: View {
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
     .onChange(of: isEnteringKey) { _, entering in character.attention = entering ? Self.keyFieldTarget : nil }
     .onChange(of: braveAPIKey) { _, _ in if isEnteringKey { character.key() } }
+    // The window owns the character once the welcome leaves and sets its
+    // state there, so only let go of the key field it was watching.
     .onDisappear {
-      character.attention = nil
-      character.state = .idle
+      if character.attention == Self.keyFieldTarget { character.attention = nil }
     }
   }
 
@@ -116,6 +117,8 @@ struct EnigmaWelcomeView: View {
   private func placeCharacter() {
     let slot = WelcomeSetup.characterSlot(for: setup.step)
     let arrivesFresh = character.activeSlot != slot.id
+    // The main page may have left it watching the composer.
+    character.attention = nil
     character.move(to: slot.id, .instant)
     if arrivesFresh && slot == .hero { character.assemble() }
   }
@@ -495,6 +498,15 @@ private extension WelcomeTourStep {
     case .help: "shortcuts and settings"
     }
   }
+
+  /// The stop's text for the new main window, where it differs from the old one's.
+  var enigmaDetail: String {
+    switch self {
+    case .history: "Your five most recent chats live in the sidebar. Double-tap Control to show or hide it, and use New chat to start fresh."
+    case .model: "Choose Auto, Local, or Cloud, and a model, from the menu beside Send. Local answers on your Mac; Cloud uses your connected provider; Auto selects a route. ⌘K opens it too."
+    default: detail
+    }
+  }
 }
 
 // MARK: Tour
@@ -528,8 +540,8 @@ struct WelcomeTourPlacement: Equatable {
   }
 }
 
-/// The six-stop tour over the main window, in the new design. Its anchors
-/// still point at the old main window's controls. Phase 6 adds the new ones.
+/// The six-stop tour over the main window, in the new design. Its anchors are
+/// on the new main window's controls.
 struct EnigmaWelcomeTourOverlay: View {
   @ObservedObject var setup: WelcomeSetup
   let anchors: [WelcomeTourStep: Anchor<CGRect>]
@@ -588,7 +600,7 @@ struct EnigmaWelcomeTourCard: View {
         .foregroundStyle(palette.textPrimary.color)
         .accessibilityAddTraits(.isHeader)
         .accessibilityFocused($isHeadingFocused)
-      Text(step.detail)
+      Text(step.enigmaDetail)
         .font(EnigmaTypography.ui(13))
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)

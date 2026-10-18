@@ -689,7 +689,8 @@ final class SelectionContextTests: XCTestCase {
     let appearance = GlassAppearanceSettings(defaults: defaults)
     let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, localChat: chat,
       screen: screen, modelAdvisor: advisor, startPreferences: StartPreferences(defaults: defaults),
-      welcomeSetup: WelcomeSetup(defaults: defaults)))
+      welcomeSetup: WelcomeSetup(defaults: defaults), newUI: NewUIPreference(defaults: defaults),
+      appearance: EnigmaAppearancePreference(defaults: defaults)))
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
     let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view)

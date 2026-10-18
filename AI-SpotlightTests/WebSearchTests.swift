@@ -995,7 +995,8 @@ final class WebSearchTests: XCTestCase {
     let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults),
       cloudSettings: cloud, localChat: model, screen: screen, modelAdvisor: advisor,
       searchSettings: settings, startPreferences: StartPreferences(defaults: defaults),
-      welcomeSetup: WelcomeSetup(defaults: defaults))
+      welcomeSetup: WelcomeSetup(defaults: defaults), newUI: NewUIPreference(defaults: defaults),
+      appearance: EnigmaAppearancePreference(defaults: defaults))
       .transaction { $0.disablesAnimations = true })
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 752, height: 462),
       styleMask: [.titled], backing: .buffered, defer: false)

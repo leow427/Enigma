@@ -238,8 +238,11 @@ struct AppShellView: View {
   @ObservedObject private var newUI: NewUIPreference
   /// System, Paper, or Ink for the new screens.
   @ObservedObject private var appearance: EnigmaAppearancePreference
-  /// The window's character. The new welcome shows it; later phases share it.
-  @StateObject private var character = EnigmaCharacterController()
+  /// The window's character: on the new welcome, then on the main page. Owned
+  /// here but not observed: the stage redraws it, and nothing here reads it.
+  @State private var character: EnigmaCharacterController
+  /// The Mac's own light or dark setting, for the character's colors under System.
+  @ObservedObject private var systemAppearance = EnigmaSystemAppearance.shared
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
   @ObservedObject private var selectionContext = SelectionContextService.shared
   @ObservedObject var glassAppearance: GlassAppearanceSettings
@@ -263,6 +266,8 @@ struct AppShellView: View {
   @State private var isModelImporterPresented = false
   @ObservedObject private var startPreferences: StartPreferences
   @State private var shell: ShellPresentation
+  /// Text the new composer's `/` button or a command example types into the field.
+  @State private var composerInsertion: SlashCommandInsertion?
 
   init(
     glassAppearance: GlassAppearanceSettings,
@@ -277,7 +282,8 @@ struct AppShellView: View {
     startPreferences: StartPreferences = .shared,
     welcomeSetup: WelcomeSetup = .shared,
     newUI: NewUIPreference = .shared,
-    appearance: EnigmaAppearancePreference = .shared
+    appearance: EnigmaAppearancePreference = .shared,
+    character: EnigmaCharacterController? = nil
   ) {
     self.glassAppearance = glassAppearance
     self.cloudSettings = cloudSettings
@@ -289,6 +295,7 @@ struct AppShellView: View {
     self.appearance = appearance
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
+    _character = State(initialValue: character ?? EnigmaCharacterController())
     _screen = StateObject(wrappedValue: screen)
     let chat = localChat ?? localEngine.map { LocalChatViewModel(engine: $0, cloudProviders: cloudProviders) } ?? .shared
     _localChat = StateObject(wrappedValue: chat)
@@ -298,7 +305,15 @@ struct AppShellView: View {
 
   private var composerAccessories: some View {
     VStack(alignment: .trailing, spacing: 8) {
-      routeStatus
+      if usesNewFrame {
+        // The empty page shows the status under its greeting instead.
+        if !isChatEmpty {
+          EnigmaRouteStatusLine(status: routeStatusSummary, isActionEnabled: !localChat.isBusy,
+                                performAction: performRouteAction)
+        }
+      } else {
+        routeStatus
+      }
       if let notice = localChat.contextNotice {
         Text(notice)
           .font(.caption)
@@ -457,8 +472,15 @@ struct AppShellView: View {
   }
 
   // Keep these modifier groups separate so Swift can type-check each expression.
+  /// With the flag on, the new frame; the old compact selection panel keeps the old design.
+  private var usesNewFrame: Bool { newUI.isEnabled && !shell.isSelectionComposer }
+
+  @ViewBuilder private var windowFrame: some View {
+    if usesNewFrame { newShellLayout } else { shellLayout }
+  }
+
   private var welcomeShell: some View {
-    shellLayout
+    windowFrame
     .disabled(welcomeSetup.isPresented || welcomeSetup.tour != nil)
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
@@ -474,19 +496,30 @@ struct AppShellView: View {
       }
     }
     .overlay {
-      if welcomeSetup.isPresented {
-        if newUI.isEnabled {
-          EnigmaWelcomeView(setup: welcomeSetup, character: character, advisor: modelAdvisor, chat: localChat,
-            cloud: cloudSettings, search: searchSettings)
-            // Phase 6: move the stage to the window root, so the character can
-            // fall from the welcome into the main page.
-            .enigmaCharacterStage(character)
-            .enigmaEmbeddedTheme(appearance.appearance)
-        } else {
-          WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
+      ZStack {
+        if welcomeSetup.isPresented {
+          if newUI.isEnabled {
+            EnigmaWelcomeView(setup: welcomeSetup, character: character, advisor: modelAdvisor, chat: localChat,
+              cloud: cloudSettings, search: searchSettings)
+              .enigmaEmbeddedTheme(appearance.appearance)
+              .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -12)))
+          } else {
+            WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
+          }
         }
       }
+      // The new welcome fades away over the main page; the old one stays instant.
+      .animation(newUI.isEnabled ? (reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation) : nil,
+                 value: welcomeSetup.isPresented)
     }
+    // The new frame's corners, so the tour's scrim and the welcome stay inside
+    // the rounded window. The old frame's clip is its own, so it's unchanged.
+    .clipShape(usesNewFrame ? AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous))
+                            : AnyShape(Rectangle()))
+    // One stage for the whole window, so the character can fall from the
+    // welcome into the main page. The old design has no stage at all.
+    .modifier(AppShellCharacterStage(character: character, isActive: newUI.isEnabled,
+                                     palette: appearance.appearance.palette(for: systemAppearance.colorScheme)))
   }
 
   private var commandObservedShell: some View {
@@ -537,6 +570,8 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .panelHidden)) { _ in
       localChat.applicationBecameInactive()
+      // An open menu doesn't outlive the panel in the new frame.
+      if usesNewFrame { shell.isModePalettePresented = false }
     }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
       selectionAccess.refresh()
@@ -571,8 +606,32 @@ struct AppShellView: View {
     }
   }
 
-  var body: some View {
+  /// The character's state and attention follow the window outside the welcome.
+  private var characterObservedShell: some View {
     selectionObservedShell
+    .onChange(of: mainCharacterState, initial: true) { _, state in
+      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      character.state = state
+    }
+    .onChange(of: isTypingInComposer) { _, typing in
+      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      character.attention = typing ? MainWindowCharacter.composerTarget : nil
+    }
+    .onChange(of: screen.draft) { old, new in
+      // A nudge toward the composer for each keystroke that adds text.
+      guard newUI.isEnabled, !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
+      character.key(towards: MainWindowCharacter.composerTarget)
+    }
+    .onChange(of: newUI.isEnabled) { _, enabled in
+      if enabled { settleCharacterOnMainPage(.instant) }
+    }
+    .onAppear {
+      if newUI.isEnabled { settleCharacterOnMainPage(.instant) }
+    }
+  }
+
+  var body: some View {
+    characterObservedShell
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       if newUI.isEnabled {
         EnigmaLocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
@@ -608,7 +667,12 @@ struct AppShellView: View {
       }
     }
     .sheet(isPresented: $shell.isHelpPresented) {
-      KeyboardShortcutsHelpView(searchSettings: searchSettings)
+      if newUI.isEnabled {
+        EnigmaHelpView(searchSettings: searchSettings)
+          .enigmaEmbeddedTheme(appearance.appearance)
+      } else {
+        KeyboardShortcutsHelpView(searchSettings: searchSettings)
+      }
     }
     .fileImporter(
       isPresented: $isModelImporterPresented,
@@ -628,6 +692,8 @@ struct AppShellView: View {
     .onChange(of: welcomeSetup.isPresented) { _, presented in
       shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
       if !presented { startPreferences.mode = .auto }
+      // The character falls from the welcome into the main page's slot.
+      if !presented, newUI.isEnabled { settleCharacterOnMainPage(.automatic) }
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
@@ -645,6 +711,203 @@ struct AppShellView: View {
           await cloudSettings.discoverModels()
         }
       }
+    }
+  }
+
+  // MARK: New frame
+
+  /// The window in the new design: the sidebar and the main page on an opaque
+  /// background, themed from the appearance setting.
+  private var newShellLayout: some View {
+    GeometryReader { geometry in
+      HStack(spacing: 0) {
+        if shell.isSidebarVisible {
+          newSidebar
+            .frame(width: MainPageLayout.sidebarWidth(for: geometry.size.width))
+            .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+        }
+        newMainColumn
+      }
+      .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
+                 value: shell.isSidebarVisible)
+    }
+    .enigmaMenuHost()
+    .modifier(EnigmaWindowChrome())
+    .enigmaTheme(appearance.appearance)
+    .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
+  }
+
+  private var newSidebar: some View {
+    EnigmaSidebar(
+      rows: ChatHistoryList.rows(sessions: localChat.sessions, selectedSessionID: localChat.selectedSessionID),
+      tourStep: welcomeSetup.tour,
+      select: { target in
+        switch target {
+        case .newChat: NotificationCenter.default.post(name: .newChatRequested, object: nil)
+        case .session(let id): localChat.selectSession(id: id)
+        }
+      },
+      newChat: { NotificationCenter.default.post(name: .newChatRequested, object: nil) },
+      hide: { shell.isSidebarVisible = false },
+      openHelp: { shell.isHelpPresented = true },
+      openSettings: openSettings
+    ) {
+      EnigmaDeveloperTools(glassAppearance: glassAppearance, advisor: modelAdvisor, chat: localChat, newUI: newUI,
+                           replayWelcome: { welcomeSetup.replay() })
+    }
+  }
+
+  private var newMainColumn: some View {
+    let examples = SlashCommandExample.examples(available: availableCommands)
+    return EnigmaMainColumn(
+      isEmpty: isChatEmpty,
+      showsTopBar: !shell.isSidebarVisible,
+      availableExamples: examples.count,
+      topBar: {
+        EnigmaHiddenSidebarBar(
+          show: { shell.isSidebarVisible = true },
+          openHelp: { shell.isHelpPresented = true },
+          openSettings: openSettings,
+          newChat: { NotificationCenter.default.post(name: .newChatRequested, object: nil) })
+      },
+      header: { style in
+        EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
+                             performStatusAction: performRouteAction, mode: $shell.selectedMode,
+                             isStatusActionEnabled: !localChat.isBusy)
+      },
+      conversation: { messageList },
+      accessories: { composerAccessories },
+      composer: { docked in newComposer(docked: docked) },
+      examples: { count in
+        EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerIsEnabled) { command in
+          shell.isComposerFocused = true
+          composerInsertion = SlashCommandInsertion(text: command.token + " ")
+        }
+      })
+  }
+
+  private func newComposer(docked: Bool) -> some View {
+    EnigmaComposer(
+      text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
+      availableCommands: availableCommands, insertion: composerInsertion, opensSuggestionsBelow: !docked,
+      submit: submitDraft,
+      files: files, isAttachDisabled: localChat.isBusy || files.isPicking || files.isWorking,
+      attach: { activateFileMode(from: .menu) },
+      beginCommand: {
+        shell.isComposerFocused = true
+        composerInsertion = SlashCommandInsertion(text: "/")
+      },
+      route: routeIndicator, menu: modeAndModelMenu, menuActions: modeAndModelActions,
+      isMenuPresented: $shell.isModePalettePresented,
+      // As the old palette did, closing the menu returns to the message field.
+      menuClosed: { shell.isComposerFocused = true },
+      isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
+      send: submitDraft, stop: { localChat.stopStreaming() })
+  }
+
+  /// The selected route's state, as the old status views show it beside the composer.
+  private var routeStatusSummary: ChatRouteStatus {
+    let mode = shell.selectedMode
+    var context = ChatRouteStatus.Context(mode: mode, state: localChat.state,
+      request: localChat.activeRequest.map { ChatRouteStatus.Request(phase: requestPhase, name: $0.displayName) },
+      localModelName: localChat.installedModel?.displayName)
+    // Cloud checks run only for the modes that use the cloud.
+    if mode != .local, localChat.activeRequest == nil {
+      context.cloudProvider = cloudSettings.preferredProvider
+      context.autoDecision = localChat.autoRouteDecision
+      if mode == .cloud {
+        context.hasCloudAccess = cloudSettings.hasCloudAccess(for: cloudSettings.preferredProvider)
+        context.isCloudConfigured = context.hasCloudAccess && cloudSettings.isConfigured
+        context.cloudCompatibility = cloudSettings.selectedModelCompatibility
+        context.cloudModelID = cloudSettings.preferredModelID
+      } else {
+        context.hasAutoCloud = autoCloudConfiguration != nil
+      }
+    }
+    return ChatRouteStatus.make(context)
+  }
+
+  private func performRouteAction(_ action: ChatRouteStatus.Action) {
+    switch action {
+    case .chooseModel: isModelImporterPresented = true
+    case .openSettings: openSettings()
+    }
+  }
+
+  private var routeIndicator: ComposerRouteIndicator? {
+    ComposerRouteIndicator.make(
+      mode: shell.selectedMode, requestMode: localChat.activeRequest?.route.mode,
+      autoDecisionMode: localChat.autoRouteDecision?.route?.mode, hasLocalModel: localChat.installedModel != nil,
+      hasAutoCloud: shell.selectedMode == .auto && autoCloudConfiguration != nil)
+  }
+
+  private var modeAndModelMenu: ModeAndModelMenu {
+    ModeAndModelMenu(
+      mode: shell.selectedMode, isBusy: localChat.isBusy, hasActiveRequest: localChat.activeRequest != nil,
+      localModels: localChat.installedModels.map {
+        ModeAndModelMenu.LocalChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision)
+      },
+      selectedLocalID: localChat.installedModel?.id,
+      cloudProvider: cloudSettings.preferredProvider,
+      cloudModels: cloudSettings.models.map {
+        ModeAndModelMenu.CloudChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision)
+      },
+      selectedCloudID: cloudSettings.preferredModelID)
+  }
+
+  private var modeAndModelActions: ModeAndModelMenu.Actions {
+    ModeAndModelMenu.Actions(
+      chooseMode: { shell.chooseMode($0) },
+      selectLocalModel: { localChat.selectModel(id: $0) },
+      selectCloudModel: { cloudSettings.preferredModelID = $0 },
+      findModel: { Task { await modelAdvisor.replayOnboarding() } },
+      importModel: { isModelImporterPresented = true },
+      // After the menu has closed and handed focus back, so Settings keeps it.
+      openSettings: { Task { @MainActor in openSettings() } })
+  }
+
+  // MARK: Character
+
+  private var isTypingInComposer: Bool {
+    shell.isComposerFocused && composerIsEnabled && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private var mainCharacterState: EnigmaCharacterState {
+    // The old design has no character; skip the route checks it would cost.
+    guard newUI.isEnabled else { return .idle }
+    let state = localChat.state
+    let isPreparing = state == .preparing || state == .refiningSearch || state == .searching
+    let isModelTask: Bool = switch state {
+    case .installing, .deleting, .benchmarking, .downloading: true
+    default: false
+    }
+    return MainWindowCharacter.state(MainWindowCharacter.Inputs(
+      isWorking: isPreparing || isModelTask || screen.isBusy || files.isWorking || files.isPicking,
+      isStreaming: state == .streaming,
+      routeCanRun: ComposerSubmission.canSubmit(
+        mode: shell.selectedMode, hasLocalModel: localChat.installedModel != nil,
+        isCloudConfigured: cloudSettings.isConfigured, hasAutoCloud: autoCloudConfiguration != nil, isBusy: false),
+      hasProblem: hasRouteProblem,
+      isTyping: isTypingInComposer))
+  }
+
+  /// The last request failed, or Auto can't take the next one. A route that's
+  /// missing something is covered by `routeCanRun`.
+  private var hasRouteProblem: Bool {
+    if case .failed = localChat.state { return true }
+    return shell.selectedMode == .auto && localChat.autoRouteDecision?.limitation != nil
+  }
+
+  /// Sends the character to the main page's slot with its state there.
+  private func settleCharacterOnMainPage(_ transition: EnigmaCharacterTransition) {
+    guard !welcomeSetup.isPresented else { return }
+    character.move(to: MainWindowCharacter.mainSlot, transition)
+    // On the next turn, once the update that closed the welcome has finished,
+    // so the welcome's last state change can't land after this one.
+    Task { @MainActor in
+      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      character.state = mainCharacterState
+      character.attention = isTypingInComposer ? MainWindowCharacter.composerTarget : nil
     }
   }
 
@@ -757,6 +1020,30 @@ struct AppShellView: View {
     .accessibilityAddTraits(selected ? .isSelected : [])
   }
 
+  // MARK: Composer state, shared by both designs
+
+  private var composerText: Binding<String> {
+    Binding(get: { localChat.pendingUserMessage == nil ? screen.draft : "" }, set: { screen.draft = $0 })
+  }
+
+  private var composerFocus: Binding<Bool> {
+    Binding(get: { shell.isComposerFocused && !welcomeSetup.isPresented && welcomeSetup.tour == nil },
+            set: { shell.isComposerFocused = $0 })
+  }
+
+  private var composerIsEnabled: Bool {
+    !(localChat.isBusy || screen.isBusy || files.isWorking || files.isPicking)
+      && !welcomeSetup.isPresented && welcomeSetup.tour == nil
+  }
+
+  private var availableCommands: [SlashCommand] { SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey) }
+
+  /// Send is available for a draft the selected route can take.
+  private var canSendDraft: Bool {
+    !(!canSubmit || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      || screen.isBusy || files.isWorking || files.isPicking)
+  }
+
   private func composer(compact: Bool) -> some View {
     let isResponding = localChat.activeRequest != nil
     return HStack(spacing: compact ? 8 : 16) {
@@ -779,15 +1066,12 @@ struct AppShellView: View {
       Rectangle().fill(NatureGlass.secondary.opacity(0.35)).frame(width: 1, height: 40)
 
       SlashCommandComposer(
-        text: Binding(get: { localChat.pendingUserMessage == nil ? screen.draft : "" },
-                      set: { screen.draft = $0 }),
-        isFocused: Binding(get: { shell.isComposerFocused && !welcomeSetup.isPresented && welcomeSetup.tour == nil },
-                           set: { shell.isComposerFocused = $0 }),
-        isEnabled: !(localChat.isBusy || screen.isBusy || files.isWorking || files.isPicking)
-          && !welcomeSetup.isPresented && welcomeSetup.tour == nil,
+        text: composerText,
+        isFocused: composerFocus,
+        isEnabled: composerIsEnabled,
         fontSize: compact ? 14 : 15,
         usesPopover: shell.isSelectionComposer,
-        availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey),
+        availableCommands: availableCommands,
         submit: submitDraft
       ).welcomeTourTarget(.composer)
 
@@ -818,8 +1102,7 @@ struct AppShellView: View {
           .overlay { Circle().strokeBorder(.white.opacity(0.48)) }
       }
       .buttonStyle(NatureButtonStyle())
-      .disabled(!isResponding && (!canSubmit || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        || screen.isBusy || files.isWorking || files.isPicking))
+      .disabled(!isResponding && !canSendDraft)
       .accessibilityLabel(isResponding ? "Stop response" : "Send message")
     }
     .padding(.leading, 12).padding(.trailing, compact ? 10 : 12).padding(.vertical, compact ? 10 : 12)
@@ -831,9 +1114,12 @@ struct AppShellView: View {
     .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: shell.isComposerFocused)
   }
 
+  /// Nothing has been sent in this chat, and nothing is on its way.
+  private var isChatEmpty: Bool { localChat.presentationMessages.isEmpty && localChat.activeRequest == nil }
+
   @ViewBuilder
   private var conversation: some View {
-    if localChat.presentationMessages.isEmpty && localChat.activeRequest == nil {
+    if isChatEmpty {
       GeometryReader { geometry in
         let compact = geometry.size.height < 370
         VStack(spacing: compact ? 12 : 24) {
@@ -858,6 +1144,12 @@ struct AppShellView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
     } else {
+      messageList
+    }
+  }
+
+  /// The chat's messages. The new frame shows this list too, until phase 7.
+  private var messageList: some View {
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 18) {
           ForEach(localChat.presentationMessages) { message in
@@ -880,7 +1172,6 @@ struct AppShellView: View {
       .defaultScrollAnchor(.bottom, for: .initialOffset)
       .defaultScrollAnchor(.top, for: .alignment)
       .id(localChat.selectedSessionID)
-    }
   }
 
   @ViewBuilder
@@ -1515,71 +1806,49 @@ private struct KeyboardShortcutsHelpView: View {
         VStack(alignment: .leading, spacing: 16) {
           Text("Anywhere on your Mac")
             .font(.headline)
-          shortcut("New temporary chat with selection", keys: "\((SelectionModifier(rawValue: selectionModifier) ?? .option).symbol) twice")
-          shortcut("Selection Context backup", keys: "⇧ ⌥ Space")
+          shortcut(KeyboardShortcutsHelp.selectionChat(modifier: SelectionModifier(rawValue: selectionModifier) ?? .option))
+          shortcut(KeyboardShortcutsHelp.selectionBackup)
           Toggle("Enable double-tap shortcut", isOn: $doubleOptionEnabled)
           Picker("Selection shortcut key", selection: $selectionModifier) {
             ForEach(SelectionModifier.allCases) { modifier in Text(modifier.title).tag(modifier.rawValue) }
           }
           Picker("Double-tap interval", selection: $doubleOptionInterval) {
-            Text("Fast").tag(0.25)
-            Text("Normal").tag(0.35)
-            Text("Relaxed").tag(0.5)
+            ForEach(KeyboardShortcutsHelp.intervals, id: \.seconds) { interval in Text(interval.title).tag(interval.seconds) }
           }
-          Text("Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection Context offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded.")
+          Text(KeyboardShortcutsHelp.selectionNote)
             .font(.caption).foregroundStyle(.secondary)
           Label(selectionAccess.isGranted ? "Accessibility enabled" : "Accessibility permission required",
                 systemImage: selectionAccess.isGranted ? "checkmark.circle" : "hand.raised")
             .font(.caption)
-          Text("System Settings → Privacy & Security → Accessibility. Enable \(SelectionAccessibilityAccess.appName) (Enigma). If it is missing, use + to add the app you are running.")
+          Text(KeyboardShortcutsHelp.accessibilityNote(appName: SelectionAccessibilityAccess.appName))
             .font(.caption).foregroundStyle(.secondary)
           Button("Open Accessibility Settings…") { selectionAccess.requestAccess() }
-          shortcut("Show or hide Enigma", keys: "⌥ ⌃")
-          Text("Press Option and Control together. Accessibility permission lets this shortcut work while another app is active.")
+          shortcut(KeyboardShortcutsHelp.showOrHide)
+          Text(KeyboardShortcutsHelp.showOrHideNote)
             .font(.caption).foregroundStyle(.secondary)
-          shortcut("Open Advanced Settings", keys: "⌥ S")
+          shortcut(KeyboardShortcutsHelp.advancedSettings)
 
           Divider()
 
           Text("In the chat panel")
             .font(.headline)
-          shortcut("Hide the panel", keys: "Esc")
-          shortcut("New chat", keys: "⌘ N")
-          shortcut("Open or close Mode & Model", keys: "⌘ K")
-          shortcut("Stop the response", keys: "⌘ .")
-          shortcut("Next recent chat", keys: "⌃ Tab")
-          shortcut("Show or hide chat history", keys: "⌃ twice")
-          shortcut("Open Settings", keys: "⌘ ,")
-          shortcut("Send from the message field", keys: "Return")
-          shortcut("Complete a slash command", keys: "Tab / Return")
-          shortcut("Choose a command suggestion", keys: "↑ / ↓")
-          shortcut("Dismiss command suggestions", keys: "Esc")
-          shortcut("Insert a new line", keys: "⇧ Return")
-          shortcut("Hide inactive tools", keys: "⇧ ⌘ H")
+          ForEach(KeyboardShortcutsHelp.panel, id: \.self) { shortcut($0) }
           if searchSettings.hasAPIKey {
-            shortcut("Search for this message only", keys: "/search")
-            Text("/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud & Search → Web Search · Brave.")
+            shortcut(KeyboardShortcutsHelp.search)
+            Text(KeyboardShortcutsHelp.searchNote)
               .font(.caption).foregroundStyle(.secondary)
           }
-          shortcut("Capture the full desktop", keys: "/screen")
-          shortcut("Capture a screen region", keys: "/snapshot")
-          shortcut("Think harder for this answer", keys: "/think")
-          shortcut("Attach files or a folder", keys: "⇧ ⌥ F")
-          Text("/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /think applies to one answer. Commands can appear anywhere in your message and remain blue in the input. Put literal command examples in quotes or backticks.")
+          ForEach(KeyboardShortcutsHelp.commands, id: \.self) { shortcut($0) }
+          Text(KeyboardShortcutsHelp.commandsNote())
             .font(.caption).foregroundStyle(.secondary)
 
           Divider()
 
           Text("Editing text")
             .font(.headline)
-          shortcut("Select all", keys: "⌘ A")
-          shortcut("Copy", keys: "⌘ C")
-          shortcut("Cut", keys: "⌘ X")
-          shortcut("Paste", keys: "⌘ V")
-          shortcut("Undo", keys: "⌘ Z")
-          shortcut("Redo", keys: "⇧ ⌘ Z")
+          ForEach(KeyboardShortcutsHelp.editing, id: \.self) { shortcut($0) }
 
-          Text("⌘ Command · ⌥ Option · ⌃ Control · ⇧ Shift")
+          Text(KeyboardShortcutsHelp.legend)
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -1600,11 +1869,11 @@ private struct KeyboardShortcutsHelpView: View {
     .onExitCommand { dismiss() }
   }
 
-  private func shortcut(_ title: String, keys: String) -> some View {
+  private func shortcut(_ shortcut: KeyboardShortcutsHelp.Shortcut) -> some View {
     HStack {
-      Text(title)
+      Text(shortcut.title)
       Spacer(minLength: 16)
-      Text(keys)
+      Text(shortcut.keys)
         .font(.body.monospaced())
         .foregroundStyle(.secondary)
     }
@@ -2098,6 +2367,24 @@ struct SelectionContextCard: View {
         .disabled(isBusy)
     }
     .padding(10).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+  }
+}
+
+/// The character's stage, only while the new UI is on, with the palette it
+/// draws in. The old design never shows the character.
+private struct AppShellCharacterStage: ViewModifier {
+  let character: EnigmaCharacterController
+  let isActive: Bool
+  let palette: EnigmaPalette
+
+  func body(content: Content) -> some View {
+    if isActive {
+      content
+        .enigmaCharacterStage(character)
+        .environment(\.enigmaPalette, palette)
+    } else {
+      content
+    }
   }
 }
 

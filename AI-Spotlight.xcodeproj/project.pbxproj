@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1901987355208F91135CBFF4 /* AI-SpotlightTests/EnigmaMainWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */; };
+		78FC9AB08F32145AC031E35E /* AI-Spotlight/App/EnigmaHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */; };
+		77CED3F11DA2C07E5AFB8FDC /* AI-Spotlight/App/EnigmaMainPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */; };
+		E54A7390F93C84BD9D766232 /* AI-Spotlight/App/EnigmaComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */; };
+		BEB703A6ED5E3CC6B0ADA784 /* AI-Spotlight/App/EnigmaSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */; };
+		4DC6842798E6A6D965A6026D /* AI-Spotlight/App/EnigmaMainWindowLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */; };
 		41210F1C09D1947EA1AB3C67 /* AI-SpotlightTests/EnigmaSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */; };
 		76C597823BC773D32A000CDA /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */; };
 		3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */; };
@@ -180,6 +186,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaMainWindowTests.swift"; sourceTree = SOURCE_ROOT; };
+		4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaHelpView.swift"; sourceTree = SOURCE_ROOT; };
+		56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaMainPage.swift"; sourceTree = SOURCE_ROOT; };
+		BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaComposer.swift"; sourceTree = SOURCE_ROOT; };
+		4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaSidebar.swift"; sourceTree = SOURCE_ROOT; };
+		986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaMainWindowLogic.swift"; sourceTree = SOURCE_ROOT; };
 		B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaSettingsTests.swift"; sourceTree = SOURCE_ROOT; };
 		AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift"; sourceTree = SOURCE_ROOT; };
 		F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
@@ -368,6 +380,12 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */,
+				4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */,
+				56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */,
+				BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */,
+				4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */,
+				986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */,
 				B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */,
 				AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */,
 				F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */,
@@ -711,6 +729,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
+				78FC9AB08F32145AC031E35E /* AI-Spotlight/App/EnigmaHelpView.swift in Sources */,
+				77CED3F11DA2C07E5AFB8FDC /* AI-Spotlight/App/EnigmaMainPage.swift in Sources */,
+				E54A7390F93C84BD9D766232 /* AI-Spotlight/App/EnigmaComposer.swift in Sources */,
+				BEB703A6ED5E3CC6B0ADA784 /* AI-Spotlight/App/EnigmaSidebar.swift in Sources */,
+				4DC6842798E6A6D965A6026D /* AI-Spotlight/App/EnigmaMainWindowLogic.swift in Sources */,
 				76C597823BC773D32A000CDA /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift in Sources */,
 				3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift in Sources */,
 				FC5011DD693B0424EBE11153 /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift in Sources */,
@@ -832,6 +855,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
+				1901987355208F91135CBFF4 /* AI-SpotlightTests/EnigmaMainWindowTests.swift in Sources */,
 				41210F1C09D1947EA1AB3C67 /* AI-SpotlightTests/EnigmaSettingsTests.swift in Sources */,
 				8BD5904B1AA90729866DB446 /* AI-SpotlightTests/EnigmaControlsTests.swift in Sources */,
 				F4C34E392DC3D96EBB5FB94A /* AI-SpotlightTests/EnigmaWelcomeTests.swift in Sources */,

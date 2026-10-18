@@ -236,7 +236,7 @@ final class EnigmaSettingsTests: XCTestCase {
       (try? canvas()).map { EnigmaSnapshot.matches($0, EnigmaPalette.ink.background) } ?? false
     }
     XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua,
-                   "The old shell still owns the window's scheme")
+                   "The window follows Ink")
   }
 
   // MARK: Rendering

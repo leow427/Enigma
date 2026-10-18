@@ -375,6 +375,7 @@ private final class SpotlightPanel: NSPanel {
 
   override func keyDown(with event: NSEvent) {
     guard event.keyCode != 53 else {
+      if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return }
       onHide?()
       return
     }
@@ -385,6 +386,8 @@ private final class SpotlightPanel: NSPanel {
     controlDoubleTap.reset()
     if event.keyCode == 53 {
       if let editor = firstResponder as? SlashCommandTextView, editor.completion?.dismiss() == true { return true }
+      // An open menu in the new design closes first, as the command list does.
+      if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return true }
       onHide?()
       return true
     }

@@ -77,7 +77,8 @@ final class FileModeUITests: XCTestCase {
     defaults.set(true, forKey: WelcomeSetup.completedKey)
     addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
     let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(), localChat: chat, screen: screen,
-      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults)))
+      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
+      newUI: NewUIPreference(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults)))
     let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: view)
     controller.show()
     defer { controller.hide() }

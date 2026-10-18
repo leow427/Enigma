@@ -225,10 +225,12 @@ final class EnigmaWelcomeTests: XCTestCase {
   // MARK: In the app
 
   @MainActor
-  func testFlagSwapsTheWelcomeWhileTheAppRunsAndKeepsTheOldWindowDark() async throws {
+  func testFlagSwapsTheWelcomeWhileTheAppRunsAndTheWindowFollowsTheAppearance() async throws {
     let fixture = try await Fixture(test: self)
     let newUI = NewUIPreference(defaults: fixture.defaults)
     XCTAssertFalse(newUI.isEnabled)
+    // Paper, so the new frame's light window can't be mistaken for the old dark one.
+    fixture.defaults.set(EnigmaAppearance.paper.rawValue, forKey: EnigmaAppearancePreference.appearanceKey)
     let size = CGSize(width: 900, height: 620)
     let view = NSHostingView(rootView: fixture.shell(newUI: newUI).transaction { $0.disablesAnimations = true })
     let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
@@ -237,7 +239,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     window.contentView = view
     defer { window.contentView = nil }
     fixture.setup.replay()
-    let palette = EnigmaAppearance.system.palette(for: EnigmaSystemAppearance.shared.colorScheme)
+    let palette = EnigmaPalette.paper
     func showsNewWelcome() throws -> Bool {
       let image = try EnigmaSnapshot.capture(view)
       return EnigmaSnapshot.matches(try EnigmaSnapshot.pixel(image, at: CGPoint(x: 14, y: size.height / 2)),
@@ -245,11 +247,16 @@ final class EnigmaWelcomeTests: XCTestCase {
     }
     try await waitForUI("the old welcome", in: view) { (try? showsNewWelcome()) == false && composerEditor(in: view) != nil }
     XCTAssertFalse(try showsNewWelcome())
+    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua,
+                   "The old frame keeps its dark window")
 
     newUI.isEnabled = true
-    try await waitForUI("the new welcome after turning the flag on", in: view) { (try? showsNewWelcome()) == true }
-    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua,
-                   "The old shell still owns the window's scheme")
+    try await waitForUI("the new welcome after turning the flag on", in: view) {
+      (try? showsNewWelcome()) == true && window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+    }
+    // Since phase 6 the new frame owns the window, which follows the appearance (Paper here).
+    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .aqua,
+                   "The new frame's window follows the appearance setting")
     XCTAssertEqual(composerEditor(in: view)?.isEditable, false, "The chat stays disabled under the new welcome")
 
     newUI.isEnabled = false

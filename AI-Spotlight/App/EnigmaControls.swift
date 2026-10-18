@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Shared controls for the new UI. Each reads its colors from the environment's
@@ -194,6 +195,139 @@ private struct EnigmaButtonStyleModifier: ViewModifier {
       .buttonStyle(EnigmaButtonStyle(kind: kind, isFocused: isFocused))
       .focused($isFocused)
       .focusEffectDisabled()
+  }
+}
+
+// MARK: Icon button
+
+/// A small square button holding one glyph, like Attach in the composer or
+/// the sidebar toggle: `textSecondary`, darker on hover with a `hover` fill,
+/// and `accentText` while what it controls is on.
+struct EnigmaIconButtonStyle: ButtonStyle {
+  var isActive = false
+  var size = CGSize(width: 30, height: 28)
+  var isFocused = false
+
+  func makeBody(configuration: Configuration) -> some View {
+    EnigmaIconButtonBody(isActive: isActive, size: size, isFocused: isFocused, configuration: configuration)
+  }
+
+  static func glyphColor(isActive: Bool, isHovered: Bool, in palette: EnigmaPalette) -> EnigmaColor {
+    isActive ? palette.accentText : isHovered ? palette.textPrimary : palette.textSecondary
+  }
+}
+
+private struct EnigmaIconButtonBody: View {
+  let isActive: Bool
+  let size: CGSize
+  let isFocused: Bool
+  let configuration: ButtonStyleConfiguration
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.isEnabled) private var isEnabled
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var isHovered = false
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+    let hovered = isHovered && isEnabled
+    configuration.label
+      .font(.system(size: 15))
+      .foregroundStyle(EnigmaIconButtonStyle.glyphColor(isActive: isActive, isHovered: hovered, in: palette).color)
+      .frame(width: size.width, height: size.height)
+      .background { if hovered || isActive { shape.fill(palette.hover.color) } }
+      .contentShape(shape)
+      .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
+      .scaleEffect(EnigmaControlStyle.pressScale(isPressed: configuration.isPressed, reduceMotion: reduceMotion))
+      .enigmaFocusRing(isFocused && isEnabled, palette: palette, cornerRadius: 8, outset: 1)
+      .animation(reduceMotion ? nil : EnigmaControlStyle.press.animation, value: configuration.isPressed)
+      .onHover { isHovered = $0 }
+  }
+}
+
+extension View {
+  /// Styles a `Button` as an icon button, with the `accent` focus ring.
+  func enigmaIconButtonStyle(isActive: Bool = false, size: CGSize = CGSize(width: 30, height: 28)) -> some View {
+    modifier(EnigmaIconButtonStyleModifier(isActive: isActive, size: size))
+  }
+}
+
+private struct EnigmaIconButtonStyleModifier: ViewModifier {
+  let isActive: Bool
+  let size: CGSize
+  @FocusState private var isFocused: Bool
+
+  func body(content: Content) -> some View {
+    content
+      .buttonStyle(EnigmaIconButtonStyle(isActive: isActive, size: size, isFocused: isFocused))
+      .focused($isFocused)
+      .focusEffectDisabled()
+  }
+}
+
+// MARK: Navigation row
+
+/// A plain row in a sidebar, like New chat or a recent chat: a leading glyph or
+/// dot, a title, and an optional monospace shortcut hint. There's no box: the
+/// text darkens on hover, and a selected row is darker and medium weight.
+struct EnigmaNavigationRow<Leading: View>: View {
+  let title: String
+  var hint: String?
+  var isSelected = false
+  var marker: String?
+  let action: () -> Void
+  @ViewBuilder let leading: () -> Leading
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.isEnabled) private var isEnabled
+  @FocusState private var isFocused: Bool
+  @State private var isHovered = false
+
+  init(_ title: String, hint: String? = nil, isSelected: Bool = false, marker: String? = nil,
+       action: @escaping () -> Void, @ViewBuilder leading: @escaping () -> Leading) {
+    self.title = title
+    self.hint = hint
+    self.isSelected = isSelected
+    self.marker = marker
+    self.action = action
+    self.leading = leading
+  }
+
+  static func titleColor(isSelected: Bool, isHovered: Bool, in palette: EnigmaPalette) -> EnigmaColor {
+    isSelected || isHovered ? palette.textPrimary : palette.textSecondary
+  }
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 9) {
+        leading()
+          .frame(width: 20)
+          .accessibilityHidden(true)
+        Text(title)
+          .font(EnigmaTypography.ui(13, weight: isSelected ? .medium : .regular))
+          .foregroundStyle(Self.titleColor(isSelected: isSelected, isHovered: isHovered && isEnabled,
+                                           in: palette).color)
+          .lineLimit(1)
+          .truncationMode(.tail)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        if let hint {
+          Text(hint)
+            .font(EnigmaTypography.mono(11))
+            .foregroundStyle(palette.textTertiary.color)
+            .accessibilityHidden(true)
+        }
+      }
+      .padding(.vertical, 6)
+      .padding(.horizontal, 6)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .focused($isFocused)
+    .focusEffectDisabled()
+    .enigmaFocusRing(isFocused && isEnabled, palette: palette, cornerRadius: 8, outset: 0)
+    .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
+    .onHover { isHovered = $0 }
+    .accessibilityLabel(title)
+    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    .enigmaTestMarker(marker ?? title)
   }
 }
 
@@ -564,20 +698,31 @@ struct EnigmaStatusLine: View {
 
   let status: Status
   let text: String
+  /// Only the glyph takes the status color; the text is `textSecondary`, or
+  /// `textPrimary` for a problem. For long lines, like the main page's status.
+  var tintsGlyphOnly = false
   @Environment(\.enigmaPalette) private var palette
 
-  init(_ status: Status, _ text: String) {
+  init(_ status: Status, _ text: String, tintsGlyphOnly: Bool = false) {
     self.status = status
     self.text = text
+    self.tintsGlyphOnly = tintsGlyphOnly
+  }
+
+  /// The text's color when only the glyph is tinted.
+  static func quietTextColor(for status: Status, in palette: EnigmaPalette) -> EnigmaColor {
+    status == .problem ? palette.textPrimary : palette.textSecondary
   }
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 6) {
       Text(status.glyph).fontWeight(status == .problem ? .bold : .regular)
+        .foregroundStyle(status.color(in: palette).color)
       Text(text).fixedSize(horizontal: false, vertical: true)
+        .foregroundStyle((tintsGlyphOnly ? Self.quietTextColor(for: status, in: palette)
+                          : status.color(in: palette)).color)
     }
     .font(EnigmaTypography.mono(11.5))
-    .foregroundStyle(status.color(in: palette).color)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(text)
     .enigmaTestMarker(text)
@@ -879,10 +1024,12 @@ struct EnigmaMenuPlacement: Equatable {
   /// The corner the menu grows from, in the container's unit space.
   let scaleAnchor: UnitPoint
 
-  init(anchor: CGRect, container: CGSize) {
+  /// `contentHeight`, once the rows are measured, opens a menu upward when
+  /// it fits better there, so its last rows don't need scrolling to reach.
+  init(anchor: CGRect, container: CGSize, contentHeight: CGFloat? = nil) {
     let below = container.height - anchor.maxY - Self.gap - Self.margin
     let above = anchor.minY - Self.gap - Self.margin
-    opensUpward = below < Self.preferredRoomBelow && above > below
+    opensUpward = below < max(Self.preferredRoomBelow, contentHeight ?? 0) && above > below
     alignsTrailing = anchor.midX > container.width / 2
     maximumHeight = max(0, opensUpward ? above : below)
     let x = alignsTrailing ? -(container.width - anchor.maxX) : anchor.minX
@@ -922,8 +1069,33 @@ final class EnigmaMenuPresenter: ObservableObject {
   }
 
   @Published private(set) var presentation: Presentation?
+  /// The open menu's rows, measured, for placing it where they fit.
+  @Published private(set) var contentHeight: CGFloat?
+  /// The window the host is in, so a window's Escape can close its own menu.
+  weak var window: NSWindow?
+  private static let live = NSHashTable<EnigmaMenuPresenter>.weakObjects()
 
-  func present(_ presentation: Presentation) { self.presentation = presentation }
+  init() { Self.live.add(self) }
+
+  func present(_ presentation: Presentation) {
+    contentHeight = nil
+    self.presentation = presentation
+  }
+
+  func reportContentHeight(_ height: CGFloat, for id: UUID) {
+    guard presentation?.id == id, contentHeight != height else { return }
+    contentHeight = height
+  }
+
+  /// Closes the menu open in `window`, handing focus back as any close does.
+  /// Returns false when none is open there. A window that takes Escape as a
+  /// key equivalent, like the chat panel, asks this first.
+  static func dismissOpenMenu(in window: NSWindow) -> Bool {
+    guard let presenter = live.allObjects.first(where: { $0.window === window && $0.presentation != nil })
+    else { return false }
+    presenter.dismiss()
+    return true
+  }
 
   /// While menu `id` is open, its trigger keeps it in step: where the trigger
   /// is, and what the rows show.
@@ -968,6 +1140,7 @@ private struct EnigmaMenuHostModifier: ViewModifier {
     content
       .environment(\.enigmaMenuPresenter, presenter)
       .coordinateSpace(.named(EnigmaMenuPresenter.coordinateSpace))
+      .background(EnigmaMenuWindowReader { [weak presenter] in presenter?.window = $0 })
       .overlay {
         GeometryReader { proxy in
           ZStack {
@@ -979,8 +1152,10 @@ private struct EnigmaMenuHostModifier: ViewModifier {
               .buttonStyle(.plain)
               .focusable(false)
               .accessibilityHidden(true)
-              let placement = EnigmaMenuPlacement(anchor: presentation.anchor, container: proxy.size)
-              EnigmaMenuList(presentation: presentation, maximumHeight: placement.maximumHeight) {
+              let placement = EnigmaMenuPlacement(anchor: presentation.anchor, container: proxy.size,
+                                                  contentHeight: presenter.contentHeight)
+              EnigmaMenuList(presentation: presentation, maximumHeight: placement.maximumHeight,
+                             reportHeight: { presenter.reportContentHeight($0, for: presentation.id) }) {
                 presenter.dismiss(presentation.id)
               }
               .offset(placement.offset)
@@ -998,17 +1173,43 @@ private struct EnigmaMenuHostModifier: ViewModifier {
   }
 }
 
+/// Tells a menu host which window it's in.
+private struct EnigmaMenuWindowReader: NSViewRepresentable {
+  let onChange: @MainActor (NSWindow?) -> Void
+
+  func makeNSView(context: Context) -> ReaderView {
+    let view = ReaderView()
+    view.onChange = onChange
+    return view
+  }
+
+  func updateNSView(_ view: ReaderView, context: Context) { view.onChange = onChange }
+
+  final class ReaderView: NSView {
+    var onChange: (@MainActor (NSWindow?) -> Void)?
+    override func viewDidMoveToWindow() {
+      super.viewDidMoveToWindow()
+      onChange?(window)
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func isAccessibilityElement() -> Bool { false }
+  }
+}
+
 /// The open menu: an opaque `menu` surface with a `border` edge. Arrow keys
 /// move, Return or Space picks, and Escape closes.
 private struct EnigmaMenuList: View {
   let presentation: EnigmaMenuPresenter.Presentation
   let maximumHeight: CGFloat
+  var reportHeight: (CGFloat) -> Void = { _ in }
   let dismiss: () -> Void
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
   @State private var highlighted: AnyHashable?
   @State private var contentHeight: CGFloat?
+  /// Rows are hidden below the visible part, so the menu says there's more.
+  @State private var hasMoreBelow = false
   @FocusState private var isFocused: Bool
 
   /// A first guess at the rows' height, until they've been measured.
@@ -1025,10 +1226,42 @@ private struct EnigmaMenuList: View {
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
     // The menu hugs its rows, and scrolls when they're taller than the room it has.
-    ScrollView {
-      rows.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+    ScrollViewReader { scroller in
+      ScrollView {
+        rows.onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+          contentHeight = $0
+          reportHeight($0)
+        }
+      }
+      // The highlighted row stays in view as the arrow keys move it.
+      .onChange(of: highlighted) { _, row in
+        if let row { scroller.scrollTo(row) }
+      }
     }
     .scrollBounceBehavior(.basedOnSize)
+    // When the rows don't all fit, the scroller stays in view and a strip at
+    // the bottom shows there's more, until the last row scrolls into view.
+    .scrollIndicators((contentHeight ?? 0) > maximumHeight + 0.5 ? .visible : .automatic)
+    .onScrollGeometryChange(for: Bool.self) { geometry in
+      // Within the list's own 5 pt padding counts as the end.
+      geometry.contentOffset.y + geometry.containerSize.height < geometry.contentSize.height - 6
+    } action: { _, more in hasMoreBelow = more }
+    .overlay(alignment: .bottom) {
+      if hasMoreBelow {
+        VStack(spacing: 0) {
+          EnigmaHairline()
+          Image(systemName: "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(palette.textTertiary.color)
+            .frame(maxWidth: .infinity)
+            .frame(height: 16)
+            .background(palette.menu.color)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .enigmaTestMarker("Menu has more rows")
+      }
+    }
     .frame(height: min(contentHeight ?? estimatedHeight, maximumHeight))
     .frame(minWidth: presentation.minimumWidth, maxWidth: 360, alignment: .topLeading)
     .fixedSize(horizontal: true, vertical: false)
@@ -1054,6 +1287,7 @@ private struct EnigmaMenuList: View {
     .accessibilityElement(children: .contain)
     .accessibilityLabel(presentation.label)
     .accessibilityAction(.escape) { dismiss() }
+    .enigmaTestMarker("Menu \(presentation.label)")
   }
 
   private var rows: some View {
@@ -1069,7 +1303,7 @@ private struct EnigmaMenuList: View {
             .padding(.bottom, 2)
             .accessibilityAddTraits(.isHeader)
         }
-        ForEach(section.items) { item in row(item) }
+        ForEach(section.items) { item in row(item).id(item.id) }
       }
     }
     .padding(5)
@@ -1144,6 +1378,14 @@ struct EnigmaMenu<Label: View>: View {
   let sections: [EnigmaMenuSection]
   var style: EnigmaMenuTriggerStyle = .field
   var accessibilityValue: String?
+  /// Opens and closes the menu from outside, as a keyboard shortcut does. The
+  /// menu sets it back to false however it closes.
+  var isPresented: Binding<Bool>?
+  /// Where keyboard focus goes once the menu closes. Nil hands it back to the trigger.
+  var returnFocus: (() -> Void)?
+  /// A frame in the host's space whose top and bottom the menu opens from,
+  /// instead of the trigger's, like the box a trigger sits in.
+  var anchorBounds: CGRect?
   @ViewBuilder let label: () -> Label
   @Environment(\.enigmaMenuPresenter) private var presenter
   @Environment(\.enigmaPalette) private var palette
@@ -1156,11 +1398,15 @@ struct EnigmaMenu<Label: View>: View {
   @FocusState private var isFocused: Bool
 
   init(_ title: String, sections: [EnigmaMenuSection], style: EnigmaMenuTriggerStyle = .field,
-       accessibilityValue: String? = nil, @ViewBuilder label: @escaping () -> Label) {
+       accessibilityValue: String? = nil, isPresented: Binding<Bool>? = nil, returnFocus: (() -> Void)? = nil,
+       anchorBounds: CGRect? = nil, @ViewBuilder label: @escaping () -> Label) {
     self.title = title
     self.sections = sections
     self.style = style
     self.accessibilityValue = accessibilityValue
+    self.isPresented = isPresented
+    self.returnFocus = returnFocus
+    self.anchorBounds = anchorBounds
     self.label = label
   }
 
@@ -1200,16 +1446,23 @@ struct EnigmaMenu<Label: View>: View {
       if isOpenInPlace {
         EnigmaMenuList(presentation: presentation, maximumHeight: 320) {
           isOpenInPlace = false
-          focusReturnRequest += 1
+          closeAction()
         }
         .offset(y: anchor.height + EnigmaMenuPlacement.gap)
       }
     }
     .zIndex(isOpenInPlace ? 1 : 0)
     // An open menu follows its trigger and shows its current rows.
-    .onChange(of: anchor) { _, anchor in presenter?.update(id, anchor: anchor) }
+    .onChange(of: anchor) { _, _ in presenter?.update(id, anchor: menuAnchor) }
+    .onChange(of: anchorBounds) { _, _ in presenter?.update(id, anchor: menuAnchor) }
     .onChange(of: EnigmaMenuSection.signature(of: sections)) { _, _ in presenter?.update(id, sections: sections) }
-    .onDisappear { presenter?.dismiss(id, restoringFocus: false) }
+    // A shortcut can open or close it from outside.
+    .onChange(of: isPresented?.wrappedValue ?? false) { _, open in setOpen(open) }
+    .onAppear { if isPresented?.wrappedValue == true { setOpen(true) } }
+    .onDisappear {
+      presenter?.dismiss(id, restoringFocus: false)
+      if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
+    }
     // Once the closing list has given focus up, it comes back here.
     .task(id: focusReturnRequest) {
       guard focusReturnRequest > 0 else { return }
@@ -1223,22 +1476,54 @@ struct EnigmaMenu<Label: View>: View {
   }
 
   private var presentation: EnigmaMenuPresenter.Presentation {
-    let returnFocus = $focusReturnRequest
-    return EnigmaMenuPresenter.Presentation(id: id, label: title, anchor: anchor,
-                                            minimumWidth: max(anchor.width, 160), sections: sections,
-                                            onDismiss: { returnFocus.wrappedValue += 1 })
+    EnigmaMenuPresenter.Presentation(id: id, label: title, anchor: menuAnchor,
+                                     minimumWidth: max(anchor.width, 160), sections: sections,
+                                     onDismiss: closeAction)
+  }
+
+  /// The trigger's frame, or its span across `anchorBounds`.
+  private var menuAnchor: CGRect {
+    guard let bounds = anchorBounds else { return anchor }
+    return CGRect(x: anchor.minX, y: bounds.minY, width: anchor.width, height: bounds.height)
+  }
+
+  /// Runs once the menu has closed: it clears `isPresented` and hands focus on.
+  private var closeAction: () -> Void {
+    let request = $focusReturnRequest
+    let isPresented = isPresented
+    let returnFocus = returnFocus
+    return {
+      if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
+      if let returnFocus { returnFocus() } else { request.wrappedValue += 1 }
+    }
+  }
+
+  private var isOpen: Bool {
+    guard let presenter else { return isOpenInPlace }
+    return presenter.presentation?.id == id
+  }
+
+  private func setOpen(_ open: Bool) {
+    guard open != isOpen else { return }
+    guard isEnabled || !open else {
+      isPresented?.wrappedValue = false
+      return
+    }
+    toggle()
   }
 
   private func toggle() {
     guard isEnabled else { return }
     guard let presenter else {
       isOpenInPlace.toggle()
+      if isPresented?.wrappedValue != isOpenInPlace { isPresented?.wrappedValue = isOpenInPlace }
       return
     }
     if presenter.presentation?.id == id {
       presenter.dismiss(id)
     } else {
       presenter.present(presentation)
+      if isPresented?.wrappedValue == false { isPresented?.wrappedValue = true }
     }
   }
 }

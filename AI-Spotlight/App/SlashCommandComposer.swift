@@ -1,37 +1,104 @@
 import AppKit
 import SwiftUI
 
+/// Text for the composer to insert at its caret, like `/` from the composer's
+/// command button. A new value inserts it again, even with the same text.
+struct SlashCommandInsertion: Equatable {
+  let id = UUID()
+  let text: String
+}
+
 struct SlashCommandComposer: View {
+  /// The old design, or the new one, which takes its colors from `enigmaPalette`.
+  enum Style: Equatable {
+    case classic
+    case enigma
+  }
+
+  /// Where the inline command list opens: above the text, or below it, as when
+  /// the composer sits high on the main page. `gap` is the distance from the
+  /// text's edge to the list.
+  enum SuggestionPlacement: Equatable {
+    case above(gap: CGFloat)
+    case below(gap: CGFloat)
+  }
+
   @Binding var text: String
   @Binding var isFocused: Bool
   var isEnabled: Bool
   var fontSize: CGFloat = 15
   var usesPopover = false
   var availableCommands: [SlashCommand]
+  var style: Style = .classic
+  var placeholder = "Ask anything..."
+  var suggestionPlacement: SuggestionPlacement = .above(gap: 18)
+  var insertion: SlashCommandInsertion?
   var submit: () -> Void
   @StateObject private var completion = CommandCompletionModel()
+  @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
     ZStack(alignment: .topLeading) {
       if text.isEmpty {
-        Text("Ask anything...").font(.system(size: fontSize)).foregroundStyle(.tertiary)
-          .allowsHitTesting(false).accessibilityHidden(true)
+        placeholderText.allowsHitTesting(false).accessibilityHidden(true)
       }
       CommandTextEditor(text: $text, isFocused: $isFocused, isEnabled: isEnabled,
                         completion: completion, availableCommands: availableCommands,
-                        fontSize: fontSize, submit: submit)
+                        fontSize: fontSize, colors: colors, submit: submit)
         .frame(height: completion.height)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .popover(isPresented: Binding(get: { usesPopover && isFocused && isEnabled && !completion.commands.isEmpty },
       set: { if !$0 { _ = completion.dismiss() } }), arrowEdge: .top) { suggestions }
-    .overlay(alignment: .bottomLeading) {
+    .overlay(alignment: suggestionAlignment) {
       if isFocused && isEnabled && !completion.commands.isEmpty {
-        if !usesPopover { suggestions.padding(.bottom, completion.height + 18) }
+        if !usesPopover { inlineSuggestions }
       }
     }
+    .onChange(of: insertion) { _, insertion in
+      if let insertion { completion.insert(insertion.text) }
+    }
   }
-  private var suggestions: some View {
+
+  @ViewBuilder private var placeholderText: some View {
+    switch style {
+    case .classic:
+      Text(placeholder).font(.system(size: fontSize)).foregroundStyle(.tertiary)
+    case .enigma:
+      Text(placeholder).font(EnigmaTypography.ui(fontSize)).foregroundStyle(palette.textTertiary.color)
+    }
+  }
+
+  private var colors: CommandTextEditor.Colors {
+    switch style {
+    case .classic: .classic
+    case .enigma: CommandTextEditor.Colors(text: palette.textPrimary.nsColor, command: palette.accentText.nsColor,
+                                           caret: palette.accent.nsColor)
+    }
+  }
+
+  private var suggestionAlignment: Alignment {
+    switch suggestionPlacement {
+    case .above: .bottomLeading
+    case .below: .topLeading
+    }
+  }
+
+  @ViewBuilder private var inlineSuggestions: some View {
+    switch suggestionPlacement {
+    case .above(let gap): suggestions.padding(.bottom, completion.height + gap)
+    case .below(let gap): suggestions.padding(.top, completion.height + gap)
+    }
+  }
+
+  @ViewBuilder private var suggestions: some View {
+    switch style {
+    case .classic: classicSuggestions
+    case .enigma: EnigmaSlashSuggestions(completion: completion)
+    }
+  }
+
+  private var classicSuggestions: some View {
     VStack(alignment: .leading, spacing: 2) {
       ForEach(Array(completion.commands.enumerated()), id: \.element) { index, command in
         Button { completion.accept(command) } label: {
@@ -70,6 +137,63 @@ struct SlashCommandComposer: View {
     .fixedSize(horizontal: false, vertical: true)
   }
 
+}
+
+/// The command list in the new design: an opaque `menu` surface with a
+/// `border` edge, each command in monospace `accentText` beside its
+/// description, and the chosen one on a `hover` fill.
+private struct EnigmaSlashSuggestions: View {
+  @ObservedObject var completion: CommandCompletionModel
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.colorSchemeContrast) private var contrast
+  @Environment(\.displayScale) private var displayScale
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+    VStack(alignment: .leading, spacing: 0) {
+      ForEach(Array(completion.commands.enumerated()), id: \.element) { index, command in
+        let isSelected = index == completion.selected
+        Button { completion.accept(command) } label: {
+          HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(command.token)
+              .font(EnigmaTypography.mono(12, weight: .medium))
+              .foregroundStyle(palette.accentText.color)
+              .frame(width: 92, alignment: .leading)
+            Text(command.description)
+              .font(EnigmaTypography.ui(12.5))
+              .foregroundStyle(palette.textSecondary.color)
+              .lineLimit(1)
+            Spacer(minLength: 0)
+            Text("⇥")
+              .font(EnigmaTypography.mono(11))
+              .foregroundStyle(palette.textTertiary.color)
+              .opacity(isSelected ? 1 : 0)
+              .accessibilityHidden(true)
+          }
+          .padding(.horizontal, 8)
+          .padding(.vertical, 6)
+          .contentShape(Rectangle())
+          .background {
+            if isSelected { RoundedRectangle(cornerRadius: 6, style: .continuous).fill(palette.hover.color) }
+          }
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .accessibilityLabel(command.token + ", " + command.description)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+      }
+    }
+    .padding(5)
+    .background(palette.menu.color, in: shape)
+    .overlay {
+      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
+                         lineWidth: 1 / displayScale)
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Slash commands")
+    .frame(width: 400)
+    .fixedSize(horizontal: false, vertical: true)
+  }
 }
 
 @MainActor
@@ -123,6 +247,27 @@ final class CommandCompletionModel: ObservableObject {
     editor.window?.makeFirstResponder(editor)
   }
 
+  /// Types `text` at the caret, or at the end when the editor doesn't have
+  /// focus, with a space before it after a word, and gives the editor focus.
+  /// Inserting `/` opens the command list.
+  func insert(_ text: String) {
+    guard let editor, editor.isEditable, !editor.hasMarkedText() else { return }
+    let source = editor.string as NSString
+    let hasFocus = editor.window?.firstResponder === editor
+    var range = editor.selectedRange()
+    if !hasFocus || range.location == NSNotFound || NSMaxRange(range) > source.length {
+      range = NSRange(location: source.length, length: 0)
+    }
+    let previous = range.location > 0 ? source.substring(with: NSRange(location: range.location - 1, length: 1)) : ""
+    let replacement = (previous.isEmpty || previous.first?.isWhitespace == true ? "" : " ") + text
+    editor.window?.makeFirstResponder(editor)
+    guard editor.shouldChangeText(in: range, replacementString: replacement) else { return }
+    editor.textStorage?.replaceCharacters(in: range, with: replacement)
+    editor.setSelectedRange(NSRange(location: range.location + (replacement as NSString).length, length: 0))
+    editor.didChangeText()
+    refresh()
+  }
+
   func handle(_ event: NSEvent) -> Bool {
     guard !commands.isEmpty, editor?.hasMarkedText() == false,
           event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return false }
@@ -139,6 +284,9 @@ final class CommandCompletionModel: ObservableObject {
 
 final class SlashCommandTextView: NSTextView {
   var completion: CommandCompletionModel?
+  /// Plain text and command tokens. The old design uses the system label color and blue.
+  var plainTextColor: NSColor = .labelColor
+  var commandTextColor: NSColor = .systemBlue
   var submit: (() -> Void)?
   var focusChanged: ((Bool) -> Void)?
 
@@ -185,24 +333,34 @@ final class SlashCommandTextView: NSTextView {
     guard !hasMarkedText(), let storage = textStorage else { return }
     let selection = selectedRanges
     storage.beginEditing()
-    storage.addAttributes([.foregroundColor: NSColor.labelColor, .font: NSFont.systemFont(ofSize: font?.pointSize ?? 15)],
+    storage.addAttributes([.foregroundColor: plainTextColor, .font: NSFont.systemFont(ofSize: font?.pointSize ?? 15)],
                           range: NSRange(location: 0, length: storage.length))
     for token in SlashCommand.tokens(in: string) {
-      storage.addAttribute(.foregroundColor, value: NSColor.systemBlue, range: token.range)
+      storage.addAttribute(.foregroundColor, value: commandTextColor, range: token.range)
     }
     storage.endEditing()
     selectedRanges = selection
-    typingAttributes = [.foregroundColor: NSColor.labelColor, .font: NSFont.systemFont(ofSize: font?.pointSize ?? 15)]
+    typingAttributes = [.foregroundColor: plainTextColor, .font: NSFont.systemFont(ofSize: font?.pointSize ?? 15)]
   }
 }
 
 private struct CommandTextEditor: NSViewRepresentable {
+  /// The text view's colors. `caret` nil keeps the system insertion point.
+  struct Colors: Equatable {
+    var text: NSColor
+    var command: NSColor
+    var caret: NSColor?
+
+    static let classic = Colors(text: .labelColor, command: .systemBlue, caret: nil)
+  }
+
   @Binding var text: String
   @Binding var isFocused: Bool
   var isEnabled: Bool
   var completion: CommandCompletionModel
   var availableCommands: [SlashCommand]
   var fontSize: CGFloat = 15
+  var colors: Colors = .classic
   var submit: () -> Void
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -247,6 +405,15 @@ private struct CommandTextEditor: NSViewRepresentable {
     }
     let needsFontUpdate = editor.font?.pointSize != fontSize
     if needsFontUpdate { editor.font = .systemFont(ofSize: fontSize) }
+    let needsColorUpdate = editor.plainTextColor != colors.text || editor.commandTextColor != colors.command
+    if needsColorUpdate {
+      editor.plainTextColor = colors.text
+      editor.commandTextColor = colors.command
+    }
+    if let caret = colors.caret, editor.insertionPointColor != caret { editor.insertionPointColor = caret }
+    if needsColorUpdate, editor.string == text, !needsFontUpdate, !editor.hasMarkedText() {
+      editor.highlightCommands()
+    }
     if (editor.string != text || needsFontUpdate), !editor.hasMarkedText() {
       editor.delegate = nil
       editor.string = text
