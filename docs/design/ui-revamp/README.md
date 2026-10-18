@@ -198,17 +198,26 @@ reaches parity, so `main` always ships a working app.
    mode, and composer focus), `ComposerSubmission` (what Send does with a
    draft), and `ChatHistoryList` (the sidebar's history rows). New screens
    should drive these same models instead of copying the logic.
-3. **Character component.** Build `EnigmaCharacter` alone, with previews for
-   each state, Reduce Motion support, and a CPU check.
-4. **Welcome screen,** behind the flag.
-5. **Settings,** behind the flag.
+3. **Character component.** Build `EnigmaCharacter` alone, with the slot
+   overlay that screens will use, previews for each state, Reduce Motion
+   support, and a CPU check.
+4. **Welcome screen,** behind the flag. This phase also adds the shared
+   controls that later screens reuse.
+5. **Settings,** behind the flag, including the System / Paper / Ink
+   appearance choice.
 6. **Compact panel,** behind the flag. Test it with the signed build, because
    it touches the global shortcut and selection permissions.
-7. **Main chat window,** behind the flag.
-8. **Switch over.** Turn the flag on by default, then remove the old views,
-   the liquid-glass settings, and `docs/Liquid-Glass-UI.md` once the new UI
-   has run as the default for a while.
+7. **Main window,** behind the flag: the sidebar, the main page, the
+   composer, the model picker, and the mode palette.
+8. **Conversation,** behind the flag: messages, replies, the character's fall
+   into the chat, activity, attachments, and the cards shown in a chat.
+9. **Icons.** Redraw the app mark, the menu bar icon, and the tool icons in
+   the new style, and add an app icon.
+10. **Switch over.** Make the new UI the only UI. Remove the flag, the old
+    views and assets, the liquid-glass settings, and
+    `docs/Liquid-Glass-UI.md`, and rewrite `UI-Style.md` for the new style.
 
-Each phase is its own focused PR. It passes `scripts/verify-xcode.sh build`,
-`test`, and `analyze`, and includes Paper and Ink screenshots of whatever it
-changes.
+Each phase is one focused commit on `feat/ui-revamp`, built and reviewed as
+described in [agent-workflow.md](agent-workflow.md), with its brief in
+[briefs/](briefs/). It passes `scripts/verify-xcode.sh build`, `test`, and
+`analyze`, and includes Paper and Ink screenshots of whatever it changes.
