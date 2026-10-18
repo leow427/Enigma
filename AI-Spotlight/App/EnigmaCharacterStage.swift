@@ -87,6 +87,8 @@ final class EnigmaCharacterController: ObservableObject {
   /// Whether the character is drawn: its slot has been laid out and is still there.
   private(set) var isPresent = false
   private var pendingTransition: EnigmaCharacterTransition?
+  /// An `assemble()` sent before the first slot was laid out, played on arrival.
+  private var assemblesOnArrival = false
   private var targets: [EnigmaCharacterTargetID: CGPoint] = [:]
   private var lastFrameTime: TimeInterval?
   private var activityRefreshScheduled = false
@@ -121,7 +123,12 @@ final class EnigmaCharacterController: ObservableObject {
   }
 
   /// Grows the character from nothing at its slot, as on the welcome screen.
+  /// Sent before the character is drawn, it plays once the slot is laid out.
   func assemble() {
+    guard isPresent else {
+      if !model.reduceMotion { assemblesOnArrival = true }
+      return
+    }
     if model.assemble() { wake() }
   }
 
@@ -140,6 +147,14 @@ final class EnigmaCharacterController: ObservableObject {
     model.step(dt: dt)
     refreshActivityLater()
     return isPresent ? model.frame : .empty
+  }
+
+  /// The stage left the window, as when the welcome closes. The character is
+  /// no longer drawn, so its next slot is taken instantly, and an `assemble()`
+  /// sent with it, as on Replay, plays again.
+  func stageDidDisappear() {
+    isPresent = false
+    lastFrameTime = nil
   }
 
   func pointerMoved(to point: CGPoint?) {
@@ -170,6 +185,7 @@ final class EnigmaCharacterController: ObservableObject {
     }
     if !isPresent {
       model.place(at: slot, instantly: true)
+      if assemblesOnArrival { model.assemble() }
     } else if let transition = pendingTransition {
       switch transition {
       case .automatic: model.fall(to: slot)
@@ -180,6 +196,7 @@ final class EnigmaCharacterController: ObservableObject {
       model.updateSlot(slot)
     }
     pendingTransition = nil
+    assemblesOnArrival = false
     isPresent = true
   }
 
@@ -308,6 +325,7 @@ struct EnigmaCharacterStage: ViewModifier {
         }
       }
       .background(EnigmaWindowVisibilityReader { isWindowVisible = $0 })
+      .onDisappear { controller.stageDidDisappear() }
   }
 }
 

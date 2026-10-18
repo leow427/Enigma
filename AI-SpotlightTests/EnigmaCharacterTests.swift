@@ -415,6 +415,57 @@ final class EnigmaCharacterTests: XCTestCase {
   }
 
   @MainActor
+  func testAssembleSentBeforeTheSlotIsLaidOutPlaysOnArrival() {
+    let fullRadius = mainSlot.size * EnigmaCharacterTuning.bodyScale
+    var time = 10.0
+    func frame(_ controller: EnigmaCharacterController, reduceMotion: Bool = false) {
+      time += 1.0 / 120
+      _ = controller.frame(at: time, slots: ["main": mainSlot], targets: [:], reduceMotion: reduceMotion)
+    }
+
+    // A screen's onAppear moves and assembles before its slot reaches the stage.
+    let growing = EnigmaCharacterController(seed: 6)
+    growing.move(to: "main", .instant)
+    growing.assemble()
+    frame(growing)
+    XCTAssertLessThan(growing.model.bodyRadius, fullRadius * 0.5, "It starts small rather than snapping to size")
+    for _ in 0..<(120 * 2) { frame(growing) }
+    XCTAssertEqual(growing.model.bodyRadius, fullRadius, accuracy: 0.5, "It grows to the slot's size")
+
+    let placed = EnigmaCharacterController(seed: 6)
+    placed.move(to: "main", .instant)
+    frame(placed)
+    XCTAssertEqual(placed.model.bodyRadius, fullRadius, accuracy: 0.01, "Without assemble it appears at full size")
+
+    let still = EnigmaCharacterController(seed: 6)
+    still.move(to: "main", .instant)
+    still.assemble()
+    frame(still, reduceMotion: true)
+    XCTAssertEqual(still.model.bodyRadius, fullRadius, accuracy: 0.01, "Reduce Motion skips the grow-in")
+  }
+
+  @MainActor
+  func testReplayGrowsInAgainAfterTheStageLeaves() {
+    let fullRadius = mainSlot.size * EnigmaCharacterTuning.bodyScale
+    var time = 30.0
+    let controller = EnigmaCharacterController(seed: 6)
+    func frame() {
+      time += 1.0 / 120
+      _ = controller.frame(at: time, slots: ["main": mainSlot], targets: [:], reduceMotion: false)
+    }
+    controller.move(to: "main", .instant)
+    frame()
+    XCTAssertEqual(controller.model.bodyRadius, fullRadius, accuracy: 0.01)
+
+    // Closing the welcome removes the stage; Replay places and assembles again.
+    controller.stageDidDisappear()
+    controller.move(to: "main", .instant)
+    controller.assemble()
+    frame()
+    XCTAssertLessThan(controller.model.bodyRadius, fullRadius * 0.5, "Replay shows the grow-in again")
+  }
+
+  @MainActor
   func testStageDrawsTheCharacterAtItsSlot() throws {
     for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
       let controller = EnigmaCharacterController(seed: 9)

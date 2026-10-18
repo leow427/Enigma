@@ -212,3 +212,59 @@ private struct EnigmaThemeModifier: ViewModifier {
       .preferredColorScheme(appearance.colorScheme)
   }
 }
+
+// MARK: New screens inside old windows
+
+/// The Mac's own light or dark setting. Unlike a view's `colorScheme`, it
+/// ignores a scheme that a window forces, such as the old UI's dark mode.
+@MainActor
+final class EnigmaSystemAppearance: ObservableObject {
+  static let shared = EnigmaSystemAppearance()
+
+  @Published private(set) var colorScheme: ColorScheme
+  private var observation: NSKeyValueObservation?
+
+  /// Follows the app's effective appearance, which windows don't change.
+  init(application: NSApplication = .shared) {
+    colorScheme = Self.scheme(of: application.effectiveAppearance)
+    observation = application.observe(\.effectiveAppearance) { [weak self] _, _ in
+      Task { @MainActor in
+        guard let self else { return }
+        let scheme = Self.scheme(of: application.effectiveAppearance)
+        if scheme != self.colorScheme { self.colorScheme = scheme }
+      }
+    }
+  }
+
+  /// A fixed setting, for tests and previews.
+  init(colorScheme: ColorScheme) {
+    self.colorScheme = colorScheme
+  }
+
+  static func scheme(of appearance: NSAppearance) -> ColorScheme {
+    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .dark : .light
+  }
+}
+
+extension View {
+  /// Applies an appearance to a new screen shown inside a window that the old
+  /// UI still owns. System follows the Mac's own setting rather than the
+  /// window's forced dark scheme, and the window's scheme is left alone, so the
+  /// old screens around it don't change.
+  func enigmaEmbeddedTheme(_ appearance: EnigmaAppearance,
+                           system: EnigmaSystemAppearance = .shared) -> some View {
+    modifier(EnigmaEmbeddedThemeModifier(appearance: appearance, system: system))
+  }
+}
+
+private struct EnigmaEmbeddedThemeModifier: ViewModifier {
+  let appearance: EnigmaAppearance
+  @ObservedObject var system: EnigmaSystemAppearance
+
+  func body(content: Content) -> some View {
+    let scheme = appearance.colorScheme ?? system.colorScheme
+    content
+      .environment(\.enigmaPalette, appearance.palette(for: scheme))
+      .environment(\.colorScheme, scheme)
+  }
+}

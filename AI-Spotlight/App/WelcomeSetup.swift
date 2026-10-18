@@ -78,6 +78,102 @@ final class WelcomeSetup: ObservableObject {
   }
 }
 
+// MARK: Flow for the new welcome
+
+extension WelcomeSetup {
+  /// The step counter, like `2/4`.
+  static func counter(for step: Step) -> String { "\(step.rawValue + 1)/\(Step.allCases.count)" }
+
+  func goBack() { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
+
+  func advance() { step = Step(rawValue: step.rawValue + 1) ?? .walkthrough }
+
+  /// Where the character sits: large on the welcome, small in each later step's header.
+  enum CharacterSlot: Equatable {
+    case hero, header
+
+    var id: EnigmaCharacterSlotID { self == .hero ? "welcome.hero" : "welcome.header" }
+    var size: CGFloat { self == .hero ? 150 : 40 }
+  }
+
+  static func characterSlot(for step: Step) -> CharacterSlot { step == .welcome ? .hero : .header }
+
+  /// How the character moves between two steps: it glides up from the welcome
+  /// into the header and drops back down on Back. Nil when it stays put.
+  static func characterTransition(from old: Step, to new: Step) -> EnigmaCharacterTransition? {
+    let from = characterSlot(for: old), to = characterSlot(for: new)
+    guard from != to else { return nil }
+    return to == .header ? .glide : .automatic
+  }
+
+  /// What the character reacts to during setup.
+  struct Activity: Equatable {
+    var isDetectingHardware = false
+    var isInstalling = false
+    var installFailed = false
+    var connectionFailed = false
+    var isEnteringKey = false
+  }
+
+  /// It thinks while the Mac is checked or a model downloads and verifies, shows
+  /// the error state when an install or connection fails, and listens while
+  /// someone types an API key.
+  static func characterState(for step: Step, _ activity: Activity) -> EnigmaCharacterState {
+    switch step {
+    case .welcome, .walkthrough:
+      return .idle
+    case .models:
+      if activity.installFailed { return .error }
+      return activity.isDetectingHardware || activity.isInstalling ? .thinking : .idle
+    case .connections:
+      if activity.connectionFailed { return .error }
+      return activity.isEnteringKey ? .listening : .idle
+    }
+  }
+
+  /// Downloading, verifying, installing, and the first performance check.
+  static func isInstalling(_ state: LocalChatViewModel.State) -> Bool {
+    switch state {
+    case .downloading, .installing, .benchmarking: true
+    default: false
+    }
+  }
+
+  static func installFailed(_ state: LocalChatViewModel.State) -> Bool {
+    if case .failed = state { return true }
+    return false
+  }
+
+  /// What the models step's one primary button does.
+  enum ModelAction: Equatable {
+    case install, update, use, proceed
+  }
+
+  /// Nil when nothing can be done yet, like before a model is chosen. `proceed`
+  /// matches `canContinue` whenever nothing is busy.
+  static func modelAction(selected: LocalModelAssessment?, installed: [LocalModel], activeID: String?,
+                          skipLocal: Bool) -> ModelAction? {
+    if skipLocal { return .proceed }
+    guard let selected, selected.fit.canRun else { return nil }
+    guard let model = installed.first(where: { $0.id == selected.id }) else { return .install }
+    if selected.model.requiresUpdate(model) { return .update }
+    return activeID == selected.id ? .proceed : .use
+  }
+
+  /// Whether Return presses the models step's button. Never for a download:
+  /// installing or updating takes a click or Space.
+  static func returnPressesModelAction(_ action: ModelAction?) -> Bool {
+    action != .install && action != .update
+  }
+
+  /// The selection shortcut as the welcome shows it, like `⌥⌥`, or nil when it's off.
+  static func selectionShortcut(modifier: String, isEnabled: Bool) -> String? {
+    guard isEnabled else { return nil }
+    let symbol = (SelectionModifier(rawValue: modifier) ?? .option).symbol
+    return symbol + symbol
+  }
+}
+
 /// Coordinates and characters are extracted unchanged from the supplied Vue asset.
 struct EnigmaHelloLetter: Decodable {
   struct Column: Decodable {

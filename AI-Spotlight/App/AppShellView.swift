@@ -235,6 +235,9 @@ private struct NatureButtonStyle: ButtonStyle {
 
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
+  @ObservedObject private var newUI: NewUIPreference
+  /// The window's character. The new welcome shows it; later phases share it.
+  @StateObject private var character = EnigmaCharacterController()
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
   @ObservedObject private var selectionContext = SelectionContextService.shared
   @ObservedObject var glassAppearance: GlassAppearanceSettings
@@ -270,7 +273,8 @@ struct AppShellView: View {
     modelAdvisor: LocalModelAdvisor = .shared,
     searchSettings: WebSearchSettings = .shared,
     startPreferences: StartPreferences = .shared,
-    welcomeSetup: WelcomeSetup = .shared
+    welcomeSetup: WelcomeSetup = .shared,
+    newUI: NewUIPreference = .shared
   ) {
     self.glassAppearance = glassAppearance
     self.cloudSettings = cloudSettings
@@ -278,6 +282,7 @@ struct AppShellView: View {
     self.searchSettings = searchSettings
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
+    self.newUI = newUI
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
     _screen = StateObject(wrappedValue: screen)
@@ -454,13 +459,29 @@ struct AppShellView: View {
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
       if welcomeSetup.tour != nil {
-        WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-          availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
+        if newUI.isEnabled {
+          // Phase 5: pass the appearance setting instead of System.
+          EnigmaWelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
+            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
+            .enigmaEmbeddedTheme(.system)
+        } else {
+          WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
+            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
+        }
       }
     }
     .overlay {
       if welcomeSetup.isPresented {
-        WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
+        if newUI.isEnabled {
+          EnigmaWelcomeView(setup: welcomeSetup, character: character, advisor: modelAdvisor, chat: localChat,
+            cloud: cloudSettings, search: searchSettings)
+            // Phase 6: move the stage to the window root, so the character can
+            // fall from the welcome into the main page.
+            .enigmaCharacterStage(character)
+            .enigmaEmbeddedTheme(.system)
+        } else {
+          WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
+        }
       }
     }
   }
@@ -550,7 +571,12 @@ struct AppShellView: View {
   var body: some View {
     selectionObservedShell
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
-      LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
+      if newUI.isEnabled {
+        EnigmaLocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
+          .enigmaEmbeddedTheme(.system)
+      } else {
+        LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
+      }
     }
     .modifier(MessagesDialogs(messages: messages, submit: submitMessages))
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
