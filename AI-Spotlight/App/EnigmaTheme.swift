@@ -186,3 +186,29 @@ enum EnigmaMotion {
   /// The character's fall, in points per second squared.
   static let characterGravity: Double = 2600
 }
+
+extension EnvironmentValues {
+  /// The palette new views draw with. Set it at the window root with `.enigmaTheme(_:)`.
+  @Entry var enigmaPalette: EnigmaPalette = .paper
+}
+
+extension View {
+  /// Applies an appearance to a window's content: the palette, and the matching
+  /// color scheme so native text and menus agree with it.
+  func enigmaTheme(_ appearance: EnigmaAppearance) -> some View {
+    modifier(EnigmaThemeModifier(appearance: appearance))
+  }
+}
+
+private struct EnigmaThemeModifier: ViewModifier {
+  let appearance: EnigmaAppearance
+  @Environment(\.colorScheme) private var systemScheme
+
+  func body(content: Content) -> some View {
+    let scheme = appearance.colorScheme ?? systemScheme
+    content
+      .environment(\.enigmaPalette, appearance.palette(for: scheme))
+      .environment(\.colorScheme, scheme)
+      .preferredColorScheme(appearance.colorScheme)
+  }
+}

@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7F32FA275774C54A2C02B70C /* AI-SpotlightTests/EnigmaSnapshotSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */; };
+		3B9BEECE1B12C4ACEFF1F6BC /* AI-SpotlightTests/EnigmaCharacterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */; };
+		129D9E9EC86A78CDCC284517 /* AI-Spotlight/App/EnigmaCharacterStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0EC41772B49C9CA1833CC6 /* AI-Spotlight/App/EnigmaCharacterStage.swift */; };
+		F4FB6587E7FE28F291AFAC74 /* AI-Spotlight/App/EnigmaCharacterDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8CA5AAF19F884FF8DFBC0B /* AI-Spotlight/App/EnigmaCharacterDrawing.swift */; };
+		3A612105DC9148AA9A8FE283 /* AI-Spotlight/App/EnigmaCharacterModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126C7518154FF555075A4250 /* AI-Spotlight/App/EnigmaCharacterModel.swift */; };
 		BC98F7A133F41BA336F106D1 /* AI-Spotlight/App/ShellPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */; };
 		422E561946FB6455B45F5292 /* AI-Spotlight/App/ComposerSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */; };
 		C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */; };
@@ -156,6 +161,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaSnapshotSupport.swift"; sourceTree = SOURCE_ROOT; };
+		AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaCharacterTests.swift"; sourceTree = SOURCE_ROOT; };
+		7D0EC41772B49C9CA1833CC6 /* AI-Spotlight/App/EnigmaCharacterStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCharacterStage.swift"; sourceTree = SOURCE_ROOT; };
+		AA8CA5AAF19F884FF8DFBC0B /* AI-Spotlight/App/EnigmaCharacterDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCharacterDrawing.swift"; sourceTree = SOURCE_ROOT; };
+		126C7518154FF555075A4250 /* AI-Spotlight/App/EnigmaCharacterModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCharacterModel.swift"; sourceTree = SOURCE_ROOT; };
 		854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ShellPresentation.swift"; sourceTree = SOURCE_ROOT; };
 		352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ComposerSubmission.swift"; sourceTree = SOURCE_ROOT; };
 		3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ChatHistoryList.swift"; sourceTree = SOURCE_ROOT; };
@@ -320,6 +330,11 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */,
+				AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */,
+				7D0EC41772B49C9CA1833CC6 /* AI-Spotlight/App/EnigmaCharacterStage.swift */,
+				AA8CA5AAF19F884FF8DFBC0B /* AI-Spotlight/App/EnigmaCharacterDrawing.swift */,
+				126C7518154FF555075A4250 /* AI-Spotlight/App/EnigmaCharacterModel.swift */,
 				C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */,
 				854085E31EB7F7858B10685A /* AI-Spotlight/App/ShellPresentation.swift */,
 				352A65893F57F955B6BAD0EE /* AI-Spotlight/App/ComposerSubmission.swift */,
@@ -639,6 +654,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
+				129D9E9EC86A78CDCC284517 /* AI-Spotlight/App/EnigmaCharacterStage.swift in Sources */,
+				F4FB6587E7FE28F291AFAC74 /* AI-Spotlight/App/EnigmaCharacterDrawing.swift in Sources */,
+				3A612105DC9148AA9A8FE283 /* AI-Spotlight/App/EnigmaCharacterModel.swift in Sources */,
 				BC98F7A133F41BA336F106D1 /* AI-Spotlight/App/ShellPresentation.swift in Sources */,
 				422E561946FB6455B45F5292 /* AI-Spotlight/App/ComposerSubmission.swift in Sources */,
 				C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */,
@@ -741,6 +759,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
+				7F32FA275774C54A2C02B70C /* AI-SpotlightTests/EnigmaSnapshotSupport.swift in Sources */,
+				3B9BEECE1B12C4ACEFF1F6BC /* AI-SpotlightTests/EnigmaCharacterTests.swift in Sources */,
 				80004CBDDB61209435345505 /* AI-SpotlightTests/AppShellStateTests.swift in Sources */,
 				FC2B0BD85645C62439050546 /* AI-SpotlightTests/EnigmaThemeTests.swift in Sources */,
 				051D2015ABFB2B36D0C65AEF /* AI-SpotlightTests/MessagesTests.swift in Sources */,

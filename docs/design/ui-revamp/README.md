@@ -161,12 +161,37 @@ traveling ripples, and the jitter. Its resting shape has 5 soft lobes.
   dangling. On landing it squashes, dust puffs pop out, and short impact lines
   flash beside it. If the slot is above, it glides there on a spring.
 
-**Implementation.** Draw it natively with SwiftUI `Canvas` inside a
+**Implementation.** It is drawn natively with SwiftUI `Canvas` inside a
 `TimelineView(.animation)`, from the same math as the `Glyph` function in
-`main-window.html`. Screens mark where it sits with anchor preferences. One
-overlay at the window root draws it and runs the fall between slots. This
-replaces `EnigmaCoalescenceView`, the web-view animation that looked low
-resolution. Pause the timeline when the window is hidden or occluded.
+`main-window.html`. `EnigmaCharacterModel` is the simulation: a value type
+advanced with `step(dt:)`, with its jitter seeded by frame index, so a given
+time always draws the same outline. `EnigmaCharacterRenderer` turns its frames
+into paths. Screens hold an `EnigmaCharacterController` to set the state and
+send events, and mark where the character sits with
+`.enigmaCharacterSlot(id:size:)`, which uses anchor preferences. One
+`.enigmaCharacterStage(_:)` overlay at the window root draws it, runs the fall
+between slots, and handles dragging and poking. This replaces
+`EnigmaCoalescenceView`, the web-view animation that looked low resolution.
+The timeline pauses when the window is hidden or occluded and under Reduce
+Motion. Once the character settles, its idle loop redraws at 24 fps.
+`EnigmaMark` draws the same pose at rest (`EnigmaCharacterModel.stillFrame`).
+
+## App icon and mark
+
+The character is Enigma's icon. Its still pose, with the lime body, porthole,
+antenna, three legs, and thick outline, is used everywhere the app shows
+itself:
+
+- **App icon:** the character drawn flat and centered on a Paper
+  `background` rounded square. It has no gloss, gradient, or glow. Finder,
+  the Dock, and the privacy panes in System Settings show it.
+- **Menu bar:** a monochrome template version of the same pose that reads at
+  18 pt. It drops details, such as the legs, if they turn to noise.
+- **In the app:** the sidebar's app mark and `EnigmaMark` (earlier chat
+  replies) are the same pose.
+
+Draw all of these from the character's own Swift drawing code, not
+separately, so the icon always matches the living character.
 
 ## Accessibility
 
@@ -205,14 +230,16 @@ reaches parity, so `main` always ships a working app.
    controls that later screens reuse.
 5. **Settings,** behind the flag, including the System / Paper / Ink
    appearance choice.
-6. **Compact panel,** behind the flag. Test it with the signed build, because
-   it touches the global shortcut and selection permissions.
-7. **Main window,** behind the flag: the sidebar, the main page, the
+6. **Main window,** behind the flag: the sidebar, the main page, the
    composer, the model picker, and the mode palette.
-8. **Conversation,** behind the flag: messages, replies, the character's fall
+7. **Conversation,** behind the flag: messages, replies, the character's fall
    into the chat, activity, attachments, and the cards shown in a chat.
-9. **Icons.** Redraw the app mark, the menu bar icon, and the tool icons in
-   the new style, and add an app icon.
+8. **Compact panel,** behind the flag. It reuses the composer and reply views
+   from phases 6 and 7. Test it with the signed build, because it touches the
+   global shortcut and selection permissions.
+9. **Icons.** Make the character the app icon, the menu bar icon, and the
+   app mark (see "App icon and mark"), and redraw the tool icons in the new
+   style.
 10. **Switch over.** Make the new UI the only UI. Remove the flag, the old
     views and assets, the liquid-glass settings, and
     `docs/Liquid-Glass-UI.md`, and rewrite `UI-Style.md` for the new style.
