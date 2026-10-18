@@ -30,7 +30,7 @@ private struct MainPageInfoHeight: PreferenceKey {
 /// Lays out the main column: the empty page, or the conversation with the
 /// composer docked at the bottom. The composer is one view throughout, so it
 /// springs between the two places with `EnigmaMotion.composerDock`. Under
-/// Reduce Motion it fades out, moves, and fades back in.
+/// Reduce Motion it moves there at once while the page around it cross-fades.
 struct EnigmaMainColumn<TopBar: View, Header: View, Conversation: View, Accessories: View, Composer: View,
                         Examples: View>: View {
   /// Nothing has been sent in this chat yet.
@@ -48,7 +48,6 @@ struct EnigmaMainColumn<TopBar: View, Header: View, Conversation: View, Accessor
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var docked: Bool
-  @State private var isComposerHidden = false
   @State private var infoHeight: CGFloat = 96
   @State private var composerHeight: CGFloat = 86
   @State private var accessoriesHeight: CGFloat = 0
@@ -90,9 +89,10 @@ struct EnigmaMainColumn<TopBar: View, Header: View, Conversation: View, Accessor
           accessoriesArea(limit: layout.accessoriesLimit)
           composer(docked)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
-            .opacity(isComposerHidden ? 0 : 1)
         }
         .frame(width: columnWidth)
+        // Under Reduce Motion the composer doesn't slide: only the page fades.
+        .transaction(value: docked) { if reduceMotion { $0.animation = nil } }
         .zIndex(1)
         if !docked {
           examples(layout.exampleCount)
@@ -126,17 +126,11 @@ struct EnigmaMainColumn<TopBar: View, Header: View, Conversation: View, Accessor
 
   private func dock(_ value: Bool) {
     guard value != docked else { return }
-    guard reduceMotion else {
-      withAnimation(EnigmaMotion.composerDock.animation) { docked = value }
-      return
-    }
-    // A cross-fade instead of a slide: the composer moves while it's hidden.
-    withAnimation(.easeOut(duration: 0.12)) {
-      isComposerHidden = true
-    } completion: {
-      withAnimation(.easeInOut(duration: 0.2)) { docked = value }
-      withAnimation(.easeIn(duration: 0.16).delay(0.08)) { isComposerHidden = false }
-    }
+    // Under Reduce Motion the header, examples, and conversation cross-fade
+    // and the composer moves at once. Animating its move, even while hidden,
+    // could leave its AppKit views (the message field, Send) where it started
+    // while SwiftUI drew it docked, so clicks missed.
+    withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : EnigmaMotion.composerDock.animation) { docked = value }
   }
 }
 

@@ -321,6 +321,114 @@ final class EnigmaConversationTests: XCTestCase {
     }
   }
 
+  /// Under Reduce Motion the first send moves the composer, with its message
+  /// field and Send, to where a docked chat keeps it, without sliding there.
+  /// The character moves between slots without falling, and later sends work.
+  @MainActor
+  func testUnderReduceMotionTheFirstSendDocksTheComposerAndLaterSendsStillWork() async throws {
+    let size = CGSize(width: 1000, height: 660)
+    let resting = try await dockedComposerFrames(size: size)
+
+    let fixture = try await Fixture(test: self)
+    fixture.reduceMotion = true
+    let host = Host(fixture, size: size, test: self)
+    let character = fixture.character
+    try await waitForUI("the character on the main page", in: host.view) {
+      character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
+        && composerEditor(in: host.view)?.isEditable == true
+    }
+    func atRest(in slot: EnigmaCharacterSlotID) -> Bool {
+      guard character.activeSlot == slot, character.isPresent, let model = character.model.slot,
+            model.size == ConversationTranscript.slotSize else { return false }
+      return abs(character.model.position.y - model.center.y) < 1
+    }
+    func composer(_ name: String) -> CGRect? {
+      host.marker(name).map { host.view.convert($0.bounds, from: $0) }
+    }
+    func field() -> CGRect? { composerEditor(in: host.view).map { host.view.convert($0.bounds, from: $0) } }
+    func isAt(_ frame: CGRect?, _ place: CGRect) -> Bool {
+      guard let frame else { return false }
+      return abs(frame.minX - place.minX) < 1 && abs(frame.minY - place.minY) < 1
+    }
+    func isDocked(_ frame: CGRect?) -> Bool { isAt(frame, resting.send) }
+    // Every place Send (or Stop) is seen from the first send on.
+    let start = try XCTUnwrap(composer("Send message"))
+    var seen: [CGRect] = []
+    func observe() {
+      if let frame = composer("Stop response") ?? composer("Send message"), seen.last != frame { seen.append(frame) }
+    }
+
+    // The first reply streams and finishes while the page changes, as in use.
+    var moved = false
+    try await send("Explain actors", in: host, fixture)
+    let first = ConversationTranscript.slot(forReply: try XCTUnwrap(fixture.chat.activity?.id))
+    try await waitForUI("the character in the first reply's slot and the reply's stream", in: host.view) {
+      observe()
+      moved = moved || character.model.isFalling
+      return atRest(in: first) && fixture.engine.requestCount == 1
+    }
+    fixture.engine.send("Actors protect their own state.")
+    try await waitForUI("answering while the reply streams", in: host.view) {
+      observe()
+      return character.state == .answering && host.shows("Reply")
+    }
+    fixture.engine.finish()
+    try await waitForUI("idle once the reply is done", in: host.view) {
+      observe()
+      return character.state == .idle && fixture.chat.activeRequest == nil && host.shows("Reply meta")
+    }
+    XCTAssertFalse(moved, "It moves into the reply without falling")
+    // The field and Send are AppKit views placed by SwiftUI: where they are is
+    // where a click goes, so they must be where the docked composer is drawn.
+    XCTAssertTrue(isDocked(composer("Send message")),
+                  "Send is in the docked composer: \(String(describing: composer("Send message"))), not \(resting.send)")
+    XCTAssertTrue(isAt(field(), resting.field),
+                  "The message field is in the docked composer: \(String(describing: field())), not \(resting.field)")
+    XCTAssertEqual(seen.filter { !isAt($0, start) && !isDocked($0) }, [],
+                   "The composer goes to the bottom at once instead of sliding: \(seen) from \(start)")
+
+    try await send("And isolation?", in: host, fixture)
+    let second = ConversationTranscript.slot(forReply: try XCTUnwrap(fixture.chat.activity?.id))
+    try await waitForUI("the second request and the character in its reply's slot", in: host.view) {
+      moved = moved || character.model.isFalling
+      return fixture.engine.requestCount == 2 && atRest(in: second) && host.shows("Earlier reply mark")
+        && !host.shows("Example /screen")
+    }
+    XCTAssertFalse(moved, "It moves to the newest reply without falling")
+    XCTAssertTrue(isDocked(composer("Stop response")), "The composer stays docked")
+
+    // A new chat puts the composer back on the main page, also at once.
+    fixture.engine.finish()
+    try await waitForUI("the second reply done", in: host.view) { fixture.chat.activeRequest == nil }
+    seen = []
+    fixture.chat.newChat()
+    try await waitForUI("the composer back on the main page (seen at \(seen), start \(start))", in: host.view) {
+      observe()
+      return isAt(composer("Send message"), start) && host.shows("Example /screen") && composerAcceptsClicks(in: host.view)
+    }
+    XCTAssertEqual(seen.filter { !isAt($0, start) && !isDocked($0) }, [], "The composer goes back at once: \(seen)")
+  }
+
+  /// Where the docked composer's Send button and message field rest under
+  /// Reduce Motion, in a chat that was open before the window showed, so the
+  /// composer never moved there.
+  @MainActor
+  private func dockedComposerFrames(size: CGSize) async throws -> (send: CGRect, field: CGRect) {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+    fixture.reduceMotion = true
+    fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
+    let host = Host(fixture, size: size, test: self)
+    try await waitForUI("a chat open with its composer docked", in: host.view) {
+      host.shows("Send message") && !host.shows("Example /screen") && composerAcceptsClicks(in: host.view)
+    }
+    let marker = try XCTUnwrap(host.marker("Send message"))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    let frames = (send: host.view.convert(marker.bounds, from: marker), field: host.view.convert(editor.bounds, from: editor))
+    host.window.orderOut(nil)
+    XCTAssertGreaterThan(frames.send.midY, size.height / 2, "A docked composer rests in the window's lower half: \(frames)")
+    return frames
+  }
+
   @MainActor
   func testTheMainPageShowsTheThinkingStateUntilTheRequestIsAccepted() async throws {
     let fixture = try await Fixture(test: self)
