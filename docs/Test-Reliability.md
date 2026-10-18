@@ -90,7 +90,10 @@ uses the accessory activation policy, so it has no Dock icon, and it returns foc
 the app that was in front before the run. Some tests intentionally activate the host,
 for example when Settings calls `NSApp.activate`. After each of these tests, the test
 bundle's principal class, `TestFocusObserver` in `AppUITestSupport.swift`, returns
-focus to the developer's app. Assertions and test coverage are unchanged.
+focus to the developer's app. Assertions and test coverage are unchanged. A background
+app can be throttled by App Nap, so the host holds a user-initiated, latency-critical
+activity for its lifetime. This keeps timing-sensitive UI tests at the same priority they
+had when the host was frontmost.
 
 The frontmost app was sampled every 0.1 s during a full run (563 tests) while
 another app was in front. Before this change, Enigma was frontmost for about 5 s.

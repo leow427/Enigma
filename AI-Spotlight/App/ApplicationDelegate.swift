@@ -25,12 +25,18 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   #if DEBUG
   private static var isTestHost: Bool { NSClassFromString("XCTestCase") != nil }
   private var appActiveBeforeTests: NSRunningApplication?
+  private var testHostActivity: NSObjectProtocol?
 
   func applicationWillFinishLaunching(_ notification: Notification) {
     // Keep the test host out of the Dock and hand focus back to the app the
     // developer was using, so a test run does not take over the Mac.
     guard Self.isTestHost else { return }
     NSApp.setActivationPolicy(.accessory)
+    // A background app is eligible for App Nap; timing-sensitive UI tests must
+    // run at the same priority they had when the host was frontmost.
+    testHostActivity = ProcessInfo.processInfo.beginActivity(
+      options: [.userInitiated, .latencyCritical], reason: "Running Enigma tests"
+    )
     let frontmost = NSWorkspace.shared.frontmostApplication
     if frontmost?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
       appActiveBeforeTests = frontmost
