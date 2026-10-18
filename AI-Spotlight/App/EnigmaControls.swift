@@ -64,6 +64,9 @@ extension View {
 enum EnigmaButtonKind: Sendable {
   /// The one `accent`-filled button in a view.
   case primary
+  /// The one `accent`-filled button in a card, like Replace text or Send,
+  /// sized to sit beside secondary buttons.
+  case compactPrimary
   /// Outlined in `border`.
   case secondary
   /// Plain text, like Back.
@@ -71,14 +74,14 @@ enum EnigmaButtonKind: Sendable {
 
   func fill(in palette: EnigmaPalette, isHovered: Bool) -> EnigmaColor? {
     switch self {
-    case .primary: palette.accent
+    case .primary, .compactPrimary: palette.accent
     case .secondary, .text: isHovered ? palette.hover : nil
     }
   }
 
   func label(in palette: EnigmaPalette, isHovered: Bool) -> EnigmaColor {
     switch self {
-    case .primary: palette.onAccent
+    case .primary, .compactPrimary: palette.onAccent
     case .secondary: palette.textPrimary
     case .text: isHovered ? palette.textPrimary : palette.textSecondary
     }
@@ -89,7 +92,7 @@ enum EnigmaButtonKind: Sendable {
   var font: Font {
     switch self {
     case .primary: EnigmaTypography.ui(14, weight: .medium)
-    case .secondary: EnigmaTypography.ui(12.5, weight: .medium)
+    case .secondary, .compactPrimary: EnigmaTypography.ui(12.5, weight: .medium)
     case .text: EnigmaTypography.ui(13, weight: .medium)
     }
   }
@@ -97,7 +100,7 @@ enum EnigmaButtonKind: Sendable {
   var padding: EdgeInsets {
     switch self {
     case .primary: EdgeInsets(top: 9, leading: 18, bottom: 9, trailing: 18)
-    case .secondary: EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
+    case .secondary, .compactPrimary: EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
     case .text: EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
     }
   }
@@ -126,8 +129,6 @@ private struct EnigmaButtonBody: View {
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.isEnabled) private var isEnabled
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @State private var isHovered = false
 
   var body: some View {
@@ -142,10 +143,7 @@ private struct EnigmaButtonBody: View {
         if let fill = kind.fill(in: palette, isHovered: hovered) { shape.fill(fill.color) }
       }
       .overlay {
-        if let edge = kind.edge {
-          shape.strokeBorder(edge.color(in: palette, increasedContrast: contrast == .increased).color,
-                             lineWidth: 1 / displayScale)
-        }
+        if let edge = kind.edge { EnigmaEdgeStroke(shape: shape, edge: edge) }
       }
       .contentShape(shape)
       .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
@@ -428,9 +426,7 @@ struct EnigmaTextField: View {
   var onFocusChange: (Bool) -> Void = { _ in }
   var onSubmit: () -> Void = {}
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.isEnabled) private var isEnabled
-  @Environment(\.displayScale) private var displayScale
   @FocusState private var isFocused: Bool
 
   init(_ placeholder: String, text: Binding<String>, isSecure: Bool = false, accessibilityLabel: String? = nil,
@@ -464,10 +460,7 @@ struct EnigmaTextField: View {
     .padding(.horizontal, 10)
     .padding(.vertical, 7)
     .background(palette.surface.color, in: shape)
-    .overlay {
-      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                         lineWidth: 1 / displayScale)
-    }
+    .enigmaEdge(shape)
     .enigmaFocusRing(isFocused, palette: palette, cornerRadius: 8, outset: 0)
     .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
     .onChange(of: isFocused) { _, focused in onFocusChange(focused) }
@@ -806,7 +799,6 @@ struct EnigmaSwitch: View {
   @Environment(\.isEnabled) private var isEnabled
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @FocusState private var isFocused: Bool
 
   init(_ label: String, isOn: Binding<Bool>) {
@@ -849,10 +841,7 @@ struct EnigmaSwitch: View {
         .overlay(alignment: .leading) {
           Circle()
             .fill(Self.knobColor(isOn: isOn, in: palette).color)
-            .overlay {
-              Circle().strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: increased).color,
-                                    lineWidth: 1 / displayScale)
-            }
+            .enigmaEdge(Circle())
             .frame(width: Self.knobDiameter, height: Self.knobDiameter)
             .padding(Self.knobInset)
             .offset(x: Self.knobOffset(isOn: isOn))
@@ -1204,8 +1193,6 @@ private struct EnigmaMenuList: View {
   var reportHeight: (CGFloat) -> Void = { _ in }
   let dismiss: () -> Void
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @State private var highlighted: AnyHashable?
   @State private var contentHeight: CGFloat?
   /// Rows are hidden below the visible part, so the menu says there's more.
@@ -1267,10 +1254,7 @@ private struct EnigmaMenuList: View {
     .fixedSize(horizontal: true, vertical: false)
     .background(palette.menu.color, in: shape)
     .clipShape(shape)
-    .overlay {
-      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                         lineWidth: 1 / displayScale)
-    }
+    .enigmaEdge(shape)
     .focusable()
     .focused($isFocused)
     .focusEffectDisabled()
@@ -1564,8 +1548,6 @@ private struct EnigmaMenuTriggerChrome: ViewModifier {
   let isFocused: Bool
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.isEnabled) private var isEnabled
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @State private var isHovered = false
 
   func body(content: Content) -> some View {
@@ -1580,10 +1562,7 @@ private struct EnigmaMenuTriggerChrome: ViewModifier {
         if isHovered && isEnabled { shape.fill(palette.hover.color) }
       }
       .overlay {
-        if style == .field {
-          shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                             lineWidth: 1 / displayScale)
-        }
+        if style == .field { EnigmaEdgeStroke(shape: shape) }
       }
       .contentShape(shape)
       .opacity(isEnabled ? 1 : EnigmaControlStyle.disabledOpacity)
@@ -1628,6 +1607,91 @@ struct EnigmaDisclosure<Content: View>: View {
         content().transition(.opacity)
       }
     }
+  }
+}
+
+// MARK: Edge and card
+
+extension View {
+  /// A one-pixel `edge` line just inside `shape`, like a field's or a card's
+  /// border. Under Increase Contrast it uses `border` at double opacity.
+  func enigmaEdge<S: InsettableShape>(_ shape: S, _ edge: EnigmaEdge = .border) -> some View {
+    overlay { EnigmaEdgeStroke(shape: shape, edge: edge) }
+  }
+
+  /// An opaque card in a chat or over the composer, like the Messages send
+  /// approval: `surface` with a `border` edge. Never glass, so it stays
+  /// readable with Reduce Transparency on.
+  func enigmaCard(padding: CGFloat = 14) -> some View {
+    modifier(EnigmaCardModifier(padding: padding))
+  }
+}
+
+private struct EnigmaCardModifier: ViewModifier {
+  let padding: CGFloat
+  @Environment(\.enigmaPalette) private var palette
+
+  func body(content: Content) -> some View {
+    let shape = RoundedRectangle(cornerRadius: EnigmaCardTitle.cornerRadius, style: .continuous)
+    content
+      .padding(padding)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(palette.surface.color, in: shape)
+      .enigmaEdge(shape)
+  }
+}
+
+/// The line `.enigmaEdge(_:_:)` draws, for an overlay that shows it only sometimes.
+struct EnigmaEdgeStroke<S: InsettableShape>: View {
+  let shape: S
+  var edge: EnigmaEdge = .border
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.colorSchemeContrast) private var contrast
+  @Environment(\.displayScale) private var displayScale
+
+  var body: some View {
+    shape.strokeBorder(edge.color(in: palette, increasedContrast: contrast == .increased).color,
+                       lineWidth: 1 / displayScale)
+      .allowsHitTesting(false)
+  }
+}
+
+/// A card's heading: an optional glyph in `textSecondary` and a semibold title.
+struct EnigmaCardTitle: View {
+  static let cornerRadius: CGFloat = 12
+
+  let title: String
+  var systemImage: String?
+  /// An image from the asset catalog, drawn as a template, like the Messages glyph.
+  var assetImage: String?
+  @Environment(\.enigmaPalette) private var palette
+
+  init(_ title: String, systemImage: String? = nil, assetImage: String? = nil) {
+    self.title = title
+    self.systemImage = systemImage
+    self.assetImage = assetImage
+  }
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 7) {
+      Group {
+        if let systemImage {
+          Image(systemName: systemImage)
+        } else if let assetImage {
+          Image(assetImage).renderingMode(.template).resizable().scaledToFit().frame(width: 14, height: 14)
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
+        }
+      }
+      .font(EnigmaTypography.ui(12.5, weight: .medium))
+      .foregroundStyle(palette.textSecondary.color)
+      .accessibilityHidden(true)
+      Text(title)
+        .font(EnigmaTypography.ui(13.5, weight: .semibold))
+        .foregroundStyle(palette.textPrimary.color)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(.isHeader)
   }
 }
 

@@ -1021,6 +1021,78 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
+  // The same consent steps with the new UI on: its own sheet, the same copy,
+  // the same capture exclusion, and the same refusals.
+  func testNewUIConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .gemini, newUI: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/screen What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.window.attachedSheet != nil }
+    let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+    await settleScreenshotView(sheet)
+    XCTAssertEqual(sheet.window?.sharingType, .none as NSWindow.SharingType)
+    let text = try screenshotText(in: sheet)
+    XCTAssertTrue(text.contains("send full desktop to"), text)
+    XCTAssertTrue(text.contains("captures the full desktop, including all displays"), text)
+    XCTAssertTrue(text.contains("future region and full-desktop screenshots"), text)
+    XCTAssertTrue(text.contains("without uploading an image"), text)
+    XCTAssertTrue(text.contains("keep screenshots local") && text.contains("allow & send"), text)
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    let attachmentID = fixture.screen.attachment?.id
+    try await pressScreenshotControl("Keep Screenshots Local", in: sheet)
+    try await waitForScreenshotState { fixture.window.attachedSheet == nil }
+    XCTAssertFalse(fixture.settings.allowCloudScreenshots)
+    XCTAssertTrue(fixture.settings.hasExplainedCloudPermission)
+    XCTAssertEqual(fixture.screen.attachment?.id, attachmentID)
+    XCTAssertEqual(fixture.screen.draft, "What color is this?")
+    XCTAssertEqual(fixture.screen.error, "Screenshot kept on this Mac. Use a local vision model, or enable uploads in Screen settings.")
+    try submitComposer(in: fixture.view)
+    XCTAssertEqual(fixture.screen.attachment?.routingDecision, .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage))
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertNil(fixture.window.attachedSheet)
+  }
+
+  func testNewUIConsentAllowsTheImageAndNeverApprovesAReplacedCaptureOrDestination() async throws {
+    for replaceImage in [false, true] {
+      let replaced = try await makeScreenshotComposer(mode: .cloud, newUI: true)
+      try await editScreenshotComposer("/snapshot What color is this?", in: replaced)
+      try submitComposer(in: replaced.view)
+      try await waitForScreenshotState { replaced.window.attachedSheet != nil }
+      let staleSheet = try XCTUnwrap(replaced.window.attachedSheet?.contentView)
+      await settleScreenshotView(staleSheet)
+      if replaceImage {
+        _ = await replaced.screen.capture()
+      } else {
+        replaced.cloud.preferredProvider = .anthropic
+        replaced.cloud.preferredModelID = "claude-sonnet-4-6"
+      }
+      try await pressScreenshotControl("Allow & Send", in: staleSheet)
+      try await waitForScreenshotState { replaced.window.attachedSheet == nil }
+      XCTAssertFalse(replaced.settings.allowCloudScreenshots, "replaced image: \(replaceImage)")
+      XCTAssertTrue(replaced.cloudProvider.requests.isEmpty)
+      XCTAssertNotNil(replaced.screen.attachment)
+      XCTAssertEqual(replaced.screen.draft, "What color is this?")
+      replaced.controller.hide(); replaced.window.contentView = nil
+    }
+
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .openAI, newUI: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/screen What color is this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.window.attachedSheet != nil }
+    let sheet = try XCTUnwrap(fixture.window.attachedSheet?.contentView)
+    await settleScreenshotView(sheet)
+    try await pressScreenshotControl("Allow & Send", in: sheet)
+    try await waitForScreenshotState { fixture.cloudProvider.requests.count == 1 && !fixture.chat.isBusy }
+    XCTAssertTrue(fixture.settings.allowCloudScreenshots)
+    let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+    XCTAssertNotNil(request.image)
+    XCTAssertTrue(request.allowsCloudImages)
+    XCTAssertNil(fixture.screen.attachment)
+    XCTAssertEqual(fixture.screen.draft, "")
+  }
+
   func testRealComposerOCRDoesNotRequestImageConsentAndLocalCannotUpload() async throws {
     for mode in [ChatMode.local, .cloud] {
       let fixture = try await makeScreenshotComposer(mode: mode)
@@ -1125,7 +1197,7 @@ final class ScreenViewTests: XCTestCase {
   }
 
   private func makeScreenshotComposer(compact: Bool = false, mode: ChatMode = .local,
-                                      provider: CloudProviderID = .openAI,
+                                      provider: CloudProviderID = .openAI, newUI: Bool = false,
                                       sessionWriter: ChatSessionWriter? = nil,
                                       response: AsyncThrowingStream<String, Error>? = nil,
                                       streamStarted: @escaping @Sendable () -> Void = {}) async throws -> ScreenshotComposerFixture {
@@ -1164,10 +1236,12 @@ final class ScreenViewTests: XCTestCase {
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [model], presentOnboarding: false)
     let appearance = GlassAppearanceSettings(defaults: defaults)
+    let newUIPreference = NewUIPreference(defaults: defaults)
+    newUIPreference.isEnabled = newUI
     let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
       localChat: chat, screen: screen, screenSettings: settings, modelAdvisor: advisor, searchSettings: search,
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
-      newUI: NewUIPreference(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults))
+      newUI: newUIPreference, appearance: EnigmaAppearancePreference(defaults: defaults))
       .environment(\.screenControlMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .transaction { $0.disablesAnimations = true })
     let sizes = PanelSizeStore(defaults: defaults)

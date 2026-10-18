@@ -303,17 +303,15 @@ struct AppShellView: View {
     self.messages = chat.appleMessages
   }
 
-  private var composerAccessories: some View {
+  /// Notices and cards over the composer. The new frame has its own; the old
+  /// frame and the old compact selection panel keep these.
+  @ViewBuilder private var composerAccessories: some View {
+    if usesNewFrame { newComposerAccessories } else { oldComposerAccessories }
+  }
+
+  private var oldComposerAccessories: some View {
     VStack(alignment: .trailing, spacing: 8) {
-      if usesNewFrame {
-        // The empty page shows the status under its greeting instead.
-        if !isChatEmpty {
-          EnigmaRouteStatusLine(status: routeStatusSummary, isActionEnabled: !localChat.isBusy,
-                                performAction: performRouteAction)
-        }
-      } else {
-        routeStatus
-      }
+      routeStatus
       if let notice = localChat.contextNotice {
         Text(notice)
           .font(.caption)
@@ -396,6 +394,74 @@ struct AppShellView: View {
         ScreenUploadConsentView(consent: consent,
           allow: { answerScreenPermission(consent, allow: true) },
           decline: { answerScreenPermission(consent, allow: false) })
+      }
+  }
+
+  /// The same notices and cards as the old accessories, under the same
+  /// conditions and in the same order, in the new design: opaque cards that
+  /// stay readable with Reduce Transparency on.
+  private var newComposerAccessories: some View {
+    VStack(alignment: .trailing, spacing: 8) {
+      // The empty page shows the status under its greeting instead.
+      if !isChatEmpty {
+        EnigmaRouteStatusLine(status: routeStatusSummary, isActionEnabled: !localChat.isBusy,
+                              performAction: performRouteAction)
+      }
+      if let notice = localChat.contextNotice {
+        EnigmaChatNote(notice)
+      }
+      if let decision = localChat.screenRouteDecision {
+        EnigmaChatNote(decision.status + (decision.sendsImage ? "" : " · Image not sent"), monospaced: true)
+      }
+      if !selectionAccess.isGranted && localChat.isTemporaryChat {
+        EnigmaAccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
+      }
+      if localChat.isTemporaryChat {
+        EnigmaChatNote("Temporary chat · Not saved to history", monospaced: true)
+      }
+      ForEach(localChat.attachedContexts) { context in
+        EnigmaSelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
+          localChat.removeContext(id: context.id)
+        }
+      }
+      if let notice = selectionContext.notice, localChat.isTemporaryChat {
+        EnigmaChatNote(notice)
+      }
+      if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
+        newScreenshotAttachment(attachment)
+      }
+      if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
+        EnigmaScreenUploadsOffCard(review: reviewScreenPermission, openSettings: openConnectionSettings)
+      }
+      if let error = screen.error {
+        EnigmaScreenErrorCard(error: error, needsScreenRecordingSettings: screen.needsScreenRecordingSettings) {
+          MacPermissionControls.openScreenSettings()
+        }
+      }
+      if let approval = messages.pendingSend {
+        EnigmaMessagesSendApprovalCard(approval: approval) { messages.answer($0) }
+      }
+      if let issue = messages.issue {
+        EnigmaMessagesIssueCard(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
+      }
+      if files.selection != nil || files.error != nil || files.protectedWrite != nil {
+        EnigmaFileAttachmentCard(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud,
+          isBusy: localChat.isBusy, useCodex: { isFileCloudConsentPresented = true })
+      }
+      EnigmaFileChangeSummary(files: files, isBusy: localChat.isBusy)
+    }
+  }
+
+  /// The attached screenshot in the new design, with the same consent sheet
+  /// steps as `screenshotAttachment`.
+  private func newScreenshotAttachment(_ attachment: ScreenAttachment) -> some View {
+    EnigmaScreenAttachmentCard(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
+      remove: screen.removeAttachment, retake: captureScreen)
+      .sheet(item: $screenUploadConsent, onDismiss: { shell.isComposerFocused = !localChat.isBusy }) { consent in
+        EnigmaScreenUploadConsentView(consent: consent,
+          allow: { answerScreenPermission(consent, allow: true) },
+          decline: { answerScreenPermission(consent, allow: false) })
+          .enigmaEmbeddedTheme(appearance.appearance)
       }
   }
 
@@ -622,11 +688,23 @@ struct AppShellView: View {
       guard newUI.isEnabled, !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
       character.key(towards: MainWindowCharacter.composerTarget)
     }
+    .onChange(of: CharacterPlacement(session: localChat.selectedSessionID, slot: windowCharacterSlot)) { old, new in
+      // In the open chat it falls into the first reply and moves down to each
+      // newer one. Opening another chat, saved or new, puts it there at once.
+      guard newUI.isEnabled, !welcomeSetup.isPresented, old.slot != new.slot else { return }
+      character.move(to: new.slot, ChatCharacterMove.transition(fromSession: old.session, toSession: new.session,
+                                                                isResponding: localChat.activeRequest != nil))
+    }
+    .onChange(of: localChat.presentationMessages.last?.content.utf8.count) { _, _ in
+      // One ripple per streamed update, while the character is in the chat to show it.
+      guard usesNewFrame, !welcomeSetup.isPresented, localChat.state == .streaming, character.isPresent else { return }
+      character.token()
+    }
     .onChange(of: newUI.isEnabled) { _, enabled in
-      if enabled { settleCharacterOnMainPage(.instant) }
+      if enabled { settleCharacter(.instant) }
     }
     .onAppear {
-      if newUI.isEnabled { settleCharacterOnMainPage(.instant) }
+      if newUI.isEnabled { settleCharacter(.instant) }
     }
   }
 
@@ -642,7 +720,7 @@ struct AppShellView: View {
     }
     .modifier(MessagesDialogs(messages: messages, submit: submitMessages))
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
-      isBusy: localChat.isBusy, useCodex: {
+      isBusy: localChat.isBusy, reviewAppearance: usesNewFrame ? appearance.appearance : nil, useCodex: {
         cloudSettings.preferredProvider = .chatGPT
         shell.selectedMode = .cloud
         if let handoff = files.prepareProtectedCloudDraft() {
@@ -693,7 +771,7 @@ struct AppShellView: View {
       shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
       if !presented { startPreferences.mode = .auto }
       // The character falls from the welcome into the main page's slot.
-      if !presented, newUI.isEnabled { settleCharacterOnMainPage(.automatic) }
+      if !presented, newUI.isEnabled { settleCharacter(.automatic) }
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
@@ -775,7 +853,7 @@ struct AppShellView: View {
                              performStatusAction: performRouteAction, mode: $shell.selectedMode,
                              isStatusActionEnabled: !localChat.isBusy)
       },
-      conversation: { messageList },
+      conversation: { newMessageList },
       accessories: { composerAccessories },
       composer: { docked in newComposer(docked: docked) },
       examples: { count in
@@ -898,10 +976,18 @@ struct AppShellView: View {
     return shell.selectedMode == .auto && localChat.autoRouteDecision?.limitation != nil
   }
 
-  /// Sends the character to the main page's slot with its state there.
-  private func settleCharacterOnMainPage(_ transition: EnigmaCharacterTransition) {
+  /// Where the character sits outside the welcome: beside the latest reply
+  /// in a chat, and on the main page otherwise.
+  private var windowCharacterSlot: EnigmaCharacterSlotID {
+    guard newUI.isEnabled, !isChatEmpty else { return MainWindowCharacter.mainSlot }
+    return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
+                                                  activity: localChat.activity) ?? MainWindowCharacter.mainSlot
+  }
+
+  /// Sends the character to its slot in the window with its state there.
+  private func settleCharacter(_ transition: EnigmaCharacterTransition) {
     guard !welcomeSetup.isPresented else { return }
-    character.move(to: MainWindowCharacter.mainSlot, transition)
+    character.move(to: windowCharacterSlot, transition)
     // On the next turn, once the update that closed the welcome has finished,
     // so the welcome's last state change can't land after this one.
     Task { @MainActor in
@@ -1148,7 +1234,32 @@ struct AppShellView: View {
     }
   }
 
-  /// The chat's messages. The new frame shows this list too, until phase 7.
+  /// What keeps a reader at the bottom following the chat, for both lists.
+  private var conversationScrollRevision: String {
+    (localChat.presentationMessages.last?.content ?? "") + String(localChat.presentationMessages.count)
+      + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)
+  }
+
+  /// The chat in the new design, with the same scrolling, per-chat identity,
+  /// activity expansion, and revision cards as the old list.
+  private var newMessageList: some View {
+    EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
+                      activityExpansion: activityExpansion) { message in
+      if let revision = localChat.selectionRevisions[message.id], !revision.automatic {
+        EnigmaSelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
+          update: { localChat.updateSelectionRevision(messageID: message.id, text: $0) },
+          replace: { Task { await localChat.applySelectionRevision(messageID: message.id) } })
+      }
+    }
+    .id(localChat.selectedSessionID)
+  }
+
+  private var conversationTranscript: ConversationTranscript {
+    ConversationTranscript(messages: localChat.presentationMessages.map(localChat.selectionDisplayMessage),
+                           activity: localChat.activity, isResponding: localChat.activeRequest != nil)
+  }
+
+  /// The chat's messages in the old design.
   private var messageList: some View {
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 18) {
@@ -1167,7 +1278,7 @@ struct AppShellView: View {
           }
         }
         .padding(24)
-        .background(ConversationScrollObserver(contentRevision: (localChat.presentationMessages.last?.content ?? "") + String(localChat.presentationMessages.count) + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)).allowsHitTesting(false))
+        .background(ConversationScrollObserver(contentRevision: conversationScrollRevision).allowsHitTesting(false))
       }
       .defaultScrollAnchor(.bottom, for: .initialOffset)
       .defaultScrollAnchor(.top, for: .alignment)
@@ -2386,6 +2497,12 @@ private struct AppShellCharacterStage: ViewModifier {
       content
     }
   }
+}
+
+/// Which chat is open and where the character sits in it.
+private struct CharacterPlacement: Equatable {
+  let session: UUID?
+  let slot: EnigmaCharacterSlotID
 }
 
 private struct SelectionComposerHeight: PreferenceKey {

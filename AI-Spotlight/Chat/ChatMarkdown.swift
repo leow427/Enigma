@@ -95,6 +95,28 @@ enum ChatMarkdown {
     }
     return blocks
   }
+
+  /// Blocks grouped for layout: each table's cells together, every other block alone.
+  static func groups(_ blocks: [ChatMarkdownBlock]) -> [[ChatMarkdownBlock]] {
+    var groups: [[ChatMarkdownBlock]] = []
+    for block in blocks {
+      let table = block.components.first { if case .table = $0.kind { return true }; return false }
+      if let table, groups.last?.last?.components.contains(table) == true { groups[groups.count - 1].append(block) }
+      else { groups.append([block]) }
+    }
+    return groups
+  }
+
+  /// A table group's cells split into rows.
+  static func rows(_ blocks: [ChatMarkdownBlock]) -> [[ChatMarkdownBlock]] {
+    var rows: [[ChatMarkdownBlock]] = []
+    for block in blocks {
+      let row = block.components.dropFirst().first?.identity
+      if let row, rows.last?.last?.components.dropFirst().first?.identity == row { rows[rows.count - 1].append(block) }
+      else { rows.append([block]) }
+    }
+    return rows
+  }
 }
 
 struct ChatMarkdownView: View {
@@ -103,11 +125,11 @@ struct ChatMarkdownView: View {
   var body: some View {
     let blocks = ChatMarkdown.blocks(content)
     VStack(alignment: .leading, spacing: 10) {
-      ForEach(groups(blocks), id: \.first?.id) { group in
+      ForEach(ChatMarkdown.groups(blocks), id: \.first?.id) { group in
         if group.first?.components.contains(where: { if case .table = $0.kind { return true }; return false }) == true {
           ScrollView(.horizontal) {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
-              ForEach(rows(group), id: \.first?.id) { row in
+              ForEach(ChatMarkdown.rows(group), id: \.first?.id) { row in
                 GridRow {
                   ForEach(row) { cell in
                     Text(cell.text)
@@ -122,26 +144,6 @@ struct ChatMarkdownView: View {
         }
       }
     }.font(ChatTypography.body).lineSpacing(4).textSelection(.enabled)
-  }
-
-  private func groups(_ blocks: [ChatMarkdownBlock]) -> [[ChatMarkdownBlock]] {
-    var groups: [[ChatMarkdownBlock]] = []
-    for block in blocks {
-      let table = block.components.first { if case .table = $0.kind { return true }; return false }
-      if let table, groups.last?.last?.components.contains(table) == true { groups[groups.count - 1].append(block) }
-      else { groups.append([block]) }
-    }
-    return groups
-  }
-
-  private func rows(_ blocks: [ChatMarkdownBlock]) -> [[ChatMarkdownBlock]] {
-    var rows: [[ChatMarkdownBlock]] = []
-    for block in blocks {
-      let row = block.components.dropFirst().first?.identity
-      if let row, rows.last?.last?.components.dropFirst().first?.identity == row { rows[rows.count - 1].append(block) }
-      else { rows.append([block]) }
-    }
-    return rows
   }
 
   @ViewBuilder private func blockView(_ block: ChatMarkdownBlock) -> some View {

@@ -1111,9 +1111,11 @@ final class LocalChatViewModel: ObservableObject {
   private func append(_ message: ChatMessage, to sessionID: UUID) {
     guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
     var message = message
-    if message.role == .assistant, activeRequest != nil {
+    if message.role == .assistant, let activeRequest {
       activityMessageID = message.id
       message.activity = activity
+      message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
+                                   modelName: activeRequest.modelDisplayName)
     }
     sessions[index].append(message)
     if pendingUserMessage?.id == message.id { pendingUserMessage = nil }

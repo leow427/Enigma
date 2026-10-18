@@ -136,6 +136,8 @@ struct FileModeDialogs: ViewModifier {
   @ObservedObject var files: FileModeCoordinator
   @Binding var isCloudConsentPresented: Bool
   let isBusy: Bool
+  /// The new design's appearance for the review sheet, or nil for the old sheet.
+  var reviewAppearance: EnigmaAppearance? = nil
   let useCodex: () -> Void
 
   private var deletionPresented: Binding<Bool> {
@@ -145,7 +147,12 @@ struct FileModeDialogs: ViewModifier {
   func body(content: Content) -> some View {
     content
       .sheet(item: $files.review) { change in
-        FileChangesReview(changeSet: change) { Task { await files.undo(change) } }
+        if let reviewAppearance {
+          EnigmaFileChangesReview(changeSet: change) { Task { await files.undo(change) } }
+            .enigmaEmbeddedTheme(reviewAppearance)
+        } else {
+          FileChangesReview(changeSet: change) { Task { await files.undo(change) } }
+        }
       }
       .alert("Use Codex for these files?", isPresented: $isCloudConsentPresented) {
         Button("Use Codex", action: useCodex)

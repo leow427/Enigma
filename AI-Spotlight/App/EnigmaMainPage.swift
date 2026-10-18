@@ -10,19 +10,13 @@ struct EnigmaWindowChrome: ViewModifier {
   static let cornerRadius: CGFloat = 12
 
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
 
   func body(content: Content) -> some View {
     let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
     content
       .background(palette.background.color)
       .clipShape(shape)
-      .overlay {
-        shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                           lineWidth: 1 / displayScale)
-          .allowsHitTesting(false)
-      }
+      .enigmaEdge(shape)
       .tint(palette.accent.color)
   }
 }

@@ -289,6 +289,10 @@ struct EnigmaCharacterModel: Sendable {
     var center: CGPoint
     /// The slot's side. The body radius is `size * EnigmaCharacterTuning.bodyScale`.
     var size: Double
+    /// The slot sits in content that scrolls, like a chat reply. When it moves
+    /// there, the character moves with it rigidly instead of trailing behind
+    /// on `characterFollow`.
+    var movesWithContent = false
   }
 
   enum FallPhase: Sendable { case crouch, air }
@@ -451,9 +455,18 @@ struct EnigmaCharacterModel: Sendable {
     }
   }
 
-  /// Follows the current slot when layout moves it.
+  /// Follows the current slot when layout moves it. A slot that moves with its
+  /// content carries the character along by the same distance, so it never
+  /// trails a scrolling list; a fall or a drag in progress still finds the slot
+  /// on its own.
   mutating func updateSlot(_ slot: Slot) {
     guard slot != self.slot else { return }
+    if slot.movesWithContent, let previous = self.slot, fall == nil, drag == nil {
+      x.value += slot.center.x - previous.center.x
+      y.value += slot.center.y - previous.center.y
+      x.target = slot.center.x
+      y.target = slot.center.y
+    }
     self.slot = slot
     quietTime = 0
   }

@@ -82,7 +82,7 @@ struct ScreenUploadConsentView: View {
 }
 
 /// The preview sheet is a separate window; give it the panel's existing capture exclusion.
-private struct ScreenConsentWindowPrivacy: NSViewRepresentable {
+struct ScreenConsentWindowPrivacy: NSViewRepresentable {
   func makeNSView(context: Context) -> PrivacyView { PrivacyView() }
   func updateNSView(_ view: PrivacyView, context: Context) {}
 

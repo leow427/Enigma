@@ -40,6 +40,13 @@ struct MessageAttachment: Codable, Sendable, Equatable {
   let isDirectory: Bool
 }
 
+/// Where a reply ran: the model and route of the request that wrote it.
+struct ReplyOrigin: Sendable, Equatable {
+  let mode: ChatMode
+  let providerID: String
+  let modelName: String
+}
+
 struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   enum Role: String, Codable, Sendable {
     case user
@@ -59,6 +66,8 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   var contexts: [ConversationContext]? = nil
   var selectionResponseMode: SelectionResponseMode? = nil
   var selectionDraft: String? = nil
+  /// Session-only, like `activity`: the request a reply came from, for its meta line.
+  var origin: ReplyOrigin? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, role, content, searchSources, createdAt, attachments

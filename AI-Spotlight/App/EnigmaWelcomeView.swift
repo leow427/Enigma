@@ -14,8 +14,6 @@ struct EnigmaWelcomeView: View {
   @ObservedObject var cloud: CloudSettingsModel
   @ObservedObject var search: WebSearchSettings
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.enigmaAppearance) private var appearance
   @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
@@ -80,11 +78,7 @@ struct EnigmaWelcomeView: View {
     }
     .background(palette.background.color)
     .clipShape(shape)
-    .overlay {
-      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                         lineWidth: 1 / displayScale)
-        .allowsHitTesting(false)
-    }
+    .enigmaEdge(shape)
     .sheet(isPresented: $showConnections) {
       EnigmaConnectionSettingsSheet(cloud: cloud, advisor: advisor, chat: chat, search: search) {
         showConnections = false
@@ -583,8 +577,6 @@ struct EnigmaWelcomeTourCard: View {
   let step: WelcomeTourStep
   let availableCommands: [SlashCommand]
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
   @AccessibilityFocusState private var isHeadingFocused: Bool
 
   var body: some View {
@@ -629,10 +621,7 @@ struct EnigmaWelcomeTourCard: View {
     }
     .padding(16)
     .background(palette.surface.color, in: shape)
-    .overlay {
-      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                         lineWidth: 1 / displayScale)
-    }
+    .enigmaEdge(shape)
     .task(id: step) { isHeadingFocused = true }
   }
 }

@@ -62,7 +62,7 @@ struct EnigmaFileRecoveryRow: View {
     }
     .sheet(item: $selectedChange) { change in
       VStack(alignment: .leading) {
-        FileChangesReview(changeSet: change) {
+        EnigmaFileChangesReview(changeSet: change) {
           Task {
             await files.undo(change)
             if !files.changes.contains(where: { $0.id == change.id }) { selectedChange = nil }

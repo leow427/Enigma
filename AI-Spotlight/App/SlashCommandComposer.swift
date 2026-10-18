@@ -145,8 +145,6 @@ struct SlashCommandComposer: View {
 private struct EnigmaSlashSuggestions: View {
   @ObservedObject var completion: CommandCompletionModel
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorSchemeContrast) private var contrast
-  @Environment(\.displayScale) private var displayScale
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -185,10 +183,7 @@ private struct EnigmaSlashSuggestions: View {
     }
     .padding(5)
     .background(palette.menu.color, in: shape)
-    .overlay {
-      shape.strokeBorder(EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased).color,
-                         lineWidth: 1 / displayScale)
-    }
+    .enigmaEdge(shape)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Slash commands")
     .frame(width: 400)

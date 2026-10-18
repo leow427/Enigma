@@ -909,6 +909,8 @@ extension EnigmaMainWindowTests {
     let newUI: NewUIPreference
     let appearance: EnigmaAppearancePreference
     let character = EnigmaCharacterController(seed: 6)
+    /// Text that Replace text would have pasted into another app.
+    let pastes = MainWindowTestPastes()
     private(set) var earlierSessionID: UUID?
 
     static func savedSession(_ title: String) -> ChatSession {
@@ -938,7 +940,9 @@ extension EnigmaMainWindowTests {
       engine = MainWindowTestEngine(model: model)
       picker = MainWindowTestPicker([folder])
       files = FileModeCoordinator(picker: picker, journalDirectory: root.appending(path: "Recovery"))
-      let chat = LocalChatViewModel(engine: engine, files: files, sessionStore: store)
+      let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: SelectionEditingSettings(defaults: defaults),
+        replaceSelection: { [pastes] text, _ in pastes.texts.append(text); return true },
+        files: files, sessionStore: store)
       self.chat = chat
       await chat.refreshInstalledModel()
       // Saved chats load with the newest selected; start from a fresh, empty one.
@@ -1035,6 +1039,12 @@ private final class MainWindowKeyableWindow: NSPanel {
   override var canBecomeKey: Bool { true }
 }
 
+/// Records what the chat would paste over a selection, instead of pasting.
+@MainActor
+final class MainWindowTestPastes {
+  var texts: [String] = []
+}
+
 final class MainWindowTestPicker: WorkspacePicking, @unchecked Sendable {
   var urls: [URL]?
   var count = 0
@@ -1042,11 +1052,13 @@ final class MainWindowTestPicker: WorkspacePicking, @unchecked Sendable {
   func pick() async -> [URL]? { count += 1; return urls }
 }
 
-/// A local model whose replies wait until the request is stopped.
+/// A local model whose replies wait until the request is stopped, unless a
+/// test streams words into them with `send(_:)` and ends them with `finish`.
 final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
   private let model: LocalModel?
   private let lock = NSLock()
   private var requests = 0
+  private var replies: [AsyncThrowingStream<String, Error>.Continuation] = []
 
   init(model: LocalModel?) { self.model = model }
 
@@ -1062,7 +1074,17 @@ final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
   }
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
     lock.withLock { requests += 1 }
-    return AsyncThrowingStream { _ in }
+    return AsyncThrowingStream { continuation in self.lock.withLock { self.replies.append(continuation) } }
+  }
+
+  /// Streams `text` into the latest reply.
+  func send(_ text: String) {
+    _ = lock.withLock { replies.last }?.yield(text)
+  }
+
+  /// Ends the latest reply, or fails it with `error`.
+  func finish(throwing error: Error? = nil) {
+    lock.withLock { replies.last }?.finish(throwing: error)
   }
   func unload() async {}
 }

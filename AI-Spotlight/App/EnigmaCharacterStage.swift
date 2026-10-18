@@ -96,8 +96,19 @@ final class EnigmaCharacterController: ObservableObject {
   /// The slots laid out in the latest frame.
   private var laidOutSlots: Set<EnigmaCharacterSlotID> = []
   private var hideCheckScheduled = false
+  /// Counts moves, so a stalled-move check knows whether a newer move replaced it.
+  private var moveCount = 0
+  private var stalledMoveCheckScheduled = false
+  /// How long a move may wait for its slot before the character hides. Longer
+  /// than any layout pass, so a slot that appears an update or two after the
+  /// move, like a new chat reply, still gets the fall.
+  static let defaultStalledMoveGrace: Duration = .milliseconds(600)
+  /// This controller's grace; tests choose their own.
+  let stalledMoveGrace: Duration
 
-  init(state: EnigmaCharacterState = .idle, seed: UInt64 = .random(in: .min ... .max)) {
+  init(state: EnigmaCharacterState = .idle, seed: UInt64 = .random(in: .min ... .max),
+       stalledMoveGrace: Duration = EnigmaCharacterController.defaultStalledMoveGrace) {
+    self.stalledMoveGrace = stalledMoveGrace
     self.state = state
     model = EnigmaCharacterModel(seed: seed)
     model.state = state
@@ -107,6 +118,7 @@ final class EnigmaCharacterController: ObservableObject {
   func move(to slot: EnigmaCharacterSlotID, _ transition: EnigmaCharacterTransition = .automatic) {
     activeSlot = slot
     pendingTransition = transition
+    moveCount += 1
     wake()
   }
 
@@ -185,8 +197,11 @@ final class EnigmaCharacterController: ObservableObject {
     laidOutSlots = Set(slots.keys)
     guard let id = activeSlot, let slot = slots[id] else {
       // A slot that's gone, like a reply scrolled out of a lazy list, hides the
-      // character until it returns. A pending move waits for its slot instead.
-      if pendingTransition == nil, isPresent { scheduleHideCheck() }
+      // character until it returns. A pending move waits for its slot instead,
+      // but not forever.
+      if isPresent {
+        if pendingTransition == nil { scheduleHideCheck() } else { scheduleStalledMoveCheck() }
+      }
       return
     }
     if !isPresent {
@@ -226,6 +241,28 @@ final class EnigmaCharacterController: ObservableObject {
     }
   }
 
+  /// A move whose slot never arrives, like a reply below the visible part of a
+  /// chat, would leave the character drawn where its old slot was, with the
+  /// timeline running. After `stalledMoveGrace` it hides instead, and takes
+  /// the slot instantly when it appears.
+  private func scheduleStalledMoveCheck() {
+    guard !stalledMoveCheckScheduled else { return }
+    stalledMoveCheckScheduled = true
+    let move = moveCount
+    let grace = stalledMoveGrace
+    Task { @MainActor [weak self] in
+      try? await Task.sleep(for: grace)
+      guard let self else { return }
+      stalledMoveCheckScheduled = false
+      // A newer move gets its own grace from the next frame that misses it.
+      guard move == moveCount, isPresent, pendingTransition != nil, let id = activeSlot,
+            !laidOutSlots.contains(id) else { return }
+      isPresent = false
+      objectWillChange.send()
+      if activity != neededActivity { activity = neededActivity }
+    }
+  }
+
   /// What the timeline should do after the latest frame. With nothing drawn,
   /// because no slot is chosen or it has left the layout, it rests: a slot
   /// coming back changes the anchors, which draws a frame and wakes it.
@@ -256,7 +293,7 @@ final class EnigmaCharacterController: ObservableObject {
 
 struct EnigmaCharacterAnchor {
   enum Role {
-    case slot(EnigmaCharacterSlotID, size: CGFloat)
+    case slot(EnigmaCharacterSlotID, size: CGFloat, movesWithContent: Bool)
     case target(EnigmaCharacterTargetID, point: UnitPoint)
   }
 
@@ -287,8 +324,8 @@ struct EnigmaCharacterPlaces: Equatable {
     for anchor in anchors {
       let rect = proxy[anchor.bounds]
       switch anchor.role {
-      case let .slot(id, size):
-        slots[id] = .init(center: CGPoint(x: rect.midX, y: rect.midY), size: size)
+      case let .slot(id, size, movesWithContent):
+        slots[id] = .init(center: CGPoint(x: rect.midX, y: rect.midY), size: size, movesWithContent: movesWithContent)
       case let .target(id, point):
         targets[id] = CGPoint(x: rect.minX + rect.width * point.x, y: rect.minY + rect.height * point.y)
       }
@@ -299,11 +336,13 @@ struct EnigmaCharacterPlaces: Equatable {
 extension View {
   /// Reserves a `size` × `size` square where the character can sit. The
   /// character's scale follows `size`: 150 on the welcome screen, 92 on the main
-  /// page, 40 in the compact panel, and 30 beside a chat reply.
-  func enigmaCharacterSlot(id: EnigmaCharacterSlotID, size: CGFloat) -> some View {
+  /// page, 40 in the compact panel, and 30 beside a chat reply. A slot in
+  /// scrolling content, like a reply, passes `movesWithContent` so the
+  /// character scrolls with it rather than trailing behind.
+  func enigmaCharacterSlot(id: EnigmaCharacterSlotID, size: CGFloat, movesWithContent: Bool = false) -> some View {
     frame(width: size, height: size)
       .anchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
-        [EnigmaCharacterAnchor(role: .slot(id, size: size), bounds: $0)]
+        [EnigmaCharacterAnchor(role: .slot(id, size: size, movesWithContent: movesWithContent), bounds: $0)]
       }
   }
 

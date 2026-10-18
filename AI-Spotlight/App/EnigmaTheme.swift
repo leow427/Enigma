@@ -158,6 +158,11 @@ enum EnigmaTypography {
   /// Only assistant replies are set in the serif.
   static let reply = Font.system(size: 15, design: .serif)
 
+  /// The reply serif at another size or weight, for headings and tables inside a reply.
+  static func reply(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    .system(size: size, weight: weight, design: .serif)
+  }
+
   /// Commands, metadata, hints, and stats.
   static func mono(_ size: CGFloat = 11.5, weight: Font.Weight = .regular) -> Font {
     .system(size: size, weight: weight, design: .monospaced)
