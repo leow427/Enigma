@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-// Shared controls for the new UI. Each reads its colors from the environment's
-// `enigmaPalette`, so it follows Paper and Ink. Later phases add what they need
-// here rather than making local copies.
+// Shared controls. Each reads its colors from the environment's
+// `enigmaPalette`, so it follows Paper and Ink. Add what a screen needs here
+// rather than making a local copy.
 
 // MARK: Shared behavior
 
@@ -28,7 +28,7 @@ extension EnigmaColor {
   }
 }
 
-/// The two kinds of line the new UI draws around and between things.
+/// The two kinds of line the UI draws around and between things.
 enum EnigmaEdge {
   /// Row dividers.
   case hairline
@@ -172,7 +172,7 @@ private struct EnigmaButtonBody: View {
 }
 
 extension View {
-  /// Styles a `Button` or `Link` as one of the new UI's buttons.
+  /// Styles a `Button` or `Link` as one of the shared buttons.
   func enigmaButtonStyle(_ kind: EnigmaButtonKind) -> some View {
     modifier(EnigmaButtonStyleModifier(kind: kind))
   }
@@ -1734,8 +1734,8 @@ extension View {
   }
 
   /// An opaque card in a chat or over the composer, like the Messages send
-  /// approval: `surface` with a `border` edge. Never glass, so it stays
-  /// readable with Reduce Transparency on.
+  /// approval: `surface` with a `border` edge. Opaque, so it stays readable
+  /// with Reduce Transparency on.
   func enigmaCard(padding: CGFloat = 14) -> some View {
     modifier(EnigmaCardModifier(padding: padding))
   }

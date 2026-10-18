@@ -102,3 +102,24 @@ final class TestFocusObserver: NSObject, @preconcurrency XCTestObservation {
     developerApp = frontmost
   }
 }
+
+/// The chat's message and reply views for `messages`, laid out as the window
+/// lays them out, without the scrolling list around them.
+struct TranscriptPreview: View {
+  let messages: [ChatMessage]
+  var spacing: CGFloat = 20
+  /// Shows each reply's activity and sources open.
+  var expandsActivity = false
+
+  var body: some View {
+    let transcript = ConversationTranscript(messages: messages, activity: nil, isResponding: false)
+    VStack(alignment: .leading, spacing: spacing) {
+      ForEach(transcript.rows) { row in
+        switch row {
+        case .message(let message): EnigmaUserMessage(message: message)
+        case .reply(let reply): EnigmaReplyView(reply: reply, expandedActivity: expandsActivity ? .constant(true) : nil)
+        }
+      }
+    }
+  }
+}

@@ -52,8 +52,7 @@ final class WebSearchSettings: ObservableObject {
   }
 }
 
-/// What the Brave key field in Settings does, shared by the old section and
-/// `EnigmaWebSearchSettingsSection`.
+/// What the Brave key field in Settings does.
 extension WebSearchSettings {
   /// Save stays off until something other than spaces is typed.
   static func canSaveAPIKey(_ field: String) -> Bool {

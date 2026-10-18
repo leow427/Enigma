@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import CryptoKit
 import Foundation
@@ -263,4 +264,44 @@ final class HuggingFaceModelDownloads: ObservableObject {
   }
 
   func cancel() { task?.cancel() }
+}
+
+extension HuggingFaceRepository {
+  /// The files the download sheet lists: those matching `filter`, weights
+  /// first, then by name.
+  func listedFiles(matching filter: String) -> [HuggingFaceRepositoryFile] {
+    siblings.filter { filter.isEmpty || $0.rfilename.localizedCaseInsensitiveContains(filter) }
+      .sorted { left, right in
+        if left.isWeight != right.isWeight { return left.isWeight }
+        return left.rfilename < right.rfilename
+      }
+  }
+
+  /// The total size of the selected files.
+  func byteCount(of selected: Set<String>) -> Int64 {
+    siblings.filter { selected.contains($0.id) }.reduce(Int64(0)) { $0 + $1.size }
+  }
+}
+
+/// Where downloaded model files go: a folder the person picks, starting in Downloads.
+enum HuggingFaceDownloadFolder {
+  /// Nil when the person cancels.
+  @MainActor
+  static func choose(for modelName: String) -> URL? {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.canCreateDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.prompt = "Download Here"
+    panel.message = "Choose a folder for \(modelName)."
+    panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    return panel.runModal() == .OK ? panel.url : nil
+  }
+}
+
+extension LocalModelDescriptor {
+  var huggingFaceRepositoryID: String {
+    downloadURL.pathComponents.dropFirst().prefix(2).joined(separator: "/")
+  }
 }

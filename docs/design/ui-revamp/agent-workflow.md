@@ -25,8 +25,8 @@ Phases never run in parallel. Read this file, the phase brief, and the spec
   - colors: `EnigmaPalette.paper` and `.ink`, chosen through `EnigmaAppearance`;
   - type: `EnigmaTypography`;
   - motion: `EnigmaMotion`.
-- `NewUIPreference.shared.isEnabled` (Developer Tools, "Use new UI") selects
-  the new UI. It is off by default.
+- Phases 1 to 9 built the new UI behind a temporary "Use new UI" switch.
+  Phase 10 removed the switch and the old UI, so the new UI is the only one.
 - Phase 2 moved the main window's logic into small models that the new screens
   share:
   - `ShellPresentation`: which panels are open, the routing mode, and composer
@@ -49,6 +49,8 @@ Phases never run in parallel. Read this file, the phase brief, and the spec
   phase, the app with "Use new UI" off must look and behave exactly as before.
   The new UI must also work: turning the flag on swaps in whatever screens are
   done so far.
+  (This rule and the reviewer's "Old UI" check applied to phases 1 to 9. Phase
+  10 removed the flag and the old UI, so they no longer apply.)
 - **Separate logic from views.**
   - `AppShellView` stays the owner of state and event handling.
   - New screens are new view files that take the existing models, bindings,

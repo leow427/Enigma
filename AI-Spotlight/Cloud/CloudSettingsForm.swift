@@ -1,8 +1,7 @@
 import Foundation
 
-/// What the Cloud settings do with keys, connection tests, and pickers. The old
-/// `SettingsView` and the new `EnigmaCloudSettingsPage` both call it, so the two
-/// can't drift apart.
+/// What `CloudSettingsPage` does with keys, connection tests, and pickers,
+/// kept out of the view so it can be tested.
 @MainActor
 enum CloudSettingsForm {
   // MARK: API keys

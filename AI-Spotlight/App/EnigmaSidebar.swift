@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The main window's sidebar in the new design: the app mark, New chat, the
+/// The main window's sidebar: the app mark, New chat, the
 /// recent chats as plain rows, and Help, Settings, and Developer Tools at the
 /// bottom, on the `sidebar` color. `AppShellView` owns every action.
 struct EnigmaSidebar<DeveloperTools: View>: View {
@@ -162,13 +162,10 @@ struct EnigmaHiddenSidebarBar: View {
   }
 }
 
-/// Developer Tools in the new design: the same tools and switches as the
-/// old sidebar's, behind a disclosure.
-struct EnigmaDeveloperTools: View {
-  @ObservedObject var glassAppearance: GlassAppearanceSettings
+/// Developer Tools, behind a disclosure: hardware detection and welcome replay.
+struct DeveloperToolsView: View {
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel
-  @ObservedObject var newUI: NewUIPreference
   let replayWelcome: () -> Void
   @Environment(\.enigmaPalette) private var palette
 
@@ -181,6 +178,7 @@ struct EnigmaDeveloperTools: View {
           .disabled(advisor.isDetecting || chat.isBusy)
         Button("Replay welcome setup", action: replayWelcome)
           .enigmaButtonStyle(.text)
+          .enigmaTestMarker("Replay welcome setup")
           .padding(.leading, -8)
           .disabled(advisor.isDetecting || chat.isBusy)
         if let hardware = advisor.hardware {
@@ -197,34 +195,6 @@ struct EnigmaDeveloperTools: View {
           .foregroundStyle(palette.textTertiary.color)
           .fixedSize(horizontal: false, vertical: true)
         }
-        VStack(spacing: 0) {
-          EnigmaRow("Use new UI", subtitle: "Applies immediately. Screens switch to the new design as they’re rebuilt.") {
-            EnigmaSwitch("Use new UI", isOn: $newUI.isEnabled)
-          }
-          EnigmaRow("Liquid Glass", subtitle: "The old design only.") {
-            EnigmaSwitch("Liquid Glass", isOn: $glassAppearance.isEnabled)
-          }
-          EnigmaHairline()
-        }
-        if glassAppearance.isEnabled {
-          HStack {
-            Text("Glass clarity")
-            Spacer()
-            Text(glassAppearance.clarity, format: .percent.precision(.fractionLength(0)))
-              .font(EnigmaTypography.mono(11))
-              .foregroundStyle(palette.textTertiary.color)
-          }
-          .font(EnigmaTypography.ui(12))
-          .foregroundStyle(palette.textSecondary.color)
-          Slider(value: $glassAppearance.clarity, in: 0...1, step: 0.01)
-            .tint(palette.accent.color)
-            .accessibilityLabel("Glass clarity")
-          EnigmaHint("100% is completely clear.")
-        }
-        Button("Save") { glassAppearance.save() }
-          .enigmaButtonStyle(.secondary)
-          .disabled(!glassAppearance.hasUnsavedChanges)
-          .padding(.top, 2)
       }
       .padding(.top, 4)
     }

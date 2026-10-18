@@ -1,6 +1,6 @@
 # Selection Context
 
-![Selected text context card](images/selection-context-card.png)
+![The compact panel with selected text](design/ui-revamp/screenshots/phase-10/compact-panel-paper.png)
 
 Highlight text in another app and tap **Option twice** to start a new temporary
 Enigma chat bar close to the pointer. **Shift–Option–Space** is the conventional backup.
@@ -38,7 +38,7 @@ ordinary conversation messages. Editing is an explicit per-request command.
   automatic-search preferences). Only the original current question determines
   automatic-search eligibility; attachment text and source names cannot enable it.
   Automatic search defaults to on with a saved Brave key; its toggle is in
-  Settings → Cloud & Search → Web Search · Brave. Without a key, neither composer
+  Settings → Cloud and search → Web search · Brave. Without a key, neither composer
   offers `/search` or retrieves automatically. Capture itself makes no network
   request. Local mode never uses a cloud model to derive a query.
 - One temporary session lives in memory. It does not write the chat archive or count
@@ -100,7 +100,7 @@ preview. **Replace text** pastes that draft with one click. Follow-ups receive t
 latest proposed revision, including manual changes, as source material relevant
 to the current request. Each response retains its own draft in the temporary chat.
 
-**Settings → Selection Context → Automatically replace selected text** is off by
+**Settings → Selection → Automatically replace selected text** is off by
 default. When enabled before an explicit `/edit` request begins, a successfully
 completed revision is pasted directly, with no revision card or confirmation click.
 It never applies ordinary responses, translations, malformed/incomplete revisions,
@@ -177,7 +177,7 @@ A paste still consumes its source target to avoid repeating an ambiguous mutatio
 Refine drafts before applying them; to replace again after a successful paste,
 select the desired source text and invoke a fresh temporary chat.
 
-![Revision card](images/selection-revision-card.png)
+![Revision card](design/ui-revamp/screenshots/phase-8/panel-edit-paper.png)
 
 Some editors may delay or reject paste; the clipboard has no universal consumption
 acknowledgement, so unusually delayed apps may not receive the temporary text.
@@ -218,29 +218,32 @@ Automated coverage exercises empty-text fallback, UTF-16 boundaries, readiness
 retries, and existing secure selection / clipboard behavior. Interactive capture
 must be checked with the stable development-signed app, not the unsigned test host.
 
-## Compact composer and upward expansion
+## Compact panel and downward expansion
 
-Selection Context starts with the composer and a small selected-text card above
-it, including the source app and removal control. If nothing is attached, the bar
-says “No text selected.” The quote button opens temporary-chat status and existing
-routing and permission notices in a popover. A warning icon indicates missing capture
-access or a capture notice. Mode/model selection and slash suggestions also use
-popovers so they remain usable outside the short bar. Multi-line drafts resize the
-bar to the measured height of the preview and composer.
+Selection Context opens the compact panel: a `› selected "…"` line naming the
+selection, with a status button and a remove button, then the input row with the
+character, Attach, a monospace route chip that opens the mode and model menu, and
+a `↵` send key, then a monospace hint row. If nothing is attached, the line reads
+`› no text selected`. The status button opens temporary-chat status and the
+routing and permission notices in an opaque details surface under the input; it
+shows a problem glyph, and the character turns amber, when capture access is
+missing or capture left a notice. Near the bottom of the screen the command list
+and mode menu open above the input. Multi-line drafts resize the panel to its
+measured height.
 
 Standalone `/screen` and `/snapshot` captures also add a screenshot thumbnail
 directly above the input, labeled **Full desktop · All displays** or **Screen region**.
 **Retake** repeats that capture type; **Remove** discards its image and OCR from
 the next request without removing the selected-text card or question. The bar
-resizes to keep these controls visible before sending; the details popover is
-not needed to find the screenshot. Cloud image consent previews the capture
+resizes to keep these controls visible before sending; the details aren't needed
+to find the screenshot. Cloud image consent previews the capture
 and names its actual scope and destination provider, as described in
 [Screen](Screen-Skill.md).
 
-The first accepted prompt grows the same panel upward from the bar with a brief
-spring overshoot. The composer stays at the bottom; the conversation and context
-appear above it. Placement keeps the window within the current display, shifting
-down when there is too little room above. Reduce Motion expands immediately.
+The first accepted prompt grows the same panel downward on the `panelAnswer`
+spring. The input stays where it is; the conversation and its cards appear under
+it. Placement keeps the window within the current display, shifting up when there
+is too little room below. Reduce Motion expands immediately.
 Empty or rejected submissions do not expand, and request failures expose details.
 Follow-up sends retain the expanded panel. A fresh selection returns to the bar;
 New Chat restores the previous ordinary window size. Hiding during the animation
@@ -255,9 +258,9 @@ window restoration, and native renders of both states. These use synthetic text
 and the unsigned test host; live capture and animation feel still require review
 in the stable development-signed app.
 
-![Compact selection composer](images/selection-compact-composer.png)
+![Compact panel with a selection](design/ui-revamp/screenshots/phase-8/panel-selection-paper.png)
 
-![Expanded selection conversation](images/selection-expanded-conversation.png)
+![The panel grown into its answer](design/ui-revamp/screenshots/phase-8/panel-answer-paper.png)
 
 ## Explicit command regression coverage
 

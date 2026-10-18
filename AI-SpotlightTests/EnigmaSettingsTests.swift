@@ -3,9 +3,9 @@ import SwiftUI
 import XCTest
 @testable import Enigma
 
-/// The new Settings: the appearance setting, the window that follows it, the
-/// flag that swaps the view, every destination's rendering, deep links, the
-/// shared logic both Settings use, and their failure paths.
+/// Settings: the appearance setting, the window that follows it, every
+/// destination's rendering, deep links, the shared logic behind the pages, and
+/// their failure paths.
 final class EnigmaSettingsTests: XCTestCase {
   private let gib = LocalHardwareProfile.gib
   /// Tall enough to show a whole page without scrolling.
@@ -40,48 +40,30 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   @MainActor
-  func testWindowChromeIsTheOldDarkForestUnlessTheNewUIIsOn() {
+  func testWindowChromeFollowsTheAppearance() {
     for appearance in EnigmaAppearance.allCases {
-      let old = SettingsWindowChrome.chrome(newUI: false, appearance: appearance)
-      XCTAssertEqual(old.appearanceName, .darkAqua)
-      XCTAssertFalse(old.extendsUnderTitleBar)
-      XCTAssertEqual(old.backgroundColor, NSColor(NatureGlass.forestTop))
-      let new = SettingsWindowChrome.chrome(newUI: true, appearance: appearance)
-      XCTAssertEqual(new.appearanceName, appearance.windowAppearanceName)
-      XCTAssertTrue(new.extendsUnderTitleBar)
-      XCTAssertTrue(new.backgroundColor === EnigmaAppearance.windowBackground)
+      let chrome = SettingsWindowChrome.chrome(appearance: appearance)
+      XCTAssertEqual(chrome.appearanceName, appearance.windowAppearanceName)
+      XCTAssertTrue(chrome.backgroundColor === EnigmaAppearance.windowBackground)
     }
   }
 
   @MainActor
-  func testSettingsWindowFollowsTheFlagAndAppearanceLive() async throws {
+  func testSettingsWindowFollowsTheAppearanceLive() async throws {
     let defaults = try makeDefaults()
-    let newUI = NewUIPreference(defaults: defaults)
     let appearance = EnigmaAppearancePreference(defaults: defaults)
-    let controller = SettingsWindowController(contentView: NSView(), newUI: newUI, appearance: appearance)
+    let controller = SettingsWindowController(contentView: NSView(), appearance: appearance)
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
-    func assertOld(_ label: String) {
-      XCTAssertEqual(window.appearance?.name, .darkAqua, label)
-      XCTAssertEqual(window.backgroundColor, NSColor(NatureGlass.forestTop), label)
-      XCTAssertFalse(window.styleMask.contains(.fullSizeContentView), label)
-      XCTAssertEqual(window.titleVisibility, .visible, label)
-      XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize, label)
-    }
-    assertOld("flag off at launch")
-    XCTAssertTrue(window.titlebarAppearsTransparent)
-    XCTAssertEqual(window.sharingType, .none)
-    let frame = window.frame
-
-    newUI.isEnabled = true
-    await mainQueueTurn()
     XCTAssertNil(window.appearance, "System follows the Mac")
     XCTAssertTrue(window.backgroundColor === EnigmaAppearance.windowBackground)
     XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
     XCTAssertEqual(window.titleVisibility, .hidden)
-    XCTAssertEqual(window.frame, frame, "The window keeps its size and place")
+    XCTAssertTrue(window.titlebarAppearsTransparent)
+    XCTAssertEqual(window.sharingType, .none)
     XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize,
-                   "The area below the title bar is still 820 × 680")
+                   "The area below the title bar is 820 × 680")
+    let frame = window.frame
 
     appearance.appearance = .paper
     await mainQueueTurn()
@@ -91,24 +73,19 @@ final class EnigmaSettingsTests: XCTestCase {
     await mainQueueTurn()
     XCTAssertEqual(window.appearance?.name, .darkAqua)
     XCTAssertTrue(matches(window.backgroundColor, under: .darkAqua, EnigmaPalette.ink.background))
-
-    newUI.isEnabled = false
+    appearance.appearance = .system
     await mainQueueTurn()
-    assertOld("flag turned off")
-    XCTAssertEqual(window.frame, frame)
-    appearance.appearance = .paper
-    await mainQueueTurn()
-    assertOld("appearance changes leave the old window alone")
+    XCTAssertNil(window.appearance)
+    XCTAssertEqual(window.frame, frame, "The window keeps its size and place")
+    XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize)
   }
 
   @MainActor
-  func testSettingsWindowStartsInTheNewDesignWhenTheFlagIsOn() throws {
+  func testSettingsWindowStartsInTheSavedAppearance() throws {
     let defaults = try makeDefaults()
-    let newUI = NewUIPreference(defaults: defaults)
-    newUI.isEnabled = true
     let appearance = EnigmaAppearancePreference(defaults: defaults)
     appearance.appearance = .ink
-    let controller = SettingsWindowController(contentView: NSView(), newUI: newUI, appearance: appearance)
+    let controller = SettingsWindowController(contentView: NSView(), appearance: appearance)
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
     XCTAssertEqual(window.appearance?.name, .darkAqua)
@@ -116,19 +93,17 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize)
   }
 
-  /// With SwiftUI content, the window keeps its size through flag changes,
-  /// the navigation's background runs under the title bar, and SwiftUI's own
-  /// color-scheme preference doesn't override the window's appearance.
+  /// With SwiftUI content, the window keeps its size through appearance
+  /// changes, the navigation's background runs under the title bar, and
+  /// SwiftUI's own color-scheme preference doesn't override the window's
+  /// appearance.
   @MainActor
-  func testHostedSettingsWindowKeepsItsSizeAndAppearanceAcrossFlagChanges() async throws {
+  func testHostedSettingsWindowKeepsItsSizeAndAppearanceAcrossAppearanceChanges() async throws {
     let fixture = try await Fixture(test: self)
-    let newUI = NewUIPreference(defaults: fixture.defaults)
     let appearance = EnigmaAppearancePreference(defaults: fixture.defaults)
-    let content = SettingsWindowContent(newUI: newUI, appearance: appearance,
-      newSettings: { fixture.settings(appearance: appearance) },
-      oldSettings: { SettingsView(settings: fixture.cloud, discovery: fixture.discovery) })
+    let content = SettingsWindowContent(appearance: appearance, settings: { fixture.settings(appearance: appearance) })
     let host = SettingsWindowController.hostingView(content.transaction { $0.disablesAnimations = true })
-    let controller = SettingsWindowController(contentView: host, newUI: newUI, appearance: appearance)
+    let controller = SettingsWindowController(contentView: host, appearance: appearance)
     let window = try XCTUnwrap(controller.window)
     window.colorSpace = .sRGB
     // On screen, as Settings always is, so SwiftUI keeps drawing it.
@@ -144,80 +119,34 @@ final class EnigmaSettingsTests: XCTestCase {
     }
     try await settle()
     let frame = window.frame
-    XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize, "Old window")
-    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua)
+    XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize, "At launch")
 
     for choice in [EnigmaAppearance.paper, .ink, .system] {
       appearance.appearance = choice
-      newUI.isEnabled = true
       try await settle()
       XCTAssertEqual(window.frame, frame, "\(choice): the window keeps its size and place")
       XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize, "\(choice)")
       XCTAssertEqual(window.appearance?.name, choice.windowAppearanceName, "\(choice)")
-      let palette = choice.palette(for: EnigmaSystemAppearance.scheme(of: window.effectiveAppearance))
+      let isDark = window.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+      let palette = choice.palette(for: isDark ? .dark : .light)
       // Under the title bar, the navigation's color, not the window's.
       try await waitForUI("the navigation under the title bar in \(choice)", in: host) {
         guard let image = try? EnigmaSnapshot.capture(host),
               let color = try? EnigmaSnapshot.pixel(image, at: CGPoint(x: 100, y: 12)) else { return false }
         return EnigmaSnapshot.matches(color, palette.sidebar)
       }
-      newUI.isEnabled = false
-      try await settle()
-      XCTAssertEqual(window.contentLayoutRect.size, SettingsWindowController.contentSize, "\(choice) back to old")
-      XCTAssertEqual(window.frame, frame)
-      XCTAssertEqual(window.appearance?.name, .darkAqua)
-    }
-  }
-
-  // MARK: Flag
-
-  @MainActor
-  func testFlagSwapsTheSettingsViewWhileTheAppRuns() async throws {
-    let fixture = try await Fixture(test: self)
-    let newUI = NewUIPreference(defaults: fixture.defaults)
-    let appearance = EnigmaAppearancePreference(defaults: fixture.defaults)
-    appearance.appearance = .paper
-    let content = SettingsWindowContent(newUI: newUI, appearance: appearance,
-      newSettings: { fixture.settings(appearance: appearance) },
-      oldSettings: { SettingsView(settings: fixture.cloud, discovery: fixture.discovery) })
-    let view = NSHostingView(rootView: content.transaction { $0.disablesAnimations = true })
-    let window = NSWindow(contentRect: NSRect(origin: .zero, size: EnigmaSettingsView.windowSize),
-                          styleMask: [.borderless], backing: .buffered, defer: false)
-    window.colorSpace = .sRGB
-    window.contentView = view
-    defer { window.contentView = nil }
-    func navigationColor() throws -> EnigmaColor {
-      try EnigmaSnapshot.pixel(try EnigmaSnapshot.capture(view), at: CGPoint(x: 20, y: 600))
-    }
-    try await waitForUI("the old Settings", in: view) {
-      (try? navigationColor()).map { !EnigmaSnapshot.matches($0, EnigmaPalette.paper.sidebar) } ?? false
-    }
-    newUI.isEnabled = true
-    try await waitForUI("the new Settings after turning the flag on", in: view) {
-      (try? navigationColor()).map { EnigmaSnapshot.matches($0, EnigmaPalette.paper.sidebar) } ?? false
-    }
-    appearance.appearance = .ink
-    try await waitForUI("Ink without reopening the window", in: view) {
-      (try? navigationColor()).map { EnigmaSnapshot.matches($0, EnigmaPalette.ink.sidebar) } ?? false
-    }
-    newUI.isEnabled = false
-    try await waitForUI("the old Settings after turning the flag off", in: view) {
-      (try? navigationColor()).map { !EnigmaSnapshot.matches($0, EnigmaPalette.ink.sidebar) } ?? false
     }
   }
 
   @MainActor
-  func testAppearanceSwitchesTheNewWelcomeLive() async throws {
+  func testAppearanceSwitchesTheWelcomeLive() async throws {
     let fixture = try await Fixture(test: self)
-    let newUI = NewUIPreference(defaults: fixture.defaults)
-    newUI.isEnabled = true
     let appearance = EnigmaAppearancePreference(defaults: fixture.defaults)
     appearance.appearance = .paper
     let setup = WelcomeSetup(defaults: fixture.defaults)
     let size = CGSize(width: 900, height: 620)
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(defaults: fixture.defaults),
-      cloudSettings: fixture.cloud, localChat: fixture.chat, modelAdvisor: fixture.advisor,
-      searchSettings: fixture.search, startPreferences: fixture.start, welcomeSetup: setup, newUI: newUI,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: fixture.cloud, localChat: fixture.chat, modelAdvisor: fixture.advisor,
+      searchSettings: fixture.search, startPreferences: fixture.start, welcomeSetup: setup,
       appearance: appearance).transaction { $0.disablesAnimations = true })
     let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
                           backing: .buffered, defer: false)
@@ -244,13 +173,13 @@ final class EnigmaSettingsTests: XCTestCase {
   @MainActor
   func testEveryDestinationRendersAtWindowSizeInPaperAndInk() async throws {
     let fixture = try await Fixture(test: self)
-    let size = EnigmaSettingsView.windowSize
+    let size = SettingsView.windowSize
     for destination in SettingsView.SettingsDestination.allCases {
       for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
         let label = "\(destination) in \(appearance)"
         let image = try EnigmaSnapshot.render(fixture.settings(destination).enigmaTheme(appearance), size: size)
         try assertPixel(image, at: CGPoint(x: 20, y: size.height - 20), is: palette.sidebar, label)
-        try assertPixel(image, at: CGPoint(x: EnigmaSettingsView.navigationWidth + 12, y: size.height / 2),
+        try assertPixel(image, at: CGPoint(x: SettingsView.navigationWidth + 12, y: size.height / 2),
                         is: palette.background, label)
       }
     }
@@ -261,11 +190,11 @@ final class EnigmaSettingsTests: XCTestCase {
   @MainActor
   func testNoPageSpillsIntoItsMargins() async throws {
     let fixture = try await Fixture(test: self)
-    let size = CGSize(width: EnigmaSettingsView.windowSize.width, height: 3400)
+    let size = CGSize(width: SettingsView.windowSize.width, height: 3400)
     for destination in SettingsView.SettingsDestination.allCases {
       let image = try EnigmaSnapshot.render(fixture.settings(destination, size: size).enigmaTheme(.paper),
                                             size: size, scale: 1)
-      let left = EnigmaSettingsView.navigationWidth + 18
+      let left = SettingsView.navigationWidth + 18
       let right = size.width - 23
       for y in stride(from: 4.0, to: size.height - 4, by: 6) {
         for x in [left, right] {
@@ -290,7 +219,7 @@ final class EnigmaSettingsTests: XCTestCase {
       // The page before it fades out, then only the requested page is left.
       try await waitForUI("only the \(destination) page", in: host.view) {
         SettingsView.SettingsDestination.allCases.allSatisfy {
-          host.shows("Settings page \($0.enigmaTitle)") == ($0 == destination)
+          host.shows("Settings page \($0.title)") == ($0 == destination)
         }
       }
     }
@@ -582,7 +511,7 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(field.stringValue, "sk-test-key", "A failed save keeps what was typed")
     var typed = "sk-test-key"
     XCTAssertEqual(CloudSettingsForm.saveAPIKey(&typed, for: .openAI, in: fixture.cloud), message,
-                   "The old Settings shows the same message")
+                   "The shared form logic returns the same message")
   }
 
   @MainActor
@@ -633,15 +562,15 @@ final class EnigmaSettingsTests: XCTestCase {
 
   @MainActor
   func testDeniedPermissionsReadAsActionNeeded() {
-    XCTAssertEqual(EnigmaMacPermissionRows.status(isEnabled: false).1, "action needed")
-    XCTAssertEqual(EnigmaMacPermissionRows.status(isEnabled: true).1, "enabled")
+    XCTAssertEqual(MacPermissionRows.status(isEnabled: false).1, "action needed")
+    XCTAssertEqual(MacPermissionRows.status(isEnabled: true).1, "enabled")
     struct Denied: Error {}
     XCTAssertEqual(MessagesPermissionStatus.fullDiskAccess(check: { throw Denied() }), false)
     XCTAssertNil(MessagesPermissionStatus.fullDiskAccess(check: { throw MessagesError.databaseMissing }))
     XCTAssertEqual(MessagesPermissionStatus.fullDiskAccess(check: {}), true)
     XCTAssertEqual(MessagesPermissionStatus.fullDiskAccessDetail(nil), "Messages has no history on this Mac yet.")
     XCTAssertTrue(MessagesPermissionStatus.fullDiskAccessDetail(false).hasPrefix("Required to read"))
-    XCTAssertEqual(EnigmaMessagesSettingsSection.settingsName(for: .automation), "Open Automation Settings…")
+    XCTAssertEqual(MessagesSettingsSection.settingsName(for: .automation), "Open Automation Settings…")
   }
 
   // MARK: Shared Cloud logic
@@ -657,9 +586,9 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(connected?.detail, "Model-list check only. Sending and billing were not tested.")
     XCTAssertEqual(Form.connectionStatus(state: .failed("Nope"), hasAPIKey: true),
                    Form.ConnectionStatus(kind: .failed, text: "Nope"))
-    XCTAssertEqual(EnigmaAPIKeyRow.status(Form.ConnectionStatus(kind: .failed, text: "x")), .problem)
-    XCTAssertEqual(EnigmaAdvancedCloudSettings.compatibilityStatus(.unsupported), .problem)
-    XCTAssertEqual(EnigmaAdvancedCloudSettings.compatibilityStatus(.compatible), .on)
+    XCTAssertEqual(APIKeyRow.status(Form.ConnectionStatus(kind: .failed, text: "x")), .problem)
+    XCTAssertEqual(AdvancedCloudSettings.compatibilityStatus(.unsupported), .problem)
+    XCTAssertEqual(AdvancedCloudSettings.compatibilityStatus(.compatible), .on)
   }
 
   @MainActor
@@ -700,7 +629,7 @@ final class EnigmaSettingsTests: XCTestCase {
   // MARK: Shared model logic
 
   @MainActor
-  func testModelActionsMatchTheOldButtons() throws {
+  func testModelActionsFollowEachModelsState() throws {
     let recommendations = LocalModelSelector.select(manifest: .bundled, hardware: hardware(memory: 32))
     let assessment = try XCTUnwrap(recommendations.assessments.first { $0.canInstall })
     let current = installedModel(for: assessment)
@@ -799,23 +728,23 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     for destination in SettingsView.SettingsDestination.allCases {
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)",
-                                    size: EnigmaSettingsView.windowSize, until: { !fixture.advisor.isDetecting }) {
+                                    size: SettingsView.windowSize, until: { !fixture.advisor.isDetecting }) {
         fixture.settings(destination)
       }
     }
     // Whole pages: Cloud and search's web search, advanced settings, and API
     // keys; General's location and Messages.
     for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1220.0)] {
-      let size = CGSize(width: EnigmaSettingsView.windowSize.width, height: height)
+      let size = CGSize(width: SettingsView.windowSize.width, height: height)
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)-full",
                                     size: size, until: { !fixture.advisor.isDetecting }) {
         fixture.settings(destination, size: size)
       }
     }
     // The welcome's connection settings sheet, with Back to setup in its own bar.
-    try await EnigmaSnapshot.save("settings-connection-sheet", size: EnigmaConnectionSettingsSheet.size,
+    try await EnigmaSnapshot.save("settings-connection-sheet", size: ConnectionSettingsSheet.size,
                                   until: { !fixture.advisor.isDetecting }) {
-      EnigmaConnectionSettingsSheet(cloud: fixture.cloud, advisor: fixture.advisor, chat: fixture.chat,
+      ConnectionSettingsSheet(cloud: fixture.cloud, advisor: fixture.advisor, chat: fixture.chat,
                                     search: fixture.search) {}
     }
     // An open menu, opened by a real click.
@@ -841,11 +770,11 @@ final class EnigmaSettingsTests: XCTestCase {
     ])
     let loaded = LoadFlag()
     var frames = 0
-    try await EnigmaSnapshot.save("settings-download-sheet", size: EnigmaHuggingFaceDownloadSheet.size, until: {
+    try await EnigmaSnapshot.save("settings-download-sheet", size: HuggingFaceDownloadSheet.size, until: {
       if loaded.value { frames += 1 }
       return frames > 8
     }) {
-      EnigmaHuggingFaceDownloadSheet(model: HuggingFaceModelListing(id: repository.id),
+      HuggingFaceDownloadSheet(model: HuggingFaceModelListing(id: repository.id),
         sources: HuggingFaceDownloadSources(loadRepository: { _ in loaded.value = true; return repository }),
         downloads: HuggingFaceModelDownloads())
     }
@@ -972,8 +901,8 @@ final class EnigmaSettingsTests: XCTestCase {
 
     func settings(_ destination: SettingsView.SettingsDestination = .general,
                   appearance: EnigmaAppearancePreference? = nil,
-                  size: CGSize = EnigmaSettingsView.windowSize) -> EnigmaSettingsView {
-      EnigmaSettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
+                  size: CGSize = SettingsView.windowSize) -> SettingsView {
+      SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
                          discovery: discovery, advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
                          downloads: downloads, sources: sources, size: size)
@@ -987,7 +916,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let window: NSWindow
 
     /// Pages are shown in full, without scrolling, at a tall `size`.
-    init<Content: View>(_ content: Content, size: CGSize = EnigmaSettingsView.windowSize, test: XCTestCase) {
+    init<Content: View>(_ content: Content, size: CGSize = SettingsView.windowSize, test: XCTestCase) {
       let root = content
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .transaction { $0.disablesAnimations = true }
@@ -1176,7 +1105,7 @@ private struct MenuHarness: View {
       Spacer(minLength: 0)
     }
     .padding(40)
-    .frame(width: EnigmaSettingsView.windowSize.width, height: EnigmaSettingsView.windowSize.height,
+    .frame(width: SettingsView.windowSize.width, height: SettingsView.windowSize.height,
            alignment: .topLeading)
     .background(palette.background.color)
     .enigmaMenuHost()

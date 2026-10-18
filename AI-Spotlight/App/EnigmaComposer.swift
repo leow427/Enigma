@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The composer in the new design: one rounded, opaque `surface` box holding
+/// The composer: one rounded, opaque `surface` box holding
 /// the message field, Attach and `/` on the left, the `● local` or `○ cloud`
 /// indicator, the mode and model menu, and the `accent` Send button, which
 /// becomes Stop while a reply runs. `AppShellView` owns every action.
@@ -50,7 +50,7 @@ struct EnigmaComposer: View {
     VStack(alignment: .leading, spacing: 10) {
       SlashCommandComposer(
         text: $text, isFocused: $isFocused, isEnabled: isEnabled, fontSize: 15,
-        availableCommands: availableCommands, style: .enigma,
+        availableCommands: availableCommands,
         placeholder: "Ask anything, or type / for commands",
         suggestionPlacement: opensSuggestionsBelow ? .below(gap: Self.belowGap) : .above(gap: Self.aboveGap),
         insertion: insertion, submit: submit)

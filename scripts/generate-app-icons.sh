@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Redraws the app icon (the AppIcon set) and the menu bar template
-# (SpotlightLogo) from the character's own Swift drawing code, through
+# (EnigmaMenuBarMark) from the character's own Swift drawing code, through
 # EnigmaIconTests. Run it after changing the character's drawing or
 # EnigmaAppIcon; EnigmaIconTests fails until the committed copies match.
 

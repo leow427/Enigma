@@ -9,7 +9,7 @@ import SwiftUI
 ///   for an 18 pt status item.
 ///
 /// The asset catalog keeps rendered copies, the `AppIcon` set and the
-/// `SpotlightLogo` template, because macOS reads the icon from the bundle.
+/// `EnigmaMenuBarMark` template, because macOS reads the icon from the bundle.
 /// `EnigmaIconTests` fails when a copy no longer matches this drawing; run
 /// `scripts/generate-app-icons.sh` to redraw them.
 enum EnigmaAppIcon {

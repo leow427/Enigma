@@ -1,11 +1,12 @@
 # Startup preferences and nearby answers
 
-Settings now opens to General. **Prefer Start Mode** selects Auto, Local, or Cloud;
+Settings now opens to General. **Start mode** selects Auto, Local, or Cloud;
 **Show sidebar** controls whether chat history is initially visible. Both preferences
 are saved and applied at launch, New Chat, and a new Selection Context session.
 Changing them does not interrupt the current conversation. Hiding and reopening the
 same panel preserves its current mode and sidebar. Existing defaults remain Auto
-with the sidebar hidden. The settings title bar uses the forest backdrop's top green.
+with the sidebar hidden. The Settings window follows the appearance setting, and
+its navigation runs up under the transparent title bar.
 
 Response guidance is shared by local inference, cloud providers, Screen, and File
 Mode. Everyday answers aim for one short paragraph or 3–5 brief bullets, usually

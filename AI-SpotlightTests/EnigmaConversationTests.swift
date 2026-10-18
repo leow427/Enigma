@@ -3,7 +3,7 @@ import SwiftUI
 import XCTest
 @testable import Enigma
 
-/// Phase 7: the conversation in the new design. Its logic, the character's
+/// The conversation: its logic, the character's
 /// place in the chat, the cards' actions, and the list at real window sizes.
 /// Hosted tests use the main window's isolated fixture, never the installed
 /// app's settings.
@@ -21,7 +21,7 @@ final class EnigmaConversationTests: XCTestCase {
     var activity = AssistantActivity(id: UUID())
     activity.apply(.phase(.searching))
 
-    // Preparing: the request's activity stands in for the reply, as the old list showed it.
+    // Preparing: the request's activity stands in for the reply.
     let preparing = ConversationTranscript(messages: [first, answer, second], activity: activity, isResponding: true)
     XCTAssertEqual(preparing.rows.map(\.id), [first.id, answer.id, second.id, activity.id])
     let earlier = try reply(preparing.rows[1])
@@ -170,13 +170,13 @@ final class EnigmaConversationTests: XCTestCase {
     | Qwen | 8B |
     """
     let blocks = ChatMarkdown.blocks(source)
-    let styled = EnigmaMarkdownStyle.styled(blocks[0].text, palette: .ink)
+    let styled = ChatMarkdownStyle.styled(blocks[0].text, palette: .ink)
     XCTAssertEqual(String(styled.characters), String(blocks[0].text.characters), "Styling never changes the text")
     var sawCode = false
     var sawLink = false
     for run in styled.runs {
       if run.inlinePresentationIntent?.contains(.code) == true {
-        XCTAssertEqual(run.swiftUI.font, EnigmaMarkdownStyle.inlineCodeFont)
+        XCTAssertEqual(run.swiftUI.font, ChatMarkdownStyle.inlineCodeFont)
         XCTAssertEqual(run.swiftUI.backgroundColor, EnigmaPalette.ink.surface.color)
         sawCode = true
       }
@@ -186,11 +186,11 @@ final class EnigmaConversationTests: XCTestCase {
       }
     }
     XCTAssertTrue(sawCode && sawLink)
-    XCTAssertEqual(blocks.compactMap(EnigmaMarkdownStyle.headingLevel), [2])
-    XCTAssertEqual(blocks.compactMap(EnigmaMarkdownStyle.listMarker), ["1.", "2.", "•"])
-    XCTAssertEqual(blocks.filter(EnigmaMarkdownStyle.isCode).count, 1)
+    XCTAssertEqual(blocks.compactMap(ChatMarkdownStyle.headingLevel), [2])
+    XCTAssertEqual(blocks.compactMap(ChatMarkdownStyle.listMarker), ["1.", "2.", "•"])
+    XCTAssertEqual(blocks.filter(ChatMarkdownStyle.isCode).count, 1)
     let groups = ChatMarkdown.groups(blocks)
-    let table = try XCTUnwrap(groups.first(where: EnigmaMarkdownStyle.isTable))
+    let table = try XCTUnwrap(groups.first(where: ChatMarkdownStyle.isTable))
     XCTAssertEqual(ChatMarkdown.rows(table).count, 2, "A header row and one body row")
   }
 
@@ -361,31 +361,6 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(try XCTUnwrap(character.model.slot).center.y, character.model.position.y, accuracy: 1)
   }
 
-  // MARK: The flag
-
-  @MainActor
-  func testFlagSwapsTheConversationWhileTheAppRuns() async throws {
-    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Quantizing a GGUF")])
-    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
-    fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
-    let latest = try XCTUnwrap(ConversationTranscript.latestReplySlot(messages: fixture.chat.messages, activity: nil))
-    try await waitForUI("the new conversation", in: host.view) {
-      host.shows("Reply") && host.shows("Your message") && host.shows("Reply meta")
-        && fixture.character.activeSlot == latest && fixture.character.isPresent
-    }
-
-    fixture.newUI.isEnabled = false
-    try await waitForUI("the old conversation in the old frame", in: host.view) {
-      !host.shows("Reply") && !host.shows("Your message") && !host.shows("New chat")
-        && composerEditor(in: host.view) != nil
-    }
-
-    fixture.newUI.isEnabled = true
-    try await waitForUI("the new conversation again, with the character beside the reply", in: host.view) {
-      host.shows("Reply") && fixture.character.activeSlot == latest && fixture.character.isPresent
-    }
-  }
-
   // MARK: Parity
 
   @MainActor
@@ -532,7 +507,7 @@ final class EnigmaConversationTests: XCTestCase {
     var replaced = 0
     var updates: [String] = []
     let ready = SelectionRevision(id: UUID(), contextID: UUID(), text: "Hello team,", automatic: false)
-    let card = CardHost(EnigmaSelectionRevisionCard(revision: ready, disabled: false, update: { updates.append($0) },
+    let card = CardHost(SelectionRevisionCard(revision: ready, disabled: false, update: { updates.append($0) },
                                                     replace: { replaced += 1 }), test: self)
     try await clickTestControl("Edit revised text", in: card.view)
     try await waitForUI("the editor", in: card.view) { card.shows("Done editing") }
@@ -545,7 +520,7 @@ final class EnigmaConversationTests: XCTestCase {
     for (revision, disabled) in [(SelectionRevision(id: UUID(), contextID: UUID(), text: "Hi", automatic: false,
                                                     status: .sent), false), (ready, true)] {
       var count = 0
-      let blocked = CardHost(EnigmaSelectionRevisionCard(revision: revision, disabled: disabled, update: { _ in },
+      let blocked = CardHost(SelectionRevisionCard(revision: revision, disabled: disabled, update: { _ in },
                                                          replace: { count += 1 }), test: self)
       try await clickTestControl("Replace text", in: blocked.view)
       await Task.yield()
@@ -559,14 +534,14 @@ final class EnigmaConversationTests: XCTestCase {
                                         service: "iMessage", text: "Running late", target: .chat("c"))
     for (button, expected) in [("Send", true), ("Don't Send", false)] {
       var answers: [Bool] = []
-      let card = CardHost(EnigmaMessagesSendApprovalCard(approval: approval) { answers.append($0) }, test: self)
+      let card = CardHost(MessagesSendApprovalCard(approval: approval) { answers.append($0) }, test: self)
       try await clickTestControl(button, in: card.view)
       XCTAssertEqual(answers, [expected], button)
     }
 
     var panes: [MessagesPrivacyPane] = []
     var dismissed = 0
-    let issue = CardHost(EnigmaMessagesIssueCard(issue: MessagesIssue(message: "Allow Full Disk Access.", pane: .fullDiskAccess),
+    let issue = CardHost(MessagesIssueCard(issue: MessagesIssue(message: "Allow Full Disk Access.", pane: .fullDiskAccess),
                                                  openSettings: { panes.append($0) }, dismiss: { dismissed += 1 }), test: self)
     try await clickTestControl("Open Full Disk Access Settings…", in: issue.view)
     try await clickTestControl("Dismiss", in: issue.view)
@@ -604,25 +579,25 @@ final class EnigmaConversationTests: XCTestCase {
   func testScreenCardsCallTheSameActions() async throws {
     let attachment = try ScreenAttachment(image: Self.sampleImage(), source: .fullDesktop)
     var calls: [String] = []
-    let card = CardHost(EnigmaScreenAttachmentCard(attachment: attachment, isBusy: false,
+    let card = CardHost(ScreenAttachmentCard(attachment: attachment, isBusy: false,
       remove: { calls.append("remove") }, retake: { calls.append("retake") }), test: self)
     try await clickTestControl("Retake", in: card.view)
     try await clickTestControl("Remove", in: card.view)
-    let busy = CardHost(EnigmaScreenAttachmentCard(attachment: attachment, isBusy: true,
+    let busy = CardHost(ScreenAttachmentCard(attachment: attachment, isBusy: true,
       remove: { calls.append("busy remove") }, retake: { calls.append("busy retake") }), test: self)
     try await clickTestControl("Remove", in: busy.view)
 
     let consent = ScreenUploadConsent(attachment: attachment, provider: .anthropic)
-    let sheet = CardHost(EnigmaScreenUploadConsentView(consent: consent, allow: { calls.append("allow") },
+    let sheet = CardHost(ScreenUploadConsentView(consent: consent, allow: { calls.append("allow") },
                                                        decline: { calls.append("decline") }), test: self)
     try await clickTestControl("Keep Screenshots Local", in: sheet.view)
     try await clickTestControl("Allow & Send", in: sheet.view)
 
-    let off = CardHost(EnigmaScreenUploadsOffCard(review: { calls.append("review") }, openSettings: { calls.append("settings") }),
+    let off = CardHost(ScreenUploadsOffCard(review: { calls.append("review") }, openSettings: { calls.append("settings") }),
                        test: self)
     try await clickTestControl("Review screenshot permission…", in: off.view)
     try await clickTestControl("Open Screen Settings", in: off.view)
-    let error = CardHost(EnigmaScreenErrorCard(error: "Screen Recording is off.", needsScreenRecordingSettings: true) {
+    let error = CardHost(ScreenErrorCard(error: "Screen Recording is off.", needsScreenRecordingSettings: true) {
       calls.append("recording")
     }, test: self)
     try await clickTestControl("Open Screen Recording Settings…", in: error.view)
@@ -633,11 +608,11 @@ final class EnigmaConversationTests: XCTestCase {
   func testSelectionCardsCallTheSameActions() async throws {
     var calls: [String] = []
     let context = ConversationContext(sourceName: "Notes", text: "Could you please send the report today?")
-    let card = CardHost(EnigmaSelectionContextCard(context: context) { calls.append("remove") }, test: self)
+    let card = CardHost(SelectionContextCard(context: context) { calls.append("remove") }, test: self)
     try await clickTestControl("Remove selected text", in: card.view)
-    let busy = CardHost(EnigmaSelectionContextCard(context: context, isBusy: true) { calls.append("busy") }, test: self)
+    let busy = CardHost(SelectionContextCard(context: context, isBusy: true) { calls.append("busy") }, test: self)
     try await clickTestControl("Remove selected text", in: busy.view)
-    let access = CardHost(EnigmaAccessibilityNeededCard(appName: "Enigma") { calls.append("settings") }, test: self)
+    let access = CardHost(AccessibilityNeededCard(appName: "Enigma") { calls.append("settings") }, test: self)
     try await clickTestControl("Open Accessibility Settings…", in: access.view)
     XCTAssertEqual(calls, ["remove", "settings"])
   }
@@ -647,8 +622,8 @@ final class EnigmaConversationTests: XCTestCase {
     let (files, root) = try await Self.changedFiles(test: self)
     var codex = 0
     let card = CardHost(VStack(spacing: 8) {
-      EnigmaFileAttachmentCard(files: files, access: .readOnly, isCloud: true, isBusy: false) { codex += 1 }
-      EnigmaFileChangeSummary(files: files, isBusy: false)
+      FileAttachmentCard(files: files, access: .readOnly, isCloud: true, isBusy: false) { codex += 1 }
+      FileChangeSummary(files: files, isBusy: false)
     }, test: self)
     try await clickTestControl("Use Codex", in: card.view)
     XCTAssertEqual(codex, 1)
@@ -673,7 +648,7 @@ final class EnigmaConversationTests: XCTestCase {
       try await tools.workspace.apply([.write(path: "hello.txt", content: "Updated")])
       await fixture.files.finish(workspace: tools.workspace)
       try await clickTestControl("Review file changes", in: host.view)
-      try await waitForUI("the new review sheet", in: host.view) { host.window.attachedSheet != nil }
+      try await waitForUI("the review sheet", in: host.view) { host.window.attachedSheet != nil }
       let sheet = try XCTUnwrap(host.window.attachedSheet?.contentView)
       try await waitForUI("its controls", in: sheet) { Host.marker("Undo Changes", in: sheet) != nil }
       try await clickTestControl(undo ? "Undo Changes" : "Done reviewing", in: sheet)
@@ -705,7 +680,7 @@ final class EnigmaConversationTests: XCTestCase {
 
     // Done closes the sheet and leaves the change set alone; Undo closes it once the set is gone.
     let (files, root) = try await Self.changedFiles(test: self)
-    let row = CardHost(EnigmaFileRecoveryRow(files: files), test: self)
+    let row = CardHost(FileRecoveryRow(files: files), test: self)
     try await clickTestControl("Done reviewing", in: try await open(row, files))
     try await waitForUI("the sheet closed by Done", in: row.view) { row.window.attachedSheet == nil }
     XCTAssertEqual(files.changes.count, 1)
@@ -718,7 +693,7 @@ final class EnigmaConversationTests: XCTestCase {
     // An undo that fails keeps the sheet open and says why under it.
     let (failing, failingRoot) = try await Self.changedFiles(test: self)
     try FileManager.default.removeItem(at: failingRoot.appending(path: "Project"))
-    let failingRow = CardHost(EnigmaFileRecoveryRow(files: failing), test: self)
+    let failingRow = CardHost(FileRecoveryRow(files: failing), test: self)
     let sheet = try await open(failingRow, failing)
     try await clickTestControl("Undo Changes", in: sheet)
     try await waitForUI("the undo error", in: sheet) {
@@ -778,12 +753,12 @@ final class EnigmaConversationTests: XCTestCase {
       text: "We're moving launch to the 24th so the migration guide ships with it.", automatic: false)
     try EnigmaSnapshot.save("cards-selection-and-messages", size: CGSize(width: 600, height: 640)) {
       VStack(alignment: .leading, spacing: 12) {
-        EnigmaSelectionRevisionCard(revision: revision, disabled: false, update: { _ in }, replace: {})
-        EnigmaSelectionContextCard(context: ConversationContext(sourceName: "Mail",
+        SelectionRevisionCard(revision: revision, disabled: false, update: { _ in }, replace: {})
+        SelectionContextCard(context: ConversationContext(sourceName: "Mail",
           text: "Sorry for the delay! We need to push the launch, hopefully not too far.")) {}
-        EnigmaAccessibilityNeededCard(appName: "Enigma") {}
-        EnigmaMessagesSendApprovalCard(approval: approval) { _ in }
-        EnigmaMessagesIssueCard(issue: MessagesIssue(message: "Enigma needs Full Disk Access to read Messages.",
+        AccessibilityNeededCard(appName: "Enigma") {}
+        MessagesSendApprovalCard(approval: approval) { _ in }
+        MessagesIssueCard(issue: MessagesIssue(message: "Enigma needs Full Disk Access to read Messages.",
                                                      pane: .fullDiskAccess), openSettings: { _ in }, dismiss: {})
       }
       .padding(24)
@@ -791,22 +766,22 @@ final class EnigmaConversationTests: XCTestCase {
     }
     try EnigmaSnapshot.save("cards-screen-and-files", size: CGSize(width: 600, height: 460)) {
       VStack(alignment: .trailing, spacing: 12) {
-        EnigmaScreenAttachmentCard(attachment: attachment, isBusy: false, remove: {}, retake: {})
-        EnigmaScreenUploadsOffCard(review: {}, openSettings: {})
-        EnigmaScreenErrorCard(error: "Screen Recording is off for Enigma.", needsScreenRecordingSettings: true) {}
-        EnigmaFileAttachmentCard(files: files, access: .readWrite, isCloud: false, isBusy: false) {}
-        EnigmaFileChangeSummary(files: files, isBusy: false)
+        ScreenAttachmentCard(attachment: attachment, isBusy: false, remove: {}, retake: {})
+        ScreenUploadsOffCard(review: {}, openSettings: {})
+        ScreenErrorCard(error: "Screen Recording is off for Enigma.", needsScreenRecordingSettings: true) {}
+        FileAttachmentCard(files: files, access: .readWrite, isCloud: false, isBusy: false) {}
+        FileChangeSummary(files: files, isBusy: false)
       }
       .padding(24)
       .frame(width: 600, alignment: .topLeading)
     }
-    try EnigmaSnapshot.save("screen-consent", size: CGSize(width: EnigmaScreenUploadConsentView.width, height: 520)) {
-      EnigmaScreenUploadConsentView(consent: ScreenUploadConsent(attachment: attachment, provider: .anthropic),
+    try EnigmaSnapshot.save("screen-consent", size: CGSize(width: ScreenUploadConsentView.width, height: 520)) {
+      ScreenUploadConsentView(consent: ScreenUploadConsent(attachment: attachment, provider: .anthropic),
                                     allow: {}, decline: {})
     }
     let change = try XCTUnwrap(files.visibleChanges.first)
-    try EnigmaSnapshot.save("file-review", size: EnigmaFileChangesReview.size) {
-      EnigmaFileChangesReview(changeSet: change, undo: {})
+    try EnigmaSnapshot.save("file-review", size: FileChangesReview.size) {
+      FileChangesReview(changeSet: change, undo: {})
     }
 
     var sent = ChatMessage(role: .user, content: "What's on screen?")

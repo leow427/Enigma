@@ -169,8 +169,8 @@ final class ScreenSearchNativeSmokeTests: XCTestCase {
       // Source links are part of the message UI even when a small model omits
       // inline URLs. Verify that rendering, not a probabilistic prose format.
       let message = try XCTUnwrap(chat.messages.last)
-      let renderer = ImageRenderer(content: LocalMessageView(message: message).padding(20).frame(width: 700)
-        .background(Color.white).environment(\.colorScheme, .light))
+      let renderer = ImageRenderer(content: TranscriptPreview(messages: [message], expandsActivity: true)
+        .padding(20).frame(width: 700).background(EnigmaPalette.paper.background.color).enigmaTheme(.paper))
       renderer.scale = 2
       let rendered = try XCTUnwrap(renderer.cgImage)
       let renderedText = try await ScreenOCRService().recognize(rendered).text.lowercased()

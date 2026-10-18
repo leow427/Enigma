@@ -1,15 +1,15 @@
 import AppKit
 import SwiftUI
 
-// The conversation in the new design: the person's messages as right-aligned
+// The conversation: the person's messages as right-aligned
 // bubbles, and replies in the serif with the character, or the mark, in a
 // 30 pt slot beside them and a monospace meta line under them. AppShellView
 // owns the chat and every action; these views only lay it out, so the compact
 // panel can reuse them at its narrower width.
 
-/// The chat's scrolling list. It keeps the old list's behavior: it opens at
-/// the bottom, follows new content only while the reader stays at the end,
-/// and AppShellView gives it a new identity for each chat.
+/// The chat's scrolling list. It opens at the bottom, follows new content only
+/// while the reader stays at the end, and AppShellView gives it a new identity
+/// for each chat.
 struct EnigmaMessageList<Revision: View>: View {
   let transcript: ConversationTranscript
   /// Changes with anything that should keep a reader at the bottom following it.
@@ -101,7 +101,7 @@ struct EnigmaUserMessage: View {
         }
       }
       if let data = message.imagePreview, let image = NSImage(data: data) {
-        EnigmaSentImage(image: image)
+        SentImagePreview(image: image)
       }
       if !message.content.isEmpty {
         Text(verbatim: message.content)
@@ -124,7 +124,7 @@ struct EnigmaUserMessage: View {
 }
 
 /// An image sent with a message, kept small and in proportion, with a `border` edge.
-struct EnigmaSentImage: View {
+struct SentImagePreview: View {
   let image: NSImage
   @Environment(\.enigmaPalette) private var palette
 
@@ -164,12 +164,12 @@ struct EnigmaReplyView<Revision: View>: View {
       Color.clear.frame(width: ConversationTranscript.slotSize, height: 1)
       VStack(alignment: .leading, spacing: 8) {
         if let activity = reply.activity {
-          EnigmaActivityView(activity: activity, expanded: expandedActivity)
+          AssistantActivityView(activity: activity, expanded: expandedActivity)
         } else if reply.showsThinking {
           EnigmaThinkingLine()
         }
         if !reply.content.isEmpty {
-          EnigmaMarkdownView(content: reply.content)
+          ChatMarkdownView(content: reply.content)
             .enigmaTestMarker("Reply")
         }
         revision()
@@ -257,8 +257,7 @@ private struct EnigmaLatestReplySlot: View {
 }
 
 /// Waiting for the first words when there's no activity to show. VoiceOver
-/// reads "Thinking", as the old Thinking row did; the character in the slot
-/// beside it thinks too.
+/// reads "Thinking"; the character in the slot beside it thinks too.
 private struct EnigmaThinkingLine: View {
   @Environment(\.enigmaPalette) private var palette
 
@@ -295,5 +294,157 @@ struct EnigmaChatNote: View {
       .foregroundStyle(palette.textSecondary.color)
       .multilineTextAlignment(.trailing)
       .fixedSize(horizontal: false, vertical: true)
+  }
+}
+
+// MARK: Following the end of the chat
+
+/// Follow new layout only while the reader remains at the end of the chat.
+struct ConversationScrollObserver: NSViewRepresentable {
+  var contentRevision = ""
+  func makeNSView(context: Context) -> ObserverView { ObserverView() }
+  func updateNSView(_ view: ObserverView, context: Context) { view.contentChanged(contentRevision) }
+
+  final class ObserverView: NSView {
+    private var contentRevision = ""
+    func contentChanged(_ revision: String) {
+      guard revision != contentRevision else { return }
+      contentRevision = revision
+      scheduleScroll()
+    }
+    private var pendingScroll: DispatchWorkItem?
+    private weak var observedScroll: NSScrollView?
+    private var previousClipBounds = NSRect.zero
+    private var previousDocumentSize = NSSize.zero
+    private var isAdjustingScroll = false
+    private var isSettlingDocumentLayout = false
+    private var isLiveScrolling = false
+    private var hasPositionedInitially = false
+    private(set) var followsLatest = true
+
+    override func setFrameSize(_ newSize: NSSize) {
+      let changed = frame.size != newSize
+      super.setFrameSize(newSize)
+      if changed { scheduleScroll() }
+    }
+
+    override func viewDidMoveToWindow() {
+      super.viewDidMoveToWindow()
+      disconnect()
+      if window != nil {
+        connect()
+        scheduleScroll()
+      }
+    }
+
+    private func connect() {
+      guard let scroll = enclosingScrollView, observedScroll !== scroll else { return }
+      observedScroll = scroll
+      rememberGeometry()
+      scroll.contentView.postsBoundsChangedNotifications = true
+      let center = NotificationCenter.default
+      if let document = scroll.documentView {
+        document.postsFrameChangedNotifications = true
+        center.addObserver(self, selector: #selector(documentLayoutChanged),
+                           name: NSView.frameDidChangeNotification, object: document)
+      }
+      center.addObserver(self, selector: #selector(boundsChanged),
+                         name: NSView.boundsDidChangeNotification, object: scroll.contentView)
+      center.addObserver(self, selector: #selector(beginScrolling),
+                         name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+      center.addObserver(self, selector: #selector(endScrolling),
+                         name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+    }
+
+    private func disconnect() {
+      pendingScroll?.cancel()
+      pendingScroll = nil
+      NotificationCenter.default.removeObserver(self)
+      observedScroll = nil
+      isLiveScrolling = false
+    }
+
+    private var isAtBottom: Bool {
+      guard let scroll = observedScroll, let document = scroll.documentView else { return false }
+      let visible = scroll.contentView.bounds
+      let distance = document.isFlipped
+        ? document.bounds.maxY - visible.maxY : visible.minY - document.bounds.minY
+      return distance <= 2
+    }
+
+    private func rememberGeometry() {
+      previousClipBounds = observedScroll?.contentView.bounds ?? .zero
+      previousDocumentSize = observedScroll?.documentView?.bounds.size ?? .zero
+    }
+
+    @objc private func documentLayoutChanged() {
+      isSettlingDocumentLayout = followsLatest
+      rememberGeometry()
+      scheduleScroll()
+    }
+
+    @objc private func beginScrolling() {
+      isLiveScrolling = true
+      followsLatest = false
+      pendingScroll?.cancel()
+      pendingScroll = nil
+    }
+
+    @objc private func endScrolling() {
+      isLiveScrolling = false
+      followsLatest = isAtBottom
+      rememberGeometry()
+      if followsLatest { scheduleScroll() }
+    }
+
+    @objc private func boundsChanged() {
+      guard let scroll = observedScroll else { return }
+      defer { rememberGeometry() }
+      guard !isAdjustingScroll, hasPositionedInitially else { return }
+      // Removing the waiting row can trigger a native offset correction after the
+      // document notification. That correction is layout, not reader navigation.
+      let event = NSApp.currentEvent
+      let input = event?.type
+      let recentInput = event.map { ProcessInfo.processInfo.systemUptime - $0.timestamp < 0.2 } ?? false
+      let navigationKey = input == .keyDown && [115, 116, 119, 121, 125, 126].contains(Int(event?.keyCode ?? 0))
+      let userNavigation = recentInput && (input == .scrollWheel || navigationKey || input == .leftMouseDragged || input == .leftMouseDown)
+      if isSettlingDocumentLayout && !isLiveScrolling && !userNavigation { return }
+      // Resizing/streaming changes geometry too. Only an offset change at the
+      // same size is navigation; live gestures suspend following before layout.
+      let bounds = scroll.contentView.bounds
+      if isLiveScrolling || (bounds.origin != previousClipBounds.origin
+          && bounds.size == previousClipBounds.size
+          && scroll.documentView?.bounds.size == previousDocumentSize) {
+        followsLatest = !isLiveScrolling && isAtBottom
+        if !followsLatest { pendingScroll?.cancel(); pendingScroll = nil }
+      }
+    }
+
+    private func scheduleScroll() {
+      guard followsLatest, !isLiveScrolling, pendingScroll == nil else { return }
+      let work = DispatchWorkItem { [weak self] in self?.scrollToBottomIfFollowing() }
+      pendingScroll = work
+      // Coalesce repeated lazy-row measurements; recheck reader intent at execution.
+      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(30), execute: work)
+    }
+
+    func scrollToBottomIfFollowing() {
+      pendingScroll?.cancel()
+      pendingScroll = nil
+      connect()
+      guard followsLatest, !isLiveScrolling, window != nil,
+            let scroll = observedScroll, let document = scroll.documentView else { return }
+      let clip = scroll.contentView
+      let bottom = document.isFlipped
+        ? max(document.bounds.minY, document.bounds.maxY - clip.bounds.height)
+        : document.bounds.minY
+      isAdjustingScroll = true
+      clip.scroll(to: NSPoint(x: clip.bounds.minX, y: bottom))
+      scroll.reflectScrolledClipView(clip)
+      isAdjustingScroll = false
+      hasPositionedInitially = true
+      isSettlingDocumentLayout = false
+      rememberGeometry()
+    }
   }
 }

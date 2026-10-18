@@ -36,7 +36,7 @@ final class MenuBarController: NSObject {
   /// its still pose (see `EnigmaAppIcon`), at the menu bar's 18 pt. A copy, so
   /// resizing it leaves the asset's other uses alone.
   static func statusImage() -> NSImage? {
-    let logo = NSImage(named: "SpotlightLogo")?.copy() as? NSImage
+    let logo = NSImage(named: "EnigmaMenuBarMark")?.copy() as? NSImage
     logo?.size = NSSize(width: EnigmaAppIcon.menuBarSide, height: EnigmaAppIcon.menuBarSide)
     logo?.isTemplate = true
     return logo

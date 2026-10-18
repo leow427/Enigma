@@ -3,10 +3,10 @@ import SwiftUI
 import XCTest
 @testable import Enigma
 
-/// Phase 8: the compact selection panel in the new design. Its logic, the
-/// panel's sizes as it opens and grows, and the same selection flows the old
-/// panel's tests cover, hosted in the real panel controller. Hosted tests use
-/// the main window's isolated fixture, never the installed app's settings.
+/// The compact selection panel: its logic, the panel's sizes as it opens and
+/// grows, and the selection flows, hosted in the real panel controller.
+/// Hosted tests use the main window's isolated fixture, never the installed
+/// app's settings.
 final class EnigmaCompactPanelTests: XCTestCase {
   private typealias Fixture = EnigmaMainWindowTests.Fixture
   private typealias Host = EnigmaMainWindowTests.Host
@@ -86,38 +86,29 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertFalse(shell.showsCompactPanel, "A saved chat replacing the temporary one ends the panel")
   }
 
-  /// The old design's sizes and upward growth are unchanged; the new design
-  /// keeps its top edge and grows downward on the panel-answer spring.
-  func testExpansionKeepsTheOldSizesAndTheNewDesignGrowsDownward() {
+  /// The panel opens at its first size, keeps its top edge, and grows
+  /// downward on the panel-answer spring.
+  func testExpansionKeepsTheTopEdgeAndGrowsDownward() {
     XCTAssertEqual(SelectionPanelExpansion.composerSize, NSSize(width: 720, height: 92))
     let visible = NSRect(x: -1440, y: 40, width: 1440, height: 860)
-    // A composer low on the screen grows upward in the old design; one high
-    // on the screen grows downward in the new one, both without moving.
-    let lowComposer = NSRect(x: -1200, y: 100, width: 720, height: 128)
+    // A composer high on the screen grows downward without moving.
     let composer = NSRect(x: -1200, y: 700, width: 720, height: 128)
-    let classic = SelectionPanelExpansion.frame(from: lowComposer, visible: visible)
-    XCTAssertEqual(SelectionPanelExpansion.frame(from: lowComposer, visible: visible, style: .classic), classic)
-    XCTAssertEqual(classic.minY, lowComposer.minY)
-    let grown = SelectionPanelExpansion.frame(from: composer, visible: visible, style: .enigma)
+    let grown = SelectionPanelExpansion.frame(from: composer, visible: visible)
     XCTAssertEqual(grown.maxY, composer.maxY, "The input stays where it was")
     XCTAssertEqual(grown.minX, composer.minX)
     XCTAssertEqual(grown.size, NSSize(width: 720, height: 600))
     XCTAssertTrue(visible.contains(grown))
-    let low = SelectionPanelExpansion.frame(from: NSRect(x: -1200, y: 60, width: 720, height: 128), visible: visible,
-                                            style: .enigma)
+    let low = SelectionPanelExpansion.frame(from: NSRect(x: -1200, y: 60, width: 720, height: 128), visible: visible)
     XCTAssertEqual(low.minY, visible.minY, "Near the bottom it moves up to fit")
     XCTAssertTrue(visible.contains(low))
     let small = NSRect(x: 0, y: 0, width: 700, height: 500)
-    XCTAssertTrue(small.contains(SelectionPanelExpansion.frame(from: composer, visible: small, style: .enigma)))
+    XCTAssertTrue(small.contains(SelectionPanelExpansion.frame(from: composer, visible: small)))
 
-    // The frames along the way: the old design keeps its bottom, the new one its top.
+    // The frames along the way keep the top edge.
     for progress in [0.0, 0.3, 0.7, 1.0] {
-      let old = SelectionPanelExpansion.frame(at: progress, from: lowComposer, to: classic, visible: visible,
-                                              style: .classic)
-      XCTAssertEqual(old.minY, lowComposer.minY)
-      let new = SelectionPanelExpansion.frame(at: progress, from: composer, to: grown, visible: visible, style: .enigma)
-      XCTAssertEqual(new.maxY, composer.maxY, accuracy: 0.001)
-      XCTAssertEqual(new.height, composer.height + (grown.height - composer.height) * progress, accuracy: 0.001)
+      let frame = SelectionPanelExpansion.frame(at: progress, from: composer, to: grown, visible: visible)
+      XCTAssertEqual(frame.maxY, composer.maxY, accuracy: 0.001)
+      XCTAssertEqual(frame.height, composer.height + (grown.height - composer.height) * progress, accuracy: 0.001)
     }
 
     // The spring starts still, barely overshoots, and settles.
@@ -144,7 +135,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertTrue(host.shows("Selected text"))
     XCTAssertTrue(host.shows("Hint / commands") && host.shows("Hint ⌃⌃ history") && host.shows("Hint esc close"))
     let editor = try XCTUnwrap(composerEditor(in: host.view))
-    XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor, "The new design's field")
+    XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor, "The field takes the palette's colors")
     XCTAssertTrue(host.view.bounds.contains(host.view.convert(editor.bounds, from: editor)))
     let image = try XCTUnwrap(try EnigmaSnapshot.capture(host.view).cgImage)
     let text = try await ScreenOCRService().recognize(image).text.lowercased()
@@ -159,7 +150,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     fixture.screen.draft = "Explain this passage"
     try await waitForUI("the draft in the field", in: host.view) { editor.string == fixture.screen.draft }
     let composerFrame = host.window.frame
-    let expanded = SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible, style: .enigma)
+    let expanded = SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible)
     try host.pressReturn()
     try await waitForUI("the accepted prompt and the grown panel (frame \(host.window.frame))", in: host.view) {
       !host.controller.isSelectionComposer && host.window.frame == expanded && fixture.engine.requestCount == 1
@@ -193,7 +184,6 @@ final class EnigmaCompactPanelTests: XCTestCase {
     host.present("Please send the report today.")
     try await host.waitForComposer()
     let report = try XCTUnwrap(host.controller.selectionComposer)
-    XCTAssertEqual(report.style, .enigma)
     XCTAssertEqual(host.window.frame.height, report.height, accuracy: 1.5, "The window fits the reported panel")
     let resting = host.window.frame
 
@@ -202,7 +192,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
       host.shows("Selection details panel") && host.window.frame.height > resting.height + 40
     }
     XCTAssertEqual(host.window.frame.maxY, resting.maxY, accuracy: 1, "It grows downward")
-    XCTAssertTrue(host.shows("Remove selected text"), "The details hold the selected text's card, as the old popover did")
+    XCTAssertTrue(host.shows("Remove selected text"), "The details hold the selected text's card")
     try await clickTestControl("Selection details", in: host.view)
     try await waitForUI("the details closed", in: host.view) {
       !host.shows("Selection details panel") && abs(host.window.frame.height - resting.height) < 1.5
@@ -321,21 +311,6 @@ final class EnigmaCompactPanelTests: XCTestCase {
     try await host.waitForComposer()
     XCTAssertFalse(host.shows("Selection details panel"))
     XCTAssertEqual(host.window.frame.height, resting, accuracy: 1.5)
-  }
-
-  @MainActor
-  func testTurningTheFlagOffOpensTheOldPanelAtItsOwnSize() async throws {
-    let fixture = try await Fixture(test: self)
-    let host = try await CompactPanelHost(fixture, test: self)
-    host.present("Please send the report today.")
-    try await host.waitForComposer()
-    host.controller.hide()
-    fixture.newUI.isEnabled = false
-    try await waitForUI("the old frame", in: host.view) { !host.shows("Compact panel") }
-    host.present("Please send the report today.")
-    XCTAssertEqual(host.window.frame.height, SelectionPanelExpansion.composerSize.height,
-                   "The old panel opens at 92, as before")
-    XCTAssertNotEqual(host.controller.selectionComposer?.style, .enigma, "Only the old panel's own report remains")
   }
 
   @MainActor
@@ -506,34 +481,11 @@ final class EnigmaCompactPanelTests: XCTestCase {
     try await waitForUI("the full layout with the history", in: host.view) {
       host.shows("New chat") && !host.shows("Compact panel") && !host.shows("Compact panel answer")
     }
-    XCTAssertEqual(host.window.frame, SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible, style: .enigma))
+    XCTAssertEqual(host.window.frame, SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible))
     NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
     try await waitForUI("the answer panel again", in: host.view) {
       host.shows("Compact panel answer") && !host.shows("New chat")
     }
-  }
-
-  @MainActor
-  func testFlagSwapsLiveBetweenTheOldAndNewPanels() async throws {
-    let fixture = try await Fixture(test: self)
-    let host = try await CompactPanelHost(fixture, test: self)
-    host.present("Please send the report today.")
-    try await host.waitForComposer()
-    XCTAssertEqual(host.controller.selectionComposer?.style, .enigma)
-    fixture.newUI.isEnabled = false
-    try await waitForUI("the old compact panel", in: host.view) {
-      guard let editor = composerEditor(in: host.view) else { return false }
-      return !host.shows("Compact panel") && editor.commandTextColor == .systemBlue
-        && host.controller.selectionComposer?.style == .classic && host.window.frame.height < 150
-        && composerAcceptsClicks(in: host.view)
-    }
-    fixture.newUI.isEnabled = true
-    try await waitForUI("the new compact panel again", in: host.view) {
-      host.shows("Compact panel") && host.controller.selectionComposer?.style == .enigma
-        && abs(host.window.frame.height - (host.controller.selectionComposer?.height ?? 0)) < 1.5
-    }
-    XCTAssertTrue(host.controller.isSelectionComposer)
-    XCTAssertEqual(fixture.chat.attachedContexts.count, 1, "Swapping designs keeps the selection")
   }
 
   @MainActor
@@ -655,8 +607,7 @@ final class CompactPanelHost {
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
     sizes.save(NSSize(width: 900, height: 600))
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(defaults: fixture.defaults),
-      sizeStore: sizes, contentView: view, reduceMotion: { reduceMotion })
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { reduceMotion })
     controller.show()
     test.addTeardownBlock { @MainActor in
       controller.hide()
@@ -668,7 +619,7 @@ final class CompactPanelHost {
     window = try XCTUnwrap(view.window)
     window.colorSpace = .sRGB
     visible = try XCTUnwrap(window.screen?.visibleFrame)
-    try await waitForUI("the new frame", in: view) { EnigmaMainWindowTests.Host.marker("New chat", in: view) != nil }
+    try await waitForUI("the window frame", in: view) { EnigmaMainWindowTests.Host.marker("New chat", in: view) != nil }
     normalFrame = window.frame
   }
 
@@ -691,7 +642,7 @@ final class CompactPanelHost {
   func waitForComposer(file: StaticString = #filePath, line: UInt = #line) async throws {
     try await waitForUI("the compact panel (frame \(window.frame))", in: view, file: file, line: line) {
       guard let report = controller.selectionComposer else { return false }
-      return controller.isSelectionComposer && shows("Compact panel") && report.style == .enigma
+      return controller.isSelectionComposer && shows("Compact panel")
         && window.frame.height < 150 && abs(window.frame.height - report.height) < 1.5
         && composerAcceptsClicks(in: view)
     }

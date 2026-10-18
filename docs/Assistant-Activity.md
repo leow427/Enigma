@@ -1,7 +1,8 @@
 # Assistant activity and live sources
 
-Implemented on top of `f03564e`, the latest `origin/main` at implementation time,
-including the compact Liquid Glass app and colored slash commands.
+Implemented on top of `f03564e`, the latest `origin/main` at implementation time.
+The activity now uses the Paper and Ink design described in
+[UI-Style.md](../UI-Style.md): a monospace status line that opens into plain rows.
 
 The assistant shows actual preparation, query refinement, search, source collection,
 model waiting, and response generation stages. Click the status to open its activity
@@ -11,9 +12,9 @@ Stop and errors end the indicator; late events cannot update a replacement reque
 
 Sources selected for the model prompt appear before the first response fragment.
 Each selected unique URL contributes once to the count. Retrieval candidates remain
-hidden while evidence is being fitted. Rows show a colored site initial, title, hostname, and link. Site
-colors remain consistent within a request, with collisions resolved across the first
-eight sites. The source list scrolls independently when it grows. Only excerpts that fit
+hidden while evidence is being fitted. Rows show the title, the site and whether its
+excerpt was included, and the address, and each opens its page. The source list
+scrolls independently when it grows. Only excerpts that fit
 into model context are shown; excluded candidates never appear as citation sources.
 A collected excerpt does not mean the assistant visited or verified the full page.
 
@@ -46,7 +47,7 @@ historical processing timeline. Search snippets and intermediate queries stay tr
 ## Verification
 
 Regression tests exercise incremental discovery before response text on local and
-cloud routes, URL deduplication, source selection, stable colors, cancellation and late
+cloud routes, URL deduplication, source selection, cancellation and late
 events, provider event forwarding, existing history compatibility, and compact light
 and dark renderings. Native full-app tests click the activity control and verify its
 rendered source panel alongside the current composer and streaming scroll behavior.
@@ -57,7 +58,7 @@ The unsigned verification app was not launched for interactive Screen testing.
 
 Build and static analysis passed. After the context-aware retrieval update, the full
 suite ran 424 tests with nine optional skips and zero failures.
-This screenshot is an intentionally versioned UI reference; build and test products
-remain outside the repository.
+The screenshot shows the activity in the current design, rendered by the
+repository's snapshot helper; build and test products remain outside the repository.
 
-![Activity in the current app](images/assistant-activity-app.png)
+![Activity with its sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)

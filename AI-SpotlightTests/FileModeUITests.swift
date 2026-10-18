@@ -21,12 +21,16 @@ final class FileModeUITests: XCTestCase {
     try FileManager.default.removeItem(at: root)
   }
 
-  func testInactiveFileButtonHasVisibleHitTarget() {
-    let files = FileModeCoordinator(journalDirectory: root.appendingPathComponent("Recovery"))
-    let view = NSHostingView(rootView: FileModeToolButton(files: files, isBusy: false, activate: {}))
-    XCTAssertNil(files.selection)
-    XCTAssertGreaterThanOrEqual(view.fittingSize.width, 30)
-    XCTAssertGreaterThanOrEqual(view.fittingSize.height, 30)
+  @MainActor
+  func testInactiveFileButtonHasVisibleHitTarget() async throws {
+    let fixture = try await EnigmaMainWindowTests.Fixture(test: self)
+    let host = EnigmaMainWindowTests.Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer's Attach button", in: host.view) { host.shows("Attach files") }
+    XCTAssertNil(fixture.files.selection)
+    // The design's icon buttons are 30 × 28.
+    let target = try XCTUnwrap(host.marker("Attach files"))
+    XCTAssertGreaterThanOrEqual(target.frame.width, 30)
+    XCTAssertGreaterThanOrEqual(target.frame.height, 28)
   }
 
   func testMenuActivationPresentsPickerAndAllowsFileAndFolderSelection() async throws {
@@ -76,10 +80,10 @@ final class FileModeUITests: XCTestCase {
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
     defaults.set(true, forKey: WelcomeSetup.completedKey)
     addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(), localChat: chat, screen: screen,
+    let view = NSHostingView(rootView: AppShellView(localChat: chat, screen: screen,
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
-      newUI: NewUIPreference(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults)))
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: view)
+      appearance: EnigmaAppearancePreference(defaults: defaults)))
+    let controller = SpotlightPanelController(contentView: view)
     controller.show()
     defer { controller.hide() }
     await chat.refreshInstalledModel()
@@ -246,10 +250,7 @@ final class FileModeUITests: XCTestCase {
     XCTAssertEqual(try String(contentsOf: project.appendingPathComponent("code.swift"), encoding: .utf8), "source before")
   }
 
-  func testNativeFileIconAndAttachmentReviewStatesRender() async throws {
-    let icon = try XCTUnwrap(NSImage(named: "FileMode"))
-    XCTAssertNotNil(icon.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    XCTAssertEqual(ToolMenuLabel.menuImage(named: "FileMode").size, NSSize(width: 16, height: 16))
+  func testFileCardsAndReviewStatesRender() async throws {
     let picker = FileTestPicker([project])
     let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
     await files.activate(from: .menu)
@@ -257,34 +258,30 @@ final class FileModeUITests: XCTestCase {
     try await tools.workspace.apply([.write(path: "hello.txt", content: "Updated"),
       .create(path: "second.txt", content: "Second"), .create(path: "third.txt", content: "Third")])
     await files.finish(workspace: tools.workspace)
-    let preview = VStack(alignment: .leading, spacing: 18) {
-      Text("File Mode").font(.title2.weight(.semibold))
-      HStack {
-        FileModeToolButton(files: files, isBusy: false, activate: {})
-        Text("Ask anything").foregroundStyle(.secondary)
-        Spacer()
-        Text("Local")
-      }
-      FileModeAttachmentView(files: files, access: .readWrite, isCloud: false, isBusy: false, useCodex: {})
-      FileModeAttachmentView(files: files, access: .readWrite, isCloud: true, isBusy: false, useCodex: {})
-      FileChangeSummaryView(files: files, isBusy: false)
-    }.padding(24).frame(width: 660).background(Color(nsColor: .windowBackgroundColor))
-    let view = NSHostingView(rootView: preview.environment(\.colorScheme, .dark))
+    let preview = VStack(alignment: .trailing, spacing: 18) {
+      FileAttachmentCard(files: files, access: .readWrite, isCloud: false, isBusy: false, useCodex: {})
+      FileAttachmentCard(files: files, access: .readWrite, isCloud: true, isBusy: false, useCodex: {})
+      FileChangeSummary(files: files, isBusy: false)
+    }.padding(24).frame(width: 660).background(EnigmaPalette.ink.background.color)
+    let view = NSHostingView(rootView: preview.enigmaTheme(.ink))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 310),
       styleMask: [.borderless], backing: .buffered, defer: false)
+    window.colorSpace = .sRGB
     window.contentView = view
     view.frame = NSRect(x: 0, y: 0, width: 660, height: 310)
     view.layoutSubtreeIfNeeded()
     window.displayIfNeeded()
     let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
-    let greenPixels = (0..<bitmap.pixelsWide).reduce(0) { total, x in
+    // The cards' folder glyphs draw in the palette's lime accent text.
+    let accentPixels = (0..<bitmap.pixelsWide).reduce(0) { total, x in
       total + (0..<bitmap.pixelsHigh).filter { y in
-        guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return false }
-        return color.greenComponent > 0.45 && color.greenComponent > color.redComponent * 1.3 && color.greenComponent > color.blueComponent * 1.15
+        guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
+        return color.greenComponent > 0.3 && color.greenComponent > color.redComponent * 1.05
+          && color.greenComponent > color.blueComponent * 1.4
       }.count
     }
-    XCTAssertGreaterThan(greenPixels, 100)
+    XCTAssertGreaterThan(accentPixels, 100)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-FileMode-Preview.png"))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")

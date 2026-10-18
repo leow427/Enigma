@@ -4,7 +4,6 @@ import LocalAuthentication
 import Security
 import SwiftUI
 import XCTest
-import WebKit
 import Vision
 @testable import Enigma
 
@@ -14,7 +13,7 @@ final class ScreenViewTests: XCTestCase {
     let text = "Explain /think using /"
     let view = NSHostingView(rootView: SlashCommandComposer(text: .constant(text),
       isFocused: .constant(true), isEnabled: true, availableCommands: SlashCommand.allCases, submit: {})
-      .padding(.top, 360).padding(16).frame(width: 480).environment(\.colorScheme, .dark))
+      .padding(.top, 360).padding(16).frame(width: 480).enigmaTheme(.ink))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
       styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
@@ -59,9 +58,10 @@ final class ScreenViewTests: XCTestCase {
       | Local | Clean Markdown |
       | ChatGPT | Clean Markdown |
       """####
-    for scheme in [ColorScheme.light, .dark] {
-      let view = NSHostingView(rootView: LocalMessageView(message: ChatMessage(role: .assistant, content: content))
-        .padding(24).frame(width: 620).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme))
+    for appearance in [EnigmaAppearance.paper, .ink] {
+      let palette = appearance == .paper ? EnigmaPalette.paper : EnigmaPalette.ink
+      let view = NSHostingView(rootView: TranscriptPreview(messages: [ChatMessage(role: .assistant, content: content)])
+        .padding(24).frame(width: 620).background(palette.background.color).enigmaTheme(appearance))
       let size = view.fittingSize
       XCTAssertGreaterThan(size.height, 300)
       let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
@@ -72,7 +72,7 @@ final class ScreenViewTests: XCTestCase {
       let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
       view.cacheDisplay(in: view.bounds, to: bitmap)
       let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Markdown-\(scheme == .dark ? "dark" : "light").png"))
+      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Markdown-\(appearance == .ink ? "dark" : "light").png"))
       let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
       attachment.name = "Markdown response"
       attachment.lifetime = .keepAlways
@@ -80,59 +80,14 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  func testCoalescenceThinkingRendersAnimation() async throws {
-    XCTAssertNotNil(NSDataAsset(name: "EnigmaCoalescence"))
-    let view = NSHostingView(rootView: ThinkingStatusView()
-      .padding(16).frame(width: 200, height: 96).background(NatureGlass.canvas))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 96),
-      styleMask: [.borderless], backing: .buffered, defer: false)
-    window.contentView = view
-    defer { window.contentView = nil }
-    view.layoutSubtreeIfNeeded()
-    let web = try XCTUnwrap(descendants(view).compactMap { $0 as? WKWebView }.first)
-    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-    var ready = false
-    repeat {
-      ready = (try? await web.evaluateJavaScript("document.readyState === 'complete' && !!document.querySelector('.ec-still')")) as? Bool == true
-      if !ready { await Task.yield() }
-    } while !ready && ContinuousClock.now < deadline
-    XCTAssertTrue(ready, "The bundled SVG must finish loading")
-    let motionDisplay = try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.ec-motion')).display") as? String
-    let stillDisplay = try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.ec-still')).display") as? String
-    XCTAssertNotEqual(motionDisplay, "none")
-    XCTAssertEqual(stillDisplay, "none")
-    _ = try await web.evaluateJavaScript("document.querySelector('svg').pauseAnimations(); document.querySelector('svg').setCurrentTime(0); true")
-    let first = try await web.takeSnapshot(configuration: nil)
-    let bitmap = NSBitmapImageRep(cgImage: try XCTUnwrap(first.cgImage(forProposedRect: nil, context: nil, hints: nil)))
-    let visible = (0..<bitmap.pixelsWide).reduce(0) { count, x in
-      count + (0..<bitmap.pixelsHigh).filter { y in (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.2 }.count
-    }
-    XCTAssertGreaterThan(visible, 10, "Coalescence artwork must render, not a blank web view")
-    _ = try await web.evaluateJavaScript("document.querySelector('svg').setCurrentTime(3); true")
-    let next = try await web.takeSnapshot(configuration: nil)
-    XCTAssertNotEqual(first.tiffRepresentation, next.tiffRepresentation, "The supplied coalescence must change across its timeline")
-    let preview = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
-    view.cacheDisplay(in: view.bounds, to: preview)
-    let png = try XCTUnwrap(preview.representation(using: .png, properties: [:]))
-    try png.write(to: URL(fileURLWithPath: "/tmp/Enigma-Thinking-Animated.png"))
-    let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-    attachment.name = "Thinking · enigma coalescence"
-    attachment.lifetime = .keepAlways
-    add(attachment)
-  }
-
-  func testLiquidGlassSettingsAndAssetsRender() throws {
-    for name in ["ForestBackdrop", "TemplateAttachment"] {
-      let image = try XCTUnwrap(NSImage(named: name))
-      XCTAssertNotNil(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    }
+  func testSettingsPagesRender() throws {
     let credentials = ScreenTestCredentialStore()
     let settings = CloudSettingsModel(credentialStore: credentials,
       catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
       codexAvailable: { false })
     for destination in SettingsView.SettingsDestination.allCases {
       let view = NSHostingView(rootView: SettingsView(settings: settings, initialDestination: destination,
-        discovery: LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })))
+        discovery: LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })).enigmaTheme(.ink))
       let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
       window.contentView = view
       defer { window.contentView = nil }
@@ -141,9 +96,9 @@ final class ScreenViewTests: XCTestCase {
       let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
       view.cacheDisplay(in: view.bounds, to: bitmap)
       let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Glass-Settings-\(destination.rawValue).png"))
+      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Settings-\(destination.rawValue).png"))
       let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-      attachment.name = "Liquid Glass settings · \(destination.rawValue)"
+      attachment.name = "Settings · \(destination.title)"
       attachment.lifetime = .keepAlways
       add(attachment)
     }
@@ -154,12 +109,12 @@ final class ScreenViewTests: XCTestCase {
     outgoing.attachments = [MessageAttachment(name: "Project notes.txt", isDirectory: false)]
     let encoded = try JSONEncoder().encode(outgoing)
     XCTAssertEqual(try JSONDecoder().decode(ChatMessage.self, from: encoded).attachments, outgoing.attachments)
-    let preview = VStack(alignment: .leading, spacing: 24) {
-      LocalMessageView(message: outgoing)
-      LocalMessageView(message: ChatMessage(role: .assistant, content: "Start with the purpose of the project, then explain who it helps. Keep the first paragraph focused on the reader.\n\nHere is a more direct opening you can build on."))
-      LocalMessageView(message: ChatMessage(role: .user, content: "That feels much clearer. Thank you."))
-    }.padding(28).frame(width: 620, height: 390).background(Color(nsColor: .windowBackgroundColor))
-    let view = NSHostingView(rootView: preview.environment(\.colorScheme, .dark))
+    let preview = TranscriptPreview(messages: [
+      outgoing,
+      ChatMessage(role: .assistant, content: "Start with the purpose of the project, then explain who it helps. Keep the first paragraph focused on the reader.\n\nHere is a more direct opening you can build on."),
+      ChatMessage(role: .user, content: "That feels much clearer. Thank you."),
+    ], spacing: 24).padding(28).frame(width: 620, height: 390).background(EnigmaPalette.ink.background.color)
+    let view = NSHostingView(rootView: preview.enigmaTheme(.ink))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 390), styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
     defer { window.contentView = nil }
@@ -188,7 +143,7 @@ final class ScreenViewTests: XCTestCase {
     defer { window.contentView = nil }
     observer.scrollToBottomIfFollowing()
     document.setFrameSize(NSSize(width: 400, height: 1500))
-    // Simulate the offset adjustment SwiftUI makes after removing the leaf row.
+    // Simulate the offset adjustment SwiftUI makes after removing the waiting row.
     scroll.contentView.scroll(to: NSPoint(x: 0, y: 1150))
     XCTAssertTrue(observer.followsLatest)
     observer.scrollToBottomIfFollowing()
@@ -283,40 +238,6 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  func testToolMenuImagesHaveCompactIntrinsicSizesWithoutChangingAssets() throws {
-    for name in ["ScreenCapture", "WebSearch"] {
-      let source = try XCTUnwrap(NSImage(named: name))
-      let originalSize = source.size
-      let image = ToolMenuLabel.menuImage(named: name)
-      XCTAssertEqual(image.size, NSSize(width: 16, height: 16))
-      XCTAssertTrue(image.isTemplate)
-      XCTAssertFalse(image === source)
-      XCTAssertEqual(source.size, originalSize)
-      XCTAssertNotNil(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    }
-    let preview = VStack(alignment: .leading, spacing: 10) {
-      ToolMenuLabel(title: "Screen", imageName: "ScreenCapture")
-      ToolMenuLabel(title: "Web Search", imageName: "WebSearch")
-      Divider()
-      HStack {
-        Text("Hide Inactive Tools")
-        Spacer()
-        Text("⇧⌘H").foregroundStyle(.secondary)
-      }
-    }
-    .font(.system(size: 13)).padding(12).frame(width: 240)
-    .background(Color(nsColor: .windowBackgroundColor))
-    let renderer = ImageRenderer(content: preview.environment(\.colorScheme, .dark))
-    renderer.scale = 2
-    let image = try XCTUnwrap(renderer.cgImage)
-    let png = try XCTUnwrap(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-    try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Compact-Tool-Icons.png"))
-    let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-    attachment.name = "Compact tool menu labels"
-    attachment.lifetime = .keepAlways
-    add(attachment)
-  }
-
   func testSentImagesStaySmallAndPreserveTheirProportions() throws {
     let sizes: [NSSize] = [
       NSSize(width: 1600, height: 800),
@@ -350,13 +271,10 @@ final class ScreenViewTests: XCTestCase {
       message.imagePreview = data
       messages.append(message)
     }
-    let preview = VStack(alignment: .leading, spacing: 20) {
-      ForEach(messages) { message in
-        LocalMessageView(message: message)
-      }
-      LocalMessageView(message: ChatMessage(role: .assistant, content: "Each image shows a yellow circle on a teal background."))
-    }
-    .padding(24).frame(width: 440).background(Color(nsColor: .windowBackgroundColor))
+    let preview = TranscriptPreview(messages: messages + [
+      ChatMessage(role: .assistant, content: "Each image shows a yellow circle on a teal background."),
+    ])
+    .padding(24).frame(width: 440).background(EnigmaPalette.paper.background.color).enigmaTheme(.paper)
     let renderer = ImageRenderer(content: preview)
     renderer.scale = 2
     let image = try XCTUnwrap(renderer.cgImage)
@@ -447,16 +365,16 @@ final class ScreenViewTests: XCTestCase {
       preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false })
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [model])
-    let appearance = GlassAppearanceSettings(defaults: defaults)
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: cloud,
       localChat: chat, screen: screen, modelAdvisor: advisor,
       searchSettings: WebSearchSettings(credentials: PresenceOnlyCredentials(), defaults: defaults),
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
-      newUI: NewUIPreference(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults))
+      appearance: EnigmaAppearancePreference(defaults: defaults))
+      .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .transaction { if historyCount == 0 { $0.disablesAnimations = true } })
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view)
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view)
     controller.show()
     defer { controller.hide() }
     let prompt = "What is the answer to this piece of code?"
@@ -487,15 +405,15 @@ final class ScreenViewTests: XCTestCase {
     if searchEnabled {
       let png = try Data(contentsOf: URL(fileURLWithPath: "/tmp/AI-Spotlight-Panel-reply.png"))
       try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Screen-Search.png"))
+      // The chat's own list: the scroll view whose content follows the end of the chat.
       let scroll = try XCTUnwrap(descendants(view).compactMap { $0 as? NSScrollView }
-        .filter { !($0.documentView is SlashCommandTextView) }
-        .max { view.convert($0.bounds, from: $0).midX < view.convert($1.bounds, from: $1).midX })
+        .first { descendants($0).contains { $0 is ConversationScrollObserver.ObserverView } })
       let suffix = String(repeating: " More detail.", count: 80)
       let bottom = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
         guard let document = scroll.documentView,
               chat.messages.last?.content == "The answer is values.count." + suffix else { return false }
         return document.bounds.height > scroll.contentView.bounds.height
-          // The last message ends before the stack's 24-point bottom padding.
+          // The last message ends before the list's bottom padding.
           && abs(scroll.documentVisibleRect.maxY - document.bounds.maxY) <= 25
       }, object: nil)
       let burst = expectation(description: "All rapid reply fragments appear")
@@ -576,15 +494,15 @@ final class ScreenViewTests: XCTestCase {
       preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false })
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [model])
-    let appearance = GlassAppearanceSettings(defaults: defaults)
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: cloud,
       localChat: chat, screen: screen, modelAdvisor: advisor,
       searchSettings: WebSearchSettings(credentials: PanelSearchCredentials(), defaults: defaults),
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
-      newUI: NewUIPreference(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults)))
+      appearance: EnigmaAppearancePreference(defaults: defaults))
+      .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) }))
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view)
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(view.window)
@@ -598,9 +516,9 @@ final class ScreenViewTests: XCTestCase {
       let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
       view.cacheDisplay(in: view.bounds, to: bitmap)
       let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Glass-\(Int(size.width)).png"))
+      try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Window-\(Int(size.width)).png"))
       let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-      attachment.name = "Liquid Glass welcome \(Int(size.width))"
+      attachment.name = "Main window \(Int(size.width))"
       attachment.lifetime = .keepAlways
       add(attachment)
 
@@ -617,7 +535,7 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertEqual(field.completion?.commands, [.screen, .snapshot, .think, .edit, .translate, .messages])
       XCTAssertEqual(view.convert(field.bounds, from: field), composerFrame,
                      "Suggestions must not resize or move the compact composer")
-      XCTAssertEqual(field.font?.pointSize, size.width < 900 ? 14 : 15)
+      XCTAssertEqual(field.font?.pointSize, 15, "The composer's field is 15 pt at every width")
       let deadline = ContinuousClock.now.advanced(by: .seconds(2))
       var menuText = ""
       var menuPNG = Data()
@@ -656,8 +574,7 @@ final class ScreenViewTests: XCTestCase {
     view.layoutSubtreeIfNeeded()
     let hiddenBitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: hiddenBitmap)
-    let hiddenText = try await ScreenOCRService().recognize(XCTUnwrap(hiddenBitmap.cgImage)).text.lowercased()
-    XCTAssertTrue(hiddenText.contains("help"), "Help must remain visible without the sidebar")
+    XCTAssertNotNil(EnigmaMainWindowTests.Host.marker("Bar help", in: view), "Help must remain visible without the sidebar")
     XCTAssertEqual(screen.draft, "Preserve this draft while toggling history")
     XCTAssertEqual(chat.selectedSessionID, session)
     let hiddenPNG = try XCTUnwrap(hiddenBitmap.representation(using: .png, properties: [:]))
@@ -761,7 +678,7 @@ final class ScreenViewTests: XCTestCase {
     view.layoutSubtreeIfNeeded()
     try pressActivityStatus(in: view)
     let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    let expectedLabels = ["request activity", "web sources", "code reference"]
+    let expectedLabels = ["web sources", "code reference"]
     var text = ""
     var png = Data()
     // The section heading appears before the source finishes expanding into view.
@@ -778,7 +695,7 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.activity?.sources, [PanelSearch.source])
     try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Activity-App.png"))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-    attachment.name = "Live activity in current Liquid Glass app"
+    attachment.name = "Live activity in the app"
     attachment.lifetime = .keepAlways
     add(attachment)
     try pressActivityStatus(in: view)
@@ -820,17 +737,21 @@ final class ScreenViewTests: XCTestCase {
     rendered.lifetime = .keepAlways
     add(rendered)
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text.lowercased()
-    // Native glass renders on a separate surface from cacheDisplay. Verify
-    // the actual sidebar, its scroll content, and its position in the panel.
-    let history = try XCTUnwrap(descendants(view).compactMap { $0 as? NSScrollView }.first {
-      view.convert($0.bounds, from: $0).minX < 30
-    })
+    // Verify the actual sidebar, its scroll content, and its position in the
+    // panel: flush with the window's left, top, and bottom edges.
+    func sidebarScroll() -> NSScrollView? {
+      descendants(view).compactMap { $0 as? NSScrollView }.first { view.convert($0.bounds, from: $0).minX < 30 }
+    }
+    try await waitForUI("the sidebar in place during \(phase)", in: view) {
+      sidebarScroll().map { abs(view.convert($0.bounds, from: $0).minX) < 0.5 } ?? false
+    }
+    let history = try XCTUnwrap(sidebarScroll())
     let historyFrame = view.convert(history.bounds, from: history)
     XCTAssertFalse(history.isHiddenOrHasHiddenAncestor)
     XCTAssertGreaterThanOrEqual(historyFrame.width, 176)
     XCTAssertLessThan(historyFrame.width, 270)
-    XCTAssertEqual(historyFrame.minY, 12, accuracy: 1, "Inset sidebar moved during \(phase)")
-    XCTAssertEqual(historyFrame.height, view.bounds.height - 24, accuracy: 1)
+    XCTAssertEqual(historyFrame.minY, 0, accuracy: 1, "Sidebar moved during \(phase)")
+    XCTAssertEqual(historyFrame.height, view.bounds.height, accuracy: 1)
     XCTAssertTrue(view.bounds.contains(historyFrame), "History outside panel during \(phase)")
     XCTAssertGreaterThan(try XCTUnwrap(history.documentView).frame.height, 0)
     XCTAssertTrue(text.contains("auto"), "Composer mode missing during \(phase): \(text)")
@@ -839,8 +760,8 @@ final class ScreenViewTests: XCTestCase {
   private func renderPanel(_ view: NSView, state: String) async throws {
     let expected = switch state {
     case "attached": ["screen region", "what is the answer"]
-    case "loading": ["thinking", "stop", "what is the answer"]
-    case "reply": ["the answer is", "generating response", "stop"]
+    case "loading": ["thinking", "what is the answer"]
+    case "reply": ["the answer is", "generating response"]
     default: ["the answer is", "local ocr"]
     }
     // Real animations can leave labels temporarily transparent. Wait for the
@@ -857,6 +778,10 @@ final class ScreenViewTests: XCTestCase {
       png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
       text = try await ScreenOCRService().recognize(XCTUnwrap(bitmap.cgImage)).text.lowercased()
     } while !expected.allSatisfy(text.contains) && ContinuousClock.now < deadline
+    // While a request runs, Send becomes the Stop glyph.
+    if state == "loading" || state == "reply" {
+      XCTAssertNotNil(EnigmaMainWindowTests.Host.marker("Stop response", in: view), "Stop is offered during \(state)")
+    }
     try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-Panel-\(state).png"))
     let rendered = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
     rendered.name = "Screen panel · \(state)"
@@ -1021,10 +946,10 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  // The same consent steps with the new UI on: its own sheet, the same copy,
-  // the same capture exclusion, and the same refusals.
-  func testNewUIConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
-    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .gemini, newUI: true)
+  // The consent sheet in the window: its copy, its capture exclusion, and its
+  // refusals.
+  func testWindowConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .gemini)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     try await editScreenshotComposer("/screen What color is this?", in: fixture)
     try submitComposer(in: fixture.view)
@@ -1053,9 +978,9 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNil(fixture.window.attachedSheet)
   }
 
-  func testNewUIConsentAllowsTheImageAndNeverApprovesAReplacedCaptureOrDestination() async throws {
+  func testWindowConsentAllowsTheImageAndNeverApprovesAReplacedCaptureOrDestination() async throws {
     for replaceImage in [false, true] {
-      let replaced = try await makeScreenshotComposer(mode: .cloud, newUI: true)
+      let replaced = try await makeScreenshotComposer(mode: .cloud)
       try await editScreenshotComposer("/snapshot What color is this?", in: replaced)
       try submitComposer(in: replaced.view)
       try await waitForScreenshotState { replaced.window.attachedSheet != nil }
@@ -1076,7 +1001,7 @@ final class ScreenViewTests: XCTestCase {
       replaced.controller.hide(); replaced.window.contentView = nil
     }
 
-    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .openAI, newUI: true)
+    let fixture = try await makeScreenshotComposer(mode: .cloud, provider: .openAI)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     try await editScreenshotComposer("/screen What color is this?", in: fixture)
     try submitComposer(in: fixture.view)
@@ -1141,11 +1066,11 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNil(fixture.window.attachedSheet)
   }
 
-  // The compact panel in the new design: the same capture, consent, and
-  // denial steps, with the screenshot under the panel's input.
-  func testNewUICompactCaptureShowsRetakeAndRemoveAndExcludesRemovedImageFromNextRequest() async throws {
+  // The compact panel: the capture, consent, and denial steps, with the
+  // screenshot under the panel's input.
+  func testCompactPanelCaptureShowsRetakeAndRemoveAndExcludesRemovedImageFromNextRequest() async throws {
     for command in ["/screen", "/snapshot"] {
-      let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud, newUI: true)
+      let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud)
       defer { fixture.controller.hide(); fixture.window.contentView = nil }
       try await editScreenshotComposer(command, in: fixture)
       try submitComposer(in: fixture.view)
@@ -1192,8 +1117,8 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
-  func testNewUICompactConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
-    let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud, provider: .anthropic, newUI: true)
+  func testCompactPanelConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true, mode: .cloud, provider: .anthropic)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     try await editScreenshotComposer("/snapshot What color is this?", in: fixture)
     try submitComposer(in: fixture.view)
@@ -1217,7 +1142,7 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertEqual(fixture.screen.draft, "What color is this?")
     XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
     XCTAssertTrue(fixture.controller.isSelectionComposer)
-    // The kept-local error opens the details, as the old popover opened.
+    // The kept-local error opens the details, where it can be read.
     try await waitForUI("the details with the screenshot notice", in: fixture.view) {
       EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) != nil
     }
@@ -1227,8 +1152,8 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNil(fixture.window.attachedSheet)
   }
 
-  func testNewUICompactScreenRecordingDenialKeepsDraftAndOffersSettings() async throws {
-    let fixture = try await makeScreenshotComposer(compact: true, newUI: true)
+  func testCompactPanelScreenRecordingDenialKeepsDraftAndOffersSettings() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     fixture.capture.denied = true
     try await editScreenshotComposer("/screen What color is this?", in: fixture)
@@ -1305,7 +1230,7 @@ final class ScreenViewTests: XCTestCase {
   }
 
   private func makeScreenshotComposer(compact: Bool = false, mode: ChatMode = .local,
-                                      provider: CloudProviderID = .openAI, newUI: Bool = false,
+                                      provider: CloudProviderID = .openAI,
                                       sessionWriter: ChatSessionWriter? = nil,
                                       response: AsyncThrowingStream<String, Error>? = nil,
                                       streamStarted: @escaping @Sendable () -> Void = {}) async throws -> ScreenshotComposerFixture {
@@ -1343,19 +1268,16 @@ final class ScreenViewTests: XCTestCase {
     cloud.preferredModelID = provider == .gemini ? "gemini-2.5-flash" : provider == .anthropic ? "claude-sonnet-4-6" : "gpt-4o-mini"
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [model], presentOnboarding: false)
-    let appearance = GlassAppearanceSettings(defaults: defaults)
-    let newUIPreference = NewUIPreference(defaults: defaults)
-    newUIPreference.isEnabled = newUI
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: cloud,
       localChat: chat, screen: screen, screenSettings: settings, modelAdvisor: advisor, searchSettings: search,
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
-      newUI: newUIPreference, appearance: EnigmaAppearancePreference(defaults: defaults))
+      appearance: EnigmaAppearancePreference(defaults: defaults))
       .environment(\.screenControlMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .transaction { $0.disablesAnimations = true })
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view, reduceMotion: { true })
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { true })
     addTeardownBlock { @MainActor in
       controller.hide()
       view.window?.contentView = nil

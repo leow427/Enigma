@@ -470,7 +470,7 @@ final class LocalChatViewModel: ObservableObject {
         return
       }
       guard localToolRuntime(model) else {
-        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local Models → Install Local File Tools, or choose Cloud.")
+        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local models → Local file tools → Install, or choose Cloud.")
         return
       }
     } else {

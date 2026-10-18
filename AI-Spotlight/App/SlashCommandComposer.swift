@@ -8,13 +8,9 @@ struct SlashCommandInsertion: Equatable {
   let text: String
 }
 
+/// The message field, with `/` commands highlighted as they're typed and an
+/// inline list of the commands that match. Its colors come from `enigmaPalette`.
 struct SlashCommandComposer: View {
-  /// The old design, or the new one, which takes its colors from `enigmaPalette`.
-  enum Style: Equatable {
-    case classic
-    case enigma
-  }
-
   /// Where the inline command list opens: above the text, or below it, as when
   /// the composer sits high on the main page. `gap` is the distance from the
   /// text's edge to the list.
@@ -27,9 +23,7 @@ struct SlashCommandComposer: View {
   @Binding var isFocused: Bool
   var isEnabled: Bool
   var fontSize: CGFloat = 15
-  var usesPopover = false
   var availableCommands: [SlashCommand]
-  var style: Style = .classic
   var placeholder = "Ask anything..."
   var suggestionPlacement: SuggestionPlacement = .above(gap: 18)
   var insertion: SlashCommandInsertion?
@@ -48,33 +42,21 @@ struct SlashCommandComposer: View {
         .frame(height: completion.height)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .popover(isPresented: Binding(get: { usesPopover && isFocused && isEnabled && !completion.commands.isEmpty },
-      set: { if !$0 { _ = completion.dismiss() } }), arrowEdge: .top) { suggestions }
     .overlay(alignment: suggestionAlignment) {
-      if isFocused && isEnabled && !completion.commands.isEmpty {
-        if !usesPopover { inlineSuggestions }
-      }
+      if isFocused && isEnabled && !completion.commands.isEmpty { inlineSuggestions }
     }
     .onChange(of: insertion) { _, insertion in
       if let insertion { completion.insert(insertion.text) }
     }
   }
 
-  @ViewBuilder private var placeholderText: some View {
-    switch style {
-    case .classic:
-      Text(placeholder).font(.system(size: fontSize)).foregroundStyle(.tertiary)
-    case .enigma:
-      Text(placeholder).font(EnigmaTypography.ui(fontSize)).foregroundStyle(palette.textTertiary.color)
-    }
+  private var placeholderText: some View {
+    Text(placeholder).font(EnigmaTypography.ui(fontSize)).foregroundStyle(palette.textTertiary.color)
   }
 
   private var colors: CommandTextEditor.Colors {
-    switch style {
-    case .classic: .classic
-    case .enigma: CommandTextEditor.Colors(text: palette.textPrimary.nsColor, command: palette.accentText.nsColor,
-                                           caret: palette.accent.nsColor)
-    }
+    CommandTextEditor.Colors(text: palette.textPrimary.nsColor, command: palette.accentText.nsColor,
+                             caret: palette.accent.nsColor)
   }
 
   private var suggestionAlignment: Alignment {
@@ -85,69 +67,21 @@ struct SlashCommandComposer: View {
   }
 
   @ViewBuilder private var inlineSuggestions: some View {
+    let suggestions = EnigmaSlashSuggestions(completion: completion).background { suggestionsFrame }
     switch suggestionPlacement {
-    case .above(let gap): suggestions.background { suggestionsFrame }.padding(.bottom, completion.height + gap)
-    case .below(let gap): suggestions.background { suggestionsFrame }.padding(.top, completion.height + gap)
+    case .above(let gap): suggestions.padding(.bottom, completion.height + gap)
+    case .below(let gap): suggestions.padding(.top, completion.height + gap)
     }
   }
 
   /// Where the list is, so a container that grows to fit, like the compact
-  /// panel, can make room for it. The old design has no need.
-  @ViewBuilder private var suggestionsFrame: some View {
-    if style == .enigma {
-      GeometryReader { proxy in
-        Color.clear.preference(key: SlashSuggestionsFrame.self,
-                               value: proxy.frame(in: .named(SlashSuggestionsFrame.coordinateSpace)))
-      }
+  /// panel, can make room for it.
+  private var suggestionsFrame: some View {
+    GeometryReader { proxy in
+      Color.clear.preference(key: SlashSuggestionsFrame.self,
+                             value: proxy.frame(in: .named(SlashSuggestionsFrame.coordinateSpace)))
     }
   }
-
-  @ViewBuilder private var suggestions: some View {
-    switch style {
-    case .classic: classicSuggestions
-    case .enigma: EnigmaSlashSuggestions(completion: completion)
-    }
-  }
-
-  private var classicSuggestions: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      ForEach(Array(completion.commands.enumerated()), id: \.element) { index, command in
-        Button { completion.accept(command) } label: {
-          HStack(spacing: 10) {
-            Group {
-              if let asset = command.assetImage {
-                Image(asset).renderingMode(.template).resizable().scaledToFit().frame(width: 19, height: 19)
-              } else {
-                Image(systemName: command.symbol).font(.system(size: 17))
-              }
-            }
-            .frame(width: 24).foregroundStyle(command.tint)
-            VStack(alignment: .leading, spacing: 2) {
-              Text(command.token).font(.system(size: 13, weight: .semibold)).foregroundStyle(command.tint)
-              Text(command.description).font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if index == completion.selected { Text("⇥").foregroundStyle(.secondary) }
-          }
-          .padding(8)
-          .contentShape(Rectangle())
-          .background(index == completion.selected ? command.tint.opacity(0.12) : .clear,
-                      in: RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .focusable(false)
-        .accessibilityLabel(command.token + ", " + command.description)
-        .accessibilityAddTraits(index == completion.selected ? .isSelected : [])
-      }
-    }
-    .padding(4)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Slash commands")
-    .frame(width: 320)
-    .fixedSize(horizontal: false, vertical: true)
-  }
-
 }
 
 /// The open command list's frame in the `coordinateSpace` of a container
@@ -161,7 +95,7 @@ struct SlashSuggestionsFrame: PreferenceKey {
   }
 }
 
-/// The command list in the new design: an opaque `menu` surface with a
+/// The command list: an opaque `menu` surface with a
 /// `border` edge, each command in monospace `accentText` beside its
 /// description, and the chosen one on a `hover` fill.
 private struct EnigmaSlashSuggestions: View {
@@ -301,9 +235,10 @@ final class CommandCompletionModel: ObservableObject {
 
 final class SlashCommandTextView: NSTextView {
   var completion: CommandCompletionModel?
-  /// Plain text and command tokens. The old design uses the system label color and blue.
-  var plainTextColor: NSColor = .labelColor
-  var commandTextColor: NSColor = .systemBlue
+  /// Plain text and command tokens, from the palette. The field sets them from
+  /// the current theme; until then they're Paper's.
+  var plainTextColor: NSColor = EnigmaPalette.paper.textPrimary.nsColor
+  var commandTextColor: NSColor = EnigmaPalette.paper.accentText.nsColor
   var submit: (() -> Void)?
   var focusChanged: ((Bool) -> Void)?
 
@@ -362,13 +297,11 @@ final class SlashCommandTextView: NSTextView {
 }
 
 private struct CommandTextEditor: NSViewRepresentable {
-  /// The text view's colors. `caret` nil keeps the system insertion point.
+  /// The text view's colors: text, highlighted commands, and the insertion point.
   struct Colors: Equatable {
     var text: NSColor
     var command: NSColor
-    var caret: NSColor?
-
-    static let classic = Colors(text: .labelColor, command: .systemBlue, caret: nil)
+    var caret: NSColor
   }
 
   @Binding var text: String
@@ -377,7 +310,7 @@ private struct CommandTextEditor: NSViewRepresentable {
   var completion: CommandCompletionModel
   var availableCommands: [SlashCommand]
   var fontSize: CGFloat = 15
-  var colors: Colors = .classic
+  var colors: Colors
   var submit: () -> Void
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -398,6 +331,9 @@ private struct CommandTextEditor: NSViewRepresentable {
     editor.autoresizingMask = [.width]
     editor.textContainer?.widthTracksTextView = true
     editor.font = .systemFont(ofSize: fontSize)
+    editor.plainTextColor = colors.text
+    editor.commandTextColor = colors.command
+    editor.insertionPointColor = colors.caret
     editor.setAccessibilityLabel("Message")
     editor.setAccessibilityHelp("Type slash for commands. Use arrow keys to choose, Tab or Return to complete, Escape to dismiss, and Shift Return for a new line.")
     editor.delegate = context.coordinator
@@ -427,7 +363,7 @@ private struct CommandTextEditor: NSViewRepresentable {
       editor.plainTextColor = colors.text
       editor.commandTextColor = colors.command
     }
-    if let caret = colors.caret, editor.insertionPointColor != caret { editor.insertionPointColor = caret }
+    if editor.insertionPointColor != colors.caret { editor.insertionPointColor = colors.caret }
     if needsColorUpdate, editor.string == text, !needsFontUpdate, !editor.hasMarkedText() {
       editor.highlightCommands()
     }
@@ -465,20 +401,6 @@ private struct CommandTextEditor: NSViewRepresentable {
     }
     func textViewDidChangeSelection(_ notification: Notification) {
       parent.completion.refresh()
-    }
-  }
-}
-
-private extension SlashCommand {
-  var tint: Color {
-    switch self {
-    case .search: .blue
-    case .screen: .purple
-    case .snapshot: .orange
-    case .think: .pink
-    case .edit: .green
-    case .translate: .teal
-    case .messages: MessagesStyle.tint
     }
   }
 }

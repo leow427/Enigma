@@ -285,7 +285,7 @@ struct LocalModelCatalog: Sendable {
     let hardware = detectHardware(directory)
     guard hardware.inferenceMemoryBudget >= descriptor.estimatedRuntimeMemory
       || catalogDescriptor?.permitsMemoryOverride == true else {
-      throw LocalInferenceError.bridgeFailure("This model does not leave enough memory for macOS, image processing and context. Review Local Models for a suitable package.")
+      throw LocalInferenceError.bridgeFailure("This model does not leave enough memory for macOS, image processing and context. Review Local models for a suitable package.")
     }
     let total = descriptor.model.expectedByteCount + descriptor.projector.expectedByteCount + runtime.archive.expectedByteCount
     guard availableDisk(directory) >= total * 2 + 2 * LocalHardwareProfile.gib else {

@@ -46,17 +46,6 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
     return phase.label
   }
 
-  func colorIndex(for source: WebSearchSource) -> Int {
-    var assigned: [String: Int] = [:]
-    for item in sources where assigned[item.siteName] == nil {
-      let used = Set(assigned.values)
-      let preferred = item.colorIndex
-      assigned[item.siteName] = (0..<8).map { (preferred + $0) % 8 }
-        .first(where: { !used.contains($0) }) ?? preferred
-    }
-    return assigned[source.siteName] ?? source.colorIndex
-  }
-
   mutating func apply(_ event: AssistantActivityEvent) {
     guard !phase.isTerminal else { return }
     switch event {
@@ -96,12 +85,5 @@ extension WebSearchSource {
   var siteName: String {
     let host = url.host ?? url.absoluteString
     return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-  }
-
-  var monogram: String { String(siteName.prefix(1)).uppercased() }
-
-  /// Stable across launches; Swift's randomized Hasher is unsuitable for identity colors.
-  var colorIndex: Int {
-    Int(siteName.utf8.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1) } % 8)
   }
 }

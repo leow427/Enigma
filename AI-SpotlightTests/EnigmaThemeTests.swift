@@ -112,29 +112,3 @@ final class EnigmaThemeTests: XCTestCase {
     }
   }
 }
-
-@MainActor
-final class NewUIPreferenceTests: XCTestCase {
-  func testNewUIIsOffByDefault() throws {
-    XCTAssertFalse(NewUIPreference(defaults: try isolatedDefaults()).isEnabled)
-  }
-
-  func testNewUIChoiceIsSavedAndRestored() throws {
-    let defaults = try isolatedDefaults()
-    let preference = NewUIPreference(defaults: defaults)
-    preference.isEnabled = true
-
-    XCTAssertEqual(defaults.object(forKey: NewUIPreference.isEnabledKey) as? Bool, true)
-    XCTAssertTrue(NewUIPreference(defaults: defaults).isEnabled)
-
-    preference.isEnabled = false
-    XCTAssertFalse(NewUIPreference(defaults: defaults).isEnabled)
-  }
-
-  private func isolatedDefaults() throws -> UserDefaults {
-    let name = "EnigmaTests.NewUIPreference.\(UUID().uuidString)"
-    let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-    addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
-    return defaults
-  }
-}

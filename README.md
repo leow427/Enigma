@@ -56,7 +56,7 @@ different signing identity (for example the unsigned build from
 ### Models
 
 - **Local and Auto** keep Messages on this Mac. They need the `llama-server`
-  runtime: Settings → Local Models → Install Local File Tools.
+  runtime: Settings → Local models → Local file tools → Install.
 - **Cloud** sends what the model looks up (message text, names, and handles) to
   the selected provider. Enigma asks once per provider before the first cloud
   Messages request.

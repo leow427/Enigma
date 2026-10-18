@@ -2,9 +2,9 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// The saved System / Paper / Ink choice for the new UI. System follows the
-/// Mac. Every new-UI root applies it with `.enigmaTheme(_:)` or
-/// `.enigmaEmbeddedTheme(_:)`, so a change shows everywhere at once.
+/// The saved System / Paper / Ink choice. System follows the Mac. Every window
+/// and sheet root applies it with `.enigmaTheme(_:)`, so a change shows
+/// everywhere at once.
 @MainActor
 final class EnigmaAppearancePreference: ObservableObject {
   static let shared = EnigmaAppearancePreference()
@@ -22,7 +22,7 @@ final class EnigmaAppearancePreference: ObservableObject {
 }
 
 extension EnigmaAppearance {
-  /// The AppKit appearance a window the new UI owns is given: Aqua for Paper,
+  /// The AppKit appearance an Enigma window is given: Aqua for Paper,
   /// Dark Aqua for Ink, and none for System, so the window follows the Mac.
   var windowAppearanceName: NSAppearance.Name? {
     switch self {

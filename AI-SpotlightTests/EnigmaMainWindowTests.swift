@@ -4,7 +4,7 @@ import SwiftUI
 import XCTest
 @testable import Enigma
 
-/// The new main window: its shared logic, the flag that swaps it in, its
+/// The main window: its shared logic, how it starts after an upgrade, its
 /// controls clicked for real in a key window, its fit at the panel's sizes,
 /// the tour's anchors, the character, and its screenshots.
 final class EnigmaMainWindowTests: XCTestCase {
@@ -26,7 +26,7 @@ final class EnigmaMainWindowTests: XCTestCase {
 
   // MARK: Route status
 
-  func testLocalStatusCoversEveryStateTheOldStatusShows() {
+  func testLocalStatusCoversEveryLocalState() {
     func status(_ state: LocalChatViewModel.State, model: String? = "Qwen3 8B") -> ChatRouteStatus {
       ChatRouteStatus.make(.init(mode: .local, state: state, localModelName: model))
     }
@@ -244,44 +244,76 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(Shortcut("", "⌘ .").compactKeys, "⌘.")
     XCTAssertEqual(KeyboardShortcutsHelp.selectionChat(modifier: .command).keys, "⌘ twice")
     XCTAssertTrue(KeyboardShortcutsHelp.panel.contains(Shortcut("Open or close Mode & Model", "⌘ K")))
-    XCTAssertTrue(KeyboardShortcutsHelp.commandsNote().contains("remain blue"))
-    XCTAssertTrue(KeyboardShortcutsHelp.commandsNote(newDesign: true).contains("remain highlighted"))
+    XCTAssertTrue(KeyboardShortcutsHelp.commandsNote().contains("remain highlighted"))
   }
 
-  // MARK: The flag
+  // MARK: Upgrading
+
+  /// Settings an earlier version may have saved: "Use new UI" off, on, or
+  /// unreadable, and the liquid-glass appearance. None of them is read any
+  /// more, so whatever is saved, the app starts in the one UI, follows the
+  /// appearance setting, and leaves the old values alone.
+  static var staleSettings: [[String: Any]] { [
+    [:],
+    ["enigma.newUI.isEnabled": false, "aiSpotlight.glassAppearance.isEnabled": true,
+     "aiSpotlight.glassAppearance.clarity": 0.42, "aiSpotlight.glassAppearance.opacity": 0.78],
+    ["enigma.newUI.isEnabled": true, "aiSpotlight.glassAppearance.isEnabled": false],
+    ["enigma.newUI.isEnabled": "yes", "aiSpotlight.glassAppearance.clarity": "clear"],
+  ] }
 
   @MainActor
-  func testFlagSwapsTheFrameWhileTheAppRunsAndTheWindowFollowsTheAppearance() async throws {
-    let fixture = try await Fixture(test: self)
-    fixture.newUI.isEnabled = false
-    fixture.appearance.appearance = .paper
-    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
-    func dark() -> Bool { host.window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
-    try await waitForUI("the old frame", in: host.view) { composerEditor(in: host.view) != nil && !host.shows("New chat") }
-    XCTAssertTrue(dark(), "The old frame keeps its dark window")
+  func testAnExistingInstallStartsInTheUIWhateverOldSettingsAreSaved() async throws {
+    for stale in Self.staleSettings {
+      let label = stale.isEmpty ? "no old settings" : "old settings \(stale)"
+      let fixture = try await Fixture(test: self)
+      for (key, value) in stale { fixture.defaults.set(value, forKey: key) }
+      let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+      func dark() -> Bool { host.window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+      try await waitForUI("the window in Paper with \(label)", in: host.view) {
+        host.shows("New chat") && (try? host.pixel(at: CGPoint(x: 12, y: 500))).map {
+          EnigmaSnapshot.matches($0, EnigmaPalette.paper.sidebar) } == true && !dark()
+      }
+      try assertPixel(try host.capture(), at: CGPoint(x: 600, y: 600), is: EnigmaPalette.paper.background, label)
+      XCTAssertNotNil(composerEditor(in: host.view), "The real message field: \(label)")
+      XCTAssertFalse(fixture.setup.isPresented, "An existing install skips the welcome: \(label)")
 
-    fixture.newUI.isEnabled = true
-    try await waitForUI("the new frame in Paper", in: host.view) {
-      host.shows("New chat") && (try? host.pixel(at: CGPoint(x: 12, y: 500))).map {
-        EnigmaSnapshot.matches($0, EnigmaPalette.paper.sidebar) } == true && !dark()
+      fixture.appearance.appearance = .ink
+      try await waitForUI("the window in Ink with \(label)", in: host.view) {
+        (try? host.pixel(at: CGPoint(x: 12, y: 500))).map { EnigmaSnapshot.matches($0, EnigmaPalette.ink.sidebar) } == true
+          && dark()
+      }
+      fixture.appearance.appearance = .system
+      let system = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
+      try await waitForUI("the window following the Mac with \(label)", in: host.view) {
+        host.window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == system
+      }
+      for (key, value) in stale {
+        XCTAssertEqual(fixture.defaults.object(forKey: key) as? NSObject, value as? NSObject,
+                       "Old values are left alone: \(key)")
+      }
     }
-    try assertPixel(try host.capture(), at: CGPoint(x: 600, y: 600), is: EnigmaPalette.paper.background, "Paper canvas")
-    XCTAssertNotNil(composerEditor(in: host.view), "The new frame keeps the real message field")
+  }
 
-    fixture.appearance.appearance = .ink
-    try await waitForUI("the new frame in Ink", in: host.view) {
-      (try? host.pixel(at: CGPoint(x: 12, y: 500))).map { EnigmaSnapshot.matches($0, EnigmaPalette.ink.sidebar) } == true
-        && dark()
-    }
-
-    fixture.newUI.isEnabled = false
-    try await waitForUI("the old frame again", in: host.view) { !host.shows("New chat") && dark() }
-
-    fixture.appearance.appearance = .system
-    fixture.newUI.isEnabled = true
-    let system = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
-    try await waitForUI("the new frame following the Mac after the old dark frame", in: host.view) {
-      host.shows("New chat") && host.window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == system
+  @MainActor
+  func testAFreshInstallStartsWithTheWelcomeWhateverOldSettingsAreSaved() async throws {
+    for stale in Self.staleSettings {
+      let label = stale.isEmpty ? "no old settings" : "old settings \(stale)"
+      let fixture = try await Fixture(test: self, model: nil)
+      // A first launch: setup hasn't run and no model is installed.
+      fixture.defaults.removeObject(forKey: WelcomeSetup.completedKey)
+      fixture.defaults.removeObject(forKey: "localModelOnboardingDismissed")
+      for (key, value) in stale { fixture.defaults.set(value, forKey: key) }
+      let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+      // The welcome covers the sidebar, so its left margin is the canvas.
+      try await waitForUI("the welcome in Paper with \(label)", in: host.view) {
+        fixture.setup.isPresented && (try? host.pixel(at: CGPoint(x: 12, y: 500))).map {
+          EnigmaSnapshot.matches($0, EnigmaPalette.paper.background) } == true
+      }
+      XCTAssertEqual(composerEditor(in: host.view)?.isEditable, false, "The chat waits under the welcome: \(label)")
+      fixture.setup.finish(takeTour: false)
+      try await waitForUI("the window after the welcome with \(label)", in: host.view) {
+        host.shows("New chat") && composerEditor(in: host.view)?.isEditable == true
+      }
     }
   }
 
@@ -328,7 +360,7 @@ final class EnigmaMainWindowTests: XCTestCase {
   // MARK: Sidebar and Help
 
   @MainActor
-  func testSidebarActionsMatchTheOldSidebar() async throws {
+  func testSidebarActionsWork() async throws {
     let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
     let earlier = try XCTUnwrap(fixture.earlierSessionID)
@@ -365,22 +397,20 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("double-tap Control shows the sidebar", in: host.view) { host.shows("New chat") }
 
     try await clickTestControl("Developer Tools", in: host.view)
-    try await waitForUI("Developer Tools", in: host.view) { host.shows("Use new UI switch") }
-    try await clickTestControl("Use new UI switch", in: host.view)
-    try await waitForUI("the old frame after turning the flag off", in: host.view) {
-      !fixture.newUI.isEnabled && !host.shows("New chat")
-    }
+    try await waitForUI("Developer Tools", in: host.view) { host.shows("Replay welcome setup") }
+    try await clickTestControl("Replay welcome setup", in: host.view)
+    try await waitForUI("the welcome replayed from Developer Tools", in: host.view) { fixture.setup.isPresented }
   }
 
   @MainActor
-  func testHelpOpensTheNewHelpAndDoneClosesIt() async throws {
+  func testHelpOpensAndDoneClosesIt() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
     try await clickTestControl("Help", in: host.view)
     try await waitForUI("the Help sheet", in: host.view) { host.window.attachedSheet?.contentView != nil }
     let sheet = try XCTUnwrap(host.window.attachedSheet)
     let sheetView = try XCTUnwrap(sheet.contentView)
-    try await waitForUI("the new Help's Done button", in: sheetView) { Host.marker("Done", in: sheetView) != nil }
+    try await waitForUI("Help's Done button", in: sheetView) { Host.marker("Done", in: sheetView) != nil }
     sheet.makeKey()
     try await clickTestControl("Done", in: sheetView)
     try await waitForUI("Help to close", in: host.view) { host.window.attachedSheet == nil }
@@ -435,8 +465,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     let root = fixture.shell()
     let view = NSHostingView(rootView: root)
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(defaults: fixture.defaults),
-      sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
     controller.show()
     addTeardownBlock { @MainActor in controller.hide(); view.window?.contentView = nil }
     let window = try XCTUnwrap(view.window)
@@ -494,28 +523,27 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
-  func testSelectionPanelUsesTheNewCompactPanelWithTheFlagOn() async throws {
+  func testSelectionPanelUsesTheCompactPanel() async throws {
     let fixture = try await Fixture(test: self)
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
     sizes.save(NSSize(width: 900, height: 600))
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(defaults: fixture.defaults),
-      sizeStore: sizes, contentView: view, reduceMotion: { true })
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { true })
     controller.show()
     addTeardownBlock { @MainActor in controller.hide(); view.window?.contentView = nil }
     let window = try XCTUnwrap(view.window)
-    try await waitForUI("the new frame", in: view) { Host.marker("New chat", in: view) != nil }
+    try await waitForUI("the window frame", in: view) { Host.marker("New chat", in: view) != nil }
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
     controller.presentSelectionContext(ConversationContext(sourceName: "Test editor", text: "Please send the report today."),
       cursor: NSPoint(x: visible.midX, y: visible.minY + 120), selection: nil, visible: visible)
-    try await waitForUI("the new compact panel", in: view) {
+    try await waitForUI("the compact panel", in: view) {
       controller.isSelectionComposer && window.frame.height < 150 && fixture.chat.attachedContexts.count == 1
         && composerAcceptsClicks(in: view) && Host.marker("New chat", in: view) == nil
         && Host.marker("Compact panel", in: view) != nil && Host.marker("Mode and model", in: view) != nil
     }
     let editor = try XCTUnwrap(composerEditor(in: view))
     XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor,
-                   "Since phase 8 the compact panel uses the new design")
+                   "The compact panel's field takes the palette's colors")
     fixture.screen.draft = "Explain this passage"
     try await waitForUI("the draft in the editor", in: view) { editor.string == fixture.screen.draft }
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
@@ -706,8 +734,7 @@ final class EnigmaMainWindowTests: XCTestCase {
   func testEscapeClosesTheOpenMenuBeforeHidingThePanel() async throws {
     let fixture = try await Fixture(test: self)
     let view = NSHostingView(rootView: fixture.shell())
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(defaults: fixture.defaults),
-      sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
     controller.show()
     addTeardownBlock { @MainActor in controller.hide(); view.window?.contentView = nil }
     let window = try XCTUnwrap(view.window)
@@ -834,8 +861,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     host.window.setContentSize(PanelSizeStore.minimumSize)
     try await snapshot("minimum-size", host, fixture) { host.shows("Send message") }
 
-    try EnigmaSnapshot.save("help", size: EnigmaHelpView.size) {
-      EnigmaHelpView(searchSettings: fixture.search)
+    try EnigmaSnapshot.save("help", size: KeyboardShortcutsHelpView.size) {
+      KeyboardShortcutsHelpView(searchSettings: fixture.search)
     }
   }
 
@@ -893,7 +920,7 @@ final class EnigmaMainWindowTests: XCTestCase {
 extension EnigmaMainWindowTests {
   /// The main window with offline models: a local model whose replies wait
   /// until stopped, no cloud account, no Brave key, a file picker that returns
-  /// a folder, and the new UI on in Paper. Nothing reads the installed app's settings.
+  /// a folder, and Paper. Nothing reads the installed app's settings.
   @MainActor
   final class Fixture {
     let defaults: UserDefaults
@@ -908,7 +935,6 @@ extension EnigmaMainWindowTests {
     let advisor: LocalModelAdvisor
     let setup: WelcomeSetup
     let start: StartPreferences
-    let newUI: NewUIPreference
     let appearance: EnigmaAppearancePreference
     let character = EnigmaCharacterController(seed: 6)
     /// The chat's /edit setting, isolated from the installed app's.
@@ -964,8 +990,6 @@ extension EnigmaMainWindowTests {
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil)
       setup = WelcomeSetup(defaults: defaults)
       start = StartPreferences(defaults: defaults)
-      newUI = NewUIPreference(defaults: defaults)
-      newUI.isEnabled = true
       appearance = EnigmaAppearancePreference(defaults: defaults)
       appearance.appearance = .paper
       let root = root
@@ -978,9 +1002,9 @@ extension EnigmaMainWindowTests {
     }
 
     func shell() -> some View {
-      AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
+      AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
-        welcomeSetup: setup, newUI: newUI, appearance: appearance, character: character,
+        welcomeSetup: setup, appearance: appearance, character: character,
         selectionAccess: selectionAccess)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .transaction { $0.disablesAnimations = true }

@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-// Logic the new compact selection panel would otherwise hide inline: where
+// Logic the compact selection panel would otherwise hide inline: where
 // the character sits, what the route chip, the placeholder, and the hints
 // say, and when the character shows the error state. Each is a plain value,
 // so it can be tested without building the panel.
@@ -79,7 +79,7 @@ enum CompactPanelCharacter {
   }
 
   /// The status button shows a problem glyph whenever there's a notice or
-  /// Accessibility is missing, as the old button did.
+  /// Accessibility is missing.
   static func statusNeedsAttention(notice: String?, isAccessibilityGranted: Bool) -> Bool {
     notice != nil || !isAccessibilityGranted
   }

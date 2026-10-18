@@ -2,250 +2,16 @@ import AppKit
 import Combine
 import SwiftUI
 import UniformTypeIdentifiers
-import WebKit
-
-/// Follow new layout only while the reader remains at the end of the chat.
-struct ConversationScrollObserver: NSViewRepresentable {
-  var contentRevision = ""
-  func makeNSView(context: Context) -> ObserverView { ObserverView() }
-  func updateNSView(_ view: ObserverView, context: Context) { view.contentChanged(contentRevision) }
-
-  final class ObserverView: NSView {
-    private var contentRevision = ""
-    func contentChanged(_ revision: String) {
-      guard revision != contentRevision else { return }
-      contentRevision = revision
-      scheduleScroll()
-    }
-    private var pendingScroll: DispatchWorkItem?
-    private weak var observedScroll: NSScrollView?
-    private var previousClipBounds = NSRect.zero
-    private var previousDocumentSize = NSSize.zero
-    private var isAdjustingScroll = false
-    private var isSettlingDocumentLayout = false
-    private var isLiveScrolling = false
-    private var hasPositionedInitially = false
-    private(set) var followsLatest = true
-
-    override func setFrameSize(_ newSize: NSSize) {
-      let changed = frame.size != newSize
-      super.setFrameSize(newSize)
-      if changed { scheduleScroll() }
-    }
-
-    override func viewDidMoveToWindow() {
-      super.viewDidMoveToWindow()
-      disconnect()
-      if window != nil {
-        connect()
-        scheduleScroll()
-      }
-    }
-
-    private func connect() {
-      guard let scroll = enclosingScrollView, observedScroll !== scroll else { return }
-      observedScroll = scroll
-      rememberGeometry()
-      scroll.contentView.postsBoundsChangedNotifications = true
-      let center = NotificationCenter.default
-      if let document = scroll.documentView {
-        document.postsFrameChangedNotifications = true
-        center.addObserver(self, selector: #selector(documentLayoutChanged),
-                           name: NSView.frameDidChangeNotification, object: document)
-      }
-      center.addObserver(self, selector: #selector(boundsChanged),
-                         name: NSView.boundsDidChangeNotification, object: scroll.contentView)
-      center.addObserver(self, selector: #selector(beginScrolling),
-                         name: NSScrollView.willStartLiveScrollNotification, object: scroll)
-      center.addObserver(self, selector: #selector(endScrolling),
-                         name: NSScrollView.didEndLiveScrollNotification, object: scroll)
-    }
-
-    private func disconnect() {
-      pendingScroll?.cancel()
-      pendingScroll = nil
-      NotificationCenter.default.removeObserver(self)
-      observedScroll = nil
-      isLiveScrolling = false
-    }
-
-    private var isAtBottom: Bool {
-      guard let scroll = observedScroll, let document = scroll.documentView else { return false }
-      let visible = scroll.contentView.bounds
-      let distance = document.isFlipped
-        ? document.bounds.maxY - visible.maxY : visible.minY - document.bounds.minY
-      return distance <= 2
-    }
-
-    private func rememberGeometry() {
-      previousClipBounds = observedScroll?.contentView.bounds ?? .zero
-      previousDocumentSize = observedScroll?.documentView?.bounds.size ?? .zero
-    }
-
-    @objc private func documentLayoutChanged() {
-      isSettlingDocumentLayout = followsLatest
-      rememberGeometry()
-      scheduleScroll()
-    }
-
-    @objc private func beginScrolling() {
-      isLiveScrolling = true
-      followsLatest = false
-      pendingScroll?.cancel()
-      pendingScroll = nil
-    }
-
-    @objc private func endScrolling() {
-      isLiveScrolling = false
-      followsLatest = isAtBottom
-      rememberGeometry()
-      if followsLatest { scheduleScroll() }
-    }
-
-    @objc private func boundsChanged() {
-      guard let scroll = observedScroll else { return }
-      defer { rememberGeometry() }
-      guard !isAdjustingScroll, hasPositionedInitially else { return }
-      // Removing the waiting row can trigger a native offset correction after the
-      // document notification. That correction is layout, not reader navigation.
-      let event = NSApp.currentEvent
-      let input = event?.type
-      let recentInput = event.map { ProcessInfo.processInfo.systemUptime - $0.timestamp < 0.2 } ?? false
-      let navigationKey = input == .keyDown && [115, 116, 119, 121, 125, 126].contains(Int(event?.keyCode ?? 0))
-      let userNavigation = recentInput && (input == .scrollWheel || navigationKey || input == .leftMouseDragged || input == .leftMouseDown)
-      if isSettlingDocumentLayout && !isLiveScrolling && !userNavigation { return }
-      // Resizing/streaming changes geometry too. Only an offset change at the
-      // same size is navigation; live gestures suspend following before layout.
-      let bounds = scroll.contentView.bounds
-      if isLiveScrolling || (bounds.origin != previousClipBounds.origin
-          && bounds.size == previousClipBounds.size
-          && scroll.documentView?.bounds.size == previousDocumentSize) {
-        followsLatest = !isLiveScrolling && isAtBottom
-        if !followsLatest { pendingScroll?.cancel(); pendingScroll = nil }
-      }
-    }
-
-    private func scheduleScroll() {
-      guard followsLatest, !isLiveScrolling, pendingScroll == nil else { return }
-      let work = DispatchWorkItem { [weak self] in self?.scrollToBottomIfFollowing() }
-      pendingScroll = work
-      // Coalesce repeated lazy-row measurements; recheck reader intent at execution.
-      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(30), execute: work)
-    }
-
-    func scrollToBottomIfFollowing() {
-      pendingScroll?.cancel()
-      pendingScroll = nil
-      connect()
-      guard followsLatest, !isLiveScrolling, window != nil,
-            let scroll = observedScroll, let document = scroll.documentView else { return }
-      let clip = scroll.contentView
-      let bottom = document.isFlipped
-        ? max(document.bounds.minY, document.bounds.maxY - clip.bounds.height)
-        : document.bounds.minY
-      isAdjustingScroll = true
-      clip.scroll(to: NSPoint(x: clip.bounds.minX, y: bottom))
-      scroll.reflectScrolledClipView(clip)
-      isAdjustingScroll = false
-      hasPositionedInitially = true
-      isSettlingDocumentLayout = false
-      rememberGeometry()
-    }
-  }
-}
-
-/// Tokens from Figma's Liquid Glass alternative (16:122).
-enum NatureGlass {
-  static let accent = Color("SpotlightAccent")
-  static let forestTop = Color(red: 34/255, green: 51/255, blue: 44/255)
-  static let canvas = Color(red: 11/255, green: 18/255, blue: 19/255)
-  static let primary = Color(red: 242/255, green: 245/255, blue: 242/255)
-  static let secondary = Color(red: 173/255, green: 184/255, blue: 178/255)
-  static let edge = LinearGradient(colors: [.white.opacity(0.4), accent.opacity(0.12), .white.opacity(0.22)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-}
-
-struct ForestBackdrop: View {
-  var body: some View {
-    GeometryReader { geometry in
-      Image("ForestBackdrop")
-        .resizable()
-        .frame(width: geometry.size.width, height: geometry.size.height)
-    }
-    .background(NatureGlass.canvas)
-    .accessibilityHidden(true)
-    .allowsHitTesting(false)
-  }
-}
-
-/// One optical surface per container; controls inside it use simple fills.
-struct NatureGlassSurface: ViewModifier {
-  var radius: CGFloat = 24
-  var navigation = false
-  var enabled = true
-  var clarity = 0.22
-  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-  func body(content: Content) -> some View {
-    content.background {
-      let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-      if reduceTransparency || !enabled {
-        shape.fill(NatureGlass.canvas)
-      } else {
-        shape.fill(Color(red: 35/255, green: 54/255, blue: 44/255).opacity(navigation ? 0.38 : 0.09))
-          .glassEffect(.regular.tint(NatureGlass.accent.opacity(navigation ? 0.06 : 0.025)), in: shape)
-          .opacity(1 - clarity)
-      }
-    }
-    .overlay {
-      RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(NatureGlass.edge, lineWidth: 0.75)
-        .allowsHitTesting(false)
-    }
-    .shadow(color: .black.opacity(0.22), radius: 24, y: 8)
-  }
-}
-
-extension View {
-  func natureSurface(radius: CGFloat = 24, navigation: Bool = false) -> some View {
-    modifier(NatureGlassSurface(radius: radius, navigation: navigation))
-  }
-  func naturePresentation() -> some View {
-    background { ForestBackdrop().ignoresSafeArea() }
-      .tint(NatureGlass.accent)
-      .preferredColorScheme(.dark)
-  }
-}
-
-private struct NatureButtonStyle: ButtonStyle {
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @Environment(\.isEnabled) private var isEnabled
-  @State private var isHovered = false
-
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .opacity(isEnabled ? 1 : 0.45)
-      .background(NatureGlass.accent.opacity(isEnabled && isHovered ? 0.09 : 0),
-                  in: RoundedRectangle(cornerRadius: 9))
-      .scaleEffect(!reduceMotion && configuration.isPressed ? 0.98 : 1)
-      .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHovered)
-      .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8), value: configuration.isPressed)
-      .onHover { isHovered = $0 }
-  }
-}
 
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
-  @ObservedObject private var newUI: NewUIPreference
-  /// System, Paper, or Ink for the new screens.
+  /// System, Paper, or Ink.
   @ObservedObject private var appearance: EnigmaAppearancePreference
-  /// The window's character: on the new welcome, then on the main page. Owned
+  /// The window's character: on the welcome, then on the main page. Owned
   /// here but not observed: the stage redraws it, and nothing here reads it.
   @State private var character: EnigmaCharacterController
-  /// The Mac's own light or dark setting, for the character's colors under System.
-  @ObservedObject private var systemAppearance = EnigmaSystemAppearance.shared
   @ObservedObject private var selectionAccess: SelectionAccessibilityAccess
   @ObservedObject private var selectionContext = SelectionContextService.shared
-  @ObservedObject var glassAppearance: GlassAppearanceSettings
   @ObservedObject private var cloudSettings: CloudSettingsModel
   @StateObject private var localChat: LocalChatViewModel
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
@@ -260,20 +26,18 @@ struct AppShellView: View {
     get { screen.draft }
     nonmutating set { screen.draft = newValue }
   }
-  private var hasSearchCommand: Bool { ComposerCommands(draft).search }
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @ObservedObject private var searchSettings: WebSearchSettings
   @State private var isModelImporterPresented = false
   @ObservedObject private var startPreferences: StartPreferences
   @State private var shell: ShellPresentation
-  /// Text the new composer's `/` button or a command example types into the field.
+  /// Text the composer's `/` button or a command example types into the field.
   @State private var composerInsertion: SlashCommandInsertion?
   /// The compact panel sits too low on its screen for lists and menus to open
   /// under it, so they open above its input.
   @State private var compactOpensOverlaysAbove = false
 
   init(
-    glassAppearance: GlassAppearanceSettings,
     localEngine: (any LocalModelEngine)? = nil,
     cloudSettings: CloudSettingsModel = .shared,
     cloudProviders: CloudProviderRegistry = .live,
@@ -284,19 +48,16 @@ struct AppShellView: View {
     searchSettings: WebSearchSettings = .shared,
     startPreferences: StartPreferences = .shared,
     welcomeSetup: WelcomeSetup = .shared,
-    newUI: NewUIPreference = .shared,
     appearance: EnigmaAppearancePreference = .shared,
     character: EnigmaCharacterController? = nil,
     selectionAccess: SelectionAccessibilityAccess = .shared
   ) {
-    self.glassAppearance = glassAppearance
     self.selectionAccess = selectionAccess
     self.cloudSettings = cloudSettings
     self.modelAdvisor = modelAdvisor
     self.searchSettings = searchSettings
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
-    self.newUI = newUI
     self.appearance = appearance
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
@@ -308,107 +69,11 @@ struct AppShellView: View {
     self.messages = chat.appleMessages
   }
 
-  /// Notices and cards over the composer. The new design has its own; the
-  /// old frame and the old compact selection panel keep these.
-  @ViewBuilder private var composerAccessories: some View {
-    if newUI.isEnabled { newComposerAccessories() } else { oldComposerAccessories }
-  }
-
-  private var oldComposerAccessories: some View {
-    VStack(alignment: .trailing, spacing: 8) {
-      routeStatus
-      if let notice = localChat.contextNotice {
-        Text(notice)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      if let decision = localChat.screenRouteDecision {
-        Text(decision.status + (decision.sendsImage ? "" : " · Image not sent"))
-          .font(.caption).foregroundStyle(.secondary)
-      }
-
-      if !selectionAccess.isGranted && localChat.isTemporaryChat {
-        VStack(alignment: .leading, spacing: 6) {
-          Label("Action needed: allow Accessibility", systemImage: "exclamationmark.triangle.fill")
-            .font(.headline).foregroundStyle(.orange)
-          Text("Allow \(SelectionAccessibilityAccess.appName) (Enigma) in System Settings → Privacy & Security → Accessibility to use double-Option and attach selected text.")
-            .font(.caption).foregroundStyle(.secondary)
-          Button("Open Accessibility Settings…") { selectionAccess.requestAccess() }
-            .buttonStyle(.borderedProminent).controlSize(.small)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14).natureSurface(radius: 12)
-      }
-      if localChat.isTemporaryChat {
-        Text("Temporary chat · Not saved to history").font(.caption2).foregroundStyle(.secondary)
-      }
-      ForEach(localChat.attachedContexts) { context in
-        SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
-          localChat.removeContext(id: context.id)
-        }
-      }
-      if let notice = selectionContext.notice, localChat.isTemporaryChat {
-        Text(notice).font(.caption).foregroundStyle(.secondary)
-      }
-      if let attachment = screen.attachment, !shell.isSelectionComposer, localChat.pendingUserMessage == nil {
-        screenshotAttachment(attachment)
-      }
-      if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
-        VStack(alignment: .leading, spacing: 6) {
-          Label("Screenshot uploads are off", systemImage: "hand.raised").font(.caption.weight(.semibold))
-          Text("Cloud image analysis needs your approval. Text can still be read locally.")
-            .font(.caption).foregroundStyle(.secondary)
-          HStack {
-            Button("Review screenshot permission…", action: reviewScreenPermission)
-            Button("Open Screen Settings", action: openConnectionSettings)
-          }
-          .buttonStyle(.bordered).controlSize(.small)
-        }
-      }
-      if let error = screen.error {
-        VStack(alignment: .leading, spacing: 8) {
-          Label(error, systemImage: "exclamationmark.triangle.fill")
-            .font(.caption).foregroundStyle(.orange)
-            .fixedSize(horizontal: false, vertical: true)
-          if screen.needsScreenRecordingSettings {
-            Button("Open Screen Recording Settings…") { MacPermissionControls.openScreenSettings() }
-              .buttonStyle(.borderedProminent).controlSize(.small)
-          }
-        }
-        .padding(12).frame(maxWidth: .infinity, alignment: .leading).natureSurface(radius: 12)
-      }
-      if let approval = messages.pendingSend {
-        MessagesSendApprovalCard(approval: approval) { messages.answer($0) }
-      }
-      if let issue = messages.issue {
-        MessagesIssueView(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
-      }
-      if files.selection != nil || files.error != nil || files.protectedWrite != nil {
-        FileModeAttachmentView(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud, isBusy: localChat.isBusy,
-          useCodex: { isFileCloudConsentPresented = true })
-      }
-      FileChangeSummaryView(files: files, isBusy: localChat.isBusy)
-    }
-  }
-
-  private func screenshotAttachment(_ attachment: ScreenAttachment) -> some View {
-    ScreenAttachmentView(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
-      remove: screen.removeAttachment, retake: captureScreen)
-      .sheet(item: $screenUploadConsent, onDismiss: { shell.isComposerFocused = !localChat.isBusy }) { consent in
-        ScreenUploadConsentView(consent: consent,
-          allow: { answerScreenPermission(consent, allow: true) },
-          decline: { answerScreenPermission(consent, allow: false) })
-      }
-  }
-
-  /// The same notices and cards as the old accessories, under the same
-  /// conditions and in the same order, in the new design: opaque cards that
-  /// stay readable with Reduce Transparency on. The compact panel leaves out
-  /// what it shows itself: the selected text in its own line once it has
-  /// grown, and, in its details, the screenshot that sits under its input, so
-  /// the screenshot's consent sheet has one home.
-  private func newComposerAccessories(showsSelectedText: Bool = true, showsScreenshot: Bool = true) -> some View {
+  /// Notices and cards over the composer, as opaque cards. The compact panel
+  /// leaves out what it shows itself: the selected text in its own line once
+  /// it has grown, and, in its details, the screenshot that sits under its
+  /// input, so the screenshot's consent sheet has one home.
+  private func composerAccessories(showsSelectedText: Bool = true, showsScreenshot: Bool = true) -> some View {
     VStack(alignment: .trailing, spacing: 8) {
       // The empty page shows the status under its greeting instead.
       if !isChatEmpty {
@@ -422,14 +87,14 @@ struct AppShellView: View {
         EnigmaChatNote(decision.status + (decision.sendsImage ? "" : " · Image not sent"), monospaced: true)
       }
       if !selectionAccess.isGranted && localChat.isTemporaryChat {
-        EnigmaAccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
+        AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
       }
       if localChat.isTemporaryChat {
         EnigmaChatNote("Temporary chat · Not saved to history", monospaced: true)
       }
       if showsSelectedText {
         ForEach(localChat.attachedContexts) { context in
-          EnigmaSelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
+          SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
             localChat.removeContext(id: context.id)
           }
         }
@@ -438,127 +103,50 @@ struct AppShellView: View {
         EnigmaChatNote(notice)
       }
       if showsScreenshot, let attachment = screen.attachment, localChat.pendingUserMessage == nil {
-        newScreenshotAttachment(attachment)
+        screenshotAttachment(attachment)
       }
       if screen.attachment?.routingDecision == .needsCloudPermission || screen.attachment?.routingDecision == .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage) {
-        EnigmaScreenUploadsOffCard(review: reviewScreenPermission, openSettings: openConnectionSettings)
+        ScreenUploadsOffCard(review: reviewScreenPermission, openSettings: openConnectionSettings)
       }
       if let error = screen.error {
-        EnigmaScreenErrorCard(error: error, needsScreenRecordingSettings: screen.needsScreenRecordingSettings) {
-          MacPermissionControls.openScreenSettings()
+        ScreenErrorCard(error: error, needsScreenRecordingSettings: screen.needsScreenRecordingSettings) {
+          MacPermissionRows.openScreenSettings()
         }
       }
       if let approval = messages.pendingSend {
-        EnigmaMessagesSendApprovalCard(approval: approval) { messages.answer($0) }
+        MessagesSendApprovalCard(approval: approval) { messages.answer($0) }
       }
       if let issue = messages.issue {
-        EnigmaMessagesIssueCard(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
+        MessagesIssueCard(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
       }
       if files.selection != nil || files.error != nil || files.protectedWrite != nil {
-        EnigmaFileAttachmentCard(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud,
+        FileAttachmentCard(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud,
           isBusy: localChat.isBusy, useCodex: { isFileCloudConsentPresented = true })
       }
-      EnigmaFileChangeSummary(files: files, isBusy: localChat.isBusy)
+      FileChangeSummary(files: files, isBusy: localChat.isBusy)
     }
   }
 
-  /// The attached screenshot in the new design, with the same consent sheet
-  /// steps as `screenshotAttachment`.
-  private func newScreenshotAttachment(_ attachment: ScreenAttachment) -> some View {
-    EnigmaScreenAttachmentCard(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
+  /// The attached screenshot, with the consent sheet that asks before a cloud
+  /// model sees it.
+  private func screenshotAttachment(_ attachment: ScreenAttachment) -> some View {
+    ScreenAttachmentCard(attachment: attachment, isBusy: localChat.isBusy || screen.isBusy,
       remove: screen.removeAttachment, retake: captureScreen)
       .sheet(item: $screenUploadConsent, onDismiss: { shell.isComposerFocused = !localChat.isBusy }) { consent in
-        EnigmaScreenUploadConsentView(consent: consent,
+        ScreenUploadConsentView(consent: consent,
           allow: { answerScreenPermission(consent, allow: true) },
           decline: { answerScreenPermission(consent, allow: false) })
-          .enigmaEmbeddedTheme(appearance.appearance)
+          .enigmaTheme(appearance.appearance)
       }
-  }
-
-  private var shellLayout: some View {
-    ZStack {
-      welcomeBackground
-        .ignoresSafeArea()
-
-      GeometryReader { geometry in
-        HStack(spacing: 0) {
-          if shell.isSidebarVisible && !shell.isSelectionComposer {
-            sidebar(compact: geometry.size.width < 900)
-              .frame(width: min(288, max(200, geometry.size.width * 0.27)))
-          }
-          // Bound detail measurement so wrapped notices cannot push the
-          // composer outside a small panel.
-          GeometryReader { _ in
-            VStack(spacing: 0) {
-              if !shell.isSelectionComposer {
-                if !shell.isSidebarVisible { hiddenSidebarNavigation }
-                conversation
-              }
-              if shell.isSelectionComposer { Spacer(minLength: 0) }
-
-              VStack(alignment: .trailing, spacing: shell.isSelectionComposer ? 4 : 8) {
-                if shell.isSelectionComposer {
-                  if localChat.attachedContexts.isEmpty {
-                    Label("No text selected", systemImage: "text.quote")
-                      .font(.caption).foregroundStyle(.secondary)
-                      .frame(maxWidth: .infinity, alignment: .leading)
-                      .padding(.horizontal, 10)
-                  }
-                  ForEach(localChat.attachedContexts) { context in
-                    SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
-                      localChat.removeContext(id: context.id)
-                    }
-                  }
-                  if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
-                    screenshotAttachment(attachment)
-                  }
-                } else {
-                  composerAccessories
-                }
-                composer(compact: geometry.size.width < 900)
-              }
-              .fixedSize(horizontal: false, vertical: shell.isSelectionComposer)
-              .background {
-                if shell.isSelectionComposer {
-                  GeometryReader { bounds in
-                    Color.clear.preference(key: SelectionComposerHeight.self,
-                                           value: SelectionComposerReport(height: bounds.size.height + 16, style: .classic))
-                  }
-                }
-              }
-              .padding(.horizontal, shell.isSelectionPresentation ? 12 : 24)
-              .padding(.bottom, shell.isSelectionPresentation ? 12 : 32)
-              .padding(.top, shell.isSelectionComposer ? 4 : 8)
-            }
-          }
-        }
-      }
-
-      if shell.isModePalettePresented && !shell.isSelectionComposer {
-        modePalette
-      }
-    }
-    .tint(NatureGlass.accent)
-    .preferredColorScheme(.dark)
-    .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
-    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 24, style: .continuous)
-        .stroke(NatureGlass.edge, lineWidth: 0.75)
-    }
   }
 
   // Keep these modifier groups separate so Swift can type-check each expression.
-  /// With the flag on, the new window frame, unless the compact selection panel is showing.
-  private var usesNewFrame: Bool { newUI.isEnabled && !shell.showsCompactPanel }
-
+  /// The compact selection panel, or the window frame with the sidebar and main page.
   @ViewBuilder private var windowFrame: some View {
-    if !newUI.isEnabled {
-      shellLayout
-    } else if shell.showsCompactPanel {
+    if shell.showsCompactPanel {
       compactPanel
     } else {
-      newShellLayout
+      shellLayout
     }
   }
 
@@ -568,51 +156,38 @@ struct AppShellView: View {
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
       if welcomeSetup.tour != nil {
-        if newUI.isEnabled {
-          EnigmaWelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
-            .enigmaEmbeddedTheme(appearance.appearance)
-        } else {
-          WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
-        }
+        WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
+          availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
       }
     }
     .overlay {
       ZStack {
         if welcomeSetup.isPresented {
-          if newUI.isEnabled {
-            EnigmaWelcomeView(setup: welcomeSetup, character: character, advisor: modelAdvisor, chat: localChat,
-              cloud: cloudSettings, search: searchSettings)
-              .enigmaEmbeddedTheme(appearance.appearance)
-              .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -12)))
-          } else {
-            WelcomeSetupView(setup: welcomeSetup, advisor: modelAdvisor, chat: localChat, cloud: cloudSettings, search: searchSettings)
-          }
+          WelcomeSetupView(setup: welcomeSetup, character: character, advisor: modelAdvisor, chat: localChat,
+            cloud: cloudSettings, search: searchSettings)
+            .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -12)))
         }
       }
-      // The new welcome fades away over the main page; the old one stays instant.
-      .animation(newUI.isEnabled ? (reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation) : nil,
+      // The welcome fades away over the main page.
+      .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
                  value: welcomeSetup.isPresented)
     }
-    // The new frame's corners, so the tour's scrim and the welcome stay inside
-    // the rounded window. The old frame's clip is its own, so it's unchanged.
-    .clipShape(usesNewFrame ? AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous))
-                            : AnyShape(Rectangle()))
+    // The window's corners, so the tour's scrim and the welcome stay inside
+    // it. The compact panel draws its own corners.
+    .clipShape(shell.showsCompactPanel ? AnyShape(Rectangle())
+               : AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous)))
     // One stage for the whole window, so the character can fall from the
-    // welcome into the main page. The old design has no stage at all.
-    .modifier(AppShellCharacterStage(character: character, isActive: newUI.isEnabled,
-                                     palette: appearance.appearance.palette(for: systemAppearance.colorScheme)))
+    // welcome into the main page.
+    .enigmaCharacterStage(character)
+    // One theme for the window, its welcome, tour, and character.
+    .enigmaTheme(appearance.appearance)
   }
 
   private var commandObservedShell: some View {
     welcomeShell
     .onPreferenceChange(SelectionComposerHeight.self) { report in
       guard shell.isSelectionComposer, report.height > 0 else { return }
-      // The old design reports its height alone, as before; the new one says
-      // the panel grows downward.
-      NotificationCenter.default.post(name: .selectionComposerHeightChanged,
-                                      object: report.style == .classic ? report.height as Any : report as Any)
+      NotificationCenter.default.post(name: .selectionComposerHeightChanged, object: report)
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelExpanded)) { _ in
       shell.leaveSelectionComposer()
@@ -660,11 +235,9 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .panelHidden)) { _ in
       localChat.applicationBecameInactive()
-      // An open menu or the details don't outlive the panel in the new design.
-      if newUI.isEnabled {
-        shell.isModePalettePresented = false
-        shell.isSelectionDetailsPresented = false
-      }
+      // An open menu or the details don't outlive the panel.
+      shell.isModePalettePresented = false
+      shell.isSelectionDetailsPresented = false
     }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
       selectionAccess.refresh()
@@ -703,54 +276,44 @@ struct AppShellView: View {
   private var characterObservedShell: some View {
     selectionObservedShell
     .onChange(of: mainCharacterState, initial: true) { _, state in
-      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented else { return }
       character.state = state
     }
     .onChange(of: isTypingInComposer) { _, typing in
-      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented else { return }
       character.attention = typing ? MainWindowCharacter.composerTarget : nil
     }
     .onChange(of: screen.draft) { old, new in
       // A nudge toward the composer for each keystroke that adds text.
-      guard newUI.isEnabled, !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
+      guard !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
       character.key(towards: MainWindowCharacter.composerTarget)
     }
     .onChange(of: CharacterPlacement(session: localChat.selectedSessionID, slot: windowCharacterSlot)) { old, new in
       // In the open chat it falls into the first reply and moves down to each
       // newer one. Opening another chat, saved or new, puts it there at once.
-      guard newUI.isEnabled, !welcomeSetup.isPresented, old.slot != new.slot else { return }
+      guard !welcomeSetup.isPresented, old.slot != new.slot else { return }
       character.move(to: new.slot, ChatCharacterMove.transition(fromSession: old.session, toSession: new.session,
                                                                 isResponding: localChat.activeRequest != nil))
     }
     .onChange(of: localChat.presentationMessages.last?.content.utf8.count) { _, _ in
       // One ripple per streamed update, while the character is in the chat to show it.
-      guard newUI.isEnabled, !welcomeSetup.isPresented, localChat.state == .streaming, character.isPresent else { return }
+      guard !welcomeSetup.isPresented, localChat.state == .streaming, character.isPresent else { return }
       character.token()
     }
-    .onChange(of: newUI.isEnabled) { _, enabled in
-      if enabled { settleCharacter(.instant) }
-      // The panel forgets the other design's size.
-      NotificationCenter.default.post(name: .selectionPanelDesignChanged,
-                                      object: enabled ? SelectionPanelExpansion.Style.enigma : .classic)
-    }
     .onAppear {
-      if newUI.isEnabled { settleCharacter(.instant) }
+      settleCharacter(.instant)
     }
   }
 
   var body: some View {
     characterObservedShell
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
-      if newUI.isEnabled {
-        EnigmaLocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
-          .enigmaEmbeddedTheme(appearance.appearance)
-      } else {
-        LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
-      }
+      LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
+        .enigmaTheme(appearance.appearance)
     }
     .modifier(MessagesDialogs(messages: messages, submit: submitMessages))
     .modifier(FileModeDialogs(files: files, isCloudConsentPresented: $isFileCloudConsentPresented,
-      isBusy: localChat.isBusy, reviewAppearance: newUI.isEnabled ? appearance.appearance : nil, useCodex: {
+      isBusy: localChat.isBusy, reviewAppearance: appearance.appearance, useCodex: {
         cloudSettings.preferredProvider = .chatGPT
         shell.selectedMode = .cloud
         if let handoff = files.prepareProtectedCloudDraft() {
@@ -775,12 +338,8 @@ struct AppShellView: View {
       }
     }
     .sheet(isPresented: $shell.isHelpPresented) {
-      if newUI.isEnabled {
-        EnigmaHelpView(searchSettings: searchSettings)
-          .enigmaEmbeddedTheme(appearance.appearance)
-      } else {
-        KeyboardShortcutsHelpView(searchSettings: searchSettings)
-      }
+      KeyboardShortcutsHelpView(searchSettings: searchSettings)
+        .enigmaTheme(appearance.appearance)
     }
     .fileImporter(
       isPresented: $isModelImporterPresented,
@@ -801,7 +360,7 @@ struct AppShellView: View {
       shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
       if !presented { startPreferences.mode = .auto }
       // The character falls from the welcome into the main page's slot.
-      if !presented, newUI.isEnabled { settleCharacter(.automatic) }
+      if !presented { settleCharacter(.automatic) }
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
@@ -822,30 +381,28 @@ struct AppShellView: View {
     }
   }
 
-  // MARK: New frame
+  // MARK: Window frame
 
-  /// The window in the new design: the sidebar and the main page on an opaque
-  /// background, themed from the appearance setting.
-  private var newShellLayout: some View {
+  /// The window: the sidebar and the main page on an opaque background.
+  private var shellLayout: some View {
     GeometryReader { geometry in
       HStack(spacing: 0) {
         if shell.isSidebarVisible {
-          newSidebar
+          sidebar
             .frame(width: MainPageLayout.sidebarWidth(for: geometry.size.width))
             .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
         }
-        newMainColumn
+        mainColumn
       }
       .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
                  value: shell.isSidebarVisible)
     }
     .enigmaMenuHost()
     .modifier(EnigmaWindowChrome())
-    .enigmaTheme(appearance.appearance)
     .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
   }
 
-  private var newSidebar: some View {
+  private var sidebar: some View {
     EnigmaSidebar(
       rows: ChatHistoryList.rows(sessions: localChat.sessions, selectedSessionID: localChat.selectedSessionID),
       tourStep: welcomeSetup.tour,
@@ -860,12 +417,11 @@ struct AppShellView: View {
       openHelp: { shell.isHelpPresented = true },
       openSettings: openSettings
     ) {
-      EnigmaDeveloperTools(glassAppearance: glassAppearance, advisor: modelAdvisor, chat: localChat, newUI: newUI,
-                           replayWelcome: { welcomeSetup.replay() })
+      DeveloperToolsView(advisor: modelAdvisor, chat: localChat, replayWelcome: { welcomeSetup.replay() })
     }
   }
 
-  private var newMainColumn: some View {
+  private var mainColumn: some View {
     let examples = SlashCommandExample.examples(available: availableCommands)
     return EnigmaMainColumn(
       isEmpty: isChatEmpty,
@@ -883,9 +439,9 @@ struct AppShellView: View {
                              performStatusAction: performRouteAction, mode: $shell.selectedMode,
                              isStatusActionEnabled: !localChat.isBusy)
       },
-      conversation: { newMessageList },
-      accessories: { composerAccessories },
-      composer: { docked in newComposer(docked: docked) },
+      conversation: { messageList },
+      accessories: { composerAccessories() },
+      composer: { docked in composer(docked: docked) },
       examples: { count in
         EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerIsEnabled) { command in
           shell.isComposerFocused = true
@@ -894,7 +450,7 @@ struct AppShellView: View {
       })
   }
 
-  private func newComposer(docked: Bool) -> some View {
+  private func composer(docked: Bool) -> some View {
     EnigmaComposer(
       text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
       availableCommands: availableCommands, insertion: composerInsertion, opensSuggestionsBelow: !docked,
@@ -907,13 +463,13 @@ struct AppShellView: View {
       },
       route: routeIndicator, menu: modeAndModelMenu, menuActions: modeAndModelActions,
       isMenuPresented: $shell.isModePalettePresented,
-      // As the old palette did, closing the menu returns to the message field.
+      // Closing the menu returns to the message field.
       menuClosed: { shell.isComposerFocused = true },
       isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
       send: submitDraft, stop: { localChat.stopStreaming() })
   }
 
-  /// The selected route's state, as the old status views show it beside the composer.
+  /// The selected route's state, for the status line on the main page and above the composer.
   private var routeStatusSummary: ChatRouteStatus {
     let mode = shell.selectedMode
     var context = ChatRouteStatus.Context(mode: mode, state: localChat.state,
@@ -976,8 +532,8 @@ struct AppShellView: View {
 
   // MARK: Compact panel
 
-  /// The compact selection panel in the new design, with the same actions,
-  /// notices, cards, and consent steps as the old one.
+  /// The compact selection panel, with the same actions, notices, cards, and
+  /// consent steps as the window.
   private var compactPanel: some View {
     let composing = shell.isSelectionComposer
     return EnigmaCompactPanel(
@@ -997,27 +553,26 @@ struct AppShellView: View {
       composer: { compactComposer },
       attachment: {
         if let attachment = screen.attachment, localChat.pendingUserMessage == nil {
-          newScreenshotAttachment(attachment)
+          screenshotAttachment(attachment)
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
         }
       },
       details: {
         if shell.isSelectionDetailsPresented {
-          EnigmaCompactDetails { newComposerAccessories(showsScreenshot: false) }
-            // Escape closes the details first, as it closed the old popover.
+          EnigmaCompactDetails { composerAccessories(showsScreenshot: false) }
+            // Escape closes the details first, before the panel.
             .enigmaDismissesOnEscape { shell.isSelectionDetailsPresented = false }
             .transition(.opacity)
         }
       },
       answer: {
         EnigmaCompactAnswer(conversation: { compactMessageList },
-                            accessories: { newComposerAccessories(showsSelectedText: false) })
+                            accessories: { composerAccessories(showsSelectedText: false) })
       })
     .animation(reduceMotion ? .easeOut(duration: 0.12) : EnigmaMotion.menu.animation,
                value: shell.isSelectionDetailsPresented)
     .enigmaMenuHost()
-    .enigmaTheme(appearance.appearance)
     .frame(minWidth: 640)
   }
 
@@ -1053,7 +608,7 @@ struct AppShellView: View {
   private var compactMessageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
                       activityExpansion: activityExpansion, gathersAtBottom: false, horizontalPadding: 16) {
-      newRevisionCard($0)
+      revisionCard($0)
     }
     .id(localChat.selectedSessionID)
   }
@@ -1065,8 +620,6 @@ struct AppShellView: View {
   }
 
   private var mainCharacterState: EnigmaCharacterState {
-    // The old design has no character; skip the route checks it would cost.
-    guard newUI.isEnabled else { return .idle }
     let state = localChat.state
     let isPreparing = state == .preparing || state == .refiningSearch || state == .searching
     let isModelTask: Bool = switch state {
@@ -1102,7 +655,7 @@ struct AppShellView: View {
   /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
     let home = shell.showsCompactPanel ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
-    guard newUI.isEnabled, !isChatEmpty else { return home }
+    guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
                                                   activity: localChat.activity) ?? home
   }
@@ -1114,122 +667,13 @@ struct AppShellView: View {
     // On the next turn, once the update that closed the welcome has finished,
     // so the welcome's last state change can't land after this one.
     Task { @MainActor in
-      guard newUI.isEnabled, !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented else { return }
       character.state = mainCharacterState
       character.attention = isTypingInComposer ? MainWindowCharacter.composerTarget : nil
     }
   }
 
-  private var welcomeBackground: some View { ForestBackdrop() }
-
-  private var hiddenSidebarNavigation: some View {
-    HStack(spacing: 12) {
-      Button { shell.isSidebarVisible = true } label: { Image(systemName: "sidebar.left") }
-        .welcomeTourTarget(.history)
-        .accessibilityLabel("Show chat history").help("Show chat history · double-tap Control")
-      Button { shell.isHelpPresented = true } label: { Label("Help", systemImage: "questionmark.circle") }.welcomeTourTarget(.help)
-      Spacer()
-      Button(action: openSettings) { Image(systemName: "gearshape") }.accessibilityLabel("Settings")
-      Button { NotificationCenter.default.post(name: .newChatRequested, object: nil) } label: {
-        Image(systemName: "square.and.pencil")
-      }.accessibilityLabel("New chat")
-    }
-    .font(.system(size: 13))
-    .buttonStyle(.borderless)
-    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 4)
-  }
-
-  private func sidebar(compact: Bool) -> some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        VStack(alignment: .leading, spacing: 24) {
-          HStack(spacing: compact ? 4 : 12) {
-            Image("SpotlightLogo").renderingMode(.template).resizable().scaledToFit()
-              .foregroundStyle(NatureGlass.accent).frame(width: compact ? 28 : 40, height: compact ? 28 : 40).accessibilityHidden(true)
-            Text("Enigma").font(.system(size: compact ? 15 : 19, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-            Spacer(minLength: 0)
-            Button { shell.isSidebarVisible = false } label: {
-              Image(systemName: "sidebar.left").font(.system(size: 14)).frame(width: 24, height: 32)
-            }.buttonStyle(NatureButtonStyle()).accessibilityLabel("Hide chat history").welcomeTourTarget(.history)
-              .help("Hide chat history · double-tap Control")
-            Button {
-              NotificationCenter.default.post(name: .newChatRequested, object: nil)
-            } label: {
-              Image(systemName: "square.and.pencil").font(.system(size: 17))
-                .foregroundStyle(NatureGlass.accent).frame(width: 36, height: 36)
-                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.19)) }
-            }.buttonStyle(NatureButtonStyle()).accessibilityLabel("New chat")
-          }
-          .padding(.horizontal, compact ? 0 : 8)
-          .id("welcomeHistory")
-
-          VStack(spacing: 4) {
-            ForEach(ChatHistoryList.rows(sessions: localChat.sessions, selectedSessionID: localChat.selectedSessionID)) { row in
-              sidebarRow(title: row.title, date: row.date, selected: row.isSelected, compact: compact) {
-                switch row.target {
-                case .newChat: NotificationCenter.default.post(name: .newChatRequested, object: nil)
-                case .session(let id): localChat.selectSession(id: id)
-                }
-              }
-            }
-          }
-
-          VStack(alignment: .leading, spacing: 0) {
-            Divider().overlay(NatureGlass.secondary.opacity(0.25)).padding(.horizontal, 16)
-            Button { shell.isHelpPresented = true } label: {
-              Label("Help", systemImage: "questionmark.circle")
-                .frame(maxWidth: .infinity, alignment: .leading).frame(height: 42).contentShape(Rectangle())
-            }.buttonStyle(NatureButtonStyle()).welcomeTourTarget(.help).id("welcomeHelp")
-            Button(action: openSettings) {
-              Label("Settings", systemImage: "gearshape")
-                .frame(maxWidth: .infinity, alignment: .leading).frame(height: 42).contentShape(Rectangle())
-            }.buttonStyle(NatureButtonStyle())
-            DeveloperToolsView(glassAppearance: glassAppearance, advisor: modelAdvisor, chat: localChat)
-              .padding(.vertical, 16)
-          }
-          .font(.system(size: compact ? 13 : 14))
-          .padding(.horizontal, compact ? 12 : 24)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 20)
-      }
-      .onChange(of: welcomeSetup.tour, initial: true) { _, step in
-        if step == .history { proxy.scrollTo("welcomeHistory", anchor: .top) }
-        if step == .help { proxy.scrollTo("welcomeHelp", anchor: .center) }
-      }
-    }
-    .scrollIndicators(.hidden)
-    .modifier(NatureGlassSurface(navigation: true, enabled: glassAppearance.isEnabled, clarity: glassAppearance.clarity))
-    .padding(12)
-  }
-
-  private func sidebarRow(title: String, date: Date? = nil, selected: Bool, compact: Bool, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      HStack(spacing: compact ? 10 : 16) {
-        Image(systemName: "bubble.left").font(.system(size: 16)).frame(width: 20)
-          .foregroundStyle(selected ? NatureGlass.accent : NatureGlass.primary)
-        VStack(alignment: .leading, spacing: 3) {
-          Text(title).font(.system(size: compact ? 13 : 14, weight: selected ? .medium : .regular)).lineLimit(1)
-          if let date {
-            Text(date, format: .dateTime.month(.abbreviated).day()).font(.system(size: 11)).foregroundStyle(NatureGlass.secondary)
-          }
-        }
-        Spacer(minLength: 0)
-      }
-      .padding(.horizontal, compact ? 12 : 24).frame(height: compact ? 42 : (date == nil ? 46 : 52))
-      .background(selected ? NatureGlass.accent.opacity(0.14) : .clear, in: Capsule())
-      .overlay { if selected { Capsule().strokeBorder(NatureGlass.accent.opacity(0.2)) } }
-      .overlay(alignment: .leading) {
-        if selected { Capsule().fill(NatureGlass.accent).frame(width: 2, height: 40) }
-      }
-      .contentShape(Capsule())
-    }
-    .buttonStyle(NatureButtonStyle())
-    .accessibilityAddTraits(selected ? .isSelected : [])
-  }
-
-  // MARK: Composer state, shared by both designs
+  // MARK: Composer state, shared by the window and the compact panel
 
   private var composerText: Binding<String> {
     Binding(get: { localChat.pendingUserMessage == nil ? screen.draft : "" }, set: { screen.draft = $0 })
@@ -1253,109 +697,8 @@ struct AppShellView: View {
       || screen.isBusy || files.isWorking || files.isPicking)
   }
 
-  private func composer(compact: Bool) -> some View {
-    let isResponding = localChat.activeRequest != nil
-    return HStack(spacing: compact ? 8 : 16) {
-      if shell.isSelectionComposer {
-        Button { shell.isSelectionDetailsPresented.toggle() } label: {
-          Image(systemName: selectionContext.notice != nil || !selectionAccess.isGranted
-            ? "exclamationmark.bubble" : "text.quote")
-            .foregroundStyle(NatureGlass.accent)
-            .frame(width: 28, height: 36)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Selection context and status")
-        .help(localChat.attachedContexts.first?.title ?? "Selection context and status")
-        .popover(isPresented: $shell.isSelectionDetailsPresented, arrowEdge: .top) {
-          ScrollView { composerAccessories.padding(16) }.frame(width: 420, height: 300)
-        }
-      }
-      FileModeToolButton(files: files, isBusy: localChat.isBusy) { activateFileMode(from: .menu) }
-        .welcomeTourTarget(.files)
-      Rectangle().fill(NatureGlass.secondary.opacity(0.35)).frame(width: 1, height: 40)
-
-      SlashCommandComposer(
-        text: composerText,
-        isFocused: composerFocus,
-        isEnabled: composerIsEnabled,
-        fontSize: compact ? 14 : 15,
-        usesPopover: shell.isSelectionComposer,
-        availableCommands: availableCommands,
-        submit: submitDraft
-      ).welcomeTourTarget(.composer)
-
-      Button { shell.isModePalettePresented.toggle() } label: {
-        HStack(spacing: 8) {
-          if !compact { Image(systemName: shell.selectedMode.systemImage) }
-          Text(shell.selectedMode.displayName)
-          Image(systemName: "chevron.down").font(.system(size: 10))
-        }
-        .font(.system(size: 14, weight: .medium))
-        .padding(.horizontal, compact ? 8 : 12).frame(height: compact ? 32 : 38)
-        .background(.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
-        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.1)) }
-      }.buttonStyle(NatureButtonStyle()).fixedSize()
-      .popover(isPresented: Binding(get: { shell.isSelectionComposer && shell.isModePalettePresented }, set: { shell.isModePalettePresented = $0 })) {
-        modePalette.frame(width: 400, height: 380)
-      }
-      .accessibilityLabel("Mode and model").welcomeTourTarget(.model)
-
-      Button {
-        if isResponding { localChat.stopStreaming() } else { submitDraft() }
-      } label: {
-        Image(systemName: isResponding ? "stop.fill" : "paperplane.fill")
-          .font(.system(size: 14, weight: .medium))
-          .foregroundStyle(NatureGlass.canvas)
-          .frame(width: compact ? 36 : 44, height: compact ? 36 : 44)
-          .background(NatureGlass.accent, in: Circle())
-          .overlay { Circle().strokeBorder(.white.opacity(0.48)) }
-      }
-      .buttonStyle(NatureButtonStyle())
-      .disabled(!isResponding && !canSendDraft)
-      .accessibilityLabel(isResponding ? "Stop response" : "Send message")
-    }
-    .padding(.leading, 12).padding(.trailing, compact ? 10 : 12).padding(.vertical, compact ? 10 : 12)
-    .modifier(NatureGlassSurface(radius: 44, enabled: glassAppearance.isEnabled, clarity: glassAppearance.clarity))
-    .overlay {
-      if localChat.activeRequest != nil { ThinkingComposerGlow().allowsHitTesting(false) }
-    }
-    .shadow(color: NatureGlass.accent.opacity(shell.isComposerFocused ? 0.08 : 0), radius: 12)
-    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: shell.isComposerFocused)
-  }
-
   /// Nothing has been sent in this chat, and nothing is on its way.
   private var isChatEmpty: Bool { localChat.presentationMessages.isEmpty && localChat.activeRequest == nil }
-
-  @ViewBuilder
-  private var conversation: some View {
-    if isChatEmpty {
-      GeometryReader { geometry in
-        let compact = geometry.size.height < 370
-        VStack(spacing: compact ? 12 : 24) {
-          Spacer(minLength: 8)
-          if geometry.size.height >= 250 {
-            Image("SpotlightLogo")
-              .renderingMode(.template).resizable().scaledToFit()
-              .frame(width: compact ? 72 : 120, height: compact ? 72 : 120)
-              .foregroundStyle(NatureGlass.accent)
-              .shadow(color: NatureGlass.accent.opacity(0.22), radius: 16)
-              .accessibilityHidden(true)
-          }
-          Text("How can I help?")
-            .font(.system(size: compact ? 23 : 32, weight: .semibold)).tracking(-0.8)
-          compactModeControls
-          if shell.selectedMode == .local && localChat.installedModel == nil {
-            Button("Choose GGUF Model") { isModelImporterPresented = true }
-              .buttonStyle(.borderedProminent).disabled(localChat.isBusy)
-          }
-          Spacer(minLength: 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-      }
-    } else {
-      messageList
-    }
-  }
 
   /// What keeps a reader at the bottom following the chat, for both lists.
   private var conversationScrollRevision: String {
@@ -1363,18 +706,17 @@ struct AppShellView: View {
       + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)
   }
 
-  /// The chat in the new design, with the same scrolling, per-chat identity,
-  /// activity expansion, and revision cards as the old list.
-  private var newMessageList: some View {
+  /// The chat, with a new identity for each chat so it opens at its own end.
+  private var messageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
-                      activityExpansion: activityExpansion) { newRevisionCard($0) }
+                      activityExpansion: activityExpansion) { revisionCard($0) }
     .id(localChat.selectedSessionID)
   }
 
-  /// The /edit revision card under a reply in the new design, when it has one to review.
-  @ViewBuilder private func newRevisionCard(_ message: ChatMessage) -> some View {
+  /// The /edit revision card under a reply, when it has one to review.
+  @ViewBuilder private func revisionCard(_ message: ChatMessage) -> some View {
     if let revision = localChat.selectionRevisions[message.id], !revision.automatic {
-      EnigmaSelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
+      SelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
         update: { localChat.updateSelectionRevision(messageID: message.id, text: $0) },
         replace: { Task { await localChat.applySelectionRevision(messageID: message.id) } })
     }
@@ -1385,380 +727,15 @@ struct AppShellView: View {
                            activity: localChat.activity, isResponding: localChat.activeRequest != nil)
   }
 
-  /// The chat's messages in the old design.
-  private var messageList: some View {
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 18) {
-          ForEach(localChat.presentationMessages) { message in
-            LocalMessageView(message: localChat.selectionDisplayMessage(message), isThinking: localChat.isWaitingForResponse && message.id == localChat.presentationMessages.last?.id,
-                             expandedActivity: activityExpansion(message.activity?.id ?? message.id))
-              .id(message.id)
-            if let revision = localChat.selectionRevisions[message.id], !revision.automatic {
-              SelectionRevisionCard(revision: revision, disabled: localChat.isBusy || !selectionContext.canReplace,
-                update: { localChat.updateSelectionRevision(messageID: message.id, text: $0) },
-                replace: { Task { await localChat.applySelectionRevision(messageID: message.id) } })
-            }
-          }
-          if let activity = localChat.activity, localChat.presentationMessages.last?.role != .assistant {
-            AssistantActivityView(activity: activity, expanded: activityExpansion(activity.id))
-          }
-        }
-        .padding(24)
-        .background(ConversationScrollObserver(contentRevision: conversationScrollRevision).allowsHitTesting(false))
-      }
-      .defaultScrollAnchor(.bottom, for: .initialOffset)
-      .defaultScrollAnchor(.top, for: .alignment)
-      .id(localChat.selectedSessionID)
-  }
-
-  @ViewBuilder
-  private var routeStatus: some View {
-    if let request = localChat.activeRequest {
-      HStack(spacing: 8) {
-        ProgressView()
-          .controlSize(.small)
-        Text("\(requestPhase) · \(request.displayName)")
-          .lineLimit(2)
-        Button("Stop") { localChat.stopStreaming() }
-          .buttonStyle(.plain)
-      }
-      .font(.caption)
-      .foregroundStyle(.secondary)
-      .frame(maxWidth: .infinity, alignment: .trailing)
-    } else {
-      inactiveRouteStatus
-    }
-  }
-
   private func activityExpansion(_ id: UUID) -> Binding<Bool> {
     Binding(get: { shell.isActivityExpanded(id) }, set: { shell.setActivity(id, expanded: $0) })
   }
 
   private var requestPhase: String { localChat.activity?.status ?? "Preparing…" }
 
-  @ViewBuilder
-  private var inactiveRouteStatus: some View {
-    switch shell.selectedMode {
-    case .local:
-      HStack(spacing: 8) {
-        switch localChat.state {
-        case .benchmarking:
-          ProgressView().controlSize(.small)
-          Text("Checking model performance…")
-        case .installing:
-          ProgressView()
-            .controlSize(.small)
-          Text("Installing local model…")
-        case .deleting:
-          ProgressView()
-            .controlSize(.small)
-          Text("Deleting local model…")
-        case .downloading(let progress):
-          ProgressView(value: progress.fractionCompleted)
-            .frame(width: 72)
-          Text("Downloading \(progress.fractionCompleted, format: .percent.precision(.fractionLength(0)))")
-        case .preparing, .refiningSearch, .searching:
-          ProgressView()
-            .controlSize(.small)
-          Text("Loading local model…")
-        case .streaming:
-          ProgressView()
-            .controlSize(.small)
-          Text("Generating locally")
-          Button("Stop") {
-            localChat.stopStreaming()
-          }
-          .buttonStyle(.plain)
-        case .failed(let message):
-          Image(systemName: "exclamationmark.triangle")
-          Text(message)
-            .lineLimit(2)
-        case .idle:
-          if let model = localChat.installedModel {
-            Image(systemName: "checkmark.circle")
-            Text(model.displayName)
-              .lineLimit(1)
-            modelMenu
-          } else {
-            Text("A local GGUF model is required.")
-            modelMenu
-          }
-        }
-      }
-      .font(.caption)
-      .foregroundStyle(.secondary)
-      .frame(maxWidth: .infinity, alignment: .trailing)
-    case .cloud:
-      HStack(spacing: 8) {
-        if !cloudSettings.hasCloudAccess(for: cloudSettings.preferredProvider) {
-          Text(cloudSettings.preferredProvider == .chatGPT
-            ? "Sign in with ChatGPT to use your Codex allowance."
-            : cloudSettings.preferredProvider == .claudeCode
-              ? "Sign in to Claude Code to use your Claude plan."
-              : "Add a \(cloudSettings.preferredProvider.displayName) API key.")
-          Button("Advanced Settings", action: openSettings)
-        } else if !cloudSettings.isConfigured {
-          Text(cloudSettings.selectedModelCompatibility.message)
-            .lineLimit(2)
-          Button("Advanced Settings", action: openSettings)
-        } else {
-          switch localChat.state {
-          case .preparing, .refiningSearch, .searching:
-            ProgressView()
-              .controlSize(.small)
-            Text("Connecting to \(cloudSettings.preferredProvider.displayName)…")
-          case .streaming:
-            ProgressView()
-              .controlSize(.small)
-            Text("Streaming from \(cloudSettings.preferredProvider.displayName)")
-            Button("Stop") { localChat.stopStreaming() }
-              .buttonStyle(.plain)
-          case .failed(let message):
-            Image(systemName: "exclamationmark.triangle")
-            Text(message)
-              .lineLimit(2)
-          case .idle:
-            Image(systemName: "cloud")
-            Text("\(cloudSettings.preferredProvider.displayName) · \(cloudSettings.preferredModelID)")
-              .lineLimit(1)
-            if cloudSettings.selectedModelCompatibility == .unverified {
-              Text("Unverified")
-                .help(cloudSettings.selectedModelCompatibility.message)
-            }
-          case .installing, .deleting, .downloading, .benchmarking:
-            Text("Finish the local model task before using Cloud mode.")
-          }
-        }
-      }
-      .font(.caption)
-      .foregroundStyle(.secondary)
-      .frame(maxWidth: .infinity, alignment: .trailing)
-    case .auto:
-      autoRouteStatus
-    }
-  }
-
-  @ViewBuilder
-  private var autoRouteStatus: some View {
-    HStack(spacing: 8) {
-      if case .failed(let message) = localChat.state {
-        Image(systemName: "exclamationmark.triangle")
-        Text(message)
-          .lineLimit(2)
-      } else if let decision = localChat.autoRouteDecision {
-        if let route = decision.route {
-          Image(systemName: route.mode == .local ? "laptopcomputer" : "cloud")
-          Text("Auto · \(route.mode.displayName) · \(decision.modelDisplayName ?? route.modelID)")
-            .lineLimit(1)
-          if localChat.state == .preparing || localChat.state == .streaming {
-            ProgressView()
-              .controlSize(.small)
-          }
-          if localChat.state == .streaming {
-            Button("Stop") { localChat.stopStreaming() }
-              .buttonStyle(.plain)
-          }
-        } else if let limitation = decision.limitation {
-          Image(systemName: "exclamationmark.triangle")
-          Text(limitation.message)
-            .lineLimit(2)
-        }
-      } else if let model = localChat.installedModel, autoCloudConfiguration == nil {
-        Image(systemName: "laptopcomputer")
-        Text("Cloud isn’t connected; Auto stays local · \(model.displayName)")
-          .lineLimit(1)
-      } else if localChat.installedModel != nil || autoCloudConfiguration != nil {
-        Image(systemName: "sparkles")
-        Text("Auto chooses the lowest-latency capable model.")
-      } else {
-        Text("Choose a local model or connect Cloud to use Auto.")
-      }
-    }
-    .font(.caption)
-    .foregroundStyle(.secondary)
-    .frame(maxWidth: .infinity, alignment: .trailing)
-  }
-
-  private var compactModeControls: some View {
-    HStack(spacing: 0) {
-      ForEach(ChatMode.allCases) { mode in
-        Button { shell.selectedMode = mode } label: {
-          Label(mode.displayName, systemImage: mode.systemImage)
-            .font(.system(size: 14, weight: .medium))
-            .frame(maxWidth: .infinity).frame(height: 38)
-            .foregroundStyle(shell.selectedMode == mode ? NatureGlass.canvas : NatureGlass.primary)
-            .background(shell.selectedMode == mode ? NatureGlass.accent : .clear, in: Capsule())
-        }
-        .buttonStyle(NatureButtonStyle())
-        .accessibilityAddTraits(shell.selectedMode == mode ? .isSelected : [])
-      }
-    }
-    .padding(8).frame(maxWidth: 320)
-    .modifier(NatureGlassSurface(radius: 32, enabled: glassAppearance.isEnabled, clarity: glassAppearance.clarity))
-    .padding(.horizontal, 16)
-    .accessibilityLabel("Routing mode")
-  }
-
-  private var modePalette: some View {
-    ZStack {
-      Color.black.opacity(0.12)
-        .ignoresSafeArea()
-        .onTapGesture { shell.dismissModePalette() }
-
-      VStack(alignment: .leading, spacing: 8) {
-        Text(localChat.activeRequest == nil ? "Mode & Model" : "Next request · Mode & Model")
-          .font(.headline)
-          .padding(.bottom, 2)
-
-        ForEach(ChatMode.allCases) { mode in
-          Button {
-            shell.chooseMode(mode)
-          } label: {
-            HStack(spacing: 10) {
-              Image(systemName: mode.systemImage)
-                .frame(width: 18)
-              Text(mode.displayName)
-              Spacer()
-              if shell.selectedMode == mode {
-                Image(systemName: "checkmark")
-              }
-            }
-            .contentShape(Rectangle())
-          }
-          .buttonStyle(NatureButtonStyle())
-          .padding(.horizontal, 10)
-          .padding(.vertical, 8)
-        }
-
-        Divider()
-
-        Group {
-          switch shell.selectedMode {
-          case .local:
-            modelMenu
-          case .cloud:
-            cloudModelMenu
-          case .auto:
-            Text("Auto keeps routine tasks local and uses Cloud only when needed.")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 2)
-      }
-      .padding(14)
-      .frame(width: 300)
-      .natureSurface(radius: 24)
-    }
-  }
-
   private var canSubmit: Bool {
     ComposerSubmission.canSubmit(mode: shell.selectedMode, hasLocalModel: localChat.installedModel != nil,
       isCloudConfigured: cloudSettings.isConfigured, hasAutoCloud: autoCloudConfiguration != nil, isBusy: localChat.isBusy)
-  }
-
-  private var welcomeSubtitle: String {
-    if hasSearchCommand {
-      return shell.selectedMode == .local
-        ? "Brave finds web sources. Your local model writes the answer on this Mac."
-        : "Brave finds web sources for your selected model to answer with citations."
-    }
-    if searchSettings.canSearchAutomatically && files.selection == nil {
-      return "Questions needing fresh information search Brave automatically. Your selected model writes the answer."
-    }
-    if shell.selectedMode == .local {
-      return localChat.installedModel == nil
-        ? "Choose a GGUF model once, then chat completely offline."
-        : "Runs on this Mac with no network requests."
-    }
-    if shell.selectedMode == .cloud {
-      if cloudSettings.preferredProvider == .chatGPT {
-        return cloudSettings.isConfigured
-          ? "Uses your ChatGPT plan's Codex allowance. Usage limits apply."
-          : "Sign in with ChatGPT in Settings—no API key needed."
-      }
-      if cloudSettings.preferredProvider == .claudeCode {
-        return cloudSettings.isConfigured
-          ? "Uses your Claude plan through Claude Code. Usage limits apply."
-          : "Sign in to Claude Code in Settings—no API key needed."
-      }
-      return cloudSettings.isConfigured
-        ? "Uses \(cloudSettings.preferredProvider.displayName) with a stateless request."
-        : "Add a provider key and model in Advanced Settings."
-    }
-    if localChat.installedModel != nil, autoCloudConfiguration == nil {
-      return "Cloud is not connected, so Auto stays on this Mac."
-    }
-    return "Local-first assistance that uses Cloud only when it is needed."
-  }
-
-  private var modelMenu: some View {
-    Menu {
-      if localChat.installedModels.isEmpty {
-        Text("No installed models")
-      } else {
-        Section("Installed") {
-          ForEach(localChat.installedModels) { model in
-            Button {
-              localChat.selectModel(id: model.id)
-            } label: {
-              Label(
-                model.displayName + (model.supportsVision ? " · Text + images" : " · Text only"),
-                systemImage: localChat.installedModel?.id == model.id ? "checkmark" : "cpu"
-              )
-            }
-          }
-        }
-      }
-
-      Button("Find a Model for This Mac…") {
-        Task { await modelAdvisor.replayOnboarding() }
-      }
-      Button("Manage Models in Settings…", action: openSettings)
-
-      Divider()
-      Button("Advanced: Import Text GGUF…") {
-        isModelImporterPresented = true
-      }
-    } label: {
-      Label(localChat.installedModel?.displayName ?? "Choose Model", systemImage: "cpu")
-    }
-    .menuStyle(.borderlessButton)
-    .disabled(localChat.isBusy)
-  }
-
-  private var cloudModelMenu: some View {
-    Menu {
-      if cloudSettings.models.isEmpty {
-        Text("No discovered models")
-      } else {
-        Section(cloudSettings.preferredProvider.displayName) {
-          ForEach(cloudSettings.models) { model in
-            Button {
-              cloudSettings.preferredModelID = model.id
-            } label: {
-              Label(
-                model.displayName + (model.supportsVision ? " · Text + images" : " · Text only"),
-                systemImage: cloudSettings.preferredModelID == model.id ? "checkmark" : "cloud"
-              )
-            }
-          }
-        }
-      }
-
-      Divider()
-      Button(action: openSettings) {
-        Label("Advanced Settings…", systemImage: "gearshape")
-      }
-    } label: {
-      Label(
-        cloudSettings.preferredModelID.isEmpty ? "Choose Cloud Model" : cloudSettings.preferredModelID,
-        systemImage: "cloud"
-      )
-    }
-    .menuStyle(.borderlessButton)
-    .disabled(localChat.isBusy)
   }
 
   private var fileAccess: FileAccessLevel {
@@ -1941,687 +918,6 @@ struct AppShellView: View {
   private func openSettings() {
     shell.prepareForSettings()
     NotificationCenter.default.post(name: .settingsRequested, object: nil)
-  }
-}
-
-enum ChatTypography {
-  static let body = Font.system(size: 14)
-  static let label = Font.system(size: 11, weight: .semibold)
-}
-
-struct LocalMessageView: View {
-  let message: ChatMessage
-  var isThinking = false
-  var expandedActivity: Binding<Bool>? = nil
-
-  var body: some View {
-    Group {
-      if message.role == .user {
-        HStack(alignment: .top, spacing: 0) {
-          Spacer(minLength: 48)
-          VStack(alignment: .trailing, spacing: 8) {
-            if let attachments = message.attachments {
-              ForEach(attachments.indices, id: \.self) { index in
-                Label(attachments[index].name, systemImage: attachments[index].isDirectory ? "folder" : "doc")
-                  .font(ChatTypography.label)
-                  .lineLimit(2)
-                  .padding(.horizontal, 10).padding(.vertical, 6)
-                  .background(NatureGlass.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 9))
-              }
-            }
-            if let data = message.imagePreview, let image = NSImage(data: data) {
-              SentImagePreview(image: image)
-            }
-            Text(verbatim: message.content)
-              .font(ChatTypography.body)
-              .textSelection(.enabled)
-              .padding(.horizontal, 16).padding(.vertical, 12)
-              .background(NatureGlass.accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 18))
-              .overlay { RoundedRectangle(cornerRadius: 18).stroke(NatureGlass.edge, lineWidth: 0.6) }
-              .accessibilityLabel("You: " + message.content)
-          }
-          .frame(maxWidth: 560, alignment: .trailing)
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-      } else {
-        VStack(alignment: .leading, spacing: 8) {
-          if let activity = message.activity {
-            AssistantActivityView(activity: activity, expanded: expandedActivity)
-          } else if let sources = message.searchSources, !sources.isEmpty {
-            AssistantActivityView(activity: .savedSources(sources, messageID: message.id), expanded: expandedActivity)
-          } else if message.content.isEmpty && isThinking {
-            ThinkingStatusView().allowsHitTesting(false)
-          }
-          if !message.content.isEmpty {
-            ChatMarkdownView(content: message.content)
-          }
-        }.frame(maxWidth: .infinity, alignment: .leading)
-      }
-    }
-  }
-}
-
-struct SentImagePreview: View {
-  let image: NSImage
-
-  var body: some View {
-    let scale = min(1, 120 / max(1, image.size.width), 96 / max(1, image.size.height))
-    Image(nsImage: image)
-      .resizable()
-      .scaledToFit()
-      .frame(width: image.size.width * scale, height: image.size.height * scale)
-      .clipShape(RoundedRectangle(cornerRadius: 8))
-      .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.1)))
-      .accessibilityLabel("Image attached to your message")
-  }
-}
-
-private extension ChatMode {
-  var systemImage: String {
-    switch self {
-    case .auto: "bolt"
-    case .local: "laptopcomputer"
-    case .cloud: "cloud"
-    }
-  }
-}
-
-private struct KeyboardShortcutsHelpView: View {
-  @ObservedObject var searchSettings: WebSearchSettings
-  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
-  @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
-  @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleOptionEnabled = true
-  @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleOptionInterval = 0.35
-  @Environment(\.dismiss) private var dismiss
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      Label("Keyboard Shortcuts", systemImage: "keyboard")
-        .font(.title2.weight(.medium))
-
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("Anywhere on your Mac")
-            .font(.headline)
-          shortcut(KeyboardShortcutsHelp.selectionChat(modifier: SelectionModifier(rawValue: selectionModifier) ?? .option))
-          shortcut(KeyboardShortcutsHelp.selectionBackup)
-          Toggle("Enable double-tap shortcut", isOn: $doubleOptionEnabled)
-          Picker("Selection shortcut key", selection: $selectionModifier) {
-            ForEach(SelectionModifier.allCases) { modifier in Text(modifier.title).tag(modifier.rawValue) }
-          }
-          Picker("Double-tap interval", selection: $doubleOptionInterval) {
-            ForEach(KeyboardShortcutsHelp.intervals, id: \.seconds) { interval in Text(interval.title).tag(interval.seconds) }
-          }
-          Text(KeyboardShortcutsHelp.selectionNote)
-            .font(.caption).foregroundStyle(.secondary)
-          Label(selectionAccess.isGranted ? "Accessibility enabled" : "Accessibility permission required",
-                systemImage: selectionAccess.isGranted ? "checkmark.circle" : "hand.raised")
-            .font(.caption)
-          Text(KeyboardShortcutsHelp.accessibilityNote(appName: SelectionAccessibilityAccess.appName))
-            .font(.caption).foregroundStyle(.secondary)
-          Button("Open Accessibility Settings…") { selectionAccess.requestAccess() }
-          shortcut(KeyboardShortcutsHelp.showOrHide)
-          Text(KeyboardShortcutsHelp.showOrHideNote)
-            .font(.caption).foregroundStyle(.secondary)
-          shortcut(KeyboardShortcutsHelp.advancedSettings)
-
-          Divider()
-
-          Text("In the chat panel")
-            .font(.headline)
-          ForEach(KeyboardShortcutsHelp.panel, id: \.self) { shortcut($0) }
-          if searchSettings.hasAPIKey {
-            shortcut(KeyboardShortcutsHelp.search)
-            Text(KeyboardShortcutsHelp.searchNote)
-              .font(.caption).foregroundStyle(.secondary)
-          }
-          ForEach(KeyboardShortcutsHelp.commands, id: \.self) { shortcut($0) }
-          Text(KeyboardShortcutsHelp.commandsNote())
-            .font(.caption).foregroundStyle(.secondary)
-
-          Divider()
-
-          Text("Editing text")
-            .font(.headline)
-          ForEach(KeyboardShortcutsHelp.editing, id: \.self) { shortcut($0) }
-
-          Text(KeyboardShortcutsHelp.legend)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.trailing, 4)
-      }
-
-      HStack {
-        Spacer()
-        Button("Done") {
-          dismiss()
-        }
-        .keyboardShortcut(.defaultAction)
-      }
-    }
-    .padding(24)
-    .frame(width: 460, height: 400)
-    .naturePresentation()
-    .onExitCommand { dismiss() }
-  }
-
-  private func shortcut(_ shortcut: KeyboardShortcutsHelp.Shortcut) -> some View {
-    HStack {
-      Text(shortcut.title)
-      Spacer(minLength: 16)
-      Text(shortcut.keys)
-        .font(.body.monospaced())
-        .foregroundStyle(.secondary)
-    }
-  }
-}
-
-private struct DeveloperToolsView: View {
-  @ObservedObject var glassAppearance: GlassAppearanceSettings
-  @ObservedObject var advisor: LocalModelAdvisor
-  @ObservedObject var chat: LocalChatViewModel
-  @ObservedObject private var newUI = NewUIPreference.shared
-  @State private var isExpanded = false
-
-  var body: some View {
-    DisclosureGroup(isExpanded: $isExpanded) {
-      VStack(alignment: .leading, spacing: 10) {
-        Button("Detect Mac Capabilities") { Task { await advisor.detectHardware() } }
-          .disabled(advisor.isDetecting || chat.isBusy)
-        Button("Replay Welcome Setup") { WelcomeSetup.shared.replay() }
-          .disabled(advisor.isDetecting || chat.isBusy)
-        if let hardware = advisor.hardware {
-          Text("\(hardware.chip) · \(hardware.cpuCount) CPUs")
-          Text("Inference budget: \(hardware.inferenceMemoryBudget, format: .byteCount(style: .memory))")
-          Text("Free disk: \(hardware.availableDiskBytes, format: .byteCount(style: .file))")
-          Text(hardware.hasMetal ? "Metal available" : "CPU inference")
-          if let limit = hardware.metalRecommendedWorkingSet {
-            Text("Metal working set: \(limit, format: .byteCount(style: .memory))")
-          }
-        }
-        Divider()
-        Toggle("Use new UI", isOn: $newUI.isEnabled)
-        Text("Applies immediately. Screens switch to the new design as they're rebuilt.")
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-        Divider()
-        Toggle("Liquid Glass", isOn: $glassAppearance.isEnabled)
-
-        if glassAppearance.isEnabled {
-          HStack {
-            Text("Glass clarity")
-            Spacer()
-            Text(glassAppearance.clarity, format: .percent.precision(.fractionLength(0)))
-              .foregroundStyle(.secondary)
-          }
-          .font(.caption)
-
-          Slider(value: $glassAppearance.clarity, in: 0...1, step: 0.01)
-            .accessibilityLabel("Glass clarity")
-
-          Text("100% is completely clear.")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
-
-        Button("Save") {
-          glassAppearance.save()
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.small)
-        .disabled(!glassAppearance.hasUnsavedChanges)
-      }
-      .padding(.top, 8)
-    } label: {
-      Label("Developer Tools", systemImage: "wrench.and.screwdriver")
-        .font(.callout.weight(.medium))
-    }
-  }
-}
-
-struct SelectionRevisionCard: View {
-  let revision: SelectionRevision
-  let disabled: Bool
-  let update: (String) -> Void
-  let replace: () -> Void
-  @State private var editing = false
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Label("Revised text", systemImage: "text.alignleft").font(.caption).foregroundStyle(.secondary)
-        Spacer()
-        if revision.status == .sent { Label("Replacement sent", systemImage: "checkmark").font(.caption) }
-      }
-      if editing {
-        TextEditor(text: Binding(get: { revision.text }, set: update))
-          .font(.body).scrollContentBackground(.hidden).frame(minHeight: 120, maxHeight: 240)
-          .accessibilityLabel("Edit revised text")
-      } else {
-        ScrollView { Text(revision.text).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled) }
-          .frame(maxHeight: 240).fixedSize(horizontal: false, vertical: true)
-      }
-      HStack(spacing: 10) {
-        Button(editing ? "Done" : "Edit", systemImage: editing ? "checkmark" : "pencil") { editing.toggle() }
-          .disabled(disabled || revision.status == .sent)
-        Button("Replace text", systemImage: "arrow.up.doc") { editing = false; replace() }
-          .buttonStyle(.borderedProminent)
-          .disabled(disabled || revision.text.isEmpty || revision.status == .sent || revision.status == .applying)
-        if revision.status == .applying { ProgressView().controlSize(.small) }
-      }.controlSize(.small)
-    }
-    .padding(16).background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
-    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.primary.opacity(0.1)))
-    .accessibilityElement(children: .contain)
-  }
-}
-
-struct SettingsView: View {
-  @ObservedObject private var location = LocationService.shared
-  @ObservedObject private var startPreferences = StartPreferences.shared
-  @ObservedObject private var selectionEditing = SelectionEditingSettings.shared
-  @ObservedObject private var settings: CloudSettingsModel
-  @State private var openAIAPIKey = ""
-  @State private var anthropicAPIKey = ""
-  @State private var geminiAPIKey = ""
-  @State private var formError: String?
-  @StateObject private var discovery: LocalModelDiscovery
-
-  init(settings: CloudSettingsModel = .shared, initialDestination: SettingsDestination = .general,
-    discovery: LocalModelDiscovery? = nil) {
-    self.settings = settings
-    _destination = State(initialValue: initialDestination)
-    _discovery = StateObject(wrappedValue: discovery ?? LocalModelDiscovery())
-  }
-
-  @State private var destination: SettingsDestination
-  enum SettingsDestination: String, CaseIterable, Identifiable {
-    case general = "General"
-    case local = "Local Models"
-    case discover = "Discover"
-    case cloud = "Cloud & Search"
-    case selection = "Selection Context"
-    var id: Self { self }
-    var symbol: String { switch self { case .general: "gearshape"; case .local: "laptopcomputer"; case .discover: "sparkle.magnifyingglass"; case .cloud: "cloud"; case .selection: "text.cursor" } }
-  }
-
-  var body: some View {
-    HStack(spacing: 0) {
-      VStack(alignment: .leading, spacing: 28) {
-        HStack(spacing: 12) {
-          Image("SpotlightLogo").renderingMode(.template).resizable().scaledToFit()
-            .frame(width: 36, height: 36).foregroundStyle(NatureGlass.accent)
-          Text("Settings").font(.system(size: 20, weight: .semibold))
-        }.padding(.horizontal, 12)
-        VStack(spacing: 8) {
-          ForEach(SettingsDestination.allCases) { item in
-            Button { destination = item } label: {
-              Label(item.rawValue, systemImage: item.symbol)
-                .font(.system(size: 14, weight: .medium))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(destination == item ? NatureGlass.accent.opacity(0.14) : .clear, in: Capsule())
-                .overlay { if destination == item { Capsule().strokeBorder(NatureGlass.accent.opacity(0.2)) } }
-            }.buttonStyle(NatureButtonStyle())
-              .accessibilityAddTraits(destination == item ? .isSelected : [])
-          }
-        }
-        Spacer()
-        Text("Enigma").font(.caption).foregroundStyle(NatureGlass.secondary).padding(16)
-      }
-      .padding(12).frame(width: 208)
-      .natureSurface(navigation: true).padding(12)
-      VStack(alignment: .leading, spacing: 8) {
-        Text(destination.rawValue).font(.system(size: 24, weight: .semibold)).padding(.horizontal, 20).padding(.top, 24)
-        Text(destination == .general ? "Make each new chat feel like yours." : destination == .local ? "Intelligence, right on your Mac." : destination == .discover ? "Find your next vision or audio model." : destination == .selection ? "Choose how your text revisions are applied." : "Connect your models and the web.")
-          .foregroundStyle(NatureGlass.secondary).padding(.horizontal, 20)
-        Group {
-          switch destination {
-          case .general:
-            Form {
-              Section("Permissions · enable your Mac features") {
-                MacPermissionControls()
-              }
-              Section("Welcome") {
-                Button("Replay Welcome Setup") {
-                  NotificationCenter.default.post(name: .welcomeSetupRequested, object: nil)
-                }
-                .disabled(LocalChatViewModel.shared.isBusy)
-                Text("Try setup and the walkthrough again. Your chats, installed models, and credentials are kept.")
-                  .font(.caption).foregroundStyle(.secondary)
-              }
-              Section("New chats") {
-                Picker("Prefer Start Mode", selection: $startPreferences.mode) {
-                  ForEach(ChatMode.allCases) { mode in Text(mode.displayName).tag(mode) }
-                }
-                Toggle("Show sidebar", isOn: $startPreferences.showsSidebar)
-                Text("Used at launch and for each new chat or Selection Context session.")
-                  .font(.caption).foregroundStyle(.secondary)
-              }
-              Section("Location") {
-                Toggle("Use location for nearby questions", isOn: $location.isEnabled)
-                Text("When you ask about local weather or nearby places, macOS asks for permission. Your approximate area is sent to Brave Search and included with the answer context. Requires Web Search setup in Cloud & Search. No background tracking.")
-                  .font(.caption).foregroundStyle(.secondary)
-                Text(location.status).font(.caption).foregroundStyle(.secondary)
-                Button("Open Location Services Settings") {
-                  NSWorkspace.shared.open(LocationService.privacySettingsURL)
-                }
-              }
-              MessagesSettingsSection()
-            }.formStyle(.grouped)
-          case .local:
-            Form { LocalModelManagerSection() }.formStyle(.grouped)
-          case .discover:
-            LocalModelDiscoveryView(discovery: discovery)
-          case .cloud:
-            cloudForm
-          case .selection:
-            Form {
-              Section("Required for selection capture and replacement") {
-                MacPermissionControls(showScreen: false)
-              }
-              Section("Text editing") {
-                Toggle("Automatically replace selected text", isOn: $selectionEditing.automaticallyReplace)
-                Text("When enabled, completed /edit responses are pasted directly into the source app, without a preview card or Replace text click. Questions and /translate stay read-only.")
-                  .font(.caption).foregroundStyle(.secondary)
-                Text("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you double-tap Option.")
-                  .font(.caption).foregroundStyle(.secondary)
-              }
-            }.formStyle(.grouped)
-          }
-        }
-        .scrollContentBackground(.hidden)
-        .background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 24))
-        .padding(.top, 12)
-      }
-      .padding(.trailing, 20).padding(.bottom, 20)
-    }
-    .frame(width: 820, height: 680)
-    .naturePresentation()
-    .onReceive(NotificationCenter.default.publisher(for: .settingsDestinationRequested)) { notification in
-      if let requested = notification.object as? SettingsDestination { destination = requested }
-    }
-  }
-
-  private var cloudForm: some View {
-    Form {
-      Section("ChatGPT Subscription") {
-        ChatGPTConnectionControls(settings: settings)
-      }
-
-      Section("Claude Subscription · Claude Code") {
-        ClaudeCodeConnectionControls(settings: settings)
-      }
-
-      ScreenSettingsSection(settings: .shared)
-
-      WebSearchSettingsSection(settings: .shared)
-
-      Section("Advanced Cloud Settings") {
-        Picker("Preferred provider", selection: $settings.preferredProvider) {
-          ForEach(CloudProviderID.allCases) { provider in
-            Text(provider.displayName).tag(provider)
-          }
-        }
-
-        if settings.models.isEmpty {
-          Text(CloudSettingsForm.emptyModelsNotice(in: settings))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        } else {
-          Picker("Preferred model", selection: $settings.preferredModelID) {
-            ForEach(CloudSettingsForm.modelChoices(models: settings.models,
-                                                   preferredModelID: settings.preferredModelID)) { choice in
-              Text(choice.title).tag(choice.id)
-            }
-          }
-        }
-
-        TextField("Manual model ID", text: $settings.preferredModelID)
-          .textFieldStyle(.roundedBorder)
-
-        Text(settings.selectedModelCompatibility.message)
-          .font(.caption)
-          .foregroundStyle(settings.selectedModelCompatibility == .unsupported ? Color.red : Color.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-
-        if settings.preferredProvider == .chatGPT {
-          Picker("Thinking capacity", selection: $settings.codexThinkingCapacity) {
-            ForEach(CodexThinkingCapacity.allCases) { capacity in
-              Text(capacity.displayName).tag(capacity)
-            }
-          }
-        }
-
-        if settings.preferredProvider == .claudeCode {
-          Picker("Effort", selection: $settings.claudeCodeEffort) {
-            ForEach(ClaudeCodeEffort.allCases) { effort in
-              Text(effort.displayName).tag(effort)
-            }
-          }
-        }
-
-        HStack {
-          Button(CloudSettingsForm.refreshTitle(isDiscovering: settings.isDiscovering)) {
-            Task { await settings.discoverModels(forceRefresh: true) }
-          }
-          .disabled(!CloudSettingsForm.canRefreshModels(in: settings))
-          if settings.isDiscovering {
-            ProgressView()
-              .controlSize(.small)
-          }
-        }
-
-        if let discoveryError = settings.discoveryError {
-          Text(discoveryError)
-            .font(.caption)
-            .foregroundStyle(.red)
-        }
-      }
-
-      Section("OpenAI API Key · Separate Billing") {
-        SecureField(
-          settings.hasAPIKey(for: .openAI) ? "Replace stored API key" : "API key",
-          text: $openAIAPIKey
-        )
-        .textFieldStyle(.roundedBorder)
-
-        credentialButtons(provider: .openAI, apiKey: $openAIAPIKey)
-        connectionStatus(for: .openAI)
-
-        Text("OpenAI API usage requires separate API billing; a ChatGPT subscription does not include API access.")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
-
-      Section("Anthropic API Key · Separate Billing") {
-        SecureField(
-          settings.hasAPIKey(for: .anthropic) ? "Replace stored API key" : "API key",
-          text: $anthropicAPIKey
-        )
-        .textFieldStyle(.roundedBorder)
-
-        credentialButtons(provider: .anthropic, apiKey: $anthropicAPIKey)
-        connectionStatus(for: .anthropic)
-      }
-
-      Section("Gemini API Key") {
-        SecureField(settings.hasAPIKey(for: .gemini) ? "Replace stored API key" : "API key", text: $geminiAPIKey)
-          .textFieldStyle(.roundedBorder)
-        credentialButtons(provider: .gemini, apiKey: $geminiAPIKey)
-        connectionStatus(for: .gemini)
-      }
-
-      if let formError {
-        Text(formError)
-          .font(.caption)
-          .foregroundStyle(.red)
-      }
-    }
-    .formStyle(.grouped)
-    .navigationTitle("Enigma Settings")
-    .task { await CloudSettingsForm.load(settings) }
-    .onChange(of: settings.preferredProvider) { _, provider in
-      Task { await CloudSettingsForm.preferredProviderChanged(to: provider, in: settings) }
-    }
-  }
-
-  private func credentialButtons(
-    provider: CloudProviderID,
-    apiKey: Binding<String>
-  ) -> some View {
-    HStack {
-      Button("Save to Keychain") {
-        formError = CloudSettingsForm.saveAPIKey(&apiKey.wrappedValue, for: provider, in: settings)
-      }
-      .disabled(!CloudSettingsForm.canSave(apiKey.wrappedValue))
-
-      Button("Remove") {
-        formError = CloudSettingsForm.removeAPIKey(for: provider, in: settings)
-      }
-      .disabled(!CloudSettingsForm.canRemoveAPIKey(for: provider, in: settings))
-
-      Spacer()
-
-      Button("Test Connection") {
-        Task { await settings.testConnection(to: provider) }
-      }
-      .disabled(!CloudSettingsForm.canTestConnection(to: provider, in: settings))
-    }
-  }
-
-  @ViewBuilder
-  private func connectionStatus(for provider: CloudProviderID) -> some View {
-    if let status = CloudSettingsForm.connectionStatus(for: provider, in: settings) {
-      switch status.kind {
-      case .stored:
-        Label(status.text, systemImage: "key.fill")
-          .foregroundStyle(.secondary)
-      case .testing:
-        HStack {
-          ProgressView()
-            .controlSize(.small)
-          Text(status.text)
-        }
-        .foregroundStyle(.secondary)
-      case .connected:
-        VStack(alignment: .leading, spacing: 4) {
-          Label(status.text, systemImage: "checkmark.circle")
-          if let detail = status.detail {
-            Text(detail)
-              .font(.caption)
-          }
-        }
-        .foregroundStyle(.secondary)
-      case .failed:
-        Label(status.text, systemImage: "exclamationmark.triangle.fill")
-          .foregroundStyle(.red)
-      }
-    }
-  }
-}
-
-
-struct ThinkingStatusView: View {
-  var text = "Thinking"
-
-  var body: some View {
-    HStack(spacing: 2) {
-      EnigmaCoalescenceView().frame(width: 80, height: 64).accessibilityHidden(true)
-      Text(text)
-        .font(.system(size: 14, weight: .medium))
-        .foregroundStyle(.secondary)
-        .overlay {
-          GeometryReader { geometry in
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
-              let progress = timeline.date.timeIntervalSinceReferenceDate
-                .truncatingRemainder(dividingBy: 2) / 2
-              LinearGradient(colors: [.clear, .white, .clear], startPoint: .leading, endPoint: .trailing)
-                .frame(width: 32)
-                .offset(x: -32 + (geometry.size.width + 64) * progress)
-            }
-          }
-          .mask(Text(text).font(.system(size: 14, weight: .medium)))
-          .accessibilityHidden(true)
-        }
-    }
-    .fixedSize(horizontal: false, vertical: true)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(text)
-  }
-}
-
-private struct EnigmaCoalescenceView: NSViewRepresentable {
-  func makeNSView(context: Context) -> WKWebView {
-    let configuration = WKWebViewConfiguration()
-    configuration.websiteDataStore = .nonPersistent()
-    let view = WKWebView(frame: .zero, configuration: configuration)
-    view.setValue(false, forKey: "drawsBackground")
-    view.setAccessibilityLabel("Enigma is thinking")
-    return view
-  }
-
-  func updateNSView(_ view: WKWebView, context: Context) {
-    guard view.identifier == nil else { return }
-    guard let asset = NSDataAsset(name: "EnigmaCoalescence"), let svg = String(data: asset.data, encoding: .utf8) else { return }
-    view.identifier = NSUserInterfaceItemIdentifier("enigma-coalescence")
-    // This indicator always animates; override the supplied SVG's still fallback.
-    let motionStyle = ".ec-motion { display: inline !important; } .ec-still { display: none !important; }"
-    view.loadHTMLString("<html><head><meta name='viewport' content='width=device-width'><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}svg{width:100%;height:100%}body{pointer-events:none}\(motionStyle)</style></head><body>\(svg)</body></html>", baseURL: nil)
-  }
-}
-
-private struct ThinkingComposerGlow: View {
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { timeline in
-      let angle = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3) / 3 * 360
-      RoundedRectangle(cornerRadius: 44)
-        .stroke(AngularGradient(colors: [.green.opacity(0.1), .green.opacity(0.2), .green, .mint, .green.opacity(0.1)],
-                                center: .center, angle: .degrees(angle)), lineWidth: 2)
-        .shadow(color: .green.opacity(0.5), radius: 6)
-    }
-    .accessibilityHidden(true)
-  }
-}
-
-struct SelectionContextCard: View {
-  let context: ConversationContext
-  var isBusy = false
-  let remove: () -> Void
-
-  var body: some View {
-    HStack(alignment: .top, spacing: 10) {
-      Image(systemName: "text.quote").foregroundStyle(NatureGlass.accent)
-      VStack(alignment: .leading, spacing: 4) {
-        Text(context.title).font(.caption.weight(.medium))
-        Text(context.preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-      }
-      Spacer(minLength: 0)
-      Button(action: remove) { Image(systemName: "xmark") }
-        .buttonStyle(.plain).help("Remove selected text").accessibilityLabel("Remove selected text")
-        .disabled(isBusy)
-    }
-    .padding(10).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
-  }
-}
-
-/// The character's stage, only while the new UI is on, with the palette it
-/// draws in. The old design never shows the character.
-private struct AppShellCharacterStage: ViewModifier {
-  let character: EnigmaCharacterController
-  let isActive: Bool
-  let palette: EnigmaPalette
-
-  func body(content: Content) -> some View {
-    if isActive {
-      content
-        .enigmaCharacterStage(character)
-        .environment(\.enigmaPalette, palette)
-    } else {
-      content
-    }
   }
 }
 

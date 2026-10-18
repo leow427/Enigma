@@ -3,8 +3,8 @@ import SwiftUI
 import XCTest
 @testable import Enigma
 
-/// The new UI's first-run setup: its flow logic, its rendering at the panel's
-/// sizes, the flag that swaps it in, and its screenshots.
+/// First-run setup: its flow logic, its rendering at the panel's sizes, the
+/// window it opens in, and its screenshots.
 final class EnigmaWelcomeTests: XCTestCase {
   private let gib = LocalHardwareProfile.gib
 
@@ -93,7 +93,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     XCTAssertEqual(action(selected, [current], selected.id, false), .proceed)
     XCTAssertNil(action(nil, [], nil, false), "Nothing to do before a model is chosen")
     XCTAssertEqual(action(nil, [], nil, true), .proceed, "Skipping local models continues")
-    // Continue is offered exactly when the old screen's Next would be enabled.
+    // Continue is offered exactly when `canContinue` allows moving on.
     for selection in [selected, nil] as [LocalModelAssessment?] {
       for installed in [[], [current], [stale]] {
         for activeID in [nil, selected.id, "other"] {
@@ -148,46 +148,10 @@ final class EnigmaWelcomeTests: XCTestCase {
     }
   }
 
-  // MARK: Theme inside the old window
-
-  @MainActor
-  func testEmbeddedThemeFollowsTheMacAndLeavesTheOldWindowDark() throws {
-    for (appearance, mac, palette, scheme) in [
-      (EnigmaAppearance.system, ColorScheme.light, EnigmaPalette.paper, ColorScheme.light),
-      (.system, .dark, .ink, .dark),
-      (.paper, .dark, .paper, .light),
-      (.ink, .light, .ink, .dark),
-    ] {
-      let probe = EmbeddedThemeProbe.Box()
-      // The old shell forces dark mode on its whole window.
-      let root = EmbeddedThemeProbe(box: probe)
-        .enigmaEmbeddedTheme(appearance, system: EnigmaSystemAppearance(colorScheme: mac))
-        .preferredColorScheme(.dark)
-      let host = NSHostingView(rootView: root)
-      let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 20, height: 20), styleMask: [.borderless],
-                            backing: .buffered, defer: false)
-      window.contentView = host
-      host.layoutSubtreeIfNeeded()
-      window.displayIfNeeded()
-      XCTAssertEqual(probe.palette, palette, "\(appearance) on a \(mac) Mac")
-      XCTAssertEqual(probe.colorScheme, scheme, "\(appearance) on a \(mac) Mac")
-      XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua,
-                     "The new screen must not change the old window's scheme")
-      window.contentView = nil
-    }
-  }
-
-  @MainActor
-  func testSystemAppearanceReadsLightAndDark() throws {
-    XCTAssertEqual(EnigmaSystemAppearance.scheme(of: try XCTUnwrap(NSAppearance(named: .aqua))), .light)
-    XCTAssertEqual(EnigmaSystemAppearance.scheme(of: try XCTUnwrap(NSAppearance(named: .darkAqua))), .dark)
-    XCTAssertEqual(EnigmaSystemAppearance(colorScheme: .dark).colorScheme, .dark)
-  }
-
   // MARK: Rendering
 
   @MainActor
-  func testNewWelcomeRendersEveryStepAtMinimumAndDefaultPanelSizes() async throws {
+  func testWelcomeRendersEveryStepAtMinimumAndDefaultPanelSizes() async throws {
     let fixture = try await Fixture(test: self)
     fixture.setup.replay()
     for step in WelcomeSetup.Step.allCases {
@@ -212,11 +176,11 @@ final class EnigmaWelcomeTests: XCTestCase {
   }
 
   @MainActor
-  func testNewOnboardingSheetRendersWithRealChoices() async throws {
+  func testOnboardingSheetRendersWithRealChoices() async throws {
     let fixture = try await Fixture(test: self)
     for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
       let image = try EnigmaSnapshot.render(
-        EnigmaLocalModelOnboardingView(advisor: fixture.advisor, chat: fixture.chat).enigmaTheme(appearance),
+        LocalModelOnboardingView(advisor: fixture.advisor, chat: fixture.chat).enigmaTheme(appearance),
         size: CGSize(width: 560, height: 650))
       try assertPixel(image, at: CGPoint(x: 8, y: 325), is: palette.background, "\(appearance) sheet")
     }
@@ -225,55 +189,13 @@ final class EnigmaWelcomeTests: XCTestCase {
   // MARK: In the app
 
   @MainActor
-  func testFlagSwapsTheWelcomeWhileTheAppRunsAndTheWindowFollowsTheAppearance() async throws {
+  func testChatBecomesEditableImmediatelyAfterEveryWelcomeExit() async throws {
     let fixture = try await Fixture(test: self)
-    let newUI = NewUIPreference(defaults: fixture.defaults)
-    XCTAssertFalse(newUI.isEnabled)
-    // Paper, so the new frame's light window can't be mistaken for the old dark one.
-    fixture.defaults.set(EnigmaAppearance.paper.rawValue, forKey: EnigmaAppearancePreference.appearanceKey)
-    let size = CGSize(width: 900, height: 620)
-    let view = NSHostingView(rootView: fixture.shell(newUI: newUI).transaction { $0.disablesAnimations = true })
-    let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
-                          backing: .buffered, defer: false)
-    window.colorSpace = .sRGB
-    window.contentView = view
-    defer { window.contentView = nil }
-    fixture.setup.replay()
-    let palette = EnigmaPalette.paper
-    func showsNewWelcome() throws -> Bool {
-      let image = try EnigmaSnapshot.capture(view)
-      return EnigmaSnapshot.matches(try EnigmaSnapshot.pixel(image, at: CGPoint(x: 14, y: size.height / 2)),
-                                    palette.background)
-    }
-    try await waitForUI("the old welcome", in: view) { (try? showsNewWelcome()) == false && composerEditor(in: view) != nil }
-    XCTAssertFalse(try showsNewWelcome())
-    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .darkAqua,
-                   "The old frame keeps its dark window")
-
-    newUI.isEnabled = true
-    try await waitForUI("the new welcome after turning the flag on", in: view) {
-      (try? showsNewWelcome()) == true && window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
-    }
-    // Since phase 6 the new frame owns the window, which follows the appearance (Paper here).
-    XCTAssertEqual(window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]), .aqua,
-                   "The new frame's window follows the appearance setting")
-    XCTAssertEqual(composerEditor(in: view)?.isEditable, false, "The chat stays disabled under the new welcome")
-
-    newUI.isEnabled = false
-    try await waitForUI("the old welcome after turning the flag off", in: view) { (try? showsNewWelcome()) == false }
-  }
-
-  @MainActor
-  func testChatBecomesEditableImmediatelyAfterEveryNewWelcomeExit() async throws {
-    let fixture = try await Fixture(test: self)
-    let newUI = NewUIPreference(defaults: fixture.defaults)
-    newUI.isEnabled = true
     let preferences = StartPreferences(defaults: fixture.defaults)
     preferences.mode = .cloud
-    let appearance = GlassAppearanceSettings(defaults: fixture.defaults)
-    let view = NSHostingView(rootView: fixture.shell(newUI: newUI, preferences: preferences)
+    let view = NSHostingView(rootView: fixture.shell(preferences: preferences)
       .transaction { $0.disablesAnimations = true })
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: PanelSizeStore(defaults: fixture.defaults),
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: fixture.defaults),
       contentView: view, welcomeSetup: fixture.setup)
     controller.show()
     defer { controller.hide(); view.window?.contentView = nil }
@@ -350,7 +272,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     }
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
     try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {
-      EnigmaWelcomeTourCard(setup: fixture.setup, step: .commands,
+      WelcomeTourCard(setup: fixture.setup, step: .commands,
                             availableCommands: SlashCommand.available(hasSearchKey: true))
         .frame(width: WelcomeTourPlacement.maximumCardWidth)
     }
@@ -362,7 +284,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     let character = EnigmaCharacterController(seed: 5)
     // Already in place, so the screenshot shows it rather than its grow-in.
     character.move(to: WelcomeSetup.characterSlot(for: step).id, .instant)
-    // The welcome checks the Mac again when it appears, as the old one does.
+    // The welcome checks the Mac again when it appears, as setup always has.
     try await EnigmaSnapshot.save(name, size: size, until: { !fixture.advisor.isDetecting }) {
       fixture.welcome(character: character).enigmaCharacterStage(character)
     }
@@ -441,34 +363,16 @@ final class EnigmaWelcomeTests: XCTestCase {
       }
     }
 
-    func welcome(character: EnigmaCharacterController) -> EnigmaWelcomeView {
-      EnigmaWelcomeView(setup: setup, character: character, advisor: advisor, chat: chat, cloud: cloud, search: search)
+    func welcome(character: EnigmaCharacterController) -> WelcomeSetupView {
+      WelcomeSetupView(setup: setup, character: character, advisor: advisor, chat: chat, cloud: cloud, search: search)
     }
 
-    func shell(newUI: NewUIPreference, preferences: StartPreferences? = nil) -> AppShellView {
-      AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
+    func shell(preferences: StartPreferences? = nil) -> AppShellView {
+      AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search,
-        startPreferences: preferences ?? StartPreferences(defaults: defaults), welcomeSetup: setup, newUI: newUI,
+        startPreferences: preferences ?? StartPreferences(defaults: defaults), welcomeSetup: setup,
         appearance: EnigmaAppearancePreference(defaults: defaults))
     }
-  }
-}
-
-/// Reports the palette and scheme its environment resolves to.
-private struct EmbeddedThemeProbe: View {
-  final class Box {
-    var palette: EnigmaPalette?
-    var colorScheme: ColorScheme?
-  }
-
-  let box: Box
-  @Environment(\.enigmaPalette) private var palette
-  @Environment(\.colorScheme) private var colorScheme
-
-  var body: some View {
-    box.palette = palette
-    box.colorScheme = colorScheme
-    return Color.clear
   }
 }
 
@@ -680,10 +584,10 @@ extension EnigmaWelcomeTests {
 
 extension EnigmaWelcomeTests {
   @MainActor
-  func testReturnInTheNewModelSheetNeverStartsADownload() async throws {
+  func testReturnInTheModelSheetNeverStartsADownload() async throws {
     let engine = RecordingModelEngine()
     let fixture = try await Fixture(test: self, engine: engine)
-    let view = NSHostingView(rootView: EnigmaLocalModelOnboardingView(advisor: fixture.advisor, chat: fixture.chat)
+    let view = NSHostingView(rootView: LocalModelOnboardingView(advisor: fixture.advisor, chat: fixture.chat)
       .enigmaTheme(.paper))
     let window = KeyableTestWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 650), styleMask: [.borderless],
                                    backing: .buffered, defer: false)

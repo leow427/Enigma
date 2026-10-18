@@ -104,7 +104,7 @@ final class LocalVisionTests: XCTestCase {
     let image = PreparedScreenImage(data: Data([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg", pixelWidth: 10, pixelHeight: 10)
     XCTAssertNoThrow(try LlamaServerVisionEngine.prepare(messages: [ChatMessage(role: .user, content: "Define serendipity.")], image: nil, model: restored))
     XCTAssertThrowsError(try LlamaServerVisionEngine.prepare(messages: [ChatMessage(role: .user, content: "Describe the shapes.")], image: image, model: restored)) { error in
-      XCTAssertTrue(error.localizedDescription.contains("Settings → Local Models"))
+      XCTAssertTrue(error.localizedDescription.contains("Settings → Local models"))
       XCTAssertTrue(error.localizedDescription.contains("draft has been kept"))
     }
     var repaired = restored
@@ -445,7 +445,7 @@ final class LocalVisionTests: XCTestCase {
       metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, trust: nil, detect: { _ in profile })
     await advisor.detectHardware()
-    let view = NSHostingView(rootView: Form { LocalModelManagerSection(advisor: advisor, chat: chat) }.formStyle(.grouped))
+    let view = NSHostingView(rootView: localModelsPage(advisor: advisor, chat: chat, height: 950))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 950), styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
     view.frame = NSRect(x: 0, y: 0, width: 680, height: 950)
@@ -467,7 +467,7 @@ final class LocalVisionTests: XCTestCase {
     add(attachment)
     try png.write(to: URL(fileURLWithPath: "/tmp/ai-spotlight-vision-download-preview.png"))
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text
-    XCTAssertTrue(text.contains("Local Models"), text)
+    XCTAssertTrue(text.contains("Local models"), text)
     XCTAssertFalse(text.contains("Image understanding"), text)
     XCTAssertTrue(text.contains("Qwen3"), text)
     XCTAssertTrue(text.contains("Middleweight"), text)
@@ -501,7 +501,7 @@ final class LocalVisionTests: XCTestCase {
       metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, trust: nil, detect: { _ in profile })
     await advisor.detectHardware()
-    let view = NSHostingView(rootView: Form { LocalModelManagerSection(advisor: advisor, chat: chat) }.formStyle(.grouped))
+    let view = NSHostingView(rootView: localModelsPage(advisor: advisor, chat: chat, height: 1200))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 1200),
       styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
@@ -530,6 +530,18 @@ final class LocalVisionTests: XCTestCase {
     attachment.lifetime = .keepAlways
     add(attachment)
     try png.write(to: URL(fileURLWithPath: "/tmp/ai-spotlight-vision-update-preview.png"))
+  }
+
+  /// Settings' Local models page, as the Settings window shows it, with
+  /// offline cloud settings.
+  @MainActor
+  private func localModelsPage(advisor: LocalModelAdvisor, chat: LocalChatViewModel, height: CGFloat) -> some View {
+    let credentials = ScreenTestCredentialStore()
+    let cloud = CloudSettingsModel(credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
+      codexAvailable: { false })
+    return SettingsView(settings: cloud, initialDestination: .local, advisor: advisor, chat: chat,
+                        size: CGSize(width: 680, height: height)).enigmaTheme(.paper)
   }
 
   func testServerPreparationUsesRealTokenCountsAndReusesPreparedContextForGeneration() async throws {

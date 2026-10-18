@@ -484,7 +484,7 @@ final class SelectionContextTests: XCTestCase {
     let view = VStack(alignment: .leading, spacing: 16) {
       Text("Sure—I’ll make it more professional.")
       SelectionRevisionCard(revision: revision, disabled: false, update: { _ in }, replace: {})
-    }.padding(24).frame(width: 560).background(Color(red: 0.09, green: 0.13, blue: 0.11)).preferredColorScheme(.dark)
+    }.padding(24).frame(width: 560).background(EnigmaPalette.ink.background.color).enigmaTheme(.ink)
     let host = NSHostingView(rootView: view)
     host.frame = NSRect(origin: .zero, size: host.fittingSize)
     host.layoutSubtreeIfNeeded()
@@ -612,25 +612,31 @@ final class SelectionContextTests: XCTestCase {
 
   func testSelectionExpansionAnchorsToComposerAndFitsDisplays() {
     let visible = NSRect(x: -1440, y: 40, width: 1440, height: 860)
-    let composer = NSRect(x: -1200, y: 100, width: 720, height: 80)
+    // The panel keeps its input at the top and grows downward.
+    let composer = NSRect(x: -1200, y: 700, width: 720, height: 80)
     let expanded = SelectionPanelExpansion.frame(from: composer, visible: visible)
-    XCTAssertEqual(expanded.minY, composer.minY)
+    XCTAssertEqual(expanded.maxY, composer.maxY)
     XCTAssertEqual(expanded.minX, composer.minX)
     XCTAssertEqual(expanded.width, composer.width)
     XCTAssertTrue(visible.contains(expanded))
+    let low = SelectionPanelExpansion.frame(from: NSRect(x: -1200, y: 100, width: 720, height: 80), visible: visible)
+    XCTAssertEqual(low.minY, visible.minY, "Low on the screen it moves up to fit")
+    XCTAssertTrue(visible.contains(low))
     let edge = SelectionPanelExpansion.frame(from: NSRect(x: -730, y: 820, width: 720, height: 80), visible: visible)
     XCTAssertEqual(edge.maxY, visible.maxY)
     XCTAssertTrue(visible.contains(edge))
     let small = NSRect(x: 0, y: 0, width: 700, height: 500)
     XCTAssertTrue(small.contains(SelectionPanelExpansion.frame(from: composer, visible: small)))
-    XCTAssertEqual(SelectionPanelExpansion.progress(at: 0), 0)
-    XCTAssertGreaterThan(SelectionPanelExpansion.progress(at: 0.3), 1)
-    XCTAssertEqual(SelectionPanelExpansion.progress(at: 1), 1)
+    // It grows on the panel-answer spring: from rest, past halfway early, to its end.
+    XCTAssertEqual(SelectionPanelExpansion.springProgress(at: 0), 0)
+    XCTAssertGreaterThan(SelectionPanelExpansion.springProgress(at: 0.15), 0.5)
+    XCTAssertEqual(SelectionPanelExpansion.springProgress(at: SelectionPanelExpansion.settlingDuration()), 1,
+                   accuracy: 0.002)
   }
 
   func testSelectionPanelHideSettlesExpansionAndNewChatRestoresNormalSize() throws {
     let field = NSTextField(string: "Draft")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: field)
+    let controller = SpotlightPanelController(contentView: field)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
@@ -649,7 +655,7 @@ final class SelectionContextTests: XCTestCase {
 
   func testReducedMotionExpandsImmediatelyAndRepeatedSendDoesNotResizeAgain() throws {
     let field = NSTextField(string: "Draft")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: field, reduceMotion: { true })
+    let controller = SpotlightPanelController(contentView: field, reduceMotion: { true })
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
@@ -686,14 +692,12 @@ final class SelectionContextTests: XCTestCase {
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, defaults: defaults, trust: nil)
     await advisor.start(installedModels: [try XCTUnwrap(chat.installedModel)], presentOnboarding: false)
     let screen = ScreenComposerCoordinator()
-    let appearance = GlassAppearanceSettings(defaults: defaults)
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, localChat: chat,
+    let view = NSHostingView(rootView: AppShellView(localChat: chat,
       screen: screen, modelAdvisor: advisor, startPreferences: StartPreferences(defaults: defaults),
-      welcomeSetup: WelcomeSetup(defaults: defaults), newUI: NewUIPreference(defaults: defaults),
-      appearance: EnigmaAppearancePreference(defaults: defaults)))
+      welcomeSetup: WelcomeSetup(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults)))
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: sizes, contentView: view)
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view)
     controller.show()
     defer { controller.hide(); view.window?.contentView = nil }
     try await waitForUI("selection composer to become editable", in: view) {
@@ -765,7 +769,7 @@ final class SelectionContextTests: XCTestCase {
 
   func testReplacementReleasesPanelAndRestoresTheSameChatWindow() throws {
     let field = NSTextField(string: "Keep this draft")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: field)
+    let controller = SpotlightPanelController(contentView: field)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
@@ -1004,7 +1008,7 @@ final class SelectionContextTests: XCTestCase {
   func testContextCardRendersWithoutTruncatingControls() throws {
     let card = SelectionContextCard(context: ConversationContext(sourceName: "Google Chrome",
       text: "The selected passage stays attached as context. Ask a follow-up question naturally, or remove the selection using the close button."), remove: {})
-      .padding(16).frame(width: 520).background(Color(red: 0.09, green: 0.13, blue: 0.11)).preferredColorScheme(.dark)
+      .padding(16).frame(width: 520).background(EnigmaPalette.ink.background.color).enigmaTheme(.ink)
     let host = NSHostingView(rootView: card)
     host.frame = NSRect(origin: .zero, size: host.fittingSize)
     host.layoutSubtreeIfNeeded()

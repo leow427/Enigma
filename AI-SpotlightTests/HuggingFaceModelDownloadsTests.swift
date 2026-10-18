@@ -139,8 +139,9 @@ final class HuggingFaceModelDownloadsTests: XCTestCase {
         file("README.md"),
       ])
     let loaded = expectation(description: "File list loaded")
+    let sources = HuggingFaceDownloadSources(loadRepository: { _ in loaded.fulfill(); return repo }, chooseFolder: { _ in nil })
     let view = NSHostingView(rootView: HuggingFaceDownloadSheet(model: HuggingFaceModelListing(id: repo.id),
-      loadRepository: { _ in loaded.fulfill(); return repo }, downloads: HuggingFaceModelDownloads()))
+      sources: sources, downloads: HuggingFaceModelDownloads()).enigmaTheme(.ink))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 660), styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = view
     defer { window.contentView = nil }

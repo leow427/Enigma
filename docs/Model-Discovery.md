@@ -99,9 +99,9 @@ Gemma 26B, MiniCPM-o 4.5 and Whisper Small using the production download code.
 The Gemma suggestion resolves the exact Q4_K_M weights and matching F16 projector.
 No full model-weight download or real-model inference benchmark was performed.
 
-![Discover selected models](images/model-discovery-dark.png)
+![Discover selected models](design/ui-revamp/screenshots/phase-10/settings-discover-ink.png)
 
-![Direct model file downloads](images/model-download-files.png)
+![Direct model file downloads](design/ui-revamp/screenshots/phase-5/settings-download-sheet-ink.png)
 
 Sources checked September 11, 2026:
 [Hugging Face search](https://huggingface.co/docs/huggingface_hub/en/guides/search),

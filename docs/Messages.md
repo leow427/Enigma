@@ -108,8 +108,8 @@ a message.
   existing chat is sent over iMessage.
 - Search decodes message bodies in Enigma rather than using an index, so very
   large histories are searched newest-first up to the scan limit.
-- Local models need the `llama-server` runtime (Settings → Local Models →
-  Install Local File Tools) and a model that supports tool calls.
+- Local models need the `llama-server` runtime (Settings → Local models →
+  Local file tools → Install) and a model that supports tool calls.
 - Answers from the OpenAI, Anthropic, and Gemini API routes appear when each
   tool round finishes rather than streaming token by token.
 - Watching for new messages is not implemented.

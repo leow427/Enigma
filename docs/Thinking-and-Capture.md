@@ -16,11 +16,9 @@ Implemented against `0f66362` on the current integration branch.
   cancellation, and temporary-file cleanup paths. Captures remain in memory.
 - File Mode is always available; Search and Screen no longer appear as composer
   tool buttons or plus-menu options. Slash commands remain available.
-- The supplied SVG is bundled as a data asset (only trailing whitespace normalized). A local, nonpersistent
-  WebKit view preserves its authored growth animation at the left of the chat
-  until the first visible response text arrives.
-  The composer displays a rotating green gradient while a request is active.
-  Reduce Motion stops both animations; completion, Stop, and failure remove them.
+- While a request is active, the character thinks beside the reply and Send
+  becomes Stop. (The growing-leaf animation and green composer gradient first
+  added here were later replaced; see "Waiting indicator" below.)
 
 ## Verification
 
@@ -39,36 +37,30 @@ puzzle (5 kr), and the following ordinary request returned 42. No downloads or
 cloud requests were needed. The fixture is removed after verification.
 
 The stable Apple Development-signed app was built and launched from Xcode.
-Native accessibility verified the supplied SVG, one visible File Mode button,
+Native accessibility verified the waiting indicator, one visible File Mode button,
 and successful Gemma responses. A live response followed at the bottom; scrolling
 up during generation released it, and completion did not snap back. `/screen`
 attached the desktop without region selection. `/snapshot` invoked the selector;
 cancelling restored the draft and previous attachment, which were then cleared.
 
-The existing panel privacy setting excludes it from computer screenshots. The
-image below is a cropped native test rendering of the composer glow with synthetic
-content; WebKit and the sidebar are separate rendering surfaces and are not
-claimed as screenshot-verified. Secondary-display arrangements and live cloud
-provider calls were not exercised. GitHub CI results are recorded in the PR.
-
-![Composer thinking glow](images/thinking-composer.png)
-
-The exact animation asset:
-
-![Supplied growing leaf](../AI-Spotlight/Resources/Assets.xcassets/LeafThinking.dataset/leaf-thinking.svg)
+The existing panel privacy setting excludes it from computer screenshots.
+Secondary-display arrangements and live cloud provider calls were not exercised.
+GitHub CI results are recorded in the PR.
 
 Provider controls follow the [Claude thinking documentation](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
 and [Gemini thinking documentation](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
 
 The subsequent [chat presentation update](Chat-Presentation.md) adds immediate
-outgoing bubbles, Avenir Next typography, and per-message attachments.
+outgoing bubbles and per-message attachments.
 
-## Enigma coalescence and Thinking shimmer
+## Waiting indicator
 
-The current waiting indicator uses the supplied `enigma-coalescence.svg`, bundled unchanged as `EnigmaCoalescence`. It replaces the leaf in both empty assistant messages and the standalone pre-response waiting row. A compact “Thinking” label beside it receives a white highlight sweeping left to right every two seconds. The SVG keeps its original eight-second coalescence cycle.
+While a request waits for its first words, the reply row reads "Thinking" in
+monospace and the character beside it thinks: it morphs between lobe counts,
+spins, and splits its hole into three. Once words arrive it ripples once per
+streamed update. It is drawn natively with SwiftUI `Canvas` (see
+[UI-Style.md](../UI-Style.md)); the earlier web-view SVG indicators are gone.
+Under Reduce Motion the character stays still and the state reads through its
+color and hole. Assistive technology receives one "Thinking" status.
 
-The coalescence animation and text shimmer always run; there is no reduced-motion variant for this indicator. The web view is reused without reloading on ordinary chat updates. Assistive technology receives one “Thinking” status. The composer border animation is unchanged.
-
-Rendering tests verify nonblank SVG pixels, different frames at two animation times, and that the animated group remains visible. The image below is the previous juggle indicator, retained as a historical UI reference.
-
-![Elastic juggle with Thinking](images/thinking-elastic.png)
+![A reply arriving beside the character](design/ui-revamp/screenshots/phase-7/reply-streaming-paper.png)

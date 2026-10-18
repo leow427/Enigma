@@ -1,11 +1,10 @@
 import CoreGraphics
 import Foundation
 
-// Logic the new main window shares with the old one, or that its views would
-// otherwise hide inline: the greeting, the route status line and indicator,
-// the character's state, the mode and model menu, the slash command examples,
-// and how the main page fits a small window. Each is a plain value, so it can
-// be tested without building a view.
+// Logic the main window's views would otherwise hide inline: the greeting,
+// the route status line and indicator, the character's state, the mode and
+// model menu, the slash command examples, and how the main page fits a small
+// window. Each is a plain value, so it can be tested without building a view.
 
 // MARK: Greeting
 
@@ -24,8 +23,7 @@ enum MainPageGreeting {
 // MARK: Route status
 
 /// What the window says about the selected route: a short monospace line, and
-/// an action when something is missing. The old window shows the same states
-/// next to its composer.
+/// an action when something is missing.
 struct ChatRouteStatus: Equatable {
   enum Kind: Equatable {
     /// Ready to answer.
@@ -54,7 +52,7 @@ struct ChatRouteStatus: Equatable {
     let name: String
   }
 
-  /// The route's state, from the same values the old status views read.
+  /// The route's state, from the chat, the cloud settings, and Auto's decision.
   struct Context: Equatable {
     var mode: ChatMode
     var state: LocalChatViewModel.State = .idle
@@ -432,8 +430,7 @@ struct MainPageLayout: Equatable {
 
 // MARK: Help
 
-/// The shortcuts Help lists. The old and new Help both read them, so they
-/// can't drift apart.
+/// The shortcuts Help lists.
 enum KeyboardShortcutsHelp {
   struct Shortcut: Equatable, Hashable {
     let title: String
@@ -444,7 +441,7 @@ enum KeyboardShortcutsHelp {
       self.keys = keys
     }
 
-    /// The keys as the new design writes them: modifier symbols run together
+    /// The keys as the app writes them: modifier symbols run together
     /// with a single following key, like `⌘N` and `⌥⌃`, while words keep
     /// their spaces, like `⌃ Tab`.
     var compactKeys: String {
@@ -468,7 +465,7 @@ enum KeyboardShortcutsHelp {
   }
 
   static let selectionBackup = Shortcut("Selection Context backup", "⇧ ⌥ Space")
-  static let selectionNote = "Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection Context offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded."
+  static let selectionNote = "Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and Web Search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded."
 
   static func accessibilityNote(appName: String) -> String {
     "System Settings → Privacy & Security → Accessibility. Enable \(appName) (Enigma). If it is missing, use + to add the app you are running."
@@ -476,7 +473,7 @@ enum KeyboardShortcutsHelp {
 
   static let showOrHide = Shortcut("Show or hide Enigma", "⌥ ⌃")
   static let showOrHideNote = "Press Option and Control together. Accessibility permission lets this shortcut work while another app is active."
-  static let advancedSettings = Shortcut("Open Advanced Settings", "⌥ S")
+  static let advancedSettings = Shortcut("Open Settings", "⌥ S")
 
   static let panel: [Shortcut] = [
     Shortcut("Hide the panel", "Esc"),
@@ -495,7 +492,7 @@ enum KeyboardShortcutsHelp {
   ]
 
   static let search = Shortcut("Search for this message only", "/search")
-  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud & Search → Web Search · Brave."
+  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search · Brave."
 
   static let commands: [Shortcut] = [
     Shortcut("Capture the full desktop", "/screen"),
@@ -504,9 +501,9 @@ enum KeyboardShortcutsHelp {
     Shortcut("Attach files or a folder", "⇧ ⌥ F"),
   ]
 
-  /// The old design colors commands blue; the new one in `accentText`.
-  static func commandsNote(newDesign: Bool = false) -> String {
-    "/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /think applies to one answer. Commands can appear anywhere in your message and remain \(newDesign ? "highlighted" : "blue") in the input. Put literal command examples in quotes or backticks."
+  /// Commands are highlighted in `accentText` as they're typed.
+  static func commandsNote() -> String {
+    "/screen captures all displays; /snapshot selects a region. Add a question to capture and send, or use the command alone to attach. /think applies to one answer. Commands can appear anywhere in your message and remain highlighted in the input. Put literal command examples in quotes or backticks."
   }
 
   static let editing: [Shortcut] = [

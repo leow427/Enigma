@@ -37,7 +37,7 @@ app; unsigned verification products can invalidate macOS Screen Recording consen
 
 ## One selected model
 
-Install a complete recommended package from **Settings → Local Models**, then use
+Install a complete recommended package from **Settings → Local models**, then use
 the ordinary model picker. That model handles text, screenshots and search answers.
 There is no independent local image-model preference or setup section. See
 [model selection](Local-Model-Selection.md) for hardware gates and legacy migration.
@@ -68,7 +68,7 @@ provider and the actual capture scope: **selected region** for `/snapshot`, or
 **full desktop, including all displays** for `/screen`. Its preview fits the whole
 captured image without cropping. **Allow & Send** saves the existing global
 preference: future region and full-desktop images may go to whichever cloud
-provider is selected in Auto or Cloud, until disabled in **Settings → Screen**.
+provider is selected in Auto or Cloud, until disabled in **Settings → Cloud and search → Screen**.
 It is not limited to this image or provider. **Keep Screenshots Local** denies
 image uploads and keeps the attachment and draft for another route. OCR text
 remains distinct from image uploads. A capture or provider replaced while the

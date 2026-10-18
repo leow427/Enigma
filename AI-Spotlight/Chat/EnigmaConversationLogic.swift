@@ -1,11 +1,11 @@
 import CoreGraphics
 import Foundation
 
-// Logic the new conversation view would otherwise hide inline: which rows it
+// Logic the conversation view would otherwise hide inline: which rows it
 // shows, which reply the character sits beside, and what a reply's meta line
 // says. Each is a plain value, so it can be tested without a view.
 
-/// A chat as the new design lays it out: the person's messages, and Enigma's
+/// A chat as the window lays it out: the person's messages, and Enigma's
 /// replies, including the one on its way while a request prepares. The latest
 /// reply holds the character's 30 pt slot; earlier replies show the mark.
 struct ConversationTranscript: Equatable {
@@ -37,8 +37,7 @@ struct ConversationTranscript: Equatable {
 
     var content: String { message?.content ?? "" }
 
-    /// Waiting for the first words with no activity to show, as the old
-    /// view's Thinking row did.
+    /// Waiting for the first words with no activity to show.
     var showsThinking: Bool { isInProgress && content.isEmpty && activity == nil }
 
     var slot: EnigmaCharacterSlotID { ConversationTranscript.slot(forReply: id) }
@@ -72,8 +71,8 @@ struct ConversationTranscript: Equatable {
                                  isLatest: false, isInProgress: false)))
       }
     }
-    // A request that's preparing has no reply yet: its activity stands in, as
-    // the old list showed it after the last message.
+    // A request that's preparing has no reply yet: its activity stands in,
+    // after the last message.
     if let activity, messages.last?.role != .assistant {
       rows.append(.reply(Reply(id: activity.id, message: nil, activity: activity, isLatest: false,
                                isInProgress: false)))

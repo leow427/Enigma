@@ -4,11 +4,11 @@ import XCTest
 @testable import Enigma
 
 /// The app's icons: the app icon and the menu bar template drawn from the
-/// character, the tool icons, the SF Symbols the new UI uses, and the asset
+/// character, the tool icons, the SF Symbols the UI uses, and the asset
 /// catalog that holds them.
 ///
 /// `testGenerateAppIdentityAssets` redraws the `AppIcon` set and the
-/// `SpotlightLogo` template into the catalog named by `ENIGMA_ICON_ASSET_DIR`.
+/// `EnigmaMenuBarMark` template into the catalog named by `ENIGMA_ICON_ASSET_DIR`.
 /// `scripts/generate-app-icons.sh` runs it for the repository's catalog.
 @MainActor
 final class EnigmaIconTests: XCTestCase {
@@ -19,15 +19,15 @@ final class EnigmaIconTests: XCTestCase {
   static let repositoryRoot = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 
   /// Every icon asset the app draws as a template.
-  static let templateAssets = ["SpotlightLogo", "WebSearch", "ScreenCapture", "MessagesTool", "TemplateAttachment",
-                               "FileMode"]
+  static let templateAssets = ["EnigmaMenuBarMark", "MessagesTool"]
   /// How many pixels a committed icon may differ from a fresh render by more
   /// than 48 of 255. Render noise stays under 0.1% of pixels at 5 of 255; a
   /// 0.1 pt change to the outline moves about 0.2%.
   static let allowedDrift = 0.002
 
-  /// The tool icons: one line family on a 24 pt grid.
-  static let toolAssets = ["WebSearch", "ScreenCapture", "MessagesTool", "TemplateAttachment", "FileMode"]
+  /// The app's own tool icons, drawn in one line family on a 24 pt grid. Only
+  /// Messages has one; it marks the send approval card.
+  static let toolAssets = ["MessagesTool"]
 
   // MARK: Generator
 
@@ -50,12 +50,12 @@ final class EnigmaIconTests: XCTestCase {
     }
     try Self.json(Self.appIconContents).write(to: iconSet.appending(path: "Contents.json"))
 
-    let logo = catalog.appending(path: "SpotlightLogo.imageset")
+    let logo = catalog.appending(path: "EnigmaMenuBarMark.imageset")
     try manager.createDirectory(at: logo, withIntermediateDirectories: true)
     for old in try manager.contentsOfDirectory(at: logo, includingPropertiesForKeys: nil) {
       try manager.removeItem(at: old)
     }
-    try Self.renderMenuBarPDF().write(to: logo.appending(path: "SpotlightLogo.pdf"))
+    try Self.renderMenuBarPDF().write(to: logo.appending(path: "EnigmaMenuBarMark.pdf"))
     try Self.json(Self.logoContents).write(to: logo.appending(path: "Contents.json"))
   }
 
@@ -116,7 +116,7 @@ final class EnigmaIconTests: XCTestCase {
   // MARK: Menu bar
 
   func testMenuBarTemplateIsVectorAndMatchesTheCharacterDrawing() throws {
-    let file = Self.sourceCatalog.appending(path: "SpotlightLogo.imageset/SpotlightLogo.pdf")
+    let file = Self.sourceCatalog.appending(path: "EnigmaMenuBarMark.imageset/EnigmaMenuBarMark.pdf")
     let data = try Data(contentsOf: file)
     let image = try XCTUnwrap(NSImage(data: data))
     XCTAssertEqual(image.size, NSSize(width: EnigmaAppIcon.menuBarSide, height: EnigmaAppIcon.menuBarSide))
@@ -129,7 +129,7 @@ final class EnigmaIconTests: XCTestCase {
     let freshImage = try XCTUnwrap(NSImage(data: Self.renderMenuBarPDF()))
     let fresh = try Self.rgba(try XCTUnwrap(Self.rasterize(freshImage, scale: scale)))
     XCTAssertLessThan(committed.differingFraction(from: fresh), Self.allowedDrift,
-                      "SpotlightLogo no longer matches the character. Run scripts/generate-app-icons.sh.")
+                      "EnigmaMenuBarMark no longer matches the character. Run scripts/generate-app-icons.sh.")
   }
 
   func testMenuBarPDFIsTheSameOnEveryRender() throws {
@@ -158,7 +158,7 @@ final class EnigmaIconTests: XCTestCase {
     let image = try XCTUnwrap(MenuBarController.statusImage())
     XCTAssertEqual(image.size, NSSize(width: 18, height: 18))
     XCTAssertTrue(image.isTemplate)
-    XCTAssertFalse(image === NSImage(named: "SpotlightLogo"), "Resizing the status image leaves the asset alone.")
+    XCTAssertFalse(image === NSImage(named: "EnigmaMenuBarMark"), "Resizing the status image leaves the asset alone.")
   }
 
   // MARK: Asset catalog
@@ -202,7 +202,7 @@ final class EnigmaIconTests: XCTestCase {
 
   func testEveryAssetNameTheAppUsesLoads() throws {
     let sources = try Self.appSources()
-    var names = Set(SlashCommand.allCases.compactMap(\.assetImage))
+    var names = Set<String>()
     let patterns = [#"Image\("([A-Za-z0-9]+)"\)"#, #"NSImage\(named: "([A-Za-z0-9]+)"\)"#, #"image: "([A-Za-z0-9]+)""#,
                     #"assetImage: "([A-Za-z0-9]+)""#, #"imageName: "([A-Za-z0-9]+)""#]
     for (_, text) in sources {
@@ -213,20 +213,20 @@ final class EnigmaIconTests: XCTestCase {
         }
       }
     }
-    XCTAssertTrue(names.isSuperset(of: ["SpotlightLogo", "MessagesTool", "TemplateAttachment"]), "\(names)")
+    XCTAssertTrue(names.isSuperset(of: ["EnigmaMenuBarMark", "MessagesTool"]), "\(names)")
     for name in names.sorted() {
       let image = try XCTUnwrap(NSImage(named: name), "\(name) is in the asset catalog")
       XCTAssertNotNil(image.cgImage(forProposedRect: nil, context: nil, hints: nil), name)
     }
   }
 
-  func testNewUISymbolsExistAndKeepTheLineStyle() throws {
+  func testSymbolsExistAndKeepTheLineStyle() throws {
     let regex = try NSRegularExpression(pattern: #""([a-z0-9]+(?:\.[a-z0-9]+)*)""#)
     var symbols: [String: String] = [:]
     for destination in SettingsView.SettingsDestination.allCases {
-      symbols[destination.enigmaSymbol] = "EnigmaSettingsView.swift"
+      symbols[destination.symbol] = "SettingsView.swift"
     }
-    for (file, text) in try Self.appSources() where file.hasPrefix("Enigma") {
+    for (file, text) in try Self.appSources() {
       for line in text.split(separator: "\n") where line.contains("systemName") || line.contains("systemImage") {
         let line = String(line)
         for match in regex.matches(in: line, range: NSRange(line.startIndex..., in: line)) {
@@ -375,7 +375,7 @@ final class EnigmaIconTests: XCTestCase {
   }
 
   static var logoContents: [String: Any] {
-    ["images": [["filename": "SpotlightLogo.pdf", "idiom": "universal"]],
+    ["images": [["filename": "EnigmaMenuBarMark.pdf", "idiom": "universal"]],
      "info": ["author": "xcode", "version": 1],
      "properties": ["preserves-vector-representation": true, "template-rendering-intent": "template"]]
   }
@@ -438,13 +438,12 @@ final class EnigmaIconTests: XCTestCase {
 // MARK: Screenshot sheets
 
 /// Every icon the app draws itself, at the sizes it's used, beside the SF
-/// Symbols the new UI uses at `.regular`, so the line weights can be compared.
+/// Symbols the UI uses at `.regular`, so the line weights can be compared.
 private struct IconSheet: View {
   let sizes: [CGFloat]
   @Environment(\.enigmaPalette) private var palette
 
-  private let assets = ["SpotlightLogo", "WebSearch", "ScreenCapture", "MessagesTool", "TemplateAttachment",
-                        "FileMode"]
+  private let assets = ["EnigmaMenuBarMark", "MessagesTool"]
   private let symbols = ["plus", "gearshape", "questionmark.circle", "sidebar.left", "cloud", "cpu", "xmark",
                          "info.circle"]
 

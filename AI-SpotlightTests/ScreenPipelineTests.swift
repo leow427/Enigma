@@ -84,7 +84,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertEqual(ComposerCommands("/search question /screen").prompt, "question")
   }
 
-  func testOutgoingMessageIsVisibleImmediatelyAndLeafEndsAtFirstText() async throws {
+  func testOutgoingMessageIsVisibleImmediatelyAndThinkingEndsAtFirstText() async throws {
     let stream = AsyncThrowingStream<String, Error>.makeStream()
     let entered = expectation(description: "Model started")
     let vision = PipelineVision(controlledStreams: [stream.stream], started: { _ in entered.fulfill() })

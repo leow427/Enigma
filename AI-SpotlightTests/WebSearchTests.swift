@@ -719,7 +719,6 @@ final class WebSearchTests: XCTestCase {
     activity.apply(.sourcesDiscovered([first, first, second, unsafe]))
     XCTAssertEqual(activity.status, "Reading sources (2)…")
     XCTAssertEqual(activity.sources, [first, second])
-    XCTAssertNotEqual(activity.colorIndex(for: first), activity.colorIndex(for: second))
     activity.apply(.sourcesSelected([second]))
     XCTAssertEqual(activity.sources, [second], "Only sources selected for context remain visible")
     XCTAssertEqual(activity.selectedSourceIDs, [second.id])
@@ -731,8 +730,6 @@ final class WebSearchTests: XCTestCase {
     activity.apply(.phase(.thinking))
     activity.apply(.sourcesDiscovered([unsafe]))
     XCTAssertEqual(activity, stopped)
-    XCTAssertEqual(first.monogram, "E")
-    XCTAssertEqual(first.colorIndex, WebSearchSource(title: "Another page", url: URL(string: "https://example.com/other")!).colorIndex)
     var message = ChatMessage(role: .assistant, content: "Answer", searchSources: [second])
     message.activity = activity
     let restored = try JSONDecoder().decode(ChatMessage.self, from: JSONEncoder().encode(message))
@@ -829,8 +826,8 @@ final class WebSearchTests: XCTestCase {
       activity.apply(.phase(.generating))
       let preview = AssistantActivityView(activity: activity, expanded: .constant(true))
         .padding(20).frame(width: 390)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .environment(\.colorScheme, dark ? .dark : .light)
+        .background((dark ? EnigmaPalette.ink : EnigmaPalette.paper).background.color)
+        .enigmaTheme(dark ? .ink : .paper)
       let view = NSHostingView(rootView: preview)
       let size = view.fittingSize
       XCTAssertLessThan(size.height, 650)
@@ -992,11 +989,9 @@ final class WebSearchTests: XCTestCase {
       catalog: CloudModelCatalog(credentialStore: ComposerCloudCredentials(), transport: SearchTransport(), cacheDirectory: directory),
       preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false })
     let screen = ScreenComposerCoordinator()
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults),
-      cloudSettings: cloud, localChat: model, screen: screen, modelAdvisor: advisor,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: cloud, localChat: model, screen: screen, modelAdvisor: advisor,
       searchSettings: settings, startPreferences: StartPreferences(defaults: defaults),
-      welcomeSetup: WelcomeSetup(defaults: defaults), newUI: NewUIPreference(defaults: defaults),
-      appearance: EnigmaAppearancePreference(defaults: defaults))
+      welcomeSetup: WelcomeSetup(defaults: defaults), appearance: EnigmaAppearancePreference(defaults: defaults))
       .transaction { $0.disablesAnimations = true })
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 752, height: 462),
       styleMask: [.titled], backing: .buffered, defer: false)

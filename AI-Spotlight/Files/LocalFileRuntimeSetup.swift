@@ -22,8 +22,7 @@ enum LocalFileRuntimeSetup {
   }
 }
 
-/// Installs the file-tools runtime once, with progress and cancellation. The
-/// old and new Local Models views both show it.
+/// Installs the file-tools runtime once, with progress and cancellation.
 @MainActor
 final class LocalFileToolsInstallation: ObservableObject {
   typealias Install = @Sendable (@escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> Void
@@ -63,31 +62,6 @@ final class LocalFileToolsInstallation: ObservableObject {
   }
 
   func cancel() { task?.cancel() }
-}
-
-struct LocalFileToolsSetupView: View {
-  let model: LocalModel?
-  @StateObject private var installation = LocalFileToolsInstallation()
-  var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text("Local File Tools").font(.subheadline.weight(.medium))
-      if installation.isReady(for: model) {
-        Text(LocalFileToolsInstallation.readyText)
-          .font(.caption).foregroundStyle(.secondary)
-      } else {
-        Text(LocalFileToolsInstallation.installText)
-          .font(.caption).foregroundStyle(.secondary)
-        if installation.isInstalling {
-          ProgressView(value: installation.progress)
-          Button("Cancel") { installation.cancel() }
-        } else {
-          Button("Install Local File Tools (11 MB)") { installation.start() }
-        }
-      }
-      if let error = installation.error { Text(error).font(.caption).foregroundStyle(.orange) }
-    }
-    .onDisappear { installation.cancel() }
-  }
 }
 
 extension LocalFileToolsInstallation {

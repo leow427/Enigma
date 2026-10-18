@@ -1,11 +1,11 @@
 import SwiftUI
 
-// The main page in the new design: the character, a greeting, the route's
+// The main page: the character, a greeting, the route's
 // status, the composer, and the slash commands as example lines. After the
 // first send the composer springs to the bottom under the conversation.
 
-/// The window's look in the new design: an opaque `background`, rounded
-/// corners, and a `border` edge. No glass, whatever the Liquid Glass setting.
+/// The window's look: an opaque `background`, rounded corners, and a
+/// `border` edge.
 struct EnigmaWindowChrome: ViewModifier {
   static let cornerRadius: CGFloat = 12
 

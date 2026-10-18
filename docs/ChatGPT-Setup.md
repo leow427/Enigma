@@ -5,7 +5,7 @@
 3. Open Settings, choose **Sign in with ChatGPT**, and finish the browser login. On this Mac, macOS may ask permission for Codex to use Keychain.
 4. Select **ChatGPT via Codex** and switch the main panel to **Cloud**. A successful login selects the ChatGPT provider automatically. The default is **GPT-5.6 Luna with High reasoning** (`gpt-5.6-luna`); you can choose a different model in Advanced Cloud Settings.
 
-On the first launch after this default change, an empty ChatGPT model preference or the previous Sol selection is updated to Luna once. Other saved model choices and API-provider preferences are preserved. Later model selections, including Sol, are kept across restarts. **Advanced Cloud Settings** lets you choose a discovered model (or enter a model ID) and a thinking capacity for every new Codex request; the default capacity is High. Open Settings with **⌘,**, the menu-bar Settings item, or **Advanced Settings…** in the Cloud model menu under **⌘K**. The sidebar's **Help** button, above Developer Tools, opens the keyboard-shortcut reference. Model availability and supported thinking capacities depend on the ChatGPT account and selected model. Model discovery never silently replaces Luna with the first listed model. If your account does not offer Luna, select an available model explicitly.
+On the first launch after this default change, an empty ChatGPT model preference or the previous Sol selection is updated to Luna once. Other saved model choices and API-provider preferences are preserved. Later model selections, including Sol, are kept across restarts. **Advanced cloud settings** in Settings → Cloud and search lets you choose a discovered model (or enter a model ID) and a thinking capacity for every new Codex request; the default capacity is High. Open Settings with **⌘,**, the menu-bar Settings item, or **Advanced settings…** in the mode and model menu (**⌘K**) while Cloud is selected. The sidebar's **Help** button, above Developer Tools, opens the keyboard-shortcut reference. Model availability and supported thinking capacities depend on the ChatGPT account and selected model. Model discovery never silently replaces Luna with the first listed model. If your account does not offer Luna, select an available model explicitly.
 
 This uses the ChatGPT plan's **Codex allowance**, with its plan-specific limits and available models. It does not turn a ChatGPT subscription into general OpenAI API credit, and it is not a wrapper around the ChatGPT website. The OpenAI and Anthropic API-key routes remain separately billed alternatives and are never automatic fallbacks.
 
@@ -40,9 +40,9 @@ button. Saving uses the existing Keychain store and clears the field on success;
 the status distinguishes a saved key from a tested connection. Both connections
 are optional. Settings and setup also expose Mac permission controls.
 
-![Connections during setup](images/setup-connections.png)
+![Connections during setup](design/ui-revamp/screenshots/phase-10/welcome-connections-paper.png)
 
-![Permissions at the top of Settings](images/settings-permissions.png)
+![Permissions in Settings → General](design/ui-revamp/screenshots/phase-10/settings-general-paper.png)
 
 Chat permission failures offer direct System Settings buttons. Cloud screenshot
 consent can be reviewed in chat, and connection/settings buttons open Cloud &

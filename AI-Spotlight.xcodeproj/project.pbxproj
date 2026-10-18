@@ -13,38 +13,38 @@
 		08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */; };
 		FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */; };
 		239B6F451A6401C9971127FB /* AI-Spotlight/Chat/EnigmaConversationLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */; };
-		ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/EnigmaMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */; };
-		CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/EnigmaActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */; };
+		ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/ChatMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/ChatMarkdownView.swift */; };
+		CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/AssistantActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/AssistantActivityView.swift */; };
 		E70853FFCC557A14D16831EA /* AI-Spotlight/Chat/EnigmaMessageList.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7F0CAF9ABED510FB4737FA /* AI-Spotlight/Chat/EnigmaMessageList.swift */; };
-		85951778BEFF4293A002C497 /* AI-Spotlight/Chat/EnigmaSelectionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/EnigmaSelectionCards.swift */; };
-		A31A2072CEF101FE62A501B9 /* AI-Spotlight/Screen/EnigmaScreenCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/EnigmaScreenCards.swift */; };
-		2D700E8CB9DDEE52A9470528 /* AI-Spotlight/Messages/EnigmaMessagesCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/EnigmaMessagesCards.swift */; };
-		4772B8D9B8DA7F7B695C9F69 /* AI-Spotlight/Files/EnigmaFileCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/EnigmaFileCards.swift */; };
+		85951778BEFF4293A002C497 /* AI-Spotlight/Chat/SelectionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/SelectionCards.swift */; };
+		A31A2072CEF101FE62A501B9 /* AI-Spotlight/Screen/ScreenCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/ScreenCards.swift */; };
+		2D700E8CB9DDEE52A9470528 /* AI-Spotlight/Messages/MessagesCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/MessagesCards.swift */; };
+		4772B8D9B8DA7F7B695C9F69 /* AI-Spotlight/Files/FileCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/FileCards.swift */; };
 		872A6789644682A269790303 /* AI-SpotlightTests/EnigmaConversationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D566DA70D41149D8DDE3BF5 /* AI-SpotlightTests/EnigmaConversationTests.swift */; };
 		1901987355208F91135CBFF4 /* AI-SpotlightTests/EnigmaMainWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */; };
-		78FC9AB08F32145AC031E35E /* AI-Spotlight/App/EnigmaHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */; };
+		78FC9AB08F32145AC031E35E /* AI-Spotlight/App/KeyboardShortcutsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/KeyboardShortcutsHelpView.swift */; };
 		77CED3F11DA2C07E5AFB8FDC /* AI-Spotlight/App/EnigmaMainPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */; };
 		E54A7390F93C84BD9D766232 /* AI-Spotlight/App/EnigmaComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */; };
 		BEB703A6ED5E3CC6B0ADA784 /* AI-Spotlight/App/EnigmaSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */; };
 		4DC6842798E6A6D965A6026D /* AI-Spotlight/App/EnigmaMainWindowLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */; };
 		41210F1C09D1947EA1AB3C67 /* AI-SpotlightTests/EnigmaSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */; };
-		76C597823BC773D32A000CDA /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */; };
-		3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */; };
-		FC5011DD693B0424EBE11153 /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift */; };
+		76C597823BC773D32A000CDA /* AI-Spotlight/Files/LocalFileToolsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/LocalFileToolsViews.swift */; };
+		3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift */; };
+		FC5011DD693B0424EBE11153 /* AI-Spotlight/LocalInference/LocalModelManagerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/LocalModelManagerSection.swift */; };
 		888845646DFB86CA2CD71708 /* AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04F226017D7E2D4E35601F2 /* AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift */; };
-		FD9FA2F09CE21FD65DFC93D7 /* AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400545524363F0706CC11C4C /* AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift */; };
-		CA59186E509F5F5819A0A142 /* AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift */; };
-		53CA68645BB07133717F254B /* AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift */; };
-		4A0283F0F7A52011DBA917F3 /* AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift */; };
+		FD9FA2F09CE21FD65DFC93D7 /* AI-Spotlight/Messages/MessagesSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400545524363F0706CC11C4C /* AI-Spotlight/Messages/MessagesSettingsSection.swift */; };
+		CA59186E509F5F5819A0A142 /* AI-Spotlight/Search/WebSearchSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/WebSearchSettingsSection.swift */; };
+		53CA68645BB07133717F254B /* AI-Spotlight/Screen/ScreenSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/ScreenSettingsSection.swift */; };
+		4A0283F0F7A52011DBA917F3 /* AI-Spotlight/Cloud/CloudSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/CloudSettingsPage.swift */; };
 		BB63D517DE46148345D1D5B3 /* AI-Spotlight/Cloud/CloudSettingsForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F86FA582489E0F20016047 /* AI-Spotlight/Cloud/CloudSettingsForm.swift */; };
-		1637F0235DC20EB844FFB19E /* AI-Spotlight/App/EnigmaSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844900D642E7958CB1EB0706 /* AI-Spotlight/App/EnigmaSettingsView.swift */; };
+		1637F0235DC20EB844FFB19E /* AI-Spotlight/App/SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844900D642E7958CB1EB0706 /* AI-Spotlight/App/SettingsView.swift */; };
 		242984893777E1A77DCFCCA0 /* AI-Spotlight/App/EnigmaAppearancePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748DE0B7DA2C21C1783543A6 /* AI-Spotlight/App/EnigmaAppearancePreference.swift */; };
 		8BD5904B1AA90729866DB446 /* AI-SpotlightTests/EnigmaControlsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87C9929E4E38C414CE18BCB7 /* AI-SpotlightTests/EnigmaControlsTests.swift */; };
 		F4C34E392DC3D96EBB5FB94A /* AI-SpotlightTests/EnigmaWelcomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1120A32807A86CA0C0327E8D /* AI-SpotlightTests/EnigmaWelcomeTests.swift */; };
-		E8FFA33971F604D2801E7993 /* AI-Spotlight/Screen/EnigmaMacPermissionRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/EnigmaMacPermissionRows.swift */; };
-		CD7DAF64C9E10117B84DD15F /* AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift */; };
-		B62AF672ED8643EF41D5205F /* AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift */; };
-		032B56FD56E02BBC3F760B8B /* AI-Spotlight/App/EnigmaWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/EnigmaWelcomeView.swift */; };
+		E8FFA33971F604D2801E7993 /* AI-Spotlight/Screen/MacPermissionRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/MacPermissionRows.swift */; };
+		CD7DAF64C9E10117B84DD15F /* AI-Spotlight/Cloud/CloudConnectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/CloudConnectionControls.swift */; };
+		B62AF672ED8643EF41D5205F /* AI-Spotlight/LocalInference/LocalModelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/LocalModelViews.swift */; };
+		032B56FD56E02BBC3F760B8B /* AI-Spotlight/App/WelcomeSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/WelcomeSetupView.swift */; };
 		53096725D27629FE5D97C38A /* AI-Spotlight/App/EnigmaControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 619FFE38B6CA26C6AD94BCFA /* AI-Spotlight/App/EnigmaControls.swift */; };
 		7F32FA275774C54A2C02B70C /* AI-SpotlightTests/EnigmaSnapshotSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */; };
 		3B9BEECE1B12C4ACEFF1F6BC /* AI-SpotlightTests/EnigmaCharacterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */; };
@@ -56,7 +56,6 @@
 		C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */; };
 		80004CBDDB61209435345505 /* AI-SpotlightTests/AppShellStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */; };
 		2A6F2F64373438103BD3CAF7 /* AI-Spotlight/App/EnigmaTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */; };
-		D1CB335B96CD3A7AB1BFC837 /* AI-Spotlight/App/NewUIPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */; };
 		FC2B0BD85645C62439050546 /* AI-SpotlightTests/EnigmaThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */; };
 		510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */; };
 		051D2015ABFB2B36D0C65AEF /* AI-SpotlightTests/MessagesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */; };
@@ -71,10 +70,8 @@
 		1B17241BB2F93B0FB787A0B2 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EE1E1A783052F9D6D79B18 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift */; };
 		8F0137440101729044EAB110 /* AI-Spotlight/Messages/AppleMessageDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475A60D279A435AB95DFBFB7 /* AI-Spotlight/Messages/AppleMessageDate.swift */; };
 		AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000006; };
-		AE9200000000000000000005 /* HuggingFaceDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000005; };
 		AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000004; };
 		AE9200000000000000000003 /* LocalModelDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000003; };
-		AE9200000000000000000002 /* LocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000002; };
 		AE9200000000000000000001 /* HuggingFaceModelDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000001; };
 		EF1200000000000000000001 /* WelcomeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1100000000000000000001; };
 		ED2000000000000000000001 = {isa = PBXBuildFile; fileRef = ED1000000000000000000001; };
@@ -121,7 +118,6 @@
 		A10000000000000000000004 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* MenuBarController.swift */; };
 		A10000000000000000000005 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppShellView.swift */; };
 		A10000000000000000000006 /* AppCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* AppCommandTests.swift */; };
-		A10000000000000000000007 /* GlassAppearanceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* GlassAppearanceSettings.swift */; };
 		A10000000000000000000008 /* GlobalHotKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* GlobalHotKeyMonitor.swift */; };
 		A10000000000000000000009 /* PanelShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* PanelShortcut.swift */; };
 		A1000000000000000000000A /* SpotlightPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* SpotlightPanelController.swift */; };
@@ -132,7 +128,6 @@
 		AB0200000000000000000004 /* LocalCatalogUpdates.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0100000000000000000004 /* LocalCatalogUpdates.swift */; };
 		AB0200000000000000000005 /* LocalModelAdvisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0100000000000000000005 /* LocalModelAdvisor.swift */; };
 		AB0200000000000000000006 /* BundledLocalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0100000000000000000006 /* BundledLocalModels.swift */; };
-		AB0200000000000000000007 /* LocalModelManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0100000000000000000007 /* LocalModelManagerView.swift */; };
 		AB0300000000000000000002 /* LocalModelSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0300000000000000000001 /* LocalModelSelectionTests.swift */; };
 		AD9DCA3F261F97353BA3A2F6 /* AI-Spotlight/Files/FileModeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F854E7BC1B8BD8048823C508 /* AI-Spotlight/Files/FileModeCoordinator.swift */; };
 		B30000000000000000000002 /* RequestLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* RequestLifecycleTests.swift */; };
@@ -140,7 +135,6 @@
 		B60000000000000000000101 /* BraveSearchClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000001 /* BraveSearchClient.swift */; };
 		B60000000000000000000102 /* WebSearchSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000002 /* WebSearchSettings.swift */; };
 		B60000000000000000000103 /* WebSearchContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000003 /* WebSearchContext.swift */; };
-		B60000000000000000000104 /* WebSearchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000004 /* WebSearchControls.swift */; };
 		B60000000000000000000105 /* WebSearchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000005 /* WebSearchPolicy.swift */; };
 		B60000000000000000000202 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000201 /* Assets.xcassets */; };
 		B60000000000000000000402 /* WebSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000401 /* WebSearchTests.swift */; };
@@ -163,7 +157,6 @@
 		D10000000000000000000007 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000006 /* ThirdPartyNotices.txt */; };
 		D837B30691584362AC890087 /* AI-Spotlight/Screen/ScreenAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C914AEA42F47A9209266F278 /* AI-Spotlight/Screen/ScreenAttachment.swift */; };
 		E10000000000000000000001 /* ChatDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* ChatDomain.swift */; };
-		AC1000000000000000000004 /* AssistantActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2000000000000000000004 /* AssistantActivityView.swift */; };
 		AC1000000000000000000003 /* AssistantActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2000000000000000000003 /* AssistantActivity.swift */; };
 		E10000000000000000000002 /* ChatSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* ChatSessionStore.swift */; };
 		E10000000000000000000003 /* LocalModelManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000003 /* LocalModelManifest.swift */; };
@@ -206,38 +199,38 @@
 		A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanel.swift"; sourceTree = SOURCE_ROOT; };
 		3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanelLogic.swift"; sourceTree = SOURCE_ROOT; };
 		23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaConversationLogic.swift"; sourceTree = SOURCE_ROOT; };
-		2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaMarkdownView.swift"; sourceTree = SOURCE_ROOT; };
-		F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaActivityView.swift"; sourceTree = SOURCE_ROOT; };
+		2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/ChatMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/ChatMarkdownView.swift"; sourceTree = SOURCE_ROOT; };
+		F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/AssistantActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/AssistantActivityView.swift"; sourceTree = SOURCE_ROOT; };
 		BE7F0CAF9ABED510FB4737FA /* AI-Spotlight/Chat/EnigmaMessageList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaMessageList.swift"; sourceTree = SOURCE_ROOT; };
-		65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/EnigmaSelectionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/EnigmaSelectionCards.swift"; sourceTree = SOURCE_ROOT; };
-		79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/EnigmaScreenCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/EnigmaScreenCards.swift"; sourceTree = SOURCE_ROOT; };
-		A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/EnigmaMessagesCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/EnigmaMessagesCards.swift"; sourceTree = SOURCE_ROOT; };
-		DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/EnigmaFileCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/EnigmaFileCards.swift"; sourceTree = SOURCE_ROOT; };
+		65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/SelectionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Chat/SelectionCards.swift"; sourceTree = SOURCE_ROOT; };
+		79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/ScreenCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/ScreenCards.swift"; sourceTree = SOURCE_ROOT; };
+		A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/MessagesCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesCards.swift"; sourceTree = SOURCE_ROOT; };
+		DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/FileCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/FileCards.swift"; sourceTree = SOURCE_ROOT; };
 		5D566DA70D41149D8DDE3BF5 /* AI-SpotlightTests/EnigmaConversationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaConversationTests.swift"; sourceTree = SOURCE_ROOT; };
 		DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaMainWindowTests.swift"; sourceTree = SOURCE_ROOT; };
-		4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaHelpView.swift"; sourceTree = SOURCE_ROOT; };
+		4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/KeyboardShortcutsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/KeyboardShortcutsHelpView.swift"; sourceTree = SOURCE_ROOT; };
 		56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaMainPage.swift"; sourceTree = SOURCE_ROOT; };
 		BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaComposer.swift"; sourceTree = SOURCE_ROOT; };
 		4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaSidebar.swift"; sourceTree = SOURCE_ROOT; };
 		986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaMainWindowLogic.swift"; sourceTree = SOURCE_ROOT; };
 		B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaSettingsTests.swift"; sourceTree = SOURCE_ROOT; };
-		AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift"; sourceTree = SOURCE_ROOT; };
-		F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
-		54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift"; sourceTree = SOURCE_ROOT; };
+		AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/LocalFileToolsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Files/LocalFileToolsViews.swift"; sourceTree = SOURCE_ROOT; };
+		F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
+		54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/LocalModelManagerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/LocalModelManagerSection.swift"; sourceTree = SOURCE_ROOT; };
 		E04F226017D7E2D4E35601F2 /* AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift"; sourceTree = SOURCE_ROOT; };
-		400545524363F0706CC11C4C /* AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
-		B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
-		C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
-		8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift"; sourceTree = SOURCE_ROOT; };
+		400545524363F0706CC11C4C /* AI-Spotlight/Messages/MessagesSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/MessagesSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
+		B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/WebSearchSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Search/WebSearchSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
+		C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/ScreenSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/ScreenSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
+		8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/CloudSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/CloudSettingsPage.swift"; sourceTree = SOURCE_ROOT; };
 		F8F86FA582489E0F20016047 /* AI-Spotlight/Cloud/CloudSettingsForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/CloudSettingsForm.swift"; sourceTree = SOURCE_ROOT; };
-		844900D642E7958CB1EB0706 /* AI-Spotlight/App/EnigmaSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaSettingsView.swift"; sourceTree = SOURCE_ROOT; };
+		844900D642E7958CB1EB0706 /* AI-Spotlight/App/SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/SettingsView.swift"; sourceTree = SOURCE_ROOT; };
 		748DE0B7DA2C21C1783543A6 /* AI-Spotlight/App/EnigmaAppearancePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaAppearancePreference.swift"; sourceTree = SOURCE_ROOT; };
 		87C9929E4E38C414CE18BCB7 /* AI-SpotlightTests/EnigmaControlsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaControlsTests.swift"; sourceTree = SOURCE_ROOT; };
 		1120A32807A86CA0C0327E8D /* AI-SpotlightTests/EnigmaWelcomeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaWelcomeTests.swift"; sourceTree = SOURCE_ROOT; };
-		612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/EnigmaMacPermissionRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/EnigmaMacPermissionRows.swift"; sourceTree = SOURCE_ROOT; };
-		CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift"; sourceTree = SOURCE_ROOT; };
-		EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift"; sourceTree = SOURCE_ROOT; };
-		7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/EnigmaWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaWelcomeView.swift"; sourceTree = SOURCE_ROOT; };
+		612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/MacPermissionRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/MacPermissionRows.swift"; sourceTree = SOURCE_ROOT; };
+		CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/CloudConnectionControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Cloud/CloudConnectionControls.swift"; sourceTree = SOURCE_ROOT; };
+		EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/LocalModelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/LocalModelViews.swift"; sourceTree = SOURCE_ROOT; };
+		7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/WelcomeSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/WelcomeSetupView.swift"; sourceTree = SOURCE_ROOT; };
 		619FFE38B6CA26C6AD94BCFA /* AI-Spotlight/App/EnigmaControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaControls.swift"; sourceTree = SOURCE_ROOT; };
 		0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaSnapshotSupport.swift"; sourceTree = SOURCE_ROOT; };
 		AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaCharacterTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -249,7 +242,6 @@
 		3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/ChatHistoryList.swift"; sourceTree = SOURCE_ROOT; };
 		411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/AppShellStateTests.swift"; sourceTree = SOURCE_ROOT; };
 		D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaTheme.swift"; sourceTree = SOURCE_ROOT; };
-		BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/NewUIPreference.swift"; sourceTree = SOURCE_ROOT; };
 		7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaThemeTests.swift"; sourceTree = SOURCE_ROOT; };
 		C3B48F650A050EC4ABABFF6C /* AI-SpotlightTests/MessagesToolCallingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/MessagesToolCallingTests.swift"; sourceTree = SOURCE_ROOT; };
 		9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/MessagesTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -264,10 +256,8 @@
 		20EE1E1A783052F9D6D79B18 /* AI-Spotlight/Messages/AttributedBodyDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/AttributedBodyDecoder.swift"; sourceTree = SOURCE_ROOT; };
 		475A60D279A435AB95DFBFB7 /* AI-Spotlight/Messages/AppleMessageDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Messages/AppleMessageDate.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/HuggingFaceModelDownloadsTests.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000005 /* HuggingFaceDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/HuggingFaceDownloadView.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/HuggingFaceModelDownloads.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000003 /* LocalModelDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/LocalModelDiscoveryTests.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000002 /* LocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
 		AE9100000000000000000001 /* HuggingFaceModelDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/LocalInference/HuggingFaceModelDiscovery.swift"; sourceTree = SOURCE_ROOT; };
 		EF1100000000000000000001 /* WelcomeSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeSetup.swift; sourceTree = "<group>"; };
 		ED1000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Search/LocationService.swift"; sourceTree = SOURCE_ROOT; };
@@ -316,7 +306,6 @@
 		A20000000000000000000007 /* AppCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* Enigma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Enigma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* EnigmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = EnigmaTests.xctest; path = "EnigmaTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000000000000000000010 /* GlassAppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassAppearanceSettings.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* GlobalHotKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotKeyMonitor.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* PanelShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelShortcut.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* SpotlightPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightPanelController.swift; sourceTree = "<group>"; };
@@ -326,7 +315,6 @@
 		AB0100000000000000000004 /* LocalCatalogUpdates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCatalogUpdates.swift; sourceTree = "<group>"; };
 		AB0100000000000000000005 /* LocalModelAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelAdvisor.swift; sourceTree = "<group>"; };
 		AB0100000000000000000006 /* BundledLocalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledLocalModels.swift; sourceTree = "<group>"; };
-		AB0100000000000000000007 /* LocalModelManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelManagerView.swift; sourceTree = "<group>"; };
 		AB0300000000000000000001 /* LocalModelSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelSelectionTests.swift; sourceTree = "<group>"; };
 		AF75EE2F32B58204588607B5 /* AI-SpotlightTests/ScreenViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/ScreenViewTests.swift"; sourceTree = SOURCE_ROOT; };
 		B30000000000000000000001 /* RequestLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLifecycleTests.swift; sourceTree = "<group>"; };
@@ -334,7 +322,6 @@
 		B60000000000000000000001 /* BraveSearchClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraveSearchClient.swift; sourceTree = "<group>"; };
 		B60000000000000000000002 /* WebSearchSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchSettings.swift; sourceTree = "<group>"; };
 		B60000000000000000000003 /* WebSearchContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchContext.swift; sourceTree = "<group>"; };
-		B60000000000000000000004 /* WebSearchControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchControls.swift; sourceTree = "<group>"; };
 		B60000000000000000000005 /* WebSearchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchPolicy.swift; sourceTree = "<group>"; };
 		B60000000000000000000201 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B60000000000000000000401 /* WebSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchTests.swift; sourceTree = "<group>"; };
@@ -356,7 +343,6 @@
 		DA71017E0A573695B2D29C84 /* AI-SpotlightTests/WorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/WorkspaceTests.swift"; sourceTree = SOURCE_ROOT; };
 		DC739E5346C6C117334001F2 /* AI-Spotlight/Screen/ScreenImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/Screen/ScreenImagePreprocessor.swift"; sourceTree = SOURCE_ROOT; };
 		E20000000000000000000001 /* ChatDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDomain.swift; sourceTree = "<group>"; };
-		AC2000000000000000000004 /* AssistantActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantActivityView.swift; sourceTree = "<group>"; };
 		AC2000000000000000000003 /* AssistantActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantActivity.swift; sourceTree = "<group>"; };
 		E20000000000000000000002 /* ChatSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionStore.swift; sourceTree = "<group>"; };
 		E20000000000000000000003 /* LocalModelManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelManifest.swift; sourceTree = "<group>"; };
@@ -411,41 +397,41 @@
 				9B2EE23DD30DADC4726A2A12 /* AI-SpotlightTests/EnigmaIconTests.swift */,
 				8847E9740883DE782193462F /* AI-Spotlight/App/EnigmaAppIcon.swift */,
 				DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */,
-				4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */,
+				4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/KeyboardShortcutsHelpView.swift */,
 				56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */,
 				BD7FEFD9495A0C00C077FDD9 /* AI-Spotlight/App/EnigmaComposer.swift */,
 				586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */,
 				A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */,
 				3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */,
 				23F851A1FA1B3196345CC4B1 /* AI-Spotlight/Chat/EnigmaConversationLogic.swift */,
-				2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/EnigmaMarkdownView.swift */,
-				F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/EnigmaActivityView.swift */,
+				2219C1A52638C5760A08BCAB /* AI-Spotlight/Chat/ChatMarkdownView.swift */,
+				F0A5DED03482E1746C25AFB1 /* AI-Spotlight/Chat/AssistantActivityView.swift */,
 				BE7F0CAF9ABED510FB4737FA /* AI-Spotlight/Chat/EnigmaMessageList.swift */,
-				65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/EnigmaSelectionCards.swift */,
-				79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/EnigmaScreenCards.swift */,
-				A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/EnigmaMessagesCards.swift */,
-				DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/EnigmaFileCards.swift */,
+				65E31444F25F2D3405D575EC /* AI-Spotlight/Chat/SelectionCards.swift */,
+				79B85E17D7F80C05D2080DD4 /* AI-Spotlight/Screen/ScreenCards.swift */,
+				A2BDBA75798D7DBF83CB666F /* AI-Spotlight/Messages/MessagesCards.swift */,
+				DE4646E02DDA64450B62A8FC /* AI-Spotlight/Files/FileCards.swift */,
 				5D566DA70D41149D8DDE3BF5 /* AI-SpotlightTests/EnigmaConversationTests.swift */,
 				4FF6103E01F7B2775855F179 /* AI-Spotlight/App/EnigmaSidebar.swift */,
 				986CB99157D968506FA6560B /* AI-Spotlight/App/EnigmaMainWindowLogic.swift */,
 				B9483E9D7600D10AD53F8F68 /* AI-SpotlightTests/EnigmaSettingsTests.swift */,
-				AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift */,
-				F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift */,
-				54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift */,
+				AEDF18A09BA530EF7800F041 /* AI-Spotlight/Files/LocalFileToolsViews.swift */,
+				F3A5F5F60A5F7C1C0D288DA3 /* AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift */,
+				54E873A2DCFDB4A43A11B39D /* AI-Spotlight/LocalInference/LocalModelManagerSection.swift */,
 				E04F226017D7E2D4E35601F2 /* AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift */,
-				400545524363F0706CC11C4C /* AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift */,
-				B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift */,
-				C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift */,
-				8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift */,
+				400545524363F0706CC11C4C /* AI-Spotlight/Messages/MessagesSettingsSection.swift */,
+				B8E7F3686641DEAD9DF3006D /* AI-Spotlight/Search/WebSearchSettingsSection.swift */,
+				C108D004393B7BDAEDF645D1 /* AI-Spotlight/Screen/ScreenSettingsSection.swift */,
+				8453604F34BB8C7C2787F70F /* AI-Spotlight/Cloud/CloudSettingsPage.swift */,
 				F8F86FA582489E0F20016047 /* AI-Spotlight/Cloud/CloudSettingsForm.swift */,
-				844900D642E7958CB1EB0706 /* AI-Spotlight/App/EnigmaSettingsView.swift */,
+				844900D642E7958CB1EB0706 /* AI-Spotlight/App/SettingsView.swift */,
 				748DE0B7DA2C21C1783543A6 /* AI-Spotlight/App/EnigmaAppearancePreference.swift */,
 				87C9929E4E38C414CE18BCB7 /* AI-SpotlightTests/EnigmaControlsTests.swift */,
 				1120A32807A86CA0C0327E8D /* AI-SpotlightTests/EnigmaWelcomeTests.swift */,
-				612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/EnigmaMacPermissionRows.swift */,
-				CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift */,
-				EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift */,
-				7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/EnigmaWelcomeView.swift */,
+				612FECC459345D7D063D7D0A /* AI-Spotlight/Screen/MacPermissionRows.swift */,
+				CCEB56C20FBD72F14A8B1F21 /* AI-Spotlight/Cloud/CloudConnectionControls.swift */,
+				EB5AD42FD10453F9AB825C06 /* AI-Spotlight/LocalInference/LocalModelViews.swift */,
+				7EB5AEA514F2380A418726A3 /* AI-Spotlight/App/WelcomeSetupView.swift */,
 				619FFE38B6CA26C6AD94BCFA /* AI-Spotlight/App/EnigmaControls.swift */,
 				0994D071A56787144B40A6C7 /* AI-SpotlightTests/EnigmaSnapshotSupport.swift */,
 				AA15763D23F650DF10B635BE /* AI-SpotlightTests/EnigmaCharacterTests.swift */,
@@ -458,7 +444,6 @@
 				3628E3B5E1BD8769ADF2E5A8 /* AI-Spotlight/App/ChatHistoryList.swift */,
 				411A6C11B84136957D6FE772 /* AI-SpotlightTests/AppShellStateTests.swift */,
 				D62E960657D986D118734F49 /* AI-Spotlight/App/EnigmaTheme.swift */,
-				BBEF30AD68DDA3DDDFF5E151 /* AI-Spotlight/App/NewUIPreference.swift */,
 				7904480FBD90F47E3B7996B0 /* AI-SpotlightTests/EnigmaThemeTests.swift */,
 				9DCA5EC9643BE38266438A06 /* AI-SpotlightTests/MessagesTests.swift */,
 				52106C6B2EDE326668CC17A0 /* AI-Spotlight/Messages/MessagesControls.swift */,
@@ -549,7 +534,6 @@
 				A20000000000000000000004 /* MenuBarController.swift */,
 				A20000000000000000000005 /* AppShellView.swift */,
 				EF1100000000000000000001 /* WelcomeSetup.swift */,
-				A20000000000000000000010 /* GlassAppearanceSettings.swift */,
 				A20000000000000000000011 /* GlobalHotKeyMonitor.swift */,
 				A20000000000000000000012 /* PanelShortcut.swift */,
 				A20000000000000000000013 /* SpotlightPanelController.swift */,
@@ -606,7 +590,6 @@
 				B60000000000000000000001 /* BraveSearchClient.swift */,
 				B60000000000000000000002 /* WebSearchSettings.swift */,
 				B60000000000000000000003 /* WebSearchContext.swift */,
-				B60000000000000000000004 /* WebSearchControls.swift */,
 				B60000000000000000000005 /* WebSearchPolicy.swift */,
 			);
 			path = Search;
@@ -625,10 +608,7 @@
 				AB0100000000000000000004 /* LocalCatalogUpdates.swift */,
 				AB0100000000000000000005 /* LocalModelAdvisor.swift */,
 				AB0100000000000000000006 /* BundledLocalModels.swift */,
-				AB0100000000000000000007 /* LocalModelManagerView.swift */,
-				AE9100000000000000000005 /* HuggingFaceDownloadView.swift */,
 				AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */,
-				AE9100000000000000000002 /* LocalModelDiscoveryView.swift */,
 				AE9100000000000000000001 /* HuggingFaceModelDiscovery.swift */,
 				E20000000000000000000003 /* LocalModelManifest.swift */,
 			);
@@ -641,7 +621,6 @@
 				C10000000000000000000001 /* ChatContext.swift */,
 				DE1000000000000000000001 /* ChatMarkdown.swift */,
 				E20000000000000000000001 /* ChatDomain.swift */,
-				AC2000000000000000000004 /* AssistantActivityView.swift */,
 				AC2000000000000000000003 /* AssistantActivity.swift */,
 				E20000000000000000000002 /* ChatSessionStore.swift */,
 				E20000000000000000000005 /* AutoRouter.swift */,
@@ -775,33 +754,33 @@
 				08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */,
 				FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */,
 				239B6F451A6401C9971127FB /* AI-Spotlight/Chat/EnigmaConversationLogic.swift in Sources */,
-				ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/EnigmaMarkdownView.swift in Sources */,
-				CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/EnigmaActivityView.swift in Sources */,
+				ED44D8F390F4C668770773AD /* AI-Spotlight/Chat/ChatMarkdownView.swift in Sources */,
+				CCBCDDA5026A66956CAF2521 /* AI-Spotlight/Chat/AssistantActivityView.swift in Sources */,
 				E70853FFCC557A14D16831EA /* AI-Spotlight/Chat/EnigmaMessageList.swift in Sources */,
-				85951778BEFF4293A002C497 /* AI-Spotlight/Chat/EnigmaSelectionCards.swift in Sources */,
-				A31A2072CEF101FE62A501B9 /* AI-Spotlight/Screen/EnigmaScreenCards.swift in Sources */,
-				2D700E8CB9DDEE52A9470528 /* AI-Spotlight/Messages/EnigmaMessagesCards.swift in Sources */,
-				4772B8D9B8DA7F7B695C9F69 /* AI-Spotlight/Files/EnigmaFileCards.swift in Sources */,
-				78FC9AB08F32145AC031E35E /* AI-Spotlight/App/EnigmaHelpView.swift in Sources */,
+				85951778BEFF4293A002C497 /* AI-Spotlight/Chat/SelectionCards.swift in Sources */,
+				A31A2072CEF101FE62A501B9 /* AI-Spotlight/Screen/ScreenCards.swift in Sources */,
+				2D700E8CB9DDEE52A9470528 /* AI-Spotlight/Messages/MessagesCards.swift in Sources */,
+				4772B8D9B8DA7F7B695C9F69 /* AI-Spotlight/Files/FileCards.swift in Sources */,
+				78FC9AB08F32145AC031E35E /* AI-Spotlight/App/KeyboardShortcutsHelpView.swift in Sources */,
 				77CED3F11DA2C07E5AFB8FDC /* AI-Spotlight/App/EnigmaMainPage.swift in Sources */,
 				E54A7390F93C84BD9D766232 /* AI-Spotlight/App/EnigmaComposer.swift in Sources */,
 				BEB703A6ED5E3CC6B0ADA784 /* AI-Spotlight/App/EnigmaSidebar.swift in Sources */,
 				4DC6842798E6A6D965A6026D /* AI-Spotlight/App/EnigmaMainWindowLogic.swift in Sources */,
-				76C597823BC773D32A000CDA /* AI-Spotlight/Files/EnigmaLocalFileToolsViews.swift in Sources */,
-				3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/EnigmaLocalModelDiscoveryView.swift in Sources */,
-				FC5011DD693B0424EBE11153 /* AI-Spotlight/LocalInference/EnigmaLocalModelManagerSection.swift in Sources */,
+				76C597823BC773D32A000CDA /* AI-Spotlight/Files/LocalFileToolsViews.swift in Sources */,
+				3B287C322A61EEC25ADC78E7 /* AI-Spotlight/LocalInference/LocalModelDiscoveryView.swift in Sources */,
+				FC5011DD693B0424EBE11153 /* AI-Spotlight/LocalInference/LocalModelManagerSection.swift in Sources */,
 				888845646DFB86CA2CD71708 /* AI-Spotlight/LocalInference/LocalModelSettingsLogic.swift in Sources */,
-				FD9FA2F09CE21FD65DFC93D7 /* AI-Spotlight/Messages/EnigmaMessagesSettingsSection.swift in Sources */,
-				CA59186E509F5F5819A0A142 /* AI-Spotlight/Search/EnigmaWebSearchSettingsSection.swift in Sources */,
-				53CA68645BB07133717F254B /* AI-Spotlight/Screen/EnigmaScreenSettingsSection.swift in Sources */,
-				4A0283F0F7A52011DBA917F3 /* AI-Spotlight/Cloud/EnigmaCloudSettingsPage.swift in Sources */,
+				FD9FA2F09CE21FD65DFC93D7 /* AI-Spotlight/Messages/MessagesSettingsSection.swift in Sources */,
+				CA59186E509F5F5819A0A142 /* AI-Spotlight/Search/WebSearchSettingsSection.swift in Sources */,
+				53CA68645BB07133717F254B /* AI-Spotlight/Screen/ScreenSettingsSection.swift in Sources */,
+				4A0283F0F7A52011DBA917F3 /* AI-Spotlight/Cloud/CloudSettingsPage.swift in Sources */,
 				BB63D517DE46148345D1D5B3 /* AI-Spotlight/Cloud/CloudSettingsForm.swift in Sources */,
-				1637F0235DC20EB844FFB19E /* AI-Spotlight/App/EnigmaSettingsView.swift in Sources */,
+				1637F0235DC20EB844FFB19E /* AI-Spotlight/App/SettingsView.swift in Sources */,
 				242984893777E1A77DCFCCA0 /* AI-Spotlight/App/EnigmaAppearancePreference.swift in Sources */,
-				E8FFA33971F604D2801E7993 /* AI-Spotlight/Screen/EnigmaMacPermissionRows.swift in Sources */,
-				CD7DAF64C9E10117B84DD15F /* AI-Spotlight/Cloud/EnigmaCloudConnectionControls.swift in Sources */,
-				B62AF672ED8643EF41D5205F /* AI-Spotlight/LocalInference/EnigmaLocalModelViews.swift in Sources */,
-				032B56FD56E02BBC3F760B8B /* AI-Spotlight/App/EnigmaWelcomeView.swift in Sources */,
+				E8FFA33971F604D2801E7993 /* AI-Spotlight/Screen/MacPermissionRows.swift in Sources */,
+				CD7DAF64C9E10117B84DD15F /* AI-Spotlight/Cloud/CloudConnectionControls.swift in Sources */,
+				B62AF672ED8643EF41D5205F /* AI-Spotlight/LocalInference/LocalModelViews.swift in Sources */,
+				032B56FD56E02BBC3F760B8B /* AI-Spotlight/App/WelcomeSetupView.swift in Sources */,
 				53096725D27629FE5D97C38A /* AI-Spotlight/App/EnigmaControls.swift in Sources */,
 				129D9E9EC86A78CDCC284517 /* AI-Spotlight/App/EnigmaCharacterStage.swift in Sources */,
 				F4FB6587E7FE28F291AFAC74 /* AI-Spotlight/App/EnigmaCharacterDrawing.swift in Sources */,
@@ -810,7 +789,6 @@
 				422E561946FB6455B45F5292 /* AI-Spotlight/App/ComposerSubmission.swift in Sources */,
 				C48CAEC33B6F177A792C6452 /* AI-Spotlight/App/ChatHistoryList.swift in Sources */,
 				2A6F2F64373438103BD3CAF7 /* AI-Spotlight/App/EnigmaTheme.swift in Sources */,
-				D1CB335B96CD3A7AB1BFC837 /* AI-Spotlight/App/NewUIPreference.swift in Sources */,
 				3531F85A5FF9A9B5118210B7 /* AI-Spotlight/Cloud/CloudToolCalling.swift in Sources */,
 				46129D58435C4940276C6601 /* AI-Spotlight/Messages/MessagesCoordinator.swift in Sources */,
 				65AF8D2C28ABA381AA89EF89 /* AI-Spotlight/Chat/AgentToolLoop.swift in Sources */,
@@ -856,7 +834,6 @@
 				B60000000000000000000101 /* BraveSearchClient.swift in Sources */,
 				B60000000000000000000102 /* WebSearchSettings.swift in Sources */,
 				B60000000000000000000103 /* WebSearchContext.swift in Sources */,
-				B60000000000000000000104 /* WebSearchControls.swift in Sources */,
 				B60000000000000000000105 /* WebSearchPolicy.swift in Sources */,
 				A10000000000000000000001 /* AI_SpotlightApp.swift in Sources */,
 				A10000000000000000000002 /* ApplicationDelegate.swift in Sources */,
@@ -864,7 +841,6 @@
 				A10000000000000000000004 /* MenuBarController.swift in Sources */,
 				A10000000000000000000005 /* AppShellView.swift in Sources */,
 				EF1200000000000000000001 /* WelcomeSetup.swift in Sources */,
-				A10000000000000000000007 /* GlassAppearanceSettings.swift in Sources */,
 				A10000000000000000000008 /* GlobalHotKeyMonitor.swift in Sources */,
 				A10000000000000000000009 /* PanelShortcut.swift in Sources */,
 				A1000000000000000000000A /* SpotlightPanelController.swift in Sources */,
@@ -873,7 +849,6 @@
 				D10000000000000000000003 /* LlamaCPPModelEngine.swift in Sources */,
 				D10000000000000000000004 /* LocalChatViewModel.swift in Sources */,
 				E10000000000000000000001 /* ChatDomain.swift in Sources */,
-				AC1000000000000000000004 /* AssistantActivityView.swift in Sources */,
 				AC1000000000000000000003 /* AssistantActivity.swift in Sources */,
 				E10000000000000000000002 /* ChatSessionStore.swift in Sources */,
 				AB0200000000000000000001 /* LocalHardwareProfile.swift in Sources */,
@@ -882,10 +857,7 @@
 				AB0200000000000000000004 /* LocalCatalogUpdates.swift in Sources */,
 				AB0200000000000000000005 /* LocalModelAdvisor.swift in Sources */,
 				AB0200000000000000000006 /* BundledLocalModels.swift in Sources */,
-				AB0200000000000000000007 /* LocalModelManagerView.swift in Sources */,
-				AE9200000000000000000005 /* HuggingFaceDownloadView.swift in Sources */,
 				AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */,
-				AE9200000000000000000002 /* LocalModelDiscoveryView.swift in Sources */,
 				AE9200000000000000000001 /* HuggingFaceModelDiscovery.swift in Sources */,
 				E10000000000000000000003 /* LocalModelManifest.swift in Sources */,
 				E10000000000000000000005 /* AutoRouter.swift in Sources */,

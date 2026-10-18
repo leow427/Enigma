@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The compact selection panel in the new design: the panel that opens over
+// The compact selection panel: the panel that opens over
 // another app when you select text and double-tap ⌥. From top to bottom: the
 // `› selected "…"` line, the input row with the character in its 40 pt slot,
 // the answer area once a question is sent, and a monospace hint row. It's one
@@ -97,7 +97,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
       if isComposing {
         GeometryReader { proxy in
           Color.clear.preference(key: SelectionComposerHeight.self, value: SelectionComposerReport(
-            height: proxy.size.height, style: .enigma,
+            height: proxy.size.height,
             restingHeight: proxy.size.height - room.above - room.below - detailsHeight, roomAbove: room.above))
         }
       }
@@ -121,7 +121,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
 /// `› selected "…"`, with the selection's status and a button to remove it,
 /// or its own plain line when no text was selected. The status button opens
 /// the details, and shows a problem glyph when there's a notice or
-/// Accessibility is missing, as the old status button did.
+/// Accessibility is missing.
 struct EnigmaCompactSelectionLine: View {
   let contexts: [ConversationContext]
   var isBusy = false
@@ -250,7 +250,7 @@ struct EnigmaCompactComposer: View {
         .enigmaCharacterSlot(id: CompactPanelLayout.inputSlot, size: CompactPanelLayout.inputSlotSize)
       SlashCommandComposer(
         text: $text, isFocused: $isFocused, isEnabled: isEnabled, fontSize: 16,
-        availableCommands: availableCommands, style: .enigma, placeholder: placeholder,
+        availableCommands: availableCommands, placeholder: placeholder,
         suggestionPlacement: opensSuggestionsAbove ? .above(gap: Self.suggestionGap) : .below(gap: Self.suggestionGap),
         insertion: insertion, submit: submit)
         .enigmaCharacterTarget(MainWindowCharacter.composerTarget, at: UnitPoint(x: 0.05, y: 0.5))
@@ -305,8 +305,8 @@ struct EnigmaCompactComposer: View {
 // MARK: Details
 
 /// The selection's status and details while composing: an opaque `menu`
-/// surface under the input, holding the same notices and cards the old
-/// popover held. It scrolls when they're tall.
+/// surface under the input, holding the window's notices and cards. It
+/// scrolls when they're tall.
 struct EnigmaCompactDetails<Content: View>: View {
   @ViewBuilder let content: () -> Content
   @Environment(\.enigmaPalette) private var palette

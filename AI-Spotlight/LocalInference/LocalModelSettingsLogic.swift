@@ -16,8 +16,7 @@ struct LocalModelActionState: Equatable, Sendable {
   let isEnabled: Bool
 }
 
-/// The model actions and filters behind Local Models and Discover, shared by
-/// the old views and the new ones so the two can't drift apart.
+/// The model actions and filters behind Local models and Discover.
 @MainActor
 enum LocalModelSettingsLogic {
   static let memoryWarning = "Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it."
@@ -33,7 +32,7 @@ enum LocalModelSettingsLogic {
     return assessment.permitsMemoryOverride ? memoryWarning : compatibilityWarning(for: assessment)
   }
 
-  /// Local Models: use or update an installed package; install one that can
+  /// Local models: use or update an installed package; install one that can
   /// run here, or offer its files when it can't.
   static func managerAction(for assessment: LocalModelAssessment, installed: [LocalModel], activeID: String?,
                             isBusy: Bool) -> LocalModelActionState {
@@ -92,7 +91,7 @@ enum LocalModelSettingsLogic {
     }
   }
 
-  /// Whether Local Models shows the runtime's progress, notices, and benchmark.
+  /// Whether Local models shows the runtime's progress, notices, and benchmark.
   static func showsOperation(chat: LocalChatViewModel, advisor: LocalModelAdvisor) -> Bool {
     chat.state != .idle || chat.benchmarkNotice != nil
       || advisor.latestBenchmark(for: chat.installedModel) != nil || advisor.notice != nil

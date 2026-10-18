@@ -1,6 +1,8 @@
 # UI Revamp: Paper, Ink, and the Character
 
-This is the spec and rollout plan for Enigma's new interface. The approved
+This is the spec and rollout record for Enigma's interface. The rollout is
+done: since phase 10 this design is the only UI, and
+[UI-Style.md](../../../UI-Style.md) is the day-to-day style reference. The approved
 mockups are interactive HTML pages in this folder:
 
 - [main-window.html](main-window.html): the welcome screen, the main page, the
@@ -209,13 +211,13 @@ separately, so the icon always matches the living character.
 
 ## Rollout
 
-The new UI is built next to the current one, behind the **Use new UI**
-setting in Developer Tools. It stays off by default until every screen
-reaches parity, so `main` always ships a working app.
+Done. The new UI was built next to the old one, one phase at a time, and phase
+10 made it the only UI: the old views, the liquid-glass settings, and the
+temporary switch that chose between the designs are gone. Settings an earlier
+version saved for them are ignored.
 
-1. **Foundations.** Save the mockups and this spec, add `EnigmaTheme`
-   tokens with tests, and add the off-by-default flag. Nothing visible
-   changes.
+1. **Foundations.** Save the mockups and this spec, and add `EnigmaTheme`
+   tokens with tests. Nothing visible changes.
 2. **Separate state from views.** Move chat, composer, and history state out
    of `AppShellView.swift` into small models, without changing visuals. Add
    tests for those models. This is the safety net for every later phase.
@@ -226,23 +228,23 @@ reaches parity, so `main` always ships a working app.
 3. **Character component.** Build `EnigmaCharacter` alone, with the slot
    overlay that screens will use, previews for each state, Reduce Motion
    support, and a CPU check.
-4. **Welcome screen,** behind the flag. This phase also adds the shared
-   controls that later screens reuse.
-5. **Settings,** behind the flag, including the System / Paper / Ink
-   appearance choice.
-6. **Main window,** behind the flag: the sidebar, the main page, the
-   composer, the model picker, and the mode palette.
-7. **Conversation,** behind the flag: messages, replies, the character's fall
-   into the chat, activity, attachments, and the cards shown in a chat.
-8. **Compact panel,** behind the flag. It reuses the composer and reply views
+4. **Welcome screen.** This phase also adds the shared controls that later
+   screens reuse.
+5. **Settings,** including the System / Paper / Ink appearance choice.
+6. **Main window:** the sidebar, the main page, the composer, the model
+   picker, and the mode palette.
+7. **Conversation:** messages, replies, the character's fall into the chat,
+   activity, attachments, and the cards shown in a chat.
+8. **Compact panel.** It reuses the composer and reply views
    from phases 6 and 7. Test it with the signed build, because it touches the
    global shortcut and selection permissions.
 9. **Icons.** Make the character the app icon, the menu bar icon, and the
    app mark (see "App icon and mark"), and redraw the tool icons in the new
    style.
-10. **Switch over.** Make the new UI the only UI. Remove the flag, the old
-    views and assets, the liquid-glass settings, and
-    `docs/Liquid-Glass-UI.md`, and rewrite `UI-Style.md` for the new style.
+10. **Switch over (done).** The new UI is the only UI. The old views and
+    assets, the liquid-glass settings, and `docs/Liquid-Glass-UI.md` are
+    removed, and `UI-Style.md` describes the new style. Of the redrawn tool
+    icons only `MessagesTool` remains; no view showed the others.
 
 Each phase is one focused commit on `feat/ui-revamp`, built and reviewed as
 described in [agent-workflow.md](agent-workflow.md), with its brief in
