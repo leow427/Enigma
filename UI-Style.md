@@ -47,8 +47,8 @@ the given opacity.
 | `accent` | `#3F5A12` | `#CDEB78` | Send, primary buttons, switches |
 | `onAccent` | `#F5F8EA` | `#1A2306` | Text and icons on `accent` |
 | `accentText` | `#4A6A14` | `#CDEB78` | Command names, selection dots, links |
-| `characterBody` | `#C3DE5E` | `#CDEB78` | Character fill |
-| `characterInk` | `#211E19` | `#EFE8D8` | Character outline, legs, antenna |
+| `characterBody` | `#C3DE5E` | `#C3DE5E` | Character fill |
+| `characterInk` | `#211E19` | `#D9D1BF` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
 
 Rules:

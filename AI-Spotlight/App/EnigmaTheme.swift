@@ -111,8 +111,8 @@ struct EnigmaPalette: Equatable, Sendable {
     accent: EnigmaColor(hex: 0xCDEB78),
     onAccent: EnigmaColor(hex: 0x1A2306),
     accentText: EnigmaColor(hex: 0xCDEB78),
-    characterBody: EnigmaColor(hex: 0xCDEB78),
-    characterInk: EnigmaColor(hex: 0xEFE8D8),
+    characterBody: EnigmaColor(hex: 0xC3DE5E),
+    characterInk: EnigmaColor(hex: 0xD9D1BF),
     warning: EnigmaColor(hex: 0xE0A33B)
   )
 }

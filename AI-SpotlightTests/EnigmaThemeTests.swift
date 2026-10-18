@@ -30,8 +30,8 @@ final class EnigmaThemeTests: XCTestCase {
       (\.accent, EnigmaColor(hex: 0x3F5A12), EnigmaColor(hex: 0xCDEB78)),
       (\.onAccent, EnigmaColor(hex: 0xF5F8EA), EnigmaColor(hex: 0x1A2306)),
       (\.accentText, EnigmaColor(hex: 0x4A6A14), EnigmaColor(hex: 0xCDEB78)),
-      (\.characterBody, EnigmaColor(hex: 0xC3DE5E), EnigmaColor(hex: 0xCDEB78)),
-      (\.characterInk, EnigmaColor(hex: 0x211E19), EnigmaColor(hex: 0xEFE8D8)),
+      (\.characterBody, EnigmaColor(hex: 0xC3DE5E), EnigmaColor(hex: 0xC3DE5E)),
+      (\.characterInk, EnigmaColor(hex: 0x211E19), EnigmaColor(hex: 0xD9D1BF)),
       (\.warning, EnigmaColor(hex: 0xE0A33B), EnigmaColor(hex: 0xE0A33B)),
     ]
     XCTAssertEqual(expected.count, 17)
