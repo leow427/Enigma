@@ -393,6 +393,10 @@ struct AppShellView: View {
             .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
         }
         mainColumn
+          // Under Reduce Motion the main column doesn't slide: it takes its
+          // new width at once, so its AppKit views (the message field, Send)
+          // never pass through in-between frames, and only the sidebar fades.
+          .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
       }
       .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
                  value: shell.isSidebarVisible)

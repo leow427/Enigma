@@ -406,6 +406,93 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the welcome replayed from Developer Tools", in: host.view) { fixture.setup.isPresented }
   }
 
+  /// Under Reduce Motion, hiding and showing the sidebar puts the composer's
+  /// message field and Send where they rest at once, on the main page and in
+  /// a chat, instead of sliding the main column sideways. They still take clicks.
+  @MainActor
+  func testUnderReduceMotionTheSidebarToggleMovesTheComposerAtOnce() async throws {
+    let size = CGSize(width: 1000, height: 660)
+    for docked in [false, true] {
+      let label = docked ? "in a chat" : "on the main page"
+      let shown = try await restingComposerFrames(size: size, sidebar: true, docked: docked)
+      let hidden = try await restingComposerFrames(size: size, sidebar: false, docked: docked)
+      XCTAssertGreaterThan(abs(shown.send.minX - hidden.send.minX), 20, "The sidebar moves the composer \(label)")
+
+      let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+      fixture.reduceMotion = true
+      fixture.animates = true
+      if docked { fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID)) }
+      let host = Host(fixture, size: size, test: self)
+      func frames() -> (send: CGRect, field: CGRect)? {
+        guard let marker = host.marker("Send message"), let editor = composerEditor(in: host.view) else { return nil }
+        return (host.view.convert(marker.bounds, from: marker), host.view.convert(editor.bounds, from: editor))
+      }
+      func isAt(_ place: (send: CGRect, field: CGRect), _ frames: (send: CGRect, field: CGRect)?) -> Bool {
+        guard let frames else { return false }
+        return [(frames.send, place.send), (frames.field, place.field)].allSatisfy { frame, place in
+          abs(frame.minX - place.minX) < 1 && abs(frame.minY - place.minY) < 1
+        }
+      }
+      // Every place the field and Send are seen while the sidebar changes.
+      var seen: [(send: CGRect, field: CGRect)] = []
+      func observe() {
+        if let current = frames(), seen.last.map({ $0 != current }) ?? true { seen.append(current) }
+      }
+      func between() -> [String] {
+        seen.filter { !isAt(shown, $0) && !isAt(hidden, $0) }.map { "\($0.send) \($0.field)" }
+      }
+      try await waitForUI("the composer at rest beside the sidebar \(label)", in: host.view) {
+        isAt(shown, frames()) && composerAcceptsClicks(in: host.view)
+      }
+
+      // Double-tap Control posts this through the panel.
+      NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
+      try await waitForUI("the composer at rest without the sidebar \(label) (seen \(seen))", in: host.view) {
+        observe()
+        return isAt(hidden, frames()) && host.shows("Show chat history") && composerAcceptsClicks(in: host.view)
+      }
+      XCTAssertEqual(between(), [], "Hiding the sidebar moves the composer at once \(label)")
+
+      seen = []
+      try await clickTestControl("Show chat history", in: host.view)
+      try await waitForUI("the composer at rest beside the sidebar again \(label) (seen \(seen))", in: host.view) {
+        observe()
+        return isAt(shown, frames()) && host.shows("New chat") && composerAcceptsClicks(in: host.view)
+      }
+      XCTAssertEqual(between(), [], "Showing the sidebar moves the composer at once \(label)")
+
+      // Send takes the click where it's drawn.
+      let editor = try XCTUnwrap(composerEditor(in: host.view))
+      editor.insertText("Explain actors", replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+      try await waitForUI("the draft \(label)", in: host.view) { fixture.screen.draft == "Explain actors" }
+      try await clickTestControl("Send message", in: host.view)
+      try await waitForUI("the request \(label)", in: host.view) { fixture.chat.activeRequest != nil }
+      host.window.orderOut(nil)
+    }
+  }
+
+  /// Where the composer's Send button and message field rest under Reduce
+  /// Motion in a window that opened with the sidebar shown or hidden, so the
+  /// composer never moved there.
+  @MainActor
+  private func restingComposerFrames(size: CGSize, sidebar: Bool, docked: Bool) async throws -> (send: CGRect, field: CGRect) {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+    fixture.reduceMotion = true
+    fixture.start.showsSidebar = sidebar
+    if docked { fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID)) }
+    let host = Host(fixture, size: size, test: self)
+    try await waitForUI("the composer with the sidebar \(sidebar ? "shown" : "hidden")", in: host.view) {
+      host.shows(sidebar ? "New chat" : "Show chat history") && host.shows("Example /screen") != docked
+        && composerAcceptsClicks(in: host.view)
+    }
+    try await waitForSettledLayout(in: host, "sidebar \(sidebar), docked \(docked)", markers: ["Send message"])
+    let marker = try XCTUnwrap(host.marker("Send message"))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    let frames = (send: host.view.convert(marker.bounds, from: marker), field: host.view.convert(editor.bounds, from: editor))
+    host.window.orderOut(nil)
+    return frames
+  }
+
   @MainActor
   func testHelpOpensAndDoneClosesIt() async throws {
     let fixture = try await Fixture(test: self)
@@ -984,6 +1071,9 @@ extension EnigmaMainWindowTests {
     /// Reduce Motion, off by default and never the Mac's real setting, which
     /// GitHub's macOS runners turn on. A test that needs it on sets its own.
     var reduceMotion = false
+    /// Animations, off by default so each change lands at once. A test that
+    /// watches how something moves turns them on.
+    var animates = false
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
     private(set) var earlierSessionID: UUID?
@@ -1050,7 +1140,7 @@ extension EnigmaMainWindowTests {
         selectionAccess: selectionAccess)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .enigmaTestReduceMotion(reduceMotion)
-        .transaction { $0.disablesAnimations = true }
+        .transaction { [animates] in if !animates { $0.disablesAnimations = true } }
     }
   }
 
