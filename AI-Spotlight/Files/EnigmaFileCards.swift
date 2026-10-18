@@ -20,7 +20,7 @@ struct EnigmaFileAttachmentCard: View {
         ForEach(selection.attachments) { attachment in
           HStack(spacing: 8) {
             Image(systemName: attachment.isDirectory ? "folder" : "doc")
-              .font(.system(size: 12))
+              .font(EnigmaTypography.symbol(12))
               .foregroundStyle(palette.accentText.color)
               .accessibilityHidden(true)
             Text(attachment.name)
@@ -33,7 +33,7 @@ struct EnigmaFileAttachmentCard: View {
               .lineLimit(1)
             Spacer(minLength: 4)
             Button { files.remove(id: attachment.id) } label: {
-              Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
+              Image(systemName: "xmark").font(EnigmaTypography.smallIconButtonSymbol)
             }
             .enigmaIconButtonStyle(size: CGSize(width: 24, height: 22))
             .accessibilityLabel("Remove \(attachment.name)")

@@ -223,7 +223,7 @@ private struct EnigmaSettingsNavigationItem: View {
     Button(action: action) {
       HStack(spacing: 0) {
         Image(systemName: item.enigmaSymbol)
-          .font(.system(size: 13))
+          .font(EnigmaTypography.navigationSymbol)
           .frame(width: 18)
           .foregroundStyle((isSelected ? palette.accentText : emphasized ? palette.textPrimary : palette.textSecondary).color)
           .padding(.trailing, 8)

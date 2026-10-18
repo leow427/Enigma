@@ -53,7 +53,7 @@ struct EnigmaActivityView: View {
         Text(activity.status)
           .foregroundStyle((isHovered ? palette.textPrimary : palette.textSecondary).color)
         Image(systemName: "chevron.right")
-          .font(.system(size: 8, weight: .semibold))
+          .font(EnigmaTypography.disclosureSymbol)
           .foregroundStyle(palette.textTertiary.color)
           .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
       }

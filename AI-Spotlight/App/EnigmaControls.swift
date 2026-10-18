@@ -246,7 +246,7 @@ private struct EnigmaIconButtonBody: View {
     let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
     let hovered = isHovered && isEnabled
     configuration.label
-      .font(.system(size: 15))
+      .font(EnigmaTypography.iconButtonSymbol)
       .foregroundStyle(EnigmaIconButtonStyle.glyphColor(isActive: isActive, isHovered: hovered, in: palette).color)
       .frame(width: size.width, height: size.height)
       .background { if hovered || isActive { shape.fill(palette.hover.color) } }
@@ -1352,7 +1352,7 @@ private struct EnigmaMenuList: View {
         VStack(spacing: 0) {
           EnigmaHairline()
           Image(systemName: "chevron.down")
-            .font(.system(size: 9, weight: .semibold))
+            .font(EnigmaTypography.disclosureSymbol)
             .foregroundStyle(palette.textTertiary.color)
             .frame(maxWidth: .infinity)
             .frame(height: 16)
@@ -1518,7 +1518,7 @@ struct EnigmaMenu<Label: View>: View {
         HStack(spacing: 6) {
           label()
           Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 9, weight: .semibold))
+            .font(EnigmaTypography.disclosureSymbol)
             .foregroundStyle(palette.textTertiary.color)
             .accessibilityHidden(true)
         }
@@ -1707,7 +1707,7 @@ struct EnigmaDisclosure<Content: View>: View {
       } label: {
         HStack(spacing: 5) {
           Image(systemName: "chevron.right")
-            .font(.system(size: 9, weight: .semibold))
+            .font(EnigmaTypography.disclosureSymbol)
             .rotationEffect(.degrees(isExpanded ? 90 : 0))
             .accessibilityHidden(true)
           Text(title)
@@ -1796,7 +1796,7 @@ struct EnigmaCardTitle: View {
             .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
         }
       }
-      .font(EnigmaTypography.ui(12.5, weight: .medium))
+      .font(EnigmaTypography.symbol(12.5))
       .foregroundStyle(palette.textSecondary.color)
       .accessibilityHidden(true)
       Text(title)

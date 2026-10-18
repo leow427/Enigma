@@ -90,7 +90,7 @@ struct EnigmaUserMessage: View {
         ForEach(attachments.indices, id: \.self) { index in
           HStack(spacing: 5) {
             Image(systemName: attachments[index].isDirectory ? "folder" : "doc")
-              .font(.system(size: 10.5))
+              .font(EnigmaTypography.symbol(10.5))
               .accessibilityHidden(true)
             Text(attachments[index].name).lineLimit(2)
           }

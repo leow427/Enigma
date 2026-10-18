@@ -76,7 +76,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
 
       EnigmaNavigationRow("New chat", hint: "⌘N", action: newChat) {
         Image(systemName: "plus")
-          .font(.system(size: 11, weight: .bold))
+          .font(EnigmaTypography.symbol(13))
           .foregroundStyle(palette.onAccent.color)
           .frame(width: 20, height: 20)
           .background(palette.accent.color, in: Circle())
@@ -105,13 +105,13 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
   private var footer: some View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaNavigationRow("Help", action: openHelp) {
-        Image(systemName: "questionmark.circle").font(.system(size: 14))
+        Image(systemName: "questionmark.circle").font(EnigmaTypography.navigationSymbol)
           .foregroundStyle(palette.textSecondary.color)
       }
       .welcomeTourTarget(.help)
       .id(Self.helpAnchor)
       EnigmaNavigationRow("Settings", hint: "⌘,", action: openSettings) {
-        Image(systemName: "gearshape").font(.system(size: 14))
+        Image(systemName: "gearshape").font(EnigmaTypography.navigationSymbol)
           .foregroundStyle(palette.textSecondary.color)
       }
       developerTools()

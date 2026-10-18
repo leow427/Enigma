@@ -179,8 +179,8 @@ struct EnigmaCompactSelectionLine: View {
       }
       if showsStatus && isComposing {
         Button(action: toggleStatus) {
-          Image(systemName: statusNeedsAttention ? "exclamationmark.bubble" : "text.quote")
-            .font(.system(size: 12))
+          Image(systemName: statusNeedsAttention ? "exclamationmark.circle" : "info.circle")
+            .font(EnigmaTypography.smallIconButtonSymbol)
         }
         .enigmaIconButtonStyle(isActive: isStatusPresented, size: CGSize(width: 24, height: 22))
         .accessibilityLabel("Selection context and status")
@@ -190,7 +190,7 @@ struct EnigmaCompactSelectionLine: View {
       }
       if let context {
         Button { remove(context.id) } label: {
-          Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
+          Image(systemName: "xmark").font(EnigmaTypography.smallIconButtonSymbol)
         }
         .enigmaIconButtonStyle(size: CGSize(width: 24, height: 22))
         .disabled(isBusy)
@@ -256,7 +256,7 @@ struct EnigmaCompactComposer: View {
         .enigmaCharacterTarget(MainWindowCharacter.composerTarget, at: UnitPoint(x: 0.05, y: 0.5))
       HStack(spacing: 4) {
         Button(action: attach) {
-          Image(systemName: "plus").font(.system(size: 14, weight: .regular))
+          Image(systemName: "plus").font(EnigmaTypography.symbol(14))
         }
         .enigmaIconButtonStyle(isActive: files.selection != nil || files.isPicking, size: CGSize(width: 26, height: 24))
         .disabled(isAttachDisabled)

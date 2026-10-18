@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		67A83E9AC0134BD4A5EF555F /* AI-SpotlightTests/EnigmaIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2EE23DD30DADC4726A2A12 /* AI-SpotlightTests/EnigmaIconTests.swift */; };
+		0AA8637ACCD55E970535A148 /* AI-Spotlight/App/EnigmaAppIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8847E9740883DE782193462F /* AI-Spotlight/App/EnigmaAppIcon.swift */; };
 		A7C84667C6870F2F121788A6 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */; };
 		08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */; };
 		FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */; };
@@ -198,6 +200,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9B2EE23DD30DADC4726A2A12 /* AI-SpotlightTests/EnigmaIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaIconTests.swift"; sourceTree = SOURCE_ROOT; };
+		8847E9740883DE782193462F /* AI-Spotlight/App/EnigmaAppIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaAppIcon.swift"; sourceTree = SOURCE_ROOT; };
 		586CBA5DBB839B890F7674C0 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-SpotlightTests/EnigmaCompactPanelTests.swift"; sourceTree = SOURCE_ROOT; };
 		A71CB691CF9A262879F0FAC5 /* AI-Spotlight/App/EnigmaCompactPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanel.swift"; sourceTree = SOURCE_ROOT; };
 		3C1D3AA23AB87358E2386E3B /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AI-Spotlight/App/EnigmaCompactPanelLogic.swift"; sourceTree = SOURCE_ROOT; };
@@ -404,6 +408,8 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				9B2EE23DD30DADC4726A2A12 /* AI-SpotlightTests/EnigmaIconTests.swift */,
+				8847E9740883DE782193462F /* AI-Spotlight/App/EnigmaAppIcon.swift */,
 				DD7B6F1531233451C5223B89 /* AI-SpotlightTests/EnigmaMainWindowTests.swift */,
 				4B43869ED5B6C1E5FB321397 /* AI-Spotlight/App/EnigmaHelpView.swift */,
 				56BF7D0073AF0C3510561470 /* AI-Spotlight/App/EnigmaMainPage.swift */,
@@ -764,6 +770,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0AA8637ACCD55E970535A148 /* AI-Spotlight/App/EnigmaAppIcon.swift in Sources */,
 				3AFE814393625FF54E59745D /* AI-Spotlight/Messages/MessagesControls.swift in Sources */,
 				08EEAB606415AB9771E0E088 /* AI-Spotlight/App/EnigmaCompactPanel.swift in Sources */,
 				FE80828645C0E79871D21DAB /* AI-Spotlight/App/EnigmaCompactPanelLogic.swift in Sources */,
@@ -900,6 +907,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				67A83E9AC0134BD4A5EF555F /* AI-SpotlightTests/EnigmaIconTests.swift in Sources */,
 				510050E15A14FFE663775680 /* AI-SpotlightTests/MessagesToolCallingTests.swift in Sources */,
 				A7C84667C6870F2F121788A6 /* AI-SpotlightTests/EnigmaCompactPanelTests.swift in Sources */,
 				872A6789644682A269790303 /* AI-SpotlightTests/EnigmaConversationTests.swift in Sources */,
@@ -1010,6 +1018,7 @@
 		AC0000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "AI-Spotlight/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -1034,6 +1043,7 @@
 		AC0000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "AI-Spotlight/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;

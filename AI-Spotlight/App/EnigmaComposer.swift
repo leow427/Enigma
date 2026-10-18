@@ -84,7 +84,7 @@ struct EnigmaComposer: View {
   private var bar: some View {
     HStack(spacing: 2) {
       Button(action: attach) {
-        Image(systemName: "plus").font(.system(size: 16, weight: .regular))
+        Image(systemName: "plus").font(EnigmaTypography.iconButtonSymbol)
       }
       .enigmaIconButtonStyle(isActive: files.selection != nil || files.isPicking)
       .disabled(isAttachDisabled)
@@ -133,7 +133,7 @@ struct EnigmaComposer: View {
       if isResponding { stop() } else { send() }
     } label: {
       Image(systemName: isResponding ? "stop.fill" : "arrow.up")
-        .font(.system(size: isResponding ? 12 : 15, weight: .semibold))
+        .font(EnigmaTypography.symbol(isResponding ? 12 : 15))
     }
     .modifier(EnigmaSendButtonFocus())
     .disabled(!isResponding && !canSend)

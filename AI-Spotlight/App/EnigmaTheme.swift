@@ -167,6 +167,25 @@ enum EnigmaTypography {
   static func mono(_ size: CGFloat = 11.5, weight: Font.Weight = .regular) -> Font {
     .system(size: size, weight: weight, design: .monospaced)
   }
+
+  // MARK: SF Symbols
+
+  /// An SF Symbol, always at `.regular`: the weight whose line matches the
+  /// tool icons' 1.75 stroke on a 24 pt grid, so glyphs from every screen
+  /// draw one line.
+  static func symbol(_ size: CGFloat) -> Font { .system(size: size, weight: .regular) }
+
+  /// A glyph in a 30 × 28 icon button, like Attach or the sidebar toggle.
+  static let iconButtonSymbol = symbol(15)
+  /// A glyph in a 24 × 22 icon button, like Remove on a card or the compact
+  /// panel's status button.
+  static let smallIconButtonSymbol = symbol(12)
+  /// A navigation row's glyph, in the sidebar and in Settings.
+  static let navigationSymbol = symbol(14)
+  /// A disclosure chevron beside text. A regular chevron thins to a hairline
+  /// at 9 pt, so this one is semibold, which draws about the same line as
+  /// the regular glyphs around it.
+  static let disclosureSymbol = Font.system(size: 9, weight: .semibold)
 }
 
 /// A spring in Apple's response and damping terms, matching the mockups.

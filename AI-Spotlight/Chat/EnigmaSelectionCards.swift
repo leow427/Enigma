@@ -88,7 +88,7 @@ struct EnigmaSelectionContextCard: View {
           .lineLimit(2)
       }
       Spacer(minLength: 0)
-      Button(action: remove) { Image(systemName: "xmark").font(.system(size: 11, weight: .medium)) }
+      Button(action: remove) { Image(systemName: "xmark").font(EnigmaTypography.smallIconButtonSymbol) }
         .enigmaIconButtonStyle(size: CGSize(width: 24, height: 22))
         .help("Remove selected text")
         .accessibilityLabel("Remove selected text")

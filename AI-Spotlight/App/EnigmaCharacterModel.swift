@@ -890,8 +890,11 @@ struct EnigmaCharacterModel: Sendable {
 
   /// The still pose, scaled and centered so its drawn bounds just fit `rect`.
   /// Without legs, the body grows to use the room they took, which reads
-  /// better at mark sizes.
-  static func stillFrame(fitting rect: CGRect, legs: Bool = true) -> EnigmaCharacterFrame {
+  /// better at mark sizes. `lineWidth` sets the outline's width instead of the
+  /// size-based one, with the legs and antenna ball in proportion, for icons
+  /// whose strokes must match their neighbors'. The porthole grows by the
+  /// extra width, so its opening stays the same size.
+  static func stillFrame(fitting rect: CGRect, legs: Bool = true, lineWidth: Double? = nil) -> EnigmaCharacterFrame {
     guard rect.width > 0, rect.height > 0 else { return .empty }
     func pose(_ slot: Slot) -> EnigmaCharacterFrame {
       var frame = stillFrame(on: slot)
@@ -899,6 +902,13 @@ struct EnigmaCharacterModel: Sendable {
       if !legs {
         frame.legs = []
         frame.feet = []
+      }
+      if let lineWidth, frame.lineWidth > 0 {
+        let scale = lineWidth / frame.lineWidth
+        for index in frame.holes.indices { frame.holes[index].radius += (lineWidth - frame.lineWidth) / 2 }
+        frame.lineWidth = lineWidth
+        frame.legWidth *= scale
+        frame.antennaBallLineWidth *= scale
       }
       return frame
     }
