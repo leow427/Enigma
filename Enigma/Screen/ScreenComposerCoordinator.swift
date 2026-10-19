@@ -17,6 +17,9 @@ final class ScreenComposerCoordinator: ObservableObject {
   private var revision = UUID()
   private var lastCaptureWasDesktop = false
   private let ocrTimeout: Duration
+  /// A read that outlasted the cap and still runs. Captures meanwhile go
+  /// straight to vision instead of stacking another cold Vision start.
+  private var lingeringRead: UUID?
 
   init(captureService: any ScreenCapturing = ScreenCaptureService(), ocrService: any ScreenOCRReading = ScreenOCRService(),
        ocrTimeout: Duration = .seconds(3)) {
@@ -79,6 +82,7 @@ final class ScreenComposerCoordinator: ObservableObject {
   /// a cold Vision start loads its model once, and stopping it would keep the
   /// next capture cold too. Only real cancellation cancels it.
   private func recognize(_ pixels: CGImage) async throws -> ScreenOCRResult? {
+    guard lingeringRead == nil else { return nil }
     let ocrService = ocrService
     let reading = Task.detached(priority: .userInitiated) { try await ocrService.recognize(pixels) }
     let race = FirstOutcome<ScreenOCRResult?>()
@@ -92,12 +96,21 @@ final class ScreenComposerCoordinator: ObservableObject {
       do { race.finish(.success(try await reading.value)) }
       catch { race.finish(.failure(error)) }
     }
-    return try await withTaskCancellationHandler {
+    let result = try await withTaskCancellationHandler {
       try await race.value()
     } onCancel: {
       reading.cancel()
       race.finish(.failure(CancellationError()))
     }
+    if result == nil {
+      let token = UUID()
+      lingeringRead = token
+      Task { [weak self] in
+        _ = try? await reading.value
+        if self?.lingeringRead == token { self?.lingeringRead = nil }
+      }
+    }
+    return result
   }
 
   private func captureRegion(desktop: Bool) async throws -> NSImage? {
