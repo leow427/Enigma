@@ -10,7 +10,9 @@ final class MessagesIntentPolicyTests: XCTestCase {
                    "check my messages from Alex", "any new texts from Jordan?", "what did Sam say in our chat",
                    "what did Sam say on iMessage", "show me the last text from Dad", "what didn’t she text me back about",
                    "What did Sam text me last?", "last text from Alex", "has Jordan texted me?",
-                   "read my latest messages", "any new messages from Mom"] {
+                   "read my latest messages", "any new messages from Mom",
+                   "what was the last message Sam sent me", "did Alex reply", "check messages", "check my messages",
+                   "did Alex reply yet?", "has Mom texted back?"] {
       XCTAssertTrue(MessagesIntentPolicy.isRequested(prompt), prompt)
     }
   }
@@ -19,7 +21,9 @@ final class MessagesIntentPolicyTests: XCTestCase {
     for prompt in ["text Alex that I'm running late", "send her a message saying hey", "send Sam a text saying hi",
                    "message Sam that dinner is at 7", "reply to Mom with ok", "tell Jordan on iMessage I'm here",
                    "iMessage Alex the address", "Text Alex that I’m running late", "please text Mom that I landed",
-                   "can you send Alex a message saying I'm late", "tell Sam by text that I'm here"] {
+                   "can you send Alex a message saying I'm late", "tell Sam by text that I'm here",
+                   "send a message to Alex saying hi", "text the group that I'm late", "text her I'm on my way",
+                   "message my sister saying happy birthday", "text Mom back that I'm fine"] {
       XCTAssertTrue(MessagesIntentPolicy.isRequested(prompt), prompt)
     }
   }
@@ -34,7 +38,17 @@ final class MessagesIntentPolicyTests: XCTestCase {
                    "message me a joke", "text me a summary", "draft a text to my boss asking for Friday off",
                    "reply to this email politely", "explain this message broker", "what's on my screen",
                    "what does “text Alex” mean", "translate this text to French", "check the log message",
-                   "text editor recommendations", "what is a text message", "send me the last text you wrote"] {
+                   "text editor recommendations", "what is a text message", "send me the last text you wrote",
+                   // Nouns that start a draft, not send verbs.
+                   "text classification with BERT", "text wrapping in css", "text alignment in swiftui",
+                   "text generation models", "message passing in Erlang explained", "explain actors and message passing",
+                   "message brokers compared", "message types in protobuf", "message board software recommendations",
+                   "sms gateway providers", "SMS marketing best practices", "imessage not working on mac",
+                   "message types that protobuf supports", "text messages vs email for marketing",
+                   // "my … text from" without a read request.
+                   "fix my text with proper punctuation", "rewrite my text from above",
+                   "in your last message from earlier you said X", "what was the last message you sent me",
+                   "reply to reviewer 2 politely", "did you reply to my question", "check messages in the kafka queue"] {
       XCTAssertFalse(MessagesIntentPolicy.isRequested(prompt), prompt)
     }
   }
@@ -45,7 +59,13 @@ final class MessagesIntentPolicyTests: XCTestCase {
                    "message her that I'm late", "Tell her I’ll be there"] {
       XCTAssertTrue(MessagesIntentPolicy.isFollowUp(prompt), prompt)
     }
-    for prompt in ["what's 2 + 2", "thanks!", "explain photosynthesis", #"what does "send it" mean"#] {
+    for prompt in ["yes, send the message", "send this message", "reply to him", "text Sam back"] {
+      XCTAssertTrue(MessagesIntentPolicy.isFollowUp(prompt), prompt)
+    }
+    for prompt in ["what's 2 + 2", "thanks!", "explain photosynthesis", #"what does "send it" mean"#,
+                   "translate this text", "what does this error message mean", "send me a summary",
+                   "write a commit message", "explain message passing", "text classification with BERT",
+                   "summarize the text above", "send us the details"] {
       XCTAssertFalse(MessagesIntentPolicy.isFollowUp(prompt), prompt)
     }
   }
