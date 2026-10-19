@@ -1,4 +1,4 @@
-# Chat scrolling and botanical glass accents
+# Chat scrolling and appearance
 
 Implemented on 2026-09-06, based on `e12305a` (`feat/file-mode`).
 
@@ -20,11 +20,11 @@ remain unchanged.
 
 ## Appearance
 
-Sage accents add fine outer/palette borders, a composer focus ring and soft glow,
-a selected-chat marker, and an assistant label dot. The welcome symbol gets a
-quiet circular treatment. Rounded greeting/role typography and short hover/press
-feedback add warmth without changing the established glass layout. Colors adapt
-to light/dark appearance; Reduce Motion disables the new motion effects.
+The botanical accents first added here were replaced by the Paper and Ink design
+(see [UI-Style.md](../UI-Style.md)). The chat sits on the opaque `background`,
+the composer's edge picks up the `accent` while it has focus, the open chat in
+the sidebar has a small dot, and replies carry the character or its mark. Reduce
+Motion turns springs into cross-fades.
 
 ## Verification
 
@@ -41,11 +41,8 @@ to light/dark appearance; Reduce Motion disables the new motion effects.
   hierarchy was inspected. The privacy-excluded panel does not appear in computer
   screenshots, so this is not claimed as a successful manual visual scroll test.
 
-The image below is a native test-rendered detail view with synthetic content,
-cropped to omit the sidebar's separate glass surface, which bitmap caching does
-not capture reliably. It demonstrates the focused composer and message styling;
-it is intentionally retained as review evidence. Full signed-app appearance and
-physical trackpad feel still benefit from user review. GitHub CI is reported in
+The image below is a native test rendering of the chat with synthetic content.
+Physical trackpad feel still benefits from user review. GitHub CI is reported in
 the pull request.
 
-![Native chat detail with sage focus border](images/chat-nature-glass.png)
+![A chat in the current design](design/ui-revamp/screenshots/phase-10/chat-paper.png)

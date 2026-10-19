@@ -36,6 +36,14 @@ func composerAcceptsClicks(in view: NSView) -> Bool {
   return hit === editor || hit.isDescendant(of: editor)
 }
 
+extension View {
+  /// Sets Reduce Motion for this view, whatever the Mac's setting. GitHub's
+  /// macOS runners turn it on, which makes the character move instantly and rest.
+  func enigmaTestReduceMotion(_ isOn: Bool) -> some View {
+    environment(\._accessibilityReduceMotion, isOn)
+  }
+}
+
 struct TestControlMarker: NSViewRepresentable {
   let name: String
 
@@ -100,5 +108,26 @@ final class TestFocusObserver: NSObject, @preconcurrency XCTestObservation {
     guard let frontmost = NSWorkspace.shared.frontmostApplication,
           frontmost.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
     developerApp = frontmost
+  }
+}
+
+/// The chat's message and reply views for `messages`, laid out as the window
+/// lays them out, without the scrolling list around them.
+struct TranscriptPreview: View {
+  let messages: [ChatMessage]
+  var spacing: CGFloat = 20
+  /// Shows each reply's activity and sources open.
+  var expandsActivity = false
+
+  var body: some View {
+    let transcript = ConversationTranscript(messages: messages, activity: nil, isResponding: false)
+    VStack(alignment: .leading, spacing: spacing) {
+      ForEach(transcript.rows) { row in
+        switch row {
+        case .message(let message): EnigmaUserMessage(message: message)
+        case .reply(let reply): EnigmaReplyView(reply: reply, expandedActivity: expandsActivity ? .constant(true) : nil)
+        }
+      }
+    }
   }
 }

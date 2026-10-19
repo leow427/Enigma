@@ -10,7 +10,7 @@ route is an automatic fallback for the other.
 1. Install [Claude Code](https://code.claude.com/docs/en/setup). Enigma looks in `~/.local/bin`,
    `~/.claude/local`, Homebrew's standard locations, and the launch environment's PATH. To use a
    different executable, set an absolute path in `AI_SPOTLIGHT_CLAUDE_PATH` in the Xcode Run environment.
-2. Open **Settings → Cloud & Search → Claude Subscription · Claude Code**.
+2. Open **Settings → Cloud and search → Subscriptions → Claude Code**.
 3. If Claude Code is already signed in with a Claude subscription, the account appears immediately.
    If it is not, choose **Sign in to Claude Code**. Enigma opens Terminal and runs `claude auth login --claudeai`,
    then checks the status every two seconds until the browser sign-in finishes, for up to five minutes.

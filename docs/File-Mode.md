@@ -1,10 +1,10 @@
 # File Mode
 
-File Mode starts only after **+ → Files** or **Shift + Option + F** opens the macOS file/folder picker. Both entry points call `FileModeCoordinator.activate`. Multiple files and folders can be attached; removing the last attachment returns to ordinary chat. A new chat starts without attachments. Existing conversations retain attachment metadata and bookmarks, but scopes open only when a File Mode request starts.
+File Mode starts only after the composer's **Attach** (**+**) button or **Shift + Option + F** opens the macOS file/folder picker. Both entry points call `FileModeCoordinator.activate`. Multiple files and folders can be attached; removing the last attachment returns to ordinary chat. A new chat starts without attachments. Existing conversations retain attachment metadata and bookmarks, but scopes open only when a File Mode request starts.
 
-The input displays a pink File Mode icon, each attachment and its access level. Local and Auto requests use **Read & Edit** access with a per-file safe/protected policy. Notes and simple text documents are edited locally. Protected edits offer Codex when a compatible cloud model is available; otherwise they use a clearly labeled local fallback. **Use Codex** displays a cloud-content disclosure and selects Codex; the user must still send the next request. There is no automatic provider fallback. Cloud File Mode currently supports the existing ChatGPT/Codex connection. Other cloud providers remain available for ordinary chat.
+Attach turns `accentText` while files are attached, and a card over the composer lists each attachment and its access level. Local and Auto requests use **Read & Edit** access with a per-file safe/protected policy. Notes and simple text documents are edited locally. Protected edits offer Codex when a compatible cloud model is available; otherwise they use a clearly labeled local fallback. **Use Codex** displays a cloud-content disclosure and selects Codex; the user must still send the next request. There is no automatic provider fallback. Cloud File Mode currently supports the existing ChatGPT/Codex connection. Other cloud providers remain available for ordinary chat.
 
-![Native UI fixtures showing local write policy, Codex disclosure and change actions](images/file-mode.png)
+![File cards with the local write policy, Codex disclosure and change actions](design/ui-revamp/screenshots/phase-7/cards-screen-and-files-paper.png)
 
 ## Shared architecture
 
@@ -77,7 +77,7 @@ Cloud availability is checked lazily, once per local task that requests a protec
 
 The real-model smoke tests use these production capabilities and exercise both safe local edits and unavailable-cloud protected fallback. Explicit read-only grants remain supported and independently enforced by the shared service. Filesystem boundaries, snapshot/rollback, cancellation and deletion confirmation continue to apply in every mode.
 
-Settings → Local Models → **Install Local File Tools** installs the existing pinned, checksum-verified llama-server runtime (about 11 MB) when necessary. Already installed compatible model runtimes are reused. Setup downloads the runtime only; it does not transmit attachments. Model inference binds to loopback with an ephemeral API key, runs offline and is unloaded after the file task. Models still need a compatible chat template and reliable tool-calling behavior; unsupported or malformed output fails without executing text as a command.
+Settings → Local models → Local file tools → **Install** installs the existing pinned, checksum-verified llama-server runtime (about 11 MB) when necessary. Already installed compatible model runtimes are reused. Setup downloads the runtime only; it does not transmit attachments. Model inference binds to loopback with an ephemeral API key, runs offline and is unloaded after the file task. Models still need a compatible chat template and reliable tool-calling behavior; unsupported or malformed output fails without executing text as a command.
 
 Reference: [llama.cpp function calling](https://github.com/ggml-org/llama.cpp/blob/master/docs/function-calling.md).
 
@@ -97,7 +97,7 @@ Before the first mutation of each affected path, the service writes a durable be
 
 Transactions preflight all paths and mutations before writing, preserve the first before-image across subsequent tool calls, and apply files using atomic replacements. Failed multi-file operations roll back completed steps when the files still match the operation's after-images. Undo restores modified/deleted files, removes new files and restores both sides of a move. Ownership, ordinary permission bits, macOS ACLs and writable extended attributes, including Finder metadata, are retained. If ownership or access rules cannot be restored, replacement fails before committing. Temporary copies have their inherited ACLs cleared before content is written. Kernel-generated authorization/provenance records, inode identity and timestamps are not restored as historical metadata.
 
-After a task, **N files changed → Review / Undo** appears in its conversation. Review shows plain-language file statuses with optional before/after previews. Settings → Local Models → **Review Saved File Changes** also exposes recovery after restart or conversation deletion. Undo checks for newer external changes and stops on conflicts. If a rollback cannot complete safely, its recovery journal remains available instead of silently discarding the before-images. Earlier successful tool operations remain visible if a later independent tool call fails.
+After a task, **N files changed → Review / Undo** appears in its conversation. Review shows plain-language file statuses with optional before/after previews. Settings → Local models → **Saved file changes** also exposes recovery after restart or conversation deletion. Undo checks for newer external changes and stops on conflicts. If a rollback cannot complete safely, its recovery journal remains available instead of silently discarding the before-images. Earlier successful tool operations remain visible if a later independent tool call fails.
 
 ## Initial limits
 

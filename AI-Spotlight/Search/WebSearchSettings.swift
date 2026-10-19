@@ -51,3 +51,34 @@ final class WebSearchSettings: ObservableObject {
     hasAPIKey = false
   }
 }
+
+/// What the Brave key field in Settings does.
+extension WebSearchSettings {
+  /// Save stays off until something other than spaces is typed.
+  static func canSaveAPIKey(_ field: String) -> Bool {
+    !field.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  /// Saves the typed key to the Keychain and clears the field. On failure the
+  /// field keeps what was typed and the error's message is returned.
+  func saveAPIKey(from field: inout String) -> String? {
+    do {
+      try saveAPIKey(field)
+      field = ""
+      return nil
+    } catch {
+      return error.localizedDescription
+    }
+  }
+
+  /// Removes the stored key and clears the field, returning the error's message on failure.
+  func removeAPIKey(clearing field: inout String) -> String? {
+    do {
+      try removeAPIKey()
+      field = ""
+      return nil
+    } catch {
+      return error.localizedDescription
+    }
+  }
+}

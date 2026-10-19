@@ -58,16 +58,12 @@ while allowing OCR's word-spacing differences.
 
 ## UI review
 
-These native test renders are checked in as UI documentation. The sheet's native
-material background is a separate surface; bitmap caching records its content.
+These native test renders are checked in as UI documentation. The consent sheet
+and the screenshot card are opaque, so bitmap caching records them exactly.
 
-![Full desktop attached in the compact selection composer](images/screen-consent/compact-desktop.png)
+![A screenshot attached over the composer](design/ui-revamp/screenshots/phase-7/cards-screen-and-files-paper.png)
 
-![Selected region attached in the compact selection composer](images/screen-consent/compact-region.png)
-
-![Full desktop consent with all-display scope and selected provider](images/screen-consent/desktop-consent.png)
-
-![Region consent with selected provider and saved-permission scope](images/screen-consent/region-consent.png)
+![Consent naming the capture's scope and the selected provider](design/ui-revamp/screenshots/phase-7/screen-consent-paper.png)
 
 ## Local verification
 

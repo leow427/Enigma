@@ -50,39 +50,116 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var attachedContexts: [ConversationContext] = []
   @Published private(set) var selectionRevisions: [UUID: SelectionRevision] = [:]
   @Published private(set) var isApplyingSelection = false
-  private let selectionEditingSettings: SelectionEditingSettings
+  let selectionEditingSettings: SelectionEditingSettings
   private let replaceSelection: @MainActor (String, UUID) async -> Bool
   private var selectionEditRequest: (id: UUID, contextID: UUID, automatic: Bool)?
+  /// The source material the active request carries, for refining its search query.
+  private var requestSource: (contexts: [ConversationContext], draft: String?) = ([], nil)
   private var replacementTask: Task<Void, Never>?
   private var selectionSettingsObservation: AnyCancellable?
+  /// The panel's chat while it's still temporary: kept in memory, never saved.
   private var temporarySessionID: UUID?
+  /// The chat the attached selection belongs to: the panel's temporary chat,
+  /// and the same chat once it opens in the full window and is saved.
+  private var selectionSessionID: UUID?
   var isTemporaryChat: Bool { selectedSessionID != nil && selectedSessionID == temporarySessionID }
+  /// The open chat is the one the selection was captured for.
+  var isSelectionChat: Bool { selectedSessionID != nil && selectedSessionID == selectionSessionID }
+  /// The chat just opened in the window from the panel, which says once
+  /// whether it's now saved or stays private.
+  struct OpenedSelectionChat: Equatable {
+    let id: UUID
+    let isPrivate: Bool
+  }
+  @Published private(set) var openedSelectionChat: OpenedSelectionChat?
+  /// The chats Recents lists: every chat but a temporary one.
+  var historySessions: [ChatSession] { sessions.filter { $0.id != temporarySessionID } }
   var messages: [ChatMessage] { selectedSession?.messages ?? [] }
 
   private var requestMessages: [ChatMessage] { messages.map { message in
     var copy = message
-    // The current attachment is authoritative. Removing it also removes it from future requests.
-    copy.contexts = nil
+    // Earlier messages keep the selection they were sent with, so the model
+    // can refer back to it, but only while it's still attached: removing it
+    // removes it from future requests. Request-only instructions never carry over.
+    let contexts = message.contexts?.filter { context in attachedContexts.contains { $0.id == context.id } }
+    copy.contexts = contexts?.isEmpty == false ? contexts : nil
     copy.selectionResponseMode = nil
     copy.selectionDraft = nil
     return copy
   } }
 
-  private var latestSelectionDraft: String? {
-    messages.reversed().compactMap { selectionRevisions[$0.id] }.first { revision in
-      attachedContexts.contains { $0.id == revision.contextID }
-    }?.text
+  /// The attached contexts the model has seen: carried by an earlier message
+  /// that has a reply. Request preparation leaves out a turn whose reply is
+  /// empty, failed or stopped before any text, so its selection doesn't count.
+  var sentContextIDs: Set<UUID> { Self.sentContextIDs(in: messages) }
+
+  static func sentContextIDs(in messages: [ChatMessage]) -> Set<UUID> {
+    var sent = Set<UUID>()
+    for (index, message) in messages.enumerated() where message.role == .user && index + 1 < messages.count {
+      let reply = messages[index + 1]
+      guard let contexts = message.contexts, reply.role == .assistant,
+            !message.content.isEmpty, !reply.content.isEmpty else { continue }
+      sent.formUnion(contexts.map(\.id))
+    }
+    return sent
   }
 
+  /// The history Auto estimates a request's size from: what the model will
+  /// receive, with the selection an earlier message carried.
+  var autoRoutingContextMessages: [ChatMessage] { requestMessages.map(ConversationContextPrompt.expand) }
+
+  /// The latest proposed revision of an attached selection, and the reply it came from.
+  private var latestSelectionRevision: (revision: SelectionRevision, message: ChatMessage)? {
+    for message in messages.reversed() {
+      if let revision = selectionRevisions[message.id], attachedContexts.contains(where: { $0.id == revision.contextID }) {
+        return (revision, message)
+      }
+    }
+    return nil
+  }
+
+  private var latestSelectionDraft: String? { latestSelectionRevision?.revision.text }
+
+  /// The latest draft, when the user changed it by hand: the model hasn't seen
+  /// those changes, while its own revision is already in the conversation.
+  private var manuallyEditedSelectionDraft: String? {
+    guard let latest = latestSelectionRevision,
+          latest.revision.text != SelectionRevisionResponse.parse(latest.message.content)?.text else { return nil }
+    return latest.revision.text
+  }
+
+  /// The user's message with the source material this request needs. The
+  /// selection goes with the first message only; later messages are ordinary
+  /// turns that can refer back to it in the history. `/edit` is the exception:
+  /// it always gets the selection, and the latest draft, to revise. So is a
+  /// `/translate` with no text of its own, which translates the selection.
   private func contextualMessage(_ prompt: String, responseInstructions: Bool = true) -> ChatMessage {
     var message = ThinkCommand.message(prompt)
-    message.contexts = attachedContexts.isEmpty ? nil : attachedContexts
     let mode = SelectionResponseMode(prompt: prompt)
-    if responseInstructions && (mode == .translate || attachedContexts.contains { $0.kind == .selectedText }) {
-      message.selectionResponseMode = mode
+    let contexts = Self.requestContexts(attached: attachedContexts, sent: sentContextIDs,
+                                        resendsSelection: SelectionResponseMode.usesSelectionAgain(prompt: prompt))
+    message.contexts = contexts.isEmpty ? nil : contexts
+    if responseInstructions {
+      message.selectionResponseMode = Self.responseMode(mode, attached: attachedContexts, request: contexts)
     }
-    message.selectionDraft = latestSelectionDraft
+    message.selectionDraft = mode == .edit ? latestSelectionDraft : manuallyEditedSelectionDraft
     return message
+  }
+
+  /// The attached contexts a request carries: those the model hasn't seen,
+  /// or all of them for `/edit` and a standalone `/translate`.
+  static func requestContexts(attached: [ConversationContext], sent: Set<UUID>,
+                              resendsSelection: Bool) -> [ConversationContext] {
+    resendsSelection ? attached : attached.filter { !sent.contains($0.id) }
+  }
+
+  /// Which Selection Context instructions a request gets: the request's own
+  /// command when it carries the selection, the follow-up guidance once the
+  /// selection is only in the history, and translation guidance for `/translate`.
+  static func responseMode(_ mode: SelectionResponseMode, attached: [ConversationContext],
+                           request: [ConversationContext]) -> SelectionResponseMode? {
+    if request.contains(where: { $0.kind == .selectedText }) || mode == .translate { return mode }
+    return attached.contains { $0.kind == .selectedText } ? .followUp : nil
   }
 
   func removeContext(id: UUID) {
@@ -101,6 +178,7 @@ final class LocalChatViewModel: ObservableObject {
     screenRouteDecision = nil
     let session = ChatSession(title: "Temporary chat")
     temporarySessionID = session.id
+    selectionSessionID = session.id
     sessions.append(session)
     selectedSessionID = session.id
     files.conversationID = session.id
@@ -108,13 +186,39 @@ final class LocalChatViewModel: ObservableObject {
     if case .failed = state { state = .idle }
   }
 
+  /// Leaving the selection's chat: the selection and its drafts go, and so
+  /// does the chat itself while it's still temporary.
   private func discardTemporaryChat() {
     replacementTask?.cancel(); replacementTask = nil
     selectionEditRequest = nil
     selectionRevisions = [:]
     if let temporarySessionID { sessions.removeAll { $0.id == temporarySessionID } }
     temporarySessionID = nil
+    selectionSessionID = nil
+    openedSelectionChat = nil
     attachedContexts = []
+  }
+
+  /// The panel's chat opened in the full window. By default it becomes an
+  /// ordinary chat, saved to history from now on; until now nothing of it was
+  /// written. With "Keep selection chats private" on, read now, it stays
+  /// temporary: never saved, out of Recents, and gone with the next chat. The
+  /// selection stays attached for /edit and Replace text, in memory only:
+  /// selected text is never written to disk.
+  func openTemporaryChatInWindow() {
+    guard let id = temporarySessionID, let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+    guard !selectionEditingSettings.keepsChatsPrivate else {
+      openedSelectionChat = OpenedSelectionChat(id: id, isPrivate: true)
+      return
+    }
+    temporarySessionID = nil
+    let question = sessions[index].messages.first { $0.role == .user }?.content
+      ?? pendingUserMessage.map(\.content)
+    sessions[index].title = question.map(ChatSession.title(for:)) ?? "New Chat"
+    // It goes to the top of Recents, selected.
+    sessions[index].lastActivityAt = .now
+    openedSelectionChat = OpenedSelectionChat(id: id, isPrivate: false)
+    sortAndPersistSessions()
   }
 
   // Presentation is immediate; persistence still waits for successful preparation.
@@ -470,7 +574,7 @@ final class LocalChatViewModel: ObservableObject {
         return
       }
       guard localToolRuntime(model) else {
-        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local Models → Install Local File Tools, or choose Cloud.")
+        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local models → Local file tools → Install, or choose Cloud.")
         return
       }
     } else {
@@ -985,7 +1089,7 @@ final class LocalChatViewModel: ObservableObject {
       ? AutoRouter.decide(AutoRouter.Request(
         selectedMode: .auto, webSearchEnabled: searchEnabled,
         prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content,
-        webSearchPrompt: prompt, contextMessages: requestMessages,
+        webSearchPrompt: prompt, contextMessages: autoRoutingContextMessages,
         localModel: installedModel, cloud: cloud
       ))
       : AutoRouter.localFallback(localModel: installedModel)
@@ -1043,7 +1147,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func selectSession(id: UUID) {
     guard sessions.contains(where: { $0.id == id }), !isBusy else { return }
-    if id != temporarySessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
+    if id != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
     selectedSessionID = id
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1055,7 +1159,7 @@ final class LocalChatViewModel: ObservableObject {
     contextNotice = nil
     let selectedIndex = selectedSessionID.flatMap { id in sessions.firstIndex(where: { $0.id == id }) }
     let nextID = sessions[selectedIndex.map { ($0 + 1) % sessions.count } ?? 0].id
-    if nextID != temporarySessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
+    if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
     selectedSessionID = nextID
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1111,9 +1215,11 @@ final class LocalChatViewModel: ObservableObject {
   private func append(_ message: ChatMessage, to sessionID: UUID) {
     guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
     var message = message
-    if message.role == .assistant, activeRequest != nil {
+    if message.role == .assistant, let activeRequest {
       activityMessageID = message.id
       message.activity = activity
+      message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
+                                   modelName: activeRequest.modelDisplayName)
     }
     sessions[index].append(message)
     if pendingUserMessage?.id == message.id { pendingUserMessage = nil }
@@ -1170,16 +1276,19 @@ final class LocalChatViewModel: ObservableObject {
   private func search(_ query: String, locationPrompt: String? = nil, maximumTokens: Int, requestID: UUID) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
     var contextualQuery = query
-    if !attachedContexts.isEmpty, let active = activeRequest, active.id == requestID {
+    // Only the source material this request carries refines its query.
+    let source = requestSource
+    if !source.contexts.isEmpty || source.draft != nil, let active = activeRequest, active.id == requestID {
       state = .refiningSearch
       receiveActivity(.phase(.refiningSearch), requestID: requestID)
       var message = ChatMessage(role: .user, content:
         "Create one concise web search query that helps answer the user's question about the attached context. "
         + "Return only the query, without quotes or commentary. Question: " + query)
-      message.contexts = attachedContexts
-      if let draft = latestSelectionDraft {
-        message.contexts?.append(ConversationContext(sourceName: "Proposed revision", text: draft))
+      var contexts = source.contexts
+      if let draft = source.draft {
+        contexts.append(ConversationContext(sourceName: "Proposed revision", text: draft))
       }
+      message.contexts = contexts
       let prepared: PreparedConversation
       let stream: AsyncThrowingStream<String, Error>
       if active.route.mode == .local {
@@ -1247,6 +1356,9 @@ final class LocalChatViewModel: ObservableObject {
     pendingUserMessage = nil
     hasReceivedResponse = false
     activeRequest = request
+    requestSource = (userMessage.contexts ?? [], userMessage.selectionDraft)
+    // The note that a chat opened in the window is saved, or private, is said once.
+    openedSelectionChat = nil
     selectionEditRequest = nil
     if userMessage.selectionResponseMode == .edit,
        let context = userMessage.contexts?.first(where: { $0.kind == .selectedText }) {
@@ -1258,7 +1370,16 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func selectionDisplayMessage(_ message: ChatMessage) -> ChatMessage {
-    guard isTemporaryChat, message.role == .assistant else { return message }
+    guard message.role == .assistant else { return message }
+    guard isSelectionChat else {
+      // A kept selection chat, reopened once its selection has gone: show the
+      // revised text as text, without the card's protocol.
+      guard let response = SelectionRevisionResponse.parse(message.content) else { return message }
+      var copy = message
+      copy.content = response.acknowledgement + "\n\n" + response.text
+        .split(separator: "\n", omittingEmptySubsequences: false).map { "> " + $0 }.joined(separator: "\n")
+      return copy
+    }
     let request = messages.prefix { $0.id != message.id }.last { $0.role == .user }
     guard request?.selectionResponseMode == .edit || selectionRevisions[message.id] != nil else { return message }
     var copy = message
@@ -1287,10 +1408,13 @@ final class LocalChatViewModel: ObservableObject {
 
   private func recoverSelectionResponse(active: ActiveRequest) async throws -> SelectionRevisionResponse.Recovery? {
     // One bounded model recovery, using the same provider and context. Never retry a paste.
-    var instruction = contextualMessage(SelectionRevisionResponse.recoveryInstructions, responseInstructions: false)
-    if let draft = instruction.selectionDraft {
-      instruction.contexts?.append(ConversationContext(kind: .file, sourceName: "Latest proposed revision", text: draft))
+    // Recovery belongs to the current /edit request, so it has the selection and the latest draft.
+    var instruction = ThinkCommand.message(SelectionRevisionResponse.recoveryInstructions)
+    var contexts = attachedContexts
+    if let draft = latestSelectionDraft {
+      contexts.append(ConversationContext(kind: .file, sourceName: "Latest proposed revision", text: draft))
     }
+    instruction.contexts = contexts.isEmpty ? nil : contexts
     let history = requestMessages + [instruction]
     let stream: AsyncThrowingStream<String, Error>
     if active.route.mode == .local {

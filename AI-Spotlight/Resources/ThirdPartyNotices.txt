@@ -22,15 +22,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Web Search icon
-===============
-Created by Gregor Cresnar from the Noun Project (noun_WebSearch_199704.svg).
-Supplied by the project owner. Original attribution is preserved in Icons/;
-the green variant retains the original geometry and includes attribution metadata.
-https://thenounproject.com/
-
-Screen Capture icon: Adrien Coquet, The Noun Project (noun_ScreenCapture_3967429). Supplied by the project owner.
-
 Qwen3-VL model packages (optional downloads)
 ==========================================
 Official Qwen3-VL 4B, 8B and 32B Instruct GGUF weights and matching vision encoders.

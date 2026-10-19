@@ -190,7 +190,7 @@ final class ScreenCaptureTests: XCTestCase {
 
   func testPanelIsRemovedDuringCaptureAndRestoresItsContentAndFrame() throws {
     let view = NSTextField(string: "draft")
-    let panel = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: view)
+    let panel = SpotlightPanelController(contentView: view)
     panel.show()
     let window = try XCTUnwrap(view.window)
     let frame = window.frame
@@ -220,7 +220,7 @@ final class ScreenCaptureTests: XCTestCase {
     NotificationCenter.default.addObserver(probe, selector: #selector(CaptureNotificationProbe.ended), name: .screenCaptureEnded, object: nil)
     defer { NotificationCenter.default.removeObserver(probe) }
     let view = NSTextField(string: "draft")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: view)
+    let controller = SpotlightPanelController(contentView: view)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(view.window)
@@ -356,7 +356,6 @@ final class SlashCommandTests: XCTestCase {
         XCTAssertEqual(SlashCommand.tokens(in: draft).map(\.command), [command])
         XCTAssertFalse(ComposerCommands(draft).prompt.lowercased().contains(command.token))
       }
-      XCTAssertNotNil(NSImage(systemSymbolName: command.symbol, accessibilityDescription: nil))
     }
     XCTAssertTrue(ThinkCommand.message("solve this /think").extendedThinking == true)
     XCTAssertEqual(ThinkCommand.message("solve this /think").content, "solve this")
@@ -504,8 +503,11 @@ final class SlashCommandTests: XCTestCase {
     editor.highlightCommands()
     XCTAssertEqual(editor.selectedRange(), selection)
     let think = (editor.string as NSString).range(of: "/think")
-    XCTAssertEqual(editor.textStorage?.attribute(.foregroundColor, at: think.location, effectiveRange: nil) as? NSColor, .systemBlue)
-    XCTAssertEqual(editor.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor, .labelColor)
+    // Commands take the palette's accentText and plain text its textPrimary.
+    XCTAssertEqual(editor.textStorage?.attribute(.foregroundColor, at: think.location, effectiveRange: nil) as? NSColor,
+                   EnigmaPalette.paper.accentText.nsColor)
+    XCTAssertEqual(editor.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor,
+                   EnigmaPalette.paper.textPrimary.nsColor)
     model.refresh()
     model.accept(.snapshot)
     XCTAssertEqual(editor.string, "🙂 /think explain /snapshot please")

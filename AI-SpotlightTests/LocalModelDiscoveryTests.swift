@@ -161,11 +161,13 @@ final class LocalModelDiscoveryTests: XCTestCase {
       sessionStore: ChatSessionStore(applicationSupportDirectory: root))
     let fixture = HuggingFaceModelListing(id: "google/gemma-4-26B-A4B-it",
       pipelineTag: "image-text-to-text", tags: ["license:apache-2.0"], downloads: 120_000, likes: 1_200)
-    for scheme in [ColorScheme.dark, .light] {
+    for appearance in [EnigmaAppearance.ink, .paper] {
+      let scheme: ColorScheme = appearance == .ink ? .dark : .light
       let discovery = LocalModelDiscovery { _ in HuggingFaceModelPage(models: [fixture]) }
       await discovery.search(ModelDiscoveryQuery())
-      let view = NSHostingView(rootView: LocalModelDiscoveryView(discovery: discovery, advisor: advisor, chat: chat)
-        .frame(width: 560, height: 850).naturePresentation())
+      let palette = appearance == .ink ? EnigmaPalette.ink : EnigmaPalette.paper
+      let view = NSHostingView(rootView: ScrollView { LocalModelDiscoveryView(discovery: discovery, advisor: advisor, chat: chat) }
+        .frame(width: 560, height: 850).background(palette.background.color).enigmaTheme(appearance))
       let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 850),
         styleMask: [.borderless], backing: .buffered, defer: false)
       window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)

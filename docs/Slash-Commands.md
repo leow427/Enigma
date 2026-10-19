@@ -1,9 +1,9 @@
 # Slash commands
 
-Recognized commands stay blue in the composer and work at the start, middle, or
+Recognized commands stay highlighted in `accentText` in the composer and work at the start, middle, or
 end of a message. `/search` applies only to the current message and stays visible
 until acceptance. Deleting it cancels explicit search; subsequent messages follow
-the automatic-search preference in Settings → Cloud & Search → Web Search · Brave.
+the automatic-search preference in Settings → Cloud and search → Web search · Brave.
 Automatic search defaults to on and requires a saved Brave key. Capture commands
 run when you submit.
 `/think` applies only to the current answer, including File Mode requests.
@@ -16,7 +16,8 @@ run when you submit.
 | `/think` | Request more careful reasoning |
 | `/messages` | Read, search, and send Apple Messages for this message only |
 
-Type `/` anywhere after whitespace to see commands, icons, and descriptions.
+Type `/` anywhere after whitespace, or click the composer's `/` button, to see
+the commands and their descriptions.
 `/search` is offered only with a saved Brave key, including in Help and the welcome
 tour. Saving or removing a key updates suggestions immediately without editing
 the draft. The automatic-search preference does not hide deliberate `/search`.
@@ -25,11 +26,12 @@ select, Tab or Return to complete, or click a suggestion. Escape dismisses the
 list before hiding the panel. Shift-Return inserts a newline. Completion edits
 only the command at the caret and supports Undo.
 
-The menu floats above the latest Enigma composer without moving its attachment,
-model, or send controls. Search uses blue, Screen purple, Snapshot orange,
-Think pink, and Messages indigo (with its own conversation-bubble icon); each menu icon and its command label share the same color. Draft
-commands retain their blue highlighting. Compact and wide layouts use the
-app’s existing text sizes, and history remains hidden at startup.
+The list is an opaque `menu` surface that floats over the composer without moving
+its attachment, model, or send controls. It opens below the composer while it sits
+high on the main page and above it once docked, and in the compact panel it opens
+above the input near the bottom of the screen. Each command is set in monospace
+`accentText` beside its description, with the chosen one on a `hover` fill. History
+remains hidden at startup.
 
 Commands must be separate tokens; punctuation may follow them. Quoted examples,
 backtick code, URLs, paths, and unknown commands remain literal text. Repeated
@@ -39,13 +41,13 @@ Screen and Search remain incompatible with attached File Mode selections.
 [Messages](Messages.md).
 
 Submitting `/screen` or `/snapshot` alone attaches an image and waits for your
-question. Both the full panel and compact selection bar show a thumbnail with
+question. Both the window and the compact panel show a thumbnail with
 **Retake** and **Remove**. Retake repeats the capture type; Remove excludes the
 image and extracted OCR from your next request. Cloud image consent previews
 the capture and names its scope and selected provider. See
 [Screen](Screen-Skill.md) for the saved permission and OCR distinction.
 
-![Command suggestions with icons and a blue command in the draft](images/slash-commands.png)
+![Command suggestions under the composer](design/ui-revamp/screenshots/phase-6/composer-commands-paper.png)
 
 The screenshot above is intentionally checked in as UI review documentation.
 Build products and generated test renders remain outside the repository. The

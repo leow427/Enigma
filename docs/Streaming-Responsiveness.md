@@ -23,7 +23,7 @@ finishes before the newest pending state is captured and written. An older queue
 snapshot therefore cannot overwrite a newer save or restore a cleared archive.
 Cancelled timers check cancellation before touching the pending save.
 
-This retains the existing `chats.json` format, atomic overwrite, five most recently
+This retains the existing `chats.json` format, atomic overwrite, ten most recently
 active sessions, and exclusion of temporary selection chats and session-only
 message fields. There are no backups, recovery files, retries or save-warning UI.
 Save failures are best effort and do not replace request feedback or affect Stop.
@@ -44,7 +44,7 @@ machine-dependent latency thresholds:
 | Real `AppShellView`, 500 fragments and a gated write | Stop command handled; native composer accepted text and updated its draft before disk was released |
 | Cloud completion and failure before the delay fires | Latest partial text saved without advancing the coalescing clock |
 | Older active write, 100 superseded pending snapshots, then newer state or empty archive | Only the active and final snapshots written, in that order; late cancelled timer did not restore old state |
-| New chats and a temporary stream during an outstanding save | Five ordinary sessions retained, evicted session stayed absent, temporary chat excluded |
+| New chats and a temporary stream during an outstanding save | Ten ordinary sessions retained, evicted session stayed absent, temporary chat excluded |
 
 The prior fragment path called the synchronous store once per fragment, plus
 three times to create the initial session and its messages. That is 1,003 write

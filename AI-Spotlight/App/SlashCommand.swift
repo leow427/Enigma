@@ -6,19 +6,6 @@ enum SlashCommand: String, CaseIterable, Identifiable {
 
   var id: String { rawValue }
   var token: String { "/" + rawValue }
-  var symbol: String {
-    switch self {
-    case .search: "globe"
-    case .screen: "display.2"
-    case .snapshot: "viewfinder"
-    case .think: "brain"
-    case .edit: "pencil"
-    case .translate: "character.bubble"
-    case .messages: "message"
-    }
-  }
-  /// A template image in the asset catalog, drawn instead of `symbol` where present.
-  var assetImage: String? { self == .messages ? "MessagesTool" : nil }
   var description: String {
     switch self {
     case .search: "Search the web for this answer"

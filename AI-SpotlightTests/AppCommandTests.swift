@@ -34,7 +34,7 @@ final class AppCommandTests: XCTestCase {
   @MainActor
   func testDoubleControlWorksWhileEditingWithoutChangingDraft() throws {
     let field = NSTextField(string: "Keep my unsent text")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: field)
+    let controller = SpotlightPanelController(contentView: field)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
@@ -77,21 +77,6 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(StartPreferences(defaults: defaults).mode, .auto)
     preferences.showsSidebar = false
     XCTAssertFalse(StartPreferences(defaults: defaults).showsSidebar)
-  }
-
-  func testSavedGlassAppearanceIsRestored() {
-    let suiteName = "GlassAppearanceSettingsTests.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suiteName)!
-    defer { defaults.removePersistentDomain(forName: suiteName) }
-
-    let settings = GlassAppearanceSettings(defaults: defaults)
-    settings.isEnabled = false
-    settings.clarity = 0.42
-    settings.save()
-
-    let restoredSettings = GlassAppearanceSettings(defaults: defaults)
-    XCTAssertFalse(restoredSettings.isEnabled)
-    XCTAssertEqual(restoredSettings.clarity, 0.42, accuracy: 0.001)
   }
 
   func testPanelShortcutsRequireOnlyTheCommandModifier() {
@@ -137,7 +122,7 @@ final class AppCommandTests: XCTestCase {
   @MainActor
   func testHideInactiveToolsShortcutWorksWhileTypingWithoutChangingDraft() throws {
     let field = NSTextField(string: "Keep my unsent text")
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(), contentView: field)
+    let controller = SpotlightPanelController(contentView: field)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
@@ -188,8 +173,7 @@ final class AppCommandTests: XCTestCase {
     store.save(normal)
     let setup = WelcomeSetup(defaults: defaults)
     let view = NSView()
-    let controller = SpotlightPanelController(glassAppearance: GlassAppearanceSettings(defaults: defaults),
-      sizeStore: store, contentView: view, welcomeSetup: setup)
+    let controller = SpotlightPanelController(sizeStore: store, contentView: view, welcomeSetup: setup)
     let window = try XCTUnwrap(view.window)
     defer { controller.hide() }
     func settleSizing() async {
@@ -223,7 +207,6 @@ final class AppCommandTests: XCTestCase {
   func testPanelRequestsCaptureExclusionWhileRemainingVisibleAndEditable() throws {
     let draft = NSTextField(string: "Visible only where capture exclusion is supported")
     let controller = SpotlightPanelController(
-      glassAppearance: GlassAppearanceSettings(),
       contentView: draft
     )
     let window = try XCTUnwrap(draft.window)
@@ -246,13 +229,13 @@ final class AppCommandTests: XCTestCase {
 
   @MainActor
   func testSettingsWindowOpensAndReopensWithoutASwiftUIScene() async throws {
-    let controller = SettingsWindowController(contentView: NSView())
+    let controller = try isolatedSettingsWindowController()
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
 
     XCTAssertEqual(window.sharingType, .none)
     XCTAssertTrue(window.titlebarAppearsTransparent)
-    XCTAssertEqual(window.backgroundColor, NSColor(NatureGlass.forestTop))
+    XCTAssertEqual(window.backgroundColor, EnigmaAppearance.windowBackground)
     controller.showSettings()
     try await waitForUI("Settings to become key") { window.isKeyWindow }
     XCTAssertTrue(window.isVisible)
@@ -272,10 +255,9 @@ final class AppCommandTests: XCTestCase {
   func testOpeningAdvancedSettingsPreservesChatVisibilityAndDraft() async throws {
     let draft = NSTextField(string: "Keep this unsent message")
     let panel = SpotlightPanelController(
-      glassAppearance: GlassAppearanceSettings(),
       contentView: draft
     )
-    let settings = SettingsWindowController(contentView: NSView())
+    let settings = try isolatedSettingsWindowController()
     let window = try XCTUnwrap(settings.window)
     let delegate = ApplicationDelegate(panelController: panel, settingsWindowController: settings)
     defer {
@@ -302,6 +284,15 @@ final class AppCommandTests: XCTestCase {
     panel.hide()
     delegate.openSettings()
     XCTAssertFalse(panel.isVisible, "Opening Settings must also respect an already hidden chat.")
+  }
+
+  /// The Settings window, whatever the installed app's appearance setting is.
+  @MainActor
+  private func isolatedSettingsWindowController() throws -> SettingsWindowController {
+    let name = "AppCommandTests-Settings-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+    addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
+    return SettingsWindowController(contentView: NSView(), appearance: EnigmaAppearancePreference(defaults: defaults))
   }
 
   func testPanelFrameIsCenteredAndConstrainedToDisplay() {

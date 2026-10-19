@@ -3,12 +3,13 @@ import XCTest
 @testable import Enigma
 
 final class ChatPersistenceTests: XCTestCase {
-  func testStoreKeepsFiveMostRecentlyActiveChatsInDescendingOrder() throws {
+  func testStoreKeepsTenMostRecentlyActiveChatsInDescendingOrder() throws {
+    XCTAssertEqual(ChatSessionStore.maximumRetainedSessions, 10)
     let root = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
     let store = ChatSessionStore(applicationSupportDirectory: root)
     let epoch = Date(timeIntervalSince1970: 0)
-    let sessions = (0..<6).map { index in
+    let sessions = (0..<11).map { index in
       ChatSession(
         title: "Chat \(index)",
         createdAt: epoch,
@@ -18,7 +19,28 @@ final class ChatPersistenceTests: XCTestCase {
 
     try store.save(sessions)
 
-    XCTAssertEqual(store.load().map(\.title), ["Chat 5", "Chat 4", "Chat 3", "Chat 2", "Chat 1"])
+    XCTAssertEqual(store.load().map(\.title), (1...10).reversed().map { "Chat \($0)" })
+    // The oldest chat is dropped from the file itself, not just hidden.
+    let saved = try String(decoding: Data(contentsOf: root.appending(path: "chats.json")), as: UTF8.self)
+    XCTAssertFalse(saved.contains("\"Chat 0\""))
+    XCTAssertTrue(saved.contains("\"Chat 1\""))
+  }
+
+  /// A history saved when Enigma kept five chats loads as it was.
+  func testStoreLoadsAnEarlierFiveChatHistoryUnchanged() throws {
+    let root = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    let epoch = Date(timeIntervalSince1970: 1_700_000_000)
+    let sessions = (0..<5).map { index in
+      ChatSession(title: "Chat \(index)", messages: [ChatMessage(role: .user, content: "Question \(index)",
+        createdAt: epoch)], createdAt: epoch, lastActivityAt: epoch.addingTimeInterval(TimeInterval(-index)))
+    }
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    try encoder.encode(sessions).write(to: root.appending(path: "chats.json"))
+
+    XCTAssertEqual(store.load(), sessions)
   }
 
   func testStoreRecoversToAnEmptyArchiveWhenJSONIsUnreadable() throws {

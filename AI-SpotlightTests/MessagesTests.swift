@@ -507,7 +507,6 @@ final class MessagesCoordinatorTests: XCTestCase {
     XCTAssertTrue(commands.messages)
     XCTAssertEqual(commands.prompt, "who texted me last?")
     XCTAssertFalse(ComposerCommands("see ~/messages folder").messages)
-    XCTAssertEqual(SlashCommand.messages.assetImage, "MessagesTool")
     XCTAssertNotNil(NSImage(named: "MessagesTool"))
   }
 }

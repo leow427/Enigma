@@ -57,6 +57,8 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     }
   }
   @Published private(set) var status = "Location is requested only for nearby questions."
+  /// Location Services in System Settings, where access is allowed or denied.
+  static let privacySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
   private let defaults: UserDefaults
   private var manager: CLLocationManager?
   private var geocoder: MKReverseGeocodingRequest?

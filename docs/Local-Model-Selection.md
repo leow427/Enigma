@@ -1,7 +1,7 @@
 # Enigma local model catalogue
 
 Enigma offers five choices for each memory class, organized as Lightweight,
-Middleweight and Heavyweight in both setup and Settings → Local Models. The
+Middleweight and Heavyweight in both setup and Settings → Local models. The
 16–18 GB group also supplies the starting list below 16 GB (with memory warnings);
 the 32 GB group supplies the starting list above 32 GB. Other
 quantizations remain available under **Models for other memory sizes**.
@@ -45,7 +45,7 @@ in the library and are not deleted or silently replaced.
 provides a dedicated runtime and separate vision/audio components. Enigma's pinned
 upstream llama.cpp b10797 integration has not been validated for that package.
 The catalogue keeps its exact metadata and explains the missing runtime. Both
-Local Models and Discover offer **Download files**, which opens an in-app file
+Local models and Discover offer **Download files**, which opens an in-app file
 chooser and downloads the chosen files for use in an appropriate external runtime.
 
 **Audio is a model capability, not an Enigma feature yet.** The current app sends
@@ -102,7 +102,7 @@ bundle identifier, Keychain service identifier and Application Support paths sta
 stable to preserve credentials, chats, model files, preferences and macOS consent.
 These are compatibility identifiers, not visible product branding.
 
-![Enigma local model setup](images/local-model-manager.png)
+![Settings → Local models](design/ui-revamp/screenshots/phase-10/settings-local-paper.png)
 
 ## Installation, upgrades and migration
 
@@ -125,7 +125,7 @@ Existing single-record and library metadata still decode. The obsolete
 `screen.localVisionModelID` preference is retired without changing the normal
 selection, consent settings or model files. A selected text-only model continues
 text chat and suitable OCR requests. Visual questions explain how to install and
-select a capable package in the existing Local Models tab. Already installed
+select a capable package in the Local models page. Already installed
 compatible image packages remain selectable for all requests, with legacy labels.
 The known incompatible original SmolVLM 2.2B image package gets explicit replacement
 guidance; its text/OCR use and files are retained. No migration downloads anything.

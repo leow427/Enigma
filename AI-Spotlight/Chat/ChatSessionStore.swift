@@ -1,7 +1,7 @@
 import Foundation
 
 struct ChatSessionStore: Sendable {
-  static let maximumRetainedSessions = 5
+  static let maximumRetainedSessions = 10
 
   private let fileURL: URL
 

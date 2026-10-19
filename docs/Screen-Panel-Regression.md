@@ -70,10 +70,9 @@ The final test failed against the original `AppShellView`, including a
 a later wrapped error. It passed with the fix restored. The explicit completion
 focus assertion likewise failed before the focus change and passed afterward.
 
-The native glass sidebar uses a separate rendering surface that bitmap caching
-does not reliably include. The automated test therefore checks its native view,
-scroll content, collapse state and bounds; manual Computer screenshots and
-accessibility inspection verify the visible sidebar. No screenshot-only blank
+The automated test checks the sidebar's native view, scroll content, collapse
+state and bounds, flush with the window's edges in the current design; manual
+Computer screenshots and accessibility inspection verify the visible sidebar. No screenshot-only blank
 surface is treated as proof that state was deleted.
 
 `ViewBridge ... NSViewBridgeErrorCanceled` also appeared during successful

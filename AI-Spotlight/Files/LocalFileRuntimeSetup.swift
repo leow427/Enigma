@@ -22,46 +22,49 @@ enum LocalFileRuntimeSetup {
   }
 }
 
-struct LocalFileToolsSetupView: View {
-  let model: LocalModel?
-  @State private var installing = false
-  @State private var progress: Double = 0
-  @State private var error: String?
-  @State private var ready = false
-  @State private var task: Task<Void, Never>?
-  var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text("Local File Tools").font(.subheadline.weight(.medium))
-      if ready || model.map({ LocalFileRuntime.executable(for: $0) != nil }) == true {
-        Text("Ready · Notes and text files can be edited locally. Protected edits offer Codex with your permission, or use a local fallback when Codex is unavailable. Review and Undo remain available.")
-          .font(.caption).foregroundStyle(.secondary)
-      } else {
-        Text("Install the small file-tools runtime once to analyze files with imported local models. This download sends no attached files.")
-          .font(.caption).foregroundStyle(.secondary)
-        if installing {
-          ProgressView(value: progress)
-          Button("Cancel") { task?.cancel() }
-        } else {
-          Button("Install Local File Tools (11 MB)") {
-            installing = true
-            error = nil
-            task = Task { @MainActor in
-              defer { installing = false; task = nil }
-              do {
-                try await LocalFileRuntimeSetup.install { update in
-                  await MainActor.run {
-                    progress = Double(update.receivedByteCount) / Double(max(1, update.expectedByteCount))
-                  }
-                }
-                ready = true
-              } catch is CancellationError { }
-              catch { self.error = error.localizedDescription }
-            }
+/// Installs the file-tools runtime once, with progress and cancellation.
+@MainActor
+final class LocalFileToolsInstallation: ObservableObject {
+  typealias Install = @Sendable (@escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> Void
+
+  @Published private(set) var isInstalling = false
+  @Published private(set) var progress: Double = 0
+  @Published private(set) var error: String?
+  @Published private(set) var didInstall = false
+  private var task: Task<Void, Never>?
+  private let install: Install
+
+  init(install: @escaping Install = { try await LocalFileRuntimeSetup.install(progress: $0) }) {
+    self.install = install
+  }
+
+  /// Ready once installed here, or when the model already has a runtime.
+  func isReady(for model: LocalModel?) -> Bool {
+    didInstall || model.map { LocalFileRuntime.executable(for: $0) != nil } == true
+  }
+
+  func start() {
+    guard !isInstalling else { return }
+    isInstalling = true
+    error = nil
+    task = Task { @MainActor in
+      defer { isInstalling = false; task = nil }
+      do {
+        try await install { update in
+          await MainActor.run {
+            self.progress = Double(update.receivedByteCount) / Double(max(1, update.expectedByteCount))
           }
         }
-      }
-      if let error { Text(error).font(.caption).foregroundStyle(.orange) }
+        didInstall = true
+      } catch is CancellationError { }
+      catch { self.error = error.localizedDescription }
     }
-    .onDisappear { task?.cancel() }
   }
+
+  func cancel() { task?.cancel() }
+}
+
+extension LocalFileToolsInstallation {
+  static let readyText = "Ready · Notes and text files can be edited locally. Protected edits offer Codex with your permission, or use a local fallback when Codex is unavailable. Review and Undo remain available."
+  static let installText = "Install the small file-tools runtime once to analyze files with imported local models. This download sends no attached files."
 }

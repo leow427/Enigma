@@ -411,8 +411,11 @@ final class LocalModelSelectionTests: XCTestCase {
     let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in profile })
     await advisor.detectHardware()
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), sessionStore: ChatSessionStore(applicationSupportDirectory: root))
-    try render(LocalModelOnboardingView(advisor: advisor, chat: chat), size: NSSize(width: 560, height: 650), name: "local-model-onboarding")
-    try render(Form { LocalModelManagerSection(advisor: advisor, chat: chat) }.formStyle(.grouped),
+    try render(LocalModelOnboardingView(advisor: advisor, chat: chat).enigmaTheme(.paper),
+               size: NSSize(width: 560, height: 650), name: "local-model-onboarding")
+    try render(LocalModelManagerSection(advisor: advisor, chat: chat).padding(24)
+                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                 .background(EnigmaPalette.paper.background.color).enigmaTheme(.paper),
                size: NSSize(width: 560, height: 740), name: "local-model-manager")
   }
 
@@ -850,15 +853,6 @@ extension LocalModelSelectionTests {
   }
 
   @MainActor
-  func testWelcomeAnimationIncludesAllFiveOriginalLetters() throws {
-    XCTAssertEqual(EnigmaHelloLetter.all.count, 5)
-    XCTAssertGreaterThan(EnigmaHelloLetter.all.flatMap(\.cols).flatMap(\.rows).count, 1000)
-    XCTAssertTrue(EnigmaHelloLetter.all.flatMap(\.cols).flatMap(\.rows).allSatisfy {
-      $0.char.count == 1 && $0.opacity > 0 && $0.opacity <= 1 && $0.y.isFinite
-    })
-  }
-
-  @MainActor
   func testChatBecomesEditableImmediatelyAfterEveryWelcomeExit() async throws {
     let root = try temporaryDirectory()
     let defaults = try welcomeDefaults()
@@ -877,13 +871,12 @@ extension LocalModelSelectionTests {
     let setup = WelcomeSetup(defaults: defaults)
     let preferences = StartPreferences(defaults: defaults)
     preferences.mode = .cloud
-    let appearance = GlassAppearanceSettings(defaults: defaults)
-    let view = NSHostingView(rootView: AppShellView(glassAppearance: appearance, cloudSettings: cloud,
+    let view = NSHostingView(rootView: AppShellView(cloudSettings: cloud,
       localChat: chat, screen: screen, modelAdvisor: advisor,
       searchSettings: WebSearchSettings(credentials: WelcomeEmptySearchCredentials(), defaults: defaults),
-      startPreferences: preferences, welcomeSetup: setup)
+      startPreferences: preferences, welcomeSetup: setup, appearance: EnigmaAppearancePreference(defaults: defaults))
       .transaction { $0.disablesAnimations = true })
-    let controller = SpotlightPanelController(glassAppearance: appearance, sizeStore: PanelSizeStore(defaults: defaults),
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: defaults),
       contentView: view, welcomeSetup: setup)
     controller.show()
     defer { controller.hide(); view.window?.contentView = nil }
@@ -936,15 +929,21 @@ extension LocalModelSelectionTests {
     for step in WelcomeSetup.Step.allCases {
       setup.step = step
       for size in [NSSize(width: 640, height: 420), NSSize(width: 1000, height: 780)] {
-        try render(WelcomeSetupView(setup: setup, advisor: advisor, chat: chat, cloud: cloud, search: search), size: size, name: "welcome-\(step)-\(Int(size.width))", roundedWindow: true)
+        let character = EnigmaCharacterController(seed: 3)
+        try render(WelcomeSetupView(setup: setup, character: character, advisor: advisor, chat: chat, cloud: cloud,
+                                    search: search).enigmaCharacterStage(character).enigmaTheme(.paper),
+                   size: size, name: "welcome-\(step)-\(Int(size.width))", roundedWindow: true)
       }
     }
-    try render(SettingsView(settings: cloud), size: NSSize(width: 820, height: 680), name: "settings-permissions")
-    try render(SettingsView(settings: cloud, initialDestination: .selection), size: NSSize(width: 820, height: 680), name: "selection-permissions")
+    try render(SettingsView(settings: cloud).enigmaTheme(.paper), size: NSSize(width: 820, height: 680),
+               name: "settings-permissions")
+    try render(SettingsView(settings: cloud, initialDestination: .selection).enigmaTheme(.paper),
+               size: NSSize(width: 820, height: 680), name: "selection-permissions")
     setup.step = .welcome
-    let shell = AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
+    let shell = AppShellView(cloudSettings: cloud,
       localChat: chat, modelAdvisor: advisor, searchSettings: search,
-      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: setup)
+      startPreferences: StartPreferences(defaults: defaults), welcomeSetup: setup,
+      appearance: EnigmaAppearancePreference(defaults: defaults))
     try render(shell, size: NSSize(width: 640, height: 420), name: "welcome-window-rounded", roundedWindow: true)
     setup.finish(takeTour: true)
     for sidebar in [false, true] {
@@ -955,8 +954,9 @@ extension LocalModelSelectionTests {
         setup.replay()
         setup.finish(takeTour: true)
         for _ in 0..<step.rawValue { setup.nextTourStep() }
-        let view = AppShellView(glassAppearance: GlassAppearanceSettings(defaults: defaults), cloudSettings: cloud,
-          localChat: chat, modelAdvisor: advisor, searchSettings: search, startPreferences: preferences, welcomeSetup: setup)
+        let view = AppShellView(cloudSettings: cloud,
+          localChat: chat, modelAdvisor: advisor, searchSettings: search, startPreferences: preferences, welcomeSetup: setup,
+          appearance: EnigmaAppearancePreference(defaults: defaults))
         try render(view, size: NSSize(width: 1000, height: 780), name: "welcome-tour-\(step)-\(sidebar)")
         try render(view, size: NSSize(width: 640, height: 420), name: "welcome-tour-small-\(step)-\(sidebar)")
       }

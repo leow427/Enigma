@@ -1,13 +1,13 @@
 # Web Search
 
-Add a Brave Search API key with **LLM Context** access in **Settings → Cloud & Search → Web Search · Brave**.
+Add a Brave Search API key with **LLM Context** access in **Settings → Cloud and search → Web search · Brave**.
 The key is stored in macOS Keychain under a separate search service, never in
 preferences or chat history. Brave API usage is separate from model-provider usage.
 
 ## Automatic search
 
 **Search automatically when fresh information is needed** is on by default in
-Settings → Cloud & Search → Web Search · Brave. It becomes active once a Brave key
+Settings → Cloud and search → Web search · Brave. It becomes active once a Brave key
 is saved. Questions such as “What happened in the news today?”, “Latest AI news”,
 “What is the latest Swift release?” and “Who is the president of France?” can now
 retrieve evidence without `/search`. Weather, market prices, exchange rates,
@@ -45,7 +45,7 @@ every paraphrase or resolve an ambiguous follow-up such as “And yesterday?” 
 private conversation history; use `/search` with a self-contained question when
 needed. It does not independently verify the freshness of each returned source.
 
-![Automatic search preference](images/automatic-web-search.png)
+![Web search in Settings → Cloud and search](design/ui-revamp/screenshots/phase-10/settings-cloud-paper.png)
 
 ## Explicit search
 
@@ -92,7 +92,7 @@ pixels and history are never attached to Brave. Evidence is fitted to the select
 model's context before the final answer. There is one extra model call for a
 screenshot query; its model stays loaded across both stages.
 
-![A Screen reply with Web Search sources](images/screen-search.png)
+![A reply with its web sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
 
 This native panel regression uses deterministic screenshot, search, and response
 fixtures; it demonstrates tool integration rather than model answer quality.
@@ -140,10 +140,8 @@ keys, rate limits, empty results, and insufficient context preserve the draft an
 do not silently produce an answer without search. Error responses are not echoed
 into the UI. Requests with neither explicit search nor an eligible automatic-search decision do not call Brave.
 
-The original icon is in `Icons/noun_WebSearch_199704.svg`; the green derivative is
-`Icons/noun_WebSearch_199704_green.svg`. The app bundles a vector image asset using
-the same geometry. Attribution is retained in the original, derivative metadata,
-and bundled third-party notices.
+Web Search has no bundled icon: the earlier third-party icon and its redrawn
+replacement were removed in the UI revamp because no view shows them.
 
 API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
 
