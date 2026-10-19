@@ -148,14 +148,19 @@ final class WebSearchTests: XCTestCase {
       "what are the most recent messages from my dad", "what's new in my texts", "whats new in my texts",
       "what did Jordan send me yesterday", "what are the latest emails from my boss today", "what are the latest texts from my sister",
       "what's the latest in our group chat", "did I miss any calls from my mom today", "check my inbox for anything new today",
-      "what are my latest DMs about"
+      "what are my latest DMs about", "what texts did I get today", "what did I get from mom today",
+      "what emails came in today", "any news from my sister today", "what did mom say today"
     ] {
       XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
       let intent = ComposerIntent.resolve(.init(draft: prompt, infersCommands: false, searchesAutomatically: true), now: date)
       XCTAssertFalse(intent.search, prompt)
     }
     for prompt in ["what's the latest message from the White House on tariffs", "latest news from the Fed today",
-                   "what did the president say in his latest message to Congress"] {
+                   "what did the president say in his latest message to Congress",
+                   "when is the next earnings call for my stock nvda", "latest news about calls for my resignation",
+                   "what are the latest chats about my favorite show on reddit",
+                   "what time does my local post office mail pickup happen today",
+                   "latest dm news for my dungeon master group this week", "what's the latest from Sam"] {
       XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
     }
     let typed = ComposerIntent.resolve(.init(draft: "/search what are the most recent messages from my dad",
