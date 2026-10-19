@@ -21,7 +21,8 @@ struct OptionDoubleTap {
   mutating func reset() { pressedAt = nil; releasedAt = nil; pressedKey = nil }
 
   mutating func flagsChanged(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, timestamp: TimeInterval) -> Bool {
-    let flags = modifiers.intersection([.option, .command, .control, .shift, .function, .capsLock])
+    // Caps Lock is a latched state, not a held key, so it never counts as a chord.
+    let flags = modifiers.intersection([.option, .command, .control, .shift, .function])
     guard modifier.keyCodes.contains(keyCode), flags.isEmpty || flags == modifier.flags else { reset(); return false }
     if flags == modifier.flags {
       guard pressedAt == nil else { reset(); return false }

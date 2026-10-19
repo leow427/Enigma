@@ -817,8 +817,16 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: [], timestamp: 1.31))
   }
 
+  func testDoubleOptionWorksWithCapsLockOn() {
+    var detector = OptionDoubleTap()
+    XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: [.option, .capsLock], timestamp: 1))
+    XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: .capsLock, timestamp: 1.1))
+    XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: [.option, .capsLock], timestamp: 1.2))
+    XCTAssertTrue(detector.flagsChanged(keyCode: 58, modifiers: .capsLock, timestamp: 1.3))
+  }
+
   func testChordsClicksTypingHoldsAndOtherModifiersCancelOptionTaps() {
-    for modifier: NSEvent.ModifierFlags in [.command, .control, .shift, .function, .capsLock] {
+    for modifier: NSEvent.ModifierFlags in [.command, .control, .shift, .function] {
       var detector = OptionDoubleTap()
       _ = detector.flagsChanged(keyCode: 58, modifiers: .option, timestamp: 1)
       _ = detector.flagsChanged(keyCode: 58, modifiers: [], timestamp: 1.05)
