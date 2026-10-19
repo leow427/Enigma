@@ -107,9 +107,22 @@ the archive copy), outside the repository. It stops at the first failure:
 2. **Bump.** `MARKETING_VERSION` becomes `<version>` and
    `CURRENT_PROJECT_VERSION` goes up by one, in both app configurations.
 3. **Build and verify.** It runs `xcodebuild archive` (Release,
-   `-allowProvisioningUpdates`), then checks that the built version is right,
-   that `codesign --verify --deep --strict` passes, and that the hardened
-   runtime flag is set. It reports `get-task-allow` if present. It also
+   `-allowProvisioningUpdates`) and checks the built version. `xcodebuild
+   archive` leaves Sparkle's helpers ad-hoc signed, unlike an Organizer
+   export, and a quarantined download may refuse to run them. So the script
+   re-signs them with the app's own identity, read from the built app's
+   certificate, and the hardened runtime. It follows
+   [Sparkle's documented order](https://sparkle-project.org/documentation/sandboxing/#code-signing):
+   `Installer.xpc`, `Downloader.xpc` (keeping its entitlements), `Autoupdate`,
+   `Updater.app`, `Sparkle.framework`. Then it re-signs `Enigma.app`, keeping
+   its entitlements. It then checks several things:
+   - `codesign --verify --deep --strict` passes.
+   - Every one of those items, plus `llama.framework` and the app, has the
+     app's signing authority and the runtime flag.
+   - The app's entitlements equal `Enigma.entitlements`, with no
+     `get-task-allow`.
+
+   It also
    compares the designated requirement with the previous GitHub release's app,
    taken from its zip, or for 0.9.x from its DMG mounted read-only. A changed
    requirement means every user would silently lose their permissions, so the
@@ -130,9 +143,19 @@ the archive copy), outside the repository. It stops at the first failure:
    3. `gh release create` with the zip and the release notes;
    4. push `main`. From this point on, the raw feed serves the new item.
 
-If `gh release create` fails after the tag was pushed, re-run it or delete the
-tag. `main` and the live feed are still unchanged. A failure before step 6
-leaves only local changes; `git restore` them.
+Just before step 6, the script checks again that `origin/main` hasn't moved.
+If anything fails before the release commit, it restores `project.pbxproj`
+and `appcast.xml` in the checkout. If a later step fails, it prints how to
+retry or undo:
+- If the tag push fails, nothing is published. Push the tag again, or undo
+  with `git tag -d` and `git reset --hard HEAD~1`.
+- If `gh release create` fails after the tag was pushed, re-run it or delete
+  the tag. `main` and the live feed are still unchanged.
+- If pushing `main` fails after the release exists, the live feed is unchanged
+  and safe. Run `git push origin main` again.
+
+The previous release used for the signature check is the newest one that isn't
+a draft. Pre-releases count, since v0.9.1 is one.
 
 `--dry-run` runs steps 1–5 in a temporary detached worktree of `HEAD`. It
 copies the zip, `appcast.xml` and `project.pbxproj` to
@@ -140,7 +163,10 @@ copies the zip, `appcast.xml` and `project.pbxproj` to
 and removes the worktree. In a dry run, the branch, clean-tree and
 `origin/main` checks only warn, so it can be rehearsed from a feature branch.
 Every other check still fails hard. It commits, tags, pushes and uploads
-nothing.
+nothing. For the manual check below,
+`ENIGMA_RELEASE_TEST_FEED_URL=<url> scripts/release.sh --dry-run <version>`
+builds an app that checks a test feed instead. A real release refuses this
+variable.
 
 Releases are zips from 0.10.0 on; 0.9.x shipped as DMGs without an updater.
 Friends install 0.10.0 by hand once: download the zip, drag `Enigma.app` into
@@ -153,7 +179,8 @@ Applications, and right-click → **Open** the first time.
 | Do Markdown release notes embed? | Yes. With `--embed-release-notes`, `Enigma-<version>.md` becomes `<description sparkle:format="markdown">` with the Markdown in CDATA, so no conversion is needed. |
 | Does `--maximum-deltas 0` make deltas? | No. The 0.10.0 dry run wrote one item and no delta files or `sparkle:deltas`. |
 | Does `generate_appcast` keep older items whose archives are not in the folder? | Yes. A dry run of 0.10.1 against a feed already holding 0.10.0 (build 2) kept that item and added 0.10.1 (build 3): "Wrote 1 new update, updated 0 existing updates, and removed 0 old updates". `--maximum-versions 0` keeps every item. |
-| Does the free-team Release archive carry `get-task-allow`? | No. The archived app's entitlements are just the three in `Enigma.entitlements`. It is signed "Apple Development" with the hardened runtime. |
+| Does the free-team Release archive carry `get-task-allow`? | No. The archived app's entitlements are just the three in `Enigma.entitlements`. It is signed "Apple Development" with the hardened runtime. `release.sh` now fails if that changes. |
+| Are Sparkle's helpers signed in the archive? | No: `Installer.xpc`, `Downloader.xpc`, `Autoupdate` and `Updater.app` come out of `xcodebuild archive` ad-hoc signed. `release.sh` re-signs them, as described in step 3. |
 | Does 0.10.0 keep v0.9.1's designated requirement? | Yes, compared against the app in the v0.9.1 DMG. |
 | Exact Sparkle 2.10.0 Swift spellings | `updater(_:mayPerform:) throws`, `updater(_:willInstallUpdateOnQuit:immediateInstallationBlock:)`, `updater(_:didFinishUpdateCycleFor:error:)`, `standardUserDriverShouldHandleShowingScheduledUpdate(_:andInImmediateFocus:)`, `standardUserDriverWillHandleShowingUpdate(_:forUpdate:state:)`, `standardUserDriverDidReceiveUserAttention(forUpdate:)`, `standardUserDriverWillFinishUpdateSession()`. |
 | Does a local `http://127.0.0.1` test feed work? | To be confirmed by the manual end-to-end check below. |

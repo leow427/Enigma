@@ -6,6 +6,10 @@
 #   scripts/release.sh --dry-run <version>  build and update the appcast in a
 #                                           temporary worktree; publish nothing
 #
+# For the manual end-to-end check, a dry run can build against a test feed:
+# ENIGMA_RELEASE_TEST_FEED_URL=<url> scripts/release.sh --dry-run <version>.
+# A real release refuses it.
+#
 # Steps: preflight, bump the version, archive and verify the signature, zip,
 # sign the zip and add it to appcast.xml with Sparkle's generate_appcast, then
 # publish in an order that never leaves the feed pointing at a missing file:
@@ -40,6 +44,10 @@ fi
 [ "$#" -eq 1 ] || usage
 version=$1
 tag="v$version"
+test_feed_url=${ENIGMA_RELEASE_TEST_FEED_URL:-}
+if [ -n "$test_feed_url" ] && [ "$dry_run" != true ]; then
+  fail "ENIGMA_RELEASE_TEST_FEED_URL is only for dry runs"
+fi
 notes="$repository_root/docs/release-notes/$version.md"
 project="Enigma.xcodeproj/project.pbxproj"
 
@@ -108,9 +116,16 @@ say "releasing $version (build $new_build), after $current_version (build $curre
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/enigma-release.XXXXXX")
 mount_point=""
 worktree=""
+# A real release edits the checkout's project and appcast before it commits them;
+# if it stops before the commit, put them back.
+restore_checkout=false
 cleanup() {
   if [ -n "$mount_point" ]; then hdiutil detach -quiet "$mount_point" >/dev/null 2>&1 || true; fi
   if [ -n "$worktree" ]; then git -C "$repository_root" worktree remove --force "$worktree" >/dev/null 2>&1 || true; fi
+  if [ "$restore_checkout" = true ]; then
+    git -C "$repository_root" checkout -- "$project" appcast.xml
+    echo "release: stopped before committing; restored $project and appcast.xml" >&2
+  fi
   rm -rf "$temporary"
 }
 trap cleanup EXIT
@@ -134,6 +149,7 @@ sparkle_tools="$derived_data/SourcePackages/artifacts/sparkle/Sparkle/bin"
 # MARK: 2. Bump
 
 cp "$source/$project" "$temporary/project.before"
+[ "$dry_run" = true ] || restore_checkout=true
 sed -e "s/^\\([[:space:]]*MARKETING_VERSION = \\)$current_version;\$/\\1$version;/" \
     -e "s/^\\([[:space:]]*CURRENT_PROJECT_VERSION = \\)$current_build;\$/\\1$new_build;/" \
     "$temporary/project.before" > "$source/$project"
@@ -146,9 +162,15 @@ changed=$(diff "$temporary/project.before" "$source/$project" | grep -c '^>' || 
 
 archive="$temporary/Enigma.xcarchive"
 say "archiving (Release)"
+if [ -n "$test_feed_url" ]; then
+  say "warning: this build checks the test feed $test_feed_url"
+  set -- "ENIGMA_UPDATE_FEED_URL=$test_feed_url"
+else
+  set --
+fi
 xcodebuild archive -project "$source/Enigma.xcodeproj" -scheme Enigma -configuration Release \
   -destination 'generic/platform=macOS' -archivePath "$archive" -derivedDataPath "$derived_data" \
-  -allowProvisioningUpdates -quiet
+  -allowProvisioningUpdates -quiet "$@"
 app="$archive/Products/Applications/Enigma.app"
 [ -d "$app" ] || fail "the archive has no Enigma.app"
 
@@ -157,11 +179,43 @@ built_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents
 [ "$built_version" = "$version" ] && [ "$built_build" = "$new_build" ] \
   || fail "the app says $built_version ($built_build), expected $version ($new_build)"
 
+# `xcodebuild archive` leaves Sparkle's helpers ad-hoc signed (an Organizer export
+# would re-sign them). Re-sign them with the app's own identity and the hardened
+# runtime, innermost first, in the order and with the flags Sparkle documents
+# (https://sparkle-project.org/documentation/sandboxing/#code-signing), then the
+# app itself with its entitlements. No --deep: Downloader keeps its own entitlements.
+first_authority() {
+  codesign -dvv "$1" 2>&1 | sed -n 's/^Authority=//p' | head -n 1
+}
+app_authority=$(first_authority "$app")
+[ -n "$app_authority" ] || fail "the archived app has no signing identity"
+codesign -d --extract-certificates="$temporary/certificate" "$app" 2>/dev/null
+signing_identity=$(shasum -a 1 "$temporary/certificate0" | cut -d ' ' -f 1)
+sparkle_framework="$app/Contents/Frameworks/Sparkle.framework"
+sparkle_code="$sparkle_framework/Versions/B"
+say "re-signing Sparkle's helpers with the app's identity"
+codesign -f -s "$signing_identity" -o runtime "$sparkle_code/XPCServices/Installer.xpc"
+codesign -f -s "$signing_identity" -o runtime --preserve-metadata=entitlements "$sparkle_code/XPCServices/Downloader.xpc"
+codesign -f -s "$signing_identity" -o runtime "$sparkle_code/Autoupdate"
+codesign -f -s "$signing_identity" -o runtime "$sparkle_code/Updater.app"
+codesign -f -s "$signing_identity" -o runtime "$sparkle_framework"
+codesign -f -s "$signing_identity" -o runtime --preserve-metadata=entitlements "$app"
+
 codesign --verify --deep --strict "$app" || fail "codesign --verify failed"
-codesign -dvv "$app" 2>&1 | grep -q '^CodeDirectory .*flags=.*runtime' || fail "the app is not signed with the hardened runtime"
-if codesign -d --entitlements - --xml "$app" 2>/dev/null | grep -q 'com.apple.security.get-task-allow'; then
-  say "note: the Apple Development signature carries get-task-allow (known limitation of the free team; see docs/Updates.md)"
-fi
+for code in "$sparkle_code/XPCServices/Installer.xpc" "$sparkle_code/XPCServices/Downloader.xpc" \
+  "$sparkle_code/Autoupdate" "$sparkle_code/Updater.app" "$sparkle_framework" \
+  "$app/Contents/Frameworks/llama.framework" "$app"; do
+  name=${code#"$app/"}
+  [ "$code" = "$app" ] && name=Enigma.app
+  [ "$(first_authority "$code")" = "$app_authority" ] || fail "$name is not signed with the app's identity"
+  codesign -dvv "$code" 2>&1 | grep -q '^CodeDirectory .*flags=.*runtime' || fail "$name lacks the hardened runtime"
+  say "signed with the app's identity and hardened runtime: $name"
+done
+codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -convert json -o "$temporary/entitlements.json" -
+plutil -convert json -o "$temporary/expected-entitlements.json" "$source/Enigma/Resources/Enigma.entitlements"
+cmp -s "$temporary/entitlements.json" "$temporary/expected-entitlements.json" \
+  || fail "the signed app's entitlements differ from Enigma.entitlements"
+say "entitlements match Enigma.entitlements (no get-task-allow)"
 
 designated_requirement() {
   codesign -d -r- "$1" 2>&1 | sed -n 's/^designated => //p'
@@ -169,7 +223,7 @@ designated_requirement() {
 new_requirement=$(designated_requirement "$app")
 [ -n "$new_requirement" ] || fail "could not read the new app's designated requirement"
 
-previous_tag=$(cd "$repository_root" && gh release list --limit 1 --json tagName --jq '.[0].tagName')
+previous_tag=$(cd "$repository_root" && gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')
 [ -n "$previous_tag" ] || fail "no previous GitHub release to compare the signature with"
 previous="$temporary/previous"
 mkdir -p "$previous"
@@ -235,16 +289,22 @@ fi
 
 # MARK: 6. Publish
 
+remote_main=$(git -C "$repository_root" ls-remote origin refs/heads/main | cut -f 1)
+[ "$remote_main" = "$(git -C "$repository_root" rev-parse HEAD)" ] \
+  || fail "origin/main moved during the build; pull and run the release again"
 archive_copy="$work_directory/$archive_name"
 cp "$feed/$archive_name" "$archive_copy"
 git -C "$repository_root" add "$project" appcast.xml "docs/release-notes/$version.md"
 git -C "$repository_root" commit --quiet -m "Release $version"
+restore_checkout=false
 git -C "$repository_root" tag "$tag"
 say "pushing $tag"
-git -C "$repository_root" push --quiet origin "$tag"
+git -C "$repository_root" push --quiet origin "$tag" \
+  || fail "pushing $tag failed; nothing is published. Retry with: git push origin $tag, then gh release create $tag $archive_copy --notes-file docs/release-notes/$version.md and git push origin main. Or undo with: git tag -d $tag && git reset --hard HEAD~1"
 say "creating the GitHub release"
 (cd "$repository_root" && gh release create "$tag" "$archive_copy" --notes-file "docs/release-notes/$version.md") \
   || fail "gh release create failed; re-run it, or delete the pushed tag. main and the live feed are unchanged."
 say "pushing main"
-git -C "$repository_root" push --quiet origin main
+git -C "$repository_root" push --quiet origin main \
+  || fail "pushing main failed after the release was created. The live feed is unchanged and safe; retry with: git push origin main"
 say "released $version. Installed copies pick it up at their next daily check."
