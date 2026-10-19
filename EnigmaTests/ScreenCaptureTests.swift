@@ -1,4 +1,5 @@
 import AppKit
+import Synchronization
 import XCTest
 @testable import Enigma
 
@@ -269,6 +270,57 @@ final class ScreenCaptureTests: XCTestCase {
     XCTAssertFalse(screen.isEnabled)
   }
 
+  func testSlowOCRStopsBlockingTheTurnAtTheCapAndLetsVisionReadTheImage() async throws {
+    let ocr = SuspendedPanelOCR()
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub(), ocrService: ocr, ocrTimeout: .milliseconds(50))
+    screen.draft = "/screen explain this"
+    let started = ContinuousClock.now
+    let automatic = await screen.capture(submittedCommand: true)
+    XCTAssertLessThan(ContinuousClock.now - started, .seconds(2), "Capture must stop waiting at the cap")
+    XCTAssertEqual(automatic, "explain this", "A timed-out read proceeds like a failed one")
+    XCTAssertEqual(screen.draft, "explain this")
+    XCTAssertFalse(screen.isBusy)
+    XCTAssertFalse(screen.isReading)
+    XCTAssertEqual(screen.attachment?.status, .vision)
+    XCTAssertEqual(screen.attachment?.ocrText, "")
+    let wasCancelled = ocr.wasCancelled
+    XCTAssertFalse(wasCancelled, "The cap must leave recognition running so its model finishes loading")
+    await ocr.complete()
+    await Task.yield()
+    XCTAssertEqual(screen.attachment?.ocrText, "", "A read that finishes after the cap must not change the attachment")
+    XCTAssertEqual(screen.attachment?.status, .vision)
+  }
+
+  func testFastOCRWithinTheCapStillDecidesTheAttachmentStatus() async throws {
+    let usable = String(repeating: "readable words ", count: 6)
+    let fast = ScreenComposerCoordinator(captureService: CaptureStub(),
+      ocrService: ImmediateOCR(result: ScreenOCRResult(text: usable, confidence: 0.9)), ocrTimeout: .seconds(30))
+    _ = await fast.capture()
+    XCTAssertEqual(fast.attachment?.status, .localOCR)
+    XCTAssertEqual(fast.attachment?.ocrText, usable)
+    let sparse = ScreenComposerCoordinator(captureService: CaptureStub(),
+      ocrService: ImmediateOCR(result: ScreenOCRResult(text: "tiny", confidence: 0.9)), ocrTimeout: .seconds(30))
+    _ = await sparse.capture()
+    XCTAssertEqual(sparse.attachment?.status, .vision)
+    XCTAssertEqual(sparse.attachment?.ocrText, "tiny")
+  }
+
+  func testCancellingCaptureDuringOCRCancelsRecognition() async throws {
+    let ocr = SuspendedPanelOCR()
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub(), ocrService: ocr, ocrTimeout: .seconds(60))
+    screen.draft = "/screen keep this question"
+    let task = Task { await screen.capture(submittedCommand: true) }
+    await fulfillment(of: [ocr.started], timeout: 3)
+    task.cancel()
+    let cancelled = await task.value
+    XCTAssertNil(cancelled)
+    XCTAssertEqual(screen.draft, "/screen keep this question")
+    XCTAssertFalse(screen.isBusy)
+    let wasCancelled = ocr.wasCancelled
+    XCTAssertTrue(wasCancelled)
+    await ocr.complete()
+  }
+
   static func png() throws -> Data {
     let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 20, pixelsHigh: 10,
       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
@@ -323,16 +375,28 @@ private final class SuspendedPanelCapture: ScreenCapturing {
 private actor SuspendedPanelOCR: ScreenOCRReading {
   nonisolated let started = XCTestExpectation(description: "OCR is reading")
   private var continuation: CheckedContinuation<ScreenOCRResult, Never>?
+  private nonisolated let cancelled = Mutex(false)
+  nonisolated var wasCancelled: Bool { cancelled.withLock { $0 } }
   func recognize(_ image: CGImage) async throws -> ScreenOCRResult {
-    await withCheckedContinuation {
-      continuation = $0
-      started.fulfill()
+    // Like a cold Vision model load, this read ignores cancellation until it finishes.
+    await withTaskCancellationHandler {
+      await withCheckedContinuation {
+        continuation = $0
+        started.fulfill()
+      }
+    } onCancel: {
+      cancelled.withLock { $0 = true }
     }
   }
   func complete() {
     continuation?.resume(returning: ScreenOCRResult(text: "late extracted text", confidence: 0.99))
     continuation = nil
   }
+}
+
+private struct ImmediateOCR: ScreenOCRReading {
+  let result: ScreenOCRResult
+  func recognize(_ image: CGImage) async throws -> ScreenOCRResult { result }
 }
 
 @MainActor
