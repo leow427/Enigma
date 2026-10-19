@@ -142,6 +142,12 @@ How Enigma looks, starts, and works with your Mac.
   the sidebar hidden. Modes are explained in [Chat.md](Chat.md).
 - **Location → Use location for nearby questions** (on by default) and
   **Location Services → Open Settings…**. See [Location](#location) below.
+- **Commands → Recognize commands from your wording** (on by default): turns
+  on `/messages`, `/think`, `/edit` and `/translate` when the wording of your
+  message asks for them, shown as a chip in the composer that you can click to
+  remove. `/screen` and `/snapshot` always need their command. The `search`
+  chip follows the automatic-search setting in **Cloud and search** instead.
+  See [Slash-Commands.md](Slash-Commands.md#recognized-commands).
 - **Messages · /messages:** Full Disk Access, Contacts, and Automation for
   `/messages`. See [Messages.md](Messages.md).
 
@@ -269,7 +275,7 @@ Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
 
 Preferences are stored in `UserDefaults`: `welcomeSetup.completed.v1` and
 `welcomeSetup.step.v1` for setup, `enigma.appearance`, `startup.preferredMode`,
-`startup.showSidebar`, and `location.enabled`. Invalid saved values fall back
+`startup.showSidebar`, `location.enabled`, and `composer.inferCommands`. Invalid saved values fall back
 to the defaults. Settings pages can be opened programmatically by posting
 `.settingsRequested` with a `SettingsView.SettingsDestination`.
 
@@ -294,8 +300,9 @@ to the defaults. Settings pages can be opened programmatically by posting
   keeping the chosen model through reranking, and the continue gate.
 - `EnigmaTests/EnigmaSettingsTests.swift`: appearance defaults, persistence,
   and live switching of windows and the welcome; every page rendered in Paper
-  and Ink; deep links to pages; Start mode and switches; API and Brave key
-  saving; permission status text.
+  and Ink; deep links to pages; Start mode and switches, including **Recognize
+  commands from your wording**; API and Brave key saving; permission status
+  text.
 - `EnigmaTests/AppCommandTests.swift`: startup preference persistence and
   recovery, in-window and global shortcuts, and the temporary setup window
   size.

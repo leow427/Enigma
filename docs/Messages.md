@@ -23,6 +23,39 @@ attached screenshot, or attached files. Enigma shows an error instead of
 sending, so message contents never become a web search query or share a request
 with a screen capture.
 
+### Without typing `/messages`
+
+You can also just ask. When your message reads as a Messages request, Enigma
+shows a `messages` chip in the composer before you send and runs the message as
+if you'd typed `/messages`:
+
+- "what did Sam text me?", "did Mom message me today?", "check my messages from
+  Alex", "any new texts from Jordan?", "what did Sam say in our chat?"
+- "text Alex that I'm running late", "send her a message saying hi", "message
+  Sam that dinner is at 7", "reply to Mom with ok", "tell Jordan on iMessage
+  I'm here"
+
+Everyday uses of "message" and "text" don't count: "what does this error
+message mean", "write a commit message", "summarize this text", "write a
+message to my landlord" (drafting, not sending), "send me a summary", or "send
+an email to Alex".
+
+**Follow-ups.** After a message that used Messages in this chat, typed or
+recognized, a follow-up with a looser cue also uses it: "send it", "reply with
+sounds good", "tell her I'm on my way", "text them back", "what about Alex?",
+"what else did she say". An unrelated follow-up goes back to ordinary chat and
+ends the carry-over, as do a new chat and switching chats. Enigma keeps only an
+in-memory note that the previous request used Messages; it never reads earlier
+messages to decide.
+
+Click the chip to send that one message without Messages. Recognition never
+causes the conflict error above: with files or a screenshot attached, or with
+`/search`, `/screen` or `/snapshot` typed, `messages` simply isn't recognized.
+A recognized `messages` keeps every safeguard below: the Full Disk Access check,
+the one-time cloud notice, Auto staying on this Mac, and your approval for each
+send. **Settings → General → Recognize commands from your wording** turns
+recognition off. See [Slash commands](Slash-Commands.md#recognized-commands).
+
 ### Approving a send
 
 Before anything is sent, a **Send this message?** card appears in the chat. It
@@ -144,8 +177,14 @@ short description such as "loved a message".
 
 ### Model routes
 
-`ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) recognizes
-`/messages` and rejects conflicting commands. `AppShellView` asks for cloud
+`MessagesIntentPolicy` (`Enigma/Messages/MessagesIntentPolicy.swift`)
+recognizes Messages requests and follow-up cues in the typed draft, and
+`ComposerIntent` (`Enigma/App/ComposerIntent.swift`) combines them with typed
+commands. `LocalChatViewModel.previousTurnUsedMessages` is the in-memory
+follow-up note, set when a Messages request is accepted and cleared by any other
+accepted request, a new chat, or switching chats.
+`ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) turns a
+resolved draft into a Messages request and rejects conflicting typed commands. `AppShellView` asks for cloud
 consent, then `LocalChatViewModel.submitMessages`
 (`Enigma/LocalInference/LocalChatViewModel.swift`) checks Full Disk Access and
 the selected route before starting:
@@ -172,6 +211,9 @@ the selected route before starting:
 - Answers from the OpenAI, Anthropic, and Gemini API routes appear as each
   model turn finishes rather than streaming token by token.
 - Enigma doesn't watch for new messages.
+- Recognizing a Messages request without `/messages` follows English phrasings
+  only, and a follow-up needs a cue in the new message. A chat reopened from
+  history starts without the follow-up.
 
 ## Tests
 
@@ -183,6 +225,11 @@ the selected route before starting:
   per-provider cloud consent, and `/messages` parsing.
 - `EnigmaTests/MessagesToolCallingTests.swift` covers each provider's tool loop
   with recorded responses, the step limit, Codex and Claude Code tool isolation,
-  the local tool agent, and the Full Disk Access and runtime preflight checks.
+  the local tool agent, the Full Disk Access and runtime preflight checks, and
+  the follow-up note staying with the chat that used Messages.
+- `EnigmaTests/ComposerIntentTests.swift` covers the Messages phrasings that are
+  and aren't recognized (`MessagesIntentPolicyTests`), recognition next to
+  files, screenshots and other commands, and follow-ups
+  (`ComposerIntentResolveTests`).
 
 No test reads the real `chat.db` or sends a message.

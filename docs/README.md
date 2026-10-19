@@ -15,7 +15,7 @@ works in the code, its limitations, and which tests cover it.
 | [File Mode](File-Mode.md) | Attaching files and folders, reviewed local edits, and undo |
 | [Web Search](Web-Search.md) | Brave Search, automatic and `/search` lookups, and sources |
 | [Messages](Messages.md) | `/messages`: reading, searching, and sending Apple Messages, with setup |
-| [Slash commands](Slash-Commands.md) | Every composer command and how commands combine |
+| [Slash commands](Slash-Commands.md) | Every composer command, how commands combine, and commands recognized from your wording |
 | [Welcome and Settings](Welcome-and-Settings.md) | Opening Enigma, first-run setup, the Settings window, and keyboard shortcuts |
 
 ## Guides

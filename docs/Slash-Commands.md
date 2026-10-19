@@ -20,6 +20,10 @@ work anywhere in a message and are highlighted as you type.
 Every command applies to the message it's in. The next message goes back to
 normal behavior, including the automatic-search setting.
 
+You don't always have to type the command. Enigma also recognizes some commands
+from the wording of your message and shows them as chips before you send. See
+[Recognized commands](#recognized-commands).
+
 ## Typing and completing commands
 
 Type `/` at the start of the message or after a space, or click the **/** button
@@ -80,6 +84,63 @@ before anything is sent:
 - `/messages` can't be combined with `/screen`, `/snapshot`, `/search` or an
   attached screenshot, so message contents never become a web search query.
 
+## Recognized commands
+
+Enigma reads the wording of the message you're typing and turns on the matching
+command for you, as if you'd typed it. It checks fixed English phrasings on this
+Mac, with no extra model call.
+
+| Recognized | When your message says something like | Not recognized |
+| --- | --- | --- |
+| `messages` | "what did Sam text me?", "check my messages from Alex", "any new texts from Jordan?", "text Alex that I'm running late", "send her a message saying hi", "reply to Mom with ok", "tell Jordan on iMessage I'm here" | "what does this error message mean", "write a commit message", "summarize this text", "write a message to my landlord", "send me a summary", "send an email to Alex" |
+| `messages`, as a follow-up | After a message that used Messages in this chat: "send it", "reply with sounds good", "tell her I'm on my way", "what about Alex?", "what else did she say" | A follow-up without one of these cues, such as "thanks!" |
+| `search` | A question that automatic search would search for, such as "what's the latest AI news?" | Anything automatic search wouldn't search for |
+| `think` | "think hard", "think carefully", "take your time", "step by step", "reason it through" | "I think …", "what do you think of this?" |
+| `edit` | With Selection Context attached: "rewrite this", "make it shorter", "make this more formal", "fix the grammar", "reword this", "proofread it", "tighten this up" | Anything without a selection; questions about the selection, such as "what does this mean?" |
+| `translate` | With Selection Context attached: "translate this", "translate it to Spanish" | Anything without a selection |
+
+`/screen` and `/snapshot` are never recognized, because they capture your
+screen. "What's on my screen?" stays an ordinary question until you type the
+command.
+
+### Chips
+
+Each recognized command appears as a small chip in the composer bar, after the
+`● local` or `○ cloud` indicator, in this order: `messages`, `search`, `think`,
+`edit`, `translate`. In the compact selection panel the chips sit before the
+route chip. The chips update as you type. Commands you type yourself get no
+chip; they're highlighted in the text instead.
+
+Click a chip to turn that command off for the message you're writing. It stays
+off while you keep editing, and comes back for the next message, or when you
+clear the field. VoiceOver reads each chip as "Recognized command: messages",
+with the hint "Turns it off for this message".
+
+The chips and Send use the same rules, so what the chips show is what Send does.
+
+### Conflicts
+
+A command you type always wins, and a recognized command never causes an error.
+When a recognized command would conflict, it's dropped without a chip:
+
+- With files attached, `messages` and `search` aren't recognized.
+- With a screenshot attached, or with `/search`, `/screen` or `/snapshot` typed,
+  `messages` isn't recognized.
+- When Messages is on, typed or recognized, `search` isn't recognized, so
+  message contents never become a web search query.
+- With `/translate` typed or recognized, `edit` isn't recognized, so the request
+  stays read-only. A typed `/edit` also keeps `translate` from being recognized.
+
+The conflicts between typed commands still show the errors described in
+[Combining commands](#combining-commands).
+
+### The setting
+
+**Settings → General → Commands → Recognize commands from your wording**, on by
+default, controls `messages`, `think`, `edit` and `translate`. With it off, only
+`search` can still be recognized, and that follows the automatic-search setting
+in **Settings → Cloud and search**.
+
 ## Screen captures
 
 `/screen` or `/snapshot` with a question captures first, then sends the question
@@ -90,9 +151,14 @@ draft while a capture is in progress, nothing is sent automatically. See
 
 ## Privacy
 
-Only commands you type in the current message count. Text from a selection, a
-file, a screenshot or earlier messages can't turn on search, editing or
-Messages, and quoted commands stay literal. `/search` sends a query to Brave;
+Only the message you're typing can turn on a command, typed or recognized. Text
+from a selection, a file, a screenshot, earlier messages or tool results can't
+turn on search, editing or Messages, and quoted or backticked text stays
+literal. The Messages follow-up reads only an in-memory note that the chat's
+previous request used Messages, never the earlier text. Every recognized command
+is shown as a chip before anything runs, and a recognized `messages` keeps every
+safeguard of `/messages`: the Full Disk Access check, the one-time cloud notice,
+Auto staying on this Mac, and your approval for each message sent. `/search` sends a query to Brave;
 `/messages` reads your local Messages database and needs your approval to send.
 
 ## How it works
@@ -111,11 +177,22 @@ Messages, and quoted commands stay literal. `/search` sends a query to Brave;
 - `Enigma/App/EnigmaComposer.swift` and `Enigma/App/EnigmaCompactPanel.swift`
   place the field in the main window and the compact panel.
 - `Enigma/Screen/ScreenAttachment.swift`: `ComposerCommands` resolves the
-  commands in a draft once, at submission. `ThinkCommand` handles `/think`.
+  typed commands in a draft. `ThinkCommand` handles `/think`, and
+  `ThinkCommand.isRequested(by:)` recognizes a request to think harder.
+- `Enigma/App/ComposerIntent.swift`: `ComposerIntent.resolve` combines the typed
+  commands with the recognized ones, applies the setting, dismissals and
+  conflicts, and gives the chips (`inferred`) and the prompt to send. Matchers
+  run on `WebSearchPolicy.questionText`, which drops quoted and code text.
+- `Enigma/Messages/MessagesIntentPolicy.swift`: recognizes Messages requests and
+  follow-up cues.
+- `Enigma/App/ComposerIntentChips.swift`: the chips. `AppShellView` holds the
+  dismissed chips and passes them to both composers.
 - `Enigma/App/ComposerSubmission.swift`: `ComposerSubmission.plan` decides what
-  Send does, including the File Mode and Messages conflicts.
+  Send does from the resolved draft, including the File Mode and Messages
+  conflicts, which only typed commands can cause.
 - `Enigma/Chat/ConversationContext.swift`: `SelectionResponseMode` turns `/edit`
-  and `/translate` into the selection instructions.
+  and `/translate` into the selection instructions. `SelectionIntentPolicy`
+  recognizes edit and translate requests.
 - `Enigma/App/EnigmaMainWindowLogic.swift`: `SlashCommandExample` (example
   lines) and `KeyboardShortcutsHelp` (Help).
 
@@ -124,6 +201,10 @@ Messages, and quoted commands stay literal. `/search` sends a query to Brave;
 - `/edit` only changes behavior when Selection Context is attached. Without a
   selection, the message is sent as an ordinary question.
 - Commands are English words and can't be renamed.
+- Recognized commands follow English phrasings only. Unusual wording gets no
+  chip; typing the command still works.
+- A Messages follow-up needs a cue such as "send", "reply" or "what about …" in
+  the new message. A chat reopened from history starts without the follow-up.
 - Help doesn't list `/edit`, `/translate` or `/messages` as rows; it describes
   `/edit` and `/translate` in its selection notes.
 
@@ -141,5 +222,13 @@ Messages, and quoted commands stay literal. `/search` sends a query to Brave;
   removing `/search` returns to the automatic setting.
 - `EnigmaTests/MessagesTests.swift` and `EnigmaTests/FileModeUITests.swift`:
   `/messages` parsing and `/translate` staying read-only in File Mode.
+- `EnigmaTests/ComposerIntentTests.swift`: `MessagesIntentPolicyTests`,
+  `ThinkIntentTests` and `SelectionIntentPolicyTests` cover the phrasings that
+  are and aren't recognized, including quoted text and curly apostrophes;
+  `ComposerIntentResolveTests` covers every conflict, dismissals, the setting,
+  follow-ups and speed; `ComposerIntentChipsTests` renders the chips in both
+  composers and in the shell.
+- `EnigmaTests/AppShellStateTests.swift`: `ComposerSubmissionTests` plans
+  recognized commands like typed ones.
 
 Run them with `scripts/verify-xcode.sh test`. See [Testing](Testing.md).
