@@ -1,6 +1,27 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Enigma</title>
-  </channel>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Enigma</title>
+        <item>
+            <title>0.10.0</title>
+            <pubDate>Mon, 19 Oct 2026 10:03:29 -0500</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# Enigma 0.10.0
+
+Enigma now keeps itself up to date.
+
+- **Updates arrive by themselves.** Once a day Enigma checks for a new version, downloads it, and installs it the next time it quits. This is the last version you need to download by hand.
+- **Restart when it suits you.** When an update is ready, the menu-bar menu shows **Restart to Update**. Choose it to install now, or keep working and it installs when Enigma quits.
+- **You stay in control.** Settings → General → Updates has two switches: one for the daily check and one for downloading and installing automatically. **Check Now** looks for an update straight away.
+- **It settles into Applications.** If you open Enigma from Downloads or anywhere else, it offers to move itself into Applications and reopen, because it can only update itself from there.
+- **Shortcuts that stay out of the way.** ⌥⌃ now opens Enigma only when you press and release those two keys on their own, so other apps' ⌃⌥ shortcuts no longer open it. Show or hide chat history with **⌃⌘S**, open the selection panel's chat in the window with **⌘O**, and attach files with **⇧⌘A**. The Option-S shortcut for Settings is gone, so Option-S types its character again; use **⌘,** or the menu-bar menu.
+- **Your permissions stay.** Updates keep Enigma's identity, so Screen Recording, Accessibility and your saved keys carry over.
+
+Only Enigma's version number is sent when it checks for updates.
+]]></description>
+            <enclosure url="https://github.com/leow427/Enigma/releases/download/v0.10.0/Enigma-0.10.0.zip" length="8385374" type="application/octet-stream" sparkle:edSignature="9Oyo2XeELqMbik7GhB/GviVgxUg8PPICW98I/XK2BeRTfelVOhZD6FWThswOTjg06eNXC0dq0reSrRbn/4hiBA=="/>
+        </item>
+    </channel>
 </rss>
