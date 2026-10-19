@@ -105,27 +105,3 @@ enum BundledLocalModels {
       activeParameterBillions: profile.activeParameters)
   }
 }
-
-/// Hardware catalogue membership is editorial; admission still checks actual resources.
-enum LocalModelWeight: String, CaseIterable, Sendable {
-  case lightweight = "Lightweight", middleweight = "Middleweight", heavyweight = "Heavyweight"
-}
-
-enum LocalModelTiers {
-  static func choices(memory: Int64) -> [(LocalModelWeight, [String])] {
-    let gib = LocalHardwareProfile.gib
-    if memory < 24 * gib {
-      return [(.lightweight, ["smolvlm2-2.2b-q8_0"]),
-        (.middleweight, ["qwen3.5-4b-q4_k_m", "gemma-4-e4b-q4_k_m"]),
-        (.heavyweight, ["ministral-3-8b-q4_k_m", "minicpm-o-4.5-q4_k_m"])]
-    }
-    if memory < 32 * gib {
-      return [(.lightweight, ["qwen3.5-4b-q5_k_m"]),
-        (.middleweight, ["qwen3.5-9b-q5_k_m", "minicpm-o-4.5-q5_k_m"]),
-        (.heavyweight, ["gemma-4-12b-q5_k_m", "ministral-3-14b-q5_k_m"])]
-    }
-    return [(.lightweight, ["qwen3.5-4b-q8_0"]),
-      (.middleweight, ["minicpm-o-4.5-q5_k_m", "gemma-4-12b-q5_k_m"]),
-      (.heavyweight, ["ministral-3-14b-q8_0", "gemma-4-26b-a4b-q4_k_m"])]
-  }
-}

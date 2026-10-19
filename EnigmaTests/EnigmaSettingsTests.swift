@@ -508,42 +508,6 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(deletions, [recommended.id])
   }
 
-  @MainActor
-  func testDownloadFilesOpensTheSheetAndDownloadsTheSelection() async throws {
-    let fixture = try await Fixture(test: self)
-    let target = try XCTUnwrap(fixture.advisor.recommendations(installedModels: []).assessments.first {
-      LocalModelSettingsLogic.managerAction(for: $0, installed: [], activeID: nil, isBusy: false).action == .downloadFiles
-    }, "A model this Mac can only download as files")
-    let listing = HuggingFaceModelListing(id: target.model.huggingFaceRepositoryID)
-    let revision = String(repeating: "a", count: 40)
-    let repository = HuggingFaceRepository(id: listing.id, sha: revision, siblings: [
-      HuggingFaceRepositoryFile(rfilename: "model-Q4_K_M.gguf", size: 4, blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "README.md", size: 4, blobId: revision),
-    ])
-    let folder = FileManager.default.temporaryDirectory.appending(path: "EnigmaSettingsDownload-\(UUID())")
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    addTeardownBlock { try? FileManager.default.removeItem(at: folder) }
-    let transferred = TransferLog()
-    fixture.sources = HuggingFaceDownloadSources(loadRepository: { _ in repository }, chooseFolder: { _ in folder })
-    fixture.downloads = HuggingFaceModelDownloads(downloader: HuggingFaceFileDownloader { file, _, _, _ in
-      transferred.append(file.rfilename)
-    })
-    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    let button = "Download files \(target.model.displayName)"
-    try await waitForUI("the Download files button", in: host.view) { host.shows(button) }
-    try host.press(button)
-    try await waitForUI("the download sheet with its files", in: host.view, timeout: .seconds(8)) {
-      host.shows("Download sheet \(listing.name)") && host.shows("model-Q4_K_M.gguf switch")
-    }
-    try host.press("Download selected files")
-    try await waitForUI("the download to finish", in: host.view, timeout: .seconds(8)) {
-      fixture.downloads.downloadedFolder != nil
-    }
-    XCTAssertEqual(transferred.files, Array(repository.suggestedFiles).sorted())
-    XCTAssertTrue(fixture.downloads.downloadedFolder?.path.hasPrefix(folder.path) == true,
-                  "Files go to the chosen folder")
-  }
-
   /// A push button with `title` in any window but the host's, like an alert's.
   @MainActor
   private static func button(titled title: String, outside host: NSView) -> NSButton? {

@@ -9,25 +9,140 @@ final class LocalModelSelectionTests: XCTestCase {
   private let gib = LocalHardwareProfile.gib
   private var catalog: LocalModelManifest { .bundled }
 
-  func testRequestedHardwareTiersContainExactPackagesAndQuantizations() throws {
-    let expected: [Int: [[String]]] = [
-      16: [["smolvlm2-2.2b-q8_0"], ["qwen3.5-4b-q4_k_m", "gemma-4-e4b-q4_k_m"],
-           ["ministral-3-8b-q4_k_m", "minicpm-o-4.5-q4_k_m"]],
-      24: [["qwen3.5-4b-q5_k_m"], ["qwen3.5-9b-q5_k_m", "minicpm-o-4.5-q5_k_m"],
-           ["gemma-4-12b-q5_k_m", "ministral-3-14b-q5_k_m"]],
-      32: [["qwen3.5-4b-q8_0"], ["minicpm-o-4.5-q5_k_m", "gemma-4-12b-q5_k_m"],
-           ["ministral-3-14b-q8_0", "gemma-4-26b-a4b-q4_k_m"]]
-    ]
-    for memory in [16, 18, 24, 32] {
-      let recommendations = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: memory))
-      XCTAssertEqual(recommendations.tierGroups.map(\.weight), LocalModelWeight.allCases)
-      XCTAssertEqual(recommendations.tierGroups.map { $0.models.map(\.id) }, expected[memory == 18 ? 16 : memory])
-      XCTAssertEqual(recommendations.tierGroups.flatMap { $0.models }.count, 5)
-      let tierIDs = Set(recommendations.tierGroups.flatMap { $0.models.map(\.id) })
-      XCTAssertEqual(tierIDs.union(recommendations.otherTierAssessments.map(\.id)), Set(catalog.models.map(\.id)))
-      if let recommended = recommendations.recommended {
-        XCTAssertTrue(tierIDs.contains(recommended.id))
-        XCTAssertTrue(recommended.isResponsive)
+  // MARK: Roles
+
+  private func familyPackage(family: String, profile: LocalMultimodalProfile, quantization: String,
+                             weights: Int64, quality: Double) -> LocalModelDescriptor {
+    let revision = "0123456789abcdef0123456789abcdef01234567"
+    let base = "https://huggingface.co/unsloth/Fixture-GGUF/resolve/\(revision)/"
+    let id = "\(family.lowercased())-\(quantization.lowercased())"
+    func hash(_ text: String) -> String { SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined() }
+    let projector = VerifiedModelArtifact(url: URL(string: base + "mmproj-\(family).gguf")!,
+                                          expectedByteCount: 900_000_000, checksumSHA256: hash(id + ".mmproj"))
+    let memory = profile.memory(weights: weights, projector: projector.expectedByteCount, context: 8192)
+    return LocalModelDescriptor(id: id, displayName: family,
+      downloadURL: URL(string: base + "\(family)-\(quantization).gguf")!, expectedByteCount: weights,
+      license: "Apache-2.0", checksumSHA256: hash(id), revision: revision, quantization: quantization,
+      architecture: profile.architecture, chatTemplate: profile.chatTemplate,
+      minimumLlamaBuild: LocalVisionRuntime.build, estimatedRuntimeMemory: memory, largestTensorBytes: 1_000_000_000,
+      recommendedContextSize: 8192, qualityScore: quality, performanceClass: "Vision",
+      parameterBillions: profile.parameters, minimumMemory: memory, recommendedMemory: memory, projector: projector,
+      runtimeBuild: LocalVisionRuntime.build, publisher: "Fixture", modelSummary: "A fixture model.",
+      inferenceProfile: profile, activeParameterBillions: profile.activeParameters)
+  }
+
+  private var familyManifest: LocalModelManifest {
+    LocalModelManifest(version: 1, models: [
+      familyPackage(family: "Tiny", profile: .qwen35_2B, quantization: "Q4_K_M", weights: 500_000_000, quality: 5),
+      familyPackage(family: "Small", profile: .qwen35_2B, quantization: "Q4_K_M", weights: 1_000_000_000, quality: 8),
+      familyPackage(family: "Mid", profile: .qwen35_4B, quantization: "Q4_K_M", weights: 3_000_000_000, quality: 13),
+      familyPackage(family: "Mid", profile: .qwen35_4B, quantization: "Q5_K_M", weights: 4_000_000_000, quality: 13),
+      familyPackage(family: "Mid", profile: .qwen35_4B, quantization: "Q8_0", weights: 6_000_000_000, quality: 13),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "Q4_K_M", weights: 16_000_000_000, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "Q5_K_M", weights: 17_000_000_000, quality: 28),
+    ])
+  }
+
+  private func familyMac(memoryGiB: Int = 32, bandwidth: Double?) -> LocalHardwareProfile {
+    let memory = Int64(memoryGiB) * gib
+    let workingSet = Int64(Double(memory) * 0.74)
+    return LocalHardwareProfile(physicalMemory: memory, isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
+      chip: "Fixture chip", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 500 * gib, metalRecommendedWorkingSet: workingSet,
+      metalMaximumBufferLength: workingSet * 3 / 4, lowPowerMode: false, measuredBandwidth: bandwidth)
+  }
+
+  func testRolesAtTwoHundredGigabytesPerSecond() throws {
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(bandwidth: 200))
+    XCTAssertEqual(recs.recommended?.id, "mid-q8_0")
+    XCTAssertEqual(recs.faster?.id, "small-q4_k_m")
+    XCTAssertEqual(recs.smarter?.id, "big-q4_k_m")
+    XCTAssertEqual(recs.roles.map(\.role), [.recommended, .faster, .smarter])
+    XCTAssertEqual(recs.roles.map(\.tag), ["recommended", "faster", "smarter, slower replies"])
+    XCTAssertEqual(recs.allFamilies.map(\.model.familyID), ["Big", "Mid", "Small", "Tiny"])
+  }
+
+  func testNoFasterRoleWhenRecommendedIsAlreadyQuick() {
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(bandwidth: 400))
+    XCTAssertEqual(recs.recommended?.id, "mid-q8_0")
+    XCTAssertEqual(recs.recommended?.tokensPerSecond ?? 0, 50, accuracy: 0.01)
+    XCTAssertNil(recs.faster)
+    XCTAssertEqual(recs.smarter?.id, "big-q4_k_m")
+  }
+
+  func testNothingFastRecommendsTheBestUsableFamily() throws {
+    var mac = familyMac(bandwidth: nil)
+    mac.performanceCPUCount = 1
+    mac.cpuCount = 1
+    mac.lowPowerMode = true
+    XCTAssertEqual(LocalModelSelector.bandwidth(for: mac), 14.95, accuracy: 0.0001)
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: mac)
+    let recommended = try XCTUnwrap(recs.recommended)
+    XCTAssertEqual(recommended.id, "small-q4_k_m")
+    XCTAssertFalse(recommended.isFast)
+    XCTAssertEqual(recs.roles.first?.tag, "best available, expect longer waits")
+    XCTAssertNil(recs.faster)
+    XCTAssertNil(recs.smarter)
+  }
+
+  func testNothingFitsHasNoRoles() {
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(memoryGiB: 4, bandwidth: 200))
+    XCTAssertNil(recs.recommended)
+    XCTAssertTrue(recs.roles.isEmpty)
+    XCTAssertEqual(recs.allFamilies.count, 4)
+    XCTAssertTrue(recs.allFamilies.allSatisfy { !$0.fit.canRun })
+  }
+
+  func testRoleTags() {
+    XCTAssertEqual(LocalModelRole.recommended.tag(isFast: true), "recommended")
+    XCTAssertEqual(LocalModelRole.recommended.tag(isFast: false), "best available, expect longer waits")
+    XCTAssertEqual(LocalModelRole.faster.tag(isFast: true), "faster")
+    XCTAssertEqual(LocalModelRole.smarter.tag(isFast: false), "smarter, slower replies")
+  }
+
+  func testRolesFollowTheGatesOnEveryMac() throws {
+    for memory in [8, 16, 24, 32, 36, 48, 64, 128, 256] {
+      for bandwidth in [50.0, 120, 267, 614, 1_000] {
+        let mac = familyMac(memoryGiB: memory, bandwidth: bandwidth)
+        let recs = LocalModelSelector.select(manifest: catalog, hardware: mac)
+        let label = "\(memory) GiB at \(bandwidth) GB/s"
+        let families = Dictionary(grouping: recs.assessments, by: \.model.familyID)
+        let candidates = families.values.compactMap { LocalModelSelector.choice(in: $0) }
+          .sorted(by: LocalModelSelector.qualityOrder)
+        if let recommended = recs.recommended {
+          if let bestFast = candidates.first(where: \.isFast) {
+            XCTAssertTrue(recommended.isFast, label)
+            XCTAssertEqual(recommended.id, bestFast.id, label)
+          } else {
+            XCTAssertEqual(recommended.id, candidates.first(where: \.isUsable)?.id, label)
+          }
+          if let faster = recs.faster {
+            XCTAssertLessThan(recommended.tokensPerSecond, 40, label)
+            XCTAssertTrue(faster.isFast, label)
+            XCTAssertNotEqual(faster.model.familyID, recommended.model.familyID, label)
+            XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5, label)
+          }
+          if recommended.tokensPerSecond >= 40 { XCTAssertNil(recs.faster, label) }
+          if let smarter = recs.smarter {
+            XCTAssertTrue(smarter.isUsable && !smarter.isFast, label)
+            XCTAssertGreaterThan(smarter.model.qualityScore, recommended.model.qualityScore, label)
+          }
+        } else {
+          XCTAssertNil(candidates.first(where: \.isUsable), label)
+          XCTAssertTrue(recs.roles.isEmpty, label)
+        }
+        for role in recs.roles {
+          let family = families[role.assessment.model.familyID] ?? []
+          if role.assessment.isFast {
+            XCTAssertFalse(family.contains { $0.isFast && $0.model.expectedByteCount > role.assessment.model.expectedByteCount }, label)
+          } else {
+            XCTAssertFalse(family.contains { $0.fit.canRun && $0.model.expectedByteCount < role.assessment.model.expectedByteCount }, label)
+          }
+          XCTAssertTrue(role.assessment.fit.canRun, label)
+          XCTAssertLessThanOrEqual(role.assessment.model.estimatedRuntimeMemory, mac.inferenceMemoryBudget, label)
+          XCTAssertGreaterThanOrEqual(mac.availableDiskBytes, role.assessment.model.downloadByteCount * 2 + 2 * gib, label)
+        }
+        XCTAssertEqual(Set(recs.roles.map(\.id)).count, recs.roles.count, label)
       }
     }
   }
@@ -109,34 +224,6 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertFalse(blocked.fit.canRun, "Memory warnings must still exclude this model from automatic recommendations")
   }
 
-  func testTopTenAreDeterministicHardwareRankedAndNeverPaddedWithUnsafeModels() throws {
-    var mac = hardware(memory: 128)
-    mac.performanceCPUCount = 16
-    let choices = LocalModelSelector.select(manifest: catalog, hardware: mac)
-    XCTAssertEqual(choices.rankedChoices.count, 10)
-    XCTAssertTrue(choices.tierGroups.flatMap { $0.models }.contains { $0.id == choices.recommended?.id })
-    XCTAssertEqual(Set(choices.rankedChoices.map(\.id)).count, 10)
-    XCTAssertTrue(choices.rankedChoices.allSatisfy { $0.fit.canRun })
-    XCTAssertGreaterThanOrEqual(Set(choices.rankedChoices.map(\.model.maker)).count, 3)
-    let reversed = LocalModelSelector.select(manifest: LocalModelManifest(version: catalog.version,
-      models: catalog.models.reversed()), hardware: mac)
-    XCTAssertEqual(choices.rankedChoices.map(\.id), reversed.rankedChoices.map(\.id))
-    XCTAssertEqual(Set(choices.rankedChoices.map(\.id)).union(choices.otherAssessments.map(\.id)), Set(catalog.models.map(\.id)))
-    for (higher, lower) in zip(choices.rankedChoices, choices.rankedChoices.dropFirst()) {
-      XCTAssertTrue(LocalModelSelector.hardwareOrder(higher, lower))
-    }
-    let small = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: 8))
-    XCTAssertTrue(small.rankedChoices.isEmpty)
-    XCTAssertNil(small.recommended)
-    XCTAssertEqual(small.otherAssessments.count, catalog.models.count)
-    let ordinary = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: 24))
-    XCTAssertLessThan(ordinary.rankedChoices.count, 10)
-    XCTAssertGreaterThanOrEqual(Set(ordinary.rankedChoices.map(\.model.maker)).count, 3)
-    XCTAssertTrue(ordinary.rankedChoices.allSatisfy { $0.model.minimumMemory <= 24 * gib })
-    mac.availableDiskBytes = 0
-    XCTAssertTrue(LocalModelSelector.select(manifest: catalog, hardware: mac).rankedChoices.isEmpty)
-  }
-
   func testEveryFamilyHasAReviewedMemoryFloorAndRejectsMismatchedProfiles() throws {
     for model in catalog.models {
       let profile = try XCTUnwrap(model.resolvedProfile)
@@ -193,16 +280,17 @@ final class LocalModelSelectionTests: XCTestCase {
         var mac = hardware(memory: memory)
         mac.availableDiskBytes = Int64(disk) * gib
         let results = LocalModelSelector.select(manifest: catalog, hardware: mac)
-        for candidate in [results.recommended, results.faster, results.smarter].compactMap({ $0 }) {
+        XCTAssertEqual(results.roles.map(\.id), [results.recommended, results.faster, results.smarter].compactMap { $0?.id })
+        for candidate in results.roles.map(\.assessment) {
           XCTAssertTrue(candidate.fit.canRun)
           XCTAssertLessThanOrEqual(candidate.model.estimatedRuntimeMemory, mac.inferenceMemoryBudget)
           XCTAssertGreaterThanOrEqual(mac.availableDiskBytes, candidate.model.downloadByteCount * 2 + 2 * gib)
           XCTAssertGreaterThanOrEqual(candidate.model.recommendedContextSize, 4_096)
         }
         if let recommended = results.recommended {
-          XCTAssertTrue(recommended.isResponsive)
-          XCTAssertEqual(recommended.model.qualityScore,
-                         results.tierGroups.flatMap { $0.models }.filter(\.isResponsive).map(\.model.qualityScore).max())
+          XCTAssertTrue(recommended.isUsable)
+          let fast = results.assessments.filter(\.isFast)
+          if !fast.isEmpty { XCTAssertEqual(recommended.model.qualityScore, fast.map(\.model.qualityScore).max()) }
         }
       }
     }
@@ -218,9 +306,12 @@ final class LocalModelSelectionTests: XCTestCase {
     mac.cpuCount = 2
     XCTAssertNotEqual(first.recommended?.id, LocalModelSelector.select(manifest: catalog, hardware: mac).recommended?.id)
     let recommended = try XCTUnwrap(first.recommended)
-    XCTAssertLessThan(try XCTUnwrap(first.faster).model.estimatedRuntimeMemory, recommended.model.estimatedRuntimeMemory)
+    if let faster = first.faster {
+      XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5)
+    }
     XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.qualityScore, recommended.model.qualityScore)
-    XCTAssertEqual(Set([first.recommended?.id, first.faster?.id, first.smarter?.id].compactMap { $0 }).count, 3)
+    XCTAssertGreaterThanOrEqual(first.roles.count, 2)
+    XCTAssertEqual(Set(first.roles.map(\.id)).count, first.roles.count)
   }
 
   func testDiskCheckIncludesInstallerCopyButInstalledModelsRemainUsable() {
@@ -267,17 +358,22 @@ final class LocalModelSelectionTests: XCTestCase {
   }
 
   func testActualSlowdownChangesRecommendationAndSuggestsSmallerModel() throws {
-    let mac = hardware(memory: 32)
+    var mac = hardware(memory: 32)
+    mac.measuredBandwidth = 200
     let original = LocalModelSelector.select(manifest: catalog, hardware: mac)
     let recommended = try XCTUnwrap(original.recommended)
-    let record = benchmark(model: recommended.model, hardware: mac, speed: 4)
+    // The run also recalibrates every dense estimate, so it is slow enough to
+    // miss the speed bar while smaller packages still pass it.
+    let record = benchmark(model: recommended.model, hardware: mac, speed: 11, promptSpeed: 2_000)
     XCTAssertTrue(record.underperformed)
     let measured = LocalModelSelector.select(manifest: catalog, hardware: mac, measurements: [record])
     XCTAssertNotEqual(measured.recommended?.id, recommended.id)
     let current = try XCTUnwrap(measured.assessments.first { $0.id == recommended.id })
     XCTAssertTrue(current.isMeasured)
-    XCTAssertEqual(current.tokensPerSecond, 4)
-    XCTAssertEqual(current.fit, .slow)
+    XCTAssertEqual(current.tokensPerSecond, 11)
+    XCTAssertFalse(current.isFast)
+    XCTAssertEqual(LocalModelSelector.assess(recommended.model, hardware: mac,
+      measurements: [benchmark(model: recommended.model, hardware: mac, speed: 4)]).fit, .slow)
     XCTAssertNotNil(measured.fasterAlternative(to: recommended.id))
     let alternative = try XCTUnwrap(measured.fasterAlternative(to: recommended.id))
     XCTAssertFalse(alternative.isMeasured)
@@ -311,7 +407,7 @@ final class LocalModelSelectionTests: XCTestCase {
     let smarter = try XCTUnwrap(learned.recommended)
     XCTAssertGreaterThan(smarter.model.qualityScore, recommended.model.qualityScore)
     XCTAssertLessThanOrEqual(smarter.model.estimatedRuntimeMemory, mac.inferenceMemoryBudget)
-    XCTAssertTrue(smarter.isResponsive)
+    XCTAssertTrue(smarter.isFast)
   }
 
   func testMeasuredMemoryCanDisqualifyModelThatEstimatedToFit() {
@@ -812,31 +908,19 @@ extension LocalModelSelectionTests {
   }
 
   @MainActor
-  func testWelcomeShowsAtMostThreeSafeUniqueChoicesWithRecommendationFirst() {
-    for memory in [4, 8, 16, 32, 128] {
-      let recommendations = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: memory))
-      let choices = WelcomeSetup.choices(recommendations)
-      XCTAssertEqual(choices.count, min(3, recommendations.tierGroups.flatMap { $0.models }.filter(\.fit.canRun).count))
-      XCTAssertEqual(Set(choices.map(\.id)).count, choices.count)
-      XCTAssertTrue(choices.allSatisfy { $0.fit.canRun })
-      if let recommended = recommendations.recommended { XCTAssertEqual(choices.first?.id, recommended.id) }
-    }
+  func testWelcomeShowsTheRolesInOrder() {
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(bandwidth: 200))
+    XCTAssertEqual(WelcomeSetup.choices(recs).map(\.id), recs.roles.map(\.id))
+    XCTAssertEqual(WelcomeSetup.choices(recs).count, 3)
   }
 
   @MainActor
   func testWelcomeKeepsChosenModelVisibleAfterRecommendationChanges() throws {
-    let recommendations = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: 128))
-    let original = WelcomeSetup.choices(recommendations)
-    let chosen = try XCTUnwrap(recommendations.rankedChoices.last { candidate in
-      !original.contains { $0.id == candidate.id }
-    })
-    XCTAssertFalse(original.contains { $0.id == chosen.id })
-    let retained = WelcomeSetup.choices(recommendations, preserving: chosen.id)
-    XCTAssertEqual(retained.count, 3)
-    XCTAssertEqual(retained.first?.id, recommendations.recommended?.id)
-    XCTAssertTrue(retained.contains { $0.id == chosen.id })
-    let limited = LocalModelSelector.select(manifest: catalog, hardware: hardware(memory: 4))
-    XCTAssertTrue(WelcomeSetup.choices(limited, preserving: chosen.id).allSatisfy { $0.fit.canRun })
+    let recs = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(bandwidth: 200))
+    XCTAssertEqual(WelcomeSetup.choices(recs, preserving: "mid-q4_k_m").map(\.id),
+                   ["mid-q8_0", "small-q4_k_m", "mid-q4_k_m"])
+    let limited = LocalModelSelector.select(manifest: familyManifest, hardware: familyMac(memoryGiB: 4, bandwidth: 200))
+    XCTAssertTrue(WelcomeSetup.choices(limited, preserving: "mid-q4_k_m").isEmpty)
   }
 
   @MainActor

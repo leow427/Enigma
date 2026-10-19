@@ -46,10 +46,12 @@ struct LocalModelAssessment: Identifiable, Sendable {
   /// is possible; unsupported models remain available as file downloads.
   var permitsMemoryOverride: Bool { fit == .memory && model.permitsMemoryOverride }
   var canInstall: Bool { fit.canRun || permitsMemoryOverride }
-  var isResponsive: Bool { fit.canRun && tokensPerSecond >= 8 && timeToFirstToken <= 5 }
   /// Fast: at least 20 tok/s and a first token within 2 s on a 256-token prompt.
-  var isFast: Bool { fit.canRun && tokensPerSecond >= 20 && timeToFirstToken <= 2 }
-  var isUsable: Bool { fit.canRun && tokensPerSecond >= 8 }
+  var isFast: Bool {
+    fit.canRun && tokensPerSecond >= LocalModelSelector.fastTokensPerSecond
+      && timeToFirstToken <= LocalModelSelector.fastTimeToFirstToken
+  }
+  var isUsable: Bool { fit.canRun && tokensPerSecond >= LocalModelSelector.usableTokensPerSecond }
   var performanceDescription: String {
     if !fit.canRun { return reason }
     let prefix = isMeasured ? "Measured" : "Estimated"
@@ -58,38 +60,45 @@ struct LocalModelAssessment: Identifiable, Sendable {
   }
 }
 
+/// The three choices every picker shows, in this order.
+enum LocalModelRole: String, Sendable, CaseIterable {
+  case recommended, faster, smarter
+
+  func tag(isFast: Bool) -> String {
+    switch self {
+    case .recommended: isFast ? "recommended" : "best available, expect longer waits"
+    case .faster: "faster"
+    case .smarter: "smarter, slower replies"
+    }
+  }
+}
+
+struct LocalModelRoleChoice: Identifiable, Sendable {
+  let role: LocalModelRole
+  let assessment: LocalModelAssessment
+  var id: String { assessment.id }
+  var tag: String { role.tag(isFast: assessment.isFast) }
+}
+
 struct LocalModelRecommendations: Sendable {
+  /// Every package in the catalogue.
   let assessments: [LocalModelAssessment]
   let recommended: LocalModelAssessment?
   let faster: LocalModelAssessment?
   let smarter: LocalModelAssessment?
-  var physicalMemory: Int64 = 0
+  /// One package per family, in quality order.
+  var allFamilies: [LocalModelAssessment] = []
 
-  var tierGroups: [(weight: LocalModelWeight, models: [LocalModelAssessment])] {
-    LocalModelTiers.choices(memory: physicalMemory).map { weight, ids in
-      (weight, ids.compactMap { id in assessments.first { $0.id == id } })
+  var roles: [LocalModelRoleChoice] {
+    [(LocalModelRole.recommended, recommended), (.faster, faster), (.smarter, smarter)].compactMap { role, assessment in
+      assessment.map { LocalModelRoleChoice(role: role, assessment: $0) }
     }
-  }
-
-  var otherTierAssessments: [LocalModelAssessment] {
-    let ids = Set(tierGroups.flatMap { $0.models.map(\.id) })
-    return assessments.filter { !ids.contains($0.id) }.sorted(by: LocalModelSelector.hardwareOrder)
-  }
-
-  /// Best suitable choices only; unavailable entries never fill the top ten.
-  var rankedChoices: [LocalModelAssessment] {
-    Array(assessments.filter(\.fit.canRun).sorted(by: LocalModelSelector.hardwareOrder).prefix(10))
-  }
-
-  var otherAssessments: [LocalModelAssessment] {
-    let visible = Set(rankedChoices.map(\.id))
-    return assessments.filter { !visible.contains($0.id) }.sorted(by: LocalModelSelector.hardwareOrder)
   }
 
   func fasterAlternative(to modelID: String) -> LocalModelAssessment? {
     guard let current = assessments.first(where: { $0.id == modelID }) else { return nil }
     return assessments.filter {
-      $0.id != modelID && $0.isResponsive
+      $0.id != modelID && $0.isFast
         && $0.model.estimatedRuntimeMemory < current.model.estimatedRuntimeMemory
         && $0.tokensPerSecond >= current.tokensPerSecond * 1.2
     }.sorted(by: LocalModelSelector.qualityOrder).first
@@ -97,37 +106,58 @@ struct LocalModelRecommendations: Sendable {
 }
 
 enum LocalModelSelector {
+  static let fastTokensPerSecond = 20.0
+  static let fastTimeToFirstToken = 2.0
+  static let usableTokensPerSecond = 8.0
+  /// Above this Recommended already feels instant, so no Faster role is offered.
+  static let instantTokensPerSecond = 40.0
+  static let fasterSpeedup = 1.5
+
+  /// The family's package: the largest fast package, else the smallest runnable one, else nil.
+  /// Within a family a higher precision is a larger file.
+  static func choice(in family: [LocalModelAssessment]) -> LocalModelAssessment? {
+    if let fast = family.filter(\.isFast).max(by: { $0.model.expectedByteCount < $1.model.expectedByteCount }) {
+      return fast
+    }
+    return family.filter(\.fit.canRun).min { $0.model.expectedByteCount < $1.model.expectedByteCount }
+  }
+
+  /// Speed and memory are gates; quality ranks only what passes them.
   static func select(
     manifest: LocalModelManifest, hardware: LocalHardwareProfile,
     measurements: [LocalModelBenchmark] = [], installedIDs: Set<String> = []
   ) -> LocalModelRecommendations {
-    let tierIDs = Set(LocalModelTiers.choices(memory: hardware.physicalMemory).flatMap { $0.1 })
     let assessments = manifest.models.map {
       assess($0, hardware: hardware, measurements: measurements, installed: installedIDs.contains($0.id))
     }
-    // Safety is a gate, not a term in a score that quality can outweigh.
-    let responsive = assessments.filter { $0.isResponsive && tierIDs.contains($0.id) }.sorted(by: qualityOrder)
-    let recommended = responsive.first
-    let faster = recommended.flatMap { current in
-      responsive.filter {
-        $0.id != current.id && $0.model.estimatedRuntimeMemory < current.model.estimatedRuntimeMemory
-          && $0.tokensPerSecond >= current.tokensPerSecond * 1.2
-      }.first
+    var families: [String: [LocalModelAssessment]] = [:]
+    var familyOrder: [String] = []
+    for assessment in assessments {
+      let family = assessment.model.familyID
+      if families[family] == nil { familyOrder.append(family) }
+      families[family, default: []].append(assessment)
     }
-    let smarter = recommended.flatMap { current in
-      assessments.filter {
-        $0.fit.canRun && $0.model.qualityScore > current.model.qualityScore
-          && $0.tokensPerSecond >= 3 && $0.timeToFirstToken <= 12
-      }.sorted(by: qualityOrder).first
+    let grouped = familyOrder.compactMap { families[$0] }
+    let candidates = grouped.compactMap { choice(in: $0) }.sorted(by: qualityOrder)
+    let allFamilies = grouped.compactMap { family in
+      choice(in: family) ?? family.min { $0.model.expectedByteCount < $1.model.expectedByteCount }
+    }.sorted(by: qualityOrder)
+    let recommended = candidates.first(where: \.isFast) ?? candidates.first(where: \.isUsable)
+    var faster: LocalModelAssessment?
+    var smarter: LocalModelAssessment?
+    if let recommended, recommended.isFast {
+      if recommended.tokensPerSecond < instantTokensPerSecond {
+        faster = candidates.first {
+          $0.isFast && $0.model.familyID != recommended.model.familyID
+            && $0.tokensPerSecond >= recommended.tokensPerSecond * fasterSpeedup
+        }
+      }
+      smarter = candidates.first {
+        $0.isUsable && !$0.isFast && $0.model.qualityScore > recommended.model.qualityScore
+      }
     }
     return LocalModelRecommendations(assessments: assessments, recommended: recommended,
-                                     faster: faster, smarter: smarter, physicalMemory: hardware.physicalMemory)
-  }
-
-  static func hardwareOrder(_ lhs: LocalModelAssessment, _ rhs: LocalModelAssessment) -> Bool {
-    if lhs.fit.canRun != rhs.fit.canRun { return lhs.fit.canRun }
-    if lhs.isResponsive != rhs.isResponsive { return lhs.isResponsive }
-    return qualityOrder(lhs, rhs)
+                                     faster: faster, smarter: smarter, allFamilies: allFamilies)
   }
 
   static func qualityOrder(_ lhs: LocalModelAssessment, _ rhs: LocalModelAssessment) -> Bool {

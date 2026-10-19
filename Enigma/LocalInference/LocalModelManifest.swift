@@ -40,6 +40,8 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var resolvedProfile: LocalMultimodalProfile? {
     inferenceProfile ?? LocalMultimodalProfile.legacyQwen(parameters: parameterBillions)
   }
+  /// Packages of one family share a name and differ only in quantization.
+  var familyID: String { displayName }
   var resolvedActiveParameterBillions: Double { activeParameterBillions ?? parameterBillions }
   var isMixtureOfExperts: Bool { resolvedProfile?.isMixtureOfExperts ?? false }
   /// Bytes read for each generated token: the whole file for a dense model,

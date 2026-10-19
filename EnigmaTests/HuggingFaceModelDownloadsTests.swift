@@ -136,7 +136,7 @@ final class HuggingFaceModelDownloadsTests: XCTestCase {
     let assessment = try await advisor.confirmDownload(model, installedModels: [])
     XCTAssertTrue(assessment.permitsMemoryOverride)
     XCTAssertTrue(assessment.canInstall)
-    XCTAssertFalse(assessment.isResponsive)
+    XCTAssertFalse(assessment.isFast)
     var noDisk = profile
     noDisk.availableDiskBytes = 0
     XCTAssertFalse(LocalModelSelector.assess(model, hardware: noDisk).canInstall)

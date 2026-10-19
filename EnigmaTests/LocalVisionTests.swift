@@ -543,12 +543,10 @@ final class LocalVisionTests: XCTestCase {
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text
     XCTAssertTrue(text.contains("Local models"), text)
     XCTAssertFalse(text.contains("Image understanding"), text)
-    XCTAssertTrue(text.contains("Qwen3"), text)
-    XCTAssertTrue(text.contains("Middleweight"), text)
-    XCTAssertTrue(text.contains("OpenBMB"), text)
-    XCTAssertTrue(text.contains("MiniCPM-o 4.5"), text)
-    XCTAssertTrue(text.contains("Lightweight"), text)
-    XCTAssertTrue(text.contains("Best choices for this Mac"), text)
+    XCTAssertTrue(text.contains("For this Mac"), text)
+    XCTAssertTrue(text.contains("All models"), text)
+    XCTAssertFalse(text.contains("Lightweight"), text)
+    XCTAssertFalse(text.contains("Middleweight"), text)
     XCTAssertFalse(text.contains("SmolVLM"), text)
     XCTAssertTrue(text.contains("Install"), text)
     XCTAssertFalse(text.contains("Choose a file"), text)
@@ -559,20 +557,20 @@ final class LocalVisionTests: XCTestCase {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
     let source = try fixture(in: directory)
-    let descriptor = try XCTUnwrap(LocalVisionModelDescriptor.bundled.first { $0.id == "qwen3.5-4b-q5_k_m" })
+    // The legacy files sit under the ID of the package this Mac is offered,
+    // so its row in For this Mac must offer an update.
+    let profile = LocalHardwareProfile(physicalMemory: 24 * LocalHardwareProfile.gib,
+      isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
+      chip: "Apple Silicon (24 GB fixture)", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 6,
+      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
+      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
+    let descriptor = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: profile).recommended?.model)
     let store = LocalModelInstallationStore(modelsDirectory: directory.appending(path: "library"))
     _ = try store.install(LocalModel(id: descriptor.id, displayName: "SmolVLM 2.2B", fileURL: source.fileURL,
       visionConfiguration: source.visionConfiguration))
     let chat = LocalChatViewModel(engine: LlamaCPPModelEngine(installationStore: store),
       sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
     await chat.refreshInstalledModel()
-    // The ranked list excludes unsuitable models; use the same Mac profile
-    // on CI and locally so these assertions verify layout, not host resources.
-    let profile = LocalHardwareProfile(physicalMemory: 24 * LocalHardwareProfile.gib,
-      isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
-      chip: "Apple Silicon (24 GB fixture)", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 6,
-      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
-      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, trust: nil, detect: { _ in profile })
     await advisor.detectHardware()
     let view = NSHostingView(rootView: localModelsPage(advisor: advisor, chat: chat, height: 1200))
@@ -596,7 +594,7 @@ final class LocalVisionTests: XCTestCase {
     // caption. CI OCR can confuse the similar l/I glyphs in this brand name;
     // normalize only that spelling while retaining the full model/version check.
     XCTAssertTrue(text.split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces) == "Update" }, text)
-    XCTAssertTrue(text.contains("Qwen3"), text)
+    XCTAssertTrue(text.contains(String(descriptor.displayName.prefix(5))), text)
     XCTAssertFalse(text.contains("Ready for Screen"), text)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")

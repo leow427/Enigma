@@ -58,22 +58,13 @@ struct LocalModelManagerSection: View {
       .disabled(chat.isBusy || advisor.isDetecting)
       .padding(.top, 12)
 
-      EnigmaSectionHeader("Best choices for this Mac")
-      VStack(alignment: .leading, spacing: 4) {
-        EnigmaNote("Five choices across three weight classes. Check performance measures a downloaded model on your Mac.")
-        EnigmaNote("Choose a weight class for this Mac. Availability reflects memory, disk space and runtime support.")
-      }
-      ForEach(recommendations.tierGroups, id: \.weight) { group in
-        EnigmaSectionHeader(group.weight.rawValue)
-        ForEach(group.models) { assessment in
-          modelRow(assessment, isRecommended: assessment.id == recommendations.recommended?.id)
-        }
-        EnigmaHairline()
-      }
-      if !recommendations.otherTierAssessments.isEmpty {
-        EnigmaDisclosure("Models for other memory sizes") {
+      EnigmaSectionHeader("For this Mac")
+      ForEach(recommendations.roles) { choice in modelRow(choice.assessment, badge: choice.tag) }
+      EnigmaHairline()
+      if !recommendations.allFamilies.isEmpty {
+        EnigmaDisclosure("All models") {
           VStack(alignment: .leading, spacing: 0) {
-            ForEach(recommendations.otherTierAssessments) { assessment in modelRow(assessment) }
+            ForEach(recommendations.allFamilies) { assessment in modelRow(assessment) }
             EnigmaHairline()
           }
         }
@@ -129,9 +120,9 @@ struct LocalModelManagerSection: View {
     .accessibilityElement(children: .combine)
   }
 
-  private func modelRow(_ assessment: LocalModelAssessment, isRecommended: Bool = false) -> some View {
+  private func modelRow(_ assessment: LocalModelAssessment, badge: String? = nil) -> some View {
     let model = assessment.model
-    return EnigmaRow(model.displayName, badge: isRecommended ? "recommended" : nil, subtitle: model.summary) {
+    return EnigmaRow(model.displayName, badge: badge, subtitle: model.summary) {
       VStack(alignment: .leading, spacing: 2) {
         if assessment.fit.canRun {
           mono(assessment.fit.rawValue, color: palette.textSecondary)
