@@ -131,9 +131,9 @@ def main():
     if any(path.exists() for path in (output, log, metadata)):
         parser.error("Output, log or metadata already exists; choose a new path to retain earlier results")
     repository = Path(__file__).resolve().parent.parent
-    sources = sorted((repository / "AI-Spotlight/Files").glob("*.swift")) + [
-        repository / "AI-Spotlight/LocalInference/LlamaServerVisionEngine.swift",
-        repository / "AI-SpotlightTests/FileModeRuntimeTests.swift"]
+    sources = sorted((repository / "Enigma/Files").glob("*.swift")) + [
+        repository / "Enigma/LocalInference/LlamaServerVisionEngine.swift",
+        repository / "EnigmaTests/FileModeRuntimeTests.swift"]
     with metadata.open("x") as stream:
         json.dump({"started_utc": datetime.now(timezone.utc).isoformat(),
             "head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip(),

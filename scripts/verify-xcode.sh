@@ -3,7 +3,7 @@
 set -eu
 
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-verification_derived_data="/tmp/AI-Spotlight-Verification"
+verification_derived_data="/tmp/Enigma-Verification"
 launch_services_tool="/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
 
 unregister_verification_apps() {
@@ -45,7 +45,7 @@ fi
 
 cd "$repository_root"
 xcodebuild "$verification_action" \
-  -project AI-Spotlight.xcodeproj \
+  -project Enigma.xcodeproj \
   -scheme Enigma \
   -destination 'platform=macOS' \
   -derivedDataPath "$verification_derived_data" \

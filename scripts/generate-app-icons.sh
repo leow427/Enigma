@@ -10,7 +10,7 @@ set -eu
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 # xcodebuild passes TEST_RUNNER_-prefixed variables to the test host without the prefix.
-TEST_RUNNER_ENIGMA_ICON_ASSET_DIR="$repository_root/AI-Spotlight/Resources/Assets.xcassets" \
+TEST_RUNNER_ENIGMA_ICON_ASSET_DIR="$repository_root/Enigma/Resources/Assets.xcassets" \
   "$repository_root/scripts/verify-xcode.sh" test \
   -only-testing:EnigmaTests/EnigmaIconTests/testGenerateAppIdentityAssets \
   "$@"
