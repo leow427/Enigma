@@ -51,11 +51,10 @@ struct ApplicationMover {
 
   static func quitRunningApplications(at url: URL) {
     guard let identifier = Bundle.main.bundleIdentifier else { return }
-    let target = url.resolvingSymlinksInPath().standardizedFileURL
     let current = ProcessInfo.processInfo.processIdentifier
     let copies = NSRunningApplication.runningApplications(withBundleIdentifier: identifier).filter {
-      $0.processIdentifier != current
-        && $0.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == target
+      guard $0.processIdentifier != current, let bundleURL = $0.bundleURL else { return false }
+      return isSameBundle(bundleURL, url)
     }
     for copy in copies {
       copy.terminate()
@@ -67,6 +66,18 @@ struct ApplicationMover {
     for copy in copies where !copy.isTerminated {
       copy.forceTerminate()
     }
+  }
+
+  /// True when both URLs name the same bundle, after resolving symlinks. Ignores a
+  /// trailing slash, which `NSRunningApplication.bundleURL` has and built URLs may not.
+  static func isSameBundle(_ a: URL, _ b: URL) -> Bool {
+    comparablePath(a) == comparablePath(b)
+  }
+
+  private static func comparablePath(_ url: URL) -> String {
+    var path = url.resolvingSymlinksInPath().standardizedFileURL.path
+    while path.count > 1, path.hasSuffix("/") { path.removeLast() }
+    return path
   }
 
   /// Bundle version of an existing copy at `url` (CFBundleShortVersionString), or nil.
@@ -137,9 +148,7 @@ struct ApplicationMover {
   /// Trashes the downloaded original; logs and ignores failures.
   func discardOriginal(_ original: URL?, destination: URL) {
     guard let original else { return }
-    let resolvedOriginal = original.resolvingSymlinksInPath().standardizedFileURL.path
-    let resolvedDestination = destination.resolvingSymlinksInPath().standardizedFileURL.path
-    guard resolvedOriginal != resolvedDestination else { return }
+    guard !Self.isSameBundle(original, destination) else { return }
     do {
       try trash(original)
     } catch {
@@ -147,8 +156,9 @@ struct ApplicationMover {
     }
   }
 
-  private func itemExists(at url: URL) -> Bool {
-    // `attributesOfItem` does not follow a symlink, so a dangling link still counts.
+  /// True when anything, even a dangling symlink, is at `url`. `attributesOfItem` does
+  /// not follow a symlink, unlike `FileManager.fileExists`.
+  func itemExists(at url: URL) -> Bool {
     (try? fileManager.attributesOfItem(atPath: url.path)) != nil
   }
 

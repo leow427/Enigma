@@ -232,6 +232,57 @@ final class ApplicationMoverTests: XCTestCase {
     XCTAssertNil(mover.existingVersion(at: noPlist))
   }
 
+  // MARK: Matching and existence
+
+  func testIsSameBundleIgnoresTrailingSlash() {
+    XCTAssertTrue(ApplicationMover.isSameBundle(
+      URL(string: "file:///Applications/Enigma.app/")!, URL(string: "file:///Applications/Enigma.app")!))
+    XCTAssertTrue(ApplicationMover.isSameBundle(
+      URL(filePath: "/Applications/Enigma.app", directoryHint: .isDirectory),
+      URL(filePath: "/Applications/Enigma.app", directoryHint: .notDirectory)))
+  }
+
+  func testIsSameBundleResolvesSymlinks() throws {
+    let real = root.appendingPathComponent("real", isDirectory: true)
+    let link = root.appendingPathComponent("link")
+    try FileManager.default.createDirectory(
+      at: real.appendingPathComponent("Enigma.app", isDirectory: true), withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+    XCTAssertTrue(ApplicationMover.isSameBundle(
+      link.appendingPathComponent("Enigma.app"), real.appendingPathComponent("Enigma.app/")))
+  }
+
+  func testIsSameBundleRejectsDifferentBundles() {
+    XCTAssertFalse(ApplicationMover.isSameBundle(
+      URL(filePath: "/Applications/Enigma.app"), URL(filePath: "/Users/friend/Applications/Enigma.app")))
+    XCTAssertFalse(ApplicationMover.isSameBundle(
+      URL(filePath: "/Applications/Enigma.app"), URL(filePath: "/Applications/Enigma 2.app")))
+  }
+
+  func testItemExistsCountsADanglingSymlink() throws {
+    try FileManager.default.createDirectory(at: applications, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+      atPath: destination.path, withDestinationPath: root.appendingPathComponent("Gone.app").path)
+    let mover = recorder.mover()
+    XCTAssertTrue(mover.itemExists(at: destination))
+    XCTAssertFalse(mover.itemExists(at: applications.appendingPathComponent("Other.app")))
+    XCTAssertNil(mover.existingVersion(at: destination))
+  }
+
+  func testInstallReplacesADanglingSymlink() throws {
+    try makeBundle(at: downloadedBundle, version: "0.10.1")
+    try FileManager.default.createDirectory(at: applications, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+      atPath: destination.path, withDestinationPath: root.appendingPathComponent("Gone.app").path)
+    let mover = recorder.mover()
+
+    try mover.install(from: downloadedBundle, to: destination, replacingExisting: true)
+
+    XCTAssertEqual(recorder.events, ["quit", "trash"])
+    XCTAssertEqual(mover.existingVersion(at: destination), "0.10.1")
+    XCTAssertEqual(try contents(of: applications), ["Enigma.app"])
+  }
+
   // MARK: discardOriginal
 
   func testDiscardOriginalTrashesIt() throws {

@@ -46,7 +46,9 @@ it runs and offers to move itself:
 
 - **When it asks.** When Enigma is translocated, or runs from anywhere outside
   `/Applications` and `~/Applications` (subfolders count as inside). It never
-  asks in Debug builds or in the hosted unit tests.
+  asks in Debug builds or in the hosted unit tests. Only Debug is excluded, so
+  a Release build run from DerivedData (Profile or Archive in Xcode) does
+  offer the move; choose **Not Now** or **Don't ask again** there.
 - **Move offer.** **Move to Applications** copies Enigma to
   `/Applications/Enigma.app` (always named `Enigma.app`, even if the download
   was `Enigma 2.app`), moves the download to the Trash, and reopens the new

@@ -51,6 +51,7 @@ import Darwin
 
     let mover = ApplicationMover()
     let relaunchTarget: URL
+    var originalToDiscard: (original: URL?, destination: URL)?
     do {
       switch decision {
       case .stay:
@@ -60,22 +61,28 @@ import Darwin
         relaunchTarget = original
       case .move(let destination, _):
         var replacingExisting = false
-        if FileManager.default.fileExists(atPath: destination.path) {
+        if mover.itemExists(at: destination) {
           guard confirmReplacing(at: destination, mover: mover) else { return false }
           replacingExisting = true
         }
         try mover.install(from: bundleURL, to: destination, replacingExisting: replacingExisting)
-        mover.discardOriginal(
-          translocation.isTranslocated ? translocation.original : bundleURL,
-          destination: destination)
+        originalToDiscard = (translocation.isTranslocated ? translocation.original : bundleURL, destination)
         relaunchTarget = destination
       }
     } catch {
+      NSLog("Unable to move Enigma into Applications: %@", String(describing: error))
       showFailure(reason: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
       return false
     }
 
-    return relaunch(relaunchTarget)
+    // Trash the download only once the relaunch helper is running, so a failed
+    // relaunch never leaves Enigma running from a bundle in the Trash.
+    guard startRelaunchHelper(for: relaunchTarget) else { return false }
+    if let originalToDiscard {
+      mover.discardOriginal(originalToDiscard.original, destination: originalToDiscard.destination)
+    }
+    NSApp.terminate(nil)
+    return true
   }
 
   private static var runningVersion: String {
@@ -109,9 +116,9 @@ import Darwin
 
   // MARK: Relaunch
 
-  /// Opens `app` once this process has exited, so the two copies never hold the
-  /// global shortcuts at once, then quits. Returns false if the helper could not start.
-  private static func relaunch(_ app: URL) -> Bool {
+  /// Starts a helper that opens `app` once this process has exited, so the two copies
+  /// never hold the global shortcuts at once. Returns false if the helper could not start.
+  private static func startRelaunchHelper(for app: URL) -> Bool {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/bin/sh")
     process.arguments = [
@@ -124,10 +131,10 @@ import Darwin
     do {
       try process.run()
     } catch {
+      NSLog("Unable to start the Enigma relaunch helper: %@", String(describing: error))
       showFailure(reason: error.localizedDescription)
       return false
     }
-    NSApp.terminate(nil)
     return true
   }
 
