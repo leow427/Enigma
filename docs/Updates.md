@@ -280,8 +280,10 @@ download, served from `http://127.0.0.1:8000`):
 
 ### Manual check: moving into Applications
 
-Not yet run. With a signed Release build zipped and quarantined like a
-download:
+Run on 2026-10-19 by the owner with a signed Release build of 0.9.1, zipped
+and quarantined like a Safari download, while `/Applications` held a copy
+reporting 1.0 (so the replace step showed the newer-copy wording). The owner
+reported that it worked. The steps:
 
 1. Open it from Downloads. The move offer appears; accept. Enigma reopens from
    `/Applications/Enigma.app`, is not translocated (`ps` shows the real path),
