@@ -866,7 +866,9 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the mode palette", in: view) { Host.marker("Menu item Auto", in: view) != nil }
     XCTAssertTrue(window.performKeyEquivalent(with: try key("\u{1b}", keyCode: 53, modifiers: [])))
     try await waitForUI("Escape closes only the menu (menu open: \(Host.marker("Menu item Auto", in: view) != nil), "
-                        + "panel visible: \(controller.isVisible), first responder: \(String(describing: window.firstResponder)))",
+                        + "panel visible: \(controller.isVisible), first responder: \(String(describing: window.firstResponder)), "
+                        + "key window: \(window.isKeyWindow), app active: \(NSApp.isActive), "
+                        + "app's key window: \(String(describing: NSApp.keyWindow)))",
                         in: view) {
       Host.marker("Menu item Auto", in: view) == nil && window.firstResponder === composerEditor(in: view)
     }

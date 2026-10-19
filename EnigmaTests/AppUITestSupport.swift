@@ -28,7 +28,11 @@ func waitForUI(_ description: @autoclosure () -> String, in view: NSView? = nil,
 @MainActor
 func waitForOpenMenuToTakeFocus(in hostingView: NSView, file: StaticString = #filePath,
                                 line: UInt = #line) async throws {
-  try await waitForUI("the open menu to take keyboard focus", in: hostingView, file: file, line: line) {
+  let window = hostingView.window
+  try await waitForUI("the open menu to take keyboard focus (key window: \(window?.isKeyWindow == true), "
+                      + "app active: \(NSApp.isActive), first responder: \(String(describing: window?.firstResponder)), "
+                      + "app's key window: \(String(describing: NSApp.keyWindow)))",
+                      in: hostingView, file: file, line: line) {
     hostingView.window?.firstResponder === hostingView
   }
 }
@@ -76,23 +80,35 @@ func clickTestControl(_ name: String, in view: NSView,
     if let marker = node as? TestControlMarker.Marker, marker.identifier?.rawValue == name { return marker }
     return node.subviews.lazy.compactMap { marker(in: $0) }.first
   }
+  func center(of marker: NSView) -> NSPoint {
+    marker.convert(NSPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: nil)
+  }
   let window = try XCTUnwrap(view.window, file: file, line: line)
   // Synthetic clicks do not activate a window as physical clicks do.
   window.makeKeyAndOrderFront(nil)
-  try await waitForUI("visible control \(name) in the key window", in: view, file: file, line: line) {
-    guard let marker = marker(in: view) else { return false }
-    return window.isKeyWindow && marker.window === window && !marker.isHiddenOrHasHiddenAncestor
-      && marker.visibleRect.width > 1 && marker.visibleRect.height > 1
+  try await waitForUI("visible, uncovered control \(name) in the key window", in: view, file: file, line: line) {
+    guard let marker = marker(in: view), window.isKeyWindow, marker.window === window,
+          !marker.isHiddenOrHasHiddenAncestor, marker.visibleRect.width > 1, marker.visibleRect.height > 1
+    else { return false }
+    // The click must reach the control, not a field or text drawn over it
+    // while the layout is still moving, as a person's click would. The window
+    // sends a click to the deepest view under it, found from its frame view.
+    guard let frame = window.contentView?.superview, let hit = frame.hitTest(center(of: marker)) else { return false }
+    return marker.isDescendant(of: hit)
   }
-  let target = try XCTUnwrap(marker(in: view), file: file, line: line)
-  let location = target.convert(NSPoint(x: target.bounds.midX, y: target.bounds.midY), to: nil)
-  let point = view.convert(location, from: nil)
-  _ = try XCTUnwrap(view.hitTest(view.convert(point, to: view.superview)), "Control must be hittable", file: file, line: line)
-  for type: NSEvent.EventType in [.leftMouseDown, .leftMouseUp] {
-    let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
+  let location = center(of: try XCTUnwrap(marker(in: view), file: file, line: line))
+  let events = try [NSEvent.EventType.leftMouseDown, .leftMouseUp].map { type in
+    try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
       modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
       windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1), file: file, line: line)
-    window.sendEvent(event)
+  }
+  // A view that tracks the mouse, as a text view does to select, waits inside
+  // its mouse-down for the mouse-up from the event queue. Queue it first, so
+  // such a view can't wait forever; otherwise deliver it right after, as before.
+  NSApp.postEvent(events[1], atStart: true)
+  window.sendEvent(events[0])
+  if let up = NSApp.nextEvent(matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: true) {
+    window.sendEvent(up)
   }
 }
 
@@ -142,5 +158,70 @@ struct TranscriptPreview: View {
         }
       }
     }
+  }
+}
+
+// MARK: Tests of the helpers
+
+@MainActor
+final class UITestSupportTests: XCTestCase {
+  /// A panel that can be key without activating the app, as the app's panels can.
+  private final class KeyPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+  }
+
+  private func window(_ content: NSView) -> NSWindow {
+    let window = KeyPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
+                          styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = content
+    window.orderFrontRegardless()
+    window.makeKey()
+    addTeardownBlock { @MainActor in window.orderOut(nil); window.contentView = nil }
+    return window
+  }
+
+  private func marker(_ name: String, frame: NSRect) -> TestControlMarker.Marker {
+    let marker = TestControlMarker.Marker(frame: frame)
+    marker.identifier = NSUserInterfaceItemIdentifier(name)
+    return marker
+  }
+
+  /// A focused text view selects by tracking the mouse inside its mouse-down
+  /// until the mouse-up arrives. The click returns instead of waiting forever,
+  /// as a hosted test once did on CI when its click landed on the composer.
+  func testClickOnAViewThatTracksTheMouseReturns() async throws {
+    let content = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    let text = NSTextView(frame: content.bounds)
+    text.string = "Selectable text that tracks the mouse"
+    content.addSubview(text)
+    text.addSubview(marker("Text", frame: NSRect(x: 20, y: 20, width: 100, height: 40)))
+    let window = window(content)
+    window.makeFirstResponder(text)
+    try await clickTestControl("Text", in: content)
+    XCTAssertTrue(window.firstResponder === text, "The text view kept the click")
+  }
+
+  /// A control with something drawn over it isn't clicked until it's uncovered.
+  func testCoveredControlIsClickedOnlyOnceUncovered() async throws {
+    var taps = 0
+    let host = NSHostingView(rootView: Button("Tap") { taps += 1 }
+      .frame(width: 120, height: 40)
+      .background(TestControlMarker(name: "Tap").allowsHitTesting(false))
+      .frame(maxWidth: .infinity, maxHeight: .infinity))
+    let content = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    host.frame = content.bounds
+    content.addSubview(host)
+    let cover = NSTextView(frame: content.bounds)
+    content.addSubview(cover)
+    _ = window(content)
+    let options = XCTExpectedFailure.Options()
+    options.issueMatcher = { $0.compactDescription.contains("Timed out waiting for visible, uncovered control Tap") }
+    XCTExpectFailure("The covered control is never clicked", options: options)
+    try? await clickTestControl("Tap", in: host)
+    XCTAssertEqual(taps, 0, "Nothing reached the covered button")
+    cover.removeFromSuperview()
+    try await clickTestControl("Tap", in: host)
+    XCTAssertEqual(taps, 1)
   }
 }
