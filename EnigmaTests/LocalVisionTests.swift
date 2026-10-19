@@ -344,13 +344,51 @@ final class LocalVisionTests: XCTestCase {
       let session = downloadSession()
       defer { session.invalidateAndCancel() }
       let catalog = LocalModelCatalog(installationStore: LocalModelInstallationStore(modelsDirectory: store.modelsDirectoryURL, fileOperations: operations),
-        session: session, availableDisk: { _ in scenario == "disk" ? 0 : 100 * LocalHardwareProfile.gib })
+        session: session, availableDisk: { _ in scenario == "disk" ? 0 : 100 * LocalHardwareProfile.gib },
+        transferPolicy: .immediate)
       do {
         _ = try await catalog.downloadVision(package.descriptor, runtime: package.runtime) { _ in }
         XCTFail("Expected \(scenario) failure")
       } catch { }
       XCTAssertEqual(store.installedModel(), original, scenario)
       XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted(), before, scenario)
+    }
+  }
+
+  func testPersistentConnectionDropReportsTheNetworkErrorAndEndsTheActivity() async throws {
+    for artifactIndex in 0..<3 {
+      let directory = try temporaryDirectory()
+      defer { try? FileManager.default.removeItem(at: directory) }
+      let package = try downloadFixture(in: directory)
+      let artifact = [package.descriptor.model, package.descriptor.projector, package.runtime.archive][artifactIndex]
+      VisionDownloadProtocol.fail(artifact.url, with: .networkConnectionLost)
+      let store = LocalModelInstallationStore(modelsDirectory: directory.appending(path: "library"))
+      let original = try store.install(LocalModel(id: "text", displayName: "Text", fileURL: package.source.fileURL))
+      let before = try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted()
+      let session = downloadSession()
+      defer { session.invalidateAndCancel() }
+      let activity = DownloadActivityRecorder()
+      let catalog = LocalModelCatalog(installationStore: store, session: session,
+        availableDisk: { _ in 100 * LocalHardwareProfile.gib }, transferPolicy: .immediate, activity: activity.activity)
+      do {
+        _ = try await catalog.downloadVision(package.descriptor, runtime: package.runtime) { _ in
+          XCTAssertEqual(activity.active, 1, "The Mac stays awake while bytes arrive")
+        }
+        XCTFail("Expected the dropped connection to fail the package")
+      } catch {
+        XCTAssertEqual((error as? URLError)?.code, .networkConnectionLost, "Artifact \(artifactIndex): \(error)")
+      }
+      XCTAssertEqual(VisionDownloadProtocol.requestCount(for: artifact.url), 5)
+      XCTAssertEqual(activity.began, 1)
+      XCTAssertEqual(activity.ended, 1)
+      XCTAssertEqual(store.installedModel(), original)
+      XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted(), before)
+
+      VisionDownloadProtocol.fail(artifact.url, with: nil)
+      let installed = try await catalog.downloadVision(package.descriptor, runtime: package.runtime) { _ in }
+      XCTAssertTrue(installed.supportsVision)
+      XCTAssertEqual(activity.began, 2)
+      XCTAssertEqual(activity.ended, 2)
     }
   }
 
@@ -868,11 +906,20 @@ private actor VisionDownloadGate {
 private final class VisionDownloadProtocol: URLProtocol, @unchecked Sendable {
   private static let lock = NSLock()
   nonisolated(unsafe) private static var responses: [URL: (Data, Int)] = [:]
+  nonisolated(unsafe) private static var failures: [URL: URLError.Code] = [:]
+  nonisolated(unsafe) private static var requests: [URL: Int] = [:]
   static func set(_ url: URL, data: Data, status: Int = 200) { lock.withLock { responses[url] = (data, status) } }
   static func data(for url: URL) -> Data? { lock.withLock { responses[url]?.0 } }
+  /// Fails every request for `url` with `code` (nil restores the response) and resets its request count.
+  static func fail(_ url: URL, with code: URLError.Code?) { lock.withLock { failures[url] = code; requests[url] = 0 } }
+  static func requestCount(for url: URL) -> Int { lock.withLock { requests[url] ?? 0 } }
   override class func canInit(with request: URLRequest) -> Bool { true }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
+    let failure = request.url.flatMap { url in
+      Self.lock.withLock { () -> URLError.Code? in Self.requests[url, default: 0] += 1; return Self.failures[url] }
+    }
+    if let failure { client?.urlProtocol(self, didFailWithError: URLError(failure)); return }
     guard let url = request.url, let (data, status) = Self.lock.withLock({ Self.responses[url] }) else {
       client?.urlProtocol(self, didFailWithError: URLError(.resourceUnavailable)); return
     }

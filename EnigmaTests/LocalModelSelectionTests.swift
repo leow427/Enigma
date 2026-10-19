@@ -561,7 +561,7 @@ final class LocalModelSelectionTests: XCTestCase {
         }
         let staged = root.appending(path: "verified.gguf")
         try await VerifiedModelArtifact(url: url, expectedByteCount: Int64(bytes.count),
-          checksumSHA256: descriptor.checksumSHA256).download(to: staged, session: session) { _ in }
+          checksumSHA256: descriptor.checksumSHA256).download(to: staged, session: session, policy: .immediate) { _ in }
         let installed = try store.install(LocalModel(id: descriptor.id, displayName: descriptor.displayName,
           fileURL: staged, catalogDescriptor: descriptor))
         XCTAssertEqual(scenario, "valid")

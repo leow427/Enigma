@@ -8,15 +8,18 @@ enum LocalFileRuntimeSetup {
   }
   static var executable: URL { directory.appending(path: LocalVisionRuntime.directoryName + "/llama-server") }
 
-  static func install(progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws {
+  static func install(session: URLSession = .shared, activity: DownloadActivity = .system,
+                      progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws {
     if FileManager.default.isExecutableFile(atPath: executable.path) { return }
     let runtime = LocalVisionRuntime.bundled
     try runtime.validate()
+    let endActivity = activity.begin("Installing the file-tools runtime")
+    defer { endActivity() }
     let staging = directory.deletingLastPathComponent().appending(path: ".file-tools-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: staging) }
+    defer { FileManager.default.removeItemIfPresent(at: staging) }
     let archive = staging.appendingPathComponent("runtime.tar.gz")
-    try await runtime.archive.download(to: archive, session: .shared, progress: progress)
+    try await runtime.archive.download(to: archive, session: session, progress: progress)
     // Existing verified download/extraction path; this is app setup, never an agent command.
     _ = try await runtime.install(archive: archive, staging: staging, destination: directory)
   }

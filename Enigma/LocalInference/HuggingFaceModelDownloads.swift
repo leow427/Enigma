@@ -130,6 +130,7 @@ struct HuggingFaceFileDownloader: Sendable {
   var transfer: Transfer = { file, url, output, progress in
     try await Self.transfer(file, from: url, to: output, progress: progress)
   }
+  var activity: DownloadActivity = .system
 
   func download(_ repository: HuggingFaceRepository, selected: Set<String>, into parent: URL,
     progress: @escaping @Sendable (String, ModelDownloadProgress) async -> Void) async throws -> URL {
@@ -137,11 +138,13 @@ struct HuggingFaceFileDownloader: Sendable {
     let files = repository.siblings.filter { selected.contains($0.id) }
     guard !files.isEmpty, files.count == selected.count else { throw HuggingFaceDownloadError.invalidSelection }
     let total = files.reduce(Int64(0)) { $0 + $1.size }
+    let endActivity = activity.begin("Downloading \(repository.id) from Hugging Face")
+    defer { endActivity() }
     let name = "\(repository.id.replacingOccurrences(of: "/", with: "--"))-\(repository.sha.prefix(8))-\(UUID().uuidString.prefix(8))"
     let destination = parent.appending(path: name, directoryHint: .isDirectory)
     let staging = parent.appending(path: ".enigma-download-\(UUID())", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: staging) }
+    defer { FileManager.default.removeItemIfPresent(at: staging) }
     var completed: Int64 = 0
     for file in files {
       try Task.checkCancellation()
@@ -162,7 +165,7 @@ struct HuggingFaceFileDownloader: Sendable {
   }
 
   static func transfer(_ file: HuggingFaceRepositoryFile, from url: URL, to output: URL,
-    configuration: URLSessionConfiguration = .ephemeral,
+    configuration: URLSessionConfiguration = .ephemeral, policy: ArtifactTransferPolicy = .standard,
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws {
     configuration.httpCookieStorage = nil
     configuration.urlCredentialStorage = nil
@@ -170,7 +173,7 @@ struct HuggingFaceFileDownloader: Sendable {
     defer { session.invalidateAndCancel() }
     if let lfs = file.lfs {
       try await VerifiedModelArtifact(url: url, expectedByteCount: file.size, checksumSHA256: lfs.sha256)
-        .download(to: output, session: session, progress: progress)
+        .download(to: output, session: session, policy: policy, progress: progress)
       return
     }
     // Ordinary Git files use the Git blob SHA-1; large model weights use the

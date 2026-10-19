@@ -245,17 +245,23 @@ struct LocalModelCatalog: Sendable {
   private let session: URLSession
   private let detectHardware: @Sendable (URL) -> LocalHardwareProfile
   private let availableDisk: @Sendable (URL) -> Int64
+  private let transferPolicy: ArtifactTransferPolicy
+  private let activity: DownloadActivity
 
   init(
     installationStore: LocalModelInstallationStore,
     session: URLSession = .shared,
     detectHardware: @escaping @Sendable (URL) -> LocalHardwareProfile = LocalHardwareProfile.detect,
-    availableDisk: @escaping @Sendable (URL) -> Int64 = LocalHardwareProfile.availableDisk
+    availableDisk: @escaping @Sendable (URL) -> Int64 = LocalHardwareProfile.availableDisk,
+    transferPolicy: ArtifactTransferPolicy = .standard,
+    activity: DownloadActivity = .system
   ) {
     self.installationStore = installationStore
     self.session = session
     self.detectHardware = detectHardware
     self.availableDisk = availableDisk
+    self.transferPolicy = transferPolicy
+    self.activity = activity
   }
 
   func download(
@@ -291,21 +297,40 @@ struct LocalModelCatalog: Sendable {
     guard availableDisk(directory) >= total * 2 + 2 * LocalHardwareProfile.gib else {
       throw LocalInferenceError.bridgeFailure("Free more disk space before downloading this image model.")
     }
+    // Downloading, verifying and installing must not be interrupted by idle sleep.
+    let endActivity = activity.begin("Downloading the local model \(descriptor.displayName)")
+    defer { endActivity() }
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let staging = directory.appending(path: ".vision-download-\(UUID().uuidString)", directoryHint: .isDirectory)
     let runtimeDirectory = directory.appending(path: "vision-runtime-\(UUID().uuidString)", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-    var committed = false
-    defer {
-      try? FileManager.default.removeItem(at: staging)
-      if !committed { try? FileManager.default.removeItem(at: runtimeDirectory) }
+    // Cleanup is explicit rather than a throwing call in `defer`, so a failed
+    // removal of a directory that was never created can never stand in for
+    // the error that ended the download.
+    do {
+      let installed = try await installPackage(descriptor, runtime: runtime, catalogDescriptor: catalogDescriptor,
+        staging: staging, runtimeDirectory: runtimeDirectory, total: total, progress: progress)
+      FileManager.default.removeItemIfPresent(at: staging)
+      return installed
+    } catch {
+      FileManager.default.removeItemIfPresent(at: staging)
+      FileManager.default.removeItemIfPresent(at: runtimeDirectory)
+      throw error
     }
+  }
+
+  private func installPackage(
+    _ descriptor: LocalVisionModelDescriptor, runtime: LocalVisionRuntime, catalogDescriptor: LocalModelDescriptor?,
+    staging: URL, runtimeDirectory: URL, total: Int64,
+    progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
+  ) async throws -> LocalModel {
+    let directory = installationStore.modelsDirectoryURL
     let artifacts = [descriptor.model, descriptor.projector, runtime.archive]
     let names = ["model.gguf", "mmproj.gguf", "runtime.tar.gz"]
     var completed: Int64 = 0
     for (artifact, name) in zip(artifacts, names) {
       let offset = completed
-      try await artifact.download(to: staging.appending(path: name), session: session) { update in
+      try await artifact.download(to: staging.appending(path: name), session: session, policy: transferPolicy) { update in
         await progress(ModelDownloadProgress(receivedByteCount: offset + update.receivedByteCount,
                                              expectedByteCount: total))
       }
@@ -324,7 +349,6 @@ struct LocalModelCatalog: Sendable {
       visionConfiguration: LocalVisionConfiguration(projectorURL: staging.appending(path: "mmproj.gguf"),
         serverExecutableURL: server, contextWindow: catalogDescriptor?.recommendedContextSize ?? 8192,
         managedRuntimeDirectory: runtimeDirectory, packageRevision: catalogDescriptor?.packageRevision ?? descriptor.packageRevision)))
-    committed = true
     return installed
   }
 }
@@ -344,32 +368,21 @@ struct VerifiedModelArtifact: Codable, Sendable, Equatable {
     }
   }
 
-  func download(to temporaryURL: URL, session: URLSession,
+  /// Downloads to `temporaryURL`, resuming after transient network failures,
+  /// then verifies the size and SHA-256. A failed transfer leaves no file behind.
+  func download(to temporaryURL: URL, session: URLSession, policy: ArtifactTransferPolicy = .standard,
                 progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws {
     try validate()
     try Task.checkCancellation()
-    let updates = AsyncStream<ModelDownloadProgress>.makeStream()
-    let delegate = ModelArtifactDownloadDelegate(expectedByteCount: expectedByteCount, updates: updates.continuation)
+    // Only the newest update is kept, so a slow consumer never builds a backlog
+    // and finishing waits for at most one pending update.
+    let updates = AsyncStream<ModelDownloadProgress>.makeStream(bufferingPolicy: .bufferingNewest(1))
     let reporter = Task {
       for await update in updates.stream { await progress(update) }
     }
     do {
-      // The async URLSession download convenience does not deliver download
-      // progress callbacks. A delegate-backed task also enforces the size limit
-      // while bytes arrive, instead of waiting for an oversized file to finish.
-      let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
-      defer { downloadSession.invalidateAndCancel() }
-      let task = downloadSession.downloadTask(with: url)
-      let response = try await withTaskCancellationHandler {
-        try Task.checkCancellation()
-        return try await withCheckedThrowingContinuation { continuation in
-          delegate.start(task, destination: temporaryURL, continuation: continuation)
-        }
-      } onCancel: { delegate.cancel() }
-      guard let response = response as? HTTPURLResponse,
-            response.statusCode == 200, response.url?.scheme == "https" else {
-        throw LocalModelCatalogError.invalidResponse
-      }
+      try await ResumableArtifactTransfer(url: url, expectedByteCount: expectedByteCount,
+        destination: temporaryURL, policy: policy, updates: updates.continuation).run(session: session)
       let size = try temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
       guard Int64(size) == expectedByteCount else {
         throw LocalModelCatalogError.unexpectedDownloadSize(expected: expectedByteCount, actual: Int64(size))
@@ -384,9 +397,7 @@ struct VerifiedModelArtifact: Codable, Sendable, Equatable {
     } catch {
       updates.continuation.finish()
       await reporter.value
-      if let oversized = delegate.oversizedByteCount {
-        throw LocalModelCatalogError.unexpectedDownloadSize(expected: expectedByteCount, actual: oversized)
-      }
+      FileManager.default.removeItemIfPresent(at: temporaryURL)
       throw error
     }
   }
@@ -402,73 +413,6 @@ struct VerifiedModelArtifact: Codable, Sendable, Equatable {
       hash.update(data: data)
     }
     return hash.finalize().map { String(format: "%02x", $0) }.joined()
-  }
-}
-
-private final class ModelArtifactDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-  let expectedByteCount: Int64
-  let updates: AsyncStream<ModelDownloadProgress>.Continuation
-  private let lock = NSLock()
-  private var oversized: Int64?
-  private var task: URLSessionDownloadTask?
-  private var destination: URL?
-  private var continuation: CheckedContinuation<URLResponse, Error>?
-  private var result: Result<URLResponse, Error>?
-  private var cancelled = false
-  var oversizedByteCount: Int64? { lock.withLock { oversized } }
-  init(expectedByteCount: Int64, updates: AsyncStream<ModelDownloadProgress>.Continuation) {
-    self.expectedByteCount = expectedByteCount
-    self.updates = updates
-  }
-  func start(_ task: URLSessionDownloadTask, destination: URL,
-             continuation: CheckedContinuation<URLResponse, Error>) {
-    let shouldCancel = lock.withLock {
-      self.task = task
-      self.destination = destination
-      self.continuation = continuation
-      return cancelled
-    }
-    // Cancellation can arrive before the continuation/task has been registered.
-    if shouldCancel { task.cancel() }
-    task.resume()
-  }
-
-  func cancel() {
-    let active = lock.withLock { cancelled = true; return task }
-    active?.cancel()
-  }
-
-  func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-    let outcome = Result<URLResponse, Error> {
-      guard let destination = lock.withLock({ self.destination }), let response = downloadTask.response else {
-        throw LocalModelCatalogError.invalidResponse
-      }
-      // URLSession deletes this temporary file when the delegate returns.
-      try FileManager.default.moveItem(at: location, to: destination)
-      return response
-    }
-    lock.withLock { result = outcome }
-  }
-
-  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-    let completion = lock.withLock {
-      let outcome: Result<URLResponse, Error> = error.map { .failure($0) }
-        ?? result ?? .failure(LocalModelCatalogError.invalidResponse)
-      let waiting = continuation
-      continuation = nil
-      self.task = nil
-      return (waiting, outcome)
-    }
-    completion.0?.resume(with: completion.1)
-  }
-  func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
-                  totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-    guard totalBytesWritten <= expectedByteCount else {
-      lock.withLock { oversized = totalBytesWritten }
-      downloadTask.cancel()
-      return
-    }
-    updates.yield(ModelDownloadProgress(receivedByteCount: totalBytesWritten, expectedByteCount: expectedByteCount))
   }
 }
 

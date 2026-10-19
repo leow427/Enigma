@@ -100,6 +100,30 @@ final class HuggingFaceModelDownloadsTests: XCTestCase {
     }
   }
 
+  func testSnapshotDownloadKeepsTheMacAwakeAndEndsTheActivityOnSuccessAndFailure() async throws {
+    let repo = repository([file("model.gguf")])
+    for fails in [false, true] {
+      let root = try temporaryDirectory()
+      let activity = DownloadActivityRecorder()
+      var downloader = HuggingFaceFileDownloader { _, _, target, _ in
+        XCTAssertEqual(activity.active, 1, "The activity is held while files transfer")
+        if fails { throw URLError(.networkConnectionLost) }
+        try Data("test".utf8).write(to: target)
+      }
+      downloader.activity = activity.activity
+      do {
+        let folder = try await downloader.download(repo, selected: ["model.gguf"], into: root) { _, _ in }
+        XCTAssertFalse(fails, "A failed transfer must fail the snapshot")
+        XCTAssertEqual(try Data(contentsOf: folder.appending(path: "model.gguf")), Data("test".utf8))
+      } catch {
+        XCTAssertTrue(fails, "\(error)")
+        XCTAssertEqual((error as? URLError)?.code, .networkConnectionLost)
+      }
+      XCTAssertEqual(activity.began, 1)
+      XCTAssertEqual(activity.ended, 1)
+    }
+  }
+
   func testMemoryWarningsPermitGemmaInstallationWithoutAutomaticBenchmarking() async throws {
     let root = try temporaryDirectory()
     let model = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == LocalModelDiscovery.featuredModelID })
