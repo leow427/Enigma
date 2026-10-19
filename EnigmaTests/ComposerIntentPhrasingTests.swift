@@ -260,6 +260,9 @@ private enum PhrasingCorpus {
     "my favorite restaurant chipotle, is it open on christmas this year",
     "has my senator voted on the new bill this week", "current exchange rate for my trip to japan, usd to yen",
     "whats the latest news on my company's stock nvidia", "when is my teams next game, the chiefs",
+    // "whats" without its apostrophe, and "this weekend".
+    "whats my teams score tonight, the lakers", "whats the latest ios update for my iphone",
+    "whats the latest version of python for my project", "whats the weather like this weekend where i live in seattle",
     "did my favorite author release a new book this month",
     // Final fresh probe.
     "who won the game last night",

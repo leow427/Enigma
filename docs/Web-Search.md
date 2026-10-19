@@ -29,7 +29,8 @@ no extra model call. Questions like these search:
 - News and recent developments: "latest AI news", "what's happening in …"
 - Facts that change: who holds an office, weather and forecasts, stock and
   crypto prices, exchange or mortgage rates, scores, opening times and schedules
-- Questions with words like "latest", "today" or "this week", and questions
+- Questions with words like "latest", "today", "this week" or "this weekend"
+  ("whats" without an apostrophe counts as "what's"), and questions
   about this year's elections, releases or events
 - Explicit requests such as "look up … online"
 

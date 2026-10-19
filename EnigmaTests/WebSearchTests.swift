@@ -124,6 +124,20 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
+  func testAutomaticSearchReadsWhatsWithoutAnApostropheAndThisWeekend() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in ["whats my teams score tonight, the lakers", "whats the latest ios update for my iphone",
+                   "whats the latest version of python for my project",
+                   "whats the weather like this weekend where i live in seattle",
+                   "What's on at the cinema this weekend?"] {
+      XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+    for prompt in ["whats a closure in swift", "whats the difference between a set and an array",
+                   "whatsapp vs imessage, which is more private"] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+  }
+
   func testAutomaticSearchAvoidsTimelessLocalQuotedAndOptedOutRequests() {
     let date = Date(timeIntervalSince1970: 1_788_825_600)
     for prompt in [

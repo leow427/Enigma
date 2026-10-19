@@ -26,10 +26,13 @@ enum WebSearchPolicy {
       withTemplate: " ")
       .replacingOccurrences(of: "’", with: "'")
       .lowercased()
+    // "whats" typed without its apostrophe reads as "what's", so every pattern sees one spelling.
+    let spelled = whatsWithoutApostrophe.stringByReplacingMatches(in: text,
+      range: NSRange(text.startIndex..., in: text), withTemplate: "what's")
     // Collapse whitespace runs to one space. A regex is much faster than splitting
     // and joining, and the composer resolves every draft on each keystroke.
-    let collapsed = whitespaceRun.stringByReplacingMatches(in: text,
-      range: NSRange(text.startIndex..., in: text), withTemplate: " ")
+    let collapsed = whitespaceRun.stringByReplacingMatches(in: spelled,
+      range: NSRange(spelled.startIndex..., in: spelled), withTemplate: " ")
     return collapsed.trimmingCharacters(in: [" "])
   }
 
@@ -82,6 +85,7 @@ enum WebSearchPolicy {
   }
 
   private static let whitespaceRun = expression(#"\p{White_Space}+"#)
+  private static let whatsWithoutApostrophe = expression(#"\bwhats\b"#)
   private static let fourDigitWord = expression(#"\b[0-9]{4}\b"#)
   private static let literalMaterial = expression(#"(?s)```.*?(?:```|$)|`[^`]*(?:`|$)|"[^"\n]*(?:"|$)|“[^”]*(?:”|$)"#)
   private static let optOut = expression(#"\b(?:(?:do not|don't|dont|never) (?:\w+ ){0,3}(?:search|browse|look up|use (?:the )?(?:web|internet))|(?:without|no) (?:\w+ ){0,2}(?:web|internet|browsing|search)|(?:stay|answer|respond|keep (?:this|it)) offline|(?:use|using|from) (?:only )?(?:your (?:own |existing )?knowledge|memory only))\b"#)
@@ -89,7 +93,7 @@ enum WebSearchPolicy {
   private static let transformation = expression(#"^(?:(?:please|can you|could you|help me) )?(?:translate|rewrite|rephrase|proofread|paraphrase|(?:write|draft|compose) (?:(?:a|an|me|a short|a new) )?(?:poem|story|email|message|letter|function|script|test)|invent|imagine|roleplay|pretend|debug|refactor|implement|fix (?:this|my|the) (?:code|function|test)|summari[sz]e (?:this|the following|the attached|my))\b"#)
   private static let localTask = expression(#"\b(?:current|latest|recent) (?:file|folder|directory|selection|function|variable|branch|commit|diff|log|chat|conversation|document|draft|code|buffer|working directory)\b"#)
   private static let factualRequest = expression(#"\b(?:what|who|when|where|which|how|is|are|has|have|did|does|do|can|could|tell me|give me|show me|find|check|compare|summari[sz]e|explain|list|write|update me)\b"#)
-  private static let recency = expression(#"\b(?:latest|recent|recently|newest|breaking|currently|today|yesterday|tonight|tomorrow|right now|up[- ]to[- ]date|this (?:week|month|year|season)|(?:past|last) (?:night|weekend|week|month|year|\d+ (?:hours|days|weeks))|current (?!in\b|through\b|flow\b|flows\b|density\b|account\b|assets\b|liabilities\b))\b"#)
+  private static let recency = expression(#"\b(?:latest|recent|recently|newest|breaking|currently|today|yesterday|tonight|tomorrow|right now|up[- ]to[- ]date|this (?:week|weekend|month|year|season)|(?:past|last) (?:night|weekend|week|month|year|\d+ (?:hours|days|weeks))|current (?!in\b|through\b|flow\b|flows\b|density\b|account\b|assets\b|liabilities\b))\b"#)
   private static let recentDevelopments = expression(#"\b(?:(?:latest|recent|breaking|today'?s|current|new|upcoming) (?:\w+ ){0,3}(?:news|headlines|updates|developments|events|research|studies|announcements|releases|products)|(?:news|headlines|updates) (?:about|on|from|in|for)|what'?s (?:new|happening|going on)|what is (?:new|happening|going on))\b"#)
   private static let changingFact = expression(#"\b(?:(?:who (?:is|'s)|who's) (?:the )?(?:president|prime minister|ceo|governor|mayor|leader|champion)\b|(?:weather|forecast) (?:in|for|at)\b|(?:will it|is it going to) (?:rain|snow)\b|(?:stock|share|bitcoin|btc|ethereum|eth) price\b|(?:price|value) of (?:bitcoin|btc|ethereum|eth)\b|(?:exchange|mortgage) rates?\b|(?:who (?:won|is winning)|score (?:of|in)|scores? for)\b|(?:when (?:is|does)|what time (?:is|does))\b.{0,60}\b(?:next|play|start|open|close|release)\b|(?:is|are)\b.{0,50}\b(?:open now|still available|in stock)\b)"#)
   private static let personalTerm = expression(#"\b(?:texts|text messages?|imessages?|sms|voicemails?|dms|direct messages|missed calls?)\b"#)

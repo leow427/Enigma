@@ -252,6 +252,7 @@ final class ComposerIntentResolveTests: XCTestCase {
     XCTAssertEqual(WebSearchPolicy.questionText("  What’s\tthe\r\n\u{00A0}latest\u{2028}NEWS \"Sam\"  "),
                    "what's the latest news")
     XCTAssertEqual(WebSearchPolicy.questionText(" \n "), "")
+    XCTAssertEqual(WebSearchPolicy.questionText("Whats new? whatsapp"), "what's new? whatsapp")
   }
 
   func testResolvingIsFast() {
