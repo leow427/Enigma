@@ -317,8 +317,7 @@ final class EnigmaSettingsTests: XCTestCase {
       try await waitForUI("the trigger", in: host.view) { host.shows(trigger) }
       try host.press(trigger)
       try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Local") }
-      // The list takes focus as it appears.
-      try await Task.sleep(for: .milliseconds(150))
+      try await waitForOpenMenuToTakeFocus(in: host.view)
     }
     func assertClosedWithFocusOnTrigger(_ how: String) async throws {
       try await waitForUI("the menu to close after \(how)", in: host.view) { !host.shows("Menu item Local") }

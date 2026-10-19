@@ -920,9 +920,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await clickTestControl("Mode and model", in: host.view)
     try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Auto") }
     try await waitForUI("a menu cut short saying there's more", in: host.view) { host.shows("Menu has more rows") }
-    // The keyboard reaches the last row, scrolling it into view. The list
-    // takes focus as it appears.
-    try await Task.sleep(for: .milliseconds(150))
+    // The keyboard reaches the last row, scrolling it into view.
+    try await waitForOpenMenuToTakeFocus(in: host.view)
     let window = host.window
     for _ in 0..<12 {
       for type: NSEvent.EventType in [.keyDown, .keyUp] {

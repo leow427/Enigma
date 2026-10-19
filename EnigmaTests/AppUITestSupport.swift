@@ -20,6 +20,19 @@ func waitForUI(_ description: @autoclosure () -> String, in view: NSView? = nil,
   _ = try XCTUnwrap(condition() ? true : nil, "Timed out waiting for \(description())", file: file, line: line)
 }
 
+/// Waits until an open Enigma menu has taken keyboard focus. The list asks
+/// for focus as it appears, which can land a run-loop turn or more after its
+/// rows are on screen; keys sent before then go to the trigger instead. Once
+/// it has focus, the window's first responder moves from the trigger's (or
+/// the field's) responder to `hostingView`, which draws the list.
+@MainActor
+func waitForOpenMenuToTakeFocus(in hostingView: NSView, file: StaticString = #filePath,
+                                line: UInt = #line) async throws {
+  try await waitForUI("the open menu to take keyboard focus", in: hostingView, file: file, line: line) {
+    hostingView.window?.firstResponder === hostingView
+  }
+}
+
 @MainActor
 func composerEditor(in view: NSView) -> SlashCommandTextView? {
   if let editor = view as? SlashCommandTextView { return editor }
