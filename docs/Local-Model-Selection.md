@@ -237,7 +237,8 @@ minimum Mac memory is its estimate.
   `hardware.json` and is not part of the fingerprint. **Check this Mac** runs it
   again. Without Metal, or if the test fails, `measuredBandwidth` is empty and a
   conservative prior from the performance-core count is used (`min(100, 18 + 5
-  × cores)` GB/s with Metal), reduced by 35% in Low Power Mode. Chip names are
+  × cores)` GB/s with Metal), reduced by 35% in Low Power Mode. A failed test
+  isn't retried until the next launch or **Check this Mac**. Chip names are
   never used.
 - **Decode** = bandwidth × efficiency ÷ active weight bytes. Active weight bytes
   are the file size × active ÷ total parameters: the whole file for a dense

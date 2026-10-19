@@ -56,8 +56,16 @@ final class LocalBandwidthProbeTests: XCTestCase {
     XCTAssertNotNil(advisor.hardware)
     XCTAssertNil(advisor.hardware?.measuredBandwidth)
     XCTAssertFalse(advisor.isDetecting)
+    // A failure is remembered for this session only: no retry until Check this Mac.
     await advisor.detectHardware()
+    XCTAssertEqual(probe.value, 1)
+    await advisor.detectHardware(remeasureBandwidth: true)
     XCTAssertEqual(probe.value, 2)
+    XCTAssertFalse(advisor.isDetecting)
+    let relaunched = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil,
+      detect: { _ in profile }, measureBandwidth: { probe.update { $0 += 1 }; return nil })
+    await relaunched.detectHardware()
+    XCTAssertEqual(probe.value, 3, "A new launch tries again")
   }
 
   @MainActor

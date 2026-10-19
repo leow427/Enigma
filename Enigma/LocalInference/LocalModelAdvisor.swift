@@ -18,6 +18,9 @@ final class LocalModelAdvisor: ObservableObject {
   private let detect: @Sendable (URL) -> LocalHardwareProfile
   private let measureBandwidth: (@Sendable () -> Double?)?
   private var initialized = false
+  /// Fingerprint and power mode of Macs whose bandwidth test failed this
+  /// session. Kept in memory only, so the next launch tries again.
+  private var failedBandwidthTests: Set<String> = []
 
   init(
     directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -52,7 +55,8 @@ final class LocalModelAdvisor: ObservableObject {
 
   /// The bandwidth test runs at most once per hardware fingerprint and Low
   /// Power Mode state; `remeasureBandwidth` (Check this Mac) runs it again.
-  /// A failed test is not cached, and leaves the core-count prior in use.
+  /// A failed test leaves the core-count prior in use and isn't retried until
+  /// the next launch or Check this Mac.
   func detectHardware(remeasureBandwidth: Bool = false) async {
     guard !isDetecting else { return }
     isDetecting = true
@@ -61,6 +65,7 @@ final class LocalModelAdvisor: ObservableObject {
     let detect = detect
     let measure = measureBandwidth
     let current = remeasureBandwidth ? nil : hardware
+    let failed = remeasureBandwidth ? [] : failedBandwidthTests
     let profile = await Task.detached(priority: .utility) {
       var profile = detect(directory)
       func reusable(_ known: LocalHardwareProfile?) -> Double? {
@@ -70,16 +75,25 @@ final class LocalModelAdvisor: ObservableObject {
       if !remeasureBandwidth, let saved = reusable(current) ?? reusable((try? Data(contentsOf: report))
         .flatMap { try? JSONDecoder().decode(LocalHardwareProfile.self, from: $0) }) {
         profile.measuredBandwidth = saved
-      } else {
+      } else if !failed.contains(Self.bandwidthKey(profile)) {
         profile.measuredBandwidth = measure?()
       }
       return profile
     }.value
+    if measureBandwidth != nil, profile.measuredBandwidth == nil {
+      failedBandwidthTests.insert(Self.bandwidthKey(profile))
+    } else {
+      failedBandwidthTests.remove(Self.bandwidthKey(profile))
+    }
     hardware = profile
     do {
       try save(profile, name: "hardware.json")
     } catch { notice = "Could not save the Mac capability report: \(error.localizedDescription)" }
     isDetecting = false
+  }
+
+  nonisolated private static func bandwidthKey(_ profile: LocalHardwareProfile) -> String {
+    "\(profile.fingerprint)|\(profile.lowPowerMode)"
   }
 
   func refreshCatalog(force: Bool = false) async {
