@@ -174,7 +174,13 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   (`Enigma/Chat/ChatMarkdown.swift`) repairs clearly escaped formatting and odd
   whitespace for display only, leaving code, paths and URLs alone; stored text is
   unchanged. `ChatResponseStyle` (`Enigma/Chat/ChatContext.swift`) asks every
-  provider for concise, standard Markdown.
+  provider for concise, standard Markdown. While a reply streams,
+  `ChatMarkdownStream` keeps the reply parsed up to the last point where a new
+  top-level block must start (an empty line outside code, before an unindented
+  line that can't continue a list) and parses only the rest on each update, so
+  a long reply doesn't get slower to stream. Its blocks are the same as parsing
+  the whole reply; link reference definitions and HTML blocks that span empty
+  lines fall back to parsing everything.
 - `EnigmaMainColumn` and `EnigmaMainPageHeader` (`Enigma/App/EnigmaMainPage.swift`)
   switch between the empty page and the docked conversation. `EnigmaComposer`
   (`Enigma/App/EnigmaComposer.swift`), `EnigmaSidebar`
@@ -284,7 +290,8 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 
 - `EnigmaTests/ChatContextTests.swift`: budgets, complete-turn trimming, cloud
   byte counting, the native and server tokenizer paths, and (`ChatMarkdownTests`)
-  Markdown normalization and parsing.
+  Markdown normalization and parsing, including streamed parsing matching a
+  whole-reply parse at every prefix.
 - `EnigmaTests/ChatPersistenceTests.swift`: retention, archive loading, excluded
   fields, and `ChatSessionWriter` coalescing and write ordering.
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,

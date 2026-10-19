@@ -151,7 +151,10 @@ final class ChatArchiveWriteProbe: @unchecked Sendable {
   private let gate = DispatchSemaphore(value: 0)
   private let lock = NSLock()
   private var recorded: [[ChatSession]] = []
+  private var finishedFirst = false
   var snapshots: [[ChatSession]] { lock.withLock { recorded } }
+  /// Whether the first write has returned, which a blocked first write does only after `release()`.
+  var firstWriteFinished: Bool { lock.withLock { finishedFirst } }
 
   init(store: ChatSessionStore, blockFirst: Bool = false) {
     self.store = store
@@ -165,6 +168,7 @@ final class ChatArchiveWriteProbe: @unchecked Sendable {
       started.fulfill()
       if blockFirst { gate.wait() }
     }
+    defer { if count == 1 { lock.withLock { finishedFirst = true } } }
     try store.save(sessions)
     if count == 2 { secondFinished.fulfill() }
   }

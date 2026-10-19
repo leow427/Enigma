@@ -355,8 +355,7 @@ final class EnigmaSettingsTests: XCTestCase {
       try await waitForUI("the trigger", in: host.view) { host.shows(trigger) }
       try host.press(trigger)
       try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Local") }
-      // The list takes focus as it appears.
-      try await Task.sleep(for: .milliseconds(150))
+      try await waitForOpenMenuToTakeFocus(in: host.view)
     }
     func assertClosedWithFocusOnTrigger(_ how: String) async throws {
       try await waitForUI("the menu to close after \(how)", in: host.view) { !host.shows("Menu item Local") }
@@ -984,8 +983,9 @@ final class EnigmaSettingsTests: XCTestCase {
         .transaction { $0.disablesAnimations = true }
       view = NSHostingView(rootView: root)
       window = SettingsKeyableTestWindow(contentRect: NSRect(origin: .zero, size: size),
-                                         styleMask: [.borderless], backing: .buffered, defer: false)
+                                         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
       window.isReleasedWhenClosed = false
+      window.hidesOnDeactivate = false
       window.colorSpace = .sRGB
       window.contentView = view
       window.orderFrontRegardless()
@@ -1072,7 +1072,10 @@ private final class LoadFlag: @unchecked Sendable {
   var value = false
 }
 
-private final class SettingsKeyableTestWindow: NSWindow {
+/// A panel that can be key even while another app is active, which happens on
+/// CI runners mid-run: a plain window then can't be key, and an open menu
+/// can't take keyboard focus.
+private final class SettingsKeyableTestWindow: NSPanel {
   override var canBecomeKey: Bool { true }
 }
 

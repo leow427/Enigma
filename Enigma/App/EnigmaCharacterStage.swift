@@ -92,6 +92,10 @@ final class EnigmaCharacterController: ObservableObject {
   private var assemblesOnArrival = false
   private var targets: [EnigmaCharacterTargetID: CGPoint] = [:]
   private var lastFrameTime: TimeInterval?
+  /// While recording, what each frame the stage computes shows, so a test can
+  /// follow a move frame by frame however late it looks. Nil in the app.
+  private(set) var recordedFrames: [(present: Bool, position: CGPoint, slot: EnigmaCharacterModel.Slot?)]?
+  func recordFrames(_ recording: Bool) { recordedFrames = recording ? [] : nil }
   private var activityRefreshScheduled = false
   /// The slots laid out in the latest frame.
   private var laidOutSlots: Set<EnigmaCharacterSlotID> = []
@@ -163,6 +167,7 @@ final class EnigmaCharacterController: ObservableObject {
     lastFrameTime = time
     model.step(dt: dt)
     refreshActivityLater()
+    recordedFrames?.append((isPresent, model.position, model.slot))
     return isPresent ? model.frame : .empty
   }
 

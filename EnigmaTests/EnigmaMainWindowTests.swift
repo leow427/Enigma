@@ -876,7 +876,9 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the mode palette", in: view) { Host.marker("Menu item Auto", in: view) != nil }
     XCTAssertTrue(window.performKeyEquivalent(with: try key("\u{1b}", keyCode: 53, modifiers: [])))
     try await waitForUI("Escape closes only the menu (menu open: \(Host.marker("Menu item Auto", in: view) != nil), "
-                        + "panel visible: \(controller.isVisible), first responder: \(String(describing: window.firstResponder)))",
+                        + "panel visible: \(controller.isVisible), first responder: \(String(describing: window.firstResponder)), "
+                        + "key window: \(window.isKeyWindow), app active: \(NSApp.isActive), "
+                        + "app's key window: \(String(describing: NSApp.keyWindow)))",
                         in: view) {
       Host.marker("Menu item Auto", in: view) == nil && window.firstResponder === composerEditor(in: view)
     }
@@ -930,9 +932,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await clickTestControl("Mode and model", in: host.view)
     try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Auto") }
     try await waitForUI("a menu cut short saying there's more", in: host.view) { host.shows("Menu has more rows") }
-    // The keyboard reaches the last row, scrolling it into view. The list
-    // takes focus as it appears.
-    try await Task.sleep(for: .milliseconds(150))
+    // The keyboard reaches the last row, scrolling it into view.
+    try await waitForOpenMenuToTakeFocus(in: host.view)
     let window = host.window
     for _ in 0..<12 {
       for type: NSEvent.EventType in [.keyDown, .keyUp] {
@@ -1002,24 +1003,31 @@ final class EnigmaMainWindowTests: XCTestCase {
     let slot: EnigmaCharacterModel.Slot?
   }
 
-  /// The character's position over `duration`, or until a sample is `done`,
-  /// drawing the window as it goes.
+  /// The character in every frame drawn over `duration`, or until a frame is
+  /// `done`, drawing the window as it goes.
   @MainActor
   private func sampleCharacter(_ character: EnigmaCharacterController, in host: Host, for duration: Duration,
                                until done: (CharacterSample) -> Bool = { _ in false }) async throws -> [CharacterSample] {
-    var samples: [CharacterSample] = []
+    // Every frame the stage computes is recorded, however late this loop
+    // runs, so a slow machine can't skip the frames between start and end.
+    character.recordFrames(true)
+    defer { character.recordFrames(false) }
+    let samples = [CharacterSample(present: character.isPresent, position: character.model.position,
+                                   slot: character.model.slot)]
+    func recorded() -> [CharacterSample] {
+      samples + (character.recordedFrames ?? []).map { CharacterSample(present: $0.present, position: $0.position, slot: $0.slot) }
+    }
+    if done(samples[0]) { return samples }
     let end = ContinuousClock.now.advanced(by: duration)
     repeat {
       await Task.yield()
       host.view.layoutSubtreeIfNeeded()
       host.window.displayIfNeeded()
-      let sample = CharacterSample(present: character.isPresent, position: character.model.position,
-                                   slot: character.model.slot)
-      samples.append(sample)
-      if done(sample) { break }
+      let all = recorded()
+      if let finish = all.firstIndex(where: done) { return Array(all[...finish]) }
       try await Task.sleep(for: .milliseconds(8))
     } while ContinuousClock.now < end
-    return samples
+    return recorded()
   }
 
   /// Waits until the composer field and the `markers` have kept their frames
@@ -1101,6 +1109,9 @@ extension EnigmaMainWindowTests {
     var animates = false
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
+    /// Where Replace text would paste, never the Mac's real selection: none
+    /// until a test remembers one.
+    let selectionContext = SelectionContextService()
     private(set) var earlierSessionID: UUID?
 
     static func savedSession(_ title: String) -> ChatSession {
@@ -1162,7 +1173,7 @@ extension EnigmaMainWindowTests {
       AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
         welcomeSetup: setup, appearance: appearance, character: character,
-        selectionAccess: selectionAccess)
+        selectionAccess: selectionAccess, selectionContext: selectionContext)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .enigmaTestReduceMotion(reduceMotion)
         .transaction { [animates] in if !animates { $0.disablesAnimations = true } }

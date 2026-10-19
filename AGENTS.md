@@ -42,7 +42,7 @@ scripts/verify-xcode.sh test
 scripts/verify-xcode.sh analyze
 ```
 
-The helper uses `/tmp/Enigma-Verification`, disables signing, avoids
+The helper uses a per-checkout `/tmp/Enigma-Verification-<id>` folder, disables signing, avoids
 Launch Services registration, and unregisters any temporary test host before
 and after each action. Pass normal `xcodebuild` options after the action; for
 example, `scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenViewTests`.

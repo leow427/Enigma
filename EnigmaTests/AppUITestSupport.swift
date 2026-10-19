@@ -20,6 +20,33 @@ func waitForUI(_ description: @autoclosure () -> String, in view: NSView? = nil,
   _ = try XCTUnwrap(condition() ? true : nil, "Timed out waiting for \(description())", file: file, line: line)
 }
 
+/// Waits until an open Enigma menu has taken keyboard focus. The list asks
+/// for focus as it appears, which can land a run-loop turn or more after its
+/// rows are on screen; keys sent before then go to the trigger instead. Once
+/// it has focus, the window's first responder moves from the trigger's (or
+/// the field's) responder to `hostingView`, which draws the list.
+@MainActor
+func waitForOpenMenuToTakeFocus(in hostingView: NSView, file: StaticString = #filePath,
+                                line: UInt = #line) async throws {
+  let window = hostingView.window
+  try await waitForUI("the open menu to take keyboard focus (key window: \(window?.isKeyWindow == true), "
+                      + "app active: \(NSApp.isActive), first responder: \(String(describing: window?.firstResponder)), "
+                      + "app's key window: \(String(describing: NSApp.keyWindow)))",
+                      in: hostingView, file: file, line: line) {
+    hostingView.window?.firstResponder === hostingView
+  }
+}
+
+/// Whether a click on test control `name` would reach it rather than a view
+/// drawn over it, such as the composer while the chat list scrolls to its end.
+@MainActor
+func testControlIsUncovered(_ name: String, in view: NSView) -> Bool {
+  guard let marker = EnigmaMainWindowTests.Host.marker(name, in: view) else { return false }
+  let center = marker.convert(NSPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: view.superview)
+  guard let hit = view.hitTest(center) else { return false }
+  return marker.isDescendant(of: hit)
+}
+
 @MainActor
 func composerEditor(in view: NSView) -> SlashCommandTextView? {
   if let editor = view as? SlashCommandTextView { return editor }

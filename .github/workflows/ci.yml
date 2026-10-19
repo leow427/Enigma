@@ -11,13 +11,32 @@ permissions:
 jobs:
   build-and-test:
     runs-on: macos-26
+    # A normal run takes about 5 minutes. A hung test fails on its own time
+    # allowance (below) long before this; the job limit is the last resort.
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      # The slowest test takes about 10 seconds on the runner. A test still
+      # running after 2 minutes is hung: XCTest records a spindump of the test
+      # host in the result bundle, fails that one test, and continues with the
+      # rest of the suite in a fresh host, instead of freezing the job.
       - name: Build and test
         run: >-
           xcodebuild test
           -project Enigma.xcodeproj
           -scheme Enigma
           -destination 'platform=macOS'
+          -resultBundlePath "$RUNNER_TEMP/Enigma.xcresult"
+          -test-timeouts-enabled YES
+          -default-test-execution-time-allowance 120
+          -maximum-test-execution-time-allowance 120
           CODE_SIGNING_ALLOWED=NO
+      - name: Upload test results
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Enigma-xcresult-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/Enigma.xcresult
+          if-no-files-found: ignore
+          retention-days: 14

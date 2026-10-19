@@ -3,7 +3,10 @@
 set -eu
 
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-verification_derived_data="/tmp/Enigma-Verification"
+# One derived data folder per checkout, so two worktrees verifying at once
+# never build into or run each other's products.
+checkout_id=$(printf '%s' "$repository_root" | shasum | cut -c1-8)
+verification_derived_data="/tmp/Enigma-Verification-$checkout_id"
 launch_services_tool="/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
 
 unregister_verification_apps() {
