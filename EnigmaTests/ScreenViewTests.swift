@@ -1204,8 +1204,14 @@ final class ScreenViewTests: XCTestCase {
       fixture.chat.messages.last?.content == "x" && composerEditor(in: fixture.view)?.isEditable == false
     }
     for _ in 1..<500 { stream.continuation.yield("x") }
-    await fulfillment(of: [visible], timeout: 5)
+    // The first archive write stays blocked until `probe.release()` below, so
+    // the burst can only finish if streaming never waits for the disk; a
+    // regression would never finish, however long the wait. The limit only
+    // bounds how fast the runner re-renders the shell for each fragment,
+    // which is not what this test checks.
+    await fulfillment(of: [visible], timeout: 60)
     observation.cancel()
+    XCTAssertFalse(probe.firstWriteFinished, "The burst finished while the first archive write was still blocked")
     XCTAssertEqual(lengths, Set(0...500), "Every fragment must still publish while the archive is blocked")
     await settleScreenshotView(fixture.view)
     XCTAssertFalse(try composerField(in: fixture.view).isEditable, "Preserve the existing busy-composer policy")
