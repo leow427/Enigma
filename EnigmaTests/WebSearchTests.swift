@@ -142,6 +142,42 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
+  func testAutomaticSearchSkipsThePersonsOwnCommunications() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in [
+      "what are the most recent messages from my dad", "what's new in my texts", "whats new in my texts",
+      "what did Jordan send me yesterday", "what are the latest emails from my boss today", "what are the latest texts from my sister",
+      "what's the latest in our group chat", "did I miss any calls from my mom today", "check my inbox for anything new today",
+      "what are my latest DMs about"
+    ] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+      let intent = ComposerIntent.resolve(.init(draft: prompt, infersCommands: false, searchesAutomatically: true), now: date)
+      XCTAssertFalse(intent.search, prompt)
+    }
+    for prompt in ["what's the latest message from the White House on tariffs", "latest news from the Fed today",
+                   "what did the president say in his latest message to Congress"] {
+      XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+    let typed = ComposerIntent.resolve(.init(draft: "/search what are the most recent messages from my dad",
+                                             searchesAutomatically: true), now: date)
+    XCTAssertTrue(typed.search, "A typed /search still searches")
+  }
+
+  func testTypedSearchStillSearchesPersonalCommunications() async {
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, automatic: true)
+    let prompt = "what are the most recent messages from my dad"
+    XCTAssertFalse(model.shouldSearch(prompt, explicitlyEnabled: false))
+    model.submitCloud(prompt, provider: .chatGPT, modelID: "model")
+    await finish(model)
+    let automatic = await search.queries
+    XCTAssertEqual(automatic, [])
+    model.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let forced = await search.queries
+    XCTAssertEqual(forced, [prompt])
+  }
+
   func testAutomaticSearchSettingsPersistAndRequireAKey() throws {
     let defaults = makeDefaults()
     let credentials = SearchCredentials(nil)

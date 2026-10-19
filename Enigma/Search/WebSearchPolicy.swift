@@ -9,8 +9,10 @@ enum WebSearchPolicy {
   }
 
   /// `needsFreshInformation` for text already normalized by `questionText`.
+  /// The person's own communications never search, even when Messages isn't
+  /// recognized: their contents must not become a web query.
   static func needsFreshInformation(normalized text: String, now: Date = Date()) -> Bool {
-    guard !text.isEmpty, !matches(optOut, text) else { return false }
+    guard !text.isEmpty, !matches(optOut, text), !isAboutOwnCommunications(text) else { return false }
     if LocationIntent.needsLocation(normalized: text) { return true }
     return needsFreshFacts(text, now: now)
   }
@@ -31,6 +33,12 @@ enum WebSearchPolicy {
 
   static func isOfflineOrTransformation(_ text: String) -> Bool {
     matches(optOut, text) || matches(transformation, text) || matches(localTask, text)
+  }
+
+  /// "the most recent messages from my dad", "what's new in my texts", "what did Jordan send me".
+  /// News about others ("the latest message from the White House") still searches.
+  static func isAboutOwnCommunications(_ text: String) -> Bool {
+    matches(communicationWord, text) && matches(ownCommunications, text)
   }
 
   private static func needsFreshFacts(_ text: String, now: Date) -> Bool {
@@ -77,6 +85,12 @@ enum WebSearchPolicy {
   private static let recency = expression(#"\b(?:latest|recent|recently|newest|breaking|currently|today|yesterday|tonight|tomorrow|right now|up[- ]to[- ]date|this (?:week|month|year|season)|(?:past|last) (?:night|weekend|week|month|year|\d+ (?:hours|days|weeks))|current (?!in\b|through\b|flow\b|flows\b|density\b|account\b|assets\b|liabilities\b))\b"#)
   private static let recentDevelopments = expression(#"\b(?:(?:latest|recent|breaking|today'?s|current|new|upcoming) (?:\w+ ){0,3}(?:news|headlines|updates|developments|events|research|studies|announcements|releases|products)|(?:news|headlines|updates) (?:about|on|from|in|for)|what'?s (?:new|happening|going on)|what is (?:new|happening|going on))\b"#)
   private static let changingFact = expression(#"\b(?:(?:who (?:is|'s)|who's) (?:the )?(?:president|prime minister|ceo|governor|mayor|leader|champion)\b|(?:weather|forecast) (?:in|for|at)\b|(?:will it|is it going to) (?:rain|snow)\b|(?:stock|share|bitcoin|btc|ethereum|eth) price\b|(?:price|value) of (?:bitcoin|btc|ethereum|eth)\b|(?:exchange|mortgage) rates?\b|(?:who (?:won|is winning)|score (?:of|in)|scores? for)\b|(?:when (?:is|does)|what time (?:is|does))\b.{0,60}\b(?:next|play|start|open|close|release)\b|(?:is|are)\b.{0,50}\b(?:open now|still available|in stock)\b)"#)
+  private static let communicationWord = expression(#"messag|text|mail|dm|chat|voicemail|call|inbox|sms|sen[dt] (?:me|us)"#)
+  private static let ownCommunications: NSRegularExpression = {
+    let term = #"(?:text messages?|messages?|texts?|imessages?|e-?mails?|mails?|dms?|direct messages?|chats?|group chats?|voicemails?|(?:missed |phone )?calls?|inbox(?:es)?|sms)"#
+    return expression(#"\b(?:my|our) (?:[\w']+ ){0,3}?\#(term)\b|\b\#(term) (?:[\w']+ ){0,3}?(?:me|us|my|our)\b"#
+      + #"|\b(?:did|has|have|had)\b(?: [\w']+){1,3} (?:send|sent) (?:me|us)\b"#)
+  }()
   private static let historicalTopic = expression(#"\b(?:world war|ancient|medieval|roman empire|historical|history of)\b"#)
   private static let conceptualQuestion = expression(#"\b(?:what (?:is|are)|define|explain|how (?:does|do)) (?:a |an |the concept of )?(?:weather|stock prices?|share prices?|exchange rates?|mortgage rates?)(?: work| mean| change| fluctuate)?[?.!]*$"#)
   private static let eventTopic = expression(#"\b(?:election|elections|results|winner|winners|release|releases|announcements|conference|summit|wwdc|schedule|standings|season|tournament|olympics|world cup|budget|laws|regulations)\b"#)
