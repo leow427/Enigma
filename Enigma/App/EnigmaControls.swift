@@ -1176,9 +1176,12 @@ final class EnigmaMenuPresenter: ObservableObject {
     var anchor: CGRect
     var minimumWidth: CGFloat
     var sections: [EnigmaMenuSection]
-    /// Runs whenever the menu closes, however it closes, so the trigger can
-    /// take keyboard focus back.
+    /// Runs whenever the menu closes, however it closes.
     var onDismiss: (() -> Void)?
+    /// Hands keyboard focus back to the trigger once the closed list has left
+    /// the window. A list still on screen, as during its closing transition,
+    /// can take focus back from whatever got it sooner.
+    var returnFocus: (() -> Void)?
   }
 
   @Published private(set) var presentation: Presentation?
@@ -1187,6 +1190,9 @@ final class EnigmaMenuPresenter: ObservableObject {
   /// The window the host is in, so a window's Escape can close its own menu.
   weak var window: NSWindow?
   private static let live = NSHashTable<EnigmaMenuPresenter>.weakObjects()
+  /// Menus whose list is in the window, and the focus each hands back when its list leaves.
+  private var shownLists: Set<UUID> = []
+  private var focusReturns: [UUID: () -> Void] = [:]
 
   init() { Self.live.add(self) }
 
@@ -1228,7 +1234,17 @@ final class EnigmaMenuPresenter: ObservableObject {
   func dismiss(_ id: UUID? = nil, restoringFocus: Bool = true) {
     guard let current = presentation, id == nil || current.id == id else { return }
     presentation = nil
-    if restoringFocus { current.onDismiss?() }
+    guard restoringFocus else { return }
+    current.onDismiss?()
+    guard let returnFocus = current.returnFocus else { return }
+    if shownLists.contains(current.id) { focusReturns[current.id] = returnFocus } else { returnFocus() }
+  }
+
+  func listAppeared(_ id: UUID) { shownLists.insert(id) }
+
+  func listDisappeared(_ id: UUID) {
+    shownLists.remove(id)
+    focusReturns.removeValue(forKey: id)?()
   }
 }
 
@@ -1305,6 +1321,8 @@ private struct EnigmaMenuHostModifier: ViewModifier {
                              reportHeight: { presenter.reportContentHeight($0, for: presentation.id) }) {
                 presenter.dismiss(presentation.id)
               }
+              .onAppear { presenter.listAppeared(presentation.id) }
+              .onDisappear { presenter.listDisappeared(presentation.id) }
               .offset(placement.offset)
               .frame(width: proxy.size.width, height: proxy.size.height, alignment: placement.alignment)
               .transition(reduceMotion ? .opacity
@@ -1577,6 +1595,8 @@ struct EnigmaMenu<Label: View>: View {
   @State private var id = UUID()
   @State private var anchor: CGRect = .zero
   @State private var isOpenInPlace = false
+  /// The in-place list was closed from inside, so it hands focus back once it's gone.
+  @State private var returnsFocusWhenListLeaves = false
   /// Counts the times a closed menu asked for focus back.
   @State private var focusReturnRequest = 0
   @FocusState private var isFocused: Bool
@@ -1629,8 +1649,14 @@ struct EnigmaMenu<Label: View>: View {
     .overlay(alignment: .topLeading) {
       if isOpenInPlace {
         EnigmaMenuList(presentation: presentation, maximumHeight: 320) {
+          returnsFocusWhenListLeaves = true
           isOpenInPlace = false
           closeAction()
+        }
+        .onDisappear {
+          guard returnsFocusWhenListLeaves else { return }
+          returnsFocusWhenListLeaves = false
+          focusReturnAction()
         }
         .offset(y: anchor.height + EnigmaMenuPlacement.gap)
       }
@@ -1647,9 +1673,9 @@ struct EnigmaMenu<Label: View>: View {
       presenter?.dismiss(id, restoringFocus: false)
       if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
     }
-    // Once the closing list has given focus up, it goes to `returnFocus` or
-    // comes back here. Handed on any sooner, the leaving list can take it
-    // back, as on macOS 26 when Escape closes the menu.
+    // Once the closed list has left the window, focus goes to `returnFocus`
+    // or comes back here. Handed on while the list is still there, the list
+    // can take it back, as on macOS 26 when Escape closes the menu.
     .task(id: focusReturnRequest) {
       guard focusReturnRequest > 0 else { return }
       await Task.yield()
@@ -1664,7 +1690,7 @@ struct EnigmaMenu<Label: View>: View {
   private var presentation: EnigmaMenuPresenter.Presentation {
     EnigmaMenuPresenter.Presentation(id: id, label: title, anchor: menuAnchor,
                                      minimumWidth: max(anchor.width, 160), sections: sections,
-                                     onDismiss: closeAction)
+                                     onDismiss: closeAction, returnFocus: focusReturnAction)
   }
 
   /// The trigger's frame, or its span across `anchorBounds`.
@@ -1673,14 +1699,18 @@ struct EnigmaMenu<Label: View>: View {
     return CGRect(x: anchor.minX, y: bounds.minY, width: anchor.width, height: bounds.height)
   }
 
-  /// Runs once the menu has closed: it clears `isPresented` and asks for focus to be handed on.
+  /// Runs once the menu has closed: it clears `isPresented`.
   private var closeAction: () -> Void {
-    let request = $focusReturnRequest
     let isPresented = isPresented
     return {
       if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
-      request.wrappedValue += 1
     }
+  }
+
+  /// Runs once the closed list has left the window: it asks for focus to be handed on.
+  private var focusReturnAction: () -> Void {
+    let request = $focusReturnRequest
+    return { request.wrappedValue += 1 }
   }
 
   private var isOpen: Bool {
