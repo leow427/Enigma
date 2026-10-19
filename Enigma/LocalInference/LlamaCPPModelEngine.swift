@@ -40,12 +40,21 @@ actor LlamaCPPModelEngine: LocalModelEngine {
     try installationStore.deleteModel(id: id)
   }
 
-  func download(
+  nonisolated func download(
     _ model: LocalModelDescriptor,
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
   ) async throws -> LocalModel {
-    releaseEngine()
-    return try await catalog.download(model, progress: progress)
+    try await download(model, beforeCommit: {}, progress: progress)
+  }
+
+  /// Downloads leave the loaded engine alone, and don't wait for the actor:
+  /// a reply with the current model keeps generating while the package arrives.
+  nonisolated func download(
+    _ model: LocalModelDescriptor,
+    beforeCommit: @escaping @Sendable () async throws -> Void,
+    progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
+  ) async throws -> LocalModel {
+    try await catalog.download(model, beforeCommit: beforeCommit, progress: progress)
   }
 
   func prepare(_ request: LocalModelRequest) async throws -> PreparedConversation {

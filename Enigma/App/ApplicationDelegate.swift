@@ -109,7 +109,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc func replayWelcomeSetup() {
-    guard !LocalChatViewModel.shared.isBusy, panelController?.isCapturingScreen != true else { return }
+    guard LocalChatViewModel.shared.canChangeModels, panelController?.isCapturingScreen != true else { return }
     settingsWindowController?.window?.orderOut(nil)
     WelcomeSetup.shared.replay()
     panelController?.show()

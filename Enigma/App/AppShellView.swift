@@ -505,7 +505,7 @@ struct AppShellView: View {
   /// The selected route's state, for the status line on the main page and above the composer.
   private var routeStatusSummary: ChatRouteStatus {
     let mode = shell.selectedMode
-    var context = ChatRouteStatus.Context(mode: mode, state: localChat.state,
+    var context = ChatRouteStatus.Context(mode: mode, state: localChat.state, modelOperation: localChat.modelOperation,
       request: localChat.activeRequest.map { ChatRouteStatus.Request(phase: requestPhase, name: $0.displayName) },
       localModelName: localChat.installedModel?.displayName)
     // Cloud checks run only for the modes that use the cloud.
@@ -540,7 +540,8 @@ struct AppShellView: View {
 
   private var modeAndModelMenu: ModeAndModelMenu {
     ModeAndModelMenu(
-      mode: shell.selectedMode, isBusy: localChat.isBusy, hasActiveRequest: localChat.activeRequest != nil,
+      mode: shell.selectedMode, isBusy: localChat.isBusy, isManagingModels: localChat.isManagingModels,
+      hasActiveRequest: localChat.activeRequest != nil,
       localModels: localChat.installedModels.map {
         ModeAndModelMenu.LocalChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision)
       },
@@ -663,10 +664,7 @@ struct AppShellView: View {
   private var mainCharacterState: EnigmaCharacterState {
     let state = localChat.state
     let isPreparing = state == .preparing || state == .refiningSearch || state == .searching
-    let isModelTask: Bool = switch state {
-    case .installing, .deleting, .benchmarking, .downloading: true
-    default: false
-    }
+    let isModelTask = localChat.modelOperation != nil
     return MainWindowCharacter.state(MainWindowCharacter.Inputs(
       isWorking: isPreparing || isModelTask || screen.isBusy || files.isWorking || files.isPicking,
       isStreaming: state == .streaming,

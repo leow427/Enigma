@@ -6,17 +6,29 @@ import Foundation
 final class LocalChatViewModel: ObservableObject {
   static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared, searchSettings: .shared, locationProvider: LocationService.shared)
 
+  /// The chat's request lifecycle. Model installs report through `modelOperation`.
   enum State: Equatable {
     case idle
-    case installing
-    case deleting
-    case benchmarking
-    case downloading(ModelDownloadProgress)
     case preparing
     case refiningSearch
     case searching
     case streaming
     case failed(String)
+  }
+
+  /// Installing, deleting or measuring a local model, separate from chat.
+  enum ModelOperation: Equatable {
+    case downloading(ModelDownloadProgress)
+    case installing
+    case deleting
+    case benchmarking
+
+    /// A download runs beside chat. Committing an install, deleting and the
+    /// performance check change or measure the engines, so chat waits for them.
+    var blocksChat: Bool {
+      if case .downloading = self { return false }
+      return true
+    }
   }
 
   struct ActiveRequest: Equatable {
@@ -51,6 +63,7 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var autoRouteDecision: AutoRouter.Decision?
   @Published private(set) var screenRouteDecision: ScreenRoutingPolicy.Decision?
   @Published private(set) var state: State = .idle
+  @Published private(set) var modelOperation: ModelOperation?
   @Published private(set) var benchmarkNotice: String?
   private let modelAdvisor: LocalModelAdvisor?
 
@@ -243,13 +256,24 @@ final class LocalChatViewModel: ObservableObject {
     return sessions.first(where: { $0.id == selectedSessionID })
   }
 
-  var isBusy: Bool {
-    if isApplyingSelection || activeRequest != nil || generationTask != nil || installationTask != nil || files.isWorking || files.isPicking { return true }
+  /// Whether the composer and chat controls must wait. A model download does not count.
+  var isBusy: Bool { isChatActive || modelOperation?.blocksChat == true }
+
+  /// A request, or other chat work, is running.
+  private var isChatActive: Bool {
+    if isApplyingSelection || activeRequest != nil || generationTask != nil || files.isWorking || files.isPicking { return true }
     switch state {
-    case .installing, .deleting, .downloading, .benchmarking, .preparing, .refiningSearch, .searching, .streaming: return true
+    case .preparing, .refiningSearch, .searching, .streaming: return true
     case .idle, .failed: return false
     }
   }
+
+  /// A model install, delete or performance check is running, until it acknowledges cancellation.
+  var isManagingModels: Bool { installationTask != nil || modelOperation != nil }
+
+  /// Installing, selecting, deleting, importing and measuring models wait for
+  /// any model operation and for the current request.
+  var canChangeModels: Bool { !isBusy && !isManagingModels }
 
   let files: FileModeCoordinator
   let appleMessages: MessagesCoordinator
@@ -272,6 +296,8 @@ final class LocalChatViewModel: ObservableObject {
   private let sleep: Sleep
   private var generationTask: Task<Void, Never>?
   private var installationTask: Task<Void, Never>?
+  /// A model failure that arrived during a request, shown once the request ends.
+  private var deferredModelFailure: String?
   private var idleUnloadTask: Task<Void, Never>?
 
   init(
@@ -347,12 +373,12 @@ final class LocalChatViewModel: ObservableObject {
     installedModels = await engine.installedModels()
   }
 
+  /// Importing copies and commits in one step, so it holds chat like a commit.
   func installModel(from sourceURL: URL, vision: LocalVisionConfiguration? = nil) {
-    guard !isBusy else { return }
-    stopStreaming()
-    installationTask?.cancel()
+    guard canChangeModels else { return }
     cancelIdleUnload()
-    state = .installing
+    clearModelFailure()
+    modelOperation = .installing
     let didAccessSecurityScope = sourceURL.startAccessingSecurityScopedResource()
     let modelName = sourceURL.deletingPathExtension().lastPathComponent
     let accessedProjector = vision?.projectorURL.startAccessingSecurityScopedResource() ?? false
@@ -379,23 +405,26 @@ final class LocalChatViewModel: ObservableObject {
     }
   }
 
+  /// Chat keeps working while the package downloads, verifies and unpacks.
+  /// Only the commit, which may select the new model, and the performance
+  /// check wait for the current request to end and hold chat while they run.
   func downloadModel(_ descriptor: LocalModelDescriptor) {
-    guard !isBusy else { return }
-    stopStreaming()
-    installationTask?.cancel()
-    cancelIdleUnload()
-    state = .downloading(ModelDownloadProgress(receivedByteCount: 0, expectedByteCount: descriptor.downloadByteCount))
+    guard canChangeModels else { return }
+    clearModelFailure()
+    modelOperation = .downloading(ModelDownloadProgress(receivedByteCount: 0, expectedByteCount: descriptor.downloadByteCount))
     installationTask = Task { [weak self, engine] in
       do {
         let prediction = try await self?.modelAdvisor?.confirmDownload(descriptor, installedModels: self?.installedModels ?? [])
         try Task.checkCancellation()
-        await self?.visionEngine.unload()
-        _ = try await engine.download(descriptor) { [weak self] progress in
+        _ = try await engine.download(descriptor, beforeCommit: { @MainActor [weak self] in
+          try await self?.holdChatForModelCommit()
+        }, progress: { [weak self] progress in
           await self?.updateDownloadProgress(progress)
-        }
+        })
         guard let self else { return }
         await self.refreshInstalledModel()
-        try Task.checkCancellation()
+        // An engine without a commit hook has installed already; still measure only an idle chat.
+        try await self.holdChatForModelCommit()
         if prediction?.permitsMemoryOverride == true {
           self.benchmarkNotice = "Installed. Memory use may be high; choose Check Performance when you are ready to test it."
         } else {
@@ -416,9 +445,10 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func runModelBenchmark() {
-    guard !isBusy, let installedModel else { return }
+    guard canChangeModels, let installedModel else { return }
     cancelIdleUnload()
-    state = .benchmarking
+    clearModelFailure()
+    modelOperation = .benchmarking
     installationTask = Task { [weak self] in
       guard let self else { return }
       await modelAdvisor?.detectHardware()
@@ -431,7 +461,7 @@ final class LocalChatViewModel: ObservableObject {
 
   private func benchmarkInstalledModel(prediction: LocalModelAssessment?) async {
     guard let modelAdvisor, let model = installedModel else { return }
-    state = .benchmarking
+    modelOperation = .benchmarking
     benchmarkNotice = nil
     do {
       try Task.checkCancellation()
@@ -451,7 +481,7 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func selectModel(id: String) {
-    guard !isBusy else { return }
+    guard canChangeModels else { return }
     cancelIdleUnload()
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
@@ -471,11 +501,11 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func deleteModel(id: String) {
-    guard !isBusy, installedModels.contains(where: { $0.id == id }) else { return }
-    stopStreaming()
+    guard canChangeModels, installedModels.contains(where: { $0.id == id }) else { return }
     cancelIdleUnload()
     benchmarkNotice = nil
-    state = .deleting
+    clearModelFailure()
+    modelOperation = .deleting
     installationTask = Task { [weak self, engine] in
       do {
         await self?.visionEngine.unload()
@@ -1210,7 +1240,8 @@ final class LocalChatViewModel: ObservableObject {
   private func scheduleIdleUnload() {
     // Focus changes and reading an open chat do not extend the model's lifetime.
     // File picking and applying a finished selection also do not use inference.
-    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, installationTask == nil else { return }
+    // A download doesn't use the engine, so it doesn't keep the model loaded.
+    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, modelOperation?.blocksChat != true else { return }
     switch state {
     case .idle, .failed: break
     default: return
@@ -1221,7 +1252,7 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         guard let self else { return }
         self.idleUnloadTask = nil
-        guard self.activeRequest == nil, self.generationTask == nil, self.installationTask == nil else { return }
+        guard self.activeRequest == nil, self.generationTask == nil, self.modelOperation?.blocksChat != true else { return }
         // The server manages its own idle timer on its actor, where it can check
         // active inference atomically. A UI timer must not terminate a new request.
         await engine.unload()
@@ -1284,21 +1315,39 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   private func finishInstallation() {
-    state = .idle
+    modelOperation = nil
     installationTask = nil
     scheduleIdleUnload()
   }
 
   private func updateDownloadProgress(_ progress: ModelDownloadProgress) {
-    guard !Task.isCancelled else { return }
-    state = .downloading(progress)
+    guard !Task.isCancelled, case .downloading = modelOperation else { return }
+    modelOperation = .downloading(progress)
+  }
+
+  /// Waits for the current request to end, then holds chat for the commit
+  /// and the performance check. The wait ends with cancellation.
+  private func holdChatForModelCommit() async throws {
+    while isChatActive {
+      try await Task.sleep(for: .milliseconds(100))
+    }
+    try Task.checkCancellation()
+    cancelIdleUnload()
+    if modelOperation?.blocksChat != true { modelOperation = .installing }
   }
 
   private func failInstallation(_ error: Error) {
     if Task.isCancelled { finishInstallation(); return }
-    state = .failed(error.localizedDescription)
+    // Model failures share the chat's problem line; a running request keeps it until it ends.
+    if isChatActive { deferredModelFailure = error.localizedDescription } else { state = .failed(error.localizedDescription) }
+    modelOperation = nil
     installationTask = nil
     scheduleIdleUnload()
+  }
+
+  private func clearModelFailure() {
+    deferredModelFailure = nil
+    if case .failed = state { state = .idle }
   }
 
   private func search(_ query: String, locationPrompt: String? = nil, maximumTokens: Int, requestID: UUID) async throws -> [WebSearchResult] {
@@ -1513,7 +1562,8 @@ final class LocalChatViewModel: ObservableObject {
     activityMessageID = nil
     pendingUserMessage = nil
     generationTask = nil
-    state = error.map { .failed($0.localizedDescription) } ?? .idle
+    state = error.map { .failed($0.localizedDescription) } ?? deferredModelFailure.map { .failed($0) } ?? .idle
+    deferredModelFailure = nil
     sessionWriter.flush()
     scheduleIdleUnload()
   }

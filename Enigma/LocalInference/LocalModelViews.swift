@@ -56,7 +56,7 @@ struct LocalModelOperationView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      switch chat.state {
+      switch chat.modelOperation {
       case .downloading(let progress):
         HStack(spacing: 12) {
           EnigmaStatusLine(.busy, progress.fractionCompleted < 1
@@ -76,12 +76,12 @@ struct LocalModelOperationView: View {
           Spacer(minLength: 0)
           Button("Cancel") { chat.cancelInstallation() }.enigmaButtonStyle(.text)
         }
-      case .failed(let message):
-        EnigmaStatusLine(.problem, message)
-      default:
-        if let notice = chat.benchmarkNotice { note(notice) }
+      case nil:
+        if case .failed(let message) = chat.state {
+          EnigmaStatusLine(.problem, message)
+        } else if let notice = chat.benchmarkNotice { note(notice) }
       }
-      if let benchmark = advisor.latestBenchmark(for: chat.installedModel), !chat.isBusy {
+      if let benchmark = advisor.latestBenchmark(for: chat.installedModel), chat.modelOperation == nil {
         VStack(alignment: .leading, spacing: 2) {
           Text("first token \(benchmark.metrics.timeToFirstToken, specifier: "%.2f") s · generation \(benchmark.metrics.generationTokensPerSecond, specifier: "%.1f") tokens/s")
           Text("prompt \(benchmark.metrics.promptTokensPerSecond, specifier: "%.0f") tokens/s · peak app memory \(benchmark.metrics.peakMemoryBytes, format: .byteCount(style: .memory))")
@@ -160,7 +160,7 @@ struct LocalModelOnboardingView: View {
           }
         }
         .padding(.horizontal, 10)
-        .disabled(chat.isBusy)
+        .disabled(!chat.canChangeModels)
       }
       .padding(.horizontal, -10)
       .padding(.top, 4)
@@ -173,7 +173,7 @@ struct LocalModelOnboardingView: View {
       HStack(spacing: 12) {
         Button(chat.installedModels.isEmpty ? "Set Up Later" : "Done") { advisor.dismissOnboarding() }
           .enigmaButtonStyle(.text)
-          .disabled(chat.isBusy)
+          .disabled(!chat.canChangeModels)
         Spacer()
         if let selected {
           let existing = chat.installedModels.first { $0.id == selected.id }
@@ -194,7 +194,7 @@ struct LocalModelOnboardingView: View {
           .enigmaButtonStyle(.primary)
           // Return never starts a download.
           .keyboardShortcut(installed ? .defaultAction : nil)
-          .disabled(chat.isBusy)
+          .disabled(!chat.canChangeModels)
         }
       }
       .padding(.top, 16)
@@ -203,6 +203,6 @@ struct LocalModelOnboardingView: View {
     .frame(width: 560, height: 650)
     .background(palette.background.color)
     .tint(palette.accent.color)
-    .interactiveDismissDisabled(chat.isBusy)
+    .interactiveDismissDisabled(!chat.canChangeModels)
   }
 }

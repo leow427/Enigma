@@ -62,7 +62,7 @@ enum LocalModelSettingsLogic {
 
   /// Whether Local models shows the runtime's progress, notices, and benchmark.
   static func showsOperation(chat: LocalChatViewModel, advisor: LocalModelAdvisor) -> Bool {
-    chat.state != .idle || chat.benchmarkNotice != nil
+    chat.modelOperation != nil || chat.state != .idle || chat.benchmarkNotice != nil
       || advisor.latestBenchmark(for: chat.installedModel) != nil || advisor.notice != nil
   }
 

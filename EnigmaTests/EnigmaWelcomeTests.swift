@@ -71,12 +71,12 @@ final class EnigmaWelcomeTests: XCTestCase {
   @MainActor
   func testDownloadingVerifyingAndCheckingCountAsInstalling() {
     let progress = ModelDownloadProgress(receivedByteCount: 5, expectedByteCount: 10)
-    let installing: [LocalChatViewModel.State] = [.downloading(progress), .installing, .benchmarking]
-    let other: [LocalChatViewModel.State] = [.idle, .deleting, .preparing, .streaming, .failed("No")]
+    let installing: [LocalChatViewModel.ModelOperation?] = [.downloading(progress), .installing, .benchmarking]
+    let other: [LocalChatViewModel.ModelOperation?] = [nil, .deleting]
     XCTAssertTrue(installing.allSatisfy(WelcomeSetup.isInstalling))
     XCTAssertFalse(other.contains(where: WelcomeSetup.isInstalling))
     XCTAssertTrue(WelcomeSetup.installFailed(.failed("The download couldn't be verified.")))
-    XCTAssertFalse((installing + [.idle, .streaming]).contains(where: WelcomeSetup.installFailed))
+    XCTAssertFalse([LocalChatViewModel.State.idle, .preparing, .streaming].contains(where: WelcomeSetup.installFailed))
   }
 
   @MainActor
@@ -549,7 +549,7 @@ extension EnigmaWelcomeTests {
     XCTAssertEqual(fixture.setup.step, .models)
     try host.press("Install model")
     try await waitForUI("Install to reach the engine", in: host.view) {
-      fixture.chat.state != .idle
+      fixture.chat.modelOperation != nil
     }
     for _ in 0..<100 where downloads.isEmpty {
       try await Task.sleep(for: .milliseconds(20))

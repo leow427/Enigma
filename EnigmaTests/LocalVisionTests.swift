@@ -503,18 +503,20 @@ final class LocalVisionTests: XCTestCase {
       let started = expectation(description: "Download producer started")
       await engine.setStarted(started)
       let done = expectation(description: "Download lifecycle finished")
-      let token = chat.$state.dropFirst().filter { $0 == .idle }.prefix(1).sink { _ in done.fulfill() }
+      let token = chat.$modelOperation.dropFirst().filter { $0 == nil }.prefix(1).sink { _ in done.fulfill() }
       chat.downloadModel(LocalModelManifest.bundled.models[0])
       chat.downloadModel(LocalModelManifest.bundled.models[0])
       await fulfillment(of: [started], timeout: 3)
-      XCTAssertTrue(chat.isBusy)
+      XCTAssertTrue(chat.isManagingModels)
+      XCTAssertFalse(chat.isBusy, "Chat stays available while the package downloads")
       if cancelled {
         chat.cancelInstallation()
-        XCTAssertTrue(chat.isBusy, "Keep requests blocked until cancellation is acknowledged")
+        XCTAssertTrue(chat.isManagingModels, "Keep model changes blocked until cancellation is acknowledged")
       }
       await engine.complete()
       await fulfillment(of: [done], timeout: 3)
       token.cancel()
+      XCTAssertFalse(chat.isManagingModels)
       XCTAssertFalse(chat.isBusy)
       XCTAssertEqual(chat.installedModels.count, cancelled ? 0 : 1)
     }

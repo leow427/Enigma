@@ -47,12 +47,12 @@ struct WelcomeSetupView: View {
                              activeID: chat.installedModel?.id, skipLocal: skipLocal)
   }
 
-  private var isModelWorkBusy: Bool { chat.isBusy || advisor.isDetecting }
+  private var isModelWorkBusy: Bool { !chat.canChangeModels || advisor.isDetecting }
 
   private var characterState: EnigmaCharacterState {
     WelcomeSetup.characterState(for: setup.step, WelcomeSetup.Activity(
       isDetectingHardware: advisor.isDetecting,
-      isInstalling: WelcomeSetup.isInstalling(chat.state),
+      isInstalling: WelcomeSetup.isInstalling(chat.modelOperation),
       installFailed: WelcomeSetup.installFailed(chat.state),
       connectionFailed: cloud.accountError != nil || cloud.claudeCodeError != nil || connectionError != nil,
       isEnteringKey: isEnteringKey))
@@ -250,7 +250,7 @@ struct WelcomeSetupView: View {
     HStack(spacing: 12) {
       Button("Back") { changeStep { setup.goBack() } }
         .enigmaButtonStyle(.text)
-        .disabled(chat.isBusy)
+        .disabled(!chat.canChangeModels)
         .padding(.leading, -8)
       Spacer(minLength: 12)
       if showsHint, let hint = footerHint {
@@ -276,7 +276,7 @@ struct WelcomeSetupView: View {
     switch setup.step {
     case .welcome: return nil
     case .models:
-      guard !chat.isBusy else { return nil }
+      guard chat.canChangeModels else { return nil }
       let size = selected.map { ByteCountFormatter.string(fromByteCount: $0.model.downloadByteCount, countStyle: .file) } ?? ""
       switch modelAction {
       case .install: return "\(size) download, verified before install"
@@ -358,7 +358,7 @@ struct WelcomeSetupView: View {
       }
       EnigmaRow("Skip local models", subtitle: "Use cloud models only. You can add a local model later in Settings.",
                 selection: skipLocal, action: { skipLocal = true })
-        .disabled(chat.isBusy)
+        .disabled(!chat.canChangeModels)
       EnigmaHairline()
       if advisor.hardware != nil && choices.isEmpty {
         note("No supported model fits the available memory and storage. You can continue with Cloud.")

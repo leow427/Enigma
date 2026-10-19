@@ -33,10 +33,16 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(status(.idle), ChatRouteStatus(kind: .ready, text: "Qwen3 8B is ready · on this Mac"))
     XCTAssertEqual(status(.idle, model: nil),
                    ChatRouteStatus(kind: .missing, text: "A local GGUF model is required.", action: .chooseModel))
-    XCTAssertEqual(status(.benchmarking).text, "Checking model performance…")
-    XCTAssertEqual(status(.installing).text, "Installing local model…")
-    XCTAssertEqual(status(.deleting).text, "Deleting local model…")
-    XCTAssertEqual(status(.downloading(ModelDownloadProgress(receivedByteCount: 42, expectedByteCount: 100))).text, "Downloading 42%")
+    func operation(_ operation: LocalChatViewModel.ModelOperation, state: LocalChatViewModel.State = .idle) -> ChatRouteStatus {
+      ChatRouteStatus.make(.init(mode: .local, state: state, modelOperation: operation, localModelName: "Qwen3 8B"))
+    }
+    XCTAssertEqual(operation(.benchmarking).text, "Checking model performance…")
+    XCTAssertEqual(operation(.installing).text, "Installing local model…")
+    XCTAssertEqual(operation(.deleting).text, "Deleting local model…")
+    let download = LocalChatViewModel.ModelOperation.downloading(ModelDownloadProgress(receivedByteCount: 42, expectedByteCount: 100))
+    XCTAssertEqual(operation(download).text, "Downloading 42%")
+    XCTAssertEqual(operation(download, state: .streaming), ChatRouteStatus(kind: .busy, text: "Generating locally"),
+                   "A reply during a download shows the reply")
     for state in [LocalChatViewModel.State.preparing, .refiningSearch, .searching] {
       XCTAssertEqual(status(state), ChatRouteStatus(kind: .busy, text: "Loading local model…"))
     }
@@ -65,8 +71,12 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(ChatRouteStatus.make(context).kind, .busy)
     context.state = .streaming
     XCTAssertEqual(ChatRouteStatus.make(context).text, "Streaming from \(CloudProviderID.anthropic.displayName)")
-    context.state = .installing
+    context.state = .idle
+    context.modelOperation = .installing
     XCTAssertEqual(ChatRouteStatus.make(context).text, "Finish the local model task before using Cloud mode.")
+    context.modelOperation = .downloading(ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2))
+    XCTAssertEqual(ChatRouteStatus.make(context).kind, .ready, "Cloud stays usable while a model downloads")
+    context.modelOperation = nil
     context.state = .failed("Rate limited.")
     XCTAssertEqual(ChatRouteStatus.make(context).kind, .problem)
   }

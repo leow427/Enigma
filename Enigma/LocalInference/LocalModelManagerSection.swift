@@ -53,7 +53,7 @@ struct LocalModelManagerSection: View {
           .disabled(chat.installedModel == nil)
           .enigmaTestMarker("Check performance")
       }
-      .disabled(chat.isBusy || advisor.isDetecting)
+      .disabled(!chat.canChangeModels || advisor.isDetecting)
       .padding(.top, 12)
 
       EnigmaSectionHeader("For this Mac")
@@ -93,7 +93,7 @@ struct LocalModelManagerSection: View {
       EnigmaHairline()
       Button("Advanced: Import text GGUF…") { isImporterPresented = true }
         .enigmaButtonStyle(.text)
-        .disabled(chat.isBusy)
+        .disabled(!chat.canChangeModels)
         .padding(.leading, -8)
         .padding(.top, 8)
       EnigmaHint("approved model catalog · version \(advisor.manifest.version)").padding(.top, 6)
@@ -171,7 +171,7 @@ struct LocalModelManagerSection: View {
 
   @ViewBuilder private func actionButton(for assessment: LocalModelAssessment) -> some View {
     let state = LocalModelSettingsLogic.managerAction(for: assessment, installed: chat.installedModels,
-                                                      activeID: chat.installedModel?.id, isBusy: chat.isBusy)
+                                                      activeID: chat.installedModel?.id, isBusy: !chat.canChangeModels)
     let title = switch state.action {
     case .use(let isSelected): isSelected ? "Selected" : "Use"
     case .update: assessment.permitsMemoryOverride ? "Update anyway" : "Update"
@@ -199,7 +199,7 @@ struct LocalModelManagerSection: View {
       HStack(spacing: 6) {
         Button(selected ? "Selected" : "Use") { chat.selectModel(id: model.id) }
           .enigmaButtonStyle(.secondary)
-          .disabled(chat.isBusy || selected)
+          .disabled(!chat.canChangeModels || selected)
           .enigmaTestMarker("\(selected ? "Selected" : "Use") \(model.displayName)")
         deleteButton(model)
       }
@@ -209,7 +209,7 @@ struct LocalModelManagerSection: View {
   private func deleteButton(_ model: LocalModel) -> some View {
     Button("Delete") { pendingDeletion = model }
       .enigmaButtonStyle(.text)
-      .disabled(chat.isBusy)
+      .disabled(!chat.canChangeModels)
       .accessibilityLabel("Delete \(model.displayName)")
       .enigmaTestMarker("Delete \(model.displayName)")
   }

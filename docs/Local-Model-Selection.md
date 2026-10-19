@@ -84,6 +84,15 @@ keeps the Mac from idle-sleeping; the display can still sleep.
 A newly installed package becomes the selected model. Updating a package that
 is already installed keeps your current selection.
 
+You can keep chatting while a package downloads, verifies and unpacks, in the
+cloud or with the local model you already use; the status line shows the
+download's progress between replies. Choosing, deleting, importing and checking
+models wait until the install finishes or is cancelled. The last step, which
+installs the package and may switch to it, waits for any reply in progress to
+finish, so a reply never changes model halfway. Chat then pauses for that
+moment and for the performance check that follows. Importing a GGUF, deleting a
+model and **Check performance** also pause chat while they run.
+
 ### Checking performance
 
 After an install, Enigma runs a short performance check (**checking performance
@@ -379,6 +388,12 @@ Key files are in `Enigma/LocalInference/`.
 | Settings UI and the model sheet | `LocalModelManagerSection`, `LocalModelSettingsLogic`, `LocalModelOnboardingView` | `LocalModelManagerSection.swift`, `LocalModelSettingsLogic.swift`, `LocalModelViews.swift` |
 
 Download orchestration and idle unloading live in `LocalChatViewModel.swift`.
+Install progress is `modelOperation`, separate from the chat's `state`;
+`isBusy` gates chat and counts a model operation only when it holds the
+engines (commit, import, delete, performance check), while `isManagingModels`
+and `canChangeModels` gate model changes. The engine's `download(_:beforeCommit:progress:)`
+awaits the view model's hold, which waits for the current request to end, just
+before the atomic install in `LocalModelCatalog`.
 `scripts/gguf-header.py` reads a GGUF header for the catalogue checklist.
 
 ## Privacy
@@ -436,6 +451,8 @@ The suites are offline and deterministic; none touches the GPU:
   (see [Testing.md](Testing.md)).
 - `LocalModelInstallationStoreTests` and `LocalInferenceTests`: atomic install,
   replacement, deletion and selection, plus idle unloading.
+  `ConcurrentModelInstallTests` (in `LocalInferenceTests.swift`): chat during a
+  download, refused model changes, and a commit that waits for a reply to end.
 - `LocalVisionTests`: package pairs, runtime launch arguments (including Gemma's
   image batch), loopback-only sessions, guided download, progress and
   cancellation, a persistent connection drop and the keep-awake activity through

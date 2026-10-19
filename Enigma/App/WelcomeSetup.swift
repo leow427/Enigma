@@ -128,10 +128,10 @@ extension WelcomeSetup {
   }
 
   /// Downloading, verifying, installing, and the first performance check.
-  static func isInstalling(_ state: LocalChatViewModel.State) -> Bool {
-    switch state {
+  static func isInstalling(_ operation: LocalChatViewModel.ModelOperation?) -> Bool {
+    switch operation {
     case .downloading, .installing, .benchmarking: true
-    default: false
+    case .deleting, nil: false
     }
   }
 

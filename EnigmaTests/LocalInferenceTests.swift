@@ -97,7 +97,7 @@ final class LocalInferenceTests: XCTestCase {
     let selectedURL = URL(fileURLWithPath: "/tmp/My Model.gguf")
 
     viewModel.installModel(from: selectedURL)
-    await waitUntil { viewModel.installedModel != nil && viewModel.state == .idle }
+    await waitUntil { viewModel.installedModel != nil && viewModel.modelOperation == nil && !viewModel.isManagingModels }
 
     XCTAssertEqual(viewModel.installedModel?.displayName, "My Model")
     XCTAssertEqual(viewModel.installedModel?.fileURL, selectedURL)
@@ -111,7 +111,7 @@ final class LocalInferenceTests: XCTestCase {
     await viewModel.refreshInstalledModel()
 
     viewModel.deleteModel(id: installed.id)
-    await waitUntil { viewModel.state == .idle && viewModel.installedModels.isEmpty }
+    await waitUntil { viewModel.modelOperation == nil && !viewModel.isManagingModels && viewModel.installedModels.isEmpty }
 
     XCTAssertNil(viewModel.installedModel)
     XCTAssertEqual(engine.deletedIDs, [installed.id])
@@ -568,5 +568,186 @@ private final class CancellationProbe: @unchecked Sendable {
     lock.lock()
     recorded = true
     lock.unlock()
+  }
+}
+
+/// Installing a model runs beside chat: only the final commit and the
+/// performance check wait for, and briefly hold, an idle chat.
+@MainActor
+final class ConcurrentModelInstallTests: XCTestCase {
+  func testCloudAndLocalChatRunWhileAModelDownloads() async throws {
+    let engine = InstallingEngine()
+    let cloud = InstantCloud()
+    let chat = LocalChatViewModel(engine: engine,
+      cloudProviders: CloudProviderRegistry(openAI: cloud, anthropic: cloud, chatGPT: cloud, gemini: cloud),
+      sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    XCTAssertEqual(chat.modelOperation, .downloading(ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2)))
+    XCTAssertTrue(chat.isManagingModels)
+    XCTAssertFalse(chat.isBusy, "A download must not lock the composer")
+
+    chat.submit("Hello locally")
+    try await until { chat.state == .idle && chat.messages.last?.content == "Local reply" }
+    XCTAssertEqual(engine.requests.count, 1)
+    chat.submitCloud("Hello cloud", provider: .openAI, modelID: "gpt-test")
+    try await until { chat.state == .idle && chat.messages.last?.content == "Cloud reply" }
+    XCTAssertEqual(chat.modelOperation, .downloading(ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2)),
+                   "Chat state changes must not overwrite download progress")
+
+    engine.finishDownload()
+    try await until { chat.modelOperation == nil && !chat.isManagingModels }
+    XCTAssertEqual(chat.installedModel?.id, InstallingEngine.newID)
+  }
+
+  func testModelChangesAreRefusedWhileAnInstallRuns() async throws {
+    let engine = InstallingEngine()
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    XCTAssertFalse(chat.canChangeModels)
+    chat.downloadModel(LocalModelManifest.bundled.models[1])
+    chat.selectModel(id: InstallingEngine.oldID)
+    chat.deleteModel(id: InstallingEngine.oldID)
+    chat.installModel(from: URL(fileURLWithPath: "/tmp/imported.gguf"))
+    chat.runModelBenchmark()
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.downloadCount, 1)
+    XCTAssertEqual(engine.managementCalls, [])
+    XCTAssertEqual(chat.modelOperation, .downloading(ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2)))
+
+    chat.cancelInstallation()
+    XCTAssertTrue(chat.isManagingModels, "Model changes stay refused until cancellation is acknowledged")
+    XCTAssertFalse(chat.isBusy)
+    engine.finishDownload()
+    try await until { !chat.isManagingModels }
+    XCTAssertTrue(chat.canChangeModels)
+    XCTAssertEqual(engine.commitCount, 0)
+    XCTAssertEqual(chat.installedModel?.id, InstallingEngine.oldID)
+  }
+
+  func testAnInstallFinishingDuringALocalReplySwitchesModelsOnlyAfterTheReply() async throws {
+    let (reply, continuation) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = InstallingEngine(stream: reply)
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    chat.submit("Keep answering with the old model")
+    continuation.yield("Partial")
+    try await until { chat.messages.last?.content == "Partial" }
+
+    engine.finishDownload()
+    try await until { engine.isWaitingToCommit }
+    try await Task.sleep(for: .milliseconds(250))
+    XCTAssertEqual(engine.commitCount, 0, "The install must not switch models mid-reply")
+    XCTAssertEqual(chat.installedModel?.id, InstallingEngine.oldID)
+    XCTAssertEqual(chat.activeRequest?.route.modelID, InstallingEngine.oldID)
+    XCTAssertTrue(chat.isManagingModels)
+
+    continuation.yield(" and done")
+    continuation.finish()
+    try await until { chat.modelOperation == nil && !chat.isManagingModels }
+    XCTAssertEqual(chat.messages.last?.content, "Partial and done")
+    XCTAssertEqual(engine.commitCount, 1)
+    XCTAssertEqual(chat.installedModel?.id, InstallingEngine.newID)
+    XCTAssertFalse(chat.isBusy)
+  }
+
+  private func until(_ condition: @escaping @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    for _ in 0..<300 {
+      if condition() { return }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTFail("Condition was not met in time", file: file, line: line)
+  }
+
+  private func makeSessionStore() -> ChatSessionStore {
+    ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory
+      .appending(path: "ConcurrentModelInstallTests-\(UUID().uuidString)"))
+  }
+}
+
+private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
+  static let oldID = "old-text"
+  static let newID = "new-package"
+  private let lock = NSLock()
+  private let reply: AsyncThrowingStream<String, Error>?
+  private var models = [LocalModel(id: oldID, displayName: "Old", fileURL: URL(fileURLWithPath: "/tmp/old.gguf"))]
+  private var selectedID: String? = oldID
+  private var gate: CheckedContinuation<Void, Never>?
+  private var downloading = false
+  private var waitingToCommit = false
+  private var storedRequests: [LocalModelRequest] = []
+  private var storedDownloadCount = 0
+  private var storedCommitCount = 0
+  private var storedManagementCalls: [String] = []
+
+  init(stream: AsyncThrowingStream<String, Error>? = nil) { reply = stream }
+
+  var isDownloading: Bool { lock.withLock { downloading } }
+  var isWaitingToCommit: Bool { lock.withLock { waitingToCommit } }
+  var requests: [LocalModelRequest] { lock.withLock { storedRequests } }
+  var downloadCount: Int { lock.withLock { storedDownloadCount } }
+  var commitCount: Int { lock.withLock { storedCommitCount } }
+  var managementCalls: [String] { lock.withLock { storedManagementCalls } }
+
+  func finishDownload() {
+    let gate = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+      defer { self.gate = nil }
+      return self.gate
+    }
+    gate?.resume()
+  }
+
+  func download(_ model: LocalModelDescriptor,
+                progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
+    try await download(model, beforeCommit: {}, progress: progress)
+  }
+
+  func download(_ model: LocalModelDescriptor, beforeCommit: @escaping @Sendable () async throws -> Void,
+                progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
+    lock.withLock { storedDownloadCount += 1 }
+    await progress(ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2))
+    await withCheckedContinuation { continuation in
+      lock.withLock { gate = continuation; downloading = true }
+    }
+    lock.withLock { downloading = false }
+    try Task.checkCancellation()
+    lock.withLock { waitingToCommit = true }
+    defer { lock.withLock { waitingToCommit = false } }
+    try await beforeCommit()
+    try Task.checkCancellation()
+    let installed = LocalModel(id: Self.newID, displayName: "New", fileURL: URL(fileURLWithPath: "/tmp/new.gguf"))
+    lock.withLock {
+      models.append(installed)
+      selectedID = installed.id
+      storedCommitCount += 1
+    }
+    return installed
+  }
+
+  func install(_ model: LocalModel) async throws { lock.withLock { storedManagementCalls.append("install") } }
+  func installedModel() async -> LocalModel? { lock.withLock { models.first { $0.id == selectedID } } }
+  func installedModels() async -> [LocalModel] { lock.withLock { models } }
+  func selectModel(id: String) async throws { lock.withLock { storedManagementCalls.append("select") } }
+  func deleteModel(id: String) async throws { lock.withLock { storedManagementCalls.append("delete") } }
+  func benchmark() async throws -> LocalBenchmarkMetrics? {
+    lock.withLock { storedManagementCalls.append("benchmark") }
+    return nil
+  }
+  func unload() async { }
+
+  func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
+    lock.withLock { storedRequests.append(request) }
+    return reply ?? AsyncThrowingStream { $0.yield("Local reply"); $0.finish() }
+  }
+}
+
+private struct InstantCloud: ChatProvider {
+  func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
+    AsyncThrowingStream { $0.yield(.token("Cloud reply")); $0.yield(.completed); $0.finish() }
   }
 }
