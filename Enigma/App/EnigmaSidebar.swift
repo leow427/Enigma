@@ -115,8 +115,6 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
           .foregroundStyle(palette.textSecondary.color)
       }
       developerTools()
-        .padding(.top, 8)
-        .padding(.horizontal, 6)
     }
   }
 }
@@ -199,5 +197,8 @@ struct DeveloperToolsView: View {
       }
       .padding(.top, 4)
     }
+    // The padding lives here so release builds, which leave the tools out, add no space.
+    .padding(.top, 8)
+    .padding(.horizontal, 6)
   }
 }
