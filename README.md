@@ -87,5 +87,13 @@ See [docs/Testing.md](docs/Testing.md) for details and
 | `scripts/` | Verification, install, icon, and File Mode evaluation scripts |
 | `docs/` | Feature docs, guides, the design reference, and history |
 
-Third-party licenses are in
+## License
+
+Enigma is freeware, not open source: it is free to use, personally or at work,
+under the [Enigma Freeware License](LICENSE). Share links to the official
+[releases page](https://github.com/leow427/Enigma/releases) rather than hosting
+copies yourself. Modifying, reusing, or redistributing the app or its source
+code is not permitted.
+
+Third-party components keep their own licenses, listed in
 [Enigma/Resources/ThirdPartyNotices.txt](Enigma/Resources/ThirdPartyNotices.txt).

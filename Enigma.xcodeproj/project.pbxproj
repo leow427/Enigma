@@ -164,6 +164,7 @@
 		D10000000000000000000008 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D40000000000000000000002 /* Sparkle */; };
 		D10000000000000000000006 /* LocalInferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000005 /* LocalInferenceTests.swift */; };
 		D10000000000000000000007 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000006 /* ThirdPartyNotices.txt */; };
+		D10000000000000000000009 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000007 /* LICENSE */; };
 		D837B30691584362AC890087 /* Enigma/Screen/ScreenAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C914AEA42F47A9209266F278 /* Enigma/Screen/ScreenAttachment.swift */; };
 		E10000000000000000000001 /* ChatDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* ChatDomain.swift */; };
 		AC1000000000000000000003 /* AssistantActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2000000000000000000003 /* AssistantActivity.swift */; };
@@ -356,6 +357,7 @@
 		D20000000000000000000004 /* LocalChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalChatViewModel.swift; sourceTree = "<group>"; };
 		D20000000000000000000005 /* LocalInferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInferenceTests.swift; sourceTree = "<group>"; };
 		D20000000000000000000006 /* ThirdPartyNotices.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ThirdPartyNotices.txt; sourceTree = "<group>"; };
+		D20000000000000000000007 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
 		D52189CDD3B416D1EA547D5A /* Enigma/Files/LocalFileRuntimeSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Files/LocalFileRuntimeSetup.swift"; sourceTree = SOURCE_ROOT; };
 		DA71017E0A573695B2D29C84 /* EnigmaTests/WorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WorkspaceTests.swift"; sourceTree = SOURCE_ROOT; };
 		DC739E5346C6C117334001F2 /* Enigma/Screen/ScreenImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenImagePreprocessor.swift"; sourceTree = SOURCE_ROOT; };
@@ -570,6 +572,7 @@
 				A20000000000000000000006 /* Info.plist */,
 				E91000000000000000000001 /* Enigma.entitlements */,
 				D20000000000000000000006 /* ThirdPartyNotices.txt */,
+				D20000000000000000000007 /* LICENSE */,
 				B60000000000000000000201 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -766,6 +769,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D10000000000000000000007 /* ThirdPartyNotices.txt in Resources */,
+				D10000000000000000000009 /* LICENSE in Resources */,
 				B60000000000000000000202 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

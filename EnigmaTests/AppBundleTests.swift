@@ -88,6 +88,15 @@ final class AppBundleTests: XCTestCase {
     XCTAssertTrue(FileManager.default.fileExists(atPath: frameworks.appending(path: "Sparkle.framework").path))
   }
 
+  func testLicenseAndCopyrightShipWithTheApp() throws {
+    let info = try XCTUnwrap(Bundle.main.infoDictionary)
+    let copyright = try XCTUnwrap(info["NSHumanReadableCopyright"] as? String)
+    XCTAssertTrue(copyright.contains("All rights reserved"), copyright)
+    let license = try XCTUnwrap(Bundle.main.url(forResource: "LICENSE", withExtension: nil))
+    XCTAssertTrue(try String(contentsOf: license, encoding: .utf8).hasPrefix("Enigma Freeware License"))
+    XCTAssertNotNil(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
+  }
+
   private func inspect(_ arguments: [String]) throws -> String {
     let process = Process()
     let output = Pipe()
