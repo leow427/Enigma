@@ -4,51 +4,58 @@ import XCTest
 @testable import Enigma
 
 final class AppCommandTests: XCTestCase {
-  func testDoubleControlRequiresTwoShortTapsAndResetsAfterToggling() {
-    var gesture = ControlDoubleTap()
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 1))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 1.08))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 62, modifiers: .control, timestamp: 1.18))
-    XCTAssertTrue(gesture.flagsChanged(keyCode: 62, modifiers: [], timestamp: 1.25))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 1.3))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 1.35))
+  func testShowHideChordFiresOnReleaseOfOptionAndControlPressedTogether() {
+    var chord = PanelShortcutChord()
+    XCTAssertFalse(chord.flagsChanged(modifiers: .option))
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.option, .control]), "Pressing fires nothing")
+    XCTAssertTrue(chord.flagsChanged(modifiers: .option), "Releasing one of the pair completes the tap")
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+    XCTAssertFalse(chord.flagsChanged(modifiers: .control))
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.control, .option]))
+    XCTAssertTrue(chord.flagsChanged(modifiers: []), "Releasing both at once fires too")
   }
 
-  func testDoubleControlRejectsSlowTapsHoldsAndOtherModifiers() {
-    var gesture = ControlDoubleTap()
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 1))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 2))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 2.1))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 2.2))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 3))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 3.1))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [.control, .shift], timestamp: 3.2))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 3.3))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 3.4))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 3.45))
-    gesture.reset() // Typing, clicking, or leaving the panel cancels pending taps.
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 3.5))
-    XCTAssertFalse(gesture.flagsChanged(keyCode: 59, modifiers: [], timestamp: 3.55))
+  func testShowHideChordIgnoresKeysClicksAndExtraModifiers() {
+    var chord = PanelShortcutChord()
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    chord.cancel() // ⌃⌥→ or a click while held
+    XCTAssertFalse(chord.flagsChanged(modifiers: .control))
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.option, .control, .command]))
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.option, .control]), "Command leaving does not revive it")
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+
+    _ = chord.flagsChanged(modifiers: [.option, .control, .shift])
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.option, .control]))
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+
+    XCTAssertFalse(chord.flagsChanged(modifiers: .option))
+    XCTAssertFalse(chord.flagsChanged(modifiers: []), "Option alone")
+    XCTAssertFalse(chord.flagsChanged(modifiers: .control))
+    XCTAssertFalse(chord.flagsChanged(modifiers: []), "Control alone")
+    chord.cancel()
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
   }
 
-  @MainActor
-  func testDoubleControlWorksWhileEditingWithoutChangingDraft() throws {
-    let field = NSTextField(string: "Keep my unsent text")
-    let controller = SpotlightPanelController(contentView: field)
-    controller.show()
-    defer { controller.hide() }
-    let window = try XCTUnwrap(field.window)
-    XCTAssertTrue(window.makeFirstResponder(field))
-    let delivered = expectation(forNotification: .sidebarToggleRequested, object: nil)
-    for (time, flags) in [(1.0, NSEvent.ModifierFlags.control), (1.05, []), (1.15, .control), (1.2, [])] {
-      let event = try XCTUnwrap(NSEvent.keyEvent(with: .flagsChanged, location: .zero,
-        modifierFlags: flags, timestamp: time, windowNumber: window.windowNumber,
-        context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 59))
-      window.sendEvent(event)
-    }
-    wait(for: [delivered], timeout: 1)
-    XCTAssertEqual(field.stringValue, "Keep my unsent text")
-    XCTAssertTrue(controller.isVisible)
+  func testShowHideChordFiresAgainAfterACancelledChord() {
+    var chord = PanelShortcutChord()
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    chord.cancel()
+    _ = chord.flagsChanged(modifiers: [])
+    XCTAssertFalse(chord.flagsChanged(modifiers: [.option, .control]))
+    XCTAssertTrue(chord.flagsChanged(modifiers: .control))
+  }
+
+  func testShowHideChordSynchronizeIgnoresModifiersAlreadyHeld() {
+    var chord = PanelShortcutChord()
+    chord.synchronize(modifiers: [.option, .control])
+    XCTAssertFalse(chord.flagsChanged(modifiers: .option), "Held before monitoring began")
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+    chord.synchronize(modifiers: [])
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    XCTAssertTrue(chord.flagsChanged(modifiers: []))
   }
 
   func testMenuCommandsHaveExpectedOrderAndTitles() {
@@ -111,37 +118,57 @@ final class AppCommandTests: XCTestCase {
     XCTAssertNil(PanelShortcut.resolve(characters: "n", modifiers: []))
   }
 
-  func testHideInactiveToolsShortcutRequiresCommandShiftH() {
-    XCTAssertEqual(PanelShortcut.resolve(characters: "H", modifiers: [.command, .shift]), .hideInactiveTools)
-    XCTAssertEqual(PanelShortcut.resolve(characters: "h", modifiers: [.command, .shift, .capsLock]), .hideInactiveTools)
-    XCTAssertNil(PanelShortcut.resolve(characters: "h", modifiers: .command))
-    XCTAssertNil(PanelShortcut.resolve(characters: "h", modifiers: .shift))
-    XCTAssertNil(PanelShortcut.resolve(characters: "h", modifiers: [.command, .option, .shift]))
+  func testSidebarOpenInWindowAndAttachShortcuts() {
+    // Control changes the characters, so S is matched by its key code.
+    XCTAssertEqual(PanelShortcut.resolve(characters: "\u{13}", modifiers: [.control, .command], keyCode: 1), .toggleSidebar)
+    XCTAssertNil(PanelShortcut.resolve(characters: "s", modifiers: .command, keyCode: 1))
+    XCTAssertNil(PanelShortcut.resolve(characters: "s", modifiers: [.control, .command, .shift], keyCode: 1))
+    XCTAssertEqual(PanelShortcut.resolve(characters: "o", modifiers: .command), .openInWindow)
+    XCTAssertNil(PanelShortcut.resolve(characters: "o", modifiers: [.command, .shift]))
+    XCTAssertEqual(PanelShortcut.resolve(characters: "A", modifiers: [.command, .shift]), .fileMode)
+    XCTAssertEqual(PanelShortcut.resolve(characters: nil, modifiers: [.command, .shift, .capsLock], keyCode: 0), .fileMode)
+    XCTAssertNil(PanelShortcut.resolve(characters: "a", modifiers: .command))
+    XCTAssertNil(PanelShortcut.resolve(characters: "f", modifiers: [.shift, .option], keyCode: 3), "⇧⌥F is gone")
+    XCTAssertNil(PanelShortcut.resolve(characters: "h", modifiers: [.command, .shift], keyCode: 4), "⇧⌘H is gone")
   }
 
   @MainActor
-  func testHideInactiveToolsShortcutWorksWhileTypingWithoutChangingDraft() throws {
+  func testOpenInWindowShortcutIsNotConsumedOutsideTheSelectionPanel() throws {
+    let field = NSTextField(string: "Keep my unsent text")
+    let controller = SpotlightPanelController(contentView: field)
+    controller.show()
+    defer { controller.hide() }
+    let window = try XCTUnwrap(field.window)
+    let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
+      modifierFlags: .command, timestamp: 0, windowNumber: window.windowNumber,
+      context: nil, characters: "o", charactersIgnoringModifiers: "o", isARepeat: false, keyCode: 31))
+    XCTAssertFalse(window.performKeyEquivalent(with: event), "⌘O is left alone outside the selection panel")
+    XCTAssertEqual(field.stringValue, "Keep my unsent text")
+    XCTAssertTrue(controller.isVisible)
+  }
+
+  @MainActor
+  func testSidebarShortcutWorksWhileTypingWithoutChangingDraft() throws {
     let field = NSTextField(string: "Keep my unsent text")
     let controller = SpotlightPanelController(contentView: field)
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
     XCTAssertTrue(window.makeFirstResponder(field))
-    let delivered = expectation(forNotification: .hideInactiveToolsRequested, object: nil)
+    let delivered = expectation(forNotification: .sidebarToggleRequested, object: nil)
     let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
-      modifierFlags: [.command, .shift], timestamp: 0, windowNumber: window.windowNumber,
-      context: nil, characters: "H", charactersIgnoringModifiers: "h", isARepeat: false, keyCode: 4))
+      modifierFlags: [.control, .command], timestamp: 0, windowNumber: window.windowNumber,
+      context: nil, characters: "\u{13}", charactersIgnoringModifiers: "\u{13}", isARepeat: false, keyCode: 1))
     XCTAssertTrue(window.performKeyEquivalent(with: event))
     wait(for: [delivered], timeout: 1)
     XCTAssertEqual(field.stringValue, "Keep my unsent text")
     XCTAssertTrue(controller.isVisible)
   }
 
-  func testGlobalHotKeysUseOptionSAndShiftOptionSpace() {
+  func testOnlyTheSelectionBackupIsAGlobalHotKey() {
+    XCTAssertEqual(GlobalHotKey.allCases, [.selectionContext])
     XCTAssertEqual(GlobalHotKey.selectionContext.keyCode, UInt32(kVK_Space))
     XCTAssertEqual(GlobalHotKey.selectionContext.modifiers, UInt32(optionKey | shiftKey))
-    XCTAssertEqual(GlobalHotKey.openSettings.keyCode, UInt32(kVK_ANSI_S))
-    XCTAssertEqual(GlobalHotKey.openSettings.modifiers, UInt32(optionKey))
   }
 
   func testPanelSizeStoreUsesDefaultAndPersistsOnlySize() {

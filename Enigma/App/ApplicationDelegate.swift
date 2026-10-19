@@ -80,17 +80,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     panelShortcut.start()
     self.panelShortcut = panelShortcut
 
-    let openSettingsHotKeyMonitor = GlobalHotKeyMonitor(hotKey: .openSettings) { [weak self] in
-      self?.selectionShortcut?.reset()
-      self?.openSettings()
-    }
-    do {
-      try openSettingsHotKeyMonitor.start()
-      globalHotKeyMonitors.append(openSettingsHotKeyMonitor)
-    } catch {
-      NSLog("Unable to register the Enigma settings shortcut: %@", error.localizedDescription)
-    }
-
     let selectionShortcut = SelectionShortcutMonitor { panelController.summonSelectionContext() }
     selectionShortcut.start()
     self.selectionShortcut = selectionShortcut

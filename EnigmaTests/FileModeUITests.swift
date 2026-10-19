@@ -66,10 +66,10 @@ final class FileModeUITests: XCTestCase {
     XCTAssertEqual(files.selection, selection)
   }
 
-  func testShiftOptionFInvokesSamePickerThroughNativePanelWhileTyping() async throws {
-    XCTAssertEqual(PanelShortcut.resolve(characters: "F", modifiers: [.option, .shift]), .fileMode)
-    XCTAssertNil(PanelShortcut.resolve(characters: "f", modifiers: [.option]))
-    XCTAssertNil(PanelShortcut.resolve(characters: "f", modifiers: [.option, .shift, .command]))
+  func testShiftCommandAInvokesSamePickerThroughNativePanelWhileTyping() async throws {
+    XCTAssertEqual(PanelShortcut.resolve(characters: "A", modifiers: [.command, .shift], keyCode: 0), .fileMode)
+    XCTAssertNil(PanelShortcut.resolve(characters: "a", modifiers: [.command]))
+    XCTAssertNil(PanelShortcut.resolve(characters: "a", modifiers: [.option, .shift, .command]))
     let picker = FileTestPicker([project])
     let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, sessionStore: .init(applicationSupportDirectory: root))
@@ -93,8 +93,8 @@ final class FileModeUITests: XCTestCase {
     let picked = expectation(description: "Finder picker invoked")
     picker.onPick = { picked.fulfill() }
     let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
-      modifierFlags: [.option, .shift], timestamp: 0, windowNumber: window.windowNumber,
-      context: nil, characters: "ƒ", charactersIgnoringModifiers: "ƒ", isARepeat: false, keyCode: 3))
+      modifierFlags: [.command, .shift], timestamp: 0, windowNumber: window.windowNumber,
+      context: nil, characters: "A", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0))
     XCTAssertTrue(window.performKeyEquivalent(with: event))
     await fulfillment(of: [picked], timeout: 3)
     await Task.yield()

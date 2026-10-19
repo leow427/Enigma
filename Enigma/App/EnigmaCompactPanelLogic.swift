@@ -73,7 +73,7 @@ enum CompactPanelHints {
 
   static func hints(isResponding: Bool) -> [Hint] {
     [isResponding ? Hint(keys: "⌘.", action: "stop") : Hint(keys: "/", action: "commands"),
-     Hint(keys: "⌃⌃", action: "open in window"),
+     Hint(keys: "⌘O", action: "open in window"),
      Hint(keys: "esc", action: "close")]
   }
 

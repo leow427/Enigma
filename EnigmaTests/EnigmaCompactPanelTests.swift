@@ -29,27 +29,22 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertEqual(ConversationTranscript.slotSize, 30, "Replies keep their 30 pt slot in the panel")
   }
 
-  /// Every hint names a shortcut the panel handles today; there's no ⌘O.
+  /// Every hint names a shortcut the panel handles today.
   @MainActor
   func testHintsNameOnlyShortcutsThatWork() {
-    XCTAssertEqual(CompactPanelHints.hints(isResponding: false).map(\.text), ["/ commands", "⌃⌃ open in window", "esc close"])
-    XCTAssertEqual(CompactPanelHints.hints(isResponding: true).map(\.text), ["⌘. stop", "⌃⌃ open in window", "esc close"])
+    XCTAssertEqual(CompactPanelHints.hints(isResponding: false).map(\.text), ["/ commands", "⌘O open in window", "esc close"])
+    XCTAssertEqual(CompactPanelHints.hints(isResponding: true).map(\.text), ["⌘. stop", "⌘O open in window", "esc close"])
     // Key glyphs are drawn in the system font, as the welcome's command lines draw them.
-    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ open in window").map(\.text), ["⌃⌃", " open in window"])
-    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ open in window").map(\.isSymbol), [true, false])
+    XCTAssertEqual(EnigmaCommandLine.runs("⌘O open in window").map(\.text), ["⌘", "O open in window"])
+    XCTAssertEqual(EnigmaCommandLine.runs("⌘O open in window").map(\.isSymbol), [true, false])
     XCTAssertEqual(EnigmaCommandLine.runs("⌘. stop").map(\.isSymbol), [true, false])
     let panelKeys = Set(KeyboardShortcutsHelp.panel.map(\.keys))
     XCTAssertTrue(panelKeys.contains("Esc"))
-    XCTAssertTrue(panelKeys.contains("⌃ twice"), "Double-tap Control opens the panel's chat in the window")
+    XCTAssertTrue(panelKeys.contains("⌘ O"), "⌘O opens the panel's chat in the window")
     XCTAssertTrue(panelKeys.contains("⌘ ."))
     XCTAssertEqual(PanelShortcut.resolve(characters: ".", modifiers: .command), .stopStreaming)
-    XCTAssertNil(PanelShortcut.resolve(characters: "o", modifiers: .command), "⌘O doesn't exist, so no hint names it")
+    XCTAssertEqual(PanelShortcut.resolve(characters: "o", modifiers: .command), .openInWindow)
     XCTAssertFalse(SlashCommand.available(hasSearchKey: false).isEmpty, "/ opens the commands")
-    var tap = ControlDoubleTap()
-    XCTAssertFalse(tap.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 0))
-    XCTAssertFalse(tap.flagsChanged(keyCode: 59, modifiers: [], timestamp: 0.05))
-    XCTAssertFalse(tap.flagsChanged(keyCode: 59, modifiers: .control, timestamp: 0.1))
-    XCTAssertTrue(tap.flagsChanged(keyCode: 59, modifiers: [], timestamp: 0.15))
   }
 
   func testCharacterShowsTheSelectionProblemOnlyWhenItCantBeReadOrPermissionIsMissing() {
@@ -135,7 +130,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertEqual(fixture.chat.attachedContexts.count, 1)
     XCTAssertTrue(host.shows("Selected text"))
-    XCTAssertTrue(host.shows("Hint / commands") && host.shows("Hint ⌃⌃ open in window") && host.shows("Hint esc close"))
+    XCTAssertTrue(host.shows("Hint / commands") && host.shows("Hint ⌘O open in window") && host.shows("Hint esc close"))
     let editor = try XCTUnwrap(composerEditor(in: host.view))
     XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor, "The field takes the palette's colors")
     XCTAssertTrue(host.view.bounds.contains(host.view.convert(editor.bounds, from: editor)))
@@ -488,7 +483,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     let id = try XCTUnwrap(fixture.chat.selectedSessionID)
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertTrue(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"), "The panel says its chat is temporary")
-    try host.doubleTapControl()
+    try host.press("o", keyCode: 31, modifiers: .command)
     try await waitForUI("the window's chat, without the sidebar", in: host.view) {
       !host.shows("Compact panel") && host.shows("Show chat history") && !host.shows("New chat")
         && host.shows("Send message")
@@ -503,11 +498,11 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertFalse(host.shows("Window tag \(CompactPanelHints.temporaryTag)"), "It isn't temporary any more")
     await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(ChatSessionStore(applicationSupportDirectory: fixture.root).load().map(\.id), [id])
-    try host.doubleTapControl()
+    try host.press("s", keyCode: 1, modifiers: [.control, .command])
     try await waitForUI("the history, as in any chat", in: host.view) { host.shows("New chat") }
   }
 
-  /// The Open in window button does what double-tap Control does, after an
+  /// The Open in window button does what ⌘O does, after an
   /// answer too. With the sidebar preference on, the chat tops Recents,
   /// selected, and says once that it's saved.
   @MainActor
@@ -971,19 +966,14 @@ final class CompactPanelHost {
     return count(view)
   }
 
-  /// What double-tap Control does: four modifier changes, quickly. The panel
-  /// handles them only while it's the key window.
-  func doubleTapControl() throws {
+  /// A shortcut typed into the panel, which handles it only while it's the key window.
+  func press(_ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) throws {
     window.makeKey()
-    XCTAssertTrue(window.isKeyWindow, "Double-tap Control reaches the panel only while it's key; the test host must be frontmost")
-    let base = ProcessInfo.processInfo.systemUptime
-    let taps: [(TimeInterval, NSEvent.ModifierFlags)] = [(0, .control), (0.05, []), (0.15, .control), (0.2, [])]
-    for (offset, flags) in taps {
-      let event = try XCTUnwrap(NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: flags,
-        timestamp: base + offset, windowNumber: window.windowNumber, context: nil, characters: "",
-        charactersIgnoringModifiers: "", isARepeat: false, keyCode: 59))
-      window.sendEvent(event)
-    }
+    XCTAssertTrue(window.isKeyWindow, "Shortcuts reach the panel only while it's key; the test host must be frontmost")
+    let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+      timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: characters,
+      charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
+    XCTAssertTrue(window.performKeyEquivalent(with: event))
   }
 
   /// A point in the hint row between the shortcuts and the trailing tag, in

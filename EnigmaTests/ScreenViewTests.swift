@@ -826,7 +826,6 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertTrue(fixture.view.bounds.contains(fixture.view.convert(editor.bounds, from: editor)))
 
       try await editScreenshotComposer("Explain the attached passage", in: fixture)
-      NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
       await settleScreenshotView(fixture.view)
       XCTAssertEqual(fixture.screen.attachment?.id, originalID)
       try await pressScreenshotControl("Retake", in: fixture.view)

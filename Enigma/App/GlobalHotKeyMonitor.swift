@@ -3,28 +3,24 @@ import AppKit
 import ApplicationServices
 
 enum GlobalHotKey: CaseIterable {
-  case openSettings
   case selectionContext
 
   var keyCode: UInt32 {
     switch self {
-    case .openSettings: UInt32(kVK_ANSI_S)
     case .selectionContext: UInt32(kVK_Space)
     }
   }
 
-  var modifiers: UInt32 { self == .selectionContext ? UInt32(optionKey | shiftKey) : UInt32(optionKey) }
+  var modifiers: UInt32 { UInt32(optionKey | shiftKey) }
 
   fileprivate var identifier: UInt32 {
     switch self {
-    case .openSettings: 2
     case .selectionContext: 3
     }
   }
 
   fileprivate var displayName: String {
     switch self {
-    case .openSettings: "Option-S"
     case .selectionContext: "Shift-Option-Space"
     }
   }
@@ -144,29 +140,60 @@ private func globalHotKeyEventHandler(
   return monitor.receive(event)
 }
 
-// A modifier-only shortcut cannot be registered as a Carbon hot key.
+// A modifier-only shortcut cannot be registered as a Carbon hot key. This one
+// is a tap: it fires when Option and Control, pressed together with no other
+// modifier, key press or click in between, are released. Chords such as
+// Control-Option-Right, VoiceOver commands and Control-Option-Command shortcuts
+// never fire it.
 struct PanelShortcutChord {
-  private var waitingForRelease = false
+  private enum Phase {
+    /// Nothing is held.
+    case idle
+    /// Only Option or only Control is held.
+    case partial
+    /// Both are held, with nothing else.
+    case armed
+    /// Spoiled or already fired; ignored until every modifier is released.
+    case cancelled
+  }
 
+  private var phase = Phase.idle
+
+  /// Adopts the current modifiers without firing, for when events were missed.
   mutating func synchronize(modifiers: NSEvent.ModifierFlags) {
-    waitingForRelease = !modifiers.intersection([.option, .control]).isEmpty
+    phase = modifiers.intersection(Self.tracked).isEmpty ? .idle : .cancelled
   }
 
-  mutating func flagsChanged(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
-    let flags = modifiers.intersection([.option, .control, .command, .shift, .function])
-    if flags.intersection([.option, .control]).isEmpty {
-      waitingForRelease = false
-      return false
-    }
-    guard !waitingForRelease else { return false }
-    guard flags.subtracting([.option, .control]).isEmpty else {
-      waitingForRelease = true
-      return false
-    }
-    guard [UInt16(58), 61, 59, 62].contains(keyCode), flags == [.option, .control] else { return false }
-    waitingForRelease = true
-    return true
+  /// A key press or mouse click turns the held modifiers into another shortcut.
+  mutating func cancel() {
+    if phase != .idle { phase = .cancelled }
   }
+
+  /// Returns true when the tap completes: the first release of either key.
+  mutating func flagsChanged(modifiers: NSEvent.ModifierFlags) -> Bool {
+    let flags = modifiers.intersection(Self.tracked)
+    if flags.isEmpty {
+      defer { phase = .idle }
+      return phase == .armed
+    }
+    guard flags.subtracting([.option, .control]).isEmpty else {
+      phase = .cancelled
+      return false
+    }
+    switch phase {
+    case .idle, .partial:
+      phase = flags == [.option, .control] ? .armed : .partial
+      return false
+    case .armed:
+      if flags == [.option, .control] { return false }
+      phase = .cancelled
+      return true
+    case .cancelled:
+      return false
+    }
+  }
+
+  private static let tracked: NSEvent.ModifierFlags = [.option, .control, .command, .shift, .function]
 }
 
 @MainActor
@@ -195,10 +222,11 @@ final class PanelShortcutMonitor {
         }
       }
     }
-    global = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+    let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+    global = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
       self?.receive(event)
     }
-    local = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+    local = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
       self?.receive(event)
       return event
     }
@@ -219,7 +247,11 @@ final class PanelShortcutMonitor {
       detector.synchronize(modifiers: event.modifierFlags)
       return
     }
-    if detector.flagsChanged(keyCode: event.keyCode, modifiers: event.modifierFlags) {
+    guard event.type == .flagsChanged else {
+      detector.cancel()
+      return
+    }
+    if detector.flagsChanged(modifiers: event.modifierFlags) {
       handler()
     }
   }

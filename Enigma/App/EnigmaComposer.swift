@@ -90,7 +90,7 @@ struct EnigmaComposer: View {
       .disabled(isAttachDisabled)
       .accessibilityLabel("Attach files")
       .accessibilityValue(files.selection == nil ? "Off" : "On")
-      .help("Attach a file or folder · ⇧⌥F")
+      .help("Attach a file or folder · ⇧⌘A")
       .welcomeTourTarget(.files)
       .enigmaTestMarker("Attach files")
 

@@ -68,7 +68,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
         Button(action: hide) { Image(systemName: "sidebar.left") }
           .enigmaIconButtonStyle(size: CGSize(width: 28, height: 26))
           .accessibilityLabel("Hide chat history")
-          .help("Hide chat history · double-tap Control")
+          .help("Hide chat history · ⌃⌘S")
           .enigmaTestMarker("Hide chat history")
       }
       .padding(.leading, 6)
@@ -137,7 +137,7 @@ struct EnigmaHiddenSidebarBar: View {
         .enigmaIconButtonStyle()
         .welcomeTourTarget(.history)
         .accessibilityLabel("Show chat history")
-        .help("Show chat history · double-tap Control")
+        .help("Show chat history · ⌃⌘S")
         .enigmaTestMarker("Show chat history")
       Spacer(minLength: 0)
       Button(action: newChat) { Image(systemName: "plus") }

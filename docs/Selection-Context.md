@@ -30,8 +30,9 @@ Each tap must be a short press of that key alone; holding it, adding another
 modifier, typing or clicking cancels the double tap. The double tap is ignored
 while macOS Secure Event Input is on (for example, in a password field).
 
-Separately, pressing **Option** and **Control** together (**⌥⌃**) shows or hides
-the Enigma panel without capturing anything.
+Separately, pressing **Option** and **Control** together and releasing them
+(**⌥⌃**) shows or hides the Enigma panel without capturing anything. Using them
+with another key, modifier or click does nothing.
 
 ### What the panel shows
 
@@ -44,7 +45,7 @@ From top to bottom:
   "Ask about the selection"), **+** to attach files (see [File Mode](File-Mode.md)),
   a route chip such as `auto · local` or `cloud · <model>` that opens the mode and
   model menu, and **↵** to send (**stop** while a reply is running).
-- **The hint row**: `/ commands` (or `⌘. stop` while responding), `⌃⌃ open in window`,
+- **The hint row**: `/ commands` (or `⌘. stop` while responding), `⌘O open in window`,
   `esc close`, and on the right `temporary · not saved`.
 
 The status button opens a details area under the input with the selected-text
@@ -136,7 +137,7 @@ shows the card instead.
 
 ### Opening the chat in the main window
 
-Double-tap **Control** while the panel is focused, or click the
+Press **⌘O** while the panel is focused, or click the
 **Open in window** button, at any point, even before the first answer. The chat
 moves into the main window at its normal size, with the sidebar as
 **Settings → General → Show sidebar** sets it, and keeps the selection for **/edit**
@@ -223,7 +224,8 @@ automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
   (`Enigma/App/SelectionShortcut.swift`) detect the double tap from global and local
   `flagsChanged` monitors; settings live under the `enigma.selection.*` defaults keys.
   `GlobalHotKeyMonitor` (`Enigma/App/GlobalHotKeyMonitor.swift`) registers
-  **⇧⌥Space** as a Carbon hot key, and `PanelShortcutMonitor` handles **⌥⌃**. They
+  **⇧⌥Space** as a Carbon hot key, and `PanelShortcutMonitor` handles **⌥⌃**, a tap that fires when Option and Control are
+  released after being pressed together with no other key, modifier or click. They
   are started in `ApplicationDelegate` (`Enigma/App/ApplicationDelegate.swift`).
   Help's rows and strings are in `KeyboardShortcutsHelp`
   (`Enigma/App/EnigmaMainWindowLogic.swift`) and
@@ -241,7 +243,7 @@ automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
   (`Enigma/App/SpotlightPanelController.swift`) places the panel with
   `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, grows it with
   `SelectionPanelExpansion` (720 pt wide, up to 600 pt tall, on
-  `EnigmaMotion.panelAnswer`), and handles double-tap Control through
+  `EnigmaMotion.panelAnswer`), and handles **⌘O** through
   `openSelectionChatInWindow()`. Dragging uses `enigmaWindowDragArea`
   (`Enigma/App/EnigmaControls.swift`).
 - **Panel views.** `EnigmaCompactPanel`, `EnigmaCompactSelectionLine`,

@@ -14,7 +14,7 @@ character, and the conversation is saved to the sidebar's **Recents**.
   bottom **Help**, **Settings** (**⌘,**) and **Developer Tools**. The open chat
   has a small dot. The sidebar starts hidden unless **Show sidebar** is on in
   **Settings → General → New chats**. Hide or show it with the sidebar button or
-  by tapping **Control** twice. While it's hidden, a slim bar at the top keeps
+  with **⌃⌘S**. While it's hidden, a slim bar at the top keeps
   show-sidebar, **New chat**, **Help** and **Settings** in reach.
 - **Empty page.** A new chat shows the character, a greeting, the route's status
   line (for example "Fixture 8B is ready · on this Mac"), the **Auto / Local /
@@ -36,7 +36,7 @@ character, and the conversation is saved to the sidebar's **Recents**.
 ### The composer
 
 The composer holds the message field ("Ask anything, or type / for commands"),
-**Attach files** (**+**, also **⇧⌥F**), a **/** button that starts a command, a
+**Attach files** (**+**, also **⇧⌘A**), a **/** button that starts a command, a
 **● local** or **○ cloud** indicator for where the next request runs, the
 **Mode and model** menu (**⌘K**), and **Send**.
 

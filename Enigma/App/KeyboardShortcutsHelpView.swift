@@ -82,7 +82,8 @@ struct KeyboardShortcutsHelpView: View {
                    options: KeyboardShortcutsHelp.intervals.map { EnigmaOption($0.seconds, $0.title) })
       }
       EnigmaHairline()
-      EnigmaNote(KeyboardShortcutsHelp.selectionNote).padding(.top, 10)
+      EnigmaNote(KeyboardShortcutsHelp.selectionKeyNote).padding(.top, 10)
+      EnigmaNote(KeyboardShortcutsHelp.selectionNote).padding(.top, 6)
       VStack(alignment: .leading, spacing: 8) {
         EnigmaStatusLine(selectionAccess.isGranted ? .on : .off,
                          selectionAccess.isGranted ? "accessibility enabled" : "accessibility permission required")
@@ -95,8 +96,6 @@ struct KeyboardShortcutsHelpView: View {
       row(KeyboardShortcutsHelp.showOrHide)
       EnigmaHairline()
       EnigmaNote(KeyboardShortcutsHelp.showOrHideNote).padding(.vertical, 10)
-      row(KeyboardShortcutsHelp.advancedSettings)
-      EnigmaHairline()
     }
   }
 
