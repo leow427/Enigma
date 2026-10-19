@@ -249,11 +249,13 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testCatalogPinsEveryQuantizationAndMatchesEmbeddedBuild() throws {
     try catalog.validate()
-    XCTAssertEqual(catalog.models.count, 35)
+    XCTAssertEqual(catalog.models.count, 45)
     XCTAssertEqual(Set(catalog.models.map(\.quantization)),
                    ["IQ3_XXS", "IQ3_S", "Q3_K_M", "IQ4_XS", "Q4_K_M", "Q5_K_M", "Q8_0"])
-    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google"])
-    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)), Set([.qwen35_2B, .qwen35_4B, .qwen35_9B, .gemma4_12B, .gemma4A4B, .qwen36_35BA3B, .qwen38_27B]))
+    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google", "Mistral AI"])
+    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)),
+                   Set([.qwen35_2B, .qwen35_4B, .gemma4E4B, .ministral8B, .qwen35_9B, .gemma4_12B, .ministral14B,
+                        .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B]))
     for model in catalog.models {
       XCTAssertTrue(LocalModelCompatibility.supports(model))
       XCTAssertTrue(model.supportsVision)

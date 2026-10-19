@@ -23,13 +23,22 @@ final class LocalModelEstimateTests: XCTestCase {
     XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheLayout,
                    LocalCacheLayout(fullLayers: 7, fullKVHeads: 2, fullHeadDimension: 512, slidingLayers: 35,
                                     slidingKVHeads: 2, slidingHeadDimension: 256, slidingWindow: 512))
+    // 60 blocks, every sixth global: 4 KV heads × 512 there, 16 × 256 in the sliding layers.
+    XCTAssertEqual(LocalMultimodalProfile.gemma4_31B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 10, fullKVHeads: 4, fullHeadDimension: 512, slidingLayers: 50,
+                                    slidingKVHeads: 16, slidingHeadDimension: 256, slidingWindow: 1024))
+    XCTAssertEqual(LocalMultimodalProfile.ministral8B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 34, fullKVHeads: 8, fullHeadDimension: 128))
+    XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 40, fullKVHeads: 8, fullHeadDimension: 128))
   }
 
   func testCacheBytesAtTheDefaultContext() {
     let expected: [(LocalMultimodalProfile, Int64)] = [
       (.qwen35_2B, 100_663_296), (.qwen35_4B, 268_435_456), (.qwen36_35BA3B, 184_549_376),
       (.qwen38_27B, 570_425_344), (.gemma4_12B, 805_306_368), (.gemma4A4B, 587_202_560),
-      (.gemma4E4B, 308_281_344),
+      (.gemma4E4B, 308_281_344), (.gemma4_31B, 2_348_810_240), (.ministral8B, 1_140_850_688),
+      (.ministral14B, 1_342_177_280),
     ]
     for (profile, bytes) in expected {
       XCTAssertEqual(profile.cacheLayout.bytes(context: 8192, physicalBatch: profile.physicalBatchSize), bytes,

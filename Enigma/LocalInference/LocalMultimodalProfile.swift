@@ -131,7 +131,7 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     case .gemma4E4B:
       LocalCacheLayout(fullLayers: 7, fullKVHeads: 2, fullHeadDimension: 512,
                        slidingLayers: 35, slidingKVHeads: 2, slidingHeadDimension: 256, slidingWindow: 512)
-    // Not verified against a GGUF header; neither model is in the catalogue.
+    // Not verified against a GGUF header; the model is not in the catalogue.
     case .gemma4E2B:
       LocalCacheLayout(fullLayers: 7, fullKVHeads: 1, fullHeadDimension: 512,
                        slidingLayers: 28, slidingKVHeads: 1, slidingHeadDimension: 256, slidingWindow: 512)
@@ -142,7 +142,8 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
   }
 
   /// Since llama.cpp b11327 these models' image tokens attend to each other,
-  /// so one image must fit in a single physical batch.
+  /// so one image must fit in a single physical batch. In b11734 that is every
+  /// Gemma 4 projector except E2B's and E4B's (`mtmd_decode_use_non_causal`).
   var usesNonCausalImageAttention: Bool {
     self == .gemma4_12B || self == .gemma4A4B || self == .gemma4_31B
   }

@@ -33,16 +33,16 @@ final class LocalModelCatalogueTests: XCTestCase {
       predictedTokensPerSecond: speed, predictedTimeToFirstToken: 0.8)
   }
 
-  func testCatalogueHasSevenFamiliesAndThirtyFivePackages() throws {
+  func testCatalogueHasElevenFamiliesAndFortyFivePackages() throws {
     XCTAssertEqual(BundledLocalModels.families.map(\.name),
-                   ["Qwen3.5 2B", "Qwen3.5 4B", "Qwen3.5 9B", "Gemma 4 12B", "Gemma 4 26B-A4B", "Qwen3.6 35B-A3B",
-                    "Qwen3.8 27B"])
-    XCTAssertEqual(models.count, 35)
+                   ["Qwen3.5 2B", "Qwen3.5 4B", "Gemma 4 E4B", "Ministral 3 8B", "Qwen3.5 9B", "Gemma 4 12B",
+                    "Ministral 3 14B", "Gemma 4 26B-A4B", "Gemma 4 31B", "Qwen3.6 35B-A3B", "Qwen3.8 27B"])
+    XCTAssertEqual(models.count, 45)
     try LocalModelManifest.bundled.validate()
-    XCTAssertEqual(Set(models.map(\.id)).count, 35)
-    XCTAssertEqual(Set(models.map(\.checksumSHA256)).count, 35)
-    XCTAssertEqual(LocalModelManifest.bundled.version, 6)
-    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 35)
+    XCTAssertEqual(Set(models.map(\.id)).count, 45)
+    XCTAssertEqual(Set(models.map(\.checksumSHA256)).count, 45)
+    XCTAssertEqual(LocalModelManifest.bundled.version, 7)
+    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 45)
   }
 
   func testEveryPackageIsRunnable() throws {
@@ -101,6 +101,11 @@ final class LocalModelCatalogueTests: XCTestCase {
       ("qwen3.5-9b-q5_k_m", "dc2a39aef291f91a9116ad214058da0d86eb648743a124bd8c333787c4b9c91c", "3885219b6810b007914f3a7950a8d1b469d598a5"),
       ("gemma-4-12b-q5_k_m", "32c554c7d1338a23837ae39b3db482213a4a642f96df3b2619f516a2375d16cd", "fc034cfff751157913579611efad8462ac1be606"),
       ("gemma-4-26b-a4b-q4_k_m", "a07f72221e8e3f77455ab0d7f7652d01a9f63c262b954aa6932a53275a0e895a", "10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d"),
+      // Back in the catalogue with the IDs and pins they left with.
+      ("gemma-4-e4b-q4_k_m", "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87", "bfc15c382204943c3a8fff0c750b94ae2364d7a3"),
+      ("ministral-3-8b-q4_k_m", "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761", "0102285ad796bd99af90f58de616092e5630e970"),
+      ("ministral-3-14b-q5_k_m", "f16fef77021df0d4c22e69140a2038478370492f51867b6237699918ae711000", "74fac473c43357d7fb2671713608183cc72496d0"),
+      ("ministral-3-14b-q8_0", "8122acc8df446039d41dd9650dabb024d3c6b8dae6eff336d28ac2bddd3bbc13", "74fac473c43357d7fb2671713608183cc72496d0"),
     ]
     for (id, checksum, revision) in pins {
       let model = try XCTUnwrap(models.first { $0.id == id }, id)
@@ -110,8 +115,9 @@ final class LocalModelCatalogueTests: XCTestCase {
   }
 
   func testFamilyMetadataIsConsistent() throws {
-    let stems = ["qwen3.5-2b-", "qwen3.5-4b-", "qwen3.5-9b-", "gemma-4-12b-", "gemma-4-26b-a4b-", "qwen3.6-35b-a3b-",
-                 "qwen3.8-27b-"]
+    let stems = ["qwen3.5-2b-", "qwen3.5-4b-", "gemma-4-e4b-", "ministral-3-8b-", "qwen3.5-9b-", "gemma-4-12b-",
+                 "ministral-3-14b-", "gemma-4-26b-a4b-", "gemma-4-31b-", "qwen3.6-35b-a3b-", "qwen3.8-27b-"]
+    XCTAssertEqual(stems.count, BundledLocalModels.families.count)
     for (family, stem) in zip(BundledLocalModels.families, stems) {
       let descriptors = family.descriptors
       let first = try XCTUnwrap(descriptors.first)
@@ -139,11 +145,72 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertLessThan(try quality("Qwen3.5 2B"), try quality("Qwen3.5 4B"))
     XCTAssertLessThan(try quality("Qwen3.5 4B"), try quality("Qwen3.5 9B"))
     XCTAssertLessThan(try quality("Gemma 4 12B"), try quality("Gemma 4 26B-A4B"))
+    XCTAssertLessThan(try quality("Gemma 4 E4B"), try quality("Gemma 4 12B"))
+    XCTAssertLessThan(try quality("Gemma 4 12B"), try quality("Gemma 4 31B"))
+    XCTAssertLessThan(try quality("Ministral 3 8B"), try quality("Ministral 3 14B"))
   }
 
   func testLeftPackagesAreGone() {
-    for left in ["smolvlm2", "gemma-4-e4b", "ministral", "minicpm"] {
+    for left in ["smolvlm2", "minicpm"] {
       XCTAssertFalse(models.contains { $0.id.contains(left) }, left)
+    }
+  }
+
+  func testGemma4_31BShipsSixSizesFromOneRevision() throws {
+    let expected: [(String, String, Int64)] = [
+      ("gemma-4-31b-iq3_xxs", "IQ3_XXS", 12_981_709_152), ("gemma-4-31b-q3_k_m", "Q3_K_M", 15_918_123_360),
+      ("gemma-4-31b-iq4_xs", "IQ4_XS", 17_155_893_600), ("gemma-4-31b-q4_k_m", "Q4_K_M", 19_598_489_952),
+      ("gemma-4-31b-q5_k_m", "Q5_K_M", 22_608_877_920), ("gemma-4-31b-q8_0", "Q8_0", 32_635_677_024),
+    ]
+    for (id, quantization, bytes) in expected {
+      let model = try XCTUnwrap(models.first { $0.id == id }, id)
+      XCTAssertEqual(model.quantization, quantization, id)
+      XCTAssertEqual(model.expectedByteCount, bytes, id)
+      XCTAssertEqual(model.revision, "619aca7589c72be65dd968de8602ad23d68b5c14", id)
+      XCTAssertEqual(model.downloadURL.lastPathComponent, "google_gemma-4-31B-it-\(quantization).gguf", id)
+      XCTAssertEqual(model.projector?.url.lastPathComponent, "mmproj-google_gemma-4-31B-it-f16.gguf", id)
+      XCTAssertEqual(model.projector?.expectedByteCount, 1_198_956_736, id)
+      XCTAssertEqual(model.inferenceProfile, .gemma4_31B, id)
+      XCTAssertEqual(model.qualityScore, 15, id)
+      XCTAssertEqual(model.modelSupportsAudio, false, id)
+    }
+    XCTAssertTrue(LocalMultimodalProfile.gemma4_31B.usesNonCausalImageAttention)
+    XCTAssertFalse(LocalMultimodalProfile.gemma4E4B.usesNonCausalImageAttention)
+  }
+
+  func testReaddedPackagesMatchTheirInstalledRecords() throws {
+    // Records saved by 0.10, before these packages left the catalogue: same
+    // ID, file, size, checksums and runtime, with that release's memory floors.
+    let records: [(String, String, Int64, String, Int64, Int64)] = [
+      ("gemma-4-e4b-q4_k_m", "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/bfc15c382204943c3a8fff0c750b94ae2364d7a3/gemma-4-E4B-it-Q4_K_M.gguf",
+       4_977_171_584, "ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51", 990_372_672, 16),
+      ("ministral-3-8b-q4_k_m", "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF/resolve/0102285ad796bd99af90f58de616092e5630e970/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
+       5_198_911_904, "e799380f596d152ff4026a72d409ecc89c96cd437676804bc3f2ab3bd6b486ec", 858_283_168, 16),
+      ("ministral-3-14b-q5_k_m", "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-Q5_K_M.gguf",
+       9_621_091_904, "ab7616148b7081030fd38e410c9213ce8346a8b0588291c8ca279058e78cfae7", 879_258_784, 24),
+      ("ministral-3-14b-q8_0", "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-Q8_0.gguf",
+       14_359_836_224, "ab7616148b7081030fd38e410c9213ce8346a8b0588291c8ca279058e78cfae7", 879_258_784, 32),
+    ]
+    for (id, url, bytes, projectorSHA, projectorBytes, minimumGiB) in records {
+      let current = try XCTUnwrap(models.first { $0.id == id }, id)
+      XCTAssertEqual(current.downloadURL.absoluteString, url, id)
+      XCTAssertEqual(current.expectedByteCount, bytes, id)
+      XCTAssertEqual(current.projector?.checksumSHA256, projectorSHA, id)
+      XCTAssertEqual(current.projector?.expectedByteCount, projectorBytes, id)
+      var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+      let floor = max(current.estimatedRuntimeMemory, minimumGiB * gib)
+      json["minimumMemory"] = floor
+      json["recommendedMemory"] = floor
+      json["largestTensorBytes"] = (current.architecture == "gemma4" ? 3 : 1) * gib
+      json["advertisedMemoryRange"] = "7–9"
+      json.removeValue(forKey: "activeParameterBillions")
+      let installed = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
+      try installed.validate()
+      XCTAssertEqual(installed.id, current.id)
+      XCTAssertEqual(installed.packageRevision, current.packageRevision, id)
+      XCTAssertEqual(installed.expectedByteCount, current.expectedByteCount, id)
+      XCTAssertEqual(installed.projector?.expectedByteCount, current.projector?.expectedByteCount, id)
+      XCTAssertEqual(installed.resolvedProfile, current.inferenceProfile, id)
     }
   }
 
