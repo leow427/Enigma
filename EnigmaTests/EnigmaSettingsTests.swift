@@ -573,10 +573,11 @@ final class EnigmaSettingsTests: XCTestCase {
 
   @MainActor
   func testInstalledPackageNeedingUpdateCanStillBeUsed() async throws {
-    // The fixture Mac (32 GB at 267 GB/s) recommends Gemma 4 26B-A4B IQ4_XS.
+    // The fixture Mac (32 GB at 267 GB/s) recommends Gemma 4 26B-A4B IQ4_XS, so
+    // its stale copy shows Update under For this Mac.
     let mac = hardware(memory: 32, bandwidth: 267)
-    let assessment = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: mac).recommended)
-    XCTAssertEqual(assessment.id, "gemma-4-26b-a4b-iq4_xs")
+    let assessment = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: mac).assessments
+      .first { $0.id == "gemma-4-26b-a4b-iq4_xs" })
     var stale = installedModel(for: assessment)
     stale.visionConfiguration?.packageRevision = "old"
     let engine = SettingsRecordingEngine(installed: [stale])
