@@ -4,7 +4,7 @@ Enigma's interface uses two themes, Paper and Ink, on opaque surfaces, with
 one flat, hand-drawn character for personality. This file is the reference
 for every screen. The full design record, with the reasoning and the
 interactive mockups, is in
-[docs/design/ui-revamp/README.md](docs/design/ui-revamp/README.md).
+[docs/design/ui-revamp/README.md](ui-revamp/README.md).
 
 ## Direction
 
@@ -184,4 +184,4 @@ Swift code. Regenerate the committed icons with `scripts/generate-app-icons.sh`.
 `EnigmaSnapshot` in the test target renders a view in Paper and Ink when
 `ENIGMA_SNAPSHOT_DIR` is set (pass it to the test host as
 `TEST_RUNNER_ENIGMA_SNAPSHOT_DIR`). The current set of every screen is in
-[docs/design/ui-revamp/screenshots/phase-10/](docs/design/ui-revamp/screenshots/phase-10/).
+[docs/design/ui-revamp/screenshots/phase-10/](ui-revamp/screenshots/phase-10/).

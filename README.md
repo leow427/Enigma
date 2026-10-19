@@ -1,15 +1,58 @@
 # Enigma
 
-Enigma is a native macOS assistant that opens from the menu bar or a global
-shortcut. It runs local models with llama.cpp and cloud models from OpenAI,
-Anthropic, Gemini, ChatGPT (through Codex), and Claude (through Claude Code),
-and can work with web search, screenshots, selected text, attached files, and
-Apple Messages.
+Enigma is a native macOS assistant that lives in the menu bar. Press **Option
+and Control** together in any app to open it, ask a question, and get an answer
+from a model running on your Mac or from a cloud provider you connect.
 
-## Build and test
+![Enigma's main window](docs/design/ui-revamp/screenshots/phase-10/main-page-paper.png)
 
-Open `AI-Spotlight.xcodeproj` and run the shared `Enigma` scheme, or use the
-verification helper:
+## What it does
+
+- **Local or cloud, your choice.** Run a recommended local model through
+  llama.cpp, or connect OpenAI, Anthropic, or Gemini with an API key, a ChatGPT
+  plan through Codex, or a Claude plan through Claude Code. **Auto** picks
+  between local and cloud for each request.
+- **Ask about what you're looking at.** Select text in another app and tap
+  **Option** twice to ask about it, translate it, or `/edit` it and paste the
+  revision back. Use `/screen` or `/snapshot` to ask about your screen.
+- **Work with files.** Attach files or folders and let a local model, or Codex
+  with your permission, read and edit them. Every change can be reviewed and
+  undone.
+- **Search and Messages.** Look things up with Brave Search, and use
+  `/messages` to read, search, and send Apple Messages after you approve each
+  send.
+- **Private by default.** Chat history is saved only on this Mac. Enigma asks
+  before sending a screenshot or protected files to a cloud provider, and keeps
+  its windows out of screen sharing.
+
+See [docs/](docs/README.md) for how each feature works.
+
+## Requirements
+
+- macOS 26 or later.
+- Xcode 26 to build.
+- For local models: enough memory and disk for the model you pick. Enigma
+  recommends models that fit your Mac.
+- Optional: API keys or the Codex or Claude Code CLI for cloud models, and a
+  Brave Search API key for web search.
+
+## Build and run
+
+Open `Enigma.xcodeproj` and run the `Enigma` scheme. To install a signed copy
+as `/Applications/Enigma.app`:
+
+```sh
+scripts/install-app.sh
+```
+
+Some features need macOS permissions: Accessibility for the shortcuts and
+selected text, Screen Recording for `/screen`, and Full Disk Access for
+`/messages`. Setup and **Settings → General** show their status. See
+[docs/Distribution.md](docs/Distribution.md) for signing and installing, and
+[docs/Welcome-and-Settings.md](docs/Welcome-and-Settings.md) for first-run
+setup.
+
+## Tests
 
 ```sh
 scripts/verify-xcode.sh build
@@ -17,46 +60,18 @@ scripts/verify-xcode.sh test
 scripts/verify-xcode.sh analyze
 ```
 
-`scripts/install-app.sh` installs a signed `/Applications/Enigma.app`. See
-[AGENTS.md](AGENTS.md) for repository guidelines and [docs/](docs) for feature
-notes.
+See [docs/Testing.md](docs/Testing.md) for details and
+[AGENTS.md](AGENTS.md) for contribution guidelines.
 
-## Messages (`/messages`)
+## Project layout
 
-Type `/messages` in a message to let the model read, search, and send your
-Apple Messages (iMessage, SMS, and RCS) for that request. For example:
-`/messages what did Sam say about Saturday?` or
-`/messages tell Alex I'm running 10 minutes late`.
+| Path | Contents |
+| --- | --- |
+| `Enigma/` | The app: `App/` (windows, panel, settings, shortcuts), `Chat/`, `Cloud/`, `LocalInference/`, `Screen/`, `Files/`, `Search/`, `Messages/`, `Resources/` |
+| `EnigmaTests/` | The XCTest suite |
+| `Packages/LlamaBridge/` | Swift package wrapping the pinned llama.cpp framework |
+| `scripts/` | Verification, install, icon, and File Mode evaluation scripts |
+| `docs/` | Feature docs, guides, the design reference, and history |
 
-Enigma shows every message it is about to send — each recipient and the exact
-text — and sends only when you choose **Send**. See
-[docs/Messages.md](docs/Messages.md) for the design, privacy details, and
-limitations.
-
-### Setup
-
-Messages must be signed in on this Mac. Grant these permissions to **Enigma**
-(the copy you run — `/Applications/Enigma.app` after `scripts/install-app.sh`,
-or the Xcode build when running from Xcode):
-
-| Permission | Needed for | Where to grant it |
-| --- | --- | --- |
-| **Full Disk Access** | Reading and searching Messages history (`~/Library/Messages/chat.db`, opened read-only) | System Settings → Privacy & Security → Full Disk Access. Turn on Enigma, or click **+** and choose Enigma.app. Quit and reopen Enigma afterwards. |
-| **Automation → Messages** | Sending messages | macOS asks the first time you approve a send. If you declined, open System Settings → Privacy & Security → Automation, expand Enigma, and turn on Messages. |
-| **Contacts** (optional) | Showing names instead of phone numbers, and finding people by name | macOS asks the first time you use `/messages`. To change it later, open System Settings → Privacy & Security → Contacts. |
-
-Settings → General → Messages shows the status of each permission with a button
-that opens the right pane. If a permission is missing when you use `/messages`,
-Enigma explains which one and offers the same button.
-
-macOS ties these permissions to the app's signature. A copy built with a
-different signing identity (for example the unsigned build from
-`scripts/verify-xcode.sh`) needs them granted again.
-
-### Models
-
-- **Local and Auto** keep Messages on this Mac. They need the `llama-server`
-  runtime: Settings → Local models → Local file tools → Install.
-- **Cloud** sends what the model looks up (message text, names, and handles) to
-  the selected provider. Enigma asks once per provider before the first cloud
-  Messages request.
+Third-party licenses are in
+[Enigma/Resources/ThirdPartyNotices.txt](Enigma/Resources/ThirdPartyNotices.txt).

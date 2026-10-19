@@ -11,7 +11,7 @@ results remain available in Git history; they are not current setup instructions
 Catalog version 3 expands the choices to twelve packages across Alibaba/Qwen,
 Google, Mistral AI and OpenBMB. Setup and settings show up to ten compatible choices
 in descending hardware-aware order, each with one sentence of description. See
-[the catalog and source review](Local-Model-Selection.md) for exact pinned packages,
+[the catalog and source review](../Local-Model-Selection.md) for exact pinned packages,
 licenses, memory estimates and the editorial ranking policy.
 
 On the catalog implementation:

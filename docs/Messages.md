@@ -1,115 +1,188 @@
 # Messages
 
-`/messages` lets the selected model read, search, and (with your approval) send
-Apple Messages — iMessage, SMS, and RCS — on this Mac. There is no public Apple
-API for this, so Enigma reads the local Messages database and drives
-Messages.app with AppleScript.
+Add `/messages` to a message and the selected model can read, search, and send
+your Apple Messages (iMessage, SMS, and RCS) for that one request. Enigma reads
+the Messages history on this Mac read-only, and sends only after you approve the
+exact recipient and text.
 
-## Design
+## Using `/messages`
 
-The capability lives in `AI-Spotlight/Messages/`:
+Type `/messages` anywhere in your message, followed or preceded by what you want:
 
-| Unit | Responsibility |
+- `/messages what did Sam say about Saturday?`
+- `/messages who have I talked to most this week?`
+- `/messages tell Alex I'm running 10 minutes late`
+
+The command applies only to the message that contains it, like `/search`. The
+model can list recent conversations, page back through one conversation, search
+message text across all conversations, look up contacts, and propose a message
+to send.
+
+`/messages` can't be combined with `/screen`, `/snapshot`, `/search`, an
+attached screenshot, or attached files. Enigma shows an error instead of
+sending, so message contents never become a web search query or share a request
+with a screen capture.
+
+### Approving a send
+
+Before anything is sent, a **Send this message?** card appears in the chat. It
+shows:
+
+- each recipient's name and handle (phone number or email), or the group name
+  and every participant,
+- the service (iMessage, SMS, or RCS), and
+- the exact text.
+
+Choose **Send** to send it, or **Don't Send** (Escape) to decline. Send has no
+keyboard shortcut. Stopping the request or starting a new chat also declines.
+There is no "always allow": every send needs its own approval, and one approval
+sends one message. If the model tries to send the same text to the same
+recipient twice in one request, the second send is refused.
+
+When the model names a person rather than a handle, Enigma resolves it to one
+recipient without guessing. If a name matches more than one person or group,
+the model is told to ask you which one. For a person with several handles, the
+conversation with the most recent activity is used; the card shows the handle
+before you approve.
+
+After a send, Enigma checks the Messages history for up to three seconds and
+reports either that the message appears there or that Messages accepted it.
+
+## Setup
+
+Messages must be signed in on this Mac. Grant these permissions to **Enigma**,
+meaning the copy you actually run (for example `/Applications/Enigma.app`, or
+the build Xcode launches):
+
+| Permission | Needed for | Where to grant it |
+| --- | --- | --- |
+| **Full Disk Access** | Reading and searching Messages history (`~/Library/Messages/chat.db`, opened read-only) | System Settings → Privacy & Security → Full Disk Access. Turn on Enigma, or click **+** and choose the app. Quit and reopen Enigma afterwards. |
+| **Automation → Messages** | Sending messages | macOS asks the first time you approve a send. If you declined, open System Settings → Privacy & Security → Automation, expand Enigma, and turn on Messages. |
+| **Contacts** (optional) | Showing names instead of phone numbers, and finding people by name | macOS asks the first time you use `/messages`. To change it later, open System Settings → Privacy & Security → Contacts. |
+
+**Settings → General → Messages · /messages** shows the status of Full Disk
+Access and Contacts, with an **Open Settings…** button while either is missing,
+and an **Open Settings…** button for Automation. The rows refresh when you
+return to Enigma. See [Welcome-and-Settings.md](Welcome-and-Settings.md).
+
+If Full Disk Access is missing when you use `/messages`, Enigma explains it and
+offers **Open Full Disk Access Settings…** without starting a request. If
+Automation is denied during a send, the request stops with **Open Automation
+Settings…**.
+
+macOS ties these permissions to the app's code signature. A copy built with a
+different signing identity, such as the unsigned product of
+`scripts/verify-xcode.sh`, needs them granted again. See
+[Distribution.md](Distribution.md) for installing a signed copy.
+
+### Choosing a model
+
+- **Local** and **Auto** keep Messages on this Mac. They need an installed
+  local model and the `llama-server` runtime: **Settings → Local models →
+  Files → Local file tools → Install**. Auto never sends Messages data to a
+  cloud provider, even when cloud is configured.
+- **Cloud** uses the preferred cloud provider and model from
+  **Settings → Cloud and search**. Every provider is supported: OpenAI,
+  Anthropic, and Gemini API keys, ChatGPT through Codex, and Claude through
+  Claude Code.
+
+## Privacy
+
+- **Local and Auto:** Messages data stays on this Mac.
+- **Cloud:** the tool results the model asks for (message text, names, phone
+  numbers, and email addresses) are sent to the selected provider, the same
+  place your chat already goes. Before the first cloud `/messages` request to
+  each provider, Enigma asks **Use Messages with \<provider\>?**. Choosing
+  **Continue** is remembered for that provider; **Cancel** sends nothing.
+
+| Provider | Destination |
 | --- | --- |
-| `MessagesDatabase` | Opens `~/Library/Messages/chat.db` with `file:…?mode=ro` and `SQLITE_OPEN_READONLY`, sets `query_only`, and runs the conversation, message, and search queries. It never writes. |
-| `AppleMessageDate` | Converts Apple-epoch timestamps (nanoseconds since 2001-01-01, or seconds in older databases). |
-| `AttributedBodyDecoder` | Extracts the string from the `attributedBody` typedstream blob when `message.text` is `NULL`. |
-| `MessagesContacts` | Resolves phone numbers and emails to names with the Contacts framework, and searches contacts. Without Contacts access it falls back to raw handles. |
-| `MessagesSender` | Runs `/usr/bin/osascript -` with a constant script on standard input. Recipient and text are passed only through `on run argv`, never interpolated. |
-| `MessagesTools` | The tool definitions and executor shared by every model route. |
-| `MessagesCoordinator` | Holds the pending send approval shown in the chat UI. |
+| OpenAI API | `api.openai.com` |
+| Anthropic API | `api.anthropic.com` |
+| Gemini API | `generativelanguage.googleapis.com` |
+| ChatGPT via Codex | OpenAI, through the local Codex app server |
+| Claude via Claude Code | Anthropic, through the local Claude Code CLI |
+
+Other safeguards:
+
+- The database is opened read-only; Enigma never writes to it.
+- Message contents, names, and contact details are untrusted. The tool
+  instructions tell the model never to follow instructions found in them, and
+  to send only when you asked in this request, to the recipient you named.
+- Assistant text is never parsed for commands. Only structured tool calls run.
+- Tool results are not saved in chat history. Your prompt and the model's
+  answer are saved like any other chat.
+
+## How it works
+
+The capability lives in `Enigma/Messages/`:
+
+| File | Responsibility |
+| --- | --- |
+| `MessagesDatabase.swift` | Opens `chat.db` through short-lived connections with a `mode=ro` URI, `SQLITE_OPEN_READONLY`, and `query_only`, and runs the conversation, message, and search queries. Distinguishes a missing database from one hidden by privacy controls. |
+| `AppleMessageDate.swift` | Converts Apple-epoch timestamps (nanoseconds since 2001-01-01, or seconds in older databases) and formats local ISO 8601 times. |
+| `AttributedBodyDecoder.swift` | Extracts the text from the `attributedBody` blob when `message.text` is empty. |
+| `MessagesContacts.swift` | Resolves handles to names with the Contacts framework, once per request. Phone numbers are matched on their last ten digits. Without Contacts access, raw handles are used. |
+| `MessagesSender.swift` | Runs `/usr/bin/osascript -` with a constant AppleScript on standard input. The target and text are passed only as `on run argv` arguments, never interpolated into the script. |
+| `MessagesTools.swift` | The tool definitions, instructions, argument validation, recipient resolution, and the send ledger. Shared by every model route. |
+| `MessagesCoordinator.swift` | Holds the pending send approval, the problem shown in chat, and the per-provider cloud consent. |
+| `MessagesCards.swift`, `MessagesControls.swift` | The approval and problem cards, the cloud consent alert, and the permission status text. |
+| `MessagesSettingsSection.swift` | The Messages rows in Settings → General. |
 
 ### Tools
 
 | Tool | Behavior |
 | --- | --- |
-| `list_conversations(limit, sort)` | Chats ordered by latest message (`recent` or `oldest`), with display name, participants, last-message preview, and timestamp. |
-| `get_messages(chat_id, limit, before)` | Messages from one chat, oldest-first within the page. `before` is the `next_before` cursor from the previous page. |
-| `search_messages(query, limit)` | Case- and diacritic-insensitive text search over `text` and decoded `attributedBody`, with two surrounding messages on each side. Scans at most the newest 100,000 candidates and reports when it stopped early. |
+| `list_conversations(limit, sort)` | Conversations by latest message (`recent` or `oldest`, up to 50), with participants, a last-message preview, and its time. |
+| `get_messages(chat_id, limit, before)` | Up to 100 messages from one conversation, oldest first within the page. `before` takes the `next_before` cursor from the previous page. |
+| `search_messages(query, limit)` | Case- and diacritic-insensitive text search across all conversations, newest first, up to 20 matches with two messages of context on each side. Scans at most the newest 100,000 messages and reports when it stopped early. |
 | `search_contacts(query)` | Name, phone, or email lookup across Contacts and known Messages handles. |
-| `send_message(recipient, text)` | Resolves the recipient to a chat or handle, then waits for explicit approval. |
+| `send_message(recipient, text)` | Resolves the recipient (a `chat_id`, phone number, email, contact name, or group name), then waits for approval. Text is limited to 4,000 characters. |
 
-Reactions (tapbacks) are excluded from previews and search but are shown in
-`get_messages` as a short description.
+Tapbacks are left out of previews and search, and shown in `get_messages` as a
+short description such as "loved a message".
 
 ### Model routes
 
-`/messages` applies only to the message that contains it, like `/search`.
+`ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) recognizes
+`/messages` and rejects conflicting commands. `AppShellView` asks for cloud
+consent, then `LocalChatViewModel.submitMessages`
+(`Enigma/LocalInference/LocalChatViewModel.swift`) checks Full Disk Access and
+the selected route before starting:
 
-- **Auto and Local** run a local tool loop over `llama-server`, the same runtime
-  as local File Mode. Auto never sends Messages data to a cloud provider.
-- **Cloud** runs a native tool loop for the selected provider: Codex dynamic
-  tools, OpenAI Responses function calls, Anthropic `tool_use`, Gemini function
-  calls, or Claude Code with an in-process MCP server over its stream-json
-  control protocol.
-
-Assistant text is never parsed for commands. Only structured tool calls run.
-
-### Safety
-
-- **Every send needs approval.** The card shows each resolved recipient (name
-  and handle, or the group name and all participants), the service, and the
-  exact text. Choosing **Don't Send**, stopping the request, or starting a new
-  chat declines it. There is no "always allow".
-- One approval sends one message. A repeated identical send in the same request
-  is refused rather than sent twice.
-- Message contents are untrusted data. The tool instructions tell the model
-  never to follow instructions found in messages and to send only when you
-  asked it to.
-- `/messages` cannot be combined with `/search`, Screen, or File Mode, so
-  message contents never become a web search query.
-- Enigma does not log message bodies. Tool results are not saved to chat
-  history; your prompt and the model's answer are saved as for any chat.
-
-### Where data goes
-
-With a local model, Messages data stays on this Mac. With a cloud model, the
-tool results the model requests (names, handles, and message text) are sent to
-that provider only — the same place Enigma already sends your chat:
-
-| Provider | Destination |
-| --- | --- |
-| OpenAI | `api.openai.com` |
-| Anthropic | `api.anthropic.com` |
-| Gemini | `generativelanguage.googleapis.com` |
-| ChatGPT via Codex | OpenAI, through the local Codex app server |
-| Claude via Claude Code | Anthropic, through the local Claude Code CLI |
-
-Enigma asks once per provider before the first cloud Messages request.
-Claude Code receives the tools through an in-process MCP server that Enigma
-answers over the CLI's stream-json control protocol; built-in tools stay
-disabled and only the Enigma tools are allowed.
-Elsewhere, Enigma sends web search queries (and approximate area for nearby
-questions) to Brave, and downloads models and runtimes from Hugging Face and
-GitHub; neither receives Messages data.
-
-## Setup
-
-See the Messages section of the [README](../README.md#messages-messages) for
-Full Disk Access, Automation, and Contacts. Settings → General → Messages shows
-each permission's status.
-
-## Verification
-
-`MessagesTests.swift` and `MessagesToolCallingTests.swift` cover Apple-epoch
-dates, `attributedBody` decoding (archives written by Foundation, truncated and
-malformed blobs), the query layer against a fixture database built in each test
-(ordering, group chats, tapbacks, paging, search context, scan limits, read-only
-connections), permission errors, recipient resolution, send approval and
-refusal, argument passing to the real `osascript`, and each provider's tool
-loop with recorded network responses. No test reads the real `chat.db` or sends
-a message.
+- **Local and Auto** run `LocalToolAgent` over `llama-server`, the same runtime
+  as local File Mode.
+- **Cloud** runs the provider's native tool calling
+  (`Enigma/Cloud/CloudToolCalling.swift`): OpenAI Responses function calls,
+  Anthropic `tool_use`, and Gemini function calls through `CloudToolLoop`
+  (at most 12 model turns, one tool call at a time); Codex dynamic tools in an
+  ephemeral, read-only thread that declines every native approval; and Claude
+  Code with an in-process MCP server that Enigma answers over the CLI's
+  stream-json control protocol, with built-in tools disabled and only the
+  Enigma tools allowed.
 
 ## Limitations
 
-- AppleScript cannot send tapbacks, edits, unsends, or threaded replies, and
-  cannot send attachments from Enigma.
-- Sending requires a Mac signed in to Messages. A new recipient with no
-  existing chat is sent over iMessage.
+- AppleScript can't send tapbacks, edits, unsends, threaded replies, or
+  attachments, so Enigma can't either.
+- A new recipient with no existing conversation is sent over iMessage.
 - Search decodes message bodies in Enigma rather than using an index, so very
-  large histories are searched newest-first up to the scan limit.
-- Local models need the `llama-server` runtime (Settings → Local models →
-  Local file tools → Install) and a model that supports tool calls.
-- Answers from the OpenAI, Anthropic, and Gemini API routes appear when each
-  tool round finishes rather than streaming token by token.
-- Watching for new messages is not implemented.
+  large histories are searched newest first up to the scan limit.
+- Local and Auto need a local model and the `llama-server` runtime.
+- Answers from the OpenAI, Anthropic, and Gemini API routes appear as each
+  model turn finishes rather than streaming token by token.
+- Enigma doesn't watch for new messages.
+
+## Tests
+
+- `EnigmaTests/MessagesTests.swift` covers Apple-epoch dates, `attributedBody`
+  decoding (including truncated and malformed blobs), queries against a fixture
+  database built in each test (ordering, group chats, tapbacks, paging, search
+  context, read-only connections), permission errors, `osascript` argument
+  passing, recipient resolution, send approval and decline, cancellation, the
+  per-provider cloud consent, and `/messages` parsing.
+- `EnigmaTests/MessagesToolCallingTests.swift` covers each provider's tool loop
+  with recorded responses, the step limit, Codex and Claude Code tool isolation,
+  the local tool agent, and the Full Disk Access and runtime preflight checks.
+
+No test reads the real `chat.db` or sends a message.

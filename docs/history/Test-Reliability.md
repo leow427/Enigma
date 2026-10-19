@@ -75,7 +75,7 @@ These are offline fixtures and hosted UI checks. They do not establish live
 provider/model quality, interactive Screen Recording or accessibility consent,
 or real multi-display capture behavior. The existing opt-in runtime and model
 checks retain their prerequisites. Interactive permission checks must use the
-stable signed app described in [AGENTS.md](../AGENTS.md).
+stable signed app described in [AGENTS.md](../../AGENTS.md).
 
 A finite run cannot establish that the entire suite is free of intermittent
 failures. The unchanged baseline passed the ten selected cases across three
