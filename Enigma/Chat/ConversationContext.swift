@@ -28,7 +28,11 @@ struct ConversationContext: Equatable, Sendable, Identifiable {
 enum SelectionIntentPolicy {
   /// `.translate`, `.edit`, or `nil`. Translation wins, since it stays read-only.
   static func command(for prompt: String) -> SlashCommand? {
-    let text = WebSearchPolicy.questionText(prompt)
+    command(normalized: WebSearchPolicy.questionText(prompt))
+  }
+
+  /// `command(for:)` for text already normalized by `WebSearchPolicy.questionText`.
+  static func command(normalized text: String) -> SlashCommand? {
     let range = NSRange(text.startIndex..., in: text)
     if translate.firstMatch(in: text, range: range) != nil { return .translate }
     if edit.firstMatch(in: text, range: range) != nil { return .edit }

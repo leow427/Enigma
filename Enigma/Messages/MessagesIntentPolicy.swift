@@ -10,11 +10,7 @@ import Foundation
 enum MessagesIntentPolicy {
   /// A read or send request aimed at Messages.
   static func isRequested(_ prompt: String) -> Bool {
-    let text = WebSearchPolicy.questionText(prompt)
-    guard !text.isEmpty else { return false }
-    if matches(otherService, text) && !matches(namesMessages, text) { return false }
-    return [readTexted, readQuestion, readFrom, readMine, readAny, readSaidIn,
-            sendVerb, sendAMessage, sendAMessageTo, replyTo, tellOn].contains { matches($0, text) }
+    isRequested(normalized: WebSearchPolicy.questionText(prompt))
   }
 
   /// A looser cue that carries Messages into a follow-up after a request that
@@ -22,8 +18,21 @@ enum MessagesIntentPolicy {
   /// "what else did …".
   static func isFollowUp(_ prompt: String) -> Bool {
     let text = WebSearchPolicy.questionText(prompt)
-    guard !text.isEmpty else { return false }
-    return isRequested(prompt) || matches(followUpCue, text)
+    return isRequested(normalized: text) || isFollowUpCue(normalized: text)
+  }
+
+  /// `isRequested` for text already normalized by `WebSearchPolicy.questionText`.
+  static func isRequested(normalized text: String) -> Bool {
+    // Every pattern below needs one of these words, so most drafts stop after one quick scan.
+    guard !text.isEmpty, matches(messagingWord, text) else { return false }
+    let asks = [readTexted, readQuestion, readFrom, readMine, readAny, readSaidIn, sendVerbFirst, sendVerb,
+                sendAMessage, sendAMessageTo, replyToFirst, replyTo, tellOn].contains { matches($0, text) }
+    return asks && (matches(namesMessages, text) || !matches(otherService, text))
+  }
+
+  /// Only the looser follow-up cue, for text already normalized by `WebSearchPolicy.questionText`.
+  static func isFollowUpCue(normalized text: String) -> Bool {
+    !text.isEmpty && matches(followUpCue, text)
   }
 
   private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
@@ -38,11 +47,17 @@ enum MessagesIntentPolicy {
   // The text is already lowercased with straight apostrophes.
   private static let noun = #"(?:text messages?|texts?|imessages?|messages?|sms)"#
   private static let pluralNoun = #"(?:text messages|texts|imessages|messages)"#
-  /// Where an imperative can start: the beginning, a new clause, or after a polite lead-in.
-  private static let imperative = #"(?:^|[.!?;:,] |\band |\bthen |\balso |\bnow )(?:(?:please|pls|can you|could you|would you|will you|go ahead and|just|quickly|and) )*"#
+  /// A polite lead-in before an imperative.
+  private static let lead = #"(?:(?:please|pls|can you|could you|would you|will you|go ahead and|just|quickly|and) )*"#
+  /// An imperative at the start of the draft. Anchored separately so the regex scans quickly.
+  private static let first = "^" + lead
+  /// An imperative starting a new clause.
+  private static let clause = #"(?:[.!?;:,] |\b(?:and|then|also|now) )"# + lead
   /// Words after a send verb that mean the recipient isn't another person.
   private static let notAPerson = #"(?!(?:me|myself|us|an?|the|this|that|these|those|it|its|some|your|yours|editor|editors|box|field|file|files|format|queue|queues|broker|bus|messages?|texts?)\b)"#
 
+  /// A word that every read or send pattern contains.
+  private static let messagingWord = expression(#"text|messag|sms|chat|repl|respond|write back"#)
   /// Another messaging service, so the request isn't about Messages.
   private static let otherService = expression(#"\b(?:e-?mails?|gmail|outlook|slack|whatsapp|telegram|discord|signal|teams|linkedin|instagram|facebook)\b"#)
   private static let namesMessages = expression(#"\b(?:imessages?|sms)\b"#)
@@ -61,13 +76,17 @@ enum MessagesIntentPolicy {
   private static let readSaidIn = expression(#"\b(?:what|did|has|have|who|when)\b.{0,40}\b(?:say|said|send|sent|write|wrote|ask|asked|reply|replied)\b.{0,20}\b(?:in our (?:group )?chat|in the group chat|(?:on|in|over|via) imessage|in messages|on messages|(?:by|over|via) text|in (?:a|her|his|their) text)\b"#)
 
   /// "text Alex that …", "message Sam …", "iMessage Alex …".
-  private static let sendVerb = expression(imperative + #"(?:text|message|imessage|sms) \#(notAPerson)[\w']+"#)
+  private static let sendVerbFirst = expression(first + sendVerbBody)
+  private static let sendVerb = expression(clause + sendVerbBody)
+  private static let sendVerbBody = #"(?:text|message|imessage|sms) \#(notAPerson)[\w']+"#
   /// "send her a message saying …", "send Sam a text saying …".
   private static let sendAMessage = expression(#"\bsend (?!(?:me|myself|us|an?|the|it|this|that)\b)[\w']+(?: [\w']+)? an? (?:(?:quick|short|new) )?(?:text message|text|message|imessage|sms)\b"#)
   /// "send a text to Mom".
   private static let sendAMessageTo = expression(#"\bsend an? (?:(?:quick|short|new) )?(?:text message|text|imessage|sms) to \#(notAPerson)[\w']+"#)
   /// "reply to Mom with ok".
-  private static let replyTo = expression(imperative + #"(?:reply|respond|write back) to \#(notAPerson)(?!(?:my|his|her|their|our) (?:\w+ )?(?:email|post|comment|review|question|code|essay|letter)\b)[\w']+"#)
+  private static let replyToFirst = expression(first + replyToBody)
+  private static let replyTo = expression(clause + replyToBody)
+  private static let replyToBody = #"(?:reply|respond|write back) to \#(notAPerson)(?!(?:my|his|her|their|our) (?:\w+ )?(?:email|post|comment|review|question|code|essay|letter)\b)[\w']+"#
   /// "tell Jordan on iMessage I'm here", "tell Sam by text …".
   private static let tellOn = expression(#"\b(?:tell|ask|let) (?!(?:me|us|myself)\b)[\w']+(?: [\w']+)? (?:know )?(?:on|by|over|via|in) (?:imessage|text|messages|sms)\b"#)
 

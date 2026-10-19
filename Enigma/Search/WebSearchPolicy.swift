@@ -5,19 +5,28 @@ import Foundation
 /// Quoted material, history, files and OCR do not get to opt into network access.
 enum WebSearchPolicy {
   static func needsFreshInformation(_ prompt: String, now: Date = Date()) -> Bool {
-    let text = questionText(prompt)
+    needsFreshInformation(normalized: questionText(prompt), now: now)
+  }
+
+  /// `needsFreshInformation` for text already normalized by `questionText`.
+  static func needsFreshInformation(normalized text: String, now: Date = Date()) -> Bool {
     guard !text.isEmpty, !matches(optOut, text) else { return false }
-    if LocationIntent.needsLocation(prompt) { return true }
+    if LocationIntent.needsLocation(normalized: text) { return true }
     return needsFreshFacts(text, now: now)
   }
 
   static func questionText(_ prompt: String) -> String {
     let question = ThinkCommand.message(prompt).content
-    return literalMaterial.stringByReplacingMatches(in: question,
+    let text = literalMaterial.stringByReplacingMatches(in: question,
       range: NSRange(question.startIndex..., in: question),
       withTemplate: " ")
       .replacingOccurrences(of: "’", with: "'")
-      .lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+      .lowercased()
+    // Collapse whitespace runs to one space. A regex is much faster than splitting
+    // and joining, and the composer resolves every draft on each keystroke.
+    let collapsed = whitespaceRun.stringByReplacingMatches(in: text,
+      range: NSRange(text.startIndex..., in: text), withTemplate: " ")
+    return collapsed.trimmingCharacters(in: [" "])
   }
 
   static func isOfflineOrTransformation(_ text: String) -> Bool {
@@ -41,10 +50,11 @@ enum WebSearchPolicy {
 
     // A year alone is not a freshness signal (arithmetic and historical questions
     // stay local). Current/recent event queries can omit words such as "latest".
-    let hasRecentYear = (year - 1...year + 1).contains { value in
-      text.range(of: "\\b\(value)\\b", options: .regularExpression) != nil
+    guard asksForFacts && matches(eventTopic, text) else { return false }
+    let recentYears = year - 1...year + 1
+    return fourDigitWord.matches(in: text, range: NSRange(text.startIndex..., in: text)).contains { match in
+      Range(match.range, in: text).flatMap { Int(text[$0]) }.map(recentYears.contains) ?? false
     }
-    return hasRecentYear && asksForFacts && matches(eventTopic, text)
   }
 
   private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
@@ -56,6 +66,8 @@ enum WebSearchPolicy {
     try! NSRegularExpression(pattern: pattern)
   }
 
+  private static let whitespaceRun = expression(#"\p{White_Space}+"#)
+  private static let fourDigitWord = expression(#"\b[0-9]{4}\b"#)
   private static let literalMaterial = expression(#"(?s)```.*?(?:```|$)|`[^`]*(?:`|$)|"[^"\n]*(?:"|$)|“[^”]*(?:”|$)"#)
   private static let optOut = expression(#"\b(?:(?:do not|don't|dont|never) (?:\w+ ){0,3}(?:search|browse|look up|use (?:the )?(?:web|internet))|(?:without|no) (?:\w+ ){0,2}(?:web|internet|browsing|search)|(?:stay|answer|respond|keep (?:this|it)) offline|(?:use|using|from) (?:only )?(?:your (?:own |existing )?knowledge|memory only))\b"#)
   private static let explicitLookup = expression(#"^(?:(?:please|can you|could you) )?(?:search|browse|check|look up|find|verify)\b.{0,60}\b(?:web|internet|online)\b"#)

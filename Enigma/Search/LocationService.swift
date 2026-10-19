@@ -6,21 +6,34 @@ import MapKit
 /// Only the current question can request location, never quoted or attached content.
 enum LocationIntent {
   static func needsLocation(_ prompt: String) -> Bool {
-    let text = WebSearchPolicy.questionText(prompt)
-    guard !WebSearchPolicy.isOfflineOrTransformation(text),
-          !matches(#"\b(?:(?:do not|don't|dont|never) (?:use|access|share|detect) (?:my |the )?location|without (?:my )?location)\b"#, text) else { return false }
-    if matches(#"\b(?:in|at|near)\s+(?!(?:me|my|this|the|here)\b)[a-z]"#, text) { return false }
-    if matches(#"\b(?:near me|around me|nearby|my (?:current )?location|where am i|in my area|locally|local (?:weather|restaurants?|cafes?|events|places))\b"#, text) { return true }
-    guard matches(#"\b(?:weather|forecast|temperature|rain|snow|umbrella)\b"#, text) else { return false }
-    // Named destinations take precedence over the device's location.
-    if matches(#"\b(?:in|at|for|near)\s+(?!(?:today|tonight|tomorrow|this|the next)\b)[a-z]"#, text) { return false }
-    if matches(#"^(?:what is|what's|define|explain|how does) (?:the |a )?(?:weather|rain|snow|temperature)(?: work| mean)?[?.!]*$"#, text) { return false }
-    return matches(#"\b(?:today|tonight|tomorrow|this week|forecast|will it|is it|what's|what is|what are|do i need)\b"#, text)
+    needsLocation(normalized: WebSearchPolicy.questionText(prompt))
   }
 
-  private static func matches(_ pattern: String, _ text: String) -> Bool {
-    text.range(of: pattern, options: .regularExpression) != nil
+  /// `needsLocation` for text already normalized by `WebSearchPolicy.questionText`.
+  static func needsLocation(normalized text: String) -> Bool {
+    guard !WebSearchPolicy.isOfflineOrTransformation(text),
+          !matches(optOutLocation, text) else { return false }
+    if matches(namedPlace, text) { return false }
+    if matches(nearbyCue, text) { return true }
+    guard matches(weatherTopic, text) else { return false }
+    // Named destinations take precedence over the device's location.
+    if matches(namedDestination, text) { return false }
+    if matches(conceptualWeather, text) { return false }
+    return matches(asksAboutNow, text)
   }
+
+  private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
+    pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+  }
+
+  // Compiled once. All patterns are fixed, tested source literals, never user-provided regexes.
+  private static let optOutLocation = try! NSRegularExpression(pattern: #"\b(?:(?:do not|don't|dont|never) (?:use|access|share|detect) (?:my |the )?location|without (?:my )?location)\b"#)
+  private static let namedPlace = try! NSRegularExpression(pattern: #"\b(?:in|at|near)\s+(?!(?:me|my|this|the|here)\b)[a-z]"#)
+  private static let nearbyCue = try! NSRegularExpression(pattern: #"\b(?:near me|around me|nearby|my (?:current )?location|where am i|in my area|locally|local (?:weather|restaurants?|cafes?|events|places))\b"#)
+  private static let weatherTopic = try! NSRegularExpression(pattern: #"\b(?:weather|forecast|temperature|rain|snow|umbrella)\b"#)
+  private static let namedDestination = try! NSRegularExpression(pattern: #"\b(?:in|at|for|near)\s+(?!(?:today|tonight|tomorrow|this|the next)\b)[a-z]"#)
+  private static let conceptualWeather = try! NSRegularExpression(pattern: #"^(?:what is|what's|define|explain|how does) (?:the |a )?(?:weather|rain|snow|temperature)(?: work| mean)?[?.!]*$"#)
+  private static let asksAboutNow = try! NSRegularExpression(pattern: #"\b(?:today|tonight|tomorrow|this week|forecast|will it|is it|what's|what is|what are|do i need)\b"#)
 }
 
 struct ApproximateLocation: Equatable, Sendable {

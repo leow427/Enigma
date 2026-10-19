@@ -124,8 +124,12 @@ extension ThinkCommand {
   /// step"), so the composer can infer `/think`. Pass the typed draft only;
   /// quoted and backticked text never matches.
   static func isRequested(by prompt: String) -> Bool {
-    let text = WebSearchPolicy.questionText(prompt)
-    return thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    isRequested(normalized: WebSearchPolicy.questionText(prompt))
+  }
+
+  /// `isRequested(by:)` for text already normalized by `WebSearchPolicy.questionText`.
+  static func isRequested(normalized text: String) -> Bool {
+    thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
 
   // A fixed, tested source literal, never a user-provided regex.
