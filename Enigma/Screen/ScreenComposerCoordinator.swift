@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Synchronization
 
 @MainActor
 final class ScreenComposerCoordinator: ObservableObject {
@@ -15,10 +16,16 @@ final class ScreenComposerCoordinator: ObservableObject {
   private let ocrService: any ScreenOCRReading
   private var revision = UUID()
   private var lastCaptureWasDesktop = false
+  private let ocrTimeout: Duration
+  /// A read that outlasted the cap and still runs. Captures meanwhile go
+  /// straight to vision instead of stacking another cold Vision start.
+  private var lingeringRead: UUID?
 
-  init(captureService: any ScreenCapturing = ScreenCaptureService(), ocrService: any ScreenOCRReading = ScreenOCRService()) {
+  init(captureService: any ScreenCapturing = ScreenCaptureService(), ocrService: any ScreenOCRReading = ScreenOCRService(),
+       ocrTimeout: Duration = .seconds(3)) {
     self.captureService = captureService
     self.ocrService = ocrService
+    self.ocrTimeout = ocrTimeout
   }
 
   /// Consume capture commands only; search stays visible and editable until this turn is accepted.
@@ -46,7 +53,7 @@ final class ScreenComposerCoordinator: ObservableObject {
       attachment?.status = .reading
       if let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
         let result: ScreenOCRResult
-        do { result = try await ocrService.recognize(pixels) }
+        do { result = try await recognize(pixels) ?? .empty } // A slow read is handled by vision, like a failed one.
         catch is CancellationError { return nil }
         catch { result = .empty } // An OCR failure can still be handled by vision.
         guard revision == operation else { return nil }
@@ -69,6 +76,41 @@ final class ScreenComposerCoordinator: ObservableObject {
       self.error = error.localizedDescription
       return nil
     }
+  }
+
+  /// Returns nil when OCR outlasts `ocrTimeout`. The read keeps running then:
+  /// a cold Vision start loads its model once, and stopping it would keep the
+  /// next capture cold too. Only real cancellation cancels it.
+  private func recognize(_ pixels: CGImage) async throws -> ScreenOCRResult? {
+    guard lingeringRead == nil else { return nil }
+    let ocrService = ocrService
+    let reading = Task.detached(priority: .userInitiated) { try await ocrService.recognize(pixels) }
+    let race = FirstOutcome<ScreenOCRResult?>()
+    let timeout = ocrTimeout
+    let timer = Task.detached {
+      try? await Task.sleep(for: timeout)
+      race.finish(.success(nil))
+    }
+    defer { timer.cancel() }
+    Task.detached {
+      do { race.finish(.success(try await reading.value)) }
+      catch { race.finish(.failure(error)) }
+    }
+    let result = try await withTaskCancellationHandler {
+      try await race.value()
+    } onCancel: {
+      reading.cancel()
+      race.finish(.failure(CancellationError()))
+    }
+    if result == nil {
+      let token = UUID()
+      lingeringRead = token
+      Task { [weak self] in
+        _ = try? await reading.value
+        if self?.lingeringRead == token { self?.lingeringRead = nil }
+      }
+    }
+    return result
   }
 
   private func captureRegion(desktop: Bool) async throws -> NSImage? {
@@ -96,6 +138,33 @@ final class ScreenComposerCoordinator: ObservableObject {
   func clearDraft() {
     removeAttachment()
     draft = ""
+  }
+}
+
+/// Delivers whichever outcome arrives first; later ones are ignored.
+private final class FirstOutcome<Value: Sendable>: Sendable {
+  private struct State: ~Copyable {
+    var outcome: Result<Value, any Error>?
+    var waiter: CheckedContinuation<Value, any Error>?
+  }
+  private let state = Mutex(State())
+
+  func finish(_ outcome: Result<Value, any Error>) {
+    state.withLock { state in
+      guard state.outcome == nil else { return }
+      state.outcome = outcome
+      state.waiter?.resume(with: outcome)
+      state.waiter = nil
+    }
+  }
+
+  func value() async throws -> Value {
+    try await withCheckedThrowingContinuation { continuation in
+      state.withLock { state in
+        if let outcome = state.outcome { continuation.resume(with: outcome) }
+        else { state.waiter = continuation }
+      }
+    }
   }
 }
 

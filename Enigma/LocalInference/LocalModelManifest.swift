@@ -198,6 +198,7 @@ struct LocalModelCatalog: Sendable {
   func download(
     _ descriptor: LocalModelDescriptor,
     runtime: LocalVisionRuntime = .bundled,
+    beforeCommit: @escaping @Sendable () async throws -> Void = {},
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
   ) async throws -> LocalModel {
     try descriptor.validate()
@@ -207,13 +208,15 @@ struct LocalModelCatalog: Sendable {
     let hardware = detectHardware(installationStore.modelsDirectoryURL)
     let assessment = LocalModelSelector.assess(descriptor, hardware: hardware)
     guard assessment.canInstall else { throw LocalInferenceError.bridgeFailure(assessment.reason) }
-    return try await downloadVision(descriptor.visionDescriptor!, runtime: runtime, catalogDescriptor: descriptor, progress: progress)
+    return try await downloadVision(descriptor.visionDescriptor!, runtime: runtime, catalogDescriptor: descriptor,
+                                    beforeCommit: beforeCommit, progress: progress)
   }
 
   func downloadVision(
     _ descriptor: LocalVisionModelDescriptor,
     runtime: LocalVisionRuntime = .bundled,
     catalogDescriptor: LocalModelDescriptor? = nil,
+    beforeCommit: @escaping @Sendable () async throws -> Void = {},
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
   ) async throws -> LocalModel {
     try descriptor.validate()
@@ -240,7 +243,7 @@ struct LocalModelCatalog: Sendable {
     // the error that ended the download.
     do {
       let installed = try await installPackage(descriptor, runtime: runtime, catalogDescriptor: catalogDescriptor,
-        staging: staging, runtimeDirectory: runtimeDirectory, total: total, progress: progress)
+        staging: staging, runtimeDirectory: runtimeDirectory, total: total, beforeCommit: beforeCommit, progress: progress)
       FileManager.default.removeItemIfPresent(at: staging)
       return installed
     } catch {
@@ -253,6 +256,7 @@ struct LocalModelCatalog: Sendable {
   private func installPackage(
     _ descriptor: LocalVisionModelDescriptor, runtime: LocalVisionRuntime, catalogDescriptor: LocalModelDescriptor?,
     staging: URL, runtimeDirectory: URL, total: Int64,
+    beforeCommit: @escaping @Sendable () async throws -> Void,
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
   ) async throws -> LocalModel {
     let directory = installationStore.modelsDirectoryURL
@@ -274,6 +278,9 @@ struct LocalModelCatalog: Sendable {
     }
     let server = try await runtime.install(archive: staging.appending(path: "runtime.tar.gz"),
                                            staging: staging, destination: runtimeDirectory)
+    try Task.checkCancellation()
+    // The install below is the commit point and may select the new model.
+    try await beforeCommit()
     try Task.checkCancellation()
     let installed = try installationStore.install(LocalModel(id: descriptor.id, displayName: descriptor.displayName,
       fileURL: staging.appending(path: "model.gguf"), catalogDescriptor: catalogDescriptor,

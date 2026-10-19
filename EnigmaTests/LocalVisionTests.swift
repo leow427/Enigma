@@ -470,6 +470,32 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path), [])
   }
 
+  func testCancellingWhileTheCommitWaitsRemovesTheStagedPackageAndKeepsTheSelection() async throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let package = try downloadFixture(in: directory)
+    let store = LocalModelInstallationStore(modelsDirectory: directory.appending(path: "library"))
+    let original = try store.install(LocalModel(id: "text", displayName: "Text", fileURL: package.source.fileURL))
+    let before = try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted()
+    let session = downloadSession()
+    defer { session.invalidateAndCancel() }
+    let waiting = expectation(description: "The commit is waiting")
+    let catalog = LocalModelCatalog(installationStore: store, session: session, availableDisk: { _ in 100 * LocalHardwareProfile.gib })
+    let task = Task {
+      try await catalog.downloadVision(package.descriptor, runtime: package.runtime, beforeCommit: {
+        waiting.fulfill()
+        while true { try await Task.sleep(for: .milliseconds(10)) }
+      }) { _ in }
+    }
+    await fulfillment(of: [waiting], timeout: 5)
+    task.cancel()
+    do { _ = try await task.value; XCTFail("Expected cancellation") } catch { XCTAssertTrue(error is CancellationError, "\(error)") }
+    XCTAssertEqual(store.installedModel(), original)
+    XCTAssertEqual(store.installedModels(), [original])
+    XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted(), before,
+                   "The staged package and unpacked runtime are removed")
+  }
+
   @MainActor
   func testObsoleteVisionPreferenceIsRetiredWithoutSelectingOrDeletingModels() throws {
     let directory = try temporaryDirectory()
@@ -503,18 +529,20 @@ final class LocalVisionTests: XCTestCase {
       let started = expectation(description: "Download producer started")
       await engine.setStarted(started)
       let done = expectation(description: "Download lifecycle finished")
-      let token = chat.$state.dropFirst().filter { $0 == .idle }.prefix(1).sink { _ in done.fulfill() }
+      let token = chat.$modelOperation.dropFirst().filter { $0 == nil }.prefix(1).sink { _ in done.fulfill() }
       chat.downloadModel(LocalModelManifest.bundled.models[0])
       chat.downloadModel(LocalModelManifest.bundled.models[0])
       await fulfillment(of: [started], timeout: 3)
-      XCTAssertTrue(chat.isBusy)
+      XCTAssertTrue(chat.isManagingModels)
+      XCTAssertFalse(chat.isBusy, "Chat stays available while the package downloads")
       if cancelled {
         chat.cancelInstallation()
-        XCTAssertTrue(chat.isBusy, "Keep requests blocked until cancellation is acknowledged")
+        XCTAssertTrue(chat.isManagingModels, "Keep model changes blocked until cancellation is acknowledged")
       }
       await engine.complete()
       await fulfillment(of: [done], timeout: 3)
       token.cancel()
+      XCTAssertFalse(chat.isManagingModels)
       XCTAssertFalse(chat.isBusy)
       XCTAssertEqual(chat.installedModels.count, cancelled ? 0 : 1)
     }

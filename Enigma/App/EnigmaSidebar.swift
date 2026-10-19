@@ -174,12 +174,12 @@ struct DeveloperToolsView: View {
         Button("Detect Mac capabilities") { Task { await advisor.detectHardware() } }
           .enigmaButtonStyle(.text)
           .padding(.leading, -8)
-          .disabled(advisor.isDetecting || chat.isBusy)
+          .disabled(advisor.isDetecting || !chat.canChangeModels)
         Button("Replay welcome setup", action: replayWelcome)
           .enigmaButtonStyle(.text)
           .enigmaTestMarker("Replay welcome setup")
           .padding(.leading, -8)
-          .disabled(advisor.isDetecting || chat.isBusy)
+          .disabled(advisor.isDetecting || !chat.canChangeModels)
         if let hardware = advisor.hardware {
           VStack(alignment: .leading, spacing: 3) {
             Text("\(hardware.chip) · \(hardware.cpuCount) CPUs")

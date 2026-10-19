@@ -552,12 +552,12 @@ final class LocalModelSelectionTests: XCTestCase {
     let chat = LocalChatViewModel(engine: engine, modelAdvisor: advisor,
       sessionStore: ChatSessionStore(applicationSupportDirectory: root))
     let finished = expectation(description: "Installation and benchmark finished")
-    let subscription = chat.$state.dropFirst().sink { if $0 == .idle { finished.fulfill() } }
+    let subscription = chat.$modelOperation.dropFirst().sink { if $0 == nil { finished.fulfill() } }
     defer { subscription.cancel() }
     chat.downloadModel(candidate.model)
     await fulfillment(of: [started], timeout: 3)
-    XCTAssertEqual(chat.state, .benchmarking)
-    XCTAssertTrue(chat.isBusy)
+    XCTAssertEqual(chat.modelOperation, .benchmarking)
+    XCTAssertTrue(chat.isBusy, "The performance check needs the engine to itself")
     XCTAssertEqual(chat.installedModel?.id, candidate.id)
     chat.submit("Must not start while benchmarking")
     chat.downloadModel(catalog.models[0])
@@ -584,7 +584,7 @@ final class LocalModelSelectionTests: XCTestCase {
       let chat = LocalChatViewModel(engine: engine, modelAdvisor: advisor,
         sessionStore: ChatSessionStore(applicationSupportDirectory: root))
       let finished = expectation(description: "Benchmark error acknowledged")
-      let subscription = chat.$state.dropFirst().sink { if $0 == .idle { finished.fulfill() } }
+      let subscription = chat.$modelOperation.dropFirst().sink { if $0 == nil { finished.fulfill() } }
       chat.downloadModel(catalog.models[0])
       await fulfillment(of: [started], timeout: 3)
       if cancel { chat.cancelInstallation() }

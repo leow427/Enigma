@@ -367,7 +367,7 @@ struct GeneralSettingsPage: View {
   }
 }
 
-/// Replay, which waits while the local model is busy.
+/// Replay, which waits while the local model or a model install is busy.
 private struct ReplayWelcomeButton: View {
   @ObservedObject var chat: LocalChatViewModel
 
@@ -376,7 +376,7 @@ private struct ReplayWelcomeButton: View {
       NotificationCenter.default.post(name: .welcomeSetupRequested, object: nil)
     }
     .enigmaButtonStyle(.secondary)
-    .disabled(chat.isBusy)
+    .disabled(!chat.canChangeModels)
     .accessibilityLabel("Replay Welcome Setup")
   }
 }

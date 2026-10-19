@@ -54,6 +54,13 @@ Then it decides what the selected model receives:
   layout, positions, charts, diagrams, icons, "what does this look like", "where
   is…") or when there's too little readable text.
 
+Enigma waits at most three seconds for the text. The first recognition after
+macOS starts can take much longer while Vision loads its model; if the text isn't
+ready by then, the capture is treated like one with no readable text and the
+model reads the image. Recognition keeps running in the background so later
+captures are fast, and its late result is ignored. Captures taken while that
+read still runs go straight to the image rather than starting another one.
+
 Either way the model is told to treat everything in the screenshot as quoted data,
 not instructions.
 
@@ -174,8 +181,11 @@ The capture flow runs from the composer to the request:
 2. `ScreenComposerCoordinator` (`Enigma/Screen/ScreenComposerCoordinator.swift`)
    owns the draft and the attachment. It calls `prepareForCapture()` (permission),
    posts `.screenCaptureBegan` / `.screenCaptureEnded`, runs OCR, and returns the
-   question to send automatically when there is one. A revision token discards
-   late results after Remove or Retake.
+   question to send automatically when there is one. It waits for OCR at most
+   `ocrTimeout` (3 s), then sets the attachment to `.vision` with no text and
+   leaves the detached Vision request running (only cancelling the capture
+   cancels it). While such a read lingers, later captures skip OCR. A revision
+   token discards late results after Remove or Retake.
 3. `ScreenCaptureService` (`Enigma/Screen/ScreenCaptureService.swift`) checks
    `CGPreflightScreenCaptureAccess`/`CGRequestScreenCaptureAccess`, waits 200 ms for
    the panel to leave, then runs `/usr/sbin/screencapture` (`-i -x` for a region,
@@ -230,7 +240,8 @@ Automated tests inject capture, OCR, search, provider and runtime boundaries, so
 they run offline without selecting a region or downloading a model.
 
 - `EnigmaTests/ScreenCaptureTests.swift`: command parsing, permission and restart
-  paths, temporary-file cleanup, cancellation, Retake, hiding and restoring the panel.
+  paths, temporary-file cleanup, cancellation, Retake, the OCR time cap, hiding and
+  restoring the panel.
 - `EnigmaTests/ScreenOCRTests.swift`: OCR ordering, thresholds and image preprocessing.
 - `EnigmaTests/ScreenRoutingTests.swift`: text-or-image decisions, Local/Cloud/Auto
   routing, consent defaults, offline fallback and model capabilities.

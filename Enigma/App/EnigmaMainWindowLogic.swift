@@ -56,6 +56,8 @@ struct ChatRouteStatus: Equatable {
   struct Context: Equatable {
     var mode: ChatMode
     var state: LocalChatViewModel.State = .idle
+    var modelOperation: LocalChatViewModel.ModelOperation?
+    var modelFailure: String?
     var request: Request?
     var localModelName: String?
     var cloudProvider: CloudProviderID = .chatGPT
@@ -79,13 +81,30 @@ struct ChatRouteStatus: Equatable {
     }
   }
 
-  private static func local(_ context: Context) -> ChatRouteStatus {
-    switch context.state {
+  private static func modelOperation(_ operation: LocalChatViewModel.ModelOperation) -> ChatRouteStatus {
+    switch operation {
     case .benchmarking: ChatRouteStatus(kind: .busy, text: "Checking model performance…")
     case .installing: ChatRouteStatus(kind: .busy, text: "Installing local model…")
     case .deleting: ChatRouteStatus(kind: .busy, text: "Deleting local model…")
     case .downloading(let progress):
       ChatRouteStatus(kind: .busy, text: "Downloading \(Int((progress.fractionCompleted * 100).rounded()))%")
+    case .waitingToInstall: ChatRouteStatus(kind: .busy, text: "Installing after this reply…")
+    }
+  }
+
+  private static func local(_ context: Context) -> ChatRouteStatus {
+    // A download shows its progress between replies; work that holds the chat
+    // shows over an earlier reply's error.
+    if let operation = context.modelOperation {
+      switch context.state {
+      case .idle, .failed: return modelOperation(operation)
+      case .preparing, .refiningSearch, .searching, .streaming: break
+      }
+    }
+    if let failure = context.modelFailure, context.state == .idle {
+      return ChatRouteStatus(kind: .problem, text: failure)
+    }
+    return switch context.state {
     case .preparing, .refiningSearch, .searching: ChatRouteStatus(kind: .busy, text: "Loading local model…")
     case .streaming: ChatRouteStatus(kind: .busy, text: "Generating locally")
     case .failed(let message): ChatRouteStatus(kind: .problem, text: message)
@@ -119,10 +138,11 @@ struct ChatRouteStatus: Equatable {
     case .failed(let message):
       return ChatRouteStatus(kind: .problem, text: message)
     case .idle:
+      if context.modelOperation?.blocksChat == true {
+        return ChatRouteStatus(kind: .busy, text: "Finish the local model task before using Cloud mode.")
+      }
       let unverified = context.cloudCompatibility == .unverified ? " · unverified" : ""
       return ChatRouteStatus(kind: .ready, text: "\(provider.displayName) · \(context.cloudModelID)\(unverified) · in the cloud")
-    case .installing, .deleting, .downloading, .benchmarking:
-      return ChatRouteStatus(kind: .busy, text: "Finish the local model task before using Cloud mode.")
     }
   }
 
@@ -252,6 +272,8 @@ struct ModeAndModelMenu {
 
   var mode: ChatMode
   var isBusy: Bool
+  /// A model install, delete or check is running: local models can't be changed.
+  var isManagingModels = false
   /// The request in flight keeps its route; a new choice applies to the next one.
   var hasActiveRequest: Bool
   var localModels: [LocalChoice]
@@ -292,7 +314,7 @@ struct ModeAndModelMenu {
         : localModels.map { model in
           EnigmaMenuItem(id: AnyHashable("local.\(model.id)"), title: model.name,
                          detail: model.supportsVision ? "text + images" : "text only",
-                         isSelected: model.id == selectedLocalID, isEnabled: !isBusy) {
+                         isSelected: model.id == selectedLocalID, isEnabled: !isBusy && !isManagingModels) {
             actions.selectLocalModel(model.id)
           }
         }
@@ -313,9 +335,9 @@ struct ModeAndModelMenu {
     var more: [EnigmaMenuItem] = []
     if mode != .cloud {
       more.append(EnigmaMenuItem(id: AnyHashable("action.find"), title: "Find a model for this Mac…",
-                                 isEnabled: !isBusy, action: actions.findModel))
+                                 isEnabled: !isBusy && !isManagingModels, action: actions.findModel))
       more.append(EnigmaMenuItem(id: AnyHashable("action.import"), title: "Import a text GGUF…",
-                                 isEnabled: !isBusy, action: actions.importModel))
+                                 isEnabled: !isBusy && !isManagingModels, action: actions.importModel))
     }
     more.append(EnigmaMenuItem(id: AnyHashable("action.settings"),
                                title: mode == .cloud ? "Advanced settings…" : "Manage models in Settings…",

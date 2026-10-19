@@ -128,17 +128,15 @@ extension WelcomeSetup {
   }
 
   /// Downloading, verifying, installing, and the first performance check.
-  static func isInstalling(_ state: LocalChatViewModel.State) -> Bool {
-    switch state {
-    case .downloading, .installing, .benchmarking: true
-    default: false
+  static func isInstalling(_ operation: LocalChatViewModel.ModelOperation?) -> Bool {
+    switch operation {
+    case .downloading, .waitingToInstall, .installing, .benchmarking: true
+    case .deleting, nil: false
     }
   }
 
-  static func installFailed(_ state: LocalChatViewModel.State) -> Bool {
-    if case .failed = state { return true }
-    return false
-  }
+  /// A model failure, kept apart from chat errors.
+  static func installFailed(_ modelFailure: String?) -> Bool { modelFailure != nil }
 
   /// What the models step's one primary button does.
   enum ModelAction: Equatable {

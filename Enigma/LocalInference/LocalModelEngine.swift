@@ -55,6 +55,13 @@ protocol LocalModelEngine: Sendable {
     _ model: LocalModelDescriptor,
     progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
   ) async throws -> LocalModel
+  /// Downloads and verifies beside chat, then awaits `beforeCommit` right before
+  /// the atomic install that may select the new model.
+  func download(
+    _ model: LocalModelDescriptor,
+    beforeCommit: @escaping @Sendable () async throws -> Void,
+    progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
+  ) async throws -> LocalModel
   func prepare(_ request: LocalModelRequest) async throws -> PreparedConversation
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error>
   func unload() async
@@ -82,6 +89,14 @@ enum LocalInferenceError: LocalizedError, Equatable {
 }
 
 extension LocalModelEngine {
+  func download(
+    _ model: LocalModelDescriptor,
+    beforeCommit: @escaping @Sendable () async throws -> Void,
+    progress: @escaping @Sendable (ModelDownloadProgress) async -> Void
+  ) async throws -> LocalModel {
+    try await download(model, progress: progress)
+  }
+
   func deleteModel(id: String) async throws {
     throw LocalInferenceError.bridgeFailure("This model cannot be deleted by the current local engine.")
   }
