@@ -131,26 +131,35 @@ extension ThinkCommand {
   /// `isRequested(by:)` for text already normalized by `WebSearchPolicy.questionText`.
   static func isRequested(normalized text: String) -> Bool {
     // Every cue below contains one of these, so most drafts stop after one quick scan.
-    guard thinkWord.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil else { return false }
-    return thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    guard matches(thinkWord, text), !matches(meaningQuestion, text) else { return false }
+    return matches(thinkCue, text)
   }
 
-  // Fixed, tested source literals, never user-provided regexes.
+  private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
+    pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+  }
+
+  // Fixed, tested source literals, never user-provided regexes. Each cue starts with its
+  // literal word and checks what came before with a lookbehind, so long drafts stay fast.
   private static let thinkWord = try! NSRegularExpression(pattern:
     #"think|reason|consider|reflect|ponder|mull|careful|take|rush|thorough|step|check|thought|deep|method"#)
-  /// Thinking said by the person or about others ("I think", "do you think", "people think").
-  private static let notARequest = #"(?<!\bi )(?<!\bi'm )(?<!\bim )(?<!\bi'll )(?<!\bi'd )(?<!\byou )(?<!\byou're )(?<!\bwe )(?<!\bwe're )(?<!\bthey )(?<!\bthey're )(?<!\bpeople )(?<!\bme )(?<!\bwant to )(?<!\bneed to )(?<!\bhave to )(?<!\bgoing to )"#
-  private static let thinkCue = try! NSRegularExpression(pattern:
+  /// "what does think it over mean".
+  private static let meaningQuestion = try! NSRegularExpression(pattern: #"^what (?:does|do)(?: [\w'-]+){1,5} mean[?.!]*$"#)
+  /// Thinking said by the person or about others ("I think", "do you think", "how to think").
+  private static let notARequest = #"(?<!\b(?:i|i'm|im|i'll|i'd|you|you're|we|we're|they|they're|people|me|want to|need to|have to|going to|how to|how do i|how can i|how do you|how should i) (?:think|reason|consider|reflect|ponder))"#
+  private static let thinkCue = try! NSRegularExpression(pattern: [
     // think or reason, then a depth word: "think it over", "think long and hard", "reason through this".
-    notARequest + #"\b(?:think|reason|mull)\b (?:(?:really|very|long and|it|this|that|things|everything|this one|about (?:it|this|that)(?: one)?|some|a (?:bit|little)|much) )*(?:hard|harder|carefully|deeply|deeper|through|over|more|thoroughly|critically|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#
+    #"\b(?:think|reason)\b"# + notARequest + #" (?:(?:really|very|long and|it|this|that|things|everything|this one|about (?:it|this|that)(?: one)?|some|a (?:bit|little)|much) )*(?:hard|harder|carefully|deeply|deeper|through|over|more(?! (?:\w+ly|like|as|of)\b)|thoroughly|critically|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#,
     // "think about this carefully", "consider this carefully before answering".
-    + #"|"# + notARequest + #"\b(?:think|reason|consider|reflect|ponder|mull)\b (?:about |on |over )?(?:[\w']+ ){0,4}?(?:carefully|deeply|hard|thoroughly|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#
-    + #"|\bcarefully (?:think|reason|consider|reflect|analy[sz]e|work through|go through|check|review|weigh)\b"#
-    // Effort phrases.
-    + #"|(?<!\bit )(?<!\bit'll )(?<!\bwill )(?<!\bwould )(?<!\bdoes )(?<!\bdid )(?<!\bshould )(?<!\bmight )(?<!\bmay )(?<!\busually )(?<!\balways )(?<!\boften )(?<!\bto )(?<!\bi )(?<!\bwe )(?<!\bthey )(?<!\bpeople )\btake (?:a (?:while|moment|minute|second|beat)|some time|a little time|time)(?= (?:to (?:think|consider|reason|reflect|answer|respond|work|figure)|and|before|with|on|over|thinking)\b|[,.;:!]|$)"#
-    + #"|\btake your time\b|\btake (?:as long as|all the time) you need\b|\b(?:don't|do not|dont) rush\b|\bno rush\b|\bbe thorough\b"#
-    + #"|\b(?:explain|answer|check|review|analy[sz]e|research|consider|go through|work through|respond)\b.{0,30}\bthoroughly\b|\bthoroughly (?:explain|check|review|analy[sz]e|research|consider|think)\b"#
-    + #"|\bstep[- ]by[- ]step\b|\bdouble[- ]?check (?:your|the answer|the math|everything|this|it|that|before)\b"#
-    + #"|\b(?:serious|real|careful|deep|some|more) thought\b|\bgo (?:deep|deeper)\b|\bmethodically\b|\bextended thinking\b"#
-    + #"|\bspend (?:some |a (?:little |bit of )?|more |a lot of )?time (?:thinking|reasoning)\b"#)
+    #"\b(?:think|reason|consider|reflect|ponder)\b"# + notARequest + #" (?:about |on |over )?(?:[\w']+ ){0,4}?(?:carefully|deeply|hard|thoroughly|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#,
+    #"\bmull (?:it|this|that) over\b|\bcarefully (?:think|reason|consider|reflect|analy[sz]e|work through|go through|check|review|weigh)\b"#,
+    // Effort phrases. "take a while" only as a request: not "it'll take a while" or "take a minute and read this".
+    #"\btake(?<!\b(?:it|it'll|will|would|does|did|can|could|should|might|may|usually|always|often|to|i|we|they|people) take) (?:a (?:while|moment|minute|second|beat)|some time|a little time|time)(?= (?:to (?:think|consider|reason|reflect|answer|respond|work|figure)|and (?:think|consider|reason|reflect|answer|respond|explain|work|figure|compare)|before|thinking)\b|[,.;:!]|$)"#,
+    #"\btake your time\b|\btake (?:as long as|all the time) you need\b|\b(?:don't|do not|dont) rush\b|\bno rush\b|\bbe thorough\b"#,
+    #"\b(?:explain|answer|check|review|analy[sz]e|research|consider|go through|work through|respond)\b.{0,30}\bthoroughly\b|\bthoroughly (?:explain|check|review|analy[sz]e|research|consider|think)\b"#,
+    #"\bstep[- ]by[- ]step\b|\bdouble[- ]?check (?:your|the answer|the math|everything|this|it|that|before)\b"#,
+    // "give this some serious thought", "put some real thought into this". Not "deep thought" or "some thought experiments".
+    #"\b(?:give|put)\b(?: [\w']+){0,3} (?:serious|real|careful|deep|some|more|a lot of) thought\b(?! (?:experiments?|leadership)\b)|\b(?:serious|real|careful|deep|more) thought (?:into|to) (?:this|it|that)\b"#,
+    #"\bgo (?:deep|deeper) (?:on|into)\b|\bmethodically\b|\bextended thinking\b|\bspend (?:some |a (?:little |bit of )?|more |a lot of )?time (?:thinking|reasoning)\b"#,
+  ].joined(separator: "|"))
 }
