@@ -43,7 +43,7 @@ struct LocalModelAssessment: Identifiable, Sendable {
   var id: String { model.id }
   /// Users can install compatible packages above the recommended memory budget.
   /// Disk space and runtime compatibility still determine whether installation
-  /// is possible; unsupported models remain available as file downloads.
+  /// is possible.
   var permitsMemoryOverride: Bool { fit == .memory && model.permitsMemoryOverride }
   var canInstall: Bool { fit.canRun || permitsMemoryOverride }
   /// Fast: at least 20 tok/s and a first token within 2 s on a 256-token prompt.
@@ -182,9 +182,6 @@ enum LocalModelSelector {
     func result(_ fit: LocalModelFit, _ reason: String) -> LocalModelAssessment {
       LocalModelAssessment(model: model, fit: fit, reason: reason, tokensPerSecond: speed,
                            timeToFirstToken: ttft, isMeasured: exact != nil)
-    }
-    if model.resolvedProfile == .miniCPMO45 {
-      return result(.unsupported, "MiniCPM-o 4.5 requires its dedicated runtime; its files can be downloaded for use in another app.")
     }
     guard model.supportsVision, (try? model.validate()) != nil, LocalModelCompatibility.supports(model) else {
       return result(.unsupported, "Requires an unsupported architecture, chat format, context, or llama.cpp build.")
