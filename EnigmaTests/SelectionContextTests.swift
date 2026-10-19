@@ -1020,7 +1020,8 @@ final class SelectionContextTests: XCTestCase {
     // /edit, and a /translate with no text of its own, use the selection again.
     for prompt in ["/edit Make it formal", "/translate", "/translate this", "/translate to Spanish",
                    "/translate this into Brazilian Portuguese", "/think /translate it to French.",
-                   "/translate translate this", "/translate translate it to Spanish"] {
+                   "/translate translate this", "/translate translate it to Spanish",
+                   "/translate can you translate this to Spanish", "/translate help me translate it into French"] {
       XCTAssertTrue(SelectionResponseMode.usesSelectionAgain(prompt: prompt), prompt)
     }
     for prompt in ["/translate Bonjour le monde", "/translate Guten Tag to English", "What does it mean?",

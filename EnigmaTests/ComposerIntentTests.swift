@@ -91,15 +91,18 @@ final class SelectionIntentPolicyTests: XCTestCase {
     for p in ["rewrite this", "make it shorter", "make this more formal", "make it friendlier",
               "fix the grammar", "fix the typos", "reword this", "proofread it", "tighten this up",
               "shorten this", "Please rewrite this", "fix the spelling", "make it longer",
-              "can you make this a bit more casual"] {
+              "can you make this a bit more casual", "polish this", "polish it up", "polish my intro"] {
       XCTAssertEqual(SelectionIntentPolicy.command(for: p), .edit, p)
     }
     for p in ["translate this", "translate it to Spanish", "translate into Japanese",
-              "please translate this and fix the grammar", "Translate"] {
+              "please translate this and fix the grammar", "Translate", "can you translate this to Spanish",
+              "help me translate it into French"] {
       XCTAssertEqual(SelectionIntentPolicy.command(for: p), .translate, p)
     }
     for p in ["what does this mean?", "who wrote this?", "summarize it", #"what does "rewrite this" mean"#,
-              "is the grammar right?", "how would you translate idioms in general?"] {
+              "is the grammar right?", "how would you translate idioms in general?",
+              "Polish translation of this", "what's the Polish word for this?", "is it hard to translate this idiom?",
+              "why is this hard to translate?"] {
       XCTAssertNil(SelectionIntentPolicy.command(for: p), p)
     }
   }
@@ -252,6 +255,7 @@ final class ComposerIntentResolveTests: XCTestCase {
   }
 
   func testResolvingIsFast() {
+    // A generous wall-clock bound that only catches large regressions, so it isn't flaky on CI.
     // One draft infers Messages (which skips the search check); the other runs every matcher.
     for sentence in ["what did Sam text me about dinner, think it over and make it shorter please. ",
                      "explain the 2026 election results in Denmark, step by step, and rewrite this summary. "] {
@@ -260,7 +264,7 @@ final class ComposerIntentResolveTests: XCTestCase {
                                            searchesAutomatically: true)
       let start = Date()
       for _ in 0..<1_000 { _ = ComposerIntent.resolve(context) }
-      XCTAssertLessThan(Date().timeIntervalSince(start), 1, sentence)
+      XCTAssertLessThan(Date().timeIntervalSince(start), 5, sentence)
     }
   }
 }

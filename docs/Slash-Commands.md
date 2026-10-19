@@ -101,7 +101,9 @@ Mac, with no extra model call.
 
 `/screen` and `/snapshot` are never recognized, because they capture your
 screen. "What's on my screen?" stays an ordinary question until you type the
-command.
+command. The request a typed `/screen` or `/snapshot` sends after
+its capture runs only the commands you typed: nothing else is recognized from
+its wording.
 
 ### Chips
 
