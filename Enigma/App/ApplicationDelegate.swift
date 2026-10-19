@@ -116,7 +116,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openRequestedSettings(_ notification: Notification) {
-    openSettings(destination: notification.object as? SettingsView.SettingsDestination)
+    openSettings(destination: SettingsView.SettingsDestination.requested(notification.object))
   }
 
   func openSettings(destination: SettingsView.SettingsDestination? = nil) {

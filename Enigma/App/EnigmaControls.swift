@@ -615,6 +615,7 @@ struct EnigmaSectionHeader: View {
       .padding(.top, 20)
       .padding(.bottom, 4)
       .accessibilityAddTraits(.isHeader)
+      .enigmaTestMarker(title)
   }
 }
 

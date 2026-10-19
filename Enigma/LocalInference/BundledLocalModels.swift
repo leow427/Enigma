@@ -1,130 +1,175 @@
 import Foundation
 
-// Exact GGUF and projector metadata reviewed 2026-09-10. See docs/Local-Model-Selection.md.
+/// One model in the catalogue and the quantizations Enigma ships for it. The
+/// shared facts are stated once; each package adds its exact file, size,
+/// SHA-256 and largest tensor (read from its GGUF header).
+struct LocalModelFamily: Sendable {
+  struct Package: Sendable {
+    let id: String, quantization: String, file: String
+    let byteCount: Int64, sha256: String, largestTensorBytes: Int64
+  }
+
+  let name: String
+  let publisher: String
+  let license: String
+  let profile: LocalMultimodalProfile
+  let qualityScore: Double
+  let summary: String
+  /// "owner/name" on Hugging Face; weights and projector always share it and the revision.
+  let repository: String
+  let revision: String
+  let projectorFile: String
+  let projectorByteCount: Int64
+  let projectorSHA256: String
+  let supportsAudio: Bool
+  let packages: [Package]
+
+  var parameters: Double { profile.parameters }
+  var activeParameters: Double { profile.activeParameters }
+
+  func url(_ file: String) -> URL {
+    URL(string: "https://huggingface.co/\(repository)/resolve/\(revision)/\(file)")!
+  }
+
+  var descriptors: [LocalModelDescriptor] {
+    let projector = VerifiedModelArtifact(url: url(projectorFile), expectedByteCount: projectorByteCount,
+                                          checksumSHA256: projectorSHA256)
+    return packages.map { package in
+      let memory = profile.memory(weights: package.byteCount, projector: projectorByteCount, context: 8192)
+      return LocalModelDescriptor(id: package.id, displayName: name, downloadURL: url(package.file),
+        expectedByteCount: package.byteCount, license: license, checksumSHA256: package.sha256,
+        revision: revision, quantization: package.quantization, architecture: profile.architecture,
+        chatTemplate: profile.chatTemplate, minimumLlamaBuild: LocalVisionRuntime.build,
+        estimatedRuntimeMemory: memory, largestTensorBytes: package.largestTensorBytes,
+        recommendedContextSize: 8192, qualityScore: qualityScore,
+        performanceClass: supportsAudio ? "Vision + Audio model · Text and images in Enigma" : "Vision",
+        parameterBillions: parameters, minimumMemory: memory, recommendedMemory: memory, projector: projector,
+        runtimeBuild: LocalVisionRuntime.build, publisher: publisher, modelSummary: summary,
+        inferenceProfile: profile, advertisedMemoryRange: nil, modelSupportsAudio: supportsAudio,
+        activeParameterBillions: activeParameters)
+    }
+  }
+}
+
+// Catalogue reviewed 2026-10-19 — see docs/Updating-the-Model-Catalogue.md.
+// Sizes and SHA-256 come from the Hugging Face tree API at each revision.
 enum BundledLocalModels {
-  static let models: [LocalModelDescriptor] = [
-    package(id: "smolvlm2-2.2b-q8_0", name: "SmolVLM2 2.2B", publisher: "Hugging Face", profile: .smolVLM2,
-      quantization: "Q8_0", minimumGiB: 16, quality: 65, memoryRange: "3.5–4.5", audio: false,
-      revision: "1bc3c9f74ceafd4c8d4411cc9cf188bba3798f91",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/ggml-org/SmolVLM2-2.2B-Instruct-GGUF/resolve/1bc3c9f74ceafd4c8d4411cc9cf188bba3798f91/SmolVLM2-2.2B-Instruct-Q8_0.gguf")!, expectedByteCount: 1927933984, checksumSHA256: "c850ffa51b0708be8911766e1d35e8e71365e987c8efb2513a7f237baade074f"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/ggml-org/SmolVLM2-2.2B-Instruct-GGUF/resolve/1bc3c9f74ceafd4c8d4411cc9cf188bba3798f91/mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf")!, expectedByteCount: 592523200, checksumSHA256: "ae07ea1facd07dd3230c4483b63e8cda96c6944ad2481f33d531f79e892dd024")),
-    package(id: "qwen3.5-4b-q4_k_m", name: "Qwen3.5 4B", publisher: "Alibaba / Qwen", profile: .qwen35_4B,
-      quantization: "Q4_K_M", minimumGiB: 16, quality: 80, memoryRange: "4–6", audio: false,
-      revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf")!, expectedByteCount: 2740937888, checksumSHA256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/mmproj-F16.gguf")!, expectedByteCount: 672423616, checksumSHA256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864")),
-    package(id: "qwen3.5-4b-q5_k_m", name: "Qwen3.5 4B", publisher: "Alibaba / Qwen", profile: .qwen35_4B,
-      quantization: "Q5_K_M", minimumGiB: 24, quality: 80, memoryRange: "4.5–6", audio: false,
-      revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q5_K_M.gguf")!, expectedByteCount: 3143656608, checksumSHA256: "8814232b85594dcd46c50e5b8b29324a7efe9e746edbe8a3d1df3d3fce7aad39"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/mmproj-F16.gguf")!, expectedByteCount: 672423616, checksumSHA256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864")),
-    package(id: "qwen3.5-4b-q8_0", name: "Qwen3.5 4B", publisher: "Alibaba / Qwen", profile: .qwen35_4B,
-      quantization: "Q8_0", minimumGiB: 32, quality: 80, memoryRange: "6–8", audio: false,
-      revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q8_0.gguf")!, expectedByteCount: 4482403488, checksumSHA256: "10cc391b403021dd11c614679d2fd92f611c3681d29e29651b717316965d61e1"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/mmproj-F16.gguf")!, expectedByteCount: 672423616, checksumSHA256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864")),
-    package(id: "qwen3.5-9b-q5_k_m", name: "Qwen3.5 9B", publisher: "Alibaba / Qwen", profile: .qwen35_9B,
-      quantization: "Q5_K_M", minimumGiB: 24, quality: 88, memoryRange: "8.5–11", audio: false,
-      revision: "3885219b6810b007914f3a7950a8d1b469d598a5",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q5_K_M.gguf")!, expectedByteCount: 6577841376, checksumSHA256: "dc2a39aef291f91a9116ad214058da0d86eb648743a124bd8c333787c4b9c91c"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/mmproj-F16.gguf")!, expectedByteCount: 918166080, checksumSHA256: "f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f")),
-    package(id: "gemma-4-e4b-q4_k_m", name: "Gemma 4 E4B", publisher: "Google", profile: .gemma4E4B,
-      quantization: "Q4_K_M", minimumGiB: 16, quality: 86, memoryRange: "7–9", audio: true,
-      revision: "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/bfc15c382204943c3a8fff0c750b94ae2364d7a3/gemma-4-E4B-it-Q4_K_M.gguf")!, expectedByteCount: 4977171584, checksumSHA256: "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/bfc15c382204943c3a8fff0c750b94ae2364d7a3/mmproj-F16.gguf")!, expectedByteCount: 990372672, checksumSHA256: "ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51")),
-    package(id: "gemma-4-12b-q5_k_m", name: "Gemma 4 12B", publisher: "Google", profile: .gemma4_12B,
-      quantization: "Q5_K_M", minimumGiB: 24, quality: 89, memoryRange: "10–13", audio: true,
-      revision: "fc034cfff751157913579611efad8462ac1be606",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q5_K_M.gguf")!, expectedByteCount: 8413576000, checksumSHA256: "32c554c7d1338a23837ae39b3db482213a4a642f96df3b2619f516a2375d16cd"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/mmproj-F16.gguf")!, expectedByteCount: 175115840, checksumSHA256: "91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e")),
-    package(id: "gemma-4-26b-a4b-q4_k_m", name: "Gemma 4 26B-A4B", publisher: "Google", profile: .gemma4A4B,
-      quantization: "Q4_K_M", minimumGiB: 32, quality: 93, memoryRange: "21–25", audio: false,
-      revision: "10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/bartowski/google_gemma-4-26B-A4B-it-GGUF/resolve/10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d/google_gemma-4-26B-A4B-it-Q4_K_M.gguf")!, expectedByteCount: 17035039872, checksumSHA256: "a07f72221e8e3f77455ab0d7f7652d01a9f63c262b954aa6932a53275a0e895a"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/bartowski/google_gemma-4-26B-A4B-it-GGUF/resolve/10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d/mmproj-google_gemma-4-26B-A4B-it-f16.gguf")!, expectedByteCount: 1193058528, checksumSHA256: "41cdabd1e8066e983ee6c288eb0117777376223ee0279cadcd67b2295e4d975f")),
-    package(id: "ministral-3-8b-q4_k_m", name: "Ministral 3 8B", publisher: "Mistral AI", profile: .ministral8B,
-      quantization: "Q4_K_M", minimumGiB: 16, quality: 84, memoryRange: "7–10", audio: false,
-      revision: "0102285ad796bd99af90f58de616092e5630e970",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF/resolve/0102285ad796bd99af90f58de616092e5630e970/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf")!, expectedByteCount: 5198911904, checksumSHA256: "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF/resolve/0102285ad796bd99af90f58de616092e5630e970/Ministral-3-8B-Instruct-2512-BF16-mmproj.gguf")!, expectedByteCount: 858283168, checksumSHA256: "e799380f596d152ff4026a72d409ecc89c96cd437676804bc3f2ab3bd6b486ec")),
-    package(id: "ministral-3-14b-q5_k_m", name: "Ministral 3 14B", publisher: "Mistral AI", profile: .ministral14B,
-      quantization: "Q5_K_M", minimumGiB: 24, quality: 90, memoryRange: "12–15", audio: false,
-      revision: "74fac473c43357d7fb2671713608183cc72496d0",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-Q5_K_M.gguf")!, expectedByteCount: 9621091904, checksumSHA256: "f16fef77021df0d4c22e69140a2038478370492f51867b6237699918ae711000"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf")!, expectedByteCount: 879258784, checksumSHA256: "ab7616148b7081030fd38e410c9213ce8346a8b0588291c8ca279058e78cfae7")),
-    package(id: "ministral-3-14b-q8_0", name: "Ministral 3 14B", publisher: "Mistral AI", profile: .ministral14B,
-      quantization: "Q8_0", minimumGiB: 32, quality: 90, memoryRange: "17–21", audio: false,
-      revision: "74fac473c43357d7fb2671713608183cc72496d0",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-Q8_0.gguf")!, expectedByteCount: 14359836224, checksumSHA256: "8122acc8df446039d41dd9650dabb024d3c6b8dae6eff336d28ac2bddd3bbc13"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF/resolve/74fac473c43357d7fb2671713608183cc72496d0/Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf")!, expectedByteCount: 879258784, checksumSHA256: "ab7616148b7081030fd38e410c9213ce8346a8b0588291c8ca279058e78cfae7")),
-    package(id: "minicpm-o-4.5-q4_k_m", name: "MiniCPM-o 4.5", publisher: "OpenBMB", profile: .miniCPMO45,
-      quantization: "Q4_K_M", minimumGiB: 16, quality: 87, memoryRange: "8–11", audio: true,
-      revision: "db25077c33951fe163b42986fba0132e279872a2",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/openbmb/MiniCPM-o-4_5-gguf/resolve/db25077c33951fe163b42986fba0132e279872a2/MiniCPM-o-4_5-Q4_K_M.gguf")!, expectedByteCount: 5026714400, checksumSHA256: "1237a97ee081b8abebc47aa7dad565701e8f5f904cdc92f6723ac4281bbc0932"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/openbmb/MiniCPM-o-4_5-gguf/resolve/db25077c33951fe163b42986fba0132e279872a2/vision/MiniCPM-o-4_5-vision-F16.gguf")!, expectedByteCount: 1095113184, checksumSHA256: "1453678cc4e4fe18de241952962e234f265cb8dda780773526103ab8ba82f421")),
-    package(id: "minicpm-o-4.5-q5_k_m", name: "MiniCPM-o 4.5", publisher: "OpenBMB", profile: .miniCPMO45,
-      quantization: "Q5_K_M", minimumGiB: 24, quality: 87, memoryRange: "9–13", audio: true,
-      revision: "db25077c33951fe163b42986fba0132e279872a2",
-      model: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/openbmb/MiniCPM-o-4_5-gguf/resolve/db25077c33951fe163b42986fba0132e279872a2/MiniCPM-o-4_5-Q5_K_M.gguf")!, expectedByteCount: 5849946912, checksumSHA256: "5d32e7569f2ef9c61de81a4fba3890a225240a5cf753e0348f5889dbf44ea434"),
-      projector: VerifiedModelArtifact(url: URL(string: "https://huggingface.co/openbmb/MiniCPM-o-4_5-gguf/resolve/db25077c33951fe163b42986fba0132e279872a2/vision/MiniCPM-o-4_5-vision-F16.gguf")!, expectedByteCount: 1095113184, checksumSHA256: "1453678cc4e4fe18de241952962e234f265cb8dda780773526103ab8ba82f421")),
+  static let families: [LocalModelFamily] = [
+    LocalModelFamily(name: "Qwen3.5 2B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen35_2B,
+      // No index score; placed below Qwen3.5 4B by size (assumption).
+      qualityScore: 8,
+      summary: "A compact model for quick questions and screenshots on smaller Macs.",
+      repository: "unsloth/Qwen3.5-2B-GGUF", revision: "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+      projectorFile: "mmproj-F16.gguf", projectorByteCount: 668227264,
+      projectorSHA256: "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7", supportsAudio: false,
+      packages: [
+        .init(id: "qwen3.5-2b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.5-2B-Q4_K_M.gguf", byteCount: 1280835840,
+              sha256: "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223", largestTensorBytes: 417177600),
+        .init(id: "qwen3.5-2b-q8_0", quantization: "Q8_0", file: "Qwen3.5-2B-Q8_0.gguf", byteCount: 2012012800,
+              sha256: "1b04acba824817554f4ce23639bc8495ff70453b8fcb047900c731521021f2c1", largestTensorBytes: 540344320),
+      ]),
+    LocalModelFamily(name: "Qwen3.5 4B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen35_4B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: 13 (estimate); MMMU-Pro 66.3.
+      qualityScore: 13,
+      summary: "Efficient reasoning, writing and screenshot understanding.",
+      repository: "unsloth/Qwen3.5-4B-GGUF", revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
+      projectorFile: "mmproj-F16.gguf", projectorByteCount: 672423616,
+      projectorSHA256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864", supportsAudio: false,
+      packages: [
+        .init(id: "qwen3.5-4b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.5-4B-Q4_K_M.gguf", byteCount: 2740937888,
+              sha256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4", largestTensorBytes: 521472000),
+        .init(id: "qwen3.5-4b-q5_k_m", quantization: "Q5_K_M", file: "Qwen3.5-4B-Q5_K_M.gguf", byteCount: 3143656608,
+              sha256: "8814232b85594dcd46c50e5b8b29324a7efe9e746edbe8a3d1df3d3fce7aad39", largestTensorBytes: 521472000),
+        .init(id: "qwen3.5-4b-q8_0", quantization: "Q8_0", file: "Qwen3.5-4B-Q8_0.gguf", byteCount: 4482403488,
+              sha256: "10cc391b403021dd11c614679d2fd92f611c3681d29e29651b717316965d61e1", largestTensorBytes: 675430400),
+      ]),
+    LocalModelFamily(name: "Qwen3.5 9B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen35_9B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: raised from 11 so the
+      // larger model of the line ranks above Qwen3.5 4B; MMMU-Pro 70.1.
+      qualityScore: 13.5,
+      summary: "More capacity for detailed reasoning and document understanding.",
+      repository: "unsloth/Qwen3.5-9B-GGUF", revision: "3885219b6810b007914f3a7950a8d1b469d598a5",
+      projectorFile: "mmproj-F16.gguf", projectorByteCount: 918166080,
+      projectorSHA256: "f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f", supportsAudio: false,
+      packages: [
+        .init(id: "qwen3.5-9b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.5-9B-Q4_K_M.gguf", byteCount: 5680522464,
+              sha256: "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8", largestTensorBytes: 834355200),
+        .init(id: "qwen3.5-9b-q5_k_m", quantization: "Q5_K_M", file: "Qwen3.5-9B-Q5_K_M.gguf", byteCount: 6577841376,
+              sha256: "dc2a39aef291f91a9116ad214058da0d86eb648743a124bd8c333787c4b9c91c", largestTensorBytes: 834355200),
+        .init(id: "qwen3.5-9b-q8_0", quantization: "Q8_0", file: "Qwen3.5-9B-Q8_0.gguf", byteCount: 9527502048,
+              sha256: "809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4", largestTensorBytes: 1080688640),
+      ]),
+    LocalModelFamily(name: "Gemma 4 12B", publisher: "Google", license: "Apache-2.0", profile: .gemma4_12B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: 14 (estimate); MMMU-Pro 69.1.
+      qualityScore: 14,
+      summary: "Stronger reasoning and image understanding for demanding questions.",
+      repository: "unsloth/gemma-4-12b-it-GGUF", revision: "fc034cfff751157913579611efad8462ac1be606",
+      projectorFile: "mmproj-F16.gguf", projectorByteCount: 175115840,
+      projectorSHA256: "91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e", supportsAudio: true,
+      packages: [
+        .init(id: "gemma-4-12b-q4_k_m", quantization: "Q4_K_M", file: "gemma-4-12b-it-Q4_K_M.gguf", byteCount: 7121861440,
+              sha256: "0a270ec9fe6b34f4a0d33992b6135117b484ebc4766ab76b51d4ae8c457e4c42", largestTensorBytes: 566231040),
+        .init(id: "gemma-4-12b-q5_k_m", quantization: "Q5_K_M", file: "gemma-4-12b-it-Q5_K_M.gguf", byteCount: 8413576000,
+              sha256: "32c554c7d1338a23837ae39b3db482213a4a642f96df3b2619f516a2375d16cd", largestTensorBytes: 692060160),
+        .init(id: "gemma-4-12b-q8_0", quantization: "Q8_0", file: "gemma-4-12b-it-Q8_0.gguf", byteCount: 12669647680,
+              sha256: "f20e7ff1be28c283eeeb18fc895733791c56a5851d5cd3fe9691b7f7d12afa72", largestTensorBytes: 1069547520),
+      ]),
+    LocalModelFamily(name: "Gemma 4 26B-A4B", publisher: "Google", license: "Apache-2.0", profile: .gemma4A4B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: 17 (estimate); MMMU-Pro 73.8.
+      qualityScore: 17,
+      summary: "A larger mixture-of-experts model for complex text and visual reasoning.",
+      repository: "bartowski/google_gemma-4-26B-A4B-it-GGUF", revision: "10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d",
+      projectorFile: "mmproj-google_gemma-4-26B-A4B-it-f16.gguf", projectorByteCount: 1193058528,
+      projectorSHA256: "41cdabd1e8066e983ee6c288eb0117777376223ee0279cadcd67b2295e4d975f", supportsAudio: false,
+      packages: [
+        .init(id: "gemma-4-26b-a4b-q4_k_m", quantization: "Q4_K_M", file: "google_gemma-4-26B-A4B-it-Q4_K_M.gguf",
+              byteCount: 17035039872, sha256: "a07f72221e8e3f77455ab0d7f7652d01a9f63c262b954aa6932a53275a0e895a",
+              largestTensorBytes: 605552640),
+        .init(id: "gemma-4-26b-a4b-q5_k_m", quantization: "Q5_K_M", file: "google_gemma-4-26B-A4B-it-Q5_K_M.gguf",
+              byteCount: 19319198848, sha256: "6b4f8074239f72543997a950ff6ae4509553c599f5b432748309ff3438416493",
+              largestTensorBytes: 605552640),
+        .init(id: "gemma-4-26b-a4b-q8_0", quantization: "Q8_0", file: "google_gemma-4-26B-A4B-it-Q8_0.gguf",
+              byteCount: 26859861120, sha256: "1bb7fdb37fbd542ba972b3eb83ae87752bb9063aff560402e0e2f64235c85226",
+              largestTensorBytes: 784334848),
+      ]),
+    LocalModelFamily(name: "Qwen3.6 35B-A3B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen36_35BA3B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: 18.
+      qualityScore: 18,
+      summary: "A large mixture-of-experts model that stays quick on high-memory Macs.",
+      repository: "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF", revision: "5c2410d71524f4f72b023ce8daf7a80528226d5f",
+      projectorFile: "mmproj-Qwen_Qwen3.6-35B-A3B-f16.gguf", projectorByteCount: 899283296,
+      projectorSHA256: "67924785ff1885c2b34c15d0e52979e991acca64221694ba2cc3a6474a053fb4", supportsAudio: false,
+      packages: [
+        .init(id: "qwen3.6-35b-a3b-q4_k_m", quantization: "Q4_K_M", file: "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+              byteCount: 22285080192, sha256: "b46fedd33e0bfb0cae308aa3c158d0a4b2c4a1d2185a1ed6f093cdaf39064772",
+              largestTensorBytes: 417177600),
+        .init(id: "qwen3.6-35b-a3b-q5_k_m", quantization: "Q5_K_M", file: "Qwen_Qwen3.6-35B-A3B-Q5_K_M.gguf",
+              byteCount: 25913185920, sha256: "ec438d1326eb11d8bb94785c54739cd4b60b01ae32bd8532e232a046b19d296d",
+              largestTensorBytes: 417177600),
+        .init(id: "qwen3.6-35b-a3b-q8_0", quantization: "Q8_0", file: "Qwen_Qwen3.6-35B-A3B-Q8_0.gguf",
+              byteCount: 37812647552, sha256: "bc57de096ec30e45773aa86103f35a8a32cea01f2193a53a3c636d618e4434e9",
+              largestTensorBytes: 540344320),
+      ]),
+    LocalModelFamily(name: "Qwen3.8 27B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen38_27B,
+      // Artificial Analysis Intelligence Index v4.3.2, October 2026: 34 at xhigh reasoning; 28 at medium.
+      qualityScore: 28,
+      summary: "The strongest model here, for detailed reasoning on Max and Ultra chips.",
+      repository: "unsloth/Qwen3.8-27B-GGUF", revision: "4ca720788d1e01f1bff70c033e0d0028fd02e502",
+      projectorFile: "mmproj-F16.gguf", projectorByteCount: 927607488,
+      projectorSHA256: "cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e", supportsAudio: false,
+      packages: [
+        // The repository's only Q4 and Q5 files are Unsloth Dynamic quantizations.
+        .init(id: "qwen3.8-27b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.8-27B-UD-Q4_K_M.gguf",
+              byteCount: 16464440224, sha256: "322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482",
+              largestTensorBytes: 1042944000),
+        .init(id: "qwen3.8-27b-q5_k_m", quantization: "Q5_K_M", file: "Qwen3.8-27B-UD-Q5_K_M.gguf",
+              byteCount: 19771509664, sha256: "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+              largestTensorBytes: 1042944000),
+        .init(id: "qwen3.8-27b-q8_0", quantization: "Q8_0", file: "Qwen3.8-27B-Q8_0.gguf",
+              byteCount: 29047086048, sha256: "a680f44a06920e5d689774823782006aa3acc8db95750323373b24139b67e348",
+              largestTensorBytes: 1350860800),
+      ]),
   ]
 
-  private static func summary(for profile: LocalMultimodalProfile) -> String {
-    switch profile {
-    case .smolVLM2: "A compact model for quick image questions and everyday conversation."
-    case .qwen35_4B: "Efficient reasoning, writing and screenshot understanding."
-    case .qwen35_9B: "More capacity for detailed reasoning and document understanding."
-    case .gemma4E4B: "A versatile model for everyday writing, reasoning and visual questions."
-    case .gemma4_12B: "Stronger reasoning and image understanding for demanding questions."
-    case .gemma4A4B: "A larger mixture-of-experts model for complex text and visual reasoning."
-    case .ministral8B: "Multilingual conversation, instruction following and screenshot questions."
-    case .ministral14B: "Richer explanations and visual reasoning, with more memory required."
-    case .miniCPMO45: "An omnimodal model for documents, visual reasoning and spoken conversation."
-    default: "A model for conversation and visual questions."
-    }
-  }
-
-  private static func package(id: String, name: String, publisher: String, profile: LocalMultimodalProfile,
-    quantization: String, minimumGiB: Int64, quality: Double, memoryRange: String, audio: Bool,
-    revision: String, model: VerifiedModelArtifact, projector: VerifiedModelArtifact) -> LocalModelDescriptor {
-    let memory = profile.memory(weights: model.expectedByteCount, projector: projector.expectedByteCount, context: 8192)
-    return LocalModelDescriptor(id: id, displayName: name, downloadURL: model.url,
-      expectedByteCount: model.expectedByteCount, license: "Apache-2.0", checksumSHA256: model.checksumSHA256,
-      revision: revision, quantization: quantization, architecture: profile.architecture,
-      chatTemplate: profile.chatTemplate, minimumLlamaBuild: LocalVisionRuntime.build,
-      estimatedRuntimeMemory: memory,
-      largestTensorBytes: (profile.architecture == "gemma4" ? 3 : 1) * LocalHardwareProfile.gib,
-      recommendedContextSize: 8192, qualityScore: quality,
-      performanceClass: audio ? "Vision + Audio model · Text and images in Enigma" : "Vision",
-      parameterBillions: profile.parameters, minimumMemory: max(memory, minimumGiB * LocalHardwareProfile.gib),
-      recommendedMemory: max(memory, minimumGiB * LocalHardwareProfile.gib), projector: projector,
-      runtimeBuild: LocalVisionRuntime.build, publisher: publisher,
-      modelSummary: summary(for: profile), inferenceProfile: profile,
-      advertisedMemoryRange: memoryRange, modelSupportsAudio: audio)
-  }
-}
-
-/// Hardware catalogue membership is editorial; admission still checks actual resources.
-enum LocalModelWeight: String, CaseIterable, Sendable {
-  case lightweight = "Lightweight", middleweight = "Middleweight", heavyweight = "Heavyweight"
-}
-
-enum LocalModelTiers {
-  static func choices(memory: Int64) -> [(LocalModelWeight, [String])] {
-    let gib = LocalHardwareProfile.gib
-    if memory < 24 * gib {
-      return [(.lightweight, ["smolvlm2-2.2b-q8_0"]),
-        (.middleweight, ["qwen3.5-4b-q4_k_m", "gemma-4-e4b-q4_k_m"]),
-        (.heavyweight, ["ministral-3-8b-q4_k_m", "minicpm-o-4.5-q4_k_m"])]
-    }
-    if memory < 32 * gib {
-      return [(.lightweight, ["qwen3.5-4b-q5_k_m"]),
-        (.middleweight, ["qwen3.5-9b-q5_k_m", "minicpm-o-4.5-q5_k_m"]),
-        (.heavyweight, ["gemma-4-12b-q5_k_m", "ministral-3-14b-q5_k_m"])]
-    }
-    return [(.lightweight, ["qwen3.5-4b-q8_0"]),
-      (.middleweight, ["minicpm-o-4.5-q5_k_m", "gemma-4-12b-q5_k_m"]),
-      (.heavyweight, ["ministral-3-14b-q8_0", "gemma-4-26b-a4b-q4_k_m"])]
-  }
+  static let models: [LocalModelDescriptor] = families.flatMap(\.descriptors)
 }

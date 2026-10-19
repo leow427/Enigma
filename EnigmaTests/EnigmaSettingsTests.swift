@@ -230,7 +230,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture.settings(.general).enigmaTheme(.paper), test: self)
     try await waitForUI("General", in: host.view) { host.shows("Settings page General") }
-    for destination in [SettingsView.SettingsDestination.cloud, .local, .discover, .selection, .general] {
+    for destination in [SettingsView.SettingsDestination.cloud, .local, .selection, .general] {
       NotificationCenter.default.post(name: .settingsDestinationRequested, object: destination)
       // The page before it fades out, then only the requested page is left.
       try await waitForUI("only the \(destination) page", in: host.view) {
@@ -242,6 +242,22 @@ final class EnigmaSettingsTests: XCTestCase {
     NotificationCenter.default.post(name: .settingsDestinationRequested, object: "not a destination")
     try await Task.sleep(for: .milliseconds(50))
     XCTAssertTrue(host.shows("Settings page General"), "Other objects are ignored")
+    NotificationCenter.default.post(name: .settingsDestinationRequested, object: "discover")
+    try await waitForUI("Local models for the removed Discover page", in: host.view) {
+      SettingsView.SettingsDestination.allCases.allSatisfy {
+        host.shows("Settings page \($0.title)") == ($0 == .local)
+      }
+    }
+  }
+
+  func testDiscoverIsGoneAndItsOldNameOpensLocalModels() {
+    typealias Destination = SettingsView.SettingsDestination
+    XCTAssertEqual(Destination.allCases.map(\.rawValue), ["general", "local", "cloud", "selection"])
+    XCTAssertEqual(Destination.requested("discover"), .local)
+    XCTAssertEqual(Destination.requested("local"), .local)
+    XCTAssertEqual(Destination.requested(Destination.cloud), .cloud)
+    XCTAssertNil(Destination.requested("not a destination"))
+    XCTAssertNil(Destination.requested(nil))
   }
 
   @MainActor
@@ -472,6 +488,88 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   @MainActor
+  func testLocalModelsPageHasOneSetOfChoices() async throws {
+    let fixture = try await Fixture(test: self)
+    let recommended = try XCTUnwrap(fixture.advisor.recommendations(installedModels: []).recommended)
+    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the recommended package", in: host.view) {
+      host.shows("Install \(recommended.model.displayName)")
+    }
+    for shown in ["For this Mac", "All models", "Check this Mac", "Check performance", "267 GB/s"] {
+      XCTAssertTrue(host.shows(shown), shown)
+    }
+    for gone in ["Detect Mac capabilities", "Refresh recommendations", "Download files", "Lightweight",
+                 "Models for other memory sizes", "On this Mac"] {
+      XCTAssertFalse(host.shows(gone), gone)
+    }
+  }
+
+  @MainActor
+  func testCheckThisMacRemeasuresBandwidth() async throws {
+    let fixture = try await Fixture(test: self)
+    // The page starts the advisor once; start it here so that first check,
+    // which reuses the saved bandwidth, is over before the press.
+    await fixture.advisor.start(installedModels: [], presentOnboarding: false)
+    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("Check this Mac", in: host.view) {
+      host.shows("Check this Mac") && host.isEnabled("Check this Mac") == true
+    }
+    let before = fixture.probe.count
+    try host.press("Check this Mac")
+    try await waitForUI("the bandwidth test", in: host.view) {
+      fixture.probe.count > before && !fixture.advisor.isDetecting
+    }
+    XCTAssertEqual(fixture.probe.count, before + 1)
+  }
+
+  @MainActor
+  func testBandwidthStat() {
+    var mac = hardware(memory: 32)
+    mac.measuredBandwidth = 267.4
+    XCTAssertTrue(LocalModelSettingsLogic.bandwidthStat(mac) == ("267 GB/s", "memory bandwidth"))
+    mac.measuredBandwidth = nil
+    XCTAssertTrue(LocalModelSettingsLogic.bandwidthStat(mac) == ("Not measured", "memory bandwidth"))
+  }
+
+  @MainActor
+  func testOnThisMacKeepsPackagesThatLeftTheCatalogue() async throws {
+    let file = URL(fileURLWithPath: "/tmp/enigma-settings-fixture.gguf")
+    let legacy = LocalModel(id: "gemma-4-12b-it-qat-q4_0-gguf", displayName: "Google Gemma 4 12B", fileURL: file,
+      visionConfiguration: LocalVisionConfiguration(projectorURL: file,
+        serverExecutableURL: URL(fileURLWithPath: "/bin/echo")))
+    let engine = SettingsRecordingEngine(installed: [legacy])
+    let fixture = try await Fixture(test: self, engine: engine)
+    await fixture.chat.refreshInstalledModel()
+    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the installed package", in: host.view) { host.shows("Use Google Gemma 4 12B") }
+    XCTAssertTrue(host.shows("On this Mac"))
+    XCTAssertTrue(host.shows("Delete Google Gemma 4 12B"))
+    XCTAssertEqual(LocalModelSettingsLogic.installedSubtitle(for: legacy, inCatalogue: false),
+                   "Legacy/imported image model · Select to use for all requests")
+    let current = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    let installed = LocalModel(id: current.id, displayName: current.displayName, fileURL: file,
+                               catalogDescriptor: current)
+    XCTAssertEqual(LocalModelSettingsLogic.installedSubtitle(for: installed, inCatalogue: true), "Q5_K_M · Google")
+  }
+
+  @MainActor
+  func testInstalledPackageNeedingUpdateCanStillBeUsed() async throws {
+    let mac = hardware(memory: 32, bandwidth: 267)
+    let assessment = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: mac).assessments
+      .first { $0.id == "gemma-4-12b-q5_k_m" })
+    var stale = installedModel(for: assessment)
+    stale.visionConfiguration?.packageRevision = "old"
+    let engine = SettingsRecordingEngine(installed: [stale])
+    let fixture = try await Fixture(test: self, engine: engine)
+    await fixture.chat.refreshInstalledModel()
+    XCTAssertEqual(fixture.advisor.recommendations(installedModels: fixture.chat.installedModels).recommended?.id,
+                   assessment.id)
+    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the Update button", in: host.view) { host.shows("Update Gemma 4 12B") }
+    XCTAssertTrue(host.shows("Use Gemma 4 12B"), "The installed copy stays usable")
+  }
+
+  @MainActor
   func testUseAndDeleteReachTheEngineAndDeleteAsksFirst() async throws {
     let recommendations = LocalModelSelector.select(manifest: .bundled, hardware: hardware(memory: 32))
     let recommended = try XCTUnwrap(recommendations.recommended)
@@ -506,42 +604,6 @@ final class EnigmaSettingsTests: XCTestCase {
       deletions = await engine.deletions
     }
     XCTAssertEqual(deletions, [recommended.id])
-  }
-
-  @MainActor
-  func testDownloadFilesOpensTheSheetAndDownloadsTheSelection() async throws {
-    let fixture = try await Fixture(test: self)
-    let target = try XCTUnwrap(fixture.advisor.recommendations(installedModels: []).assessments.first {
-      LocalModelSettingsLogic.managerAction(for: $0, installed: [], activeID: nil, isBusy: false).action == .downloadFiles
-    }, "A model this Mac can only download as files")
-    let listing = HuggingFaceModelListing(id: target.model.huggingFaceRepositoryID)
-    let revision = String(repeating: "a", count: 40)
-    let repository = HuggingFaceRepository(id: listing.id, sha: revision, siblings: [
-      HuggingFaceRepositoryFile(rfilename: "model-Q4_K_M.gguf", size: 4, blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "README.md", size: 4, blobId: revision),
-    ])
-    let folder = FileManager.default.temporaryDirectory.appending(path: "EnigmaSettingsDownload-\(UUID())")
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    addTeardownBlock { try? FileManager.default.removeItem(at: folder) }
-    let transferred = TransferLog()
-    fixture.sources = HuggingFaceDownloadSources(loadRepository: { _ in repository }, chooseFolder: { _ in folder })
-    fixture.downloads = HuggingFaceModelDownloads(downloader: HuggingFaceFileDownloader { file, _, _, _ in
-      transferred.append(file.rfilename)
-    })
-    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    let button = "Download files \(target.model.displayName)"
-    try await waitForUI("the Download files button", in: host.view) { host.shows(button) }
-    try host.press(button)
-    try await waitForUI("the download sheet with its files", in: host.view, timeout: .seconds(8)) {
-      host.shows("Download sheet \(listing.name)") && host.shows("model-Q4_K_M.gguf switch")
-    }
-    try host.press("Download selected files")
-    try await waitForUI("the download to finish", in: host.view, timeout: .seconds(8)) {
-      fixture.downloads.downloadedFolder != nil
-    }
-    XCTAssertEqual(transferred.files, Array(repository.suggestedFiles).sorted())
-    XCTAssertTrue(fixture.downloads.downloadedFolder?.path.hasPrefix(folder.path) == true,
-                  "Files go to the chosen folder")
   }
 
   /// A push button with `title` in any window but the host's, like an alert's.
@@ -702,53 +764,18 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(Logic.managerAction(for: assessment, installed: [current], activeID: assessment.id, isBusy: false),
                    LocalModelActionState(action: .use(isSelected: true), isEnabled: false))
     XCTAssertEqual(Logic.managerAction(for: assessment, installed: [stale], activeID: nil, isBusy: false).action, .update)
-    XCTAssertEqual(Logic.packageAction(for: assessment, installed: [stale], activeID: nil, isBusy: false).action, .update)
-    XCTAssertEqual(Logic.packageAction(for: assessment, installed: [current], activeID: assessment.id, isBusy: false),
-                   LocalModelActionState(action: .use(isSelected: true), isEnabled: false))
-    XCTAssertEqual(Logic.featuredAction(for: assessment.model, assessment: nil, installed: [], activeID: nil,
-                                        isBusy: false),
-                   LocalModelActionState(action: .install, isEnabled: false), "Waits for this Mac's assessment")
-
-    let small = LocalModelSelector.select(manifest: .bundled, hardware: hardware(memory: 8))
-    if let tooBig = small.assessments.first(where: { !$0.canInstall }) {
-      XCTAssertEqual(Logic.managerAction(for: tooBig, installed: [], activeID: nil, isBusy: true),
-                     LocalModelActionState(action: .downloadFiles, isEnabled: true))
-      XCTAssertEqual(Logic.featuredAction(for: tooBig.model, assessment: tooBig, installed: [], activeID: nil,
-                                          isBusy: false).action, .downloadFiles)
-      XCTAssertNotNil(Logic.fitWarning(for: tooBig))
-    }
-    XCTAssertNil(Logic.fitWarning(for: assessment))
-  }
-
-  @MainActor
-  func testDiscoverPackagesSkipTheFeaturedModelAndFollowTheSearch() {
-    let assessments = LocalModelSelector.select(manifest: .bundled, hardware: hardware(memory: 64)).assessments
-    let all = LocalModelSettingsLogic.discoverPackages(assessments, scope: .all, search: "")
-    XCTAssertFalse(all.contains { $0.id == LocalModelDiscovery.featuredModelID })
-    XCTAssertTrue(LocalModelSettingsLogic.discoverPackages(assessments, scope: .audio, search: "")
-      .allSatisfy { $0.model.modelSupportsAudio == true })
-    if let first = all.first {
-      let found = LocalModelSettingsLogic.discoverPackages(assessments, scope: .all,
-                                                           search: "  \(first.model.displayName.lowercased()) ")
-      XCTAssertTrue(found.contains { $0.id == first.id })
-    }
-    XCTAssertTrue(LocalModelSettingsLogic.discoverPackages(assessments, scope: .all, search: "zzz-none").isEmpty)
-    XCTAssertTrue(LocalModelSettingsLogic.showsDiscoverOperation(state: .failed("x"), isBusy: false))
-    XCTAssertFalse(LocalModelSettingsLogic.showsDiscoverOperation(state: .idle, isBusy: false))
-  }
-
-  func testDownloadSheetListsWeightsFirstAndTotalsTheSelection() {
-    let revision = String(repeating: "a", count: 40)
-    let repository = HuggingFaceRepository(id: "org/model", sha: revision, siblings: [
-      HuggingFaceRepositoryFile(rfilename: "README.md", size: 4, blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "model-Q8_0.gguf", size: 800, blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "model-Q4_K_M.gguf", size: 400, blobId: revision),
-    ])
-    XCTAssertEqual(repository.listedFiles(matching: "").map(\.rfilename),
-                   ["model-Q4_K_M.gguf", "model-Q8_0.gguf", "README.md"])
-    XCTAssertEqual(repository.listedFiles(matching: "q4").map(\.rfilename), ["model-Q4_K_M.gguf"])
-    XCTAssertEqual(repository.byteCount(of: ["README.md", "model-Q8_0.gguf"]), 804)
-    XCTAssertEqual(repository.byteCount(of: []), 0)
+    var full = hardware(memory: 32)
+    full.availableDiskBytes = 0
+    let noRoom = LocalModelSelector.assess(assessment.model, hardware: full)
+    XCTAssertFalse(noRoom.canInstall)
+    XCTAssertEqual(Logic.managerAction(for: noRoom, installed: [], activeID: nil, isBusy: false),
+                   LocalModelActionState(action: .install, isEnabled: false))
+    let largest = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "qwen3.8-27b-q8_0" })
+    let overBudget = LocalModelSelector.assess(largest, hardware: hardware(memory: 32))
+    XCTAssertEqual(overBudget.fit, .memory)
+    XCTAssertTrue(overBudget.permitsMemoryOverride)
+    XCTAssertEqual(Logic.managerAction(for: overBudget, installed: [], activeID: nil, isBusy: false),
+                   LocalModelActionState(action: .install, isEnabled: true))
   }
 
   @MainActor
@@ -815,27 +842,6 @@ final class EnigmaSettingsTests: XCTestCase {
       try save(try EnigmaSnapshot.capture(host.view), name: "settings-menu-\(appearance.rawValue)")
       host.close()
     }
-    // The download sheet with a real file list.
-    let revision = String(repeating: "a", count: 40)
-    let repository = HuggingFaceRepository(id: "bartowski/google_gemma-4-26B-A4B-it-GGUF", sha: revision, siblings: [
-      HuggingFaceRepositoryFile(rfilename: "google_gemma-4-26B-A4B-it-Q4_K_M.gguf", size: 17_035_039_872,
-                                blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "google_gemma-4-26B-A4B-it-Q8_0.gguf", size: 28_000_000_000,
-                                blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "mmproj-google_gemma-4-26B-A4B-it-f16.gguf", size: 1_193_058_528,
-                                blobId: revision),
-      HuggingFaceRepositoryFile(rfilename: "README.md", size: 4_096, blobId: revision),
-    ])
-    let loaded = LoadFlag()
-    var frames = 0
-    try await EnigmaSnapshot.save("settings-download-sheet", size: HuggingFaceDownloadSheet.size, until: {
-      if loaded.value { frames += 1 }
-      return frames > 8
-    }) {
-      HuggingFaceDownloadSheet(model: HuggingFaceModelListing(id: repository.id),
-        sources: HuggingFaceDownloadSources(loadRepository: { _ in loaded.value = true; return repository }),
-        downloads: HuggingFaceModelDownloads())
-    }
   }
 
   @MainActor
@@ -860,11 +866,11 @@ final class EnigmaSettingsTests: XCTestCase {
     return defaults
   }
 
-  private func hardware(memory: Int) -> LocalHardwareProfile {
+  private func hardware(memory: Int, bandwidth: Double? = nil) -> LocalHardwareProfile {
     LocalHardwareProfile(physicalMemory: Int64(memory) * gib, isAppleSilicon: true, hasMetal: true,
       hasUnifiedMemory: true, chip: "Apple M3 Pro", device: "MacBook Pro", cpuCount: 12, performanceCPUCount: 6,
       availableDiskBytes: 212 * gib, metalRecommendedWorkingSet: nil, metalMaximumBufferLength: 8 * gib,
-      lowPowerMode: false)
+      lowPowerMode: false, measuredBandwidth: bandwidth)
   }
 
   private func installedModel(for assessment: LocalModelAssessment) -> LocalModel {
@@ -923,11 +929,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let appearance: EnigmaAppearancePreference
     let updaterBackend = FakeUpdaterBackend()
     let updater: AppUpdater
-    let discovery = LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })
-
-    var sources = HuggingFaceDownloadSources(loadRepository: { _ in throw URLError(.notConnectedToInternet) },
-                                             chooseFolder: { _ in nil })
-    var downloads = HuggingFaceModelDownloads()
+    /// Counts the bandwidth tests; each reads 267 GB/s.
+    let probe = BandwidthProbeCounter()
 
     init(test: EnigmaSettingsTests, cloudCredentials: any CloudCredentialStore = ScreenTestCredentialStore(),
          transport: ScreenTestTransport = ScreenTestTransport(),
@@ -936,9 +939,10 @@ final class EnigmaSettingsTests: XCTestCase {
       let root = FileManager.default.temporaryDirectory.appending(path: "EnigmaSettingsTests-\(UUID())")
       try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
       defaults = try test.makeDefaults()
-      let profile = test.hardware(memory: 32)
+      let profile = test.hardware(memory: 32, bandwidth: 267)
+      let probe = probe
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil,
-                                  detect: { _ in profile })
+                                  detect: { _ in profile }, measureBandwidth: { probe.measure() })
       await advisor.detectHardware()
       let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: root))
       self.chat = chat
@@ -964,9 +968,9 @@ final class EnigmaSettingsTests: XCTestCase {
                   appearance: EnigmaAppearancePreference? = nil,
                   size: CGSize = SettingsView.windowSize) -> SettingsView {
       SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
-                         discovery: discovery, advisor: advisor, chat: chat, search: search, screen: screen,
+                         advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
-                         downloads: downloads, sources: sources, updater: updater, size: size)
+                         updater: updater, size: size)
     }
   }
 
@@ -1066,10 +1070,6 @@ final class EnigmaSettingsTests: XCTestCase {
       return search(view)
     }
   }
-}
-
-private final class LoadFlag: @unchecked Sendable {
-  var value = false
 }
 
 /// A panel that can be key even while another app is active, which happens on
@@ -1177,5 +1177,16 @@ private struct MenuHarness: View {
            alignment: .topLeading)
     .background(palette.background.color)
     .enigmaMenuHost()
+  }
+}
+
+/// A bandwidth test that reads 267 GB/s and counts how often it runs.
+private final class BandwidthProbeCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var calls = 0
+  var count: Int { lock.withLock { calls } }
+  func measure() -> Double? {
+    lock.withLock { calls += 1 }
+    return 267
   }
 }

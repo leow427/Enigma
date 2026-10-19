@@ -49,6 +49,58 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertTrue(args.contains("--offline"))
     XCTAssertEqual(args[args.firstIndex(of: "--host")! + 1], "127.0.0.1")
     XCTAssertEqual(args[args.firstIndex(of: "--port")! + 1], "55432")
+    XCTAssertEqual(args[args.firstIndex(of: "--image-max-tokens")! + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+  }
+
+  func testGemmaLaunchKeepsWholeScreenshotsInOneBatch() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    var args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--ubatch-size")) + 1], "1024")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "1024")
+    model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "qwen3.5-4b-q5_k_m" })
+    args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+    XCTAssertEqual(LlamaServerVisionEngine.imageArguments(for: nil), ["--image-max-tokens", "4096"])
+  }
+
+  func testInstallsOnAnOlderRuntimeKeepTheirImageArguments() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    // Gemma 4 12B installed by 0.10.x with llama.cpp b10797, which has no image-batch cap.
+    let current = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+    json["runtimeBuild"] = 10797
+    json["minimumLlamaBuild"] = 10797
+    model.catalogDescriptor = try JSONDecoder().decode(LocalModelDescriptor.self,
+      from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertEqual(model.catalogDescriptor?.runtimeBuild, 10797)
+    let args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+  }
+
+  func testLaunchUsesOnlyArgumentsTheRuntimeKnows() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let known: Set<String> = ["-m", "--mmproj", "--host", "--port", "--api-key", "--alias", "--ctx-size", "--parallel",
+      "--offline", "--no-webui", "--jinja", "--no-context-shift", "--cache-ram", "--reasoning-budget", "--fit",
+      "--image-max-tokens", "--ubatch-size"]
+    for id in ["gemma-4-12b-q5_k_m", "qwen3.5-4b-q5_k_m"] {
+      var model = try fixture(in: directory)
+      model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == id })
+      let args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+      for (index, argument) in args.enumerated() where argument.hasPrefix("-") {
+        if index > 0 && args[index - 1] == "--reasoning-budget" { continue }
+        XCTAssertTrue(known.contains(argument), "\(id): \(argument)")
+      }
+      for removed in ["--mmap", "--no-mmap", "--mlock", "-dio"] { XCTAssertFalse(args.contains(removed)) }
+    }
   }
 
   func testInvalidOrMissingProjectorCannotBecomeAVisionProfile() throws {
@@ -78,17 +130,18 @@ final class LocalVisionTests: XCTestCase {
   }
 
   func testBundledVisionPackagesPinMatchingPairsAndOfficialRuntime() throws {
-    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 13)
+    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 20)
     for model in LocalVisionModelDescriptor.bundled {
       try model.validate()
       XCTAssertEqual(Array(model.model.url.pathComponents.prefix(5)), Array(model.projector.url.pathComponents.prefix(5)))
       XCTAssertGreaterThan(model.downloadByteCount, model.model.expectedByteCount + model.projector.expectedByteCount)
     }
     try LocalVisionRuntime.bundled.validate()
-    XCTAssertTrue(LocalVisionRuntime.bundled.archive.url.path.contains("b10797"))
+    XCTAssertTrue(LocalVisionRuntime.bundled.archive.url.path.contains("b11734"))
+    XCTAssertEqual(LocalVisionRuntime.directoryName, "llama-b11734")
     let input = LocalVisionModelDescriptor.bundled[0]
     let mismatched = LocalVisionModelDescriptor(id: input.id, displayName: input.displayName, summary: input.summary,
-      model: input.model, projector: LocalVisionModelDescriptor.bundled[1].projector,
+      model: input.model, projector: try XCTUnwrap(LocalVisionModelDescriptor.bundled.first { $0.projector != input.projector }).projector,
       estimatedRuntimeMemory: 4 * LocalHardwareProfile.gib)
     XCTAssertThrowsError(try mismatched.validate())
   }
@@ -113,7 +166,7 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertTrue(FileManager.default.fileExists(atPath: source.fileURL.path))
     XCTAssertTrue(FileManager.default.fileExists(atPath: source.visionConfiguration!.projectorURL.path))
     XCTAssertFalse(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm-2b-q4:vision" })
-    XCTAssertTrue(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm2-2.2b-q8_0" })
+    XCTAssertFalse(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm2-2.2b-q8_0" })
   }
 
   func testPackageReplacementPreservesSelectedVisionAndRollsBackOnFailure() throws {
@@ -507,12 +560,14 @@ final class LocalVisionTests: XCTestCase {
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text
     XCTAssertTrue(text.contains("Local models"), text)
     XCTAssertFalse(text.contains("Image understanding"), text)
-    XCTAssertTrue(text.contains("Qwen3"), text)
-    XCTAssertTrue(text.contains("Middleweight"), text)
-    XCTAssertTrue(text.contains("OpenBMB"), text)
-    XCTAssertTrue(text.contains("MiniCPM-o 4.5"), text)
-    XCTAssertTrue(text.contains("Lightweight"), text)
-    XCTAssertTrue(text.contains("Best choices for this Mac"), text)
+    XCTAssertTrue(text.contains("For this Mac"), text)
+    XCTAssertTrue(text.contains("All models"), text)
+    XCTAssertFalse(text.contains("Lightweight"), text)
+    XCTAssertFalse(text.contains("Middleweight"), text)
+    XCTAssertTrue(text.contains("Check this Mac"), text)
+    XCTAssertFalse(text.contains("Detect Mac"), text)
+    XCTAssertFalse(text.contains("Download files"), text)
+    XCTAssertFalse(text.contains("Models for other memory sizes"), text)
     XCTAssertFalse(text.contains("SmolVLM"), text)
     XCTAssertTrue(text.contains("Install"), text)
     XCTAssertFalse(text.contains("Choose a file"), text)
@@ -523,20 +578,20 @@ final class LocalVisionTests: XCTestCase {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
     let source = try fixture(in: directory)
-    let descriptor = try XCTUnwrap(LocalVisionModelDescriptor.bundled.first { $0.id == "qwen3.5-4b-q5_k_m" })
+    // The legacy files sit under the ID of the package this Mac is offered,
+    // so its row in For this Mac must offer an update.
+    let profile = LocalHardwareProfile(physicalMemory: 24 * LocalHardwareProfile.gib,
+      isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
+      chip: "Apple Silicon (24 GB fixture)", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 6,
+      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
+      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
+    let descriptor = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: profile).recommended?.model)
     let store = LocalModelInstallationStore(modelsDirectory: directory.appending(path: "library"))
     _ = try store.install(LocalModel(id: descriptor.id, displayName: "SmolVLM 2.2B", fileURL: source.fileURL,
       visionConfiguration: source.visionConfiguration))
     let chat = LocalChatViewModel(engine: LlamaCPPModelEngine(installationStore: store),
       sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
     await chat.refreshInstalledModel()
-    // The ranked list excludes unsuitable models; use the same Mac profile
-    // on CI and locally so these assertions verify layout, not host resources.
-    let profile = LocalHardwareProfile(physicalMemory: 24 * LocalHardwareProfile.gib,
-      isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
-      chip: "Apple Silicon (24 GB fixture)", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 6,
-      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
-      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
     let advisor = LocalModelAdvisor(directory: directory, modelsDirectory: directory, trust: nil, detect: { _ in profile })
     await advisor.detectHardware()
     let view = NSHostingView(rootView: localModelsPage(advisor: advisor, chat: chat, height: 1200))
@@ -560,7 +615,7 @@ final class LocalVisionTests: XCTestCase {
     // caption. CI OCR can confuse the similar l/I glyphs in this brand name;
     // normalize only that spelling while retaining the full model/version check.
     XCTAssertTrue(text.split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces) == "Update" }, text)
-    XCTAssertTrue(text.contains("Qwen3"), text)
+    XCTAssertTrue(text.contains(String(descriptor.displayName.prefix(5))), text)
     XCTAssertFalse(text.contains("Ready for Screen"), text)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")

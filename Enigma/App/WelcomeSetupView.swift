@@ -346,9 +346,10 @@ struct WelcomeSetupView: View {
         EnigmaStatusLine(.busy, "detecting your Mac…").padding(.top, 8)
       }
       if !choices.isEmpty { EnigmaSectionHeader("Good fits for this Mac") } else { Spacer().frame(height: 20) }
-      ForEach(Array(choices.enumerated()), id: \.element.id) { index, assessment in
+      let roles = advisor.recommendations(installedModels: chat.installedModels).roles
+      ForEach(choices) { assessment in
         LocalModelChoiceRow(assessment: assessment,
-          role: index == 0 ? (assessment.isResponsive ? "recommended" : "best available, expect longer waits") : nil,
+          role: roles.first { $0.id == assessment.id }?.tag,
           isSelected: !skipLocal && selected?.id == assessment.id) {
             selectedID = assessment.id
             skipLocal = false
@@ -359,9 +360,8 @@ struct WelcomeSetupView: View {
                 selection: skipLocal, action: { skipLocal = true })
         .disabled(chat.isBusy)
       EnigmaHairline()
-      if advisor.hardware != nil && choices.count < 3 {
-        note(choices.isEmpty ? "No supported model fits the available memory and storage. You can continue with Cloud."
-          : "Only \(choices.count) compatible choices fit this Mac right now.")
+      if advisor.hardware != nil && choices.isEmpty {
+        note("No supported model fits the available memory and storage. You can continue with Cloud.")
           .padding(.top, 10)
       }
       LocalModelOperationView(chat: chat, advisor: advisor)

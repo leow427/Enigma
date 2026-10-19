@@ -32,16 +32,22 @@ extension SettingsWindowContent where Settings == SettingsView {
 struct SettingsView: View {
   /// A Settings page. `.settingsDestinationRequested` with one of these opens it.
   enum SettingsDestination: String, CaseIterable, Identifiable {
-    case general, local, discover, cloud, selection
+    case general, local, cloud, selection
 
     var id: Self { self }
+
+    /// A destination, its raw value, or "discover" (removed; opens .local). Anything else is nil.
+    static func requested(_ object: Any?) -> SettingsDestination? {
+      if let destination = object as? SettingsDestination { return destination }
+      guard let name = object as? String else { return nil }
+      return name == "discover" ? .local : SettingsDestination(rawValue: name)
+    }
 
     /// The section's name, in sentence case as in the mockup.
     var title: String {
       switch self {
       case .general: "General"
       case .local: "Local models"
-      case .discover: "Discover"
       case .cloud: "Cloud and search"
       case .selection: "Selection"
       }
@@ -52,7 +58,6 @@ struct SettingsView: View {
       switch self {
       case .general: "How Enigma looks, starts, and works with your Mac."
       case .local: "Run models on this Mac, without the cloud."
-      case .discover: "Find your next vision or audio model."
       case .cloud: "Optional cloud models, screenshots, and web search."
       case .selection: "Permissions for selected text, how revisions are applied, and whether selection chats are saved."
       }
@@ -63,7 +68,6 @@ struct SettingsView: View {
       switch self {
       case .general: "slider.horizontal.3"
       case .local: "cpu"
-      case .discover: "safari"
       case .cloud: "cloud"
       case .selection: "text.cursor"
       }
@@ -85,9 +89,6 @@ struct SettingsView: View {
   private let startPreferences: StartPreferences
   private let selectionEditing: SelectionEditingSettings
   private let location: LocationService
-  @StateObject private var discovery: LocalModelDiscovery
-  private let downloads: HuggingFaceModelDownloads
-  private let sources: HuggingFaceDownloadSources
   private let updater: AppUpdater
   private let size: CGSize
   @State private var destination: SettingsDestination
@@ -98,12 +99,11 @@ struct SettingsView: View {
 
   /// `size` is the area below the window's title bar, if it has one.
   init(settings: CloudSettingsModel = .shared, appearance: EnigmaAppearancePreference = .shared,
-       initialDestination: SettingsDestination = .general, discovery: LocalModelDiscovery? = nil,
+       initialDestination: SettingsDestination = .general,
        advisor: LocalModelAdvisor = .shared, chat: LocalChatViewModel = .shared,
        search: WebSearchSettings = .shared, screen: ScreenSettings = .shared,
        startPreferences: StartPreferences = .shared, selectionEditing: SelectionEditingSettings = .shared,
-       location: LocationService = .shared, downloads: HuggingFaceModelDownloads = .shared,
-       sources: HuggingFaceDownloadSources = .live, updater: AppUpdater = .shared,
+       location: LocationService = .shared, updater: AppUpdater = .shared,
        size: CGSize = SettingsView.windowSize) {
     self.settings = settings
     self.appearance = appearance
@@ -114,12 +114,9 @@ struct SettingsView: View {
     self.startPreferences = startPreferences
     self.selectionEditing = selectionEditing
     self.location = location
-    self.downloads = downloads
-    self.sources = sources
     self.updater = updater
     self.size = size
     _destination = State(initialValue: initialDestination)
-    _discovery = StateObject(wrappedValue: discovery ?? LocalModelDiscovery())
   }
 
   var body: some View {
@@ -132,7 +129,7 @@ struct SettingsView: View {
     .tint(palette.accent.color)
     .enigmaMenuHost()
     .onReceive(NotificationCenter.default.publisher(for: .settingsDestinationRequested)) { notification in
-      if let requested = notification.object as? SettingsDestination { select(requested) }
+      if let requested = SettingsDestination.requested(notification.object) { select(requested) }
     }
   }
 
@@ -193,10 +190,7 @@ struct SettingsView: View {
       GeneralSettingsPage(appearance: appearance, startPreferences: startPreferences, location: location,
                                 chat: chat, updater: updater)
     case .local:
-      LocalModelManagerSection(advisor: advisor, chat: chat, downloads: downloads, sources: sources)
-    case .discover:
-      LocalModelDiscoveryView(discovery: discovery, advisor: advisor, chat: chat, downloads: downloads,
-                                    sources: sources)
+      LocalModelManagerSection(advisor: advisor, chat: chat)
     case .cloud:
       CloudSettingsPage(settings: settings, screen: screen, search: search)
     case .selection:

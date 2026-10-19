@@ -135,22 +135,20 @@ struct LocalModelOnboardingView: View {
         if let hardware = advisor.hardware {
           EnigmaHint("\(hardware.chip) · \(hardware.physicalMemory.formatted(.byteCount(style: .memory))) memory")
         }
-        EnigmaHint("Lightweight, middleweight and heavyweight choices for your Mac’s memory.")
       }
       .padding(.top, 12)
       ScrollView {
         VStack(alignment: .leading, spacing: 0) {
-          ForEach(recommendations.tierGroups, id: \.weight) { group in
-            EnigmaSectionHeader(group.weight.rawValue)
-            ForEach(group.models) { assessment in
-              LocalModelChoiceRow(assessment: assessment,
-                role: assessment.id == recommendations.recommended?.id ? "recommended" : nil,
-                isSelected: selected?.id == assessment.id) { selectedID = assessment.id }
-                .disabled(!assessment.fit.canRun)
+          if !recommendations.roles.isEmpty {
+            EnigmaSectionHeader("For this Mac")
+            ForEach(recommendations.roles) { choice in
+              LocalModelChoiceRow(assessment: choice.assessment, role: choice.tag,
+                isSelected: selected?.id == choice.id) { selectedID = choice.id }
+                .disabled(!choice.assessment.fit.canRun)
             }
             EnigmaHairline()
           }
-          if recommendations.rankedChoices.isEmpty {
+          if recommendations.roles.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
               EnigmaStatusLine(.problem, "No suitable model found")
               Text("No supported text-and-image model fits this Mac’s memory or disk budget. Review Local models for the specific limits. Cloud is also available.")

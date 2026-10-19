@@ -177,6 +177,11 @@ environment variable, and they never run in CI.
   evaluation checks, and `scripts/evaluate-file-mode.py` and
   `scripts/verify-file-mode-codex.py` run model evaluations and a Codex
   app-server check outside XCTest. See [File-Mode.md](File-Mode.md).
+- **Memory bandwidth:** the real Metal copy test runs only when asked, on a Mac
+  with a GPU:
+  `TEST_RUNNER_ENIGMA_BANDWIDTH_PROBE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalBandwidthProbeTests/testMetalProbeOnThisMac`.
+  It prints the measured bandwidth and checks it is in range and quick. See
+  [Local-Model-Selection.md](Local-Model-Selection.md).
 
 ## Permissions need a stable signed build
 

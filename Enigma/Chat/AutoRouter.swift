@@ -114,11 +114,14 @@ struct AutoRouter: Sendable {
       self.contextMessages = contextMessages
       self.localModel = localModel
       self.additionalInputTokens = max(0, min(additionalInputTokens, 1_000_000))
+      // An installed catalogue package keeps its capabilities on the runtime it
+      // was installed with, even after the catalogue moves to a newer one.
+      let isCataloguePackage = localModel?.catalogDescriptor?.projector != nil && localModel?.supportsVision == true
       self.localCapabilities = localCapabilities ?? ModelCapabilities(
         maximumContextTokens: localModel?.contextWindow ?? ModelContextPolicy.localContextWindow,
-        supportsCoding: localModel?.catalogDescriptor?.supportsVision == true,
+        supportsCoding: isCataloguePackage,
         supportsWebSearch: false,
-        reasoningLevel: localModel?.catalogDescriptor?.supportsVision == true ? .advanced : .basic)
+        reasoningLevel: isCataloguePackage ? .advanced : .basic)
       self.cloud = cloud
     }
   }
