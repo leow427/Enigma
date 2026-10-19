@@ -351,9 +351,9 @@ struct GeneralSettingsPage: View {
       EnigmaRow("Version", subtitle: versionSubtitle) {
         Button("Check Now") { updater.checkForUpdates() }
           .enigmaButtonStyle(.secondary)
+          .enigmaTestMarker("Check for Updates Now")
           .disabled(!updater.canCheckForUpdates)
           .accessibilityLabel("Check for Updates Now")
-          .enigmaTestMarker("Check for Updates Now")
       }
       EnigmaHairline()
     }

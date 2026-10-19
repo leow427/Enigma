@@ -935,9 +935,10 @@ extension LocalModelSelectionTests {
                    size: size, name: "welcome-\(step)-\(Int(size.width))", roundedWindow: true)
       }
     }
-    try render(SettingsView(settings: cloud).enigmaTheme(.paper), size: NSSize(width: 820, height: 680),
-               name: "settings-permissions")
-    try render(SettingsView(settings: cloud, initialDestination: .selection).enigmaTheme(.paper),
+    try render(SettingsView(settings: cloud, updater: AppUpdater(backend: FakeUpdaterBackend())).enigmaTheme(.paper),
+               size: NSSize(width: 820, height: 680), name: "settings-permissions")
+    try render(SettingsView(settings: cloud, initialDestination: .selection,
+                            updater: AppUpdater(backend: FakeUpdaterBackend())).enigmaTheme(.paper),
                size: NSSize(width: 820, height: 680), name: "selection-permissions")
     setup.step = .welcome
     let shell = AppShellView(cloudSettings: cloud,

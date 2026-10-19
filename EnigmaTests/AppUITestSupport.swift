@@ -48,9 +48,14 @@ struct TestControlMarker: NSViewRepresentable {
   let name: String
 
   func makeNSView(context: Context) -> Marker { Marker() }
-  func updateNSView(_ view: Marker, context: Context) { view.identifier = NSUserInterfaceItemIdentifier(name) }
+  func updateNSView(_ view: Marker, context: Context) {
+    view.identifier = NSUserInterfaceItemIdentifier(name)
+    view.isEnabled = context.environment.isEnabled
+  }
 
   final class Marker: NSView {
+    /// The control's SwiftUI enabled state, for markers inside `.disabled(_:)`.
+    var isEnabled = true
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func isAccessibilityElement() -> Bool { false }
   }

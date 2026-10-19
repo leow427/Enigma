@@ -267,15 +267,16 @@ final class EnigmaSettingsTests: XCTestCase {
     try await waitForUI("the update switches", in: host.view) { host.shows("Check for updates automatically switch") }
     try host.press("Check for updates automatically switch")
     try await waitForUI("automatic checks off", in: host.view) { !backend.automaticallyChecksForUpdates }
+    try await waitForUI("the download switch disabled", in: host.view) {
+      host.isEnabled("Download and install updates automatically switch") == false
+    }
     try host.press("Download and install updates automatically switch")
-    try await Task.sleep(for: .milliseconds(100))
     XCTAssertTrue(backend.automaticallyDownloadsUpdates, "The download switch is disabled while checks are off.")
 
     try host.press("Check for updates automatically switch")
     try await waitForUI("automatic checks on", in: host.view) { backend.automaticallyChecksForUpdates }
     fixture.updater.backendCanCheckChanged(true)
-    try await waitForUI("Check Now", in: host.view) { host.shows("Check for Updates Now") }
-    try await Task.sleep(for: .milliseconds(100)) // Let SwiftUI enable the button.
+    try await waitForUI("Check Now enabled", in: host.view) { host.isEnabled("Check for Updates Now") == true }
     try host.press("Check for Updates Now")
     try await waitForUI("a check", in: host.view) { backend.checkCount == 1 }
   }
@@ -1024,6 +1025,9 @@ final class EnigmaSettingsTests: XCTestCase {
     }
 
     func shows(_ name: String) -> Bool { marker(name) != nil }
+
+    /// Whether SwiftUI has control `name` enabled, or nil when it isn't shown.
+    func isEnabled(_ name: String) -> Bool? { (marker(name) as? TestControlMarker.Marker)?.isEnabled }
 
     /// Clicks the real control behind a marker with a mouse down and up.
     func press(_ name: String, file: StaticString = #filePath, line: UInt = #line) throws {
