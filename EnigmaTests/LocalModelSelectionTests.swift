@@ -152,11 +152,11 @@ final class LocalModelSelectionTests: XCTestCase {
       XCTAssertTrue(try XCTUnwrap(measured.assessments.first { $0.id == model.id }).isMeasured)
       XCTAssertNotEqual(measured.recommended?.id, model.id)
     }
-    XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheBytesPerToken, 163_840)
-    XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheBytesPerToken, 100_352)
+    XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 1_342_177_280)
+    XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 308_281_344)
     let moe = try XCTUnwrap(catalog.models.first { $0.inferenceProfile == .gemma4A4B })
     XCTAssertGreaterThan(moe.expectedByteCount, 14_000_000_000)
-    XCTAssertGreaterThan(moe.estimatedRuntimeMemory, 20 * gib)
+    XCTAssertGreaterThan(moe.estimatedRuntimeMemory, 19 * gib)
   }
 
   func testOldInstalledDescriptorDecodesWithoutDescriptionsOrProfilesAndKeepsPackageIdentity() throws {

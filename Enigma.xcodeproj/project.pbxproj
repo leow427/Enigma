@@ -32,6 +32,7 @@
 		3B287C322A61EEC25ADC78E7 /* Enigma/LocalInference/LocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */; };
 		FC5011DD693B0424EBE11153 /* Enigma/LocalInference/LocalModelManagerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */; };
 		888845646DFB86CA2CD71708 /* Enigma/LocalInference/LocalModelSettingsLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */; };
+		CB69FE0F73B85BA98B3980BD /* LocalMultimodalProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */; };
 		FD9FA2F09CE21FD65DFC93D7 /* Enigma/Messages/MessagesSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */; };
 		CA59186E509F5F5819A0A142 /* Enigma/Search/WebSearchSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */; };
 		53CA68645BB07133717F254B /* Enigma/Screen/ScreenSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */; };
@@ -126,6 +127,7 @@
 		5E0000000000000000000004 /* AppUpdaterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000003 /* AppUpdaterTests.swift */; };
 		5F0000000000000000000008 /* ApplicationMoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000007 /* ApplicationMoverTests.swift */; };
 		5F0000000000000000000004 /* InstallLocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000003 /* InstallLocationTests.swift */; };
+		C09969EC7BD1A0AEB1FD5C68 /* LocalModelEstimateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */; };
 		A10000000000000000000008 /* GlobalHotKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* GlobalHotKeyMonitor.swift */; };
 		A10000000000000000000009 /* PanelShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* PanelShortcut.swift */; };
 		A1000000000000000000000A /* SpotlightPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* SpotlightPanelController.swift */; };
@@ -230,6 +232,7 @@
 		F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
 		54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelManagerSection.swift"; sourceTree = SOURCE_ROOT; };
 		E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelSettingsLogic.swift"; sourceTree = SOURCE_ROOT; };
+		48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalMultimodalProfile.swift"; sourceTree = SOURCE_ROOT; };
 		400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
 		B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WebSearchSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
 		C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
@@ -324,6 +327,7 @@
 		5E0000000000000000000003 /* AppUpdaterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdaterTests.swift; sourceTree = "<group>"; };
 		5F0000000000000000000007 /* ApplicationMoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMoverTests.swift; sourceTree = "<group>"; };
 		5F0000000000000000000003 /* InstallLocationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocationTests.swift; sourceTree = "<group>"; };
+		A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalModelEstimateTests.swift"; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000008 /* Enigma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Enigma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* EnigmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = EnigmaTests.xctest; path = "EnigmaTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000011 /* GlobalHotKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotKeyMonitor.swift; sourceTree = "<group>"; };
@@ -443,6 +447,7 @@
 				F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */,
 				54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */,
 				E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */,
+				48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */,
 				400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */,
 				B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */,
 				C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */,
@@ -592,6 +597,7 @@
 				5E0000000000000000000003 /* AppUpdaterTests.swift */,
 				5F0000000000000000000007 /* ApplicationMoverTests.swift */,
 				5F0000000000000000000003 /* InstallLocationTests.swift */,
+				A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */,
 				AB0300000000000000000001 /* LocalModelSelectionTests.swift */,
 				AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */,
 				D0A100000000000000000004 /* ResumableArtifactTransferTests.swift */,
@@ -808,6 +814,7 @@
 				3B287C322A61EEC25ADC78E7 /* Enigma/LocalInference/LocalModelDiscoveryView.swift in Sources */,
 				FC5011DD693B0424EBE11153 /* Enigma/LocalInference/LocalModelManagerSection.swift in Sources */,
 				888845646DFB86CA2CD71708 /* Enigma/LocalInference/LocalModelSettingsLogic.swift in Sources */,
+				CB69FE0F73B85BA98B3980BD /* LocalMultimodalProfile.swift in Sources */,
 				FD9FA2F09CE21FD65DFC93D7 /* Enigma/Messages/MessagesSettingsSection.swift in Sources */,
 				CA59186E509F5F5819A0A142 /* Enigma/Search/WebSearchSettingsSection.swift in Sources */,
 				53CA68645BB07133717F254B /* Enigma/Screen/ScreenSettingsSection.swift in Sources */,
@@ -961,6 +968,7 @@
 				5E0000000000000000000004 /* AppUpdaterTests.swift in Sources */,
 				5F0000000000000000000008 /* ApplicationMoverTests.swift in Sources */,
 				5F0000000000000000000004 /* InstallLocationTests.swift in Sources */,
+				C09969EC7BD1A0AEB1FD5C68 /* LocalModelEstimateTests.swift in Sources */,
 				AB0300000000000000000002 /* LocalModelSelectionTests.swift in Sources */,
 				AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */,
 				D0A100000000000000000003 /* ResumableArtifactTransferTests.swift in Sources */,
