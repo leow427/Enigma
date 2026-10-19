@@ -150,7 +150,9 @@ final class WebSearchTests: XCTestCase {
       "what's the latest in our group chat", "did I miss any calls from my mom today", "check my inbox for anything new today",
       "what are my latest DMs about", "what texts did I get today", "what did I get from mom today",
       "what emails came in today", "any news from my sister today", "what did mom say today",
-      "what did grandpa say on the phone yesterday about the hurricane"
+      "what did grandpa say on the phone yesterday about the hurricane",
+      "who's been blowing up my phone with texts today", "I got so many texts today, who were they from",
+      "what voicemails came today? I was out", "what was the first message i sent you today"
     ] {
       XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
       let intent = ComposerIntent.resolve(.init(draft: prompt, infersCommands: false, searchesAutomatically: true), now: date)

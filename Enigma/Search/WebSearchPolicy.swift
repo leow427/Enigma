@@ -12,7 +12,9 @@ enum WebSearchPolicy {
   /// The person's own communications never search, even when Messages isn't
   /// recognized: their contents must not become a web query.
   static func needsFreshInformation(normalized text: String, now: Date = Date()) -> Bool {
-    guard !text.isEmpty, !matches(optOut, text), !isAboutOwnCommunications(text) else { return false }
+    guard !text.isEmpty, !matches(optOut, text), !isAboutOwnCommunications(text), !matches(thisChat, text) else {
+      return false
+    }
     if LocationIntent.needsLocation(normalized: text) { return true }
     return needsFreshFacts(text, now: now)
   }
@@ -38,8 +40,12 @@ enum WebSearchPolicy {
   /// "the most recent messages from my dad", "what's new in my texts", "what did Jordan send me",
   /// "what did Mom say today". News about others ("the latest message from the White House")
   /// still searches, and so do drafts that can't tell, such as "what's the latest from Sam".
+  /// Nouns that only ever mean personal messages (texts, voicemails, DMs) veto search with
+  /// any first-person word anywhere: "who's been blowing up my phone with texts today".
+  /// Ambiguous ones (messages, chats, calls, mail) need the person next to them.
   static func isAboutOwnCommunications(_ text: String) -> Bool {
-    matches(communicationWord, text) && matches(ownCommunications, text)
+    guard matches(communicationWord, text) else { return false }
+    return (matches(personalTerm, text) && matches(firstPerson, text)) || matches(ownCommunications, text)
   }
 
   private static func needsFreshFacts(_ text: String, now: Date) -> Bool {
@@ -86,6 +92,10 @@ enum WebSearchPolicy {
   private static let recency = expression(#"\b(?:latest|recent|recently|newest|breaking|currently|today|yesterday|tonight|tomorrow|right now|up[- ]to[- ]date|this (?:week|month|year|season)|(?:past|last) (?:night|weekend|week|month|year|\d+ (?:hours|days|weeks))|current (?!in\b|through\b|flow\b|flows\b|density\b|account\b|assets\b|liabilities\b))\b"#)
   private static let recentDevelopments = expression(#"\b(?:(?:latest|recent|breaking|today'?s|current|new|upcoming) (?:\w+ ){0,3}(?:news|headlines|updates|developments|events|research|studies|announcements|releases|products)|(?:news|headlines|updates) (?:about|on|from|in|for)|what'?s (?:new|happening|going on)|what is (?:new|happening|going on))\b"#)
   private static let changingFact = expression(#"\b(?:(?:who (?:is|'s)|who's) (?:the )?(?:president|prime minister|ceo|governor|mayor|leader|champion)\b|(?:weather|forecast) (?:in|for|at)\b|(?:will it|is it going to) (?:rain|snow)\b|(?:stock|share|bitcoin|btc|ethereum|eth) price\b|(?:price|value) of (?:bitcoin|btc|ethereum|eth)\b|(?:exchange|mortgage) rates?\b|(?:who (?:won|is winning)|score (?:of|in)|scores? for)\b|(?:when (?:is|does)|what time (?:is|does))\b.{0,60}\b(?:next|play|start|open|close|release)\b|(?:is|are)\b.{0,50}\b(?:open now|still available|in stock)\b)"#)
+  private static let personalTerm = expression(#"\b(?:texts|text messages?|imessages?|sms|voicemails?|dms|direct messages|missed calls?)\b"#)
+  private static let firstPerson = expression(#"\b(?:my|me|i|i'm|im|our|us)\b"#)
+  /// This chat, not anything to look up: "the first message I sent you".
+  private static let thisChat = expression(#"\b(?:message|text|question|prompt)s? (?:i|we) (?:sent|asked|gave|wrote) you\b|\byou (?:sent|told|gave|wrote) (?:me|us)\b"#)
   /// A word every `ownCommunications` match contains.
   private static let communicationWord = expression(#"messag|text|mail|dm|chat|voicemail|call|inbox|sms|send|sent|did (?:i|we)|from|my |our |mom|dad|mum|phone|facetime"#)
   private static let ownCommunications: NSRegularExpression = {
