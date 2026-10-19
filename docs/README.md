@@ -8,7 +8,7 @@ works in the code, its limitations, and which tests cover it.
 | Page | What it covers |
 | --- | --- |
 | [Chat](Chat.md) | The main window, composer, streaming replies, activity and sources, chat history, and how much context each request carries |
-| [Local models](Local-Model-Selection.md) | The bundled model catalogue, picking and installing a model for this Mac, and **Discover** |
+| [Local models](Local-Model-Selection.md) | The bundled model catalogue, how Enigma picks the model for this Mac, and installing and managing it |
 | [Cloud models](Cloud-Model-Selection.md) | Auto, Local, and Cloud modes, cloud providers, model compatibility, and context budgets |
 | [Screen](Screen-Skill.md) | `/screen` and `/snapshot`, screenshot consent, and keeping Enigma out of screen sharing |
 | [Selection Context](Selection-Context.md) | Asking about, editing, or translating text selected in another app |

@@ -38,9 +38,10 @@ as `2/4`. Each step has one primary button, which Return presses.
    slash commands such as `/screen`, `/search`, and `/edit`. Choose
    **Get started**.
 2. **Pick a local model.** Enigma shows this Mac's memory, free storage, and
-   chip, then up to three models under **Good fits for this Mac**. The first is
-   marked **recommended**, or **best available, expect longer waits** on a Mac
-   where no model is responsive. Each row shows capability, expected speed, and
+   chip, then up to three models under **Good fits for this Mac**: the same
+   roles as Settings → Local models, tagged **recommended** (or **best
+   available, expect longer waits** on a Mac where no model is fast),
+   **faster** and **smarter, slower replies**. Each row shows capability, expected speed, and
    download size. Models that don't fit the Mac's memory or storage are never
    listed. **Skip local models** uses cloud models only. The primary button
    changes with your choice: **Install model**, **Update model**,
@@ -103,8 +104,8 @@ sidebar shown or hidden.
   first step. It closes Settings and shows the window. Replay keeps your chats,
   installed models, and credentials, and is unavailable while a response is
   running. In Debug builds the sidebar's **Developer Tools** has the same
-  **Replay welcome setup** action, plus **Detect Mac capabilities**, which
-  release builds offer in **Settings → Local models**.
+  **Replay welcome setup** action, plus **Detect Mac capabilities**; release
+  builds offer **Check this Mac** in **Settings → Local models**.
 
 ## Settings
 
@@ -147,18 +148,16 @@ How Enigma looks, starts, and works with your Mac.
 
 ### Local models
 
-Run models on this Mac. Recommended models grouped by weight class, with
-install, update, use, and delete actions; **Detect Mac capabilities**,
-**Refresh recommendations** and **Check performance**; imported models; **Files** (the **Local file tools**
-runtime used by local File Mode and `/messages`, and **Saved file changes**);
-and **Advanced: Import text GGUF…**. See
+Run models on this Mac. This Mac's memory, disk, chip and measured memory
+bandwidth, with **Check this Mac** and **Check performance**; **For this Mac**,
+up to three models tagged **recommended**, **faster** and **smarter, slower
+replies**, with install, update and use actions; **On this Mac**, every
+installed model with **Use** and **Delete**; **All models**, one row per
+catalogue family; **Files** (the **Local file tools** runtime used by local
+File Mode and `/messages`, and **Saved file changes**); and **Advanced: Import
+text GGUF…**. A request for the removed Discover page opens Local models. See
 [Local-Model-Selection.md](Local-Model-Selection.md) and
 [File-Mode.md](File-Mode.md).
-
-### Discover
-
-Find vision and audio models on Hugging Face to download. See
-[Local-Model-Selection.md](Local-Model-Selection.md).
 
 ### Cloud and search
 
@@ -265,7 +264,7 @@ Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
 | Menu bar item | `Enigma/App/MenuBarController.swift`, `Enigma/App/AppCommand.swift` |
 | Global shortcuts: ⌥⌃ (`PanelShortcutMonitor`), ⇧⌥ Space (`GlobalHotKeyMonitor`) | `Enigma/App/GlobalHotKeyMonitor.swift`, registered in `Enigma/App/ApplicationDelegate.swift` |
 | In-window shortcuts | `Enigma/App/PanelShortcut.swift` |
-| Settings sections owned by features | `Enigma/Cloud/CloudSettingsPage.swift`, `Enigma/Cloud/CloudConnectionControls.swift`, `Enigma/Search/WebSearchSettingsSection.swift`, `Enigma/Screen/ScreenSettingsSection.swift`, `Enigma/LocalInference/LocalModelManagerSection.swift`, `Enigma/LocalInference/LocalModelDiscoveryView.swift`, `Enigma/Messages/MessagesSettingsSection.swift` |
+| Settings sections owned by features | `Enigma/Cloud/CloudSettingsPage.swift`, `Enigma/Cloud/CloudConnectionControls.swift`, `Enigma/Search/WebSearchSettingsSection.swift`, `Enigma/Screen/ScreenSettingsSection.swift`, `Enigma/LocalInference/LocalModelManagerSection.swift`, `Enigma/Messages/MessagesSettingsSection.swift` |
 
 Preferences are stored in `UserDefaults`: `welcomeSetup.completed.v1` and
 `welcomeSetup.step.v1` for setup, `enigma.appearance`, `startup.preferredMode`,
@@ -290,7 +289,7 @@ to the defaults. Settings pages can be opened programmatically by posting
   and default sizes, and focus returning to the chat after every way of
   leaving.
 - `EnigmaTests/LocalModelSelectionTests.swift`: first-run detection, resume,
-  migration of existing installs, replay, at most three safe choices,
+  migration of existing installs, replay, the role choices in order,
   keeping the chosen model through reranking, and the continue gate.
 - `EnigmaTests/EnigmaSettingsTests.swift`: appearance defaults, persistence,
   and live switching of windows and the welcome; every page rendered in Paper
