@@ -178,9 +178,11 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertFalse(LocalMultimodalProfile.gemma4E4B.usesNonCausalImageAttention)
   }
 
-  func testReaddedPackagesMatchTheirInstalledRecords() throws {
-    // Records saved by 0.10, before these packages left the catalogue: same
-    // ID, file, size, checksums and runtime, with that release's memory floors.
+  @MainActor
+  func testReaddedPackagesKeepTheirIdentityAndOfferAnUpdate() throws {
+    // Records saved by 0.10.1: the same ID, file, size and checksums, but that
+    // release's runtime (b10797) and memory floors. Their package revision ends
+    // ":10797", so Settings offers Update, a download that moves them to b11734.
     let records: [(String, String, Int64, String, Int64, Int64)] = [
       ("gemma-4-e4b-q4_k_m", "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/bfc15c382204943c3a8fff0c750b94ae2364d7a3/gemma-4-E4B-it-Q4_K_M.gguf",
        4_977_171_584, "ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51", 990_372_672, 16),
@@ -203,14 +205,29 @@ final class LocalModelCatalogueTests: XCTestCase {
       json["recommendedMemory"] = floor
       json["largestTensorBytes"] = (current.architecture == "gemma4" ? 3 : 1) * gib
       json["advertisedMemoryRange"] = "7–9"
+      json["runtimeBuild"] = 10797
+      json["minimumLlamaBuild"] = 10797
       json.removeValue(forKey: "activeParameterBillions")
       let installed = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
-      try installed.validate()
       XCTAssertEqual(installed.id, current.id)
-      XCTAssertEqual(installed.packageRevision, current.packageRevision, id)
+      XCTAssertEqual(installed.downloadURL, current.downloadURL, id)
+      XCTAssertEqual(installed.checksumSHA256, current.checksumSHA256, id)
+      XCTAssertEqual(installed.projector?.checksumSHA256, current.projector?.checksumSHA256, id)
       XCTAssertEqual(installed.expectedByteCount, current.expectedByteCount, id)
-      XCTAssertEqual(installed.projector?.expectedByteCount, current.projector?.expectedByteCount, id)
       XCTAssertEqual(installed.resolvedProfile, current.inferenceProfile, id)
+      XCTAssertTrue(installed.packageRevision.hasSuffix(":10797"), id)
+      XCTAssertNotEqual(installed.packageRevision, current.packageRevision, id)
+
+      let file = URL(fileURLWithPath: "/tmp/enigma-readded-fixture.gguf")
+      let record = LocalModel(id: installed.id, displayName: installed.displayName, fileURL: file,
+        catalogDescriptor: installed, visionConfiguration: LocalVisionConfiguration(projectorURL: file,
+          serverExecutableURL: URL(fileURLWithPath: "/bin/echo"), contextWindow: installed.recommendedContextSize,
+          packageRevision: installed.packageRevision))
+      XCTAssertTrue(current.requiresUpdate(record), id)
+      let assessment = LocalModelSelector.assess(current, hardware: mac(memoryGiB: 64, publishedBandwidth: 400),
+                                                 installed: true)
+      XCTAssertEqual(LocalModelSettingsLogic.managerAction(for: assessment, installed: [record], activeID: nil,
+                                                           isBusy: false).action, .update, id)
     }
   }
 
