@@ -48,3 +48,37 @@ final class MessagesIntentPolicyTests: XCTestCase {
     }
   }
 }
+
+final class ThinkIntentTests: XCTestCase {
+  func testThinkCues() {
+    for p in ["think hard about this", "think carefully: which plan is cheaper?", "think deeply about it",
+              "take your time and compare them", "walk me through it step by step", "reason it through",
+              "Think harder about this one", "please think it through carefully",
+              "/search think hard about the latest news"] {
+      XCTAssertTrue(ThinkCommand.isRequested(by: p), p)
+    }
+    for p in ["I think it's broken", "what do you think of this?", #"what does "think hard" mean"#,
+              "do you think it will rain", "`step by step` is a phrase", "I thought hard about it"] {
+      XCTAssertFalse(ThinkCommand.isRequested(by: p), p)
+    }
+  }
+}
+
+final class SelectionIntentPolicyTests: XCTestCase {
+  func testEditAndTranslate() {
+    for p in ["rewrite this", "make it shorter", "make this more formal", "make it friendlier",
+              "fix the grammar", "fix the typos", "reword this", "proofread it", "tighten this up",
+              "shorten this", "Please rewrite this", "fix the spelling", "make it longer",
+              "can you make this a bit more casual"] {
+      XCTAssertEqual(SelectionIntentPolicy.command(for: p), .edit, p)
+    }
+    for p in ["translate this", "translate it to Spanish", "translate into Japanese",
+              "please translate this and fix the grammar", "Translate"] {
+      XCTAssertEqual(SelectionIntentPolicy.command(for: p), .translate, p)
+    }
+    for p in ["what does this mean?", "who wrote this?", "summarize it", #"what does "rewrite this" mean"#,
+              "is the grammar right?", "how would you translate idioms in general?"] {
+      XCTAssertNil(SelectionIntentPolicy.command(for: p), p)
+    }
+  }
+}
