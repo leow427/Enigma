@@ -993,24 +993,31 @@ final class EnigmaMainWindowTests: XCTestCase {
     let slot: EnigmaCharacterModel.Slot?
   }
 
-  /// The character's position over `duration`, or until a sample is `done`,
-  /// drawing the window as it goes.
+  /// The character in every frame drawn over `duration`, or until a frame is
+  /// `done`, drawing the window as it goes.
   @MainActor
   private func sampleCharacter(_ character: EnigmaCharacterController, in host: Host, for duration: Duration,
                                until done: (CharacterSample) -> Bool = { _ in false }) async throws -> [CharacterSample] {
-    var samples: [CharacterSample] = []
+    // Every frame the stage computes is recorded, however late this loop
+    // runs, so a slow machine can't skip the frames between start and end.
+    character.recordFrames(true)
+    defer { character.recordFrames(false) }
+    let samples = [CharacterSample(present: character.isPresent, position: character.model.position,
+                                   slot: character.model.slot)]
+    func recorded() -> [CharacterSample] {
+      samples + (character.recordedFrames ?? []).map { CharacterSample(present: $0.present, position: $0.position, slot: $0.slot) }
+    }
+    if done(samples[0]) { return samples }
     let end = ContinuousClock.now.advanced(by: duration)
     repeat {
       await Task.yield()
       host.view.layoutSubtreeIfNeeded()
       host.window.displayIfNeeded()
-      let sample = CharacterSample(present: character.isPresent, position: character.model.position,
-                                   slot: character.model.slot)
-      samples.append(sample)
-      if done(sample) { break }
+      let all = recorded()
+      if let finish = all.firstIndex(where: done) { return Array(all[...finish]) }
       try await Task.sleep(for: .milliseconds(8))
     } while ContinuousClock.now < end
-    return samples
+    return recorded()
   }
 
   /// Waits until the composer field and the `markers` have kept their frames
