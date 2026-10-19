@@ -191,6 +191,32 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
+  func testResolvedSearchDecisionIsFinalOnEveryRoute() async throws {
+    // A dismissed search chip arrives as searchEnabled: false with automatic search not allowed.
+    for route in ["local", "auto-local", "auto-cloud", "cloud"] {
+      let search = SearchSpy(results: fixtureResults)
+      let model = makeModel(search: search, automatic: true)
+      await model.refreshInstalledModel()
+      let prompt = route == "auto-cloud" ? "Evaluate the latest news and risks." : "What happened in the news today?"
+      switch route {
+      case "local": model.submit(prompt, searchEnabled: false, allowsAutomaticSearch: false)
+      case "auto-local": model.submitAuto(prompt, cloud: nil, searchEnabled: false, allowsAutomaticSearch: false)
+      case "auto-cloud":
+        model.submitAuto(prompt, cloud: .init(provider: .chatGPT, modelID: "model"), searchEnabled: false,
+                         allowsAutomaticSearch: false)
+      default:
+        model.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: false, allowsAutomaticSearch: false)
+      }
+      await finish(model)
+      let queries = await search.queries
+      XCTAssertEqual(queries, [], route)
+      XCTAssertNil(model.messages.last?.searchSources, route)
+      if route == "auto-local" { XCTAssertEqual(model.autoRouteDecision?.route?.usesNetwork, false, route) }
+      XCTAssertFalse(model.shouldSearch(prompt, explicitlyEnabled: false, allowsAutomaticSearch: false), route)
+      XCTAssertTrue(model.shouldSearch(prompt, explicitlyEnabled: false), route)
+    }
+  }
+
   func testAutomaticSearchOffAndMissingKeyStillAllowForcedSearch() async {
     for (enabled, hasKey) in [(false, true), (true, false)] {
       let settings = WebSearchSettings(credentials: SearchCredentials(hasKey ? "fixture" : nil), defaults: makeDefaults())

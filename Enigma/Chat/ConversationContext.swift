@@ -21,6 +21,34 @@ struct ConversationContext: Equatable, Sendable, Identifiable {
   var preview: String { String(text.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(180)) }
 }
 
+/// Recognizes a request to revise or translate the attached selection from the
+/// wording of the typed draft, so the composer can infer `/edit` or
+/// `/translate`. It never reads the selection itself, and it doesn't check
+/// whether one is attached; `ComposerIntent` does.
+enum SelectionIntentPolicy {
+  /// `.translate`, `.edit`, or `nil`. Translation wins, since it stays read-only.
+  static func command(for prompt: String) -> SlashCommand? {
+    command(normalized: WebSearchPolicy.questionText(prompt))
+  }
+
+  /// `command(for:)` for text already normalized by `WebSearchPolicy.questionText`.
+  static func command(normalized text: String) -> SlashCommand? {
+    let range = NSRange(text.startIndex..., in: text)
+    if translate.firstMatch(in: text, range: range) != nil { return .translate }
+    if edit.firstMatch(in: text, range: range) != nil { return .edit }
+    return nil
+  }
+
+  // Fixed, tested source literals, never user-provided regexes.
+  /// A polite lead-in before the request. `SelectionResponseMode` accepts the same
+  /// one, so a recognized translation still sends the selection again.
+  static let leadIn = #"(?:(?:please|pls|can you|could you|would you|will you|help me|now|just|and)\s+)*"#
+  private static let lead = "^" + leadIn
+  /// Only a request at the start: "is it hard to translate this?" is a question.
+  private static let translate = try! NSRegularExpression(pattern: lead + #"translate\b"#)
+  private static let edit = try! NSRegularExpression(pattern: lead + #"(?:rewrite|reword|rephrase|paraphrase|proofread|polish (?=this\b|it\b|that\b|the (?:text|wording|selection)\b|my )|shorten|tighten|condense|revise|edit|clean up|fix (?:the |any |all |my )?(?:grammar|spelling|typos?|punctuation|wording|mistakes|errors)|make (?:it|this|that|the (?:text|selection|wording|tone)) (?:(?:a bit|a little|much|more|less|sound|slightly) )*(?:shorter|longer|formal|informal|casual|friendlier|friendly|polite|politer|professional|concise|clearer|simpler|warmer|nicer|better|punchier|crisper|tighter))\b"#)
+}
+
 /// Only commands in the current user request can authorize a revision.
 /// `followUp` is never parsed from a prompt: it's a later message in a chat
 /// whose selection went with an earlier one.
@@ -45,7 +73,7 @@ enum SelectionResponseMode: Sendable {
   }
 
   private static let selectionOnlyTranslation = try? NSRegularExpression(
-    pattern: #"^((this|it|that|the selection|the selected text)\s*)?((to|into)\s+[\p{L}-]+(\s+[\p{L}-]+)?)?\s*[.!?]?$"#,
+    pattern: "^(" + SelectionIntentPolicy.leadIn + #"translate\s*)?((this|it|that|the selection|the selected text)\s*)?((to|into)\s+[\p{L}-]+(\s+[\p{L}-]+)?)?\s*[.!?]?$"#,
     options: [.caseInsensitive])
 
   private static func translatesNoTextOfItsOwn(_ prompt: String) -> Bool {

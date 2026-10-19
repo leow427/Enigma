@@ -300,6 +300,37 @@ final class MessagesRequestTests: XCTestCase {
     XCTAssertNil(chat.appleMessages.pendingSend)
     await chat.sessionWriter.waitForPendingWrites()
   }
+
+  func testFollowUpFlagStaysWithTheChatThatUsedMessages() async throws {
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in RecordingToolbox() },
+      messagesAccess: {}, localToolRuntime: { _ in true }, fileInference: ScriptedToolInference(),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    func finish() async {
+      let finished = expectation(description: "Request finished")
+      let token = chat.$state.filter { $0 == .idle && chat.activeRequest == nil }.prefix(1).sink { _ in finished.fulfill() }
+      await fulfillment(of: [finished], timeout: 3)
+      token.cancel()
+    }
+    XCTAssertFalse(chat.previousTurnUsedMessages)
+    chat.submitMessages("Who texted me last?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    XCTAssertTrue(chat.previousTurnUsedMessages, "Set when the Messages request is accepted")
+    await finish()
+    let messagesChat = try XCTUnwrap(chat.selectedSessionID)
+
+    chat.newChat()
+    XCTAssertFalse(chat.previousTurnUsedMessages, "A new chat starts without it")
+    chat.selectSession(id: messagesChat)
+    XCTAssertFalse(chat.previousTurnUsedMessages, "Switching chats clears it")
+
+    chat.submitMessages("Who texted me last?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await finish()
+    XCTAssertTrue(chat.previousTurnUsedMessages)
+    chat.submit("Explain binary trees")
+    await finish()
+    XCTAssertFalse(chat.previousTurnUsedMessages, "An ordinary request clears it")
+    await chat.sessionWriter.waitForPendingWrites()
+  }
 }
 
 final class LockedText: @unchecked Sendable {

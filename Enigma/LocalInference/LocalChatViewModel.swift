@@ -35,6 +35,13 @@ final class LocalChatViewModel: ObservableObject {
 
   @Published private(set) var sessions: [ChatSession]
   @Published private(set) var selectedSessionID: UUID?
+  /// The chat whose last accepted request used Messages, typed or recognized. It lets a
+  /// follow-up like "send her a message saying …" carry Messages over. In memory only:
+  /// cleared by any other accepted request, a new chat, and switching chats.
+  @Published private(set) var messagesFollowUpSessionID: UUID?
+  var previousTurnUsedMessages: Bool {
+    messagesFollowUpSessionID != nil && messagesFollowUpSessionID == selectedSessionID
+  }
   @Published private(set) var installedModel: LocalModel?
   @Published private(set) var installedModels: [LocalModel] = []
   @Published private(set) var contextNotice: String?
@@ -181,6 +188,7 @@ final class LocalChatViewModel: ObservableObject {
     selectionSessionID = session.id
     sessions.append(session)
     selectedSessionID = session.id
+    messagesFollowUpSessionID = nil
     files.conversationID = session.id
     attachedContexts = context.map { [$0] } ?? []
     if case .failed = state { state = .idle }
@@ -549,6 +557,7 @@ final class LocalChatViewModel: ObservableObject {
       if let failure, self?.activeRequest?.id == active.id { files.error = failure.localizedDescription }
       await self?.finishGeneration(id: active.id, error: failure)
     }
+    messagesFollowUpSessionID = nil
     onAccepted()
   }
 
@@ -634,6 +643,7 @@ final class LocalChatViewModel: ObservableObject {
       self?.appleMessages.answer(false)
       await self?.finishGeneration(id: active.id, error: failure)
     }
+    messagesFollowUpSessionID = sessionID
     onAccepted()
   }
 
@@ -643,19 +653,24 @@ final class LocalChatViewModel: ObservableObject {
     append(text, to: messageID, in: sessionID)
   }
 
-  func shouldSearch(_ prompt: String, explicitlyEnabled: Bool) -> Bool {
+  /// `allowsAutomaticSearch` is false when the caller already decided, as the composer does
+  /// from its resolved draft: a dismissed search chip must stay off.
+  func shouldSearch(_ prompt: String, explicitlyEnabled: Bool, allowsAutomaticSearch: Bool = true) -> Bool {
     // Source material may refine an authorized query, but cannot authorize network access.
-    explicitlyEnabled || (searchSettings?.canSearchAutomatically == true
+    explicitlyEnabled || (allowsAutomaticSearch && searchSettings?.canSearchAutomatically == true
       && WebSearchPolicy.needsFreshInformation(prompt))
   }
 
-  func submit(_ prompt: String, searchEnabled: Bool = false, onAccepted: @escaping @MainActor () -> Void = {}) {
+  func submit(_ prompt: String, searchEnabled: Bool = false, allowsAutomaticSearch: Bool = true,
+              onAccepted: @escaping @MainActor () -> Void = {}) {
     let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !ThinkCommand.message(trimmedPrompt).content.isEmpty, !isBusy else { return }
-    let searchEnabled = shouldSearch(trimmedPrompt, explicitlyEnabled: searchEnabled)
+    let searchEnabled = shouldSearch(trimmedPrompt, explicitlyEnabled: searchEnabled,
+                                     allowsAutomaticSearch: allowsAutomaticSearch)
     if let model = installedModel, model.supportsVision {
       submitScreen(trimmedPrompt, attachment: nil, decision: .text(model.screenModel), selectedMode: .local,
-                   searchEnabled: searchEnabled, cloudUploadAllowed: { false }, onAccepted: onAccepted)
+                   searchEnabled: searchEnabled, allowsAutomaticSearch: false, cloudUploadAllowed: { false },
+                   onAccepted: onAccepted)
       return
     }
     screenRouteDecision = nil
@@ -707,6 +722,7 @@ final class LocalChatViewModel: ObservableObject {
         owner.contextNotice = prepared.notice
         owner.append(userMessage, to: sessionID)
         owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: sources), to: sessionID)
+        owner.messagesFollowUpSessionID = nil
         onAccepted()
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
@@ -738,12 +754,13 @@ final class LocalChatViewModel: ObservableObject {
     decision: ScreenRoutingPolicy.Decision,
     selectedMode: ChatMode,
     searchEnabled: Bool = false,
+    allowsAutomaticSearch: Bool = true,
     cloudUploadAllowed: @escaping @MainActor () -> Bool,
     onAccepted: @escaping @MainActor () -> Void = {}
   ) {
     let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !ThinkCommand.message(prompt).content.isEmpty, !isBusy, let model = decision.model else { return }
-    let searchEnabled = shouldSearch(prompt, explicitlyEnabled: searchEnabled)
+    let searchEnabled = shouldSearch(prompt, explicitlyEnabled: searchEnabled, allowsAutomaticSearch: allowsAutomaticSearch)
     guard selectedMode != .local || model.isLocal else {
       state = .failed(ScreenRequestError.cloudUploadNotAllowed.localizedDescription)
       return
@@ -889,6 +906,7 @@ final class LocalChatViewModel: ObservableObject {
                 displayedMessage.imagePreview = attachment?.makeMessagePreview()
                 owner.append(displayedMessage, to: session)
                 owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: sources), to: session)
+                owner.messagesFollowUpSessionID = nil
                 onAccepted()
                 try Task.checkCancellation()
                 guard owner.activeRequest?.id == active.id else { return }
@@ -954,11 +972,13 @@ final class LocalChatViewModel: ObservableObject {
     provider providerID: CloudProviderID,
     modelID: String,
     searchEnabled: Bool = false,
+    allowsAutomaticSearch: Bool = true,
     onAccepted: @escaping @MainActor () -> Void = {}
   ) {
     let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
     let trimmedModelID = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
-    let searchEnabled = shouldSearch(trimmedPrompt, explicitlyEnabled: searchEnabled)
+    let searchEnabled = shouldSearch(trimmedPrompt, explicitlyEnabled: searchEnabled,
+                                     allowsAutomaticSearch: allowsAutomaticSearch)
     screenRouteDecision = nil
     guard !ThinkCommand.message(trimmedPrompt).content.isEmpty, !trimmedModelID.isEmpty, !isBusy else { return }
     let route = Route(
@@ -1020,6 +1040,7 @@ final class LocalChatViewModel: ObservableObject {
       }
     }
     // Install the handle before calling out: acceptance may synchronously Stop or start a new chat.
+    messagesFollowUpSessionID = nil
     onAccepted()
   }
 
@@ -1050,6 +1071,7 @@ final class LocalChatViewModel: ObservableObject {
         owner.state = .preparing
         owner.append(userMessage, to: sessionID)
         owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: grounded.sources), to: sessionID)
+        owner.messagesFollowUpSessionID = nil
         onAccepted()
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
@@ -1079,12 +1101,13 @@ final class LocalChatViewModel: ObservableObject {
     _ prompt: String,
     cloud: AutoRouter.CloudConfiguration?,
     searchEnabled: Bool = false,
+    allowsAutomaticSearch: Bool = true,
     onAccepted: @escaping @MainActor () -> Void = {}
   ) {
     guard !isBusy, !ThinkCommand.message(prompt).content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     state = .idle
     contextNotice = nil
-    let searchEnabled = shouldSearch(prompt, explicitlyEnabled: searchEnabled)
+    let searchEnabled = shouldSearch(prompt, explicitlyEnabled: searchEnabled, allowsAutomaticSearch: allowsAutomaticSearch)
     let decision = (searchEnabled || AutoRouter.shouldRun(for: .auto, cloud: cloud))
       ? AutoRouter.decide(AutoRouter.Request(
         selectedMode: .auto, webSearchEnabled: searchEnabled,
@@ -1096,11 +1119,13 @@ final class LocalChatViewModel: ObservableObject {
     autoRouteDecision = decision
     guard let route = decision.route else { return }
     switch route.mode {
+    // The search decision is made; the route it picked must not make it again.
     case .local:
-      submit(prompt, searchEnabled: searchEnabled, onAccepted: onAccepted)
+      submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: onAccepted)
     case .cloud:
       guard let provider = CloudProviderID(rawValue: route.providerID) else { return }
-      submitCloud(prompt, provider: provider, modelID: route.modelID, searchEnabled: searchEnabled, onAccepted: onAccepted)
+      submitCloud(prompt, provider: provider, modelID: route.modelID, searchEnabled: searchEnabled,
+                  allowsAutomaticSearch: false, onAccepted: onAccepted)
     case .auto:
       break
     }
@@ -1140,6 +1165,7 @@ final class LocalChatViewModel: ObservableObject {
     let session = ChatSession()
     sessions.append(session)
     selectedSessionID = session.id
+    messagesFollowUpSessionID = nil
     files.conversationID = session.id
     sortAndPersistSessions()
     if case .failed = state { state = .idle }
@@ -1148,6 +1174,7 @@ final class LocalChatViewModel: ObservableObject {
   func selectSession(id: UUID) {
     guard sessions.contains(where: { $0.id == id }), !isBusy else { return }
     if id != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
+    if id != selectedSessionID { messagesFollowUpSessionID = nil }
     selectedSessionID = id
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1160,6 +1187,7 @@ final class LocalChatViewModel: ObservableObject {
     let selectedIndex = selectedSessionID.flatMap { id in sessions.firstIndex(where: { $0.id == id }) }
     let nextID = sessions[selectedIndex.map { ($0 + 1) % sessions.count } ?? 0].id
     if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
+    if nextID != selectedSessionID { messagesFollowUpSessionID = nil }
     selectedSessionID = nextID
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID

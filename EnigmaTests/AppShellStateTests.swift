@@ -260,6 +260,58 @@ final class ComposerSubmissionTests: XCTestCase {
     XCTAssertEqual(plan("/screen retake it", screenshot: true), .captureScreen, "A new capture replaces the old one")
   }
 
+  private func plan(intent draft: String, files: Bool = false, screenshot: Bool = false, selection: Bool = false,
+                    automatic: Bool = false, dismissed: Set<SlashCommand> = [], canSubmit: Bool = true) -> ComposerSubmission {
+    let intent = ComposerIntent.resolve(.init(draft: draft, hasSelection: selection, hasFileSelection: files,
+      hasScreenshot: screenshot, searchesAutomatically: automatic, dismissed: dismissed))
+    return ComposerSubmission.plan(intent, hasFileSelection: files, hasScreenshot: screenshot, canSubmit: canSubmit)
+  }
+
+  func testRecognizedCommandsSendLikeTypedOnes() {
+    XCTAssertEqual(plan(intent: "what did Sam text me"), .messages(prompt: "what did Sam text me"))
+    XCTAssertEqual(plan(intent: "what did Sam text me", canSubmit: false), .messages(prompt: "what did Sam text me"))
+    XCTAssertEqual(plan(intent: "think hard about this"), .chat(prompt: "/think think hard about this", searchEnabled: false))
+    XCTAssertEqual(plan(intent: "make it shorter", selection: true), .chat(prompt: "/edit make it shorter", searchEnabled: false))
+    XCTAssertEqual(plan(intent: "translate it to Spanish", selection: true),
+                   .chat(prompt: "/translate translate it to Spanish", searchEnabled: false))
+    XCTAssertEqual(plan(intent: "What's the latest AI news?", automatic: true),
+                   .chat(prompt: "What's the latest AI news?", searchEnabled: true))
+  }
+
+  func testDismissedRecognizedSearchStaysOff() {
+    XCTAssertEqual(plan(intent: "What's the latest AI news?", automatic: true, dismissed: [.search]),
+                   .chat(prompt: "What's the latest AI news?", searchEnabled: false))
+    XCTAssertEqual(plan(intent: "what did Sam text me", dismissed: [.messages]),
+                   .chat(prompt: "what did Sam text me", searchEnabled: false))
+  }
+
+  func testRecognizedMessagesNeverConflicts() {
+    XCTAssertEqual(plan(intent: "what did Sam text me", screenshot: true), .screenAttachment)
+    XCTAssertEqual(plan(intent: "what did Sam text me", files: true), .files(prompt: "what did Sam text me"))
+    XCTAssertEqual(plan(intent: "What's the latest AI news?", files: true, automatic: true),
+                   .files(prompt: "What's the latest AI news?"))
+    XCTAssertEqual(plan(intent: "/search what did Sam text me"), .chat(prompt: "what did Sam text me", searchEnabled: true))
+  }
+
+  func testRecognizedThinkJoinsTheFilesDraft() {
+    XCTAssertEqual(plan(intent: "think hard about these", files: true), .files(prompt: "/think think hard about these"))
+  }
+
+  func testAcceptedRequestClearsTheDraftItWasSentFrom() {
+    // The sent prompt can differ from the draft, as with a recognized /think in File Mode.
+    XCTAssertEqual(ComposerSubmission.draftAfterAcceptance(current: "think hard about these",
+                                                           sent: "think hard about these"), "")
+    XCTAssertEqual(ComposerSubmission.draftAfterAcceptance(current: "a newer draft", sent: "think hard about these"),
+                   "a newer draft", "A draft edited since sending is kept")
+  }
+
+  func testTypedConflictsStillReportThemselves() {
+    XCTAssertEqual(plan(intent: "/messages /search Sam"), .messagesConflict)
+    XCTAssertEqual(plan(intent: "/messages Sam", screenshot: true), .messagesConflict)
+    XCTAssertEqual(plan(intent: "/messages from Sam", files: true), .fileConflict)
+    XCTAssertEqual(plan(intent: "/screen what did Sam text me"), .captureScreen)
+  }
+
   func testAttachedScreenshotIsSentWithoutOtherChecks() {
     XCTAssertEqual(plan("Explain this", screenshot: true), .screenAttachment)
     // The screenshot path applies its own prompt and routing checks.

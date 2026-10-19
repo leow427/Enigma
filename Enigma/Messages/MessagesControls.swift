@@ -14,7 +14,7 @@ struct MessagesDialogs: ViewModifier {
       Button("Continue") { if let prompt = messages.answerDisclosure(allow: true) { submit(prompt) } }
       Button("Cancel", role: .cancel) { _ = messages.answerDisclosure(allow: false) }
     } message: {
-      Text("With /messages, the conversations, names, and phone numbers the model looks up are sent to \(messages.cloudDisclosure?.displayName ?? "your cloud provider") to answer. Choose Local or Auto to keep Messages on this Mac. Enigma asks before sending any message.")
+      Text("When Enigma uses Messages, the conversations, names, and phone numbers the model looks up are sent to \(messages.cloudDisclosure?.displayName ?? "your cloud provider") to answer. Choose Local or Auto to keep Messages on this Mac. Enigma asks before sending any message.")
     }
   }
 }

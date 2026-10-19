@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The composer: one rounded, opaque `surface` box holding
 /// the message field, Attach and `/` on the left, the `● local` or `○ cloud`
-/// indicator, the mode and model menu, and the `accent` Send button, which
+/// indicator, chips for commands recognized from the draft, the mode and model menu, and the `accent` Send button, which
 /// becomes Stop while a reply runs. `AppShellView` owns every action.
 struct EnigmaComposer: View {
   @Binding var text: String
@@ -30,6 +30,10 @@ struct EnigmaComposer: View {
   var canSend: Bool
   var send: () -> Void
   var stop: () -> Void
+
+  /// Commands recognized from the draft's wording, shown as chips after the route.
+  var inferredCommands: [SlashCommand] = []
+  var dismissInferred: (SlashCommand) -> Void = { _ in }
 
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
@@ -111,6 +115,11 @@ struct EnigmaComposer: View {
           .padding(.leading, 6)
           .accessibilityLabel(route.accessibilityLabel)
           .enigmaTestMarker("Route \(route.text)")
+      }
+
+      if !inferredCommands.isEmpty {
+        ComposerIntentChips(commands: inferredCommands, dismiss: dismissInferred)
+          .padding(.leading, 6)
       }
 
       Spacer(minLength: 8)

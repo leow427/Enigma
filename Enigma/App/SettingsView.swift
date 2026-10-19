@@ -269,7 +269,7 @@ struct SettingsPageHeader: View {
 
 // MARK: General
 
-/// Appearance, permissions, the welcome, new chats, location, Messages, and updates.
+/// Appearance, permissions, the welcome, new chats, location, recognized commands, Messages, and updates.
 struct GeneralSettingsPage: View {
   @ObservedObject var appearance: EnigmaAppearancePreference
   @ObservedObject var startPreferences: StartPreferences
@@ -277,11 +277,13 @@ struct GeneralSettingsPage: View {
   /// Only Replay reads it, through `ReplayWelcomeButton`.
   let chat: LocalChatViewModel
   @ObservedObject var updater: AppUpdater
+  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = true
   @Environment(\.enigmaPalette) private var palette
 
   static let newChatsNote = "Used at launch, for each new chat, and for each selection chat."
   static let automaticChecksNote = "Once a day, from Enigma’s GitHub page. Only Enigma’s version is sent."
   static let automaticInstallNote = "Updates install when Enigma quits, or when you choose Restart to Update in the menu bar."
+  static let inferCommandsNote = "Turns on Messages, Think, Edit, and Translate when your wording asks for them, shown as a chip you can remove. Screen and Snapshot always need their command."
   static let locationExplanation = "When you ask about local weather or nearby places, macOS asks for permission. Your approximate area is sent to Brave Search and included with the answer context. Requires Web Search setup in Cloud and search. No background tracking."
 
   var body: some View {
@@ -328,6 +330,12 @@ struct GeneralSettingsPage: View {
         Button("Open Settings…") { NSWorkspace.shared.open(LocationService.privacySettingsURL) }
           .enigmaButtonStyle(.secondary)
           .accessibilityLabel("Open Location Services Settings")
+      }
+      EnigmaHairline()
+
+      EnigmaSectionHeader("Commands")
+      EnigmaRow("Recognize commands from your wording", subtitle: Self.inferCommandsNote) {
+        EnigmaSwitch("Recognize commands from your wording", isOn: $infersCommands)
       }
       EnigmaHairline()
 

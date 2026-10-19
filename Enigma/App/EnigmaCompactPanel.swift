@@ -274,6 +274,10 @@ struct EnigmaCompactComposer: View {
   var send: () -> Void
   var stop: () -> Void
 
+  /// Commands recognized from the draft's wording, shown as chips before the route chip.
+  var inferredCommands: [SlashCommand] = []
+  var dismissInferred: (SlashCommand) -> Void = { _ in }
+
   @Environment(\.enigmaPalette) private var palette
   /// The row's frame in the menu host's space, so the menu opens under the row.
   @State private var rowFrame: CGRect?
@@ -302,6 +306,10 @@ struct EnigmaCompactComposer: View {
         .accessibilityValue(files.selection == nil ? "Off" : "On")
         .help("Attach a file or folder · ⇧⌘A")
         .enigmaTestMarker("Attach files")
+
+        if !inferredCommands.isEmpty {
+          ComposerIntentChips(commands: inferredCommands, dismiss: dismissInferred)
+        }
 
         EnigmaMenu("Mode and model", sections: menu.sections(menuActions), style: .plain,
                    accessibilityValue: menu.label, isPresented: $isMenuPresented, returnFocus: menuClosed,

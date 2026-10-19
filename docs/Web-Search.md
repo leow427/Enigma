@@ -40,10 +40,20 @@ These don't search automatically:
   text you supply
 - Questions about your own work, such as "the current file" or "my latest draft"
 - Historical questions, and requests such as "don't search" or "stay offline"
-- File Mode and `/messages` requests
+- File Mode and Messages requests, typed or recognized
 
 Each message is decided on its own. Searching one question doesn't make the next
 one search.
+
+### The search chip
+
+When a draft would search automatically, a `search` chip appears in the
+composer bar while you type, so you know before sending. Click the chip to send
+that message without searching; it stays off while you keep editing, on every
+route (Local, Cloud and Auto), and comes back for the next message or when you
+clear the field. With automatic search off, or without a key, there's no chip.
+The chip follows the automatic-search setting, not **Recognize commands from
+your wording**. See [Slash commands](Slash-Commands.md#recognized-commands).
 
 ## Explicit search with /search
 
@@ -124,8 +134,14 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
 - `Enigma/Search/WebSearchPolicy.swift`: `WebSearchPolicy.needsFreshInformation`
   is the deterministic automatic-search decision, using fixed English patterns
   on the question with quoted material removed.
+- `Enigma/App/ComposerIntent.swift`: `ComposerIntent.resolve` runs the policy on
+  the typed draft for the `search` chip, and drops it for dismissals, attached
+  files and Messages requests. The composer sends its result as the final
+  decision.
 - `Enigma/LocalInference/LocalChatViewModel.swift`: `shouldSearch` combines
-  `/search` with the policy; the Local, Cloud, Auto and Screen submission paths
+  `/search` with the policy. With `allowsAutomaticSearch: false`, as the composer
+  and Auto's chosen route pass, it keeps the decision it was given, so a
+  dismissed chip stays off. The Local, Cloud, Auto and Screen submission paths
   call the private `search` method, which refines the query when material is
   attached and adds location.
 - `Enigma/Search/BraveSearchClient.swift`: `BraveSearchClient` sends
@@ -170,8 +186,12 @@ boundaries, saving and removing the key, automatic-search examples and opt-outs,
 the setting and missing-key behavior in the real composers, attached text that
 can't authorize a search, query refinement, location handling, evidence fitting
 and source selection across Local, Cloud, Auto and Screen, failures that keep the
-draft, cancellation, older chats without source data, and the rendered sources
-list. The tests use fixtures and need no Brave key or network.
+draft, cancellation, older chats without source data, the rendered sources
+list, and a decided search staying off on every route.
+`EnigmaTests/ComposerIntentTests.swift` covers the `search` chip, its dismissal
+and its conflicts, and `ComposerSubmissionTests` in
+`EnigmaTests/AppShellStateTests.swift` covers a dismissed chip sending without
+search. The tests use fixtures and need no Brave key or network.
 
 Run them with `scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchTests`.
 See [Testing](Testing.md).

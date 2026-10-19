@@ -118,3 +118,21 @@ enum ThinkCommand {
     enabled(in: messages) ? 2_048 : 512
   }
 }
+
+extension ThinkCommand {
+  /// Whether the typed draft asks for careful reasoning ("think hard", "step by
+  /// step"), so the composer can infer `/think`. Pass the typed draft only;
+  /// quoted and backticked text never matches.
+  static func isRequested(by prompt: String) -> Bool {
+    isRequested(normalized: WebSearchPolicy.questionText(prompt))
+  }
+
+  /// `isRequested(by:)` for text already normalized by `WebSearchPolicy.questionText`.
+  static func isRequested(normalized text: String) -> Bool {
+    thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+  }
+
+  // A fixed, tested source literal, never a user-provided regex.
+  private static let thinkCue = try! NSRegularExpression(pattern:
+    #"(?<!\bi )(?<!\byou )(?<!\bwe )(?<!\bthey )\b(?:think|reason)\b (?:(?:really|very|long and|it|this|that|things|about it) )*(?:hard|harder|carefully|deeply|deeper|through)\b|\btake your time\b|\bstep[- ]by[- ]step\b"#)
+}
