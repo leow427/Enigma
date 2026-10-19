@@ -60,6 +60,43 @@ final class AppBundleTests: XCTestCase {
     XCTAssertNotNil(fromCatalog.cgImage(forProposedRect: nil, context: nil, hints: nil))
   }
 
+  func testUpdateFeedAndKeysAreConfigured() throws {
+    let info = try XCTUnwrap(Bundle.main.infoDictionary)
+    let feed = try XCTUnwrap(URL(string: try XCTUnwrap(info["SUFeedURL"] as? String)))
+    XCTAssertEqual(feed.scheme, "https")
+    XCTAssertEqual(feed.host(), "raw.githubusercontent.com")
+    XCTAssertEqual(feed.path(), "/leow427/Enigma/main/appcast.xml")
+    let key = try XCTUnwrap(info["SUPublicEDKey"] as? String)
+    XCTAssertEqual(Data(base64Encoded: key)?.count, 32, "An Ed25519 public key is 32 bytes.")
+    XCTAssertEqual(info["SUEnableAutomaticChecks"] as? Bool, true)
+    XCTAssertEqual(info["SUAutomaticallyUpdate"] as? Bool, true)
+    XCTAssertEqual(info["SUScheduledCheckInterval"] as? Int, 86400)
+    XCTAssertNotEqual(info["SUEnableSystemProfiling"] as? Bool, true)
+  }
+
+  func testVersionsComeFromBuildSettings() throws {
+    let info = try XCTUnwrap(Bundle.main.infoDictionary)
+    let build = try XCTUnwrap(info["CFBundleVersion"] as? String)
+    XCTAssertFalse(build.isEmpty)
+    XCTAssertTrue(build.allSatisfy(\.isASCII) && build.allSatisfy(\.isNumber), "Sparkle compares this integer: \(build)")
+    let short = try XCTUnwrap(info["CFBundleShortVersionString"] as? String)
+    XCTAssertNotNil(short.wholeMatch(of: /\d+\.\d+\.\d+/), short)
+  }
+
+  func testSparkleIsEmbeddedInTheApp() throws {
+    let frameworks = try XCTUnwrap(Bundle.main.privateFrameworksURL)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: frameworks.appending(path: "Sparkle.framework").path))
+  }
+
+  func testLicenseAndCopyrightShipWithTheApp() throws {
+    let info = try XCTUnwrap(Bundle.main.infoDictionary)
+    let copyright = try XCTUnwrap(info["NSHumanReadableCopyright"] as? String)
+    XCTAssertTrue(copyright.contains("All rights reserved"), copyright)
+    let license = try XCTUnwrap(Bundle.main.url(forResource: "LICENSE", withExtension: nil))
+    XCTAssertTrue(try String(contentsOf: license, encoding: .utf8).hasPrefix("Enigma Freeware License"))
+    XCTAssertNotNil(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
+  }
+
   private func inspect(_ arguments: [String]) throws -> String {
     let process = Process()
     let output = Pipe()

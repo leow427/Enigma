@@ -87,7 +87,8 @@ final class ScreenViewTests: XCTestCase {
       codexAvailable: { false })
     for destination in SettingsView.SettingsDestination.allCases {
       let view = NSHostingView(rootView: SettingsView(settings: settings, initialDestination: destination,
-        discovery: LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })).enigmaTheme(.ink))
+        discovery: LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) }),
+        updater: AppUpdater(backend: FakeUpdaterBackend())).enigmaTheme(.ink))
       let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
       window.contentView = view
       defer { window.contentView = nil }
@@ -825,7 +826,6 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertTrue(fixture.view.bounds.contains(fixture.view.convert(editor.bounds, from: editor)))
 
       try await editScreenshotComposer("Explain the attached passage", in: fixture)
-      NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
       await settleScreenshotView(fixture.view)
       XCTAssertEqual(fixture.screen.attachment?.id, originalID)
       try await pressScreenshotControl("Retake", in: fixture.view)

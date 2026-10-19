@@ -203,7 +203,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       self?.hide()
     }
     panel.onShortcut = { [weak self] shortcut in
-      self?.perform(shortcut)
+      self?.perform(shortcut) ?? false
     }
   }
 
@@ -454,57 +454,41 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     panel.setFrame(centeredFrame, display: true)
   }
 
-  private func perform(_ shortcut: PanelShortcut) {
+  /// Returns false for a shortcut that does nothing here, so it is not consumed.
+  private func perform(_ shortcut: PanelShortcut) -> Bool {
+    let name: Notification.Name
     switch shortcut {
     case .toggleSidebar:
-      // In the selection panel, it opens the chat in the window; there, it
-      // shows or hides the history.
-      if selectionNormalFrame != nil {
-        openSelectionChatInWindow()
-      } else {
-        NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-      }
-    case .fileMode:
-      NotificationCenter.default.post(name: .fileModeRequested, object: nil)
-    case .newChat:
-      NotificationCenter.default.post(name: .newChatRequested, object: nil)
-    case .modePalette:
-      NotificationCenter.default.post(name: .modePaletteRequested, object: nil)
-    case .stopStreaming:
-      NotificationCenter.default.post(name: .stopStreamingRequested, object: nil)
-    case .cycleRecentChat:
-      NotificationCenter.default.post(name: .recentChatCycleRequested, object: nil)
-    case .settings:
-      NotificationCenter.default.post(name: .settingsRequested, object: nil)
-    case .hideInactiveTools:
-      NotificationCenter.default.post(name: .hideInactiveToolsRequested, object: nil)
+      // The history belongs to the window; the selection panel has none, and
+      // the shortcut is left unhandled there.
+      guard selectionNormalFrame == nil else { return false }
+      NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
+      return true
+    case .openInWindow:
+      // Only the selection panel's chat opens in the window; elsewhere the key
+      // is left unhandled rather than swallowed.
+      guard selectionNormalFrame != nil else { return false }
+      openSelectionChatInWindow()
+      return true
+    case .fileMode: name = .fileModeRequested
+    case .newChat: name = .newChatRequested
+    case .modePalette: name = .modePaletteRequested
+    case .stopStreaming: name = .stopStreamingRequested
+    case .cycleRecentChat: name = .recentChatCycleRequested
+    case .settings: name = .settingsRequested
     }
+    NotificationCenter.default.post(name: name, object: nil)
+    return true
   }
 }
 
 private final class SpotlightPanel: NSPanel {
-  private var controlDoubleTap = ControlDoubleTap()
   var onHide: (() -> Void)?
-  var onShortcut: ((PanelShortcut) -> Void)?
+  /// Returns whether the shortcut was handled; an unhandled one goes on down the responder chain.
+  var onShortcut: ((PanelShortcut) -> Bool)?
 
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
-
-  override func sendEvent(_ event: NSEvent) {
-    if event.type == .flagsChanged {
-      if isKeyWindow && controlDoubleTap.flagsChanged(keyCode: event.keyCode, modifiers: event.modifierFlags, timestamp: event.timestamp) {
-        onShortcut?(.toggleSidebar)
-      }
-    } else if [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].contains(event.type) {
-      controlDoubleTap.reset()
-    }
-    super.sendEvent(event)
-  }
-
-  override func resignKey() {
-    controlDoubleTap.reset()
-    super.resignKey()
-  }
 
   override func keyDown(with event: NSEvent) {
     guard event.keyCode != 53 else {
@@ -517,7 +501,6 @@ private final class SpotlightPanel: NSPanel {
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
-    controlDoubleTap.reset()
     if event.keyCode == 53 {
       if let editor = firstResponder as? SlashCommandTextView, editor.completion?.dismiss() == true { return true }
       // An open menu closes first, as the command list does.
@@ -528,12 +511,11 @@ private final class SpotlightPanel: NSPanel {
       return true
     }
     if let shortcut = PanelShortcut.resolve(
-      characters: event.keyCode == 3 && event.modifierFlags.intersection([.shift, .option, .command, .control]) == [.shift, .option]
-        ? "f" : event.charactersIgnoringModifiers,
-      modifiers: event.modifierFlags
+      characters: event.charactersIgnoringModifiers,
+      modifiers: event.modifierFlags,
+      keyCode: event.keyCode
     ) {
-      onShortcut?(shortcut)
-      return true
+      if onShortcut?(shortcut) == true { return true }
     }
     return super.performKeyEquivalent(with: event)
   }

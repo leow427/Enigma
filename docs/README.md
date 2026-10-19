@@ -26,6 +26,7 @@ works in the code, its limitations, and which tests cover it.
 | [Claude Code setup](Claude-Code-Setup.md) | Using a Claude plan through the Claude Code CLI |
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
+| [Updates](Updates.md) | Automatic updates through Sparkle, the update signing key, and publishing a release with `scripts/release.sh` |
 
 ## Design and history
 

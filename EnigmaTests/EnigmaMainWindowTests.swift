@@ -239,12 +239,20 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(Shortcut("", "⇧ ⌘ Z").compactKeys, "⇧⌘Z")
     XCTAssertEqual(Shortcut("", "⇧ ⌥ Space").compactKeys, "⇧⌥ Space")
     XCTAssertEqual(Shortcut("", "⌃ Tab").compactKeys, "⌃ Tab")
-    XCTAssertEqual(Shortcut("", "⌃ twice").compactKeys, "⌃ twice")
+    XCTAssertEqual(Shortcut("", "⌃ ⌘ S").compactKeys, "⌃⌘S")
+    XCTAssertEqual(Shortcut("", "⇧ ⌘ A").compactKeys, "⇧⌘A")
+    XCTAssertEqual(Shortcut("", "⌘ twice").compactKeys, "⌘ twice")
     XCTAssertEqual(Shortcut("", "Tab / Return").compactKeys, "Tab / Return")
     XCTAssertEqual(Shortcut("", "⌘ .").compactKeys, "⌘.")
     XCTAssertEqual(KeyboardShortcutsHelp.selectionChat(modifier: .command).keys, "⌘ twice")
     XCTAssertTrue(KeyboardShortcutsHelp.panel.contains(Shortcut("Open or close Mode & Model", "⌘ K")))
     XCTAssertTrue(KeyboardShortcutsHelp.commandsNote().contains("remain highlighted"))
+    XCTAssertTrue(KeyboardShortcutsHelp.selectionKeyNote.contains("Dictation"))
+    XCTAssertTrue(KeyboardShortcutsHelp.selectionKeyNote.contains("JetBrains"))
+    XCTAssertTrue(KeyboardShortcutsHelp.showOrHideNote.contains("release"))
+    let panelKeys = KeyboardShortcutsHelp.panel.map(\.keys)
+    XCTAssertTrue(["⌃ ⌘ S", "⌘ O", "⇧ ⌘ A"].allSatisfy(panelKeys.contains))
+    XCTAssertFalse(panelKeys.contains("⇧ ⌘ H") || panelKeys.contains("⌃ twice"))
   }
 
   /// Help and Settings name the selection chat and web search as the
@@ -408,11 +416,11 @@ final class EnigmaMainWindowTests: XCTestCase {
       host.shows("New chat")
     }
 
-    // Double-tap Control posts this through the panel.
+    // ⌃⌘S posts this through the panel.
     NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-    try await waitForUI("double-tap Control hides the sidebar", in: host.view) { !host.shows("New chat") }
+    try await waitForUI("⌃⌘S hides the sidebar", in: host.view) { !host.shows("New chat") }
     NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-    try await waitForUI("double-tap Control shows the sidebar", in: host.view) { host.shows("New chat") }
+    try await waitForUI("⌃⌘S shows the sidebar", in: host.view) { host.shows("New chat") }
 
     try await clickTestControl("Developer Tools", in: host.view)
     try await waitForUI("Developer Tools", in: host.view) { host.shows("Replay welcome setup") }
@@ -460,7 +468,7 @@ final class EnigmaMainWindowTests: XCTestCase {
         isAt(shown, frames()) && composerAcceptsClicks(in: host.view)
       }
 
-      // Double-tap Control posts this through the panel.
+      // ⌃⌘S posts this through the panel.
       NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
       try await waitForUI("the composer at rest without the sidebar \(label) (seen \(seen))", in: host.view) {
         observe()
@@ -590,8 +598,10 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await clickTestControl("Menu item Auto", in: view)
     try await waitForUI("the palette closes after choosing", in: view) { Host.marker("Menu item Auto", in: view) == nil }
 
-    XCTAssertTrue(window.performKeyEquivalent(with: try key("ƒ", keyCode: 3, modifiers: [.option, .shift])))
-    try await waitForUI("⇧⌥F opens the picker", in: view) { fixture.picker.count == 1 }
+    XCTAssertFalse(window.performKeyEquivalent(with: try key("ƒ", keyCode: 3, modifiers: [.option, .shift])), "⇧⌥F is no longer a shortcut")
+    XCTAssertEqual(fixture.picker.count, 0)
+    XCTAssertTrue(window.performKeyEquivalent(with: try key("A", keyCode: 0, modifiers: [.command, .shift])))
+    try await waitForUI("⇧⌘A opens the picker", in: view) { fixture.picker.count == 1 }
   }
 
   @MainActor

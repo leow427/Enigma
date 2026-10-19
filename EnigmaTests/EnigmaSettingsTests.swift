@@ -11,6 +11,22 @@ final class EnigmaSettingsTests: XCTestCase {
   /// Tall enough to show a whole page without scrolling.
   private static let tall = CGSize(width: 820, height: 3000)
 
+  // MARK: Mac capabilities
+
+  @MainActor
+  func testHardwareDetailsNameCPUsAndMetal() {
+    var hardware = LocalHardwareProfile(physicalMemory: 16 * gib, isAppleSilicon: true, hasMetal: true,
+      hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 10, performanceCPUCount: 4,
+      availableDiskBytes: 200 * gib, metalRecommendedWorkingSet: 12 * gib, metalMaximumBufferLength: 8 * gib,
+      lowPowerMode: false)
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware),
+                   "10 CPUs · Metal · \((12 * gib).formatted(.byteCount(style: .memory))) Metal working set")
+    hardware.metalRecommendedWorkingSet = nil
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware), "10 CPUs · Metal")
+    hardware.hasMetal = false
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware), "10 CPUs · CPU inference")
+  }
+
   // MARK: Appearance setting
 
   @MainActor
@@ -257,6 +273,28 @@ final class EnigmaSettingsTests: XCTestCase {
     try host.press("Menu item Cloud")
     try await waitForUI("Cloud chosen", in: host.view) { fixture.start.mode == .cloud }
     try await waitForUI("the menu to close", in: host.view) { !host.shows("Menu item Cloud") }
+  }
+
+  @MainActor
+  func testUpdateSwitchesAndCheckNowReachTheUpdater() async throws {
+    let fixture = try await Fixture(test: self)
+    let backend = fixture.updaterBackend
+    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the update switches", in: host.view) { host.shows("Check for updates automatically switch") }
+    try host.press("Check for updates automatically switch")
+    try await waitForUI("automatic checks off", in: host.view) { !backend.automaticallyChecksForUpdates }
+    try await waitForUI("the download switch disabled", in: host.view) {
+      host.isEnabled("Download and install updates automatically switch") == false
+    }
+    try host.press("Download and install updates automatically switch")
+    XCTAssertTrue(backend.automaticallyDownloadsUpdates, "The download switch is disabled while checks are off.")
+
+    try host.press("Check for updates automatically switch")
+    try await waitForUI("automatic checks on", in: host.view) { backend.automaticallyChecksForUpdates }
+    fixture.updater.backendCanCheckChanged(true)
+    try await waitForUI("Check Now enabled", in: host.view) { host.isEnabled("Check for Updates Now") == true }
+    try host.press("Check for Updates Now")
+    try await waitForUI("a check", in: host.view) { backend.checkCount == 1 }
   }
 
   @MainActor
@@ -753,8 +791,8 @@ final class EnigmaSettingsTests: XCTestCase {
       }
     }
     // Whole pages: Cloud and search's web search, advanced settings, and API
-    // keys; General's location and Messages.
-    for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1220.0)] {
+    // keys; General's location, Messages and Updates.
+    for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1400.0)] {
       let size = CGSize(width: SettingsView.windowSize.width, height: height)
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)-full",
                                     size: size, until: { !fixture.advisor.isDetecting }) {
@@ -883,6 +921,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let selection: SelectionEditingSettings
     let location: LocationService
     let appearance: EnigmaAppearancePreference
+    let updaterBackend = FakeUpdaterBackend()
+    let updater: AppUpdater
     let discovery = LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })
 
     var sources = HuggingFaceDownloadSources(loadRepository: { _ in throw URLError(.notConnectedToInternet) },
@@ -912,6 +952,7 @@ final class EnigmaSettingsTests: XCTestCase {
       selection = SelectionEditingSettings(defaults: defaults)
       location = LocationService(defaults: defaults)
       appearance = EnigmaAppearancePreference(defaults: defaults)
+      updater = AppUpdater(backend: updaterBackend)
       test.addTeardownBlock { @MainActor in
         await chat.stopStreaming()?.value
         await chat.sessionWriter.waitForPendingWrites()
@@ -925,7 +966,7 @@ final class EnigmaSettingsTests: XCTestCase {
       SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
                          discovery: discovery, advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
-                         downloads: downloads, sources: sources, size: size)
+                         downloads: downloads, sources: sources, updater: updater, size: size)
     }
   }
 
@@ -1000,6 +1041,9 @@ final class EnigmaSettingsTests: XCTestCase {
     }
 
     func shows(_ name: String) -> Bool { marker(name) != nil }
+
+    /// Whether SwiftUI has control `name` enabled, or nil when it isn't shown.
+    func isEnabled(_ name: String) -> Bool? { (marker(name) as? TestControlMarker.Marker)?.isEnabled }
 
     /// Clicks the real control behind a marker with a mouse down and up.
     func press(_ name: String, file: StaticString = #filePath, line: UInt = #line) throws {

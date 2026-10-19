@@ -464,6 +464,7 @@ enum KeyboardShortcutsHelp {
     Shortcut("New temporary chat with selection", "\(modifier.symbol) twice")
   }
 
+  static let selectionKeyNote = "Option is the default. Double-tapping Command can clash with a Dictation shortcut. Double-tapping Shift is Search Everywhere in JetBrains apps."
   static let selectionBackup = Shortcut("Selection chat backup", "⇧ ⌥ Space")
   static let selectionNote = "Highlight text in another app, then tap the chosen key twice by itself (Option by default). Context stays in a temporary chat and follows your selected model and web search settings. Use /edit with your instructions to get a revised-text card with Edit and Replace text. Questions stay read-only. Use /translate to translate to English, or name another language. Settings → Selection offers automatic replacement without a preview. Replacement pastes into the selection currently active in the source app. Your clipboard is preserved. Password fields are excluded."
 
@@ -472,8 +473,7 @@ enum KeyboardShortcutsHelp {
   }
 
   static let showOrHide = Shortcut("Show or hide Enigma", "⌥ ⌃")
-  static let showOrHideNote = "Press Option and Control together. Accessibility permission lets this shortcut work while another app is active."
-  static let advancedSettings = Shortcut("Open Settings", "⌥ S")
+  static let showOrHideNote = "Press Option and Control together, then release them, on their own. Using them with another key or modifier does nothing here. Accessibility permission lets this shortcut work while another app is active."
 
   static let panel: [Shortcut] = [
     Shortcut("Hide the panel", "Esc"),
@@ -481,14 +481,15 @@ enum KeyboardShortcutsHelp {
     Shortcut("Open or close Mode & Model", "⌘ K"),
     Shortcut("Stop the response", "⌘ ."),
     Shortcut("Next recent chat", "⌃ Tab"),
-    Shortcut("Show or hide chat history, or open the selection panel's chat in the window", "⌃ twice"),
+    Shortcut("Show or hide chat history", "⌃ ⌘ S"),
+    Shortcut("Open the selection panel's chat in the window", "⌘ O"),
+    Shortcut("Attach files or a folder", "⇧ ⌘ A"),
     Shortcut("Open Settings", "⌘ ,"),
     Shortcut("Send from the message field", "Return"),
     Shortcut("Complete a slash command", "Tab / Return"),
     Shortcut("Choose a command suggestion", "↑ / ↓"),
     Shortcut("Dismiss command suggestions", "Esc"),
     Shortcut("Insert a new line", "⇧ Return"),
-    Shortcut("Hide inactive tools", "⇧ ⌘ H"),
   ]
 
   static let search = Shortcut("Search for this message only", "/search")
@@ -498,7 +499,6 @@ enum KeyboardShortcutsHelp {
     Shortcut("Capture the full desktop", "/screen"),
     Shortcut("Capture a screen region", "/snapshot"),
     Shortcut("Think harder for this answer", "/think"),
-    Shortcut("Attach files or a folder", "⇧ ⌥ F"),
   ]
 
   /// Commands are highlighted in `accentText` as they're typed.

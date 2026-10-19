@@ -439,7 +439,10 @@ struct AppShellView: View {
       openHelp: { shell.isHelpPresented = true },
       openSettings: openSettings
     ) {
+      // Developer Tools is for development only; Settings has the same tools.
+      #if DEBUG
       DeveloperToolsView(advisor: modelAdvisor, chat: localChat, replayWelcome: { welcomeSetup.replay() })
+      #endif
     }
   }
 

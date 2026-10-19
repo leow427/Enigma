@@ -1,0 +1,92 @@
+Enigma Freeware License
+
+Copyright (c) 2026 Leo Walsh. All rights reserved.
+
+Enigma (the "Software") is free to use, but it is not open source. This
+license covers the Enigma application and its source code, artwork, and
+documentation. Third-party components included with the Software are covered
+by their own licenses, listed in ThirdPartyNotices.txt; nothing in this license
+limits the rights those licenses give you.
+
+1. Permission to use
+
+   You may download, install, and use the Software free of charge, on any
+   number of devices you own or control, for any purpose, personal or
+   commercial, including use at work.
+
+2. Where the Software may be obtained
+
+   The Software is distributed only through its official channels: the GitHub
+   releases page at https://github.com/leow427/Enigma/releases, the Software's
+   built-in updater, and any app store listing published by the copyright
+   holder.
+
+   You may freely share links to those official channels.
+
+   You may not host, mirror, upload, or otherwise distribute copies of the
+   Software or its installers yourself, whether on a website, file-sharing
+   service, download portal, package manager, or bundled with other software,
+   without prior written permission from the copyright holder.
+
+3. Restrictions
+
+   Except as expressly permitted in this license or by applicable law, you may
+   not:
+
+   a. sell, rent, lease, sublicense, or charge for the Software;
+   b. modify, adapt, translate, or create derivative works of the Software;
+   c. copy or reuse the Software's source code, in whole or in part, in other
+      software;
+   d. decompile, disassemble, or reverse engineer the Software, except to the
+      extent applicable law expressly permits it despite this restriction;
+   e. remove or alter any copyright notice, license, or attribution in the
+      Software; or
+   f. use the Enigma name or icon to suggest that you or your product are
+      affiliated with or endorsed by the copyright holder.
+
+   Where source code is publicly viewable, you may read it, but viewing it
+   grants no rights beyond those in this license.
+
+4. Ownership
+
+   The Software is licensed, not sold. The copyright holder keeps all rights,
+   title, and interest in the Software, including all intellectual property
+   rights. All rights not expressly granted in this license are reserved.
+
+5. Third-party services and models
+
+   The Software can connect to third-party services and download third-party
+   models. Your use of those services and models is governed by their own
+   terms and licenses.
+
+6. App store distribution
+
+   If you obtain the Software from an app store, that store's standard terms
+   also apply. If they conflict with this license, the store's terms govern
+   for that copy, to the extent they require.
+
+7. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+8. Limitation of liability
+
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE COPYRIGHT
+   HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+9. Termination
+
+   This license ends automatically if you break any of its terms. When it
+   ends, you must stop using the Software and delete all copies you have.
+
+10. Changes
+
+   The copyright holder may offer future versions of the Software under
+   different terms. The terms included with a given version apply to that
+   version.
+
+Questions or permission requests: https://github.com/leow427/Enigma/issues

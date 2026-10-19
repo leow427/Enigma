@@ -10,7 +10,7 @@ and the keyboard-shortcut reference.
 
 Enigma lives in the menu bar and has no Dock icon. Open it with:
 
-- **⌥⌃** (press Option and Control together, on their own) in any app. The same
+- **⌥⌃** (press Option and Control together, then release them, on their own) in any app. The same
   shortcut hides it again. It needs the **Accessibility** permission to work
   while another app is active.
 - The menu bar item, which shows the Enigma character as a monochrome icon. Its
@@ -102,12 +102,13 @@ sidebar shown or hidden.
 - **Settings → General → Replay welcome setup → Replay** starts again from the
   first step. It closes Settings and shows the window. Replay keeps your chats,
   installed models, and credentials, and is unavailable while a response is
-  running. The sidebar's **Developer Tools** has the same **Replay welcome
-  setup** action, plus **Detect Mac capabilities**.
+  running. In Debug builds the sidebar's **Developer Tools** has the same
+  **Replay welcome setup** action, plus **Detect Mac capabilities**, which
+  release builds offer in **Settings → Local models**.
 
 ## Settings
 
-Open Settings with **⌘,** while Enigma is active, **⌥S** from any app, the menu
+Open Settings with **⌘,** while Enigma is active, the menu
 bar item's **Settings**, the sidebar's **Settings** row (or the gear when the
 sidebar is hidden), or **Advanced settings…** / **Manage models in Settings…**
 in the mode and model menu (**⌘K**). Connection buttons elsewhere in the app
@@ -147,8 +148,8 @@ How Enigma looks, starts, and works with your Mac.
 ### Local models
 
 Run models on this Mac. Recommended models grouped by weight class, with
-install, update, use, and delete actions; **Refresh recommendations** and
-**Check performance**; imported models; **Files** (the **Local file tools**
+install, update, use, and delete actions; **Detect Mac capabilities**,
+**Refresh recommendations** and **Check performance**; imported models; **Files** (the **Local file tools**
 runtime used by local File Mode and `/messages`, and **Saved file changes**);
 and **Advanced: Import text GGUF…**. See
 [Local-Model-Selection.md](Local-Model-Selection.md) and
@@ -208,13 +209,14 @@ Anywhere on your Mac:
 
 | Shortcut | Action |
 | --- | --- |
-| ⌥⌃ | Show or hide Enigma |
+| ⌥⌃ | Show or hide Enigma: press Option and Control together, then release them, with no other key, modifier or click in between |
 | Option twice | New temporary chat with selection |
 | ⇧⌥ Space | Selection chat backup |
-| ⌥S | Open Settings |
 
 The Help sheet also has **Double-tap shortcut** (on by default),
-**Selection shortcut key** (Option, Command, or Shift), and
+**Selection shortcut key** (Option, Command, or Shift; Option is the default,
+Command can clash with a Dictation shortcut, and Shift is Search Everywhere in
+JetBrains apps), and
 **Double-tap interval** (Fast, Normal, or Relaxed), with the Accessibility
 status and **Open Accessibility Settings…**.
 
@@ -227,12 +229,12 @@ In the chat window:
 | ⌘K | Open or close the mode and model menu |
 | ⌘. | Stop the response |
 | ⌃ Tab | Next recent chat |
-| Control twice | Show or hide chat history, or open the selection panel's chat in the window |
+| ⌃⌘S | Show or hide chat history |
+| ⌘O | Open the selection panel's chat in the window |
 | ⌘, | Open Settings |
 | Return / ⇧ Return | Send / insert a new line |
 | ↑ / ↓, then Tab or Return | Choose and complete a slash command |
-| ⇧⌘H | Hide inactive tools |
-| ⇧⌥F | Attach files or a folder |
+| ⇧⌘A | Attach files or a folder |
 
 Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
 
@@ -261,8 +263,8 @@ Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
 | Location | `Enigma/Search/LocationService.swift` (`LocationIntent`, `LocationService`) |
 | Help sheet and its shortcut list | `Enigma/App/KeyboardShortcutsHelpView.swift`, `KeyboardShortcutsHelp` in `Enigma/App/EnigmaMainWindowLogic.swift` |
 | Menu bar item | `Enigma/App/MenuBarController.swift`, `Enigma/App/AppCommand.swift` |
-| Global shortcuts: ⌥⌃ (`PanelShortcutMonitor`), ⌥S and ⇧⌥ Space (`GlobalHotKeyMonitor`) | `Enigma/App/GlobalHotKeyMonitor.swift`, registered in `Enigma/App/ApplicationDelegate.swift` |
-| In-window shortcuts and the Control double-tap | `Enigma/App/PanelShortcut.swift` |
+| Global shortcuts: ⌥⌃ (`PanelShortcutMonitor`), ⇧⌥ Space (`GlobalHotKeyMonitor`) | `Enigma/App/GlobalHotKeyMonitor.swift`, registered in `Enigma/App/ApplicationDelegate.swift` |
+| In-window shortcuts | `Enigma/App/PanelShortcut.swift` |
 | Settings sections owned by features | `Enigma/Cloud/CloudSettingsPage.swift`, `Enigma/Cloud/CloudConnectionControls.swift`, `Enigma/Search/WebSearchSettingsSection.swift`, `Enigma/Screen/ScreenSettingsSection.swift`, `Enigma/LocalInference/LocalModelManagerSection.swift`, `Enigma/LocalInference/LocalModelDiscoveryView.swift`, `Enigma/Messages/MessagesSettingsSection.swift` |
 
 Preferences are stored in `UserDefaults`: `welcomeSetup.completed.v1` and

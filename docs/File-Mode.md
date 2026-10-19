@@ -7,7 +7,7 @@ can review it and undo it.
 
 ## Attach files or a folder
 
-Click **+** (**Attach files**) in the composer, or press **⇧⌥F**. Choose one or
+Click **+** (**Attach files**) in the composer, or press **⇧⌘A**. Choose one or
 more files or folders in the picker and click **Attach**. Choosing again adds
 more, up to 16; a file inside a folder you've already attached is covered by that
 folder.
@@ -213,7 +213,7 @@ disk.
   classification, Codex permission, local fallback and created-file provenance.
 - `EnigmaTests/FileAgentTests.swift`: the local tool loop, recovery limits, read
   back, deletion confirmation, and Codex tool handling.
-- `EnigmaTests/FileModeUITests.swift`: the picker and **⇧⌥F**, attachments per
+- `EnigmaTests/FileModeUITests.swift`: the picker and **⇧⌘A**, attachments per
   chat, Auto staying local, `/translate` staying read-only, the Codex handoff, and
   the rendered cards.
 

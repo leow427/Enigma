@@ -89,18 +89,21 @@ codesign --verify --deep --strict --verbose=2 /Applications/Enigma.app
 codesign -d --entitlements - /Applications/Enigma.app
 ```
 
-## Archiving and notarization
+## Releases and updates
 
-The scheme's Archive action builds Release. To make an archive, choose
-**Product → Archive** in Xcode, then distribute it from the Organizer with the
-appropriate identity. Archive again after any signing or entitlement change; an
-existing archive keeps the settings it was built with.
+Releases are built, signed and published with `scripts/release.sh`, and
+installed copies update themselves through Sparkle. See
+[Updates.md](Updates.md) for the release steps, the update signing key, and
+what users see.
 
 The project is configured for Apple Development signing only. Developer ID
-signing and notarization are not set up in the project or scripts and are
-separate steps done from the Organizer or with Apple's tools. A distribution
-export must not contain `com.apple.security.get-task-allow`. Passing tests does
-not show that a build is notarized.
+signing and notarization are not set up; [Updates.md](Updates.md) describes the
+later move. `release.sh` checks every release with the commands above: the
+signature must verify, carry the hardened runtime flag, and keep the previous
+release's designated requirement. A distribution build should not contain
+`com.apple.security.get-task-allow`; `release.sh` reports it when the free
+team's Apple Development signature includes it. Passing tests does not show
+that a build is notarized.
 
 Before sharing a build, check with the signed app: a local model, a cloud
 sign-in, screen and selection capture, a nearby or weather question, and

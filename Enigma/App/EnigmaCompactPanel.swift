@@ -139,7 +139,7 @@ struct EnigmaCompactSelectionLine: View {
   var isStatusPresented = false
   var toggleStatus: () -> Void = {}
   let remove: (UUID) -> Void
-  /// Opens the panel's chat in the main window, as double-tap Control does.
+  /// Opens the panel's chat in the main window, as Command-O does.
   /// The button ends the top row whatever else it shows.
   var openInWindow: (() -> Void)? = nil
   /// Opening in the window keeps the chat private instead of saving it.
@@ -300,7 +300,7 @@ struct EnigmaCompactComposer: View {
         .disabled(isAttachDisabled)
         .accessibilityLabel("Attach files")
         .accessibilityValue(files.selection == nil ? "Off" : "On")
-        .help("Attach a file or folder · ⇧⌥F")
+        .help("Attach a file or folder · ⇧⌘A")
         .enigmaTestMarker("Attach files")
 
         EnigmaMenu("Mode and model", sections: menu.sections(menuActions), style: .plain,

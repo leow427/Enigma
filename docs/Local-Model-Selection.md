@@ -29,8 +29,10 @@ catalogue package includes image support.
 ![Settings → Local models](design/ui-revamp/screenshots/phase-10/settings-local-paper.png)
 
 The page starts with this Mac's memory **available for inference**, **free
-disk** and **chip**, then:
+disk** and **chip**, and a line with its CPU count and Metal support (and
+Metal's working set), then:
 
+- **Detect Mac capabilities** checks the Mac again and updates those details.
 - **Refresh recommendations** re-detects the Mac and re-reads the catalogue.
   **Check performance** measures the selected model (see below).
 - **Best choices for this Mac** lists five packages in three weight classes,

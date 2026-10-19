@@ -52,7 +52,7 @@ struct ShellPresentation: Equatable {
     isSelectionDetailsPresented = false
   }
 
-  /// The panel's chat opened in the main window, by double-tap Control or the
+  /// The panel's chat opened in the main window, by Command-O or the
   /// Open in window button: the window's own layout, with the sidebar as the
   /// user's saved preference has it for a new chat.
   mutating func openSelectionChatInWindow(showsSidebar: Bool) {

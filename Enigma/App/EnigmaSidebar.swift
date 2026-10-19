@@ -68,7 +68,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
         Button(action: hide) { Image(systemName: "sidebar.left") }
           .enigmaIconButtonStyle(size: CGSize(width: 28, height: 26))
           .accessibilityLabel("Hide chat history")
-          .help("Hide chat history · double-tap Control")
+          .help("Hide chat history · ⌃⌘S")
           .enigmaTestMarker("Hide chat history")
       }
       .padding(.leading, 6)
@@ -115,8 +115,6 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
           .foregroundStyle(palette.textSecondary.color)
       }
       developerTools()
-        .padding(.top, 8)
-        .padding(.horizontal, 6)
     }
   }
 }
@@ -137,7 +135,7 @@ struct EnigmaHiddenSidebarBar: View {
         .enigmaIconButtonStyle()
         .welcomeTourTarget(.history)
         .accessibilityLabel("Show chat history")
-        .help("Show chat history · double-tap Control")
+        .help("Show chat history · ⌃⌘S")
         .enigmaTestMarker("Show chat history")
       Spacer(minLength: 0)
       Button(action: newChat) { Image(systemName: "plus") }
@@ -163,6 +161,7 @@ struct EnigmaHiddenSidebarBar: View {
 }
 
 /// Developer Tools, behind a disclosure: hardware detection and welcome replay.
+/// Debug builds only; Settings offers both in release builds.
 struct DeveloperToolsView: View {
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel
@@ -198,5 +197,8 @@ struct DeveloperToolsView: View {
       }
       .padding(.top, 4)
     }
+    // The padding lives here so release builds, which leave the tools out, add no space.
+    .padding(.top, 8)
+    .padding(.horizontal, 6)
   }
 }

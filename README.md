@@ -36,6 +36,20 @@ See [docs/](docs/README.md) for how each feature works.
 - Optional: API keys or the Codex or Claude Code CLI for cloud models, and a
   Brave Search API key for web search.
 
+## Install
+
+1. Download the latest `Enigma-<version>.zip` from
+   [Releases](https://github.com/leow427/Enigma/releases).
+2. Unzip it and drag `Enigma.app` into Applications. If you open it from
+   somewhere else, Enigma offers to move itself there, because it can only
+   update itself from Applications.
+3. The first time, right-click `Enigma.app` and choose **Open** (or allow it in
+   System Settings → Privacy & Security), because Enigma is not notarized.
+
+Later versions arrive by themselves: Enigma checks once a day, downloads the
+update, and installs it when it quits or when you choose **Restart to Update**
+in its menu. See [docs/Updates.md](docs/Updates.md).
+
 ## Build and run
 
 Open `Enigma.xcodeproj` and run the `Enigma` scheme. To install a signed copy
@@ -73,5 +87,13 @@ See [docs/Testing.md](docs/Testing.md) for details and
 | `scripts/` | Verification, install, icon, and File Mode evaluation scripts |
 | `docs/` | Feature docs, guides, the design reference, and history |
 
-Third-party licenses are in
+## License
+
+Enigma is freeware, not open source: it is free to use, personally or at work,
+under the [Enigma Freeware License](LICENSE). Share links to the official
+[releases page](https://github.com/leow427/Enigma/releases) rather than hosting
+copies yourself. Modifying, reusing, or redistributing the app or its source
+code is not permitted.
+
+Third-party components keep their own licenses, listed in
 [Enigma/Resources/ThirdPartyNotices.txt](Enigma/Resources/ThirdPartyNotices.txt).

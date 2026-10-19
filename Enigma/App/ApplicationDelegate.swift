@@ -57,6 +57,9 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
     NSApp.setActivationPolicy(.accessory)
+    // A copy outside Applications cannot update; offer to move it before anything starts.
+    if MoveToApplicationsPrompt.runIfNeeded() { return }
+    AppUpdater.shared.start()
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),
       name: .welcomeSetupRequested, object: nil)
     NotificationCenter.default.addObserver(
@@ -67,7 +70,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     )
 
     let panelController = SpotlightPanelController(welcomeSetup: .shared)
-    let menuBarController = MenuBarController(panelController: panelController)
+    let menuBarController = MenuBarController(panelController: panelController, updater: .shared)
     menuBarController.install()
 
     let panelShortcut = PanelShortcutMonitor { [weak self] in
@@ -76,17 +79,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
     panelShortcut.start()
     self.panelShortcut = panelShortcut
-
-    let openSettingsHotKeyMonitor = GlobalHotKeyMonitor(hotKey: .openSettings) { [weak self] in
-      self?.selectionShortcut?.reset()
-      self?.openSettings()
-    }
-    do {
-      try openSettingsHotKeyMonitor.start()
-      globalHotKeyMonitors.append(openSettingsHotKeyMonitor)
-    } catch {
-      NSLog("Unable to register the Enigma settings shortcut: %@", error.localizedDescription)
-    }
 
     let selectionShortcut = SelectionShortcutMonitor { panelController.summonSelectionContext() }
     selectionShortcut.start()

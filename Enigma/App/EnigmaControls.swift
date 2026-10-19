@@ -515,7 +515,7 @@ struct EnigmaKeyedText: View {
   let text: String
   var size: CGFloat = 12
   var weight: Font.Weight = .regular
-  /// Space between symbols, so a pair like `⌃⌃` reads as two keys.
+  /// Space between symbols, so a pair like `⇧⌘` reads as two keys.
   var symbolTracking: CGFloat = 0
 
   init(_ text: String, size: CGFloat = 12, weight: Font.Weight = .regular, symbolTracking: CGFloat = 0) {

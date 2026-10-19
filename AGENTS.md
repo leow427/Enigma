@@ -57,6 +57,12 @@ To install the current checkout as a signed `/Applications/Enigma.app`, run
 Git hooks that reinstall it after each commit or pull on `main`. See
 `docs/Distribution.md`.
 
+To publish a release that installed copies update to through Sparkle, run
+`scripts/release.sh <version>` from a clean, current `main` after adding
+`docs/release-notes/<version>.md`; `scripts/release.sh --dry-run <version>`
+builds and signs it in a temporary worktree and publishes nothing. Only the
+owner publishes releases. See `docs/Updates.md`.
+
 GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 `main` and pull requests. It does not run the helper's separate `build` or
 `analyze` actions, so run those locally when they are relevant to the change.

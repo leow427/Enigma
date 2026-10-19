@@ -88,6 +88,7 @@ struct SettingsView: View {
   @StateObject private var discovery: LocalModelDiscovery
   private let downloads: HuggingFaceModelDownloads
   private let sources: HuggingFaceDownloadSources
+  private let updater: AppUpdater
   private let size: CGSize
   @State private var destination: SettingsDestination
   @Environment(\.enigmaPalette) private var palette
@@ -102,7 +103,8 @@ struct SettingsView: View {
        search: WebSearchSettings = .shared, screen: ScreenSettings = .shared,
        startPreferences: StartPreferences = .shared, selectionEditing: SelectionEditingSettings = .shared,
        location: LocationService = .shared, downloads: HuggingFaceModelDownloads = .shared,
-       sources: HuggingFaceDownloadSources = .live, size: CGSize = SettingsView.windowSize) {
+       sources: HuggingFaceDownloadSources = .live, updater: AppUpdater = .shared,
+       size: CGSize = SettingsView.windowSize) {
     self.settings = settings
     self.appearance = appearance
     self.advisor = advisor
@@ -114,6 +116,7 @@ struct SettingsView: View {
     self.location = location
     self.downloads = downloads
     self.sources = sources
+    self.updater = updater
     self.size = size
     _destination = State(initialValue: initialDestination)
     _discovery = StateObject(wrappedValue: discovery ?? LocalModelDiscovery())
@@ -188,7 +191,7 @@ struct SettingsView: View {
     switch destination {
     case .general:
       GeneralSettingsPage(appearance: appearance, startPreferences: startPreferences, location: location,
-                                chat: chat)
+                                chat: chat, updater: updater)
     case .local:
       LocalModelManagerSection(advisor: advisor, chat: chat, downloads: downloads, sources: sources)
     case .discover:
@@ -272,16 +275,19 @@ struct SettingsPageHeader: View {
 
 // MARK: General
 
-/// Appearance, permissions, the welcome, new chats, location, and Messages.
+/// Appearance, permissions, the welcome, new chats, location, Messages, and updates.
 struct GeneralSettingsPage: View {
   @ObservedObject var appearance: EnigmaAppearancePreference
   @ObservedObject var startPreferences: StartPreferences
   @ObservedObject var location: LocationService
   /// Only Replay reads it, through `ReplayWelcomeButton`.
   let chat: LocalChatViewModel
+  @ObservedObject var updater: AppUpdater
   @Environment(\.enigmaPalette) private var palette
 
   static let newChatsNote = "Used at launch, for each new chat, and for each selection chat."
+  static let automaticChecksNote = "Once a day, from Enigma’s GitHub page. Only Enigma’s version is sent."
+  static let automaticInstallNote = "Updates install when Enigma quits, or when you choose Restart to Update in the menu bar."
   static let locationExplanation = "When you ask about local weather or nearby places, macOS asks for permission. Your approximate area is sent to Brave Search and included with the answer context. Requires Web Search setup in Cloud and search. No background tracking."
 
   var body: some View {
@@ -333,7 +339,29 @@ struct GeneralSettingsPage: View {
 
       EnigmaSectionHeader("Messages · /messages")
       MessagesSettingsSection()
+
+      EnigmaSectionHeader("Updates")
+      EnigmaRow("Check for updates automatically", subtitle: Self.automaticChecksNote) {
+        EnigmaSwitch("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
+      }
+      EnigmaRow("Download and install updates automatically", subtitle: Self.automaticInstallNote) {
+        EnigmaSwitch("Download and install updates automatically", isOn: $updater.automaticallyDownloadsUpdates)
+          .disabled(!updater.automaticallyChecksForUpdates)
+      }
+      EnigmaRow("Version", subtitle: versionSubtitle) {
+        Button("Check Now") { updater.checkForUpdates() }
+          .enigmaButtonStyle(.secondary)
+          .enigmaTestMarker("Check for Updates Now")
+          .disabled(!updater.canCheckForUpdates)
+          .accessibilityLabel("Check for Updates Now")
+      }
+      EnigmaHairline()
     }
+  }
+
+  private var versionSubtitle: String {
+    AppUpdater.versionText(info: Bundle.main.infoDictionary ?? [:]) + " · "
+      + AppUpdater.lastCheckedText(updater.lastUpdateCheckDate, now: .now, locale: .current)
   }
 }
 
