@@ -43,6 +43,16 @@ final class ComposerIntentPhrasingTests: XCTestCase {
     assertResolves(PhrasingCorpus.none, to: [])
   }
 
+  func testLongRepeatedDraftsStayFast() {
+    // Each cue runs its lookbehinds only after its literal word, so pathological repeats stay cheap.
+    for word in ["consider ", "think ", "take ", "my ", "sam's ", "what did sam say said ", "text "] {
+      let draft = String(repeating: word, count: 40_000 / word.count)
+      let start = Date()
+      _ = resolve(draft)
+      XCTAssertLessThan(Date().timeIntervalSince(start), 2, word)
+    }
+  }
+
   func testCorpusSize() {
     let all = PhrasingCorpus.messages + PhrasingCorpus.think + PhrasingCorpus.search + PhrasingCorpus.none
     XCTAssertGreaterThanOrEqual(all.count, 300)
@@ -97,6 +107,11 @@ private enum PhrasingCorpus {
     "send Sam an imessage saying I'm outside", "respond to Alex with yes", "let Jordan know over text that I'm late",
     "ask mom by text if she needs anything", "can you text Alex the address", "i want you to text my dad happy birthday",
     "send an sms to Alex saying I'm late",
+    // Review probes: replies, "sent me", counts, possessives, and "between me and …".
+    "who texted me", "what did Sam text me", "what texts did I get today", "read my last 5 messages",
+    "what's the last text I got from Sam", "show the texts between me and Alex",
+    "when is dinner according to mom's text", "check whether Alex replied", "how many unread messages do I have",
+    "answer Sam's text with yes", "respond to Alex's message saying ok",
   ]
 
   static let think = [
@@ -135,6 +150,17 @@ private enum PhrasingCorpus {
     "latest news about apple's imessage update", "what's the weather today",
     // Not Messages, but "explain" with "most recent" reads as a request for fresh facts.
     "explain the most recent text in the book",
+    // Review probes: news about others' replies, and "call", "chat", "mail" and "dm" that aren't personal.
+    "did Microsoft respond to the allegations today", "did Nvidia respond to the latest export rules",
+    "did Ukraine respond to the peace plan this week", "what's the latest version of my messages app",
+    "when is the next earnings call for my stock nvda", "what time is my team's call of duty match today",
+    "what were the controversial calls in our game last night",
+    "what's the latest on the call for proposals for my conference", "latest news about calls for my resignation",
+    "what are the latest chats about my favorite show on reddit",
+    "what time does my local post office mail pickup happen today",
+    "latest dm news for my dungeon master group this week",
+    // Ambiguous: Sam or Jordan could be anyone, so these still search. Typing /messages decides.
+    "what's the latest from Sam", "summarize what Jordan sent yesterday",
   ]
 
   static let none = [
@@ -194,5 +220,32 @@ private enum PhrasingCorpus {
     "explain photosynthesis", "what is a binary tree?", "hello", "thanks!", "what's 2 + 2", "write a poem about the sea",
     "how do I center a div", "who wrote pride and prejudice", "explain recursion", "what's the capital of Peru",
     "make it shorter", "translate this", "rewrite this",
+    // Review probes: public figures' replies, pasted content, reviewing my own message, "my <thing>" that
+    // isn't a person, titles and slang, advice, personal questions that shouldn't search, and think near misses.
+    "has Apple responded to the EU ruling yet", "has Boeing replied to the FAA yet",
+    "did Russia respond to the sanctions", "has Trump responded to the verdict",
+    "has Israel replied to the ceasefire proposal", "did Sam Altman respond to the lawsuit",
+    "did Drake respond to Kendrick", "has the White House responded", "has Meta responded to the fine",
+    "did Netflix reply to the boycott", "did Google respond to my appeal",
+    "find out if he replied to the thread on github", "did Kendrick reply to Drake's diss track",
+    "did Taylor Swift reply to Kanye", "Sam sent me this article, summarize it",
+    "my coworker sent me a pr to review, check it for bugs", "what does this mean? my dad sent me: ok",
+    "check my grammar in my message to my boss", "read my message to my boss and tell me if it's too harsh",
+    "read messages from my sqs queue in batches", "fetch messages from my firebase database",
+    "get messages from my api", "read messages from my kafka consumer", "get all messages from my redis stream",
+    "show messages from my backend", "list the messages from my mailbox server", "summarize the text from my notes",
+    "summarize the text from my essay", "read me my texts from the book chapter",
+    "what are my messages component props in react", "get my messages endpoint returning 500",
+    "find my texts table schema", "summarize the book Text Me When You Get Home",
+    "what's the meaning of the song text me back", "who sang send me a text", "what genre is the song message me",
+    "who wrote the book texts from my ex", "what happened in the episode where Ross texted Rachel",
+    "what does text me mean in slang", "what does message me mean", "text my ex or not?",
+    "what are my chances if I text her", "latest messages from nasa to us about artemis today",
+    "what did I get from mom today", "what emails came in today", "any news from my sister today",
+    "what did mom say today", "deep thought from hitchhiker's guide", "what is deep thought",
+    "some thought experiments about time travel", "I've given it some thought and I want to quit",
+    "real thought leadership examples", "go deep sea fishing tips", "think more positively", "think more like a ceo",
+    "how to think more clearly", "how to think critically", "the process can take a while, is that normal",
+    "take a minute and read this email I wrote", "what does think it over mean", "mull over wine recipe",
   ]
 }
