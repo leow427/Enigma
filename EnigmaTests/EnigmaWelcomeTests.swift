@@ -71,12 +71,12 @@ final class EnigmaWelcomeTests: XCTestCase {
   @MainActor
   func testDownloadingVerifyingAndCheckingCountAsInstalling() {
     let progress = ModelDownloadProgress(receivedByteCount: 5, expectedByteCount: 10)
-    let installing: [LocalChatViewModel.ModelOperation?] = [.downloading(progress), .installing, .benchmarking]
+    let installing: [LocalChatViewModel.ModelOperation?] = [.downloading(progress), .waitingToInstall, .installing, .benchmarking]
     let other: [LocalChatViewModel.ModelOperation?] = [nil, .deleting]
     XCTAssertTrue(installing.allSatisfy(WelcomeSetup.isInstalling))
     XCTAssertFalse(other.contains(where: WelcomeSetup.isInstalling))
-    XCTAssertTrue(WelcomeSetup.installFailed(.failed("The download couldn't be verified.")))
-    XCTAssertFalse([LocalChatViewModel.State.idle, .preparing, .streaming].contains(where: WelcomeSetup.installFailed))
+    XCTAssertTrue(WelcomeSetup.installFailed("The download couldn't be verified."))
+    XCTAssertFalse(WelcomeSetup.installFailed(nil), "A chat error is not an install failure")
   }
 
   @MainActor

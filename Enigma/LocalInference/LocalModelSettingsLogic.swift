@@ -60,9 +60,12 @@ enum LocalModelSettingsLogic {
     return LocalModelActionState(action: .install, isEnabled: !isBusy && assessment.canInstall)
   }
 
+  /// The model sheet closes during a download; only work that holds the engines keeps it open.
+  static func canDismissModelSheet(chat: LocalChatViewModel) -> Bool { !chat.isBusy }
+
   /// Whether Local models shows the runtime's progress, notices, and benchmark.
   static func showsOperation(chat: LocalChatViewModel, advisor: LocalModelAdvisor) -> Bool {
-    chat.modelOperation != nil || chat.state != .idle || chat.benchmarkNotice != nil
+    chat.modelOperation != nil || chat.modelFailure != nil || chat.state != .idle || chat.benchmarkNotice != nil
       || advisor.latestBenchmark(for: chat.installedModel) != nil || advisor.notice != nil
   }
 

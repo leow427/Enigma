@@ -66,6 +66,12 @@ struct LocalModelOperationView: View {
           Spacer(minLength: 0)
           Button("Cancel") { chat.cancelInstallation() }.enigmaButtonStyle(.text)
         }
+      case .waitingToInstall:
+        HStack(spacing: 12) {
+          EnigmaStatusLine(.busy, "waiting for the reply to finish before installing…")
+          Spacer(minLength: 0)
+          Button("Cancel") { chat.cancelInstallation() }.enigmaButtonStyle(.text)
+        }
       case .installing:
         EnigmaStatusLine(.busy, "installing model…")
       case .deleting:
@@ -77,7 +83,9 @@ struct LocalModelOperationView: View {
           Button("Cancel") { chat.cancelInstallation() }.enigmaButtonStyle(.text)
         }
       case nil:
-        if case .failed(let message) = chat.state {
+        if let failure = chat.modelFailure {
+          EnigmaStatusLine(.problem, failure)
+        } else if case .failed(let message) = chat.state {
           EnigmaStatusLine(.problem, message)
         } else if let notice = chat.benchmarkNotice { note(notice) }
       }
@@ -173,7 +181,7 @@ struct LocalModelOnboardingView: View {
       HStack(spacing: 12) {
         Button(chat.installedModels.isEmpty ? "Set Up Later" : "Done") { advisor.dismissOnboarding() }
           .enigmaButtonStyle(.text)
-          .disabled(!chat.canChangeModels)
+          .disabled(!LocalModelSettingsLogic.canDismissModelSheet(chat: chat))
         Spacer()
         if let selected {
           let existing = chat.installedModels.first { $0.id == selected.id }
@@ -203,6 +211,6 @@ struct LocalModelOnboardingView: View {
     .frame(width: 560, height: 650)
     .background(palette.background.color)
     .tint(palette.accent.color)
-    .interactiveDismissDisabled(!chat.canChangeModels)
+    .interactiveDismissDisabled(!LocalModelSettingsLogic.canDismissModelSheet(chat: chat))
   }
 }

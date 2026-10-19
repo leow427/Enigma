@@ -470,6 +470,32 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path), [])
   }
 
+  func testCancellingWhileTheCommitWaitsRemovesTheStagedPackageAndKeepsTheSelection() async throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let package = try downloadFixture(in: directory)
+    let store = LocalModelInstallationStore(modelsDirectory: directory.appending(path: "library"))
+    let original = try store.install(LocalModel(id: "text", displayName: "Text", fileURL: package.source.fileURL))
+    let before = try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted()
+    let session = downloadSession()
+    defer { session.invalidateAndCancel() }
+    let waiting = expectation(description: "The commit is waiting")
+    let catalog = LocalModelCatalog(installationStore: store, session: session, availableDisk: { _ in 100 * LocalHardwareProfile.gib })
+    let task = Task {
+      try await catalog.downloadVision(package.descriptor, runtime: package.runtime, beforeCommit: {
+        waiting.fulfill()
+        while true { try await Task.sleep(for: .milliseconds(10)) }
+      }) { _ in }
+    }
+    await fulfillment(of: [waiting], timeout: 5)
+    task.cancel()
+    do { _ = try await task.value; XCTFail("Expected cancellation") } catch { XCTAssertTrue(error is CancellationError, "\(error)") }
+    XCTAssertEqual(store.installedModel(), original)
+    XCTAssertEqual(store.installedModels(), [original])
+    XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.modelsDirectoryURL.path).sorted(), before,
+                   "The staged package and unpacked runtime are removed")
+  }
+
   @MainActor
   func testObsoleteVisionPreferenceIsRetiredWithoutSelectingOrDeletingModels() throws {
     let directory = try temporaryDirectory()

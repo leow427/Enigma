@@ -57,6 +57,7 @@ struct ChatRouteStatus: Equatable {
     var mode: ChatMode
     var state: LocalChatViewModel.State = .idle
     var modelOperation: LocalChatViewModel.ModelOperation?
+    var modelFailure: String?
     var request: Request?
     var localModelName: String?
     var cloudProvider: CloudProviderID = .chatGPT
@@ -87,12 +88,22 @@ struct ChatRouteStatus: Equatable {
     case .deleting: ChatRouteStatus(kind: .busy, text: "Deleting local model…")
     case .downloading(let progress):
       ChatRouteStatus(kind: .busy, text: "Downloading \(Int((progress.fractionCompleted * 100).rounded()))%")
+    case .waitingToInstall: ChatRouteStatus(kind: .busy, text: "Installing after this reply…")
     }
   }
 
   private static func local(_ context: Context) -> ChatRouteStatus {
-    // A download shows its progress until a reply starts; the request line then takes over.
-    if let operation = context.modelOperation, context.state == .idle { return modelOperation(operation) }
+    // A download shows its progress between replies; work that holds the chat
+    // shows over an earlier reply's error.
+    if let operation = context.modelOperation {
+      switch context.state {
+      case .idle, .failed: return modelOperation(operation)
+      case .preparing, .refiningSearch, .searching, .streaming: break
+      }
+    }
+    if let failure = context.modelFailure, context.state == .idle {
+      return ChatRouteStatus(kind: .problem, text: failure)
+    }
     return switch context.state {
     case .preparing, .refiningSearch, .searching: ChatRouteStatus(kind: .busy, text: "Loading local model…")
     case .streaming: ChatRouteStatus(kind: .busy, text: "Generating locally")

@@ -53,7 +53,7 @@ struct WelcomeSetupView: View {
     WelcomeSetup.characterState(for: setup.step, WelcomeSetup.Activity(
       isDetectingHardware: advisor.isDetecting,
       isInstalling: WelcomeSetup.isInstalling(chat.modelOperation),
-      installFailed: WelcomeSetup.installFailed(chat.state),
+      installFailed: WelcomeSetup.installFailed(chat.modelFailure),
       connectionFailed: cloud.accountError != nil || cloud.claudeCodeError != nil || connectionError != nil,
       isEnteringKey: isEnteringKey))
   }

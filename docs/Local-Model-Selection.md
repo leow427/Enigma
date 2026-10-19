@@ -87,11 +87,14 @@ is already installed keeps your current selection.
 You can keep chatting while a package downloads, verifies and unpacks, in the
 cloud or with the local model you already use; the status line shows the
 download's progress between replies. Choosing, deleting, importing and checking
-models wait until the install finishes or is cancelled. The last step, which
-installs the package and may switch to it, waits for any reply in progress to
-finish, so a reply never changes model halfway. Chat then pauses for that
-moment and for the performance check that follows. Importing a GGUF, deleting a
-model and **Check performance** also pause chat while they run.
+models wait until the install finishes or is cancelled; the model sheet can
+still be closed. The last step, which installs the package and may switch to
+it, waits for any reply in progress to finish (**waiting for the reply to
+finish before installing…**), so a reply never changes model halfway. Chat then
+pauses while Enigma unloads the current model, installs the package and runs
+the performance check. Importing a GGUF, deleting a model and **Check
+performance** also pause chat while they run. An install failure shows with
+the model's status, apart from chat errors, until the next model action.
 
 ### Checking performance
 
@@ -388,12 +391,13 @@ Key files are in `Enigma/LocalInference/`.
 | Settings UI and the model sheet | `LocalModelManagerSection`, `LocalModelSettingsLogic`, `LocalModelOnboardingView` | `LocalModelManagerSection.swift`, `LocalModelSettingsLogic.swift`, `LocalModelViews.swift` |
 
 Download orchestration and idle unloading live in `LocalChatViewModel.swift`.
-Install progress is `modelOperation`, separate from the chat's `state`;
+Install progress is `modelOperation` and install failures are `modelFailure`,
+both separate from the chat's `state`;
 `isBusy` gates chat and counts a model operation only when it holds the
 engines (commit, import, delete, performance check), while `isManagingModels`
 and `canChangeModels` gate model changes. The engine's `download(_:beforeCommit:progress:)`
-awaits the view model's hold, which waits for the current request to end, just
-before the atomic install in `LocalModelCatalog`.
+awaits the view model's hold, which waits for the current request to end and
+unloads both engines, just before the atomic install in `LocalModelCatalog`.
 `scripts/gguf-header.py` reads a GGUF header for the catalogue checklist.
 
 ## Privacy

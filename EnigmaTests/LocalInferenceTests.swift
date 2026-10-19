@@ -656,6 +656,117 @@ final class ConcurrentModelInstallTests: XCTestCase {
     XCTAssertFalse(chat.isBusy)
   }
 
+  func testTheModelSheetCanCloseWhileAModelDownloads() async throws {
+    let engine = InstallingEngine()
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    XCTAssertTrue(LocalModelSettingsLogic.canDismissModelSheet(chat: chat))
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    XCTAssertFalse(chat.canChangeModels)
+    XCTAssertTrue(LocalModelSettingsLogic.canDismissModelSheet(chat: chat), "A download must not trap the sheet open")
+    engine.finishDownload(failing: CancellationError())
+    try await until { !chat.isManagingModels }
+  }
+
+  func testADownloadFailureDuringAReplyIsKeptApartFromTheChat() async throws {
+    let (first, firstReply) = AsyncThrowingStream<String, Error>.makeStream()
+    let (second, secondReply) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = InstallingEngine(replies: { request in
+      request.prompt == "First" ? first : request.prompt == "Second" ? second : nil
+    })
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    chat.submit("First")
+    firstReply.yield("Partial")
+    try await until { chat.messages.last?.content == "Partial" }
+    engine.finishDownload(failing: DownloadFailure())
+    try await until { !chat.isManagingModels }
+    XCTAssertEqual(chat.modelFailure, DownloadFailure().errorDescription)
+    XCTAssertEqual(chat.state, .streaming)
+
+    await chat.stopStreaming()?.value
+    XCTAssertEqual(chat.state, .idle)
+    XCTAssertEqual(chat.modelFailure, DownloadFailure().errorDescription, "Stop must not drop the install failure")
+
+    chat.submit("Second")
+    secondReply.yield("Answer")
+    secondReply.finish(throwing: MockError.failed)
+    try await until { chat.activeRequest == nil && chat.state != .streaming }
+    XCTAssertEqual(chat.state, .failed(MockError.failed.localizedDescription))
+    XCTAssertEqual(chat.modelFailure, DownloadFailure().errorDescription, "A failed reply must not drop the install failure")
+
+    chat.submit("Third")
+    try await until { chat.activeRequest == nil && chat.messages.last?.content == "Local reply" }
+    XCTAssertEqual(chat.state, .idle, "An old install failure must never fail a later reply")
+    XCTAssertEqual(chat.modelFailure, DownloadFailure().errorDescription)
+
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    XCTAssertNil(chat.modelFailure, "A new install clears the old failure")
+    try await until { engine.isDownloading }
+    engine.finishDownload(failing: CancellationError())
+    try await until { !chat.isManagingModels }
+  }
+
+  func testTheCommitUnloadsBothEnginesBeforeInstallingAndShowsWhatItWaitsFor() async throws {
+    let (reply, continuation) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = InstallingEngine(stream: reply)
+    let chat = LocalChatViewModel(engine: engine, visionEngine: RecordingVision(engine: engine), sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    chat.submit("Keep answering")
+    continuation.yield("Partial")
+    try await until { chat.messages.last?.content == "Partial" }
+    engine.finishDownload()
+    try await until { chat.modelOperation == .waitingToInstall }
+    XCTAssertFalse(LocalChatViewModel.ModelOperation.waitingToInstall.blocksChat, "Waiting must not hold chat")
+    XCTAssertEqual(ChatRouteStatus.make(.init(mode: .local, modelOperation: .waitingToInstall, localModelName: "Old")).text,
+                   "Installing after this reply…")
+    continuation.finish()
+    try await until { !chat.isManagingModels }
+    let events = engine.events
+    let commit = try XCTUnwrap(events.firstIndex(of: "commit"))
+    XCTAssertTrue(events[..<commit].contains("unload"), "\(events)")
+    XCTAssertTrue(events[..<commit].contains("vision-unload"), "\(events)")
+  }
+
+  func testCancellingWhileTheCommitWaitsKeepsThePreviousModelAndChat() async throws {
+    let (reply, continuation) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = InstallingEngine(stream: reply)
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.downloadModel(LocalModelManifest.bundled.models[0])
+    try await until { engine.isDownloading }
+    chat.submit("Keep answering")
+    continuation.yield("Partial")
+    try await until { chat.messages.last?.content == "Partial" }
+    engine.finishDownload()
+    try await until { engine.isWaitingToCommit }
+    chat.cancelInstallation()
+    try await until { !chat.isManagingModels }
+    XCTAssertNil(chat.modelOperation)
+    XCTAssertNil(chat.modelFailure)
+    XCTAssertEqual(engine.commitCount, 0)
+    XCTAssertEqual(chat.installedModel?.id, InstallingEngine.oldID)
+    XCTAssertEqual(chat.state, .streaming, "Cancelling the install leaves the reply running")
+    continuation.yield(" and done")
+    continuation.finish()
+    try await until { chat.activeRequest == nil }
+    XCTAssertEqual(chat.messages.last?.content, "Partial and done")
+    XCTAssertTrue(chat.canChangeModels)
+  }
+
+  func testRouteStatusShowsTheHeldInstallInsteadOfAnOldChatError() {
+    let status = ChatRouteStatus.make(.init(mode: .local, state: .failed("Old reply error"), modelOperation: .installing,
+                                            localModelName: "Old"))
+    XCTAssertEqual(status, ChatRouteStatus(kind: .busy, text: "Installing local model…"))
+    let failure = ChatRouteStatus.make(.init(mode: .local, modelFailure: "The download couldn't be verified.", localModelName: "Old"))
+    XCTAssertEqual(failure, ChatRouteStatus(kind: .problem, text: "The download couldn't be verified."))
+  }
+
   private func until(_ condition: @escaping @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
     for _ in 0..<300 {
       if condition() { return }
@@ -674,7 +785,9 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
   static let oldID = "old-text"
   static let newID = "new-package"
   private let lock = NSLock()
-  private let reply: AsyncThrowingStream<String, Error>?
+  private let replies: @Sendable (LocalModelRequest) -> AsyncThrowingStream<String, Error>?
+  private var downloadFailure: Error?
+  private var storedEvents: [String] = []
   private var models = [LocalModel(id: oldID, displayName: "Old", fileURL: URL(fileURLWithPath: "/tmp/old.gguf"))]
   private var selectedID: String? = oldID
   private var gate: CheckedContinuation<Void, Never>?
@@ -685,7 +798,12 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
   private var storedCommitCount = 0
   private var storedManagementCalls: [String] = []
 
-  init(stream: AsyncThrowingStream<String, Error>? = nil) { reply = stream }
+  init(stream: AsyncThrowingStream<String, Error>? = nil) { replies = { _ in stream } }
+  init(replies: @escaping @Sendable (LocalModelRequest) -> AsyncThrowingStream<String, Error>?) { self.replies = replies }
+
+  /// Unloads and commits, in order, for checking what the commit waits for.
+  var events: [String] { lock.withLock { storedEvents } }
+  func record(_ event: String) { lock.withLock { storedEvents.append(event) } }
 
   var isDownloading: Bool { lock.withLock { downloading } }
   var isWaitingToCommit: Bool { lock.withLock { waitingToCommit } }
@@ -694,8 +812,9 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
   var commitCount: Int { lock.withLock { storedCommitCount } }
   var managementCalls: [String] { lock.withLock { storedManagementCalls } }
 
-  func finishDownload() {
+  func finishDownload(failing error: Error? = nil) {
     let gate = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+      downloadFailure = error
       defer { self.gate = nil }
       return self.gate
     }
@@ -715,6 +834,7 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
       lock.withLock { gate = continuation; downloading = true }
     }
     lock.withLock { downloading = false }
+    if let failure = lock.withLock({ downloadFailure }) { throw failure }
     try Task.checkCancellation()
     lock.withLock { waitingToCommit = true }
     defer { lock.withLock { waitingToCommit = false } }
@@ -725,6 +845,7 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
       models.append(installed)
       selectedID = installed.id
       storedCommitCount += 1
+      storedEvents.append("commit")
     }
     return installed
   }
@@ -738,12 +859,24 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
     lock.withLock { storedManagementCalls.append("benchmark") }
     return nil
   }
-  func unload() async { }
+  func unload() async { record("unload") }
 
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
     lock.withLock { storedRequests.append(request) }
-    return reply ?? AsyncThrowingStream { $0.yield("Local reply"); $0.finish() }
+    return replies(request) ?? AsyncThrowingStream { $0.yield("Local reply"); $0.finish() }
   }
+}
+
+private struct RecordingVision: LocalVisionServing {
+  let engine: InstallingEngine
+  func stream(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) -> AsyncThrowingStream<String, Error> {
+    AsyncThrowingStream { $0.finish() }
+  }
+  func unload() async { engine.record("vision-unload") }
+}
+
+private struct DownloadFailure: LocalizedError {
+  var errorDescription: String? { "The download couldn't be verified." }
 }
 
 private struct InstantCloud: ChatProvider {

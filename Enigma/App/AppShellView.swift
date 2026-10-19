@@ -506,6 +506,7 @@ struct AppShellView: View {
   private var routeStatusSummary: ChatRouteStatus {
     let mode = shell.selectedMode
     var context = ChatRouteStatus.Context(mode: mode, state: localChat.state, modelOperation: localChat.modelOperation,
+      modelFailure: localChat.modelFailure,
       request: localChat.activeRequest.map { ChatRouteStatus.Request(phase: requestPhase, name: $0.displayName) },
       localModelName: localChat.installedModel?.displayName)
     // Cloud checks run only for the modes that use the cloud.

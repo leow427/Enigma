@@ -19,6 +19,7 @@ final class LocalChatViewModel: ObservableObject {
   /// Installing, deleting or measuring a local model, separate from chat.
   enum ModelOperation: Equatable {
     case downloading(ModelDownloadProgress)
+    case waitingToInstall
     case installing
     case deleting
     case benchmarking
@@ -26,8 +27,10 @@ final class LocalChatViewModel: ObservableObject {
     /// A download runs beside chat. Committing an install, deleting and the
     /// performance check change or measure the engines, so chat waits for them.
     var blocksChat: Bool {
-      if case .downloading = self { return false }
-      return true
+      switch self {
+      case .downloading, .waitingToInstall: false
+      case .installing, .deleting, .benchmarking: true
+      }
     }
   }
 
@@ -64,6 +67,9 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var screenRouteDecision: ScreenRoutingPolicy.Decision?
   @Published private(set) var state: State = .idle
   @Published private(set) var modelOperation: ModelOperation?
+  /// The last install, delete or model switch failure, apart from the chat's
+  /// own `state`. Cleared when the next model operation starts.
+  @Published private(set) var modelFailure: String?
   @Published private(set) var benchmarkNotice: String?
   private let modelAdvisor: LocalModelAdvisor?
 
@@ -296,8 +302,6 @@ final class LocalChatViewModel: ObservableObject {
   private let sleep: Sleep
   private var generationTask: Task<Void, Never>?
   private var installationTask: Task<Void, Never>?
-  /// A model failure that arrived during a request, shown once the request ends.
-  private var deferredModelFailure: String?
   private var idleUnloadTask: Task<Void, Never>?
 
   init(
@@ -483,6 +487,7 @@ final class LocalChatViewModel: ObservableObject {
   func selectModel(id: String) {
     guard canChangeModels else { return }
     cancelIdleUnload()
+    clearModelFailure()
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
     Task { [weak self, engine] in
@@ -494,7 +499,8 @@ final class LocalChatViewModel: ObservableObject {
         self.state = .idle
         self.scheduleIdleUnload()
       } catch {
-        self?.state = .failed(error.localizedDescription)
+        self?.state = .idle
+        self?.modelFailure = error.localizedDescription
         self?.scheduleIdleUnload()
       }
     }
@@ -1329,25 +1335,29 @@ final class LocalChatViewModel: ObservableObject {
   /// and the performance check. The wait ends with cancellation.
   private func holdChatForModelCommit() async throws {
     while isChatActive {
+      if case .downloading = modelOperation { modelOperation = .waitingToInstall }
       try await Task.sleep(for: .milliseconds(100))
     }
     try Task.checkCancellation()
     cancelIdleUnload()
-    if modelOperation?.blocksChat != true { modelOperation = .installing }
+    guard modelOperation?.blocksChat != true else { return }
+    modelOperation = .installing
+    // The old model leaves memory before the new package is installed and measured.
+    await engine.unload()
+    await visionEngine.unload()
+    try Task.checkCancellation()
   }
 
   private func failInstallation(_ error: Error) {
     if Task.isCancelled { finishInstallation(); return }
-    // Model failures share the chat's problem line; a running request keeps it until it ends.
-    if isChatActive { deferredModelFailure = error.localizedDescription } else { state = .failed(error.localizedDescription) }
+    modelFailure = error.localizedDescription
     modelOperation = nil
     installationTask = nil
     scheduleIdleUnload()
   }
 
   private func clearModelFailure() {
-    deferredModelFailure = nil
-    if case .failed = state { state = .idle }
+    modelFailure = nil
   }
 
   private func search(_ query: String, locationPrompt: String? = nil, maximumTokens: Int, requestID: UUID) async throws -> [WebSearchResult] {
@@ -1562,8 +1572,7 @@ final class LocalChatViewModel: ObservableObject {
     activityMessageID = nil
     pendingUserMessage = nil
     generationTask = nil
-    state = error.map { .failed($0.localizedDescription) } ?? deferredModelFailure.map { .failed($0) } ?? .idle
-    deferredModelFailure = nil
+    state = error.map { .failed($0.localizedDescription) } ?? .idle
     sessionWriter.flush()
     scheduleIdleUnload()
   }
