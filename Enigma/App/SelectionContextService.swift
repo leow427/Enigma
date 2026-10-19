@@ -98,7 +98,9 @@ final class SelectionContextService: ObservableObject {
     var text = selection?.1
     if text == nil || text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
       guard SelectionCapturePolicy.allowsCopy(range: range, bundleID: app.bundleIdentifier) else { return nil }
-      text = await copySelection(app: app, element: element)
+      text = await copySelection(app: app, element: element, accept: {
+        SelectionCapturePolicy.acceptsCopy(range: range, bundleID: app.bundleIdentifier, webCustomData: $0())
+      })
     }
     guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
           !interaction.interrupted, sameFocus(app: app, element: element), isSafe(element) else { return nil }
@@ -180,7 +182,9 @@ final class SelectionContextService: ObservableObject {
     return false
   }
 
-  private func copySelection(app: NSRunningApplication, element: AXUIElement) async -> String? {
+  /// `accept` may read the copy's `org.chromium.web-custom-data` before the clipboard is restored.
+  private func copySelection(app: NSRunningApplication, element: AXUIElement,
+                             accept: (() -> Data?) -> Bool) async -> String? {
     guard sameFocus(app: app, element: element), isSafe(element), let snapshot = SelectionPasteboardSnapshot(.general) else { return nil }
     let interaction = SelectionInteractionGuard()
     defer { interaction.stop() }
@@ -201,7 +205,8 @@ final class SelectionContextService: ObservableObject {
           // Never retry after any clipboard write, or restore over a newer copy.
           guard board.changeCount == ownedCount + 1 else { return nil }
           ownedCount = board.changeCount
-          return board.string(forType: .string)
+          let text = accept { board.data(forType: SelectionCapturePolicy.webCustomDataType) } ? board.string(forType: .string) : nil
+          return board.changeCount == ownedCount ? text : nil
         }
       }
       // A single retry handles an editor that was not ready for the first Cmd+C.
@@ -371,7 +376,13 @@ private final class SelectionInteractionGuard {
 
 /// Browser canvas editors can expose an empty hidden input while DOM text is selected.
 /// Copy is authoritative there. Native copy-line editors require a nonempty AX range.
+/// VS Code-family editors hide their selection from AX and copy the whole line when
+/// nothing is selected, so their copy counts only when VS Code's own metadata confirms a selection.
 enum SelectionCapturePolicy {
+  static let webCustomDataType = NSPasteboard.PasteboardType("org.chromium.web-custom-data")
+  static let codeEditors: Set<String> = ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
+    "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"]
+
   static func text(in value: String?, range: CFRange) -> String? {
     guard let value, range.location >= 0, range.length > 0 else { return nil }
     let text = value as NSString
@@ -388,11 +399,71 @@ enum SelectionCapturePolicy {
 
   static func allowsCopy(range: CFRange?, bundleID: String?) -> Bool {
     let bundleID = bundleID ?? ""
+    if codeEditors.contains(bundleID) { return true }
     let browsers: Set<String> = ["com.google.Chrome", "com.google.Chrome.canary", "com.apple.Safari",
       "com.microsoft.edgemac", "com.brave.Browser", "company.thebrowser.Browser", "org.mozilla.firefox"]
     if let range { return range.length > 0 || browsers.contains(bundleID) }
-    let lineEditors = ["com.microsoft.VSCode", "com.jetbrains.", "com.sublimetext.", "com.todesktop.230313mzl4w4u92"]
+    let lineEditors = ["com.microsoft.VSCode", "com.jetbrains.", "com.sublimetext."]
     return !lineEditors.contains { bundleID.hasPrefix($0) }
+  }
+
+  static func acceptsCopy(range: CFRange?, bundleID: String?, webCustomData: @autoclosure () -> Data?) -> Bool {
+    guard codeEditors.contains(bundleID ?? "") else { return true }
+    let source = VSCodeClipboardMetadata.copySource(webCustomData())
+    if let range, range.length > 0 { return source != .emptySelection }
+    return source == .selection
+  }
+
+  /// Reads `vscode-editor-data` from Chromium's web-custom-data Pickle: UInt32 payload
+  /// size, UInt32 entry count, then key/value strings, each a UInt32 UTF-16 length and
+  /// UTF-16LE units padded to 4 bytes. All fields are little-endian.
+  enum VSCodeClipboardMetadata {
+    /// VS Code reports `isFromEmptySelection: false` for several cursors even when each is
+    /// empty and copies each cursor's whole line, so any `multicursorText` is ambiguous.
+    enum CopySource: Equatable { case selection, emptySelection, multicursor, unknown }
+
+    private struct EditorData: Decodable {
+      let isFromEmptySelection: Bool, hasMulticursorText: Bool
+      private enum Key: CodingKey { case isFromEmptySelection, multicursorText }
+      init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: Key.self)
+        isFromEmptySelection = try values.decode(Bool.self, forKey: .isFromEmptySelection)
+        hasMulticursorText = try values.contains(.multicursorText) && !values.decodeNil(forKey: .multicursorText)
+      }
+    }
+
+    static func copySource(_ data: Data?) -> CopySource {
+      guard let editor = editorData(data) else { return .unknown }
+      return editor.isFromEmptySelection ? .emptySelection : editor.hasMulticursorText ? .multicursor : .selection
+    }
+
+    private static func editorData(_ data: Data?) -> EditorData? {
+      guard let data else { return nil }
+      var bytes = [UInt8](data), offset = 0
+      func uint32() -> Int? {
+        guard bytes.count - offset >= 4 else { return nil }
+        defer { offset += 4 }
+        return (0..<4).reduce(0) { $0 | Int(bytes[offset + $1]) << (8 * $1) }
+      }
+      func string() -> String? {
+        guard let units = uint32(), units <= (bytes.count - offset) / 2 else { return nil }
+        let size = units * 2, padded = (size + 3) & ~3
+        let value = String(bytes: bytes[offset..<offset + size], encoding: .utf16LittleEndian)
+        offset = min(bytes.count, offset + padded)
+        return value
+      }
+      // Bound reads by the declared payload; Chromium may leave capacity padding after it.
+      guard let size = uint32(), size <= bytes.count - 4 else { return nil }
+      bytes = Array(bytes.prefix(4 + size))
+      guard let count = uint32(), count <= (bytes.count - offset) / 8 else { return nil }
+      for _ in 0..<count {
+        guard let key = string(), let value = string() else { return nil }
+        if key == "vscode-editor-data" {
+          return try? JSONDecoder().decode(EditorData.self, from: Data(value.utf8))
+        }
+      }
+      return nil
+    }
   }
 }
 

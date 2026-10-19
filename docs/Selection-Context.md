@@ -193,7 +193,11 @@ and add the app you're running.
   the selection with **⌘C** and read it from the clipboard. Every item and format
   on your clipboard is saved first and put back afterwards, unless you copied
   something new in the meantime. If the clipboard can't be saved completely, the
-  copy isn't attempted.
+  copy isn't attempted. VS Code and editors built on it (VS Code Insiders,
+  VSCodium, Cursor, Windsurf) copy the whole current line when nothing is
+  selected, so Enigma uses their copy only when VS Code's own clipboard data says
+  it came from a real selection. A copy from several cursors with nothing
+  selected is rejected too, so in that case Enigma reads no text.
 
 ### Temporary chats and what is saved
 
@@ -235,7 +239,11 @@ automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
   bounded retries, and reads `AXSelectedText`, then `AXStringForRange` or the
   selected slice of `AXValue`. `SelectionCapturePolicy` decides when the ⌘C
   fallback is allowed (browser canvas editors yes; editors that copy the whole line
-  on an empty selection, no). `SelectionPasteboardSnapshot` saves and restores the
+  on an empty selection, no). VS Code-family editors use the fallback only when
+  VS Code's clipboard metadata (`isFromEmptySelection` and `multicursorText` in
+  `vscode-editor-data`, read from `org.chromium.web-custom-data`) confirms a single
+  real selection; otherwise the copy is discarded. The metadata is read only for
+  those editors. `SelectionPasteboardSnapshot` saves and restores the
   clipboard. `SelectionInteractionGuard` cancels on user input and tags Enigma's own
   synthetic events. The result is a `ConversationContext`
   (`Enigma/Chat/ConversationContext.swift`).
