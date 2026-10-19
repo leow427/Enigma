@@ -78,9 +78,11 @@ enum ChatMarkdownStyle {
 struct ChatMarkdownView: View {
   let content: String
   @Environment(\.enigmaPalette) private var palette
+  /// Keeps the settled part of a streaming reply parsed between updates.
+  @State private var stream = ChatMarkdownStream()
 
   var body: some View {
-    let blocks = ChatMarkdown.blocks(content)
+    let blocks = stream.blocks(content)
     VStack(alignment: .leading, spacing: ChatMarkdownStyle.blockSpacing) {
       ForEach(ChatMarkdown.groups(blocks), id: \.first?.id) { group in
         if ChatMarkdownStyle.isTable(group) {
