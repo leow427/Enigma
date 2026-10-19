@@ -29,11 +29,13 @@ You can also just ask. When your message reads as a Messages request, Enigma
 shows a `messages` chip in the composer before you send and runs the message as
 if you'd typed `/messages`. A message reads as one when it has all three of:
 
-- **A messaging word:** message, text, texted, iMessage, SMS, group chat,
-  "sent me", "got back to me", "answered my text", or "my conversation
-  with …". "Replied" and "responded" count only in a question that is just
-  about the reply: "has Dad replied yet", "did Alex reply", "check whether Alex
-  replied".
+- **A messaging word:** message, text, texted, iMessage, SMS, group chat or
+  group text, "the family chat", "sent me", "got back to me", "answered my
+  text", or "my conversation (or text thread) with …". "Replied" and
+  "responded" count only in a question that is just about the reply: "has Dad
+  replied yet", "has my brother responded yet", "did Alex reply", "check
+  whether Alex replied". "Got back to me" counts in any question: "did Priya
+  get back to me about the trip".
 - **A person or your own messages:** a name, a relative or someone close such
   as "my dad", "my best friend" or "my boss", a pronoun, "the group chat", or
   "my texts". "My" followed by anything else, such as "my queue" or "my essay",
@@ -50,10 +52,14 @@ So all of these count:
   Alex's last text", "summarize my conversation with Alex", "see if Alex got
   back to me"
 - "read my last 5 messages", "show the texts between me and Alex", "how many
-  unread messages do I have", "when is dinner according to Mom's text"
+  unread messages do I have", "when is dinner according to Mom's text", "any
+  SMS from the bank today?", "summarize what I missed in the family chat",
+  "recap my text thread with my brother", "I'm behind on texts, who do I need
+  to reply to", "can u check my messages from dad"
 - "text my dad that I'll be late", "send Alex a text saying I'm outside",
   "shoot Sam a text that I'm here", "reply to Jordan with sounds good", "let Mom
-  know I landed via text", "message Mom: running late"
+  know I landed via text", "message Mom: running late", "send a text message
+  to the plumber confirming Thursday at 9", "reply to my moms text and say yes"
 
 When in doubt it doesn't match. These don't count:
 
@@ -63,7 +69,10 @@ When in doubt it doesn't match. These don't count:
   unless iMessage or SMS is named
 - "send me a summary", "text me a joke"
 - How-to and advice questions: "how do I text …", "what's the best way to
-  message a landlord", "what should I text my crush", "text my ex or not?"
+  message a landlord", "what should I text my crush", "what do I say in a text
+  to cancel plans", "text my ex or not?"
+- Idioms: "send a clear message to investors in my pitch deck"
+- Replies to Enigma itself: "just text back yes or no"
 - Replies in the news: "did Microsoft respond to the allegations", "has the
   White House responded"
 - Something someone sent you, pasted in: "Sam sent me this article, summarize
@@ -271,7 +280,7 @@ the selected route before starting:
   files, screenshots and other commands, and follow-ups
   (`ComposerIntentResolveTests`).
 - `EnigmaTests/ComposerIntentPhrasingTests.swift` is the phrasing corpus: about
-  430 English drafts, each tagged `messages`, `think`, `search` or none, that
+  870 English drafts, each tagged `messages`, `think`, `search` or none, that
   must resolve as tagged, including the hard negatives above. Messages drafts
   must never get the `search` chip. A miss found later becomes a line in it.
 

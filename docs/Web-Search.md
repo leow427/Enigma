@@ -45,7 +45,8 @@ These don't search automatically:
   recognized: messages, texts, emails, DMs, chats, voicemails or missed calls
   next to "my", "me", a relative or "did I get", such as "what are the most
   recent messages from my dad", "what's new in my texts", "what texts did I get
-  today", "what emails came in today" or "what did Mom say today". News about
+  today", "what emails came in today" or "what did Mom say today", and calls
+  with family, such as "what did Grandpa say on the phone yesterday". News about
   others still searches, such as "the latest message from the White House on
   tariffs" or "when is the next earnings call for my stock", and so does a
   draft that can't tell, such as "what's the latest from Sam". A typed
