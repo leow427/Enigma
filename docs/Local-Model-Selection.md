@@ -62,6 +62,11 @@ three together, then reads **verifying and installing package…** while sizes a
 checksums are checked. **Cancel** works throughout. A failed or cancelled
 install leaves your previous model and selection untouched.
 
+A dropped connection doesn't restart the package. Each part resumes from the
+bytes already on disk, so a brief Wi-Fi drop late in an 8 GB download costs
+seconds, not the whole transfer. While a package downloads and installs, Enigma
+keeps the Mac from idle-sleeping; the display can still sleep.
+
 A newly installed package becomes the selected model. Updating a package that
 is already installed keeps your current selection.
 
@@ -198,7 +203,7 @@ Key files are in `Enigma/LocalInference/`.
 | Area | Types | Files |
 |---|---|---|
 | Catalogue and tiers | `BundledLocalModels`, `LocalModelTiers`, `LocalModelWeight` | `BundledLocalModels.swift` |
-| Package metadata, download and verification | `LocalModelDescriptor`, `LocalMultimodalProfile`, `LocalModelManifest`, `LocalModelCatalog`, `VerifiedModelArtifact` | `LocalModelManifest.swift` |
+| Package metadata, download and verification | `LocalModelDescriptor`, `LocalMultimodalProfile`, `LocalModelManifest`, `LocalModelCatalog`, `VerifiedModelArtifact`, `ResumableArtifactTransfer`, `DownloadActivity` | `LocalModelManifest.swift`, `ResumableArtifactTransfer.swift` |
 | Fit and recommendations | `LocalModelSelector`, `LocalModelAssessment`, `LocalModelRecommendations`, `LocalModelCompatibility` | `LocalModelSelection.swift` |
 | Hardware and memory budget | `LocalHardwareProfile` | `LocalHardwareProfile.swift` |
 | State, benchmarks, signed updates | `LocalModelAdvisor`, `LocalModelBenchmark`, `LocalCatalogUpdater` | `LocalModelAdvisor.swift`, `LocalModelBenchmark.swift`, `LocalCatalogUpdates.swift` |
@@ -262,7 +267,44 @@ outweigh a memory, disk or compatibility failure.
 twice the total download plus 2 GiB, and downloads the model, projector and
 runtime archive into a staging folder. Each transfer stops as soon as it exceeds
 its expected size, then checks the exact size and SHA-256. Free space is checked
-again before installing. The runtime archive is extracted only if every path
+again before installing.
+
+Transfers (`ResumableArtifactTransfer`, `ResumableArtifactTransfer.swift`)
+append a data task's bytes to the staging file. After a transient failure, it
+asks the original `huggingface.co` URL again with `Range: bytes=<bytes on
+disk>-`. It never reuses the redirected CDN URL, which is signed and expires
+after about an hour. URLSession keeps the `Range` header across the
+`huggingface.co` to CDN redirect; this was checked by hand against the live
+CDN, not by the offline tests.
+
+- The first request must answer 200. A resumed request must answer 206 with a
+  `Content-Range` that starts at the bytes on disk, runs to the last byte and
+  totals the expected size; anything else, including a range that stops short,
+  fails. A server that answers 200 instead restarts the file from zero, and
+  progress moves back to zero each time that happens.
+- Transient failures are a lost connection, a timeout, no internet, a host
+  that can't be found or reached, a DNS failure, a blocked data connection, and
+  HTTP 408, 429, 500, 502, 503 and 504. Other errors, such as 401, 403, 404, a
+  size or checksum mismatch or a non-HTTPS response, fail at once.
+- The transfer gives up after five attempts in a row that bring no new bytes,
+  and reports the last network error. Only an attempt that takes the file past
+  the furthest point it has reached resets the count, so refilling a restarted
+  file doesn't, and a server that always ignores `Range` and drops still runs
+  out of retries. The waits between attempts without new bytes double from 1 s (1, 2,
+  4, 8 s; capped at 30 s), and a retry after an attempt that brought bytes
+  waits 1 s. Cancelling stops a retry wait at once.
+- Progress goes through a stream that keeps only its newest update, and the
+  transfer sends at most about ten updates a second plus the final byte count.
+  The main actor never works through a backlog of stale updates, and
+  verification waits on at most one.
+- `LocalModelCatalog.downloadVision`, `HuggingFaceFileDownloader.download` and
+  the File-mode runtime setup hold a `ProcessInfo` activity
+  (`.userInitiated`, `.idleSystemSleepDisabled`) for the whole operation,
+  ended on success, failure and cancellation. It stops App Nap and idle system
+  sleep, not display sleep. `DownloadActivity` makes this injectable for tests.
+- Cleanup of the staging folder and the unused runtime folder is explicit and
+  never throws, so the error the person sees is the one that ended the
+  download. The runtime archive is extracted only if every path
 stays inside its folder, no link escapes it, and `llama-server --help` lists
 `--mmproj` and `--offline`.
 
@@ -355,7 +397,8 @@ late responses from an older one. `HuggingFaceRepositoryClient` loads one
 repository's file list (up to 8 MB and 10,000 files) and rejects invalid
 revisions, path traversal and paths that collide on a case-insensitive disk.
 Downloads use the resolved immutable revision. Large (LFS) files get size and
-SHA-256 checks; ordinary Git files get size and Git blob SHA-1 checks. The
+SHA-256 checks and resume after a dropped connection like catalogue packages;
+ordinary Git files get size and Git blob SHA-1 checks. The
 snapshot is renamed into place only when complete. Downloaded code is never
 run.
 
@@ -372,6 +415,9 @@ run.
 - Hugging Face downloads don't install anything into Enigma and don't support
   gated or private repositories.
 - Remote catalogue updates are built but not configured.
+- Downloads resume only within one attempt to install. Quitting Enigma, or
+  running out of retries, discards the partial files, and the next attempt
+  starts from zero. Small Git files from Hugging Face aren't resumed.
 - Imported GGUFs are text-only.
 
 ## Tests
@@ -384,12 +430,22 @@ The suites are offline and deterministic:
 - `LocalModelInstallationStoreTests` and `LocalInferenceTests`: atomic install,
   replacement, deletion and selection, plus idle unloading.
 - `LocalVisionTests`: package pairs, runtime launch arguments, loopback-only
-  sessions, guided download, progress and cancellation, and legacy packages.
+  sessions, guided download, progress and cancellation, a persistent
+  connection drop through `downloadVision`, and legacy packages.
+- `ResumableArtifactTransferTests`: resuming with `Range`, servers that ignore
+  it, `Content-Range` mismatches, the retry budget and backoff, statuses that
+  aren't retried, cancellation during backoff, the size limit, progress
+  pacing, and the response checks.
+- The keep-awake activity is checked for pairing through `downloadVision`
+  (`LocalVisionTests`) and the Hugging Face snapshot download
+  (`HuggingFaceModelDownloadsTests`). The File-mode runtime setup's activity
+  has no test, because that setup writes to the real Application Support
+  folder.
 - `LocalModelDiscoveryTests`: Hugging Face search, pagination, partial failure,
   late responses, the featured package, and Discover rendering in both themes.
 - `HuggingFaceModelDownloadsTests`: repository validation, file suggestions,
-  snapshot commit, cancellation, checksum and size failures, and the file
-  sheet.
+  snapshot commit, cancellation, checksum and size failures, the keep-awake
+  activity, and the file sheet.
 - `EnigmaWelcomeTests` and `EnigmaSettingsTests` cover the welcome step and the
   Settings pages.
 

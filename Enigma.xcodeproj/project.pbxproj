@@ -170,6 +170,8 @@
 		AC1000000000000000000003 /* AssistantActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2000000000000000000003 /* AssistantActivity.swift */; };
 		E10000000000000000000002 /* ChatSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* ChatSessionStore.swift */; };
 		E10000000000000000000003 /* LocalModelManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000003 /* LocalModelManifest.swift */; };
+		D0A100000000000000000001 /* ResumableArtifactTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A100000000000000000002 /* ResumableArtifactTransfer.swift */; };
+		D0A100000000000000000003 /* ResumableArtifactTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A100000000000000000004 /* ResumableArtifactTransferTests.swift */; };
 		E10000000000000000000004 /* ChatPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000004 /* ChatPersistenceTests.swift */; };
 		E10000000000000000000005 /* AutoRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000005 /* AutoRouter.swift */; };
 		E10000000000000000000006 /* AutoRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000006 /* AutoRouterTests.swift */; };
@@ -365,6 +367,8 @@
 		AC2000000000000000000003 /* AssistantActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantActivity.swift; sourceTree = "<group>"; };
 		E20000000000000000000002 /* ChatSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionStore.swift; sourceTree = "<group>"; };
 		E20000000000000000000003 /* LocalModelManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelManifest.swift; sourceTree = "<group>"; };
+		D0A100000000000000000002 /* ResumableArtifactTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumableArtifactTransfer.swift; sourceTree = "<group>"; };
+		D0A100000000000000000004 /* ResumableArtifactTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ResumableArtifactTransferTests.swift"; sourceTree = SOURCE_ROOT; };
 		E20000000000000000000004 /* ChatPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPersistenceTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000005 /* AutoRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoRouter.swift; sourceTree = "<group>"; };
 		E20000000000000000000006 /* AutoRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoRouterTests.swift; sourceTree = "<group>"; };
@@ -590,6 +594,7 @@
 				5F0000000000000000000003 /* InstallLocationTests.swift */,
 				AB0300000000000000000001 /* LocalModelSelectionTests.swift */,
 				AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */,
+				D0A100000000000000000004 /* ResumableArtifactTransferTests.swift */,
 				AE9100000000000000000003 /* LocalModelDiscoveryTests.swift */,
 				D20000000000000000000005 /* LocalInferenceTests.swift */,
 				C30000000000000000000001 /* LocalModelInstallationStoreTests.swift */,
@@ -640,6 +645,7 @@
 				AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */,
 				AE9100000000000000000001 /* HuggingFaceModelDiscovery.swift */,
 				E20000000000000000000003 /* LocalModelManifest.swift */,
+				D0A100000000000000000002 /* ResumableArtifactTransfer.swift */,
 			);
 			path = LocalInference;
 			sourceTree = "<group>";
@@ -897,6 +903,7 @@
 				AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */,
 				AE9200000000000000000001 /* HuggingFaceModelDiscovery.swift in Sources */,
 				E10000000000000000000003 /* LocalModelManifest.swift in Sources */,
+				D0A100000000000000000001 /* ResumableArtifactTransfer.swift in Sources */,
 				E10000000000000000000005 /* AutoRouter.swift in Sources */,
 				F10000000000000000000001 /* CloudDomain.swift in Sources */,
 				F10000000000000000000002 /* KeychainCredentialStore.swift in Sources */,
@@ -956,6 +963,7 @@
 				5F0000000000000000000004 /* InstallLocationTests.swift in Sources */,
 				AB0300000000000000000002 /* LocalModelSelectionTests.swift in Sources */,
 				AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */,
+				D0A100000000000000000003 /* ResumableArtifactTransferTests.swift in Sources */,
 				AE9200000000000000000003 /* LocalModelDiscoveryTests.swift in Sources */,
 				D10000000000000000000006 /* LocalInferenceTests.swift in Sources */,
 				C30000000000000000000002 /* LocalModelInstallationStoreTests.swift in Sources */,
