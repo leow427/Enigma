@@ -6,6 +6,8 @@ Usage: python3 -I scripts/gguf-header.py <resolve URL> <file bytes>
 Reads only the header (metadata and tensor infos) with HTTP Range requests in
 4 MiB steps and prints the largest tensor and the cache-layout keys that
 docs/Updating-the-Model-Catalogue.md asks for. Standard library only.
+scripts/add-catalogue-model.py reuses `HeaderReader`, `RemoteFile` and
+`read_header`.
 """
 
 import struct
@@ -15,25 +17,23 @@ import urllib.request
 STEP = 4 * 1024 * 1024
 LAYOUT_KEYS = [
     "block_count", "attention.head_count_kv", "attention.key_length", "attention.value_length",
+    "attention.key_length_swa", "attention.value_length_swa",
     "attention.sliding_window", "attention.sliding_window_pattern", "full_attention_interval",
     "nextn_predict_layers", "expert_count", "expert_used_count",
 ]
 
 
-class RemoteFile:
-    def __init__(self, url):
-        self.url = url
+class HeaderReader:
+    """Reads a GGUF header from `fetch(start, count)`, which returns up to `count` bytes."""
+
+    def __init__(self, fetch):
+        self.fetch = fetch
         self.data = b""
         self.position = 0
 
     def _fetch_until(self, end):
         while len(self.data) < end:
-            start = len(self.data)
-            request = urllib.request.Request(self.url, headers={"Range": f"bytes={start}-{start + STEP - 1}"})
-            with urllib.request.urlopen(request) as response:
-                if response.status != 206:
-                    raise SystemExit(f"The server ignored the Range request (HTTP {response.status}).")
-                chunk = response.read()
+            chunk = self.fetch(len(self.data), STEP)
             if not chunk:
                 raise SystemExit("The file ended inside its header.")
             self.data += chunk
@@ -52,6 +52,22 @@ class RemoteFile:
         return self.read(self.unpack("Q")).decode("utf-8", errors="replace")
 
 
+def range_fetcher(url):
+    def fetch(start, count):
+        request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + count - 1}"})
+        with urllib.request.urlopen(request) as response:
+            if response.status != 206:
+                raise SystemExit(f"The server ignored the Range request (HTTP {response.status}).")
+            return response.read()
+    return fetch
+
+
+class RemoteFile(HeaderReader):
+    def __init__(self, url):
+        super().__init__(range_fetcher(url))
+        self.url = url
+
+
 SCALARS = {0: "B", 1: "b", 2: "H", 3: "h", 4: "I", 5: "i", 6: "f", 7: "?", 10: "Q", 11: "q", 12: "d"}
 
 
@@ -67,11 +83,8 @@ def value(reader, kind):
     raise SystemExit(f"Unknown GGUF value type {kind}.")
 
 
-def main():
-    if len(sys.argv) != 3:
-        raise SystemExit(__doc__)
-    url, file_bytes = sys.argv[1], int(sys.argv[2])
-    reader = RemoteFile(url)
+def read_header(reader, file_bytes):
+    """Returns (largest tensor bytes, its name, metadata) for a GGUF v3 file of `file_bytes`."""
     if reader.read(4) != b"GGUF":
         raise SystemExit("Not a GGUF file.")
     version = reader.unpack("I")
@@ -98,7 +111,15 @@ def main():
     for index, (offset, name) in enumerate(tensors):
         end = tensors[index + 1][0] if index + 1 < len(tensors) else file_bytes - data_start
         largest = max(largest, (end - offset, name))
-    print(f"largestTensorBytes {largest[0]} {largest[1]}")
+    return largest[0], largest[1], metadata
+
+
+def main():
+    if len(sys.argv) != 3:
+        raise SystemExit(__doc__)
+    url, file_bytes = sys.argv[1], int(sys.argv[2])
+    largest, name, metadata = read_header(RemoteFile(url), file_bytes)
+    print(f"largestTensorBytes {largest} {name}")
     architecture = metadata.get("general.architecture", "unknown")
     for key in LAYOUT_KEYS:
         full = f"{architecture}.{key}"

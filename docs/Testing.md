@@ -164,6 +164,20 @@ verification helper with `TEST_RUNNER_ENIGMA_ICON_ASSET_DIR` pointing at the
 asset catalog. Extra arguments go to `xcodebuild`. The rest of `EnigmaIconTests`
 fails until the committed icons match a fresh render.
 
+## Script tests
+
+The catalogue scripts have their own offline tests in `scripts/tests/`, using
+Python's standard library only. They feed `scripts/add-catalogue-model.py` a
+saved tree-API response (`scripts/tests/fixtures/tree.json`) and synthetic GGUF
+headers, so they need no network:
+
+```sh
+python3 -I -B -m unittest discover -s scripts/tests
+```
+
+`-B` keeps Python from writing `__pycache__` folders into the checkout. CI does
+not run these tests; run them after changing either catalogue script.
+
 ## Opt-in real-model and CLI checks
 
 Some tests exercise real models, installed command-line tools, or signed-in

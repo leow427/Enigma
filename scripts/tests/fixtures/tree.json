@@ -1,0 +1,47 @@
+[
+ {
+  "type": "file",
+  "oid": "856756fe02d066d837f867efadd0ec36ef855661",
+  "size": 3982,
+  "path": ".gitattributes"
+ },
+ {
+  "type": "file",
+  "oid": "305b5591a8ff17299d5a637701c057bb12d20499",
+  "size": 14754,
+  "path": "README.md"
+ },
+ {
+  "type": "file",
+  "oid": "7594698d77f635be3502d0c8d96d932471e31152",
+  "size": 4000000000,
+  "lfs": {
+   "oid": "2959c1b0a4f792493bb0092846ea06aec54547e47be979c282634d938d501b75",
+   "size": 4000000000,
+   "pointerSize": 136
+  },
+  "path": "Fixture-7B-Q4_K_M.gguf"
+ },
+ {
+  "type": "file",
+  "oid": "6a1c0e5e0c8d4f1b9b3c2a8d7e6f5a4b3c2d1e0f",
+  "size": 3500000000,
+  "lfs": {
+   "oid": "c9f34994715a016cd0bcd7ff4c1f5710718bbcc25d40796302db0a89b6d0d8ea",
+   "size": 3500000000,
+   "pointerSize": 136
+  },
+  "path": "Fixture-7B-UD-IQ3_XXS.gguf"
+ },
+ {
+  "type": "file",
+  "oid": "1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e",
+  "size": 900000000,
+  "lfs": {
+   "oid": "3e3f3f593b34bb4f518ada3e7999e4cbcd2a5864fa86ebc23fad3cbc4fbeba40",
+   "size": 900000000,
+   "pointerSize": 135
+  },
+  "path": "mmproj-F16.gguf"
+ }
+]

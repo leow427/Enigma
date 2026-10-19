@@ -23,45 +23,80 @@ from the catalogue.
 - Find out whether the model's image tokens use non-causal attention. Since
   llama.cpp b11327 such models cap an image at the physical batch size, so
   their profile sets `usesNonCausalImageAttention` and Enigma launches them
-  with `--ubatch-size` large enough for a whole screenshot.
+  with `--ubatch-size` large enough for a whole screenshot. The runtime
+  decides this in `mtmd_decode_use_non_causal` (`tools/mtmd/mtmd.cpp`) from
+  the projector type, which the add-model script prints: in b11734 every
+  Gemma 4 projector is non-causal except E2B's and E4B's.
 - A family that needs a newer llama.cpp bumps `LocalVisionRuntime` (build,
   archive sizes and SHA-256) in the same release. Check that every launch
   argument still exists in the new build's `common/arg.cpp`.
 
-## 3. Pin the files
+## 3. Pin the files and read the headers
 
-- Weights and projector come from one repository and one revision.
-- Pin the full 40-character revision, never a branch.
-- Sizes and SHA-256 come from the Hugging Face tree API:
-  `curl https://huggingface.co/api/models/<repository>/tree/<revision>`
-  gives each file's `lfs.size` and `lfs.oid`.
-- Keep the package IDs of existing packages, so installed copies and
-  benchmarks carry over. New packages follow `<family>-<quantization>`.
+Run the add-model script with the repository, its projector and each GGUF the
+catalogue should ship:
 
-## 4. Read the header
+```sh
+python3 -I scripts/add-catalogue-model.py --repo bartowski/google_gemma-4-31B-it-GGUF \
+  --projector mmproj-google_gemma-4-31B-it-f16.gguf \
+  --file google_gemma-4-31B-it-Q4_K_M.gguf --file google_gemma-4-31B-it-Q8_0.gguf \
+  --name "Gemma 4 31B" --publisher Google --license Apache-2.0 --profile gemma4_31B
+```
 
-Run the header script for each package:
+It reads and prints only; it never writes into the repository.
+
+- **Revision.** Without `--revision` it resolves `main` to its 40-character
+  commit and pins that; a branch name passed as `--revision` is refused.
+  Weights and projector come from that one repository and revision.
+- **Sizes and SHA-256** come from the tree API
+  (`https://huggingface.co/api/models/<repository>/tree/<revision>`, each
+  file's `lfs.size` and `lfs.oid`). A file missing at the revision stops the
+  script.
+- **Headers.** It reads each GGUF header, and the projector's, with HTTP range
+  requests (through `scripts/gguf-header.py`), for the largest tensor, block
+  count, KV heads, head dimensions, sliding window and experts.
+- **Labels and IDs.** The quantization label comes from the file name without
+  Unsloth's `UD-` prefix (`Qwen3.8-27B-UD-IQ3_XXS.gguf` is `IQ3_XXS`); pass
+  `--label <quantization>` right after a `--file` to override it. IDs are
+  `<family>-<quantization>`, with the family from `--name` lowercased and
+  spaced with hyphens. Keep the IDs of existing packages, so installed copies
+  and benchmarks carry over.
+
+It prints three blocks:
+
+1. A `LocalModelFamily` entry for `BundledLocalModels.swift`, packages in size
+   order, with `supportsAudio` from the projector header. Fields you didn't
+   pass print as `<placeholders>`; fill in the quality score and its source
+   (step 5). To add sizes to an existing family, paste only the `.init` lines.
+2. The `LocalCacheLayout` for `LocalMultimodalProfile.cacheLayout`: full
+   attention layers, sliding-window layers, their KV heads and head
+   dimensions, and the window. Hybrid models count only their attention
+   layers (every `full_attention_interval`-th layer) plus any
+   multi-token-prediction layers. It warns if the packages' headers disagree.
+3. Profile facts: architecture, block count, dense or mixture of experts, the
+   projector type and whether it carries audio, and the quantizations to add
+   to the profile's `quantizations`. Record total and active parameters
+   (`parameters`, `activeParameters`) and `isMixtureOfExperts` by hand.
+
+Add any new quantization label to `LocalQuantization.precisionOrder` and
+`qualityFactor` in `LocalModelSelection.swift`, too.
+
+## 4. Check the header by hand when needed
+
+`scripts/gguf-header.py` prints one file's raw layout keys, for a family the
+add-model script can't lay out (it stops when layers of one kind have
+different KV head counts):
 
 ```sh
 python3 -I scripts/gguf-header.py <resolve URL> <file bytes>
 ```
 
-It reads only the GGUF header, with HTTP range requests, and prints the
-largest tensor (`largestTensorBytes`) and the cache-layout keys:
-`block_count`, `attention.head_count_kv`, `attention.key_length`,
-`attention.value_length`, `attention.sliding_window`,
-`attention.sliding_window_pattern`, `full_attention_interval`,
-`nextn_predict_layers`, `expert_count` and `expert_used_count`.
-
-- Record `largestTensorBytes` on the package.
-- Record the cache layout in `LocalMultimodalProfile.cacheLayout`: full
-  attention layers, sliding-window layers, their KV heads and head
-  dimensions, and the window. Hybrid models count only their attention
-  layers; a multi-token-prediction layer is an attention layer and counts.
-- Record total and active parameters (`parameters`, `activeParameters`)
-  and whether the model is a mixture of experts.
-- Add the quantizations the catalogue ships to the profile's
-  `quantizations`.
+It prints the largest tensor and `block_count`, `attention.head_count_kv`,
+`attention.key_length`, `attention.value_length`,
+`attention.key_length_swa`, `attention.value_length_swa`,
+`attention.sliding_window`, `attention.sliding_window_pattern`,
+`full_attention_interval`, `nextn_predict_layers`, `expert_count` and
+`expert_used_count`.
 
 ## 5. Set the quality score
 
@@ -81,6 +116,12 @@ scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalModelCatalogueTests 
 
 Update the expected picks in `LocalModelCatalogueTests` only after checking
 them against the formulas in [Local models](Local-Model-Selection.md).
+
+Run the script tests after changing either catalogue script:
+
+```sh
+python3 -I -B -m unittest discover -s scripts/tests
+```
 
 Then, on an Apple Silicon Mac, running Enigma from Xcode with a stable
 signing identity:
