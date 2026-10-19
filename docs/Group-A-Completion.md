@@ -1,6 +1,6 @@
 # Group A completion report
 
-Implemented locally in `/Users/leo/Documents/AI-Spotlight-Real` on 2026-09-04.
+Implemented locally on 2026-09-04.
 Base revision: `b9c93c1c04055afaa7d87033ba0ffdcf79a5a8b1` (`main`).
 Repository: [leow427/AI-Spotlight](https://github.com/leow427/AI-Spotlight).
 This report records validation before publication.

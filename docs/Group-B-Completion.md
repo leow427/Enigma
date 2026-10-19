@@ -1,6 +1,6 @@
 # Group B completion report
 
-Implemented in `/Users/leo/Documents/AI-Spotlight-Real` on 2026-09-04.
+Implemented on 2026-09-04.
 Base revision: `f40b272ea17fb820645665712cd223f7dffb0839` (`main`).
 Repository: [leow427/AI-Spotlight](https://github.com/leow427/AI-Spotlight).
 Scope: Group B only. The user's request explicitly authorizes commit and push.
