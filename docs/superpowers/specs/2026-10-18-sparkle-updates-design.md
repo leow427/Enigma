@@ -51,7 +51,7 @@ history.
   latest stable 2.x when implemented; 2.10.0 at the time of writing, and at
   least 2.9 for Markdown release notes). It is linked only into the Enigma app
   target, not `EnigmaTests` or `Packages/LlamaBridge`.
-- Sparkle's MIT license is added to `AI-Spotlight/Resources/ThirdPartyNotices.txt`
+- Sparkle's MIT license is added to `Enigma/Resources/ThirdPartyNotices.txt`
   in the same style as the llama.cpp entry.
 - Enigma is not sandboxed, so none of Sparkle's sandbox XPC-service keys apply.
   Hardened Runtime stays on; Debug builds already use an Apple Development
@@ -59,7 +59,7 @@ history.
 
 ### `AppUpdater`
 
-New file `AI-Spotlight/App/AppUpdater.swift`. It is the only file that imports
+New file `Enigma/App/AppUpdater.swift`. It is the only file that imports
 Sparkle.
 
 - `protocol AppUpdating: ObservableObject` (main-actor) is what feature code
@@ -113,7 +113,7 @@ and replaces itself. A manual **Check for Updates…** still works for testing.
 
 ### Info.plist
 
-`AI-Spotlight/Resources/Info.plist` gains:
+`Enigma/Resources/Info.plist` gains:
 
 | Key | Value |
 | --- | --- |
@@ -190,7 +190,7 @@ messages). It stops at the first failure.
    succeeds; Sparkle's tools are found.
 2. **Bump.** Set `MARKETING_VERSION` to `<version>` and increment
    `CURRENT_PROJECT_VERSION` by one, in both Debug and Release configurations
-   of `AI-Spotlight.xcodeproj/project.pbxproj`.
+   of `Enigma.xcodeproj/project.pbxproj`.
 3. **Build and verify.** `xcodebuild archive` of the `Enigma` scheme, Release,
    with `-allowProvisioningUpdates` and the project's existing team and
    identity, as `install-app.sh` does. Then:
@@ -277,7 +277,7 @@ appcast.
 
 ## Testing
 
-Unit tests, offline and deterministic, in `AI-SpotlightTests`:
+Unit tests, offline and deterministic, in `EnigmaTests`:
 
 - **Updater state:** a `FakeAppUpdater: AppUpdating` drives
   `MenuBarController`. The restart item is hidden without a pending update,
@@ -359,7 +359,6 @@ Documented now, built later, as one deliberate release:
 | The free-team Release archive's entitlements, especially `get-task-allow`. | First `--dry-run` |
 | Whether the free Personal Team certificate renewal changes the designated requirement (the DR check guards against it either way). | First renewal |
 | Exact Swift spelling of each Sparkle delegate method in the pinned version (the docs show `standardUserDriverDidReceiveUserAttention(forUpdate:)`; others are mapped from the Objective-C headers). | Compiling against the pinned package |
-| A rename of `AI-Spotlight/` to `Enigma/` and of the project to `Enigma.xcodeproj` is in progress separately. If it lands first, every path here follows it. | Order of merges |
 | `ENIGMA_UPDATE_FEED_URL` is set in the project's build settings, not an `.xcconfig` file, where `//` would start a comment and cut the URL. | Implementation |
 
 ## Sources

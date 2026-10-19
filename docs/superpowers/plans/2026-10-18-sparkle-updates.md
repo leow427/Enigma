@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Sparkle 2 via SPM, **exact** version pin (latest stable 2.x, ≥ 2.9; 2.10.0 when written), linked only into the Enigma app target.
-- Only `AI-Spotlight/App/SparkleUpdaterBackend.swift` imports Sparkle.
+- Only `Enigma/App/SparkleUpdaterBackend.swift` imports Sparkle.
 - Feed URL: `https://raw.githubusercontent.com/leow427/Enigma/main/appcast.xml`, via build setting `ENIGMA_UPDATE_FEED_URL` set in `project.pbxproj` (never an `.xcconfig`, where `//` starts a comment).
 - Info.plist: `SUEnableAutomaticChecks` YES, `SUAutomaticallyUpdate` YES, `SUScheduledCheckInterval` 86400, no `SUEnableSystemProfiling`.
 - `CFBundleShortVersionString` = `$(MARKETING_VERSION)`, `CFBundleVersion` = `$(CURRENT_PROJECT_VERSION)` (a plain integer). `MARKETING_VERSION` starts at `0.9.1`.
@@ -39,19 +39,19 @@
 
 ### Task 0: Branch setup (coordinator)
 
-- [ ] Create `feat/sparkle-updates` from `docs/sparkle-updates-spec` (it carries the spec and this plan), in its own worktree.
-- [ ] `git fetch origin`; if `origin/main` has moved, merge it. If the `AI-Spotlight/` → `Enigma/` rename has landed, every path in this plan follows it (`AI-Spotlight/` → `Enigma/`, `AI-Spotlight.xcodeproj` → `Enigma.xcodeproj`, `AI-SpotlightTests/` → its new name).
+- [x] Create `feat/sparkle-updates` from `docs/sparkle-updates-spec` (it carries the spec and this plan), in its own worktree.
+- [x] `git fetch origin` and merge `origin/main` (done: it carries the rename to `Enigma/`, `Enigma.xcodeproj` and `EnigmaTests/`, which this plan's paths now use).
 
 ---
 
 ### Task 1: Sparkle package, versioning and Info.plist keys
 
 **Files:**
-- Modify: `AI-Spotlight.xcodeproj/project.pbxproj` (remote package reference, product dependency on the app target, `MARKETING_VERSION = 0.9.1`, `ENIGMA_UPDATE_FEED_URL` in both app configurations)
-- Create: `AI-Spotlight.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (commit it)
-- Modify: `AI-Spotlight/Resources/Info.plist`
-- Modify: `AI-Spotlight/Resources/ThirdPartyNotices.txt` (Sparkle's MIT license, same layout as the llama.cpp entry; copy the text from the checked-out package's `LICENSE`)
-- Test: `AI-SpotlightTests/AppBundleTests.swift`
+- Modify: `Enigma.xcodeproj/project.pbxproj` (remote package reference, product dependency on the app target, `MARKETING_VERSION = 0.9.1`, `ENIGMA_UPDATE_FEED_URL` in both app configurations)
+- Create: `Enigma.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (commit it)
+- Modify: `Enigma/Resources/Info.plist`
+- Modify: `Enigma/Resources/ThirdPartyNotices.txt` (Sparkle's MIT license, same layout as the llama.cpp entry; copy the text from the checked-out package's `LICENSE`)
+- Test: `EnigmaTests/AppBundleTests.swift`
 
 **Interfaces:**
 - Produces: the `Sparkle` module available to the app target; Info.plist keys above.
@@ -100,7 +100,7 @@ Expected: the three new tests FAIL (missing keys, `1.0` short version, no framew
 
 - [ ] **Step 6: Run and confirm they pass.** Same command. Expected: all `AppBundleTests` PASS, including the existing llama framework test.
 
-- [ ] **Step 7: Check the signed Release build still verifies.** Run `scripts/verify-xcode.sh build`; Expected: `BUILD SUCCEEDED`. Then confirm CI's unsigned path: `xcodebuild build -project AI-Spotlight.xcodeproj -scheme Enigma -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -quiet` succeeds.
+- [ ] **Step 7: Check the signed Release build still verifies.** Run `scripts/verify-xcode.sh build`; Expected: `BUILD SUCCEEDED`. Then confirm CI's unsigned path: `xcodebuild build -project Enigma.xcodeproj -scheme Enigma -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -quiet` succeeds.
 
 - [ ] **Step 8: Commit** `project.pbxproj`, `Package.resolved`, `Info.plist`, `ThirdPartyNotices.txt`, `AppBundleTests.swift`: `Add the Sparkle package and update settings`.
 
@@ -109,8 +109,8 @@ Expected: the three new tests FAIL (missing keys, `1.0` short version, no framew
 ### Task 2: `AppUpdater` state model (no Sparkle)
 
 **Files:**
-- Create: `AI-Spotlight/App/AppUpdater.swift`
-- Create: `AI-SpotlightTests/AppUpdaterTests.swift` (holds `FakeUpdaterBackend`)
+- Create: `Enigma/App/AppUpdater.swift`
+- Create: `EnigmaTests/AppUpdaterTests.swift` (holds `FakeUpdaterBackend`)
 
 **Interfaces:**
 - Produces (exact):
@@ -194,10 +194,10 @@ Tests and their assertions:
 ### Task 3: `SparkleUpdaterBackend` and startup
 
 **Files:**
-- Create: `AI-Spotlight/App/SparkleUpdaterBackend.swift` (the only `import Sparkle`)
-- Modify: `AI-Spotlight/App/AppUpdater.swift` (add `static let shared = AppUpdater(backend: SparkleUpdaterBackend())`)
-- Modify: `AI-Spotlight/App/ApplicationDelegate.swift` (`applicationDidFinishLaunching`, after the test-host return: `AppUpdater.shared.start()`)
-- Test: `AI-SpotlightTests/AppUpdaterTests.swift`
+- Create: `Enigma/App/SparkleUpdaterBackend.swift` (the only `import Sparkle`)
+- Modify: `Enigma/App/AppUpdater.swift` (add `static let shared = AppUpdater(backend: SparkleUpdaterBackend())`)
+- Modify: `Enigma/App/ApplicationDelegate.swift` (`applicationDidFinishLaunching`, after the test-host return: `AppUpdater.shared.start()`)
+- Test: `EnigmaTests/AppUpdaterTests.swift`
 
 **Interfaces:**
 - Consumes: `AppUpdaterBackend`, `AppUpdater.backend*` methods (Task 2).
@@ -224,10 +224,10 @@ Behaviour (spec, "AppUpdater" section):
 ### Task 4: Menu-bar items
 
 **Files:**
-- Modify: `AI-Spotlight/App/AppCommand.swift`
-- Modify: `AI-Spotlight/App/MenuBarController.swift`
-- Modify: `AI-Spotlight/App/ApplicationDelegate.swift` (pass `.shared`)
-- Test: `AI-SpotlightTests/AppCommandTests.swift`, `AI-SpotlightTests/AppUpdaterTests.swift`
+- Modify: `Enigma/App/AppCommand.swift`
+- Modify: `Enigma/App/MenuBarController.swift`
+- Modify: `Enigma/App/ApplicationDelegate.swift` (pass `.shared`)
+- Test: `EnigmaTests/AppCommandTests.swift`, `EnigmaTests/AppUpdaterTests.swift`
 
 **Interfaces:**
 - Consumes: `AppUpdater` (Task 2).
@@ -251,9 +251,9 @@ Menu order: Open, New Chat, Privacy Hide, separator, *pending update item*, Chec
 ### Task 5: Settings → General → Updates
 
 **Files:**
-- Modify: `AI-Spotlight/App/SettingsView.swift` (`SettingsView.init` gains `updater: AppUpdater = .shared`, passed to `GeneralSettingsPage`; new `@ObservedObject var updater: AppUpdater` there)
-- Modify: `AI-SpotlightTests/EnigmaSettingsTests.swift` (`Fixture` owns `updater = AppUpdater(backend: FakeUpdaterBackend())` and passes it in `settings(_:)`)
-- Test: `AI-SpotlightTests/EnigmaSettingsTests.swift`
+- Modify: `Enigma/App/SettingsView.swift` (`SettingsView.init` gains `updater: AppUpdater = .shared`, passed to `GeneralSettingsPage`; new `@ObservedObject var updater: AppUpdater` there)
+- Modify: `EnigmaTests/EnigmaSettingsTests.swift` (`Fixture` owns `updater = AppUpdater(backend: FakeUpdaterBackend())` and passes it in `settings(_:)`)
+- Test: `EnigmaTests/EnigmaSettingsTests.swift`
 
 **Interfaces:**
 - Consumes: `AppUpdater`, `FakeUpdaterBackend` (Task 2).
