@@ -247,8 +247,10 @@ minimum Mac memory is its estimate.
 - **Prompt** = 1.3 × bandwidth × 7 ÷ active parameters (billions).
 - **First token** = 256 ÷ prompt speed + 1 ÷ decode speed.
 - **Calibration.** The latest applicable benchmark on this Mac of the same kind
-  (dense or mixture of experts) replaces the starting efficiency and prompt
-  factor; a benchmark of the same architecture is preferred. There is no cap.
+  (dense or mixture of experts) replaces the starting efficiency, with no cap;
+  a benchmark of the same architecture is preferred. It may only raise the
+  prompt factor above 1.3, because the check's short prompt understates prompt
+  speed.
   Calibration uses benchmarks recorded on this hardware, in the current power
   mode, within 90 days, on any runtime build, because efficiency belongs to the
   Mac. Benchmarks of packages that left the catalogue still count; imported

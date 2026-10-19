@@ -244,7 +244,10 @@ enum LocalModelSelector {
     var factor = promptFactor
     if let run = calibration(for: model, from: benchmarks) {
       efficiency = run.metrics.generationTokensPerSecond * run.calibrationActiveWeightBytes / (bandwidth * 1e9)
-      factor = run.metrics.promptTokensPerSecond * run.calibrationActiveParameterBillions / (bandwidth * 7)
+      // A short benchmark prompt understates prompt speed, so a run may only
+      // raise the prior; an exact measurement of the package still wins.
+      factor = max(promptFactor,
+                   run.metrics.promptTokensPerSecond * run.calibrationActiveParameterBillions / (bandwidth * 7))
     }
     let decode = bandwidth * 1e9 * efficiency / model.activeWeightBytes
     let prompt = factor * bandwidth * 7 / model.resolvedActiveParameterBillions

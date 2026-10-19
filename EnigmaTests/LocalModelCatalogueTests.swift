@@ -161,6 +161,18 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertEqual(calibrated.recommended?.tokensPerSecond ?? 0, 27.50, accuracy: 0.01)
   }
 
+  func testSlowPromptRunsNeverLowerThePromptPrior() throws {
+    // The E4B run's prompt speed was measured on a short prompt; taken as is it
+    // would cut the prompt factor to about 0.33 and push Gemma 4 12B over 2 s.
+    let e4b = ownersRun(id: "gemma-4-e4b-it-qat-q4_0-gguf", bytes: 5_154_941_280, parameters: 7.5,
+                        speed: 67.19727627040184, prompt: 136.2804710085045, age: 60)
+    let recs = LocalModelSelector.select(manifest: .bundled, hardware: ownersMac, measurements: [e4b])
+    let recommended = try XCTUnwrap(recs.recommended)
+    XCTAssertEqual(recommended.id, "gemma-4-12b-q5_k_m")
+    XCTAssertLessThanOrEqual(recommended.timeToFirstToken, 2)
+    XCTAssertEqual(recommended.tokensPerSecond, 24.70, accuracy: 0.01)
+  }
+
   func testOlderInstalledRecordsDecode() throws {
     for model in models {
       var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(model)) as? [String: Any])
