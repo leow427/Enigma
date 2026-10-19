@@ -748,9 +748,13 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertTrue(composerAcceptsClicks(in: host.view))
     try host.drag(from: point, by: NSSize(width: 40, height: -30))
     XCTAssertEqual(host.window.frame.origin, NSPoint(x: start.minX + 40, y: start.minY - 30))
-    // A drag stops at the screen's visible edge, clear of the menu bar.
-    try host.drag(from: point, by: NSSize(width: 0, height: 2_000))
-    XCTAssertEqual(host.window.frame.maxY, Self.testScreen.maxY, accuracy: 0.5)
+    // A drag stops at the screen's visible edge, clear of the menu bar. The
+    // screen is kept inside the Mac's real one, since AppKit itself won't put
+    // a window above the real menu bar (CI runners have small displays).
+    let real = try XCTUnwrap(host.window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame)
+    let screen = Self.testScreen.intersection(real)
+    try host.drag(from: point, by: NSSize(width: 0, height: 2_000), screen: screen)
+    XCTAssertEqual(host.window.frame.maxY, screen.maxY, accuracy: 0.5)
 
     // With a chat, its messages keep their clicks and scrolling.
     try await host.send("Explain this passage", fixture, expectsPanelToGrow: false)
@@ -1000,12 +1004,12 @@ final class CompactPanelHost {
 
   /// Presses at `point`, or the hint row, drags by `delta`, and lets go, as a
   /// person dragging the window's background would.
-  func drag(from point: NSPoint? = nil, by delta: NSSize) throws {
+  func drag(from point: NSPoint? = nil, by delta: NSSize, screen: NSRect? = nil) throws {
     let point = point ?? hintRowPoint
     let area = try XCTUnwrap(dragArea(at: point), "The background at \(point) moves the window")
     let pointer = PointerBox()
     area.pointerLocation = { pointer.location }
-    let screen = visible
+    let screen = screen ?? visible
     area.visibleFrame = { _ in screen }
     func send(_ type: NSEvent.EventType) throws {
       window.sendEvent(try XCTUnwrap(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
