@@ -1185,6 +1185,8 @@ final class EnigmaMenuPresenter: ObservableObject {
   }
 
   @Published private(set) var presentation: Presentation?
+  /// Counts the times the open list was asked to take keyboard focus again.
+  @Published private(set) var listFocusRequest = 0
   /// The open menu's rows, measured, for placing it where they fit.
   @Published private(set) var contentHeight: CGFloat?
   /// The window the host is in, so a window's Escape can close its own menu.
@@ -1238,6 +1240,13 @@ final class EnigmaMenuPresenter: ObservableObject {
     current.onDismiss?()
     guard let returnFocus = current.returnFocus else { return }
     if shownLists.contains(current.id) { focusReturns[current.id] = returnFocus } else { returnFocus() }
+  }
+
+  /// The open menu `id`'s list takes keyboard focus back, as when the click
+  /// that opened it focuses the trigger after the list asked for focus.
+  func refocusList(_ id: UUID) {
+    guard presentation?.id == id else { return }
+    listFocusRequest += 1
   }
 
   func listAppeared(_ id: UUID) { shownLists.insert(id) }
@@ -1318,6 +1327,7 @@ private struct EnigmaMenuHostModifier: ViewModifier {
               let placement = EnigmaMenuPlacement(anchor: presentation.anchor, container: proxy.size,
                                                   contentHeight: presenter.contentHeight)
               EnigmaMenuList(presentation: presentation, maximumHeight: placement.maximumHeight,
+                             focusRequest: presenter.listFocusRequest,
                              reportHeight: { presenter.reportContentHeight($0, for: presentation.id) }) {
                 presenter.dismiss(presentation.id)
               }
@@ -1408,6 +1418,8 @@ private struct EnigmaMenuWindowReader: NSViewRepresentable {
 private struct EnigmaMenuList: View {
   let presentation: EnigmaMenuPresenter.Presentation
   let maximumHeight: CGFloat
+  /// Changes when the list should take keyboard focus again.
+  var focusRequest = 0
   var reportHeight: (CGFloat) -> Void = { _ in }
   let dismiss: () -> Void
   @Environment(\.enigmaPalette) private var palette
@@ -1480,6 +1492,7 @@ private struct EnigmaMenuList: View {
       highlighted = enabledItems.first(where: \.isSelected)?.id ?? enabledItems.first?.id
       isFocused = true
     }
+    .onChange(of: focusRequest) { _, _ in isFocused = true }
     .onKeyPress(.downArrow) { move(by: 1); return .handled }
     .onKeyPress(.upArrow) { move(by: -1); return .handled }
     // Key handlers run inside a view update, so what they change waits a turn.
@@ -1597,6 +1610,8 @@ struct EnigmaMenu<Label: View>: View {
   @State private var isOpenInPlace = false
   /// The in-place list was closed from inside, so it hands focus back once it's gone.
   @State private var returnsFocusWhenListLeaves = false
+  /// Counts the times the in-place list was asked to take keyboard focus again.
+  @State private var inPlaceListFocusRequest = 0
   /// Counts the times a closed menu asked for focus back.
   @State private var focusReturnRequest = 0
   @FocusState private var isFocused: Bool
@@ -1638,6 +1653,12 @@ struct EnigmaMenu<Label: View>: View {
     .focusable(isEnabled)
     .focused($isFocused)
     .focusEffectDisabled()
+    // The click that opens the menu can focus the trigger after the list
+    // has asked for focus. While the menu is open, focus belongs to the list.
+    .onChange(of: isFocused) { _, focused in
+      guard focused, isOpen else { return }
+      if let presenter { presenter.refocusList(id) } else { inPlaceListFocusRequest += 1 }
+    }
     .onKeyPress(.space) { Task { toggle() }; return .handled }
     .onKeyPress(.return) { Task { toggle() }; return .handled }
     .accessibilityElement(children: .ignore)
@@ -1648,7 +1669,7 @@ struct EnigmaMenu<Label: View>: View {
     } action: { anchor = $0 }
     .overlay(alignment: .topLeading) {
       if isOpenInPlace {
-        EnigmaMenuList(presentation: presentation, maximumHeight: 320) {
+        EnigmaMenuList(presentation: presentation, maximumHeight: 320, focusRequest: inPlaceListFocusRequest) {
           returnsFocusWhenListLeaves = true
           isOpenInPlace = false
           closeAction()
