@@ -147,27 +147,6 @@ final class LocalModelSelectionTests: XCTestCase {
     }
   }
 
-  func testNewCatalogueDoesNotMisrepresentUnavailableRuntimeOrAudio() throws {
-    let mini = catalog.models.filter { $0.inferenceProfile == .miniCPMO45 }
-    XCTAssertEqual(mini.count, 2)
-    for model in mini {
-      try model.validate()
-      let assessment = LocalModelSelector.assess(model, hardware: hardware(memory: 128))
-      XCTAssertEqual(assessment.fit, .unsupported)
-      XCTAssertFalse(assessment.canInstall)
-      XCTAssertTrue(assessment.reason.contains("dedicated runtime"))
-      XCTAssertEqual(model.modelSupportsAudio, true)
-    }
-    for model in catalog.models {
-      XCTAssertNotNil(model.advertisedMemoryRange)
-      XCTAssertTrue(model.downloadURL.lastPathComponent.contains(model.quantization))
-      if model.modelSupportsAudio == true {
-        XCTAssertTrue(model.performanceClass.contains("Text and images in Enigma"))
-      }
-    }
-    XCTAssertFalse(catalog.models.contains { $0.id.contains("qwen3-vl") || $0.id.contains("minicpm-v") })
-  }
-
   func testEnigmaProductKeepsExistingUserDataIdentity() {
     XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Enigma")
     XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String, "Enigma")
@@ -176,12 +155,12 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testCatalogPinsEveryQuantizationAndMatchesEmbeddedBuild() throws {
     try catalog.validate()
-    XCTAssertEqual(catalog.models.count, 13)
+    XCTAssertEqual(catalog.models.count, 20)
     XCTAssertEqual(Set(catalog.models.map(\.quantization)), ["Q4_K_M", "Q5_K_M", "Q8_0"])
-    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google", "Mistral AI", "OpenBMB", "Hugging Face"])
-    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)), Set([.smolVLM2, .qwen35_4B, .qwen35_9B, .gemma4E4B, .gemma4_12B, .gemma4A4B, .ministral8B, .ministral14B, .miniCPMO45]))
+    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google"])
+    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)), Set([.qwen35_2B, .qwen35_4B, .qwen35_9B, .gemma4_12B, .gemma4A4B, .qwen36_35BA3B, .qwen38_27B]))
     for model in catalog.models {
-      XCTAssertEqual(LocalModelCompatibility.supports(model), model.inferenceProfile != .miniCPMO45)
+      XCTAssertTrue(LocalModelCompatibility.supports(model))
       XCTAssertTrue(model.supportsVision)
       XCTAssertNotNil(model.modelSummary)
       XCTAssertLessThanOrEqual(model.summary.count, 300)
@@ -333,7 +312,7 @@ final class LocalModelSelectionTests: XCTestCase {
       XCTAssertEqual(LocalModelSelector.assess(model, hardware: hardware()).fit, .unsupported)
     }
     var mac = hardware()
-    mac.metalMaximumBufferLength = 512 * 1_024 * 1_024
+    mac.metalMaximumBufferLength = 256 * 1_024 * 1_024
     XCTAssertEqual(LocalModelSelector.assess(catalog.models[0], hardware: mac).fit, .unsupported)
     mac.hasUnifiedMemory = false
     XCTAssertEqual(LocalModelSelector.assess(catalog.models[0], hardware: mac).fit, .unsupported)

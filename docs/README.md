@@ -24,6 +24,7 @@ works in the code, its limitations, and which tests cover it.
 | --- | --- |
 | [ChatGPT setup](ChatGPT-Setup.md) | Using a ChatGPT plan through the Codex CLI |
 | [Claude Code setup](Claude-Code-Setup.md) | Using a Claude plan through the Claude Code CLI |
+| [Updating the model catalogue](Updating-the-Model-Catalogue.md) | The release checklist for adding or refreshing local models |
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
 | [Updates](Updates.md) | Automatic updates through Sparkle, the update signing key, and publishing a release with `scripts/release.sh` |

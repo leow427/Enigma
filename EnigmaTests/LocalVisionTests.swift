@@ -113,7 +113,7 @@ final class LocalVisionTests: XCTestCase {
   }
 
   func testBundledVisionPackagesPinMatchingPairsAndOfficialRuntime() throws {
-    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 13)
+    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 20)
     for model in LocalVisionModelDescriptor.bundled {
       try model.validate()
       XCTAssertEqual(Array(model.model.url.pathComponents.prefix(5)), Array(model.projector.url.pathComponents.prefix(5)))
@@ -124,7 +124,7 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertEqual(LocalVisionRuntime.directoryName, "llama-b11734")
     let input = LocalVisionModelDescriptor.bundled[0]
     let mismatched = LocalVisionModelDescriptor(id: input.id, displayName: input.displayName, summary: input.summary,
-      model: input.model, projector: LocalVisionModelDescriptor.bundled[1].projector,
+      model: input.model, projector: try XCTUnwrap(LocalVisionModelDescriptor.bundled.first { $0.projector != input.projector }).projector,
       estimatedRuntimeMemory: 4 * LocalHardwareProfile.gib)
     XCTAssertThrowsError(try mismatched.validate())
   }
@@ -149,7 +149,7 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertTrue(FileManager.default.fileExists(atPath: source.fileURL.path))
     XCTAssertTrue(FileManager.default.fileExists(atPath: source.visionConfiguration!.projectorURL.path))
     XCTAssertFalse(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm-2b-q4:vision" })
-    XCTAssertTrue(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm2-2.2b-q8_0" })
+    XCTAssertFalse(LocalModelManifest.bundled.models.contains { $0.id == "smolvlm2-2.2b-q8_0" })
   }
 
   func testPackageReplacementPreservesSelectedVisionAndRollsBackOnFailure() throws {

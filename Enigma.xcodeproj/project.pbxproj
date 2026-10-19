@@ -128,6 +128,7 @@
 		5E0000000000000000000004 /* AppUpdaterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000003 /* AppUpdaterTests.swift */; };
 		5F0000000000000000000008 /* ApplicationMoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000007 /* ApplicationMoverTests.swift */; };
 		5F0000000000000000000004 /* InstallLocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000003 /* InstallLocationTests.swift */; };
+		28DB2E9593655AA7E3C891EA /* LocalModelCatalogueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18FD45ADC6A2A14222C17D5 /* LocalModelCatalogueTests.swift */; };
 		1BAD81044B0C0FE27D7EFFB5 /* LocalBandwidthProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31DE8D7B2FB32F43FBF8973A /* LocalBandwidthProbeTests.swift */; };
 		C09969EC7BD1A0AEB1FD5C68 /* LocalModelEstimateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */; };
 		A10000000000000000000008 /* GlobalHotKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* GlobalHotKeyMonitor.swift */; };
@@ -330,6 +331,7 @@
 		5E0000000000000000000003 /* AppUpdaterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdaterTests.swift; sourceTree = "<group>"; };
 		5F0000000000000000000007 /* ApplicationMoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMoverTests.swift; sourceTree = "<group>"; };
 		5F0000000000000000000003 /* InstallLocationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocationTests.swift; sourceTree = "<group>"; };
+		A18FD45ADC6A2A14222C17D5 /* LocalModelCatalogueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalModelCatalogueTests.swift"; sourceTree = SOURCE_ROOT; };
 		31DE8D7B2FB32F43FBF8973A /* LocalBandwidthProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalBandwidthProbeTests.swift"; sourceTree = SOURCE_ROOT; };
 		A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalModelEstimateTests.swift"; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000008 /* Enigma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Enigma.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -602,6 +604,7 @@
 				5E0000000000000000000003 /* AppUpdaterTests.swift */,
 				5F0000000000000000000007 /* ApplicationMoverTests.swift */,
 				5F0000000000000000000003 /* InstallLocationTests.swift */,
+				A18FD45ADC6A2A14222C17D5 /* LocalModelCatalogueTests.swift */,
 				31DE8D7B2FB32F43FBF8973A /* LocalBandwidthProbeTests.swift */,
 				A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */,
 				AB0300000000000000000001 /* LocalModelSelectionTests.swift */,
@@ -975,6 +978,7 @@
 				5E0000000000000000000004 /* AppUpdaterTests.swift in Sources */,
 				5F0000000000000000000008 /* ApplicationMoverTests.swift in Sources */,
 				5F0000000000000000000004 /* InstallLocationTests.swift in Sources */,
+				28DB2E9593655AA7E3C891EA /* LocalModelCatalogueTests.swift in Sources */,
 				1BAD81044B0C0FE27D7EFFB5 /* LocalBandwidthProbeTests.swift in Sources */,
 				C09969EC7BD1A0AEB1FD5C68 /* LocalModelEstimateTests.swift in Sources */,
 				AB0300000000000000000002 /* LocalModelSelectionTests.swift in Sources */,
