@@ -183,7 +183,7 @@ Applications, and right-click → **Open** the first time.
 | Are Sparkle's helpers signed in the archive? | No: `Installer.xpc`, `Downloader.xpc`, `Autoupdate` and `Updater.app` come out of `xcodebuild archive` ad-hoc signed. `release.sh` re-signs them, as described in step 3. |
 | Does 0.10.0 keep v0.9.1's designated requirement? | Yes, compared against the app in the v0.9.1 DMG. |
 | Exact Sparkle 2.10.0 Swift spellings | `updater(_:mayPerform:) throws`, `updater(_:willInstallUpdateOnQuit:immediateInstallationBlock:)`, `updater(_:didFinishUpdateCycleFor:error:)`, `standardUserDriverShouldHandleShowingScheduledUpdate(_:andInImmediateFocus:)`, `standardUserDriverWillHandleShowingUpdate(_:forUpdate:state:)`, `standardUserDriverDidReceiveUserAttention(forUpdate:)`, `standardUserDriverWillFinishUpdateSession()`. |
-| Does a local `http://127.0.0.1` test feed work? | To be confirmed by the manual end-to-end check below. |
+| Does a local `http://127.0.0.1` test feed work? | Yes; Sparkle fetched the feed and update over it (see the manual check below). |
 | Does renewing the free certificate change the designated requirement? | Unknown until the first renewal; `release.sh` stops if it does. |
 
 ## Manual end-to-end check
@@ -202,7 +202,26 @@ install, because it needs macOS permission prompts:
 4. Replace the zip with a tampered copy (one byte changed). Confirm that
    Sparkle rejects it and 0.10.0 keeps running.
 
-Result: not yet run.
+Result (2026-10-18, run with a 0.10.0 zip quarantined like a Safari
+download, served from `http://127.0.0.1:8000`):
+
+- **First open:** right-click → Open offered only Done / Move to Trash;
+  System Settings → Privacy & Security → **Open Anyway** was needed, as
+  expected for a build that is not notarized.
+- **Install location matters:** moved into `/Applications` from Terminal,
+  the quarantined app ran from an App Translocation copy and fetched nothing.
+  Dragged from Downloads into Applications in Finder, it ran in place and
+  checked at launch. Friends must drag the app into Applications in Finder
+  before opening it.
+- **First launch:** Sparkle does not check on an app's first launch; it
+  records the check time and waits a day.
+- **Automatic update:** passed. The local `http` feed works. Enigma fetched
+  the appcast and the 0.10.1 zip, showed **Restart to Update to 0.10.1**, and
+  relaunched as 0.10.1 (3) with a valid signature. **Check for Updates…**
+  then reported it was up to date. Screen Recording (and audio) access was
+  still granted after the update; Accessibility was not checked separately.
+- **Tampered update:** passed. Sparkle downloaded the zip with one byte
+  changed, refused to install it with an error, and 0.10.0 (2) kept running.
 
 ## Future: Developer ID and notarization
 
