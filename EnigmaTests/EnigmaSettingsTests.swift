@@ -292,21 +292,22 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   @MainActor
-  func testRecognizeCommandsSwitchIsOnByDefaultAndSavesOff() async throws {
+  func testRecognizeCommandsSwitchIsOffByDefaultAndSavesOn() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper).defaultAppStorage(fixture.defaults),
                     size: Self.tall, test: self)
     try await waitForUI("the recognize switch", in: host.view) {
       host.shows("Recognize commands from your wording switch")
     }
-    XCTAssertNil(fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey), "On by default, with nothing saved")
-    try host.press("Recognize commands from your wording switch")
-    try await waitForUI("recognition off", in: host.view) {
-      fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey) as? Bool == false
-    }
+    XCTAssertNil(fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey), "Off by default, with nothing saved")
+    XCTAssertFalse(ComposerIntent.infersCommandsByDefault)
     try host.press("Recognize commands from your wording switch")
     try await waitForUI("recognition on", in: host.view) {
       fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey) as? Bool == true
+    }
+    try host.press("Recognize commands from your wording switch")
+    try await waitForUI("recognition off", in: host.view) {
+      fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey) as? Bool == false
     }
   }
 

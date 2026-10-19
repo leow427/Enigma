@@ -102,8 +102,8 @@ causes the conflict error above: with files or a screenshot attached, or with
 `/search`, `/screen` or `/snapshot` typed, `messages` simply isn't recognized.
 A recognized `messages` keeps every safeguard below: the Full Disk Access check,
 the one-time cloud notice, Auto staying on this Mac, and your approval for each
-send. **Settings → General → Recognize commands from your wording** turns
-recognition off. See [Slash commands](Slash-Commands.md#recognized-commands).
+send. Recognition only happens with **Settings → General → Recognize commands
+from your wording** on, and it's off by default. See [Slash commands](Slash-Commands.md#recognized-commands).
 
 ### Approving a send
 

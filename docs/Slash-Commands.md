@@ -20,8 +20,9 @@ work anywhere in a message and are highlighted as you type.
 Every command applies to the message it's in. The next message goes back to
 normal behavior, including the automatic-search setting.
 
-You don't always have to type the command. Enigma also recognizes some commands
-from the wording of your message and shows them as chips before you send. See
+You don't always have to type the command. Once you turn on **Recognize commands
+from your wording**, Enigma also recognizes some commands from the wording of your
+message and shows them as chips before you send. See
 [Recognized commands](#recognized-commands).
 
 ## Typing and completing commands
@@ -86,8 +87,9 @@ before anything is sent:
 
 ## Recognized commands
 
-Enigma reads the wording of the message you're typing and turns on the matching
-command for you, as if you'd typed it. It checks fixed English rules on this
+With **Recognize commands from your wording** on (it's off until you turn it on,
+see [The setting](#the-setting)), Enigma reads the wording of the message you're
+typing and turns on the matching command for you, as if you'd typed it. It checks fixed English rules on this
 Mac, with no extra model call. Rather than whole sentences, the rules look for
 signals that together mark a request, so ordinary rewordings still count.
 
@@ -139,10 +141,11 @@ The conflicts between typed commands still show the errors described in
 
 ### The setting
 
-**Settings → General → Commands → Recognize commands from your wording**, on by
-default, controls `messages`, `think`, `edit` and `translate`. With it off, only
-`search` can still be recognized, and that follows the automatic-search setting
-in **Settings → Cloud and search**.
+**Settings → General → Commands → Recognize commands from your wording** controls
+`messages`, `think`, `edit` and `translate`. It's off by default, so a new user's
+wording never turns on a command by surprise; turn it on to get these chips. With
+it off, only `search` can still be recognized, and that follows the
+automatic-search setting in **Settings → Cloud and search**.
 
 ## Screen captures
 
