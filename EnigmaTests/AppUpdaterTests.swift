@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import XCTest
 @testable import Enigma
 
@@ -74,6 +75,18 @@ final class AppUpdaterTests: XCTestCase {
     XCTAssertFalse(fake.automaticallyChecksForUpdates)
     XCTAssertFalse(fake.automaticallyDownloadsUpdates)
     XCTAssertFalse(updater.automaticallyChecksForUpdates)
+    XCTAssertFalse(updater.automaticallyDownloadsUpdates)
+  }
+
+  func testBackendSettingsChangeRefreshesObservers() {
+    let fake = FakeUpdaterBackend()
+    let updater = AppUpdater(backend: fake)
+    var changes = 0
+    let observation = updater.objectWillChange.sink { changes += 1 }
+    defer { observation.cancel() }
+    fake.automaticallyDownloadsUpdates = false // As Sparkle's own alert checkbox would.
+    updater.backendSettingsChanged()
+    XCTAssertEqual(changes, 1)
     XCTAssertFalse(updater.automaticallyDownloadsUpdates)
   }
 

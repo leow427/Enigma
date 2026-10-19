@@ -7,7 +7,7 @@ import Sparkle
 /// `start(reportingTo:)`, which the app calls after launch and hosted tests never do.
 @MainActor final class SparkleUpdaterBackend: NSObject, AppUpdaterBackend {
   private weak var updater: AppUpdater?
-  private var canCheckObservation: NSKeyValueObservation?
+  private var observations: [NSKeyValueObservation] = []
 
   private lazy var controller = SPUStandardUpdaterController(
     startingUpdater: false,
@@ -30,11 +30,19 @@ import Sparkle
   func start(reportingTo updater: AppUpdater) {
     self.updater = updater
     controller.startUpdater()
-    canCheckObservation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) {
-      [weak self] sparkleUpdater, _ in
-      // Sparkle changes this property on the main thread.
-      MainActor.assumeIsolated { self?.updater?.backendCanCheckChanged(sparkleUpdater.canCheckForUpdates) }
-    }
+    // Sparkle changes these properties on the main thread.
+    let sparkle = controller.updater
+    observations = [
+      sparkle.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] sparkleUpdater, _ in
+        MainActor.assumeIsolated { self?.updater?.backendCanCheckChanged(sparkleUpdater.canCheckForUpdates) }
+      },
+      sparkle.observe(\.automaticallyChecksForUpdates) { [weak self] _, _ in
+        MainActor.assumeIsolated { self?.updater?.backendSettingsChanged() }
+      },
+      sparkle.observe(\.automaticallyDownloadsUpdates) { [weak self] _, _ in
+        MainActor.assumeIsolated { self?.updater?.backendSettingsChanged() }
+      },
+    ]
   }
 
   func checkForUpdates() {
@@ -95,8 +103,9 @@ extension SparkleUpdaterBackend: @preconcurrency SPUStandardUserDriverDelegate {
     forUpdate update: SUAppcastItem,
     state: SPUUserUpdateState
   ) {
-    // Sparkle left a scheduled update to us: offer it in the menu instead of an alert.
-    guard !handleShowingUpdate, state.stage != .installing else { return }
+    // Sparkle left a scheduled update to us: offer it in the menu instead of an alert, at
+    // whatever stage it is, since Sparkle now relies on us to show it.
+    guard !handleShowingUpdate else { return }
     updater?.backendUpdateAvailable(version: update.displayVersionString)
   }
 

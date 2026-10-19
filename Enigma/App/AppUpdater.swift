@@ -108,6 +108,11 @@ struct PendingUpdate: Equatable {
     }
   }
 
+  /// Sparkle changed a setting itself, e.g. from its update alert's checkbox; redraw what reads it.
+  func backendSettingsChanged() {
+    objectWillChange.send()
+  }
+
   func backendCheckFinished() {
     lastUpdateCheckDate = backend.lastUpdateCheckDate
   }
