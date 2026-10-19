@@ -12,6 +12,7 @@ behavior in them may no longer match. For how Enigma works now, start at
 | [Unified local model verification](Screen-Search-Verification.md) | Verification of the move to one multimodal local model for screen and search |
 | [File Mode reliability](File-Mode-Reliability.md) | Live-model evaluation of local File Mode, with raw attempts in [evaluations/](evaluations/) |
 | [Test reliability](Test-Reliability.md) | Fixes for intermittent screenshot, streaming, welcome, and focus tests |
+| [CI test reliability](CI-Test-Reliability.md) | Measured failure rates on GitHub's runners, and the causes and fixes of each failure |
 
 The UI revamp's design record, briefs, mockups, and per-phase screenshots are
 in [design/ui-revamp/](../design/ui-revamp/README.md).
