@@ -248,6 +248,30 @@ final class AutoRouterTests: XCTestCase {
     fileURL: URL(fileURLWithPath: "/tmp/local-model.gguf")
   )
 
+  func testInstallsOnAnOlderRuntimeKeepCodingAndReasoningRouting() throws {
+    let file = URL(fileURLWithPath: "/tmp/router-fixture.gguf")
+    let current = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+    json["runtimeBuild"] = 10797
+    json["minimumLlamaBuild"] = 10797
+    let legacy = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertFalse(legacy.supportsVision, "The descriptor is pinned to the old runtime")
+    let vision = LocalVisionConfiguration(projectorURL: file, serverExecutableURL: URL(fileURLWithPath: "/bin/echo"))
+    for descriptor in [current, legacy] {
+      let installed = LocalModel(id: descriptor.id, displayName: descriptor.displayName, fileURL: file,
+                                 catalogDescriptor: descriptor, visionConfiguration: vision)
+      let request = AutoRouter.Request(selectedMode: .auto, prompt: "Hi", contextMessages: [],
+                                       localModel: installed, cloud: cloud)
+      XCTAssertTrue(request.localCapabilities.supportsCoding, "runtime \(descriptor.runtimeBuild ?? 0)")
+      XCTAssertEqual(request.localCapabilities.reasoningLevel, .advanced)
+    }
+    let imported = LocalModel(id: "imported", displayName: "Imported", fileURL: file)
+    let request = AutoRouter.Request(selectedMode: .auto, prompt: "Hi", contextMessages: [],
+                                     localModel: imported, cloud: cloud)
+    XCTAssertFalse(request.localCapabilities.supportsCoding)
+    XCTAssertEqual(request.localCapabilities.reasoningLevel, .basic)
+  }
+
   private let cloud = AutoRouter.CloudConfiguration(
     provider: .openAI,
     modelID: "cloud-model"
