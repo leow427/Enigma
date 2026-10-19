@@ -25,6 +25,11 @@ struct LocalModelManagerSection: View {
           stat(hardware.chip, "chip")
         }
         .padding(.top, 16)
+        Text(LocalModelSettingsLogic.hardwareDetails(hardware))
+          .font(EnigmaTypography.mono(11))
+          .foregroundStyle(palette.textTertiary.color)
+          .fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 6)
       }
       if LocalModelSettingsLogic.showsOperation(chat: chat, advisor: advisor) {
         LocalModelOperationView(chat: chat, advisor: advisor).padding(.top, 14)
@@ -37,6 +42,8 @@ struct LocalModelManagerSection: View {
       }
       .padding(.top, 14)
       HStack(spacing: 8) {
+        Button("Detect Mac capabilities") { Task { await advisor.detectHardware() } }
+          .enigmaButtonStyle(.secondary)
         Button("Refresh recommendations") {
           Task {
             await advisor.detectHardware()

@@ -19,6 +19,16 @@ struct LocalModelActionState: Equatable, Sendable {
 /// The model actions and filters behind Local models and Discover.
 @MainActor
 enum LocalModelSettingsLogic {
+  /// The Mac details below the Local models summary, e.g.
+  /// "10 CPUs · Metal · 21.3 GB Metal working set".
+  static func hardwareDetails(_ hardware: LocalHardwareProfile) -> String {
+    var parts = ["\(hardware.cpuCount) CPUs", hardware.hasMetal ? "Metal" : "CPU inference"]
+    if hardware.hasMetal, let limit = hardware.metalRecommendedWorkingSet {
+      parts.append("\(limit.formatted(.byteCount(style: .memory))) Metal working set")
+    }
+    return parts.joined(separator: " · ")
+  }
+
   static let memoryWarning = "Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it."
 
   static func compatibilityWarning(for assessment: LocalModelAssessment) -> String {

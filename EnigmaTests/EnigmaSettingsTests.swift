@@ -11,6 +11,22 @@ final class EnigmaSettingsTests: XCTestCase {
   /// Tall enough to show a whole page without scrolling.
   private static let tall = CGSize(width: 820, height: 3000)
 
+  // MARK: Mac capabilities
+
+  @MainActor
+  func testHardwareDetailsNameCPUsAndMetal() {
+    var hardware = LocalHardwareProfile(physicalMemory: 16 * gib, isAppleSilicon: true, hasMetal: true,
+      hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 10, performanceCPUCount: 4,
+      availableDiskBytes: 200 * gib, metalRecommendedWorkingSet: 12 * gib, metalMaximumBufferLength: 8 * gib,
+      lowPowerMode: false)
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware),
+                   "10 CPUs · Metal · \((12 * gib).formatted(.byteCount(style: .memory))) Metal working set")
+    hardware.metalRecommendedWorkingSet = nil
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware), "10 CPUs · Metal")
+    hardware.hasMetal = false
+    XCTAssertEqual(LocalModelSettingsLogic.hardwareDetails(hardware), "10 CPUs · CPU inference")
+  }
+
   // MARK: Appearance setting
 
   @MainActor

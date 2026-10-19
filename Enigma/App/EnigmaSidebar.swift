@@ -163,6 +163,7 @@ struct EnigmaHiddenSidebarBar: View {
 }
 
 /// Developer Tools, behind a disclosure: hardware detection and welcome replay.
+/// Debug builds only; Settings offers both in release builds.
 struct DeveloperToolsView: View {
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel

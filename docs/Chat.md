@@ -11,7 +11,8 @@ character, and the conversation is saved to the sidebar's **Recents**.
 ### The main window
 
 - **Sidebar.** The Enigma mark, **New chat** (**⌘N**), **Recents**, and at the
-  bottom **Help**, **Settings** (**⌘,**) and **Developer Tools**. The open chat
+  bottom **Help** and **Settings** (**⌘,**); Debug builds also show **Developer
+  Tools**. The open chat
   has a small dot. The sidebar starts hidden unless **Show sidebar** is on in
   **Settings → General → New chats**. Hide or show it with the sidebar button or
   with **⌃⌘S**. While it's hidden, a slim bar at the top keeps

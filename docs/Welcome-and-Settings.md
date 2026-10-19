@@ -102,8 +102,9 @@ sidebar shown or hidden.
 - **Settings → General → Replay welcome setup → Replay** starts again from the
   first step. It closes Settings and shows the window. Replay keeps your chats,
   installed models, and credentials, and is unavailable while a response is
-  running. The sidebar's **Developer Tools** has the same **Replay welcome
-  setup** action, plus **Detect Mac capabilities**.
+  running. In Debug builds the sidebar's **Developer Tools** has the same
+  **Replay welcome setup** action, plus **Detect Mac capabilities**, which
+  release builds offer in **Settings → Local models**.
 
 ## Settings
 
@@ -147,8 +148,8 @@ How Enigma looks, starts, and works with your Mac.
 ### Local models
 
 Run models on this Mac. Recommended models grouped by weight class, with
-install, update, use, and delete actions; **Refresh recommendations** and
-**Check performance**; imported models; **Files** (the **Local file tools**
+install, update, use, and delete actions; **Detect Mac capabilities**,
+**Refresh recommendations** and **Check performance**; imported models; **Files** (the **Local file tools**
 runtime used by local File Mode and `/messages`, and **Saved file changes**);
 and **Advanced: Import text GGUF…**. See
 [Local-Model-Selection.md](Local-Model-Selection.md) and
