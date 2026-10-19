@@ -63,7 +63,7 @@ enum MessagesIntentPolicy {
   /// Words that describe which messages: "my last few texts", "Sam's latest message", "my last 5 messages".
   private static let which = #"(?:most|new|unread|recent|latest|last|newest|few|previous|older|earlier|first|\d+)"#
   /// A polite lead-in before an imperative or question.
-  private static let lead = #"(?:(?:please|pls|can you|could you|would you|will you|can u|could u|would u|go ahead and|just|quickly|and|hey|ok|okay|so|now|i want you to|i need you to|i'd like you to),? )*"#
+  private static let lead = #"(?:(?:please|pls|yo|can you|could you|would you|will you|can u|could u|would u|go ahead and|just|quickly|and|hey|ok|okay|so|now|i want you to|i need you to|i'd like you to),? )*"#
   /// The start of the draft or of a new clause.
   private static let clauseStart = #"(?:^|[.!?;:,] |\b(?:and|then|also|now) )"# + lead
   /// Who "my …" can be when it's a person: "my dad", "my best friend", "my boss".
@@ -115,6 +115,8 @@ enum MessagesIntentPolicy {
     // "do I have any unread texts", "any new messages?", "how many unread messages do I have",
     // "what texts did I get today".
     expression(#"^(?:(?:do i have|have i got|did i get|got|are there|is there) )?any (?:(?:new|unread|recent) )*(?:\#(pluralNoun)|sms)(?: (?:from|today|for me|yet|lately|since|while|this|last)\b|[?.!]*$)|^how many (?:(?:new|unread) )*\#(pluralNoun) (?:do|did|have) (?:i|we)\b|^(?:what|which) (?:(?:new|unread) )*\#(pluralNoun) (?:did|have) (?:i|we) (?:get|got|received|missed)\b"#),
+    // "anything new from my wife in iMessage", "who's been blowing up my phone with texts".
+    expression(#"^"# + lead + #"anything (?:new )?from \#(person) (?:in|on|over) (?:imessage|messages|texts|text)\b|\b(?:blow|blowing|blew|blown) up my phone (?:with )?(?:texts|messages|imessages)\b"#),
     // "find the message where Sam sent the address".
     expression(#"\b\#(noun) (?:where|in which|when) \#(person) (?:sent|said|wrote|mentioned|asked|texted|shared)\b"#),
     // "what did Sam say in our chat", "what did Sam say on iMessage".
@@ -123,8 +125,8 @@ enum MessagesIntentPolicy {
     expression(#"\b(?:send|shoot|drop|fire off|shoot off) \#(person) an? (?:(?:quick|short|new|little) )?(?:text message|text|message|imessage|sms)\b"#),
     // "reply to Mom with ok", "respond to my sister and say yes", "answer Sam's text with yes".
     expression(#"\b(?:(?:reply|respond|write back) to|answer) (?:(?:(?:my|our) )?[\w]+'s (?:\#(which) )*\#(noun)|(?:my|our) [\w]+s'? (?:\#(which) )*\#(noun)|(?!(?:reviewers?|comments?|threads?|posts?|issues?|tickets?|reviews?|questions?|emails?|prs?|bugs?|recruiters?)\b)\#(person))(?: (?:with|saying|that|and say|and tell)\b|[:,] )"#),
-    // "tell Sam over text …", "let Mom know I landed via text".
-    expression(#"\b(?:tell|let|ask|remind) \#(notAName)[\w']+(?: [\w']+)? (?:know )?(?:[\w']+ ){0,6}?(?:on|by|over|via|in|through) (?:a )?(?:imessage|text|texts|messages|sms|text message)\b"#),
+    // "tell Sam over text …", "let Mom know I landed via text", "tell my boss via text …".
+    expression(#"\b(?:tell|let|ask|remind) (?:\#(relative)|\#(notAName)[\w']+(?: [\w']+)?) (?:know )?(?:[\w']+ ){0,6}?(?:on|by|over|via|in|through) (?:a )?(?:imessage|text|texts|messages|sms|text message)\b"#),
   ]
 
   /// A word every `subjectVerbs` match contains, checked first because those patterns are slower.
@@ -141,7 +143,7 @@ enum MessagesIntentPolicy {
   ]
 
   /// A read or send shape: a question, a read or send verb, or "latest text from …".
-  private static let shape = expression(#"^"# + lead + #"(?:what|what's|whats|what're|who|who's|whos|when|when's|did|didn't|has|hasn't|have|haven't|had|any|do i|have i|got|is there|are there|how many|how often|which|i'm behind|im behind)\b|"# + clauseStart + #"(?:check|read|show|see|pull up|open|look at|look through|look over|go through|go over|scan|catch me up on|summari[sz]e|recap|find|get|search|list|tell me|give me|fetch|bring up|text|message|imessage|sms|send|shoot|drop|reply|respond|answer|write back|tell|let|ask|remind)\b|^(?:the )?(?:most recent|last|latest|newest|new|recent|unread)\b"#)
+  private static let shape = expression(#"^"# + lead + #"(?:what|what's|whats|what're|who|who's|whos|when|when's|did|didn't|has|hasn't|have|haven't|had|any|do i|have i|got|is there|are there|how many|how often|which|anything|i'm behind|im behind)\b|"# + clauseStart + #"(?:check|read|show|see|pull up|open|look at|look through|look over|go through|go over|scan|catch me up on|summari[sz]e|recap|find|get|search|list|tell me|give me|fetch|bring up|text|message|imessage|sms|send|shoot|drop|reply|respond|answer|write back|tell|let|ask|remind)\b|^(?:the )?(?:most recent|last|latest|newest|new|recent|unread)\b"#)
 
   private static let vetoes = [
     // Noun compounds: "text classification", "error message", "my messages table".
