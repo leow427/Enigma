@@ -37,6 +37,16 @@ func waitForOpenMenuToTakeFocus(in hostingView: NSView, file: StaticString = #fi
   }
 }
 
+/// Whether a click on test control `name` would reach it rather than a view
+/// drawn over it, such as the composer while the chat list scrolls to its end.
+@MainActor
+func testControlIsUncovered(_ name: String, in view: NSView) -> Bool {
+  guard let marker = EnigmaMainWindowTests.Host.marker(name, in: view) else { return false }
+  let center = marker.convert(NSPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: view.superview)
+  guard let hit = view.hitTest(center) else { return false }
+  return marker.isDescendant(of: hit)
+}
+
 @MainActor
 func composerEditor(in view: NSView) -> SlashCommandTextView? {
   if let editor = view as? SlashCommandTextView { return editor }

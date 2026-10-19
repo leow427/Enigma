@@ -441,12 +441,18 @@ final class EnigmaCompactPanelTests: XCTestCase {
         && host.shows("Compact panel answer")
     }
     XCTAssertTrue(fixture.pastes.texts.isEmpty, "Manual replacement waits for Replace text")
+    try await waitForUI("Replace text clear of the composer", in: host.view) {
+      testControlIsUncovered("Replace text", in: host.view)
+    }
     try await clickTestControl("Replace text", in: host.view)
     try await Task.sleep(for: .milliseconds(100))
     XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
 
     // Once the selection's app is remembered, Replace text pastes the revision.
     fixture.selectionContext.remember(ConversationContext(sourceName: "Test editor", text: "send report now"), from: .current)
+    try await waitForUI("Replace text clear of the composer", in: host.view) {
+      testControlIsUncovered("Replace text", in: host.view)
+    }
     try await clickTestControl("Replace text", in: host.view)
     try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == [revision] }
   }

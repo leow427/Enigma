@@ -547,12 +547,18 @@ final class EnigmaConversationTests: XCTestCase {
     }
     XCTAssertEqual(fixture.chat.selectionRevisions.values.first?.text, "Please send the report today.")
     XCTAssertTrue(host.shows("Remove selected text"), "The selected text card stays over the composer")
+    try await waitForUI("Replace text clear of the composer", in: host.view) {
+      testControlIsUncovered("Replace text", in: host.view)
+    }
     try await clickTestControl("Replace text", in: host.view)
     try await Task.sleep(for: .milliseconds(100))
     XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
 
     // Once the selection's app is remembered, Replace text pastes the revision.
     fixture.selectionContext.remember(context, from: .current)
+    try await waitForUI("Replace text clear of the composer", in: host.view) {
+      testControlIsUncovered("Replace text", in: host.view)
+    }
     try await clickTestControl("Replace text", in: host.view)
     try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == ["Please send the report today."] }
   }
