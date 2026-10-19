@@ -1,8 +1,8 @@
 # Local models
 
 Enigma can answer on your Mac with a local text-and-image model, so chats and
-screenshots never leave it. It ships a reviewed catalogue of seven model
-families (20 pinned packages), picks the smartest one this Mac runs fast, and
+screenshots never leave it. It ships a reviewed catalogue of eleven model
+families (45 pinned packages), picks the smartest one this Mac runs fast, and
 installs, checks and manages it for you.
 
 ## Choosing a model
@@ -63,7 +63,7 @@ The page is the one place to choose and manage local models. From the top:
    still be installed.
 5. **Files** holds **Local file tools** and **Saved file changes** for File Mode
    (see [File-Mode.md](File-Mode.md)), then **Advanced: Import text GGUF…**.
-   The footer shows the catalogue version (currently 6).
+   The footer shows the catalogue version (currently 7).
 
 **Delete** asks first and removes the model and its support files. Deleting the
 selected model selects another installed one, if any.
@@ -118,41 +118,55 @@ a disk-space failure. Packages over budget are never recommended.
 
 ## The catalogue
 
-Seven families, reviewed 2026-10-19. Every package runs with an 8,192-token
+Eleven families, reviewed 2026-10-19. Every package runs with an 8,192-token
 context and is Apache-2.0 licensed. Quality scores are the Artificial Analysis
 Intelligence Index (v4.3.2, October 2026), checked against MMMU-Pro for vision;
-within one model line a larger model never scores below a smaller one.
+within one model line a larger model never scores below a smaller one, except
+that Gemma 4 31B keeps the index's 15 below the mixture-of-experts Gemma 4
+26B-A4B's estimated 17. Ministral 3 8B has no confirmed index score; its 5 is an
+assumption that places it below Ministral 3 14B.
 
 | Family | Parameters (active) | Quantizations | Quality | Mainly for |
 |---|---|---|---|---|
 | Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | 8 GB Macs |
 | Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | the Faster pick |
-| Qwen3.5 9B | 9.65B | Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs |
-| Gemma 4 12B | 12B | Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs |
-| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | Q4_K_M, Q5_K_M, Q8_0 | 17 | 32–48 GB Macs |
-| Qwen3.6 35B-A3B | 36B (3B), mixture of experts | Q4_K_M, Q5_K_M, Q8_0 | 18 | 48–64 GB Macs |
-| Qwen3.8 27B | 27.8B | Q4_K_M, Q5_K_M, Q8_0 | 28 | Max and Ultra chips |
+| Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | All models |
+| Ministral 3 8B | 8.5B | Q4_K_M | 5 | All models |
+| Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs |
+| Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs |
+| Ministral 3 14B | 13.5B | Q5_K_M, Q8_0 | 6 | All models |
+| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32–48 GB Macs |
+| Gemma 4 31B | 31B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 15 | All models |
+| Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | 36–64 GB Macs |
+| Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Max and Ultra chips; 3-bit as Smarter on 24 GB Macs |
 
-Gemma 4 12B is a vision and audio model; Enigma sends it text and images only,
-and its row says **Vision + Audio model · Audio is not yet available in
-Enigma.** Qwen3.8 27B's Q4_K_M and Q5_K_M packages are Unsloth Dynamic files
-(`UD-Q4_K_M`, `UD-Q5_K_M`), the only Q4 and Q5 files in that repository.
+"All models" families are offered for choosing by hand and win a role only on
+merit; on the synthetic Macs the tests check, none does.
 
-**Left the catalogue** in this release: SmolVLM2 2.2B (superseded by Qwen3.5
-2B), Gemma 4 E4B (larger than Qwen3.5 4B and lower on both quality measures),
-Ministral 3 8B and 14B (outscored by Qwen3.5 9B and Gemma 4 12B) and MiniCPM-o
-4.5 (it could not be installed). Installed copies keep working under **On this
-Mac**, but they get no update: they, and Gemma 4 12B QAT from earlier versions,
-stay on the runtime they were installed with. That older runtime (b10797)
-misreads screenshots on Gemma models, so Gemma 4 12B QAT users should install
-the new Gemma 4 12B for screenshot questions.
+Gemma 4 E4B and 12B are vision and audio models; Enigma sends them text and
+images only, and their rows say **Vision + Audio model · Text and images in
+Enigma**. Several 3-bit, IQ4 and Q4/Q5 files are Unsloth Dynamic quantizations
+(`UD-IQ3_XXS`, `UD-IQ3_S`, `UD-IQ4_XS`, `UD-Q4_K_M`, `UD-Q5_K_M`): all of Qwen3.8
+27B's below Q8_0, and the IQ3_XXS of Qwen3.5 9B and Gemma 4 12B. The package's
+quantization drops the `UD-` prefix.
+
+**Back in the catalogue** in this release: Gemma 4 E4B and Ministral 3 8B and
+14B, with the package IDs and pins they left with, so installed copies match the
+catalogue again and get updates. **Left the catalogue**: SmolVLM2 2.2B
+(superseded by Qwen3.5 2B) and MiniCPM-o 4.5 (it could not be installed).
+Installed copies keep working under **On this Mac**, but they get no update:
+they, and Gemma 4 12B QAT from earlier versions, stay on the runtime they were
+installed with. That older runtime (b10797) misreads screenshots on Gemma
+models, so Gemma 4 12B QAT users should install the new Gemma 4 12B for
+screenshot questions.
 
 **Deferred** to a later refresh: 100B-class models for 128 GB Macs (the
 strongest has an open Metal out-of-memory bug and a non-Apache licence),
-MiniCPM-V 4.7, Muse Glimmer 30B and Gemma 4 31B.
+MiniCPM-V 4.7, Muse Glimmer 30B and Qwen3.8-Flash-Next.
 
 [Updating-the-Model-Catalogue.md](Updating-the-Model-Catalogue.md) is the
-checklist for a refresh.
+checklist for a refresh; `scripts/add-catalogue-model.py` prints a family's
+entry from its repository.
 
 ### Pinned repositories and model cards
 
@@ -163,9 +177,13 @@ and projector always come from the same repository and revision.
 |---|---|---|---|
 | Qwen3.5 2B | [unsloth/Qwen3.5-2B-GGUF](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | `f6d5376be1edb4d416d56da11e5397a961aca8ae` | `mmproj-F16.gguf` |
 | Qwen3.5 4B | [unsloth/Qwen3.5-4B-GGUF](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF) | `e87f176479d0855a907a41277aca2f8ee7a09523` | `mmproj-F16.gguf` |
+| Gemma 4 E4B | [unsloth/gemma-4-E4B-it-GGUF](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF) | `bfc15c382204943c3a8fff0c750b94ae2364d7a3` | `mmproj-F16.gguf` |
+| Ministral 3 8B | [mistralai/Ministral-3-8B-Instruct-2512-GGUF](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF) | `0102285ad796bd99af90f58de616092e5630e970` | `Ministral-3-8B-Instruct-2512-BF16-mmproj.gguf` |
 | Qwen3.5 9B | [unsloth/Qwen3.5-9B-GGUF](https://huggingface.co/unsloth/Qwen3.5-9B-GGUF) | `3885219b6810b007914f3a7950a8d1b469d598a5` | `mmproj-F16.gguf` |
 | Gemma 4 12B | [unsloth/gemma-4-12b-it-GGUF](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF) | `fc034cfff751157913579611efad8462ac1be606` | `mmproj-F16.gguf` |
+| Ministral 3 14B | [mistralai/Ministral-3-14B-Instruct-2512-GGUF](https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF) | `74fac473c43357d7fb2671713608183cc72496d0` | `Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf` |
 | Gemma 4 26B-A4B | [bartowski/google_gemma-4-26B-A4B-it-GGUF](https://huggingface.co/bartowski/google_gemma-4-26B-A4B-it-GGUF) | `10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d` | `mmproj-google_gemma-4-26B-A4B-it-f16.gguf` |
+| Gemma 4 31B | [bartowski/google_gemma-4-31B-it-GGUF](https://huggingface.co/bartowski/google_gemma-4-31B-it-GGUF) | `619aca7589c72be65dd968de8602ad23d68b5c14` | `mmproj-google_gemma-4-31B-it-f16.gguf` |
 | Qwen3.6 35B-A3B | [bartowski/Qwen_Qwen3.6-35B-A3B-GGUF](https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF) | `5c2410d71524f4f72b023ce8daf7a80528226d5f` | `mmproj-Qwen_Qwen3.6-35B-A3B-f16.gguf` |
 | Qwen3.8 27B | [unsloth/Qwen3.8-27B-GGUF](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) | `4ca720788d1e01f1bff70c033e0d0028fd02e502` | `mmproj-F16.gguf` |
 
@@ -180,11 +198,39 @@ SHA-256 and each GGUF's largest tensor are in `BundledLocalModels.swift`.
 1. **Gates.** A package must fit the memory budget, pass the disk, runtime and
    Metal-buffer checks, and be fast (or, as a fallback, usable at 8 tokens per
    second). Quality ranks only what passes; it can never outweigh a gate.
-2. **One package per family.** A family's candidate is its largest fast package
-   (the highest precision that stays fast), or, when none is fast, its smallest
-   package that fits.
+2. **One package per family.** A family's candidate is its highest-precision
+   fast package, or, when none is fast, its smallest package that fits.
+   Precision runs Q8_0, Q5_K_M, Q4_K_M, Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS
+   (`LocalQuantization.precisionOrder`), so a family drops to 3 bits only when
+   no larger package of it both fits and is fast, or when none is fast and the
+   3-bit is its smallest.
 3. **Roles.** Recommended, Faster and Smarter are chosen from the candidates by
-   quality score, as described under [Choosing a model](#choosing-a-model).
+   ranked quality, as described under [Choosing a model](#choosing-a-model).
+
+### Ranked quality
+
+Roles compare each candidate's family quality score times its quantization's
+factor (`LocalQuantization.qualityFactor`, `rankedQualityScore`):
+
+| Quantization | Factor |
+|---|---|
+| Q8_0 | 1.00 |
+| Q5_K_M | 0.99 |
+| Q4_K_M, Q4_0 | 0.97 |
+| IQ4_XS | 0.96 |
+| Q3_K_M, IQ3_S, IQ3_XXS | 0.85 |
+
+Recommended and Faster are the first fast candidates in this order, and
+Smarter must rank above Recommended. A 3-bit package therefore loses to a
+4-bit family unless it is clearly stronger: Gemma 4 12B at IQ3_XXS (14 × 0.85 =
+11.9) ranks below Qwen3.5 9B at Q4_K_M (13.5 × 0.97 = 13.1), while Qwen3.8 27B
+at IQ3_XXS (28 × 0.85 = 23.8) ranks above every other family. Labels outside
+the table (imported GGUFs) keep a factor of 1; they never take part in roles.
+
+The flip side of the fallback: a family that is fast at no size offers its
+smallest package, now usually a 3-bit one, which can rank below Recommended.
+On a 16 GB Mac at about 104 GB/s, Qwen3.5 9B's candidate is IQ3_XXS (11.5),
+below Qwen3.5 4B Q5_K_M (12.9), so that Mac no longer gets a Smarter choice.
 
 `LocalModelRecommendations.roles` holds the non-empty roles in order; Settings,
 Welcome (`WelcomeSetup.choices`) and the ⌘K sheet all render it, so every picker
@@ -336,7 +382,7 @@ Catalogue packages run in `llama-server` from llama.cpp build b11734
 (`LocalVisionRuntime`), launched on loopback with the model, projector,
 `--ctx-size 8192`, `--parallel 1`, `--offline`, `--no-webui`, `--jinja`,
 `--no-context-shift`, `--cache-ram 0`, `--reasoning-budget -1` and `--fit off`.
-Gemma 4 12B and 26B-A4B add `--ubatch-size 1024 --image-max-tokens 1024`; every
+Gemma 4 12B, 26B-A4B and 31B add `--ubatch-size 1024 --image-max-tokens 1024`; every
 other model gets `--image-max-tokens 4096`. One process serves text, OCR, image
 and answer requests; every request carries its full prepared conversation, and
 the server keeps no conversation state. Switching models, cancelling, a failed
@@ -398,7 +444,8 @@ engines (commit, import, delete, performance check), while `isManagingModels`
 and `canChangeModels` gate model changes. The engine's `download(_:beforeCommit:progress:)`
 awaits the view model's hold, which waits for the current request to end and
 unloads both engines, just before the atomic install in `LocalModelCatalog`.
-`scripts/gguf-header.py` reads a GGUF header for the catalogue checklist.
+`scripts/add-catalogue-model.py` prints a catalogue entry from a repository, and
+`scripts/gguf-header.py` reads one GGUF header; see the catalogue checklist.
 
 ## Privacy
 
@@ -442,13 +489,16 @@ The suites are offline and deterministic; none touches the GPU:
   peaks, speed estimates from bandwidth and active weights, calibration and its
   applicability, exact measurements, and the speed gates.
 - `LocalModelSelectionTests`: the roles on synthetic Macs, per-family
-  quantization choice, the nothing-fast and nothing-fits cases, memory budget
+  quantization choice by precision, quality factors and ranked quality, when a
+  family drops to 3 bits, the nothing-fast and nothing-fits cases, memory budget
   and Metal limits, safety gates, memory warnings, benchmark scoping, Welcome
   choices, and decoding of older installed records.
-- `LocalModelCatalogueTests`: seven families and 20 runnable packages, unique
-  IDs and checksums, consistent family metadata, existing package IDs and pins,
-  quality ordering within a line, expected picks on synthetic Macs, and the
-  24 GB M5 Pro fixture that recommends Gemma 4 12B.
+- `LocalModelCatalogueTests`: eleven families and 45 runnable packages, unique
+  IDs and checksums, consistent family metadata, existing and re-added package
+  IDs and pins, re-added packages matching their installed records, the 3-bit,
+  IQ4 and Gemma 4 31B packages, quality ordering within a line, expected picks
+  on synthetic Macs, and the 24 GB M5 Pro fixture that recommends Gemma 4 12B
+  and offers Qwen3.8 27B IQ3_XXS as Smarter.
 - `LocalBandwidthProbeTests`: clamping, a missing Metal device, measuring once
   per fingerprint and power mode, a failed test, and older `hardware.json`
   files. `testMetalProbeOnThisMac` runs the real Metal test only when opted in
