@@ -12,9 +12,18 @@ scripts/add-catalogue-model.py reuses `HeaderReader`, `RemoteFile` and
 
 import struct
 import sys
+import urllib.error
 import urllib.request
 
 STEP = 4 * 1024 * 1024
+TIMEOUT = 30
+# Headers come from untrusted files, so every length read from one is bounded.
+MAX_HEADER_BYTES = 128 * 1024 * 1024
+MAX_STRING_BYTES = 16 * 1024 * 1024
+MAX_ARRAY_COUNT = 8 * 1024 * 1024
+MAX_METADATA_COUNT = 100_000
+MAX_TENSOR_COUNT = 100_000
+MAX_DIMENSIONS = 8
 LAYOUT_KEYS = [
     "block_count", "attention.head_count_kv", "attention.key_length", "attention.value_length",
     "attention.key_length_swa", "attention.value_length_swa",
@@ -24,23 +33,30 @@ LAYOUT_KEYS = [
 
 
 class HeaderReader:
-    """Reads a GGUF header from `fetch(start, count)`, which returns up to `count` bytes."""
+    """Reads a GGUF header from `fetch(start, count)`, which returns up to `count` bytes.
 
-    def __init__(self, fetch):
+    Never reads past `limit` bytes (at most MAX_HEADER_BYTES, and never past the file).
+    """
+
+    def __init__(self, fetch, limit=MAX_HEADER_BYTES):
         self.fetch = fetch
-        self.data = b""
+        self.limit = min(limit, MAX_HEADER_BYTES)
+        self.data = bytearray()
         self.position = 0
 
     def _fetch_until(self, end):
+        if end > self.limit:
+            raise SystemExit(f"The header runs past {self.limit} bytes; the file is corrupt or not a supported GGUF.")
         while len(self.data) < end:
-            chunk = self.fetch(len(self.data), STEP)
+            start = len(self.data)
+            chunk = self.fetch(start, min(STEP, self.limit - start))
             if not chunk:
                 raise SystemExit("The file ended inside its header.")
-            self.data += chunk
+            self.data.extend(chunk)
 
     def read(self, count):
         self._fetch_until(self.position + count)
-        value = self.data[self.position:self.position + count]
+        value = bytes(self.data[self.position:self.position + count])
         self.position += count
         return value
 
@@ -49,16 +65,32 @@ class HeaderReader:
         return struct.unpack("<" + form, self.read(size))[0]
 
     def string(self):
-        return self.read(self.unpack("Q")).decode("utf-8", errors="replace")
+        return self.read(bounded(self.unpack("Q"), MAX_STRING_BYTES, "string length")).decode("utf-8", errors="replace")
+
+
+def bounded(count, limit, what):
+    if count > limit:
+        raise SystemExit(f"The header's {what} ({count}) is over {limit}; the file is corrupt or not a supported GGUF.")
+    return count
+
+
+def network_error(url, error):
+    if isinstance(error, urllib.error.HTTPError):
+        return SystemExit(f"{url} answered HTTP {error.code} ({error.reason}).")
+    reason = getattr(error, "reason", error)
+    return SystemExit(f"Could not reach {url}: {reason}.")
 
 
 def range_fetcher(url):
     def fetch(start, count):
         request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + count - 1}"})
-        with urllib.request.urlopen(request) as response:
-            if response.status != 206:
-                raise SystemExit(f"The server ignored the Range request (HTTP {response.status}).")
-            return response.read()
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                if response.status != 206:
+                    raise SystemExit(f"The server ignored the Range request (HTTP {response.status}).")
+                return response.read()
+        except (urllib.error.URLError, TimeoutError) as error:
+            raise network_error(url, error) from None
     return fetch
 
 
@@ -78,20 +110,21 @@ def value(reader, kind):
         return reader.string()
     if kind == 9:
         element = reader.unpack("I")
-        count = reader.unpack("Q")
+        count = bounded(reader.unpack("Q"), MAX_ARRAY_COUNT, "array length")
         return [value(reader, element) for _ in range(count)]
     raise SystemExit(f"Unknown GGUF value type {kind}.")
 
 
 def read_header(reader, file_bytes):
     """Returns (largest tensor bytes, its name, metadata) for a GGUF v3 file of `file_bytes`."""
+    reader.limit = min(reader.limit, file_bytes)
     if reader.read(4) != b"GGUF":
         raise SystemExit("Not a GGUF file.")
     version = reader.unpack("I")
     if version != 3:
         raise SystemExit(f"GGUF version {version} is not supported; expected 3.")
-    tensor_count = reader.unpack("Q")
-    metadata_count = reader.unpack("Q")
+    tensor_count = bounded(reader.unpack("Q"), MAX_TENSOR_COUNT, "tensor count")
+    metadata_count = bounded(reader.unpack("Q"), MAX_METADATA_COUNT, "metadata count")
     metadata = {}
     for _ in range(metadata_count):
         key = reader.string()
@@ -99,12 +132,14 @@ def read_header(reader, file_bytes):
     tensors = []
     for _ in range(tensor_count):
         name = reader.string()
-        dimensions = reader.unpack("I")
+        dimensions = bounded(reader.unpack("I"), MAX_DIMENSIONS, "tensor dimension count")
         for _ in range(dimensions):
             reader.unpack("Q")
         reader.unpack("I")  # tensor type
         tensors.append((reader.unpack("Q"), name))
     alignment = metadata.get("general.alignment", 32)
+    if not isinstance(alignment, int) or isinstance(alignment, bool) or alignment <= 0:
+        raise SystemExit(f"The header's general.alignment ({alignment}) is not a positive integer.")
     data_start = (reader.position + alignment - 1) // alignment * alignment
     tensors.sort()
     largest = (0, "")

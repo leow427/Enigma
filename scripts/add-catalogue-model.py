@@ -21,6 +21,7 @@ import importlib.util
 import json
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -31,11 +32,55 @@ gguf_header = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gguf_header)
 
 HUB = "https://huggingface.co"
+NAME = re.compile(r"[A-Za-z0-9_.-]+")
+MAX_TREE_PAGES = 100
 
 
 def fetch_json(url):
-    with urllib.request.urlopen(url) as response:
-        return json.load(response)
+    """Returns (parsed JSON, the response's Link header or None)."""
+    try:
+        with urllib.request.urlopen(url, timeout=gguf_header.TIMEOUT) as response:
+            return json.load(response), response.headers.get("Link")
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise gguf_header.network_error(url, error) from None
+
+
+def next_page(link):
+    """The rel="next" URL of a Link header, if any."""
+    for part in (link or "").split(","):
+        match = re.fullmatch(r'\s*<([^>]+)>\s*;(.*)', part)
+        if match and re.search(r'rel="?next"?', match.group(2)):
+            return match.group(1)
+    return None
+
+
+def fetch_tree(fetch_json, url):
+    entries = []
+    for _ in range(MAX_TREE_PAGES):
+        page, link = fetch_json(url)
+        entries.extend(page)
+        url = next_page(link)
+        if url is None:
+            return entries
+        if not url.startswith(f"{HUB}/api/models/"):
+            raise SystemExit(f"The tree listing pointed its next page off Hugging Face: {url}")
+    raise SystemExit(f"The tree listing ran past {MAX_TREE_PAGES} pages.")
+
+
+def swift_string(text):
+    """`text` escaped for the inside of a Swift string literal."""
+    replacements = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t", "\0": "\\0"}
+    return "".join(replacements.get(character, character) for character in text)
+
+
+def header_name(metadata, key, default=None):
+    """A name read from a header, which must be plain: letters, digits, '_', '.' and '-'."""
+    value = metadata.get(key, default)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not NAME.fullmatch(value):
+        raise SystemExit(f"The header's {key} ({value!r}) is not a plain name; the file is not a supported GGUF.")
+    return value
 
 
 def label_for(file):
@@ -50,7 +95,9 @@ def head_dimension(key, value):
 
 def cache_layout(metadata):
     """The LocalCacheLayout fields for a model's GGUF metadata."""
-    architecture = metadata["general.architecture"]
+    architecture = header_name(metadata, "general.architecture")
+    if architecture is None:
+        raise SystemExit("The header has no general.architecture.")
 
     def get(key, default=None):
         return metadata.get(f"{architecture}.{key}", default)
@@ -133,49 +180,64 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
     out = out or sys.stdout
     options = parse(sys.argv[1:] if argv is None else argv)
     repo = options.repo
-    quoted = urllib.parse.quote(repo, safe="/")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        raise SystemExit(f"{repo} is not an owner/name repository.")
+    if options.profile != "<profile>" and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", options.profile):
+        raise SystemExit(f"{options.profile} is not a Swift case name.")
+    if options.quality != "<score>" and not re.fullmatch(r"[0-9]+(\.[0-9]+)?", options.quality):
+        raise SystemExit(f"{options.quality} is not a quality score.")
     revision = options.revision
     if revision is None:
-        revision = fetch_json(f"{HUB}/api/models/{quoted}/revision/main")["sha"]
-    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        revision = fetch_json(f"{HUB}/api/models/{repo}/revision/main")[0]["sha"]
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise SystemExit(f"{revision} is not a commit. Pass a 40-character commit, or leave out --revision "
                          "to pin the current main.")
-    tree = {entry["path"]: entry["lfs"] for entry in fetch_json(f"{HUB}/api/models/{quoted}/tree/{revision}")
+    tree = {entry["path"]: entry["lfs"]
+            for entry in fetch_tree(fetch_json, f"{HUB}/api/models/{repo}/tree/{revision}?recursive=true")
             if "lfs" in entry}
 
     def pinned(file):
         if file not in tree:
             raise SystemExit(f"{file} is not in {repo} at {revision[:7]}.")
-        return tree[file]["size"], tree[file]["oid"]
+        size, sha = tree[file].get("size"), tree[file].get("oid")
+        if not isinstance(size, int) or size <= 0 or not isinstance(sha, str) \
+                or not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise SystemExit(f"The tree listing has no usable size and SHA-256 for {file}.")
+        return size, sha
 
     def header(file, size):
-        return gguf_header.read_header(open_reader(f"{HUB}/{repo}/resolve/{revision}/{file}"), size)
+        quoted = urllib.parse.quote(file, safe="/")
+        return gguf_header.read_header(open_reader(f"{HUB}/{repo}/resolve/{revision}/{quoted}"), size)
 
     projector_bytes, projector_sha = pinned(options.projector)
     _, _, projector = header(options.projector, projector_bytes)
     audio = bool(projector.get("clip.has_audio_encoder", False))
 
-    stem = options.name.lower().replace(" ", "-") if options.name != "<name>" else "<family>"
+    stem = swift_string(options.name.lower().replace(" ", "-")) if options.name != "<name>" else "<family>"
     packages = []
     for file, label in options.files:
         size, sha = pinned(file)
         largest, _, metadata = header(file, size)
-        packages.append((size, label or label_for(file), file, sha, largest, metadata))
+        label = label or label_for(file)
+        if not re.fullmatch(r"[A-Za-z0-9_]+", label):
+            raise SystemExit(f"{label} is not a quantization label; pass --label after --file {file}.")
+        packages.append((size, label, file, sha, largest, metadata))
     packages.sort(key=lambda package: package[0])
 
     write = lambda line="": print(line, file=out)
     write("// Family entry for Enigma/LocalInference/BundledLocalModels.swift")
-    write(f'    LocalModelFamily(name: "{options.name}", publisher: "{options.publisher}", '
-          f'license: "{options.license}", profile: .{options.profile},')
+    name, publisher, license = (swift_string(text) for text in (options.name, options.publisher, options.license))
+    write(f'    LocalModelFamily(name: "{name}", publisher: "{publisher}", '
+          f'license: "{license}", profile: .{options.profile},')
     write("      // <source of the quality score, with its date>")
     write(f"      qualityScore: {options.quality},")
-    write(f'      summary: "{options.summary}",')
+    write(f'      summary: "{swift_string(options.summary)}",')
     write(f'      repository: "{repo}", revision: "{revision}",')
-    write(f'      projectorFile: "{options.projector}", projectorByteCount: {projector_bytes},')
+    write(f'      projectorFile: "{swift_string(options.projector)}", projectorByteCount: {projector_bytes},')
     write(f'      projectorSHA256: "{projector_sha}", supportsAudio: {"true" if audio else "false"},')
     write("      packages: [")
     for size, label, file, sha, largest, _ in packages:
-        write(f'        .init(id: "{stem}-{label.lower()}", quantization: "{label}", file: "{file}",')
+        write(f'        .init(id: "{stem}-{label.lower()}", quantization: "{label}", file: "{swift_string(file)}",')
         write(f'              byteCount: {size}, sha256: "{sha}",')
         write(f"              largestTensorBytes: {largest}),")
     write("      ]),")
@@ -188,11 +250,12 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
         write("// warning: the packages' headers disagree on the cache layout; check by hand")
 
     metadata = packages[0][5]
-    architecture = metadata["general.architecture"]
+    architecture = header_name(metadata, "general.architecture")
     experts = metadata.get(f"{architecture}.expert_count")
     used = metadata.get(f"{architecture}.expert_used_count")
     kind = f"mixture of experts ({used} of {experts} experts per token)" if experts else "dense"
-    projector_type = projector.get("clip.vision.projector_type", projector.get("clip.projector_type", "unknown"))
+    projector_type = (header_name(projector, "clip.vision.projector_type")
+                      or header_name(projector, "clip.projector_type") or "unknown")
     write()
     write("// Profile facts")
     write(f"// architecture: {architecture} · {metadata.get(f'{architecture}.block_count')} blocks · {kind}")

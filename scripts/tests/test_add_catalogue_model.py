@@ -88,28 +88,39 @@ FILES = {
 class Network:
     """Serves the saved tree and the synthetic headers; records what was asked."""
 
-    def __init__(self):
+    TREE = f"https://huggingface.co/api/models/{REPO}/tree/{REVISION}?recursive=true"
+
+    def __init__(self, pages=1):
         self.requests = []
-        self.tree = json.loads((FIXTURES / "tree.json").read_text())
+        tree = json.loads((FIXTURES / "tree.json").read_text())
+        # Split the saved listing into `pages` pages joined by Link headers.
+        size = -(-len(tree) // pages)
+        self.pages = [tree[index:index + size] for index in range(0, len(tree), size)]
+        self.files = dict(FILES)
+
+    def page_url(self, index):
+        return self.TREE if index == 0 else f"{self.TREE}&cursor=page{index}"
 
     def fetch_json(self, url):
         self.requests.append(url)
         if url == f"https://huggingface.co/api/models/{REPO}/revision/main":
-            return {"sha": REVISION}
-        if url == f"https://huggingface.co/api/models/{REPO}/tree/{REVISION}":
-            return self.tree
+            return {"sha": REVISION}, None
+        for index, page in enumerate(self.pages):
+            if url == self.page_url(index):
+                more = index + 1 < len(self.pages)
+                return page, f'<{self.page_url(index + 1)}>; rel="next"' if more else None
         raise AssertionError(f"Unexpected request {url}")
 
     def open_reader(self, url):
         self.requests.append(url)
         prefix = f"https://huggingface.co/{REPO}/resolve/{REVISION}/"
         assert url.startswith(prefix), url
-        data = FILES[url[len(prefix):]]
+        data = self.files[url[len(prefix):]]
         return header.HeaderReader(lambda start, count: data[start:start + count])
 
 
-def run(*arguments):
-    network = Network()
+def run(*arguments, network=None):
+    network = network or Network()
     out = io.StringIO()
     add.main(list(arguments), fetch_json=network.fetch_json, open_reader=network.open_reader, out=out)
     return out.getvalue(), network
@@ -217,6 +228,56 @@ class AddCatalogueModelTests(unittest.TestCase):
             FILES["mmproj-F16.gguf"] = gguf(PROJECTOR, [("v.patch_embd.weight", 0)])
         self.assertIn("// projector: qwen3vl_merger · vision only", output)
 
+    def test_follows_tree_pages_and_lists_subfolders(self):
+        network = Network(pages=3)
+        output, _ = run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                        "--file", "Fixture-7B-Q4_K_M.gguf", "--name", "Fixture 7B", network=network)
+        self.assertEqual([url for url in network.requests if "/tree/" in url],
+                         [network.page_url(0), network.page_url(1), network.page_url(2)])
+        self.assertIn('projectorFile: "mmproj-F16.gguf", projectorByteCount: 900000000,', output)
+
+    def test_quotes_file_names_in_resolve_urls(self):
+        network = Network()
+        entry = dict(network.pages[0][2], path="Q4/Fixture 7B+Q4_K_M.gguf")
+        network.pages[0].append(entry)
+        network.files["Q4/Fixture%207B%2BQ4_K_M.gguf"] = FILES["Fixture-7B-Q4_K_M.gguf"]
+        output, _ = run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                        "--file", "Q4/Fixture 7B+Q4_K_M.gguf", "--label", "Q4_K_M", "--name", "Fixture 7B",
+                        network=network)
+        self.assertIn(f"https://huggingface.co/{REPO}/resolve/{REVISION}/Q4/Fixture%207B%2BQ4_K_M.gguf",
+                      network.requests)
+        self.assertIn('file: "Q4/Fixture 7B+Q4_K_M.gguf",', output)
+
+    def test_escapes_command_line_text_for_swift(self):
+        output, _ = run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                        "--file", "Fixture-7B-Q4_K_M.gguf", "--name", 'Fixture "7B"',
+                        "--publisher", "Back\\slash", "--summary", 'Says "hi"\nthen\tstops.')
+        self.assertIn('LocalModelFamily(name: "Fixture \\"7B\\"", publisher: "Back\\\\slash",', output)
+        self.assertIn('summary: "Says \\"hi\\"\\nthen\\tstops.",', output)
+        self.assertIn('.init(id: "fixture-\\"7b\\"-q4_k_m"', output)
+        self.assertEqual(add.swift_string('a"b\\c\r'), 'a\\"b\\\\c\\r')
+
+    def test_rejects_header_names_that_are_not_plain(self):
+        network = Network()
+        network.files["mmproj-F16.gguf"] = gguf(dict(PROJECTOR, **{"clip.vision.projector_type": 'x"); evil'}),
+                                                [("v.patch_embd.weight", 0)])
+        with self.assertRaises(SystemExit) as raised:
+            run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                "--file", "Fixture-7B-Q4_K_M.gguf", network=network)
+        self.assertIn("clip.vision.projector_type", str(raised.exception))
+        network = Network()
+        network.files["Fixture-7B-Q4_K_M.gguf"] = gguf(dict(GEMMA, **{"general.architecture": "gemma 4\n"}),
+                                                       [("token_embd.weight", 0)])
+        with self.assertRaises(SystemExit):
+            run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                "--file", "Fixture-7B-Q4_K_M.gguf", network=network)
+
+    def test_rejects_text_that_is_not_a_swift_case_or_score(self):
+        for option, text in [("--profile", "fixture-7B"), ("--quality", "12; x")]:
+            with self.assertRaises(SystemExit):
+                run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                    "--file", "Fixture-7B-Q4_K_M.gguf", option, text)
+
     def test_header_reader_finds_the_largest_tensor(self):
         data = FILES["Fixture-7B-Q4_K_M.gguf"]
         largest, name, metadata = header.read_header(
@@ -227,3 +288,49 @@ class AddCatalogueModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HeaderBoundsTests(unittest.TestCase):
+    def reader(self, data):
+        return header.HeaderReader(lambda start, count: data[start:start + count])
+
+    def test_a_corrupt_string_length_stops_before_reading(self):
+        fetched = []
+        data = b"GGUF" + struct.pack("<IQQ", 3, 0, 1) + struct.pack("<Q", 2 ** 62) + b"key"
+
+        def fetch(start, count):
+            fetched.append(count)
+            return data[start:start + count]
+        with self.assertRaises(SystemExit) as raised:
+            header.read_header(header.HeaderReader(fetch), 4_000_000_000)
+        self.assertIn("string length", str(raised.exception))
+        self.assertLessEqual(sum(fetched), header.STEP)
+
+    def test_a_corrupt_array_length_is_refused(self):
+        data = (b"GGUF" + struct.pack("<IQQ", 3, 0, 1) + encode_string("tokens")
+                + struct.pack("<IIQ", 9, 4, 2 ** 40))
+        with self.assertRaises(SystemExit) as raised:
+            header.read_header(self.reader(data), 4_000_000_000)
+        self.assertIn("array length", str(raised.exception))
+
+    def test_corrupt_counts_are_refused(self):
+        data = b"GGUF" + struct.pack("<IQQ", 3, 2 ** 50, 0)
+        with self.assertRaises(SystemExit) as raised:
+            header.read_header(self.reader(data), 4_000_000_000)
+        self.assertIn("tensor count", str(raised.exception))
+
+    def test_a_bad_alignment_is_refused(self):
+        for alignment in [0]:
+            data = gguf({"general.architecture": "gemma4", "general.alignment": alignment}, [("token_embd.weight", 0)])
+            with self.assertRaises(SystemExit) as raised:
+                header.read_header(self.reader(data), 4_000_000_000)
+            self.assertIn("general.alignment", str(raised.exception))
+
+    def test_never_reads_past_the_file(self):
+        data = FILES["Fixture-7B-Q4_K_M.gguf"]
+        with self.assertRaises(SystemExit) as raised:
+            header.read_header(self.reader(data + b"\0" * 64), len(data) - 10)
+        self.assertIn("runs past", str(raised.exception))
+
+    def test_header_bytes_are_capped(self):
+        self.assertEqual(header.HeaderReader(lambda start, count: b"", limit=2 ** 40).limit, header.MAX_HEADER_BYTES)
