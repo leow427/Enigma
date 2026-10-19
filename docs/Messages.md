@@ -30,10 +30,14 @@ shows a `messages` chip in the composer before you send and runs the message as
 if you'd typed `/messages`. A message reads as one when it has all three of:
 
 - **A messaging word:** message, text, texted, iMessage, SMS, group chat,
-  "sent me", "replied", "got back to me", "answered my text", or "my
-  conversation with …".
-- **A person or your own messages:** a name, "my dad", "my boss", a pronoun,
-  "the group chat", or "my texts".
+  "sent me", "got back to me", "answered my text", or "my conversation
+  with …". "Replied" and "responded" count only in a question that is just
+  about the reply: "has Dad replied yet", "did Alex reply", "check whether Alex
+  replied".
+- **A person or your own messages:** a name, a relative or someone close such
+  as "my dad", "my best friend" or "my boss", a pronoun, "the group chat", or
+  "my texts". "My" followed by anything else, such as "my queue" or "my essay",
+  isn't a person.
 - **A request to read or send:** a question ("what did …", "has …", "any …"),
   or a verb such as check, read, show, pull up, go through, catch me up on,
   summarize, text, message, send, shoot, drop, reply, or "let … know … via
@@ -45,6 +49,8 @@ So all of these count:
   today", "has Dad replied yet", "catch me up on the group chat", "what was
   Alex's last text", "summarize my conversation with Alex", "see if Alex got
   back to me"
+- "read my last 5 messages", "show the texts between me and Alex", "how many
+  unread messages do I have", "when is dinner according to Mom's text"
 - "text my dad that I'll be late", "send Alex a text saying I'm outside",
   "shoot Sam a text that I'm here", "reply to Jordan with sounds good", "let Mom
   know I landed via text", "message Mom: running late"
@@ -56,11 +62,18 @@ When in doubt it doesn't match. These don't count:
 - Other services: "send an email to Alex", "how do I send a message in Slack",
   unless iMessage or SMS is named
 - "send me a summary", "text me a joke"
-- How-to and general questions: "how do I text …", "what's the best way to
-  message a landlord", "what should I text my crush"
+- How-to and advice questions: "how do I text …", "what's the best way to
+  message a landlord", "what should I text my crush", "text my ex or not?"
+- Replies in the news: "did Microsoft respond to the allegations", "has the
+  White House responded"
+- Something someone sent you, pasted in: "Sam sent me this article, summarize
+  it"
+- Titles, lyrics and slang: "the song Text Me Back", "who sang Send Me a Text",
+  "what does text me mean"
 - This chat: "my last message", "your last message", "summarize our
   conversation", "this chat"
-- Drafting: "write a message to my landlord", "write my dad a text saying …"
+- Drafting and reviewing: "write a message to my landlord", "write my dad a
+  text saying …", "read my message to my boss and tell me if it's too harsh"
   stay ordinary writing requests
 - Questions without a messaging word, such as "what did Sam say about dinner"
   or "tell Sam I'm running late", unless they follow a Messages request (below)
@@ -258,7 +271,7 @@ the selected route before starting:
   files, screenshots and other commands, and follow-ups
   (`ComposerIntentResolveTests`).
 - `EnigmaTests/ComposerIntentPhrasingTests.swift` is the phrasing corpus: about
-  340 English drafts, each tagged `messages`, `think`, `search` or none, that
+  430 English drafts, each tagged `messages`, `think`, `search` or none, that
   must resolve as tagged, including the hard negatives above. Messages drafts
   must never get the `search` chip. A miss found later becomes a line in it.
 

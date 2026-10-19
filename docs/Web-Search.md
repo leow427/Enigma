@@ -41,11 +41,15 @@ These don't search automatically:
 - Questions about your own work, such as "the current file" or "my latest draft"
 - Historical questions, and requests such as "don't search" or "stay offline"
 - File Mode and Messages requests, typed or recognized
-- Questions about your own communications, such as "what are the most recent
-  messages from my dad", "what's new in my texts" or "any new emails from my
-  boss today", even when Messages isn't recognized. News about others, such as
-  "the latest message from the White House on tariffs", still searches, and a
-  typed `/search` always does.
+- Questions about your own communications, even when Messages isn't
+  recognized: messages, texts, emails, DMs, chats, voicemails or missed calls
+  next to "my", "me", a relative or "did I get", such as "what are the most
+  recent messages from my dad", "what's new in my texts", "what texts did I get
+  today", "what emails came in today" or "what did Mom say today". News about
+  others still searches, such as "the latest message from the White House on
+  tariffs" or "when is the next earnings call for my stock", and so does a
+  draft that can't tell, such as "what's the latest from Sam". A typed
+  `/search` always searches.
 
 Each message is decided on its own. Searching one question doesn't make the next
 one search.

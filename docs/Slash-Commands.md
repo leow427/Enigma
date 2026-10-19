@@ -93,10 +93,10 @@ signals that together mark a request, so ordinary rewordings still count.
 
 | Recognized | When your message says something like | Not recognized |
 | --- | --- | --- |
-| `messages` | A messaging word tied to a person or to your own messages, in a question or a read or send request: "what are the most recent messages from my dad", "has Dad replied yet", "catch me up on the group chat", "what was Alex's last text", "text Alex that I'm running late", "shoot Sam a text that I'm here", "let Mom know I landed via text" | Noun compounds ("text classification", "what does this error message mean"), other services ("send an email to Alex"), "send me a summary", how-to questions ("how do I text …"), this chat ("your last message", "summarize our conversation"), drafting ("write a message to my landlord", "write my dad a text saying …"), and questions without a messaging word ("what did Sam say about dinner") |
+| `messages` | A messaging word tied to a person or to your own messages, in a question or a read or send request: "what are the most recent messages from my dad", "has Dad replied yet", "catch me up on the group chat", "what was Alex's last text", "text Alex that I'm running late", "shoot Sam a text that I'm here", "let Mom know I landed via text" | Noun compounds ("text classification", "what does this error message mean"), other services ("send an email to Alex"), "send me a summary", how-to and advice questions ("how do I text …", "text my ex or not?"), replies in the news ("did Microsoft respond to the allegations"), pasted content ("Sam sent me this article, summarize it"), "my" things that aren't people ("read messages from my queue"), titles and slang ("the song Text Me Back"), this chat ("your last message", "summarize our conversation"), drafting and reviewing ("write a message to my landlord", "check the tone of my message to my boss"), and questions without a messaging word ("what did Sam say about dinner") |
 | `messages`, as a follow-up | After a message that used Messages in this chat: "send it", "reply with sounds good", "tell her I'm on my way", "what about Alex?", "what else did she say" | A follow-up without one of these cues, such as "thanks!" |
 | `search` | A question that automatic search would search for, such as "what's the latest AI news?" | Anything automatic search wouldn't search for |
-| `think` | Think, reason or consider with a depth word ("think hard", "think it over", "consider this carefully before answering"), or an effort phrase: "take your time", "take a while to think", "don't rush", "be thorough", "step by step", "double-check your answer", "give this some serious thought", "go deep", "use extended thinking" | "I think …", "what do you think of this?", "do you think it will rain", "think of a name for my dog", "I'm thinking about buying …" |
+| `think` | Think, reason or consider with a depth word ("think hard", "think it over", "consider this carefully before answering"), or an effort phrase: "take your time", "take a while to think", "don't rush", "be thorough", "step by step", "double-check your answer", "give this some serious thought", "go deep on this", "use extended thinking" | "I think …", "what do you think of this?", "do you think it will rain", "think of a name for my dog", "I'm thinking about buying …", "how to think critically", "think more positively", "what is deep thought", "it can take a while" |
 | `edit` | With Selection Context attached: "rewrite this", "make it shorter", "make this more formal", "fix the grammar", "reword this", "proofread it", "tighten this up" | Anything without a selection; questions about the selection, such as "what does this mean?" |
 | `translate` | With Selection Context attached: "translate this", "translate it to Spanish" | Anything without a selection |
 
@@ -206,6 +206,11 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
 - Commands are English words and can't be renamed.
 - Recognized commands follow English phrasings only. Unusual wording gets no
   chip; typing the command still works.
+- `think` reads "step by step" as a request for care even when it's part of
+  the topic, as in "step by step instructions to bake bread". Click the chip to
+  send without it.
+- `messages` can't tell a person's name from a company's: "has Meta replied?"
+  on its own is recognized, while "has Meta responded to the fine" isn't.
 - A Messages follow-up needs a cue such as "send", "reply" or "what about …" in
   the new message. A chat reopened from history starts without the follow-up.
 - Help doesn't list `/edit`, `/translate` or `/messages` as rows; it describes
