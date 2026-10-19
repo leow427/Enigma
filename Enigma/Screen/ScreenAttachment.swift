@@ -120,19 +120,37 @@ enum ThinkCommand {
 }
 
 extension ThinkCommand {
-  /// Whether the typed draft asks for careful reasoning ("think hard", "step by
-  /// step"), so the composer can infer `/think`. Pass the typed draft only;
-  /// quoted and backticked text never matches.
+  /// Whether the typed draft asks for careful reasoning ("think hard", "take your
+  /// time", "step by step"), so the composer can infer `/think`. Pass the typed
+  /// draft only; quoted and backticked text never matches. Opinions ("what do you
+  /// think", "I think") and "think of a name" don't count.
   static func isRequested(by prompt: String) -> Bool {
     isRequested(normalized: WebSearchPolicy.questionText(prompt))
   }
 
   /// `isRequested(by:)` for text already normalized by `WebSearchPolicy.questionText`.
   static func isRequested(normalized text: String) -> Bool {
-    thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    // Every cue below contains one of these, so most drafts stop after one quick scan.
+    guard thinkWord.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil else { return false }
+    return thinkCue.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
 
-  // A fixed, tested source literal, never a user-provided regex.
+  // Fixed, tested source literals, never user-provided regexes.
+  private static let thinkWord = try! NSRegularExpression(pattern:
+    #"think|reason|consider|reflect|ponder|mull|careful|take|rush|thorough|step|check|thought|deep|method"#)
+  /// Thinking said by the person or about others ("I think", "do you think", "people think").
+  private static let notARequest = #"(?<!\bi )(?<!\bi'm )(?<!\bim )(?<!\bi'll )(?<!\bi'd )(?<!\byou )(?<!\byou're )(?<!\bwe )(?<!\bwe're )(?<!\bthey )(?<!\bthey're )(?<!\bpeople )(?<!\bme )(?<!\bwant to )(?<!\bneed to )(?<!\bhave to )(?<!\bgoing to )"#
   private static let thinkCue = try! NSRegularExpression(pattern:
-    #"(?<!\bi )(?<!\byou )(?<!\bwe )(?<!\bthey )\b(?:think|reason)\b (?:(?:really|very|long and|it|this|that|things|about it) )*(?:hard|harder|carefully|deeply|deeper|through)\b|\btake your time\b|\bstep[- ]by[- ]step\b"#)
+    // think or reason, then a depth word: "think it over", "think long and hard", "reason through this".
+    notARequest + #"\b(?:think|reason|mull)\b (?:(?:really|very|long and|it|this|that|things|everything|this one|about (?:it|this|that)(?: one)?|some|a (?:bit|little)|much) )*(?:hard|harder|carefully|deeply|deeper|through|over|more|thoroughly|critically|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#
+    // "think about this carefully", "consider this carefully before answering".
+    + #"|"# + notARequest + #"\b(?:think|reason|consider|reflect|ponder|mull)\b (?:about |on |over )?(?:[\w']+ ){0,4}?(?:carefully|deeply|hard|thoroughly|before (?:answering|replying|responding|you (?:answer|reply|respond)))\b"#
+    + #"|\bcarefully (?:think|reason|consider|reflect|analy[sz]e|work through|go through|check|review|weigh)\b"#
+    // Effort phrases.
+    + #"|(?<!\bit )(?<!\bit'll )(?<!\bwill )(?<!\bwould )(?<!\bdoes )(?<!\bdid )(?<!\bshould )(?<!\bmight )(?<!\bmay )(?<!\busually )(?<!\balways )(?<!\boften )(?<!\bto )(?<!\bi )(?<!\bwe )(?<!\bthey )(?<!\bpeople )\btake (?:a (?:while|moment|minute|second|beat)|some time|a little time|time)(?= (?:to (?:think|consider|reason|reflect|answer|respond|work|figure)|and|before|with|on|over|thinking)\b|[,.;:!]|$)"#
+    + #"|\btake your time\b|\btake (?:as long as|all the time) you need\b|\b(?:don't|do not|dont) rush\b|\bno rush\b|\bbe thorough\b"#
+    + #"|\b(?:explain|answer|check|review|analy[sz]e|research|consider|go through|work through|respond)\b.{0,30}\bthoroughly\b|\bthoroughly (?:explain|check|review|analy[sz]e|research|consider|think)\b"#
+    + #"|\bstep[- ]by[- ]step\b|\bdouble[- ]?check (?:your|the answer|the math|everything|this|it|that|before)\b"#
+    + #"|\b(?:serious|real|careful|deep|some|more) thought\b|\bgo (?:deep|deeper)\b|\bmethodically\b|\bextended thinking\b"#
+    + #"|\bspend (?:some |a (?:little |bit of )?|more |a lot of )?time (?:thinking|reasoning)\b"#)
 }
