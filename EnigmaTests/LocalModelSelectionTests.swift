@@ -100,6 +100,134 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertEqual(LocalModelRole.smarter.tag(isFast: false), "smarter, slower replies")
   }
 
+  // MARK: Quantizations
+
+  func testQuantizationQualityFactors() {
+    let factors: [(String, Double)] = [
+      ("Q8_0", 1), ("Q5_K_M", 0.99), ("Q4_K_M", 0.97), ("Q4_0", 0.97), ("IQ4_XS", 0.96),
+      ("Q3_K_M", 0.85), ("IQ3_S", 0.85), ("IQ3_XXS", 0.85), ("IQ1_S", 1), ("", 1),
+    ]
+    for (quantization, factor) in factors {
+      XCTAssertEqual(LocalQuantization.qualityFactor(quantization), factor, quantization)
+    }
+    let package = familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS",
+                                weights: 10_000_000_000, quality: 28)
+    XCTAssertEqual(package.rankedQualityScore, 23.8, accuracy: 0.0001)
+    XCTAssertEqual(package.qualityScore, 28)
+  }
+
+  func testPrecisionOrderKnowsEveryShippedQuantization() {
+    XCTAssertEqual(LocalQuantization.precisionOrder,
+                   ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS"])
+    let ranks = LocalQuantization.precisionOrder.map(LocalQuantization.precision)
+    XCTAssertEqual(ranks, ranks.sorted(by: >))
+    XCTAssertLessThan(LocalQuantization.precision("IQ1_S"), LocalQuantization.precision("IQ3_XXS"))
+  }
+
+  func testFamilyChoiceRanksByPrecisionNotFileSize() throws {
+    // A synthetic IQ4_XS file larger than the Q4_K_M one: both are fast, and
+    // the higher precision wins even though it is the smaller file.
+    let manifest = LocalModelManifest(version: 1, models: [
+      familyPackage(family: "Nine", profile: .qwen35_9B, quantization: "Q4_K_M", weights: 5_000_000_000, quality: 13.5),
+      familyPackage(family: "Nine", profile: .qwen35_9B, quantization: "IQ4_XS", weights: 5_500_000_000, quality: 13.5),
+    ])
+    let recs = LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 200))
+    XCTAssertTrue(recs.assessments.allSatisfy(\.isFast))
+    XCTAssertEqual(recs.recommended?.id, "nine-q4_k_m")
+  }
+
+  func testFamilyDropsToThreeBitOnlyWhenNothingLargerFitsAndIsFast() throws {
+    let manifest = LocalModelManifest(version: 1, models: [
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS", weights: 10_934_860_704, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ4_XS", weights: 14_252_845_984, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "Q4_K_M", weights: 16_464_440_224, quality: 28),
+    ])
+    // 32 GiB: Q4_K_M fits and is fast.
+    XCTAssertEqual(LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 600)).recommended?.id,
+                   "big-q4_k_m")
+    // 32 GiB at 420 GB/s: everything fits and only Q4_K_M misses 20 tok/s, so
+    // the family stays at 4 bits.
+    let slower = LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 420))
+    XCTAssertEqual(slower.assessments.map(\.isFast), [true, true, false])
+    XCTAssertEqual(slower.recommended?.id, "big-iq4_xs")
+    // 24 GiB: only IQ3_XXS fits.
+    let small = LocalModelSelector.select(manifest: manifest, hardware: familyMac(memoryGiB: 24, bandwidth: 600))
+    XCTAssertEqual(small.assessments.map(\.fit.canRun), [true, false, false])
+    XCTAssertEqual(small.recommended?.id, "big-iq3_xxs")
+  }
+
+  func testSlowFamilyOffersItsSmallestUsableFourBitPackage() throws {
+    let manifest = LocalModelManifest(version: 1, models: [
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS", weights: 10_934_860_704, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ4_XS", weights: 14_252_845_984, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "Q4_K_M", weights: 16_464_440_224, quality: 28),
+    ])
+    // 200 GB/s: none is fast; IQ4_XS (10.5 tok/s) is the smallest usable package with a factor of 0.96 or more.
+    let usable = LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 200))
+    XCTAssertFalse(usable.assessments.contains(where: \.isFast))
+    XCTAssertEqual(usable.assessments.map(\.isUsable), [true, true, true])
+    XCTAssertEqual(LocalModelSelector.choice(in: usable.assessments)?.id, "big-iq4_xs")
+    // 140 GB/s: IQ4_XS drops under 8 tok/s, so the family falls back to its smallest package that fits.
+    let slow = LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 140))
+    XCTAssertEqual(slow.assessments.map(\.isUsable), [true, false, false])
+    XCTAssertEqual(LocalModelSelector.choice(in: slow.assessments)?.id, "big-iq3_xxs")
+  }
+
+  func testThreeBitRecommendedOffersItsOwnFamilysFourBitAsSmarter() throws {
+    let manifest = LocalModelManifest(version: 1, models: [
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS", weights: 10_934_860_704, quality: 28),
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "Q4_K_M", weights: 16_464_440_224, quality: 28),
+      familyPackage(family: "Nine", profile: .qwen35_9B, quantization: "Q4_K_M", weights: 5_680_522_464, quality: 13.5),
+    ])
+    // 420 GB/s: IQ3_XXS is fast and Recommended (23.8); Q4_K_M (19.1 tok/s) misses the bar but ranks 27.16.
+    let recs = LocalModelSelector.select(manifest: manifest, hardware: familyMac(bandwidth: 420))
+    XCTAssertEqual(recs.recommended?.id, "big-iq3_xxs")
+    XCTAssertEqual(recs.smarter?.id, "big-q4_k_m")
+    XCTAssertFalse(try XCTUnwrap(recs.smarter).isFast)
+    // A 4-bit Recommended never offers its own family again.
+    let fourBit = LocalModelManifest(version: 1, models: manifest.models.filter { $0.quantization != "IQ3_XXS" })
+    let other = LocalModelSelector.select(manifest: fourBit, hardware: familyMac(bandwidth: 600))
+    XCTAssertEqual(other.recommended?.id, "big-q4_k_m")
+    XCTAssertNil(other.smarter)
+  }
+
+  func testThreeBitLosesToAFourBitFamilyUnlessClearlyStronger() throws {
+    let nine = familyPackage(family: "Nine", profile: .qwen35_9B, quantization: "Q4_K_M",
+                             weights: 5_680_522_464, quality: 13.5)
+    // 14 × 0.85 = 11.9 against 13.5 × 0.97 = 13.095.
+    let twelve = familyPackage(family: "Twelve", profile: .gemma4_12B, quantization: "IQ3_XXS",
+                               weights: 4_639_716_160, quality: 14)
+    let close = LocalModelSelector.select(manifest: LocalModelManifest(version: 1, models: [nine, twelve]),
+                                          hardware: familyMac(bandwidth: 200))
+    XCTAssertTrue(close.assessments.allSatisfy(\.isFast))
+    XCTAssertEqual(close.recommended?.id, "nine-q4_k_m")
+    // 28 × 0.85 = 23.8 is clearly stronger.
+    let big = familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS",
+                            weights: 10_934_860_704, quality: 28)
+    let strong = LocalModelSelector.select(manifest: LocalModelManifest(version: 1, models: [nine, twelve, big]),
+                                           hardware: familyMac(bandwidth: 450))
+    XCTAssertEqual(strong.recommended?.id, "big-iq3_xxs")
+  }
+
+  func testSmarterComparesQualityAfterTheQuantizationFactor() throws {
+    let nine = familyPackage(family: "Nine", profile: .qwen35_9B, quantization: "Q4_K_M",
+                             weights: 5_680_522_464, quality: 13.5)
+    func slowThreeBit(quality: Double) -> LocalModelDescriptor {
+      familyPackage(family: "Big", profile: .qwen38_27B, quantization: "IQ3_XXS", weights: 10_934_860_704,
+                    quality: quality)
+    }
+    // 15 × 0.85 = 12.75 is below 13.095, although 15 is above 13.5.
+    let weaker = LocalModelSelector.select(manifest: LocalModelManifest(version: 1, models: [nine, slowThreeBit(quality: 15)]),
+                                           hardware: familyMac(bandwidth: 200))
+    XCTAssertEqual(weaker.recommended?.id, "nine-q4_k_m")
+    XCTAssertNil(weaker.smarter)
+    // 16 × 0.85 = 13.6 is above it.
+    let stronger = LocalModelSelector.select(manifest: LocalModelManifest(version: 1, models: [nine, slowThreeBit(quality: 16)]),
+                                             hardware: familyMac(bandwidth: 200))
+    XCTAssertEqual(stronger.smarter?.id, "big-iq3_xxs")
+    XCTAssertFalse(try XCTUnwrap(stronger.smarter).isFast)
+  }
+
   func testRolesFollowTheGatesOnEveryMac() throws {
     for memory in [8, 16, 24, 32, 36, 48, 64, 128, 256] {
       for bandwidth in [50.0, 120, 267, 614, 1_000] {
@@ -125,7 +253,7 @@ final class LocalModelSelectionTests: XCTestCase {
           if recommended.tokensPerSecond >= 40 { XCTAssertNil(recs.faster, label) }
           if let smarter = recs.smarter {
             XCTAssertTrue(smarter.isUsable && !smarter.isFast, label)
-            XCTAssertGreaterThan(smarter.model.qualityScore, recommended.model.qualityScore, label)
+            XCTAssertGreaterThan(smarter.model.rankedQualityScore, recommended.model.rankedQualityScore, label)
           }
         } else {
           XCTAssertNil(candidates.first(where: \.isUsable), label)
@@ -134,9 +262,14 @@ final class LocalModelSelectionTests: XCTestCase {
         for role in recs.roles {
           let family = families[role.assessment.model.familyID] ?? []
           if role.assessment.isFast {
-            XCTAssertFalse(family.contains { $0.isFast && $0.model.expectedByteCount > role.assessment.model.expectedByteCount }, label)
+            let precision = LocalQuantization.precision(role.assessment.model.quantization)
+            XCTAssertFalse(family.contains { $0.isFast && LocalQuantization.precision($0.model.quantization) > precision }, label)
           } else {
-            XCTAssertFalse(family.contains { $0.fit.canRun && $0.model.expectedByteCount < role.assessment.model.expectedByteCount }, label)
+            // The smallest usable package with a factor of 0.96 or more, else the smallest that fits.
+            let fourBit = family.filter { $0.isUsable && LocalQuantization.qualityFactor($0.model.quantization) >= 0.96 }
+            let pool = fourBit.isEmpty ? family.filter(\.fit.canRun) : fourBit
+            XCTAssertFalse(pool.contains { $0.model.expectedByteCount < role.assessment.model.expectedByteCount }, label)
+            XCTAssertTrue(pool.contains { $0.id == role.assessment.id }, label)
           }
           XCTAssertTrue(role.assessment.fit.canRun, label)
           XCTAssertLessThanOrEqual(role.assessment.model.estimatedRuntimeMemory, mac.inferenceMemoryBudget, label)
@@ -155,10 +288,13 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testCatalogPinsEveryQuantizationAndMatchesEmbeddedBuild() throws {
     try catalog.validate()
-    XCTAssertEqual(catalog.models.count, 20)
-    XCTAssertEqual(Set(catalog.models.map(\.quantization)), ["Q4_K_M", "Q5_K_M", "Q8_0"])
-    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google"])
-    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)), Set([.qwen35_2B, .qwen35_4B, .qwen35_9B, .gemma4_12B, .gemma4A4B, .qwen36_35BA3B, .qwen38_27B]))
+    XCTAssertEqual(catalog.models.count, 45)
+    XCTAssertEqual(Set(catalog.models.map(\.quantization)),
+                   ["IQ3_XXS", "IQ3_S", "Q3_K_M", "IQ4_XS", "Q4_K_M", "Q5_K_M", "Q8_0"])
+    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google", "Mistral AI"])
+    XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)),
+                   Set([.qwen35_2B, .qwen35_4B, .gemma4E4B, .ministral8B, .qwen35_9B, .gemma4_12B, .ministral14B,
+                        .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B]))
     for model in catalog.models {
       XCTAssertTrue(LocalModelCompatibility.supports(model))
       XCTAssertTrue(model.supportsVision)
@@ -220,7 +356,7 @@ final class LocalModelSelectionTests: XCTestCase {
     }
     XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 1_342_177_280)
     XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 308_281_344)
-    let moe = try XCTUnwrap(catalog.models.first { $0.inferenceProfile == .gemma4A4B })
+    let moe = try XCTUnwrap(catalog.models.first { $0.id == "gemma-4-26b-a4b-q4_k_m" })
     XCTAssertGreaterThan(moe.expectedByteCount, 14_000_000_000)
     XCTAssertGreaterThan(moe.estimatedRuntimeMemory, 19 * gib)
   }
@@ -269,7 +405,9 @@ final class LocalModelSelectionTests: XCTestCase {
         if let recommended = results.recommended {
           XCTAssertTrue(recommended.isUsable)
           let fast = results.assessments.filter(\.isFast)
-          if !fast.isEmpty { XCTAssertEqual(recommended.model.qualityScore, fast.map(\.model.qualityScore).max()) }
+          if !fast.isEmpty {
+            XCTAssertEqual(recommended.model.rankedQualityScore, fast.map(\.model.rankedQualityScore).max())
+          }
         }
       }
     }
@@ -288,8 +426,13 @@ final class LocalModelSelectionTests: XCTestCase {
     if let faster = first.faster {
       XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5)
     }
-    XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.qualityScore, recommended.model.qualityScore)
-    XCTAssertGreaterThanOrEqual(first.roles.count, 2)
+    // At about 78 GB/s only Qwen3.5 4B Q4_K_M is fast. Gemma 4 12B is not, so
+    // its candidate is its smallest usable package of IQ4_XS or better: IQ4_XS
+    // (14 × 0.96 = 13.44, above 12.61).
+    XCTAssertEqual(recommended.id, "qwen3.5-4b-q4_k_m")
+    XCTAssertEqual(first.smarter?.id, "gemma-4-12b-iq4_xs")
+    XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.rankedQualityScore, recommended.model.rankedQualityScore)
+    XCTAssertEqual(first.roles.map(\.id), ["qwen3.5-4b-q4_k_m", "gemma-4-12b-iq4_xs"])
     XCTAssertEqual(Set(first.roles.map(\.id)).count, first.roles.count)
   }
 

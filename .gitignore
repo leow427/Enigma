@@ -16,3 +16,6 @@ CLAUDE.md
 # Secrets
 .env
 .env.*
+
+# Python bytecode
+__pycache__/

@@ -138,7 +138,7 @@ struct LocalModelManifest: Codable, Sendable, Equatable {
     try models.forEach { try $0.validate() }
   }
 
-  static let bundled = LocalModelManifest(version: 6, models: BundledLocalModels.models)
+  static let bundled = LocalModelManifest(version: 7, models: BundledLocalModels.models)
 }
 
 struct ModelDownloadProgress: Sendable, Equatable {

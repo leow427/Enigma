@@ -23,13 +23,22 @@ final class LocalModelEstimateTests: XCTestCase {
     XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheLayout,
                    LocalCacheLayout(fullLayers: 7, fullKVHeads: 2, fullHeadDimension: 512, slidingLayers: 35,
                                     slidingKVHeads: 2, slidingHeadDimension: 256, slidingWindow: 512))
+    // 60 blocks, every sixth global: 4 KV heads × 512 there, 16 × 256 in the sliding layers.
+    XCTAssertEqual(LocalMultimodalProfile.gemma4_31B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 10, fullKVHeads: 4, fullHeadDimension: 512, slidingLayers: 50,
+                                    slidingKVHeads: 16, slidingHeadDimension: 256, slidingWindow: 1024))
+    XCTAssertEqual(LocalMultimodalProfile.ministral8B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 34, fullKVHeads: 8, fullHeadDimension: 128))
+    XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 40, fullKVHeads: 8, fullHeadDimension: 128))
   }
 
   func testCacheBytesAtTheDefaultContext() {
     let expected: [(LocalMultimodalProfile, Int64)] = [
       (.qwen35_2B, 100_663_296), (.qwen35_4B, 268_435_456), (.qwen36_35BA3B, 184_549_376),
       (.qwen38_27B, 570_425_344), (.gemma4_12B, 805_306_368), (.gemma4A4B, 587_202_560),
-      (.gemma4E4B, 308_281_344),
+      (.gemma4E4B, 308_281_344), (.gemma4_31B, 2_348_810_240), (.ministral8B, 1_140_850_688),
+      (.ministral14B, 1_342_177_280),
     ]
     for (profile, bytes) in expected {
       XCTAssertEqual(profile.cacheLayout.bytes(context: 8192, physicalBatch: profile.physicalBatchSize), bytes,
@@ -93,12 +102,19 @@ final class LocalModelEstimateTests: XCTestCase {
       XCTAssertEqual(profile.activeParameters, active[profile] ?? profile.parameters, profile.rawValue)
       XCTAssertEqual(profile.isMixtureOfExperts, profile == .gemma4A4B || profile == .qwen36_35BA3B, profile.rawValue)
       if profile.rawValue.hasPrefix("gemma4") {
-        XCTAssertEqual(profile.quantizations, ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0"], profile.rawValue)
+        XCTAssertEqual(profile.quantizations, ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"],
+                       profile.rawValue)
       } else if profile == .qwen35_2B {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q8_0"])
+      } else if profile == .qwen38_27B {
+        XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"])
+      } else if profile == .qwen35_9B || profile == .qwen36_35BA3B {
+        XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"],
+                       profile.rawValue)
       } else {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0"], profile.rawValue)
       }
+      XCTAssertTrue(profile.quantizations.allSatisfy(LocalQuantization.precisionOrder.contains), profile.rawValue)
     }
     XCTAssertEqual(LocalMultimodalProfile.qwen35_2B.architecture, "qwen35")
     XCTAssertEqual(LocalMultimodalProfile.qwen38_27B.architecture, "qwen35")

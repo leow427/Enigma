@@ -94,10 +94,15 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
 
   var isMixtureOfExperts: Bool { self == .gemma4A4B || self == .qwen36_35BA3B }
 
+  /// The reviewed quantizations: the original ones first, then the smaller sizes.
   var quantizations: [String] {
-    if architecture == "gemma4" { return ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0"] }
-    if self == .qwen35_2B { return ["Q4_K_M", "Q8_0"] }
-    return ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    switch self {
+    case _ where architecture == "gemma4": ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
+    case .qwen35_2B: ["Q4_K_M", "Q8_0"]
+    case .qwen38_27B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"]
+    case .qwen35_9B, .qwen36_35BA3B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
+    default: ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    }
   }
 
   var cacheLayout: LocalCacheLayout {
@@ -126,7 +131,7 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     case .gemma4E4B:
       LocalCacheLayout(fullLayers: 7, fullKVHeads: 2, fullHeadDimension: 512,
                        slidingLayers: 35, slidingKVHeads: 2, slidingHeadDimension: 256, slidingWindow: 512)
-    // Not verified against a GGUF header; neither model is in the catalogue.
+    // Not verified against a GGUF header; the model is not in the catalogue.
     case .gemma4E2B:
       LocalCacheLayout(fullLayers: 7, fullKVHeads: 1, fullHeadDimension: 512,
                        slidingLayers: 28, slidingKVHeads: 1, slidingHeadDimension: 256, slidingWindow: 512)
@@ -137,7 +142,8 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
   }
 
   /// Since llama.cpp b11327 these models' image tokens attend to each other,
-  /// so one image must fit in a single physical batch.
+  /// so one image must fit in a single physical batch. In b11734 that is every
+  /// Gemma 4 projector except E2B's and E4B's (`mtmd_decode_use_non_causal`).
   var usesNonCausalImageAttention: Bool {
     self == .gemma4_12B || self == .gemma4A4B || self == .gemma4_31B
   }
