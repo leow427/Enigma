@@ -3,26 +3,30 @@
 ## Project Structure & Architecture
 
 Enigma is a native macOS app written in Swift 6. The Xcode project is
-`AI-Spotlight.xcodeproj`; its shared `Enigma` scheme builds the app and
+`Enigma.xcodeproj`; its shared `Enigma` scheme builds the app and
 the `EnigmaTests` XCTest target. The app currently targets macOS 26.0.
 
-- `AI-Spotlight/App/` contains application lifecycle, menu-bar/panel, shortcuts,
+- `Enigma/App/` contains application lifecycle, menu-bar/panel, shortcuts,
   settings, and top-level SwiftUI composition.
-- `AI-Spotlight/Chat/` contains chat state, presentation, Markdown, streaming,
+- `Enigma/Chat/` contains chat state, presentation, Markdown, streaming,
   and request lifecycle code.
-- `AI-Spotlight/Cloud/`, `LocalInference/`, `Search/`, `Screen/`, and `Files/`
-  implement the corresponding product capabilities. Keep feature-specific code
-  with its capability; share only genuinely cross-cutting types.
-- `AI-Spotlight/Resources/` contains `Info.plist`, asset catalogs, and bundled
+- `Enigma/Cloud/`, `LocalInference/`, `Search/`, `Screen/`, `Files/`, and
+  `Messages/` implement the corresponding product capabilities. Keep
+  feature-specific code with its capability; share only genuinely
+  cross-cutting types.
+- `Enigma/Resources/` contains `Info.plist`, asset catalogs, and bundled
   notices. Add app resources here and update the Xcode project when needed.
-- `AI-SpotlightTests/` contains the XCTest suite. Name tests after the behavior
+- `EnigmaTests/` contains the XCTest suite. Name tests after the behavior
   or subsystem they cover and use existing test support before adding helpers.
 - `Packages/LlamaBridge/` is a local Swift package that wraps the pinned
   llama.cpp XCFramework. Its C++ bridge and public header are deliberately
   isolated from the Swift app target.
 - `scripts/` contains verification and file-mode evaluation helpers.
-- `docs/` records feature design, verification, and operational notes;
-  `UI-Style.md` is the visual-design reference.
+- `docs/` describes how each feature works now (indexed in `docs/README.md`),
+  plus setup, testing, and distribution guides. `docs/design/UI-Style.md` is
+  the visual-design reference, `docs/design/ui-revamp/` is the design record,
+  and `docs/history/` keeps point-in-time reports. Update the feature doc when
+  you change that feature's behavior.
 
 Do not commit `DerivedData`, `xcuserdata`, `.DS_Store`, credentials, generated
 artifacts, or local model/runtime caches. Preserve the existing `.gitignore`
@@ -38,7 +42,7 @@ scripts/verify-xcode.sh test
 scripts/verify-xcode.sh analyze
 ```
 
-The helper uses `/tmp/AI-Spotlight-Verification`, disables signing, avoids
+The helper uses `/tmp/Enigma-Verification`, disables signing, avoids
 Launch Services registration, and unregisters any temporary test host before
 and after each action. Pass normal `xcodebuild` options after the action; for
 example, `scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenViewTests`.
@@ -51,7 +55,7 @@ identity and selected team instead.
 To install the current checkout as a signed `/Applications/Enigma.app`, run
 `scripts/install-app.sh`. `scripts/install-app.sh --install-hooks` adds local
 Git hooks that reinstall it after each commit or pull on `main`. See
-`docs/Claude-Code-Setup.md`.
+`docs/Distribution.md`.
 
 GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 `main` and pull requests. It does not run the helper's separate `build` or
@@ -61,8 +65,9 @@ GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 
 - Follow the existing Swift style and local patterns; use clear, feature-based
   names and comments only for non-obvious intent.
-- Keep SwiftUI UI changes consistent with `UI-Style.md`, and update related
-  screenshots or documentation when the visible behavior materially changes.
+- Keep SwiftUI UI changes consistent with `docs/design/UI-Style.md`, and
+  update related screenshots or documentation when the visible behavior
+  materially changes.
 - Keep native llama.cpp integration within `Packages/LlamaBridge`; do not add
   C++ or binary-framework details to app feature code without a clear boundary.
 - Start with the smallest relevant XCTest target while developing. Before

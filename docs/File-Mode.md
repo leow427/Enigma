@@ -1,142 +1,250 @@
 # File Mode
 
-File Mode starts only after the composer's **Attach** (**+**) button or **Shift + Option + F** opens the macOS file/folder picker. Both entry points call `FileModeCoordinator.activate`. Multiple files and folders can be attached; removing the last attachment returns to ordinary chat. A new chat starts without attachments. Existing conversations retain attachment metadata and bookmarks, but scopes open only when a File Mode request starts.
+File Mode lets the model read, search and edit files and folders you attach. A
+local model does the work on this Mac; Codex, through your ChatGPT sign-in, can
+do it in the cloud with your permission. Every change is recorded first, so you
+can review it and undo it.
 
-Attach turns `accentText` while files are attached, and a card over the composer lists each attachment and its access level. Local and Auto requests use **Read & Edit** access with a per-file safe/protected policy. Notes and simple text documents are edited locally. Protected edits offer Codex when a compatible cloud model is available; otherwise they use a clearly labeled local fallback. **Use Codex** displays a cloud-content disclosure and selects Codex; the user must still send the next request. There is no automatic provider fallback. Cloud File Mode currently supports the existing ChatGPT/Codex connection. Other cloud providers remain available for ordinary chat.
+## Attach files or a folder
 
-![File cards with the local write policy, Codex disclosure and change actions](design/ui-revamp/screenshots/phase-7/cards-screen-and-files-paper.png)
+Click **+** (**Attach files**) in the composer, or press **⇧⌥F**. Choose one or
+more files or folders in the picker and click **Attach**. Choosing again adds
+more, up to 16; a file inside a folder you've already attached is covered by that
+folder.
 
-## Shared architecture
+A card above the composer lists each attachment with its access, **read & edit**
+or **read only**, and an **×** to remove it. Removing the last one returns to
+ordinary chat. Then type what you want and send, for example "Fix the typos in
+notes.md" or "Summarize what this project does".
+
+![The attachment card and the changed-files line, under the screen cards](design/ui-revamp/screenshots/phase-7/cards-screen-and-files-paper.png)
+
+- Sending takes the attachments with the message. The sent message lists them by
+  name, and the next draft starts without them; attach again to continue with the
+  same files.
+- Attachments you haven't sent yet stay with their chat, and a new chat starts
+  without any. Returning to a chat doesn't open its files until you send.
+- File Mode can't be combined with **/screen**, **/snapshot**, **/search** or
+  **/messages**. Attaching files removes **/search** from the draft and any
+  attached screenshot. **/think** works as usual, and **/translate** makes the
+  request read-only. See [Slash commands](Slash-Commands.md).
+- File Mode never searches the web.
+
+## Local, Auto and Cloud
+
+| Mode | Who does the work | Access |
+| --- | --- | --- |
+| **Local** or **Auto** | Your selected local model, on this Mac. Auto always keeps File Mode local. | **read & edit**, with protected files handled as below |
+| **Cloud** with ChatGPT | Codex, using your ChatGPT plan | **read & edit** |
+| **Cloud** with another provider | Nothing until you choose **Use Codex** | **read only** |
+
+Without a local model, Local and Auto ask you to choose one or to use Codex.
+Local File Mode also needs the small `llama-server` runtime: install it from
+**Settings → Local models → Files → Local file tools → Install · 11 MB**.
+If a compatible runtime is already on this Mac, for example from an installed
+vision model, Enigma uses it instead. The download contains only the runtime and
+sends none of your files.
+
+Cloud File Mode needs a ChatGPT sign-in with the Codex CLI installed; see
+[ChatGPT setup](ChatGPT-Setup.md). Other cloud providers can still be used for
+ordinary chat.
+
+## Safe and protected edits
+
+In Local and Auto, Enigma classifies every change before writing it.
+
+| Kind | Examples | What happens |
+| --- | --- | --- |
+| **Safe** | Plain `.md`, `.markdown`, `.txt` and `.text` files; files named note(s), plan(s), checklist(s), todo or readme; files Enigma created and that haven't changed since | The local model edits them directly. |
+| **Protected** | Source code, project and configuration files, JSON, XML, scripts, RTF, unknown formats, hidden files, agent instruction files such as `AGENTS.md`, and names containing secret, credential or password | Enigma checks whether Codex is available, then asks. |
+
+When a protected edit comes up and Codex is available, the local task stops
+without changing that file and the card shows **Protected edit: …** with **Use
+Codex**. Choosing it opens **Use Codex for these files?**; confirming switches to
+Cloud with ChatGPT and an available Codex model, restores the attachments, and
+puts your original request back in the composer if it's empty. Nothing is sent
+until you press **Send**. **Cancel** sends nothing.
+
+When Codex isn't available (offline, not installed, not signed in, or no
+compatible model), the local model may make the edit anyway, and the card shows a
+**Local fallback** notice with the reason. Local edits to protected files can be
+less reliable, so review the result.
+
+A file is judged by both its old and new contents and its full path, so renaming
+a note to a source file or writing JSON into a `.txt` file still counts as
+protected. Cloud requests through Codex skip this check: you already chose to use
+Codex.
+
+## Review and undo
+
+Deleting a file always asks first: **Delete this file?** with **Delete** and
+**Keep File**.
+
+After a task changes files, a line under the composer shows **N files changed**
+with **Review** and **Undo**, and an **Earlier changes** menu for older tasks in
+the same chat. **Review** lists each file as Created, Edited or Deleted (a move
+shows as both), with before and after previews, and **Undo Changes**.
+
+![Reviewing a task's file changes](design/ui-revamp/screenshots/phase-7/file-review-paper.png)
+
+Undo restores edited and deleted files, removes created ones, and puts moved files
+back, including permissions, ACLs and extended attributes such as Finder tags. If
+a file was changed outside Enigma since the task, Undo stops with a conflict
+instead of overwriting your newer work. Changes stay available after restarting
+or deleting the chat: **Settings → Local models → Files → Saved file changes →
+Review**.
+
+**Stop** ends the task's file access at once and cancels a pending delete
+confirmation. Edits made before Stop remain and can be undone.
+
+## Privacy and permissions
+
+- **Only what you attach.** A file attachment covers that file only, not its
+  folder. Paths outside the attachments, absolute paths, `..`, symbolic links
+  inside an attachment, hard-linked files and special files are refused. Writes
+  inside `.git`, `.codex` and `.agents` are refused. To use a link's target,
+  attach the target itself.
+- **No extra permissions.** Enigma doesn't ask for Full Disk Access. The picker
+  grants access to what you choose, and that grant is saved with the chat as a
+  security-scoped bookmark.
+- **Local stays local.** Local and Auto run the model on this Mac, bound to
+  `127.0.0.1` with a random access key and offline. The model is unloaded after the task.
+- **Cloud only when you choose it.** File contents go to Codex only in Cloud mode
+  with ChatGPT, or after you approve **Use Codex** and send. Enigma never switches
+  provider on its own.
+- **File contents are data.** File names, contents and tool results can't grant
+  access, choose a provider or run commands. There is no shell, test runner or
+  network tool.
+- **Recovery copies.** Before the first change to a file, Enigma saves its old and
+  new contents in `~/Library/Application Support/AI Spotlight/File Changes`, in
+  files readable only by you. They can contain sensitive text, are kept until you
+  delete them yourself (even after Undo), and are separate from chat history.
+
+These checks stop the model from reaching outside your attachments. They don't
+protect against other software running as you, and they don't lock files against
+other editors; a detected outside change causes a conflict instead of an
+overwrite.
+
+## How it works
+
+Both the local model and Codex use the same file tools, which go through one
+service that enforces access and records changes.
 
 ```mermaid
 flowchart TD
-  UI[File Mode UI and Finder picker] --> Coordinator[Workspace selection and permission service]
+  UI[Attach, cards and review] --> Coordinator[FileModeCoordinator]
   Coordinator --> Tools[AgentFileTools]
-  Codex[Native Codex app-server dynamic tools] --> Tools
-  Local[LocalFileAgent controller] --> Tools
-  Local <--> Inference[LocalToolInference / llama-server]
-  Tools --> Service[WorkspaceService: transactions and recovery]
-  Service --> Access[WorkspaceAccess: scoped descriptor operations]
+  Local[LocalFileAgent] --> Tools
+  Local <--> Runtime[llama-server]
+  Codex[Codex app-server dynamic tools] --> Tools
+  Tools --> Service[WorkspaceService: policy, journal, undo]
+  Service --> Access[WorkspaceAccess: scoped file I/O]
 ```
 
-`WorkspaceAccess` is the only agent-facing filesystem implementation. `WorkspaceService` owns each task's authority and recoverable changes. Both providers call the same ten tools: `list_files`, `read_file`, `search_files`, `get_file_metadata`, `apply_patch`, `write_file`, `append_file`, `create_file`, `move_file` and `delete_file`. Read-only sessions receive only the first four definitions, and the service independently rejects every mutation. The reserved `AgentCapability.runCommand` and `.runTests` cases provide a future extension point; no command tool is currently exposed.
+- `Enigma/Files/FileModeCoordinator.swift`: `FileModeCoordinator` runs the picker
+  (`FinderWorkspacePicker`), holds the attachments, starts and finishes a task,
+  asks to delete, records protected-write notices, and runs Undo.
+- `Enigma/Files/FileCards.swift` and `FileModeControls.swift`: the attachment card,
+  the changed-files line, the review sheet, and the Codex and delete alerts.
+- `Enigma/Files/AgentFileTools.swift`: the ten tools (`list_files`, `read_file`,
+  `search_files`, `get_file_metadata`, `apply_patch`, `write_file`,
+  `append_file`, `create_file`, `move_file`, `delete_file`) and their
+  instructions. Read-only access offers only the first four, and the service
+  rejects writes regardless. `LocalFileAgent` is the local tool loop.
+- `Enigma/Files/WorkspaceService.swift`: `WorkspaceService` applies changes as a
+  transaction. It saves the journal before writing, writes atomically, rolls back
+  if a later step fails, detects outside changes, and undoes saved change sets.
+- `Enigma/Files/WorkspaceAccess.swift`: `WorkspaceAccess` does all file I/O
+  relative to verified directory descriptors with `O_NOFOLLOW`, checking real
+  paths so links and case aliases can't escape. `WorkspaceAttachment` and
+  `WorkspaceSelection` hold the bookmarks; `FileAccessLevel` is **Read Only** or
+  **Read & Edit**.
+- `Enigma/Files/WorkspaceWritePolicy.swift`: `WorkspaceWriteClassifier` decides
+  safe or protected; `WorkspaceWritePolicy` checks Codex availability once per
+  task and raises the notices.
+- `Enigma/Files/WorkspaceDocument.swift`: reading and editing UTF-8 and text-only
+  RTF. RTF tools work on the visible text and keep the formatting of unchanged
+  text; Undo restores the original bytes.
+- `Enigma/Files/CodexFileMode.swift`: Codex File Mode settings. It uses its own
+  app-server connection with built-in file and shell environments turned off
+  (`environments: []`), so every file operation arrives as a dynamic tool call to
+  `AgentFileTools`. Requests to run commands or apply native file changes are
+  declined, and extra permissions are never granted. `CodexFileModeSupport`
+  checks the installed CLI's schema first and refuses File Mode if it lacks that
+  contract.
+- `Enigma/Files/LocalFileInference.swift`, `LocalFileRuntimeSetup.swift` and
+  `LocalFileToolsViews.swift`: finding, installing and starting `llama-server`,
+  and the Settings rows. `Enigma/LocalInference/LlamaServerVisionEngine.swift`
+  sends the tool requests.
+- `Enigma/LocalInference/LocalChatViewModel.swift`: `submitFiles` picks the route
+  and access, and starts the task.
 
-## Permission boundaries
+The local loop asks for one tool call at a time at temperature zero and runs only
+the first call in a response, so an edit can't run before the model has seen what
+it read. It counts the prompt's tokens before each step and keeps room for a
+1,024-token response (2,048 with **/think**). A patch must use text the model
+actually read. A run stops after 16 steps, two recoverable errors, or three
+identical results in a row, and the model can't claim success while an edit has
+failed. After each change, the tool reads the file back to confirm it reached
+disk.
 
-- The picker creates security-scoped bookmarks for canonical selected locations. Scope lifetimes are balanced. Restoring a conversation does not enumerate its attachments.
-- A file attachment authorizes exactly that leaf, not siblings or its parent folder. Multiple attachments have explicit numbered mount names. Redundant selections are normalized.
-- Absolute paths, NULs, `..`, descendant symlinks, hard-linked file contents, special files and writes under `.git`, `.codex` or `.agents` are rejected. Internal descendant symlinks are deliberately rejected too; users can attach their target explicitly.
-- POSIX `realpath`, verified root identities, directory descriptors, `openat`/`O_NOFOLLOW` and `F_GETPATH` checks enforce the boundary and reject case aliases for mutations. Atomic replacements do not follow destination links.
-- No Full Disk Access permission is requested. Existing macOS permissions still apply. Enigma's current app target is not App Sandbox-enabled; security-scoped bookmarks are used for picker-granted locations, and the shared service also enforces scope inside the app. A future App Sandbox distribution must validate individual-file deletion recovery with its entitlement configuration; restoring a deleted leaf never silently grants its parent.
-- File names and file/tool contents are treated as untrusted data. They cannot grant permissions, choose a provider, run commands or register tools.
-- Removing attachments is disabled during a task. Stop revokes the task's authority and cancels pending deletion confirmation; queued operations check cancellation and authority. Completed edits remain reviewable.
+## Limitations
 
-This is a boundary against model-requested access and link/path escapes. It does not isolate the app from another malicious process already running as the same macOS user, or provide database-style locking against simultaneous external editors. Detected external changes produce a conflict instead of overwriting newer user work.
+- Files up to 2 MiB. UTF-8 text and text-only RTF can be edited; PDF text (up to
+  200 pages) can be read and searched but not edited. Office and other binary
+  formats aren't supported; attach a text export instead.
+- RTF with images, embedded objects, fields or tables can't be edited.
+- `read_file` returns up to 2,000 characters per call. Listings return up to 500
+  entries; search stops at 100 matches, 2,000 entries, 500 per folder or 4 MiB of
+  text.
+- New files need an existing parent folder. Moves and deletes work on single
+  files, not folders. One task can journal up to 64 MiB.
+- Small local models can make wrong or incomplete edits, ask for clarification,
+  or stop early. The checks confirm what was written, not that it was right, so
+  review the changes.
+- Recovery copies are never pruned automatically.
 
-## Codex
+## Tests
 
-`CodexSubscriptionClient` retains the existing authentication, account checks and streamed response events. File requests use the selected folder as the native thread `cwd`, `workspace-write`, a restricted turn policy and native `DynamicToolSpec`/`item/tool/call` requests. For a single file, its parent is cwd metadata only.
+- `EnigmaTests/WorkspaceTests.swift` and `WorkspaceDocumentTests.swift`: access
+  boundaries, links, transactions, rollback, Undo after restart, metadata,
+  conflicts and RTF.
+- `EnigmaTests/WorkspaceWritePolicyTests.swift`: safe and protected
+  classification, Codex permission, local fallback and created-file provenance.
+- `EnigmaTests/FileAgentTests.swift`: the local tool loop, recovery limits, read
+  back, deletion confirmation, and Codex tool handling.
+- `EnigmaTests/FileModeUITests.swift`: the picker and **⇧⌥F**, attachments per
+  chat, Auto staying local, `/translate` staying read-only, the Codex handoff, and
+  the rendered cards.
 
-`environments: []` disables built-in filesystem/execution environments. Edits travel through native dynamic tools to the shared journal; built-in `apply_patch` and shell execution cannot bypass it. The app declines direct command/file-change approvals and returns no additional filesystem/network grants. Deletion through `delete_file` requires a visible user confirmation. Native call IDs are deduplicated within a thread, and handlers are removed when the turn ends.
-
-Before enabling File Mode, the app generates the installed app-server's experimental JSON schema using the same isolated environment as the connection, with a disposable working directory and no inherited Xcode injection settings. It checks the documented environment-disable and dynamic-tool contract, accepting both root-level and versioned server-request schema layouts. Incompatible runtimes fail closed with a specific compatibility message; process startup failures identify the failed check. Local fallback notices retain the underlying cause instead of reporting every failure as an unavailable/outdated CLI. Ordinary chat keeps its text-only, read-only parameters and has no File Mode handler or attachment cwd. Plugins, hooks, host skill discovery, project instructions and shell/environment access remain disabled. File Mode uses a separate native app-server connection with the same isolated ChatGPT credential store, enabling only the standalone Code Mode tool runner needed by current models. That runner evaluates JavaScript in a bare V8 isolate and forwards registered calls back through `item/tool/call`; it has no filesystem, network or Node APIs. Ordinary chat keeps its runner-disabled connection. Sign-in/sign-out invalidate the File Mode connection so it cannot retain stale authentication.
-
-The retired `workspaceWrite.readOnlyAccess` field is omitted: current CLIs reject it. The filesystem boundary does **not** depend on that field: disabling native environment access and validating every dynamic tool operation in `WorkspaceAccess` are required on all supported versions. Workspace sandboxing alone would otherwise permit broad reads. The live integration test covers the actual signed-in Swift client, including compatibility preparation, thread/turn parameters, tool calls and Undo.
-
-References: [Codex app-server](https://learn.chatgpt.com/docs/app-server). The executable's generated schema is the runtime authority; experimental fields may change.
-
-## Local inference and editing access
-
-`LocalFileAgent` owns the bounded inference/tool loop. `LlamaCPPModelEngine` remains unchanged and inference-only. `LlamaServerVisionEngine` implements `LocalToolInference` for both text GGUF and existing vision models, using llama-server's native OpenAI-compatible `tools` and `tool_calls` with `--jinja`. Assistant text is never parsed for embedded JSON commands.
-
-Each step counts the actual tool-aware rendered prompt tokens before generation. The default response limit remains 1,024 tokens; the entire requested output budget plus a 64-token margin must fit alongside the prompt. The engine rejects context exhaustion separately from output truncation. Catalog context sizes remain in effect (4,096 for Qwen 2.5 3B); imported text models default to 8,192. The opt-in evaluator can override context and output limits without changing the selected model or saved settings.
-
-File tasks use temperature zero and sorted JSON for schemas, attachment context and tool results. The controller executes only the first complete tool call in a response, allowing the model to see a read result before proposing an edit. Any other speculative calls are discarded, including from history. Malformed batches (over eight calls or duplicate IDs) are rejected. IDs are normalized across responses. Assistant text is never executed.
-
-`read_file` returns at most 2,000 characters with offsets, total length and `has_more`; an optional exact `query` locates an excerpt anywhere in the file. Local patches must match text actually returned by a read or search. An inline patch cannot introduce line breaks; intentional structural edits must include complete affected lines. Copying the next unchanged line into a replacement is rejected with guidance to widen the matched range. These conservative local checks can require a more explicit follow-up. UTF-8 and RTF use the same document implementation. `append_file` adds only the requested text, so the model need not reproduce an existing file to append to it.
-
-Recoverable argument errors return specific feedback. Output truncation permits at most two fresh responses; none of the incomplete response's calls execute. Premature completion after a correctable failed mutation can use the same two recovery slots. At most two recoverable tool errors are allowed, and the entire run remains capped at 16 inference steps. Identical successful mutations are deduplicated across IDs and JSON property order. Three identical unproductive results stop the loop. A failed mutation must be resolved before completion is accepted. Conflicts, permission handoffs and terminal filesystem errors are not retried.
-
-Mutation receipts include a bounded read-back and a check of actual journal after-images. Appends return the file's tail; moves and deletions return explicit existence results. Final completion and duplicate acknowledgments also check current bytes and metadata. The service detects changes since the model's read, including canonical read aliases, and preserves newer external edits. This verifies that operations reached disk; it cannot certify that a model chose the right words or fulfilled every part of a natural-language request. Review and Undo remain necessary.
-
-`LocalFileCapabilities.production` exposes the full file-tool capability to selected local models, including imported models without catalog metadata. Model size and a trust allowlist do not determine editing permission. `WorkspaceWriteClassifier` and `WorkspaceWritePolicy` centrally decide each mutation inside `WorkspaceService.apply`, before snapshots or writes. Both providers use this service; no backend maintains its own file-type list.
-
-### Safe and protected writes
-
-| Classification | Examples | Local behavior |
-| --- | --- | --- |
-| Safe write | Plain `.md`, `.markdown`, `.txt`, `.text`; extensionless notes, plans, checklists, TODO and README; verified files created by Enigma | Edit directly, with snapshots and Undo. No cloud availability check is made. |
-| Protected write | Source code, project/configuration files, structured data, unknown formats, hidden settings, instruction files and sensitive credential names | Offer Codex when available. Pause the protected operation until the user approves the cloud disclosure and sends the prepared draft. |
-| Protected write with unavailable cloud | Offline Mac, no installed/signed-in compatible Codex runtime, no compatible model, or failed availability check | Allow a local attempt with a visible “Local fallback” notice explaining lower reliability. The same transactional protections apply. |
-
-Configuration/credential names remain protected even with a document extension or app-created provenance. JSON/XML/shebang content cannot become a safe note just by using `.txt` or `.md`. Classification checks both the original and proposed contents, including rename destinations, and resolves the full authorized path so selecting a file inside a sensitive directory does not hide that context. Unknown binary formats remain subject to the existing text-editing limits.
-
-Creation provenance is recorded by the host in recovery journals, with the absolute authorized path and before/after states. Subsequent local tasks recognize an app-created file only when its current contents match recorded app-created contents at that path. Unrecognized external replacements lose this exception. A model cannot assert provenance in tool arguments; a newly proposed unknown-format file must first pass the protected policy before it gains provenance.
-
-Cloud availability is checked lazily, once per local task that requests a protected write. The check uses network status, installed runtime compatibility, account metadata and the native model list. It never starts a model turn or supplies file contents. The host picks an available configured/default Codex model; the cloud consent action shows the disclosure, selects that model and restores the original request to the composer. **The user must still press Send.** Canceling or removing the attachment does not upload anything. Local agents stop at a required cloud handoff rather than retrying or bypassing the protected edit. Protected deletions choose the backend before presenting deletion confirmation.
-
-The real-model smoke tests use these production capabilities and exercise both safe local edits and unavailable-cloud protected fallback. Explicit read-only grants remain supported and independently enforced by the shared service. Filesystem boundaries, snapshot/rollback, cancellation and deletion confirmation continue to apply in every mode.
-
-Settings → Local models → Local file tools → **Install** installs the existing pinned, checksum-verified llama-server runtime (about 11 MB) when necessary. Already installed compatible model runtimes are reused. Setup downloads the runtime only; it does not transmit attachments. Model inference binds to loopback with an ephemeral API key, runs offline and is unloaded after the file task. Models still need a compatible chat template and reliable tool-calling behavior; unsupported or malformed output fails without executing text as a command.
-
-Reference: [llama.cpp function calling](https://github.com/ggml-org/llama.cpp/blob/master/docs/function-calling.md).
-
-## Rich-text documents
-
-`WorkspaceDocument` handles UTF-8 and text-only RTF for both backends, after the shared access layer has authorized and read the file. RTF reads, search and Review expose visible text instead of RTF control codes. The native AppKit RTF importer/exporter operates on in-memory data only; it receives no URLs or filesystem authority.
-
-`apply_patch` matches a unique substring in the visible text. Unchanged text keeps its fonts, colors and paragraph formatting; replacement text inherits the style at the edited range. `write_file` can replace all visible text while retaining unchanged leading/trailing formatting; separate targeted patches are preferred for multiple edits. `append_file` preserves the preceding text and formatting. `create_file` with an `.rtf` path writes a valid rich-text document from plain text. RTF signatures are recognized even under a text extension and classified centrally as protected unless verified app-created provenance applies.
-
-Malformed RTF and RTF containing embedded images/objects, dynamic fields or tables are rejected before writing because the native text exporter may discard them. These need a text-only copy. Snapshots retain original document bytes and metadata, so Undo restores the exact original RTF, not a re-export. The same rollback and cloud-consent policy applies to RTF as other protected files.
-
-Reference: [Apple RTF export](https://developer.apple.com/documentation/foundation/nsattributedstring/rtf(from:documentattributes:)).
-
-## Changes and undo
-
-Before the first mutation of each affected path, the service writes a durable before/after journal in `~/Library/Application Support/AI Spotlight/File Changes`. Recovery files have mode `0600` inside a `0700` directory. These local recovery copies can contain sensitive file contents and remain until removed; this version does not prune them automatically. They are separate from temporary chat history and remain available after conversation deletion. Bookmarks and conversation IDs are included; full attachment contents are not stored in chat messages by default.
-
-Transactions preflight all paths and mutations before writing, preserve the first before-image across subsequent tool calls, and apply files using atomic replacements. Failed multi-file operations roll back completed steps when the files still match the operation's after-images. Undo restores modified/deleted files, removes new files and restores both sides of a move. Ownership, ordinary permission bits, macOS ACLs and writable extended attributes, including Finder metadata, are retained. If ownership or access rules cannot be restored, replacement fails before committing. Temporary copies have their inherited ACLs cleared before content is written. Kernel-generated authorization/provenance records, inode identity and timestamps are not restored as historical metadata.
-
-After a task, **N files changed → Review / Undo** appears in its conversation. Review shows plain-language file statuses with optional before/after previews. Settings → Local models → **Saved file changes** also exposes recovery after restart or conversation deletion. Undo checks for newer external changes and stops on conflicts. If a rollback cannot complete safely, its recovery journal remains available instead of silently discarding the before-images. Earlier successful tool operations remain visible if a later independent tool call fails.
-
-## Initial limits
-
-- At most 16 attachments; regular files up to 2 MiB; UTF-8 text, text-only RTF, and text extraction from PDFs up to 200 pages. Office/binary document editing is not supported. A text export can be attached instead.
-- `read_file` returns up to 2,000 characters per call with a query or offset for continuation. Search reads on demand, with a 4 MiB text budget, 2,000 entries, 500 entries per directory, depth 16 and 100 matches. Large results must be narrowed by path. Listings are capped at 500 entries.
-- Writes create/replace UTF-8 or text-only RTF files; parent directories must already exist. Moves/deletes affect regular files, not entire directory trees. The journal is capped at 64 MiB of file data and attributes per task. A move counts both affected paths.
-- File Mode runs separately from Screen/Web Search for now. Enabling it clears those draft tools; combining them later is blocked with a clear message.
-- There is no shell, test runner, arbitrary network tool or automatic repository upload. Local safe writes, protected local fallback and Codex edits all stay within explicitly attached locations.
-
-## Verification
-
-Use the repository's isolated unsigned verification helper (do not launch its unsigned app for interactive Screen testing):
+Optional checks with real runtimes (skipped unless set):
 
 ```sh
-scripts/verify-xcode.sh build
-scripts/verify-xcode.sh test
-scripts/verify-xcode.sh analyze
-```
+# A real local model editing disposable files, then Undo
+TEST_RUNNER_AI_SPOTLIGHT_FILE_TEST_MODEL_PATH=/path/to/model.gguf \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/FileModeRuntimeTests
 
-`WorkspaceTests`, `WorkspaceDocumentTests`, `WorkspaceWritePolicyTests`, `FileAgentTests` and `FileModeUITests` cover picker flows, files/folders, the native panel shortcut including Option-F's `ƒ`, conversation persistence, local/cloud tool dispatch, ordinary chat, Local/Auto editing with Undo, traversal/symlinks/hardlinks, explicit read-only grants, safe/protected classification, metadata-only availability, cloud consent handoff, local fallback, provenance, preflight, rollback, snapshots, restart recovery, modified/deleted/new/moved files, metadata, conflicts and native UI rendering. The screenshot is rendered from native SwiftUI fixtures.
+# The installed Codex CLI passes the File Mode schema check
+TEST_RUNNER_AI_SPOTLIGHT_CODEX_TEST_PATH=/path/to/codex \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/CodexSubscriptionTests/testInstalledCodexFileModePreparation
 
-`scripts/verify-file-mode-codex.py` exercises a real installed app-server with an isolated configuration and a loopback fixture Responses provider. It verifies native dynamic-tool dispatch, returning tool results to the next model step, turn completion and the absence of direct filesystem/shell tools. It requires no cloud account or user file contents. Set `AI_SPOTLIGHT_CODEX_PATH` to select the executable. Run it again with `--code-mode` to verify the required isolated runner: no process/require/fetch globals, blocked Node filesystem imports, no unregistered file/shell tools, and successful native dynamic-tool dispatch.
-
-The optional real llama.cpp smoke test is enabled with:
-
-```sh
-TEST_RUNNER_AI_SPOTLIGHT_FILE_TEST_MODEL_PATH=/absolute/path/to/model.gguf \
-  scripts/verify-xcode.sh test '-only-testing:EnigmaTests/FileModeRuntimeTests'
-```
-
-The tests use production local access and per-file policies, read disposable fixtures, write precisely specified edits through the shared tools and verify Undo. They cover a safe text file with no cloud check, plus protected source and RTF fixtures with an explicitly unavailable-cloud fallback. Exact-content assertions remain strict, including the unchanged source-file syntax and final newline. Qwen 2.5 3B Q8 is used for local integration verification. Model output quality still depends on tool-calling support and instructions; Review and Undo remain available for local edits. Cloud integration tests normally use deterministic native transport fixtures and the real app-server probe. Two explicit opt-ins also exercise the app-hosted native CLI check and a real signed-in Codex RTF edit:
-
-```sh
-TEST_RUNNER_AI_SPOTLIGHT_CODEX_TEST_PATH=/absolute/path/to/codex \
-  scripts/verify-xcode.sh test '-only-testing:EnigmaTests/CodexSubscriptionTests/testInstalledCodexFileModePreparation'
+# A real signed-in Codex edit of a synthetic RTF file, then Undo
 TEST_RUNNER_AI_SPOTLIGHT_CODEX_FILE_SMOKE=1 \
-  scripts/verify-xcode.sh test '-only-testing:EnigmaTests/FileModeRuntimeTests/testRealCodexEditsRichTextAndUndoes'
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/FileModeRuntimeTests/testRealCodexEditsRichTextAndUndoes
 ```
 
-The second opt-in uses Enigma's existing ChatGPT sign-in and Codex allowance. It attaches only a disposable synthetic RTF sentence, confirms a precise edit, checks that it remains valid RTF, and verifies byte-for-byte Undo. It never reads the user's test documents.
+Two scripts cover what XCTest doesn't:
 
-The earlier Qwen 2.5 3B Q8 smoke run reported an intermittent completion-length failure on the plain-text fixture. That log alone did not establish its cause or a relationship to file size. The separate [reliability evaluation](File-Mode-Reliability.md) records the controlled baseline, implementation, all development attempts, final comparisons and remaining limitations. Run a fresh measurement with `python3 scripts/evaluate-file-mode.py --output /tmp/new-evaluation.jsonl --runs 20`; use `--matrix` for the broader tasks. The harness checks exact files, RTF attributes and byte-for-byte Undo, records failures before asserting, and refuses to overwrite earlier results. It uses only synthetic disposable attachments and the installed selected model. Ordinary tests do not run model evaluations or download models.
+- `scripts/verify-file-mode-codex.py` starts the installed Codex app-server
+  against a local fixture provider, with no account or real files, and checks
+  that file operations arrive only as Enigma's dynamic tools. Add `--code-mode` to
+  also check the isolated tool runner. Set `AI_SPOTLIGHT_CODEX_PATH` to choose the
+  executable.
+- `scripts/evaluate-file-mode.py` measures the installed local model on synthetic
+  file tasks, for example `--output new-run.jsonl --runs 20`, or `--matrix` for
+  broader tasks. It never overwrites earlier results.
+
+The earlier reliability study is in
+[File Mode reliability](history/File-Mode-Reliability.md), with its attempts in
+[file-mode-attempts.csv](history/evaluations/file-mode-attempts.csv). See also
+[Testing](Testing.md).

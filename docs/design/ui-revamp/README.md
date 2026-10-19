@@ -2,7 +2,7 @@
 
 This is the spec and rollout record for Enigma's interface. The rollout is
 done: since phase 10 this design is the only UI, and
-[UI-Style.md](../../../UI-Style.md) is the day-to-day style reference. The approved
+[UI-Style.md](../UI-Style.md) is the day-to-day style reference. The approved
 mockups are interactive HTML pages in this folder:
 
 - [main-window.html](main-window.html): the welcome screen, the main page, the

@@ -1,49 +1,103 @@
-# ChatGPT subscription setup (checkpoint 5)
+# ChatGPT via Codex
 
-1. Install a current [Codex CLI](https://learn.chatgpt.com/docs/cli). This integration was developed against Codex 0.151.0. Enigma checks Homebrew's standard locations, `~/.local/bin`, the Codex app bundle, and the launch environment's PATH. A custom absolute executable path can be supplied with `AI_SPOTLIGHT_CODEX_PATH` in the Xcode Run environment.
-2. Build and run the shared `Enigma` scheme. No Apple development team, Sign in with Apple entitlement, or backend is needed.
-3. Open Settings, choose **Sign in with ChatGPT**, and finish the browser login. On this Mac, macOS may ask permission for Codex to use Keychain.
-4. Select **ChatGPT via Codex** and switch the main panel to **Cloud**. A successful login selects the ChatGPT provider automatically. The default is **GPT-5.6 Luna with High reasoning** (`gpt-5.6-luna`); you can choose a different model in Advanced Cloud Settings.
+Enigma can chat through your ChatGPT plan by running OpenAI's Codex CLI on this
+Mac. Usage counts against the plan's Codex allowance, not API billing, and the
+sign-in belongs to Enigma alone. The OpenAI API-key route is a separately billed
+alternative; neither route falls back to the other.
 
-On the first launch after this default change, an empty ChatGPT model preference or the previous Sol selection is updated to Luna once. Other saved model choices and API-provider preferences are preserved. Later model selections, including Sol, are kept across restarts. **Advanced cloud settings** in Settings → Cloud and search lets you choose a discovered model (or enter a model ID) and a thinking capacity for every new Codex request; the default capacity is High. Open Settings with **⌘,**, the menu-bar Settings item, or **Advanced settings…** in the mode and model menu (**⌘K**) while Cloud is selected. The sidebar's **Help** button, above Developer Tools, opens the keyboard-shortcut reference. Model availability and supported thinking capacities depend on the ChatGPT account and selected model. Model discovery never silently replaces Luna with the first listed model. If your account does not offer Luna, select an available model explicitly.
+## Setup
 
-This uses the ChatGPT plan's **Codex allowance**, with its plan-specific limits and available models. It does not turn a ChatGPT subscription into general OpenAI API credit, and it is not a wrapper around the ChatGPT website. The OpenAI and Anthropic API-key routes remain separately billed alternatives and are never automatic fallbacks.
+1. Install the [Codex CLI](https://learn.chatgpt.com/docs/cli). Enigma looks
+   for `codex` in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, inside
+   `/Applications/Codex.app` and `/Applications/ChatGPT.app`, and then on the
+   app's `PATH`. To use another copy, set `AI_SPOTLIGHT_CODEX_PATH` to its
+   absolute path (for example in the Xcode scheme's Run environment).
+2. Open **Settings → Cloud and search → Subscriptions → ChatGPT**, or the
+   **Connect what you use** step of welcome setup. If Codex isn't found, the row
+   says so and offers **Codex installation instructions** and
+   **Check sign-in status**; **Sign in** stays off until Codex is installed.
+3. Choose **Sign in**. Your browser opens OpenAI's sign-in page; finish there.
+   While you do, the row reads **signing in** and offers **Cancel**.
+4. When the row reads **connected** with your account email, ChatGPT becomes
+   the preferred cloud provider and its model list loads. If you later choose
+   another provider, **Use ChatGPT** switches back.
+5. Choose **Cloud** in the mode and model menu (**⌘K**). Auto can also send
+   requests to the preferred cloud provider; see
+   [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
 
-## Authentication and data handling
+![The ChatGPT row during setup](design/ui-revamp/screenshots/phase-10/welcome-connections-paper.png)
 
-- The app starts the official `codex app-server` over local standard input/output and uses its `account/login/start` browser OAuth flow. It does not read or copy tokens from the user's existing Codex installation.
-- Codex owns token storage and refresh. The child runtime uses `~/Library/Application Support/AI Spotlight/Codex` as its own Codex home and `cli_auth_credentials_store="keyring"`, so credentials are stored in macOS Keychain rather than the repository or app preferences. Signing out affects only this app's isolated login.
-- The runtime receives a minimal environment with no inherited OpenAI API keys. ChatGPT authentication and the OpenAI model provider are explicitly selected. A missing/expired ChatGPT login is an error, not a switch to API billing.
-- Each response starts an ephemeral Codex thread with the selected chat's supplied conversation. Threads are unsubscribed after completion; Stop interrupts active generation. The app retains its ten-chat local history. Ephemeral threads avoid additional Codex transcript files; OpenAI's service-side data policies still apply.
-- Shell execution, browser/computer use, connectors, plugins, hooks, image tools, and agent delegation are disabled. Threads use read-only permissions and never approve external actions. This checkpoint adds text chat only, not web search or Auto routing.
-- The retired Apple/backend prototype was removed. Previously stored API keys remain in Keychain and are used only when the corresponding API provider is selected.
+### Model and thinking capacity
 
-## Verification
+The default model is GPT-5.6 Luna (`gpt-5.6-luna`). **Advanced cloud
+settings** in Settings → Cloud and search lets you pick another model from the
+list your account offers, enter a **Manual model ID**, and set
+**Thinking capacity** (None, Minimal, Low, Medium, High, Extra High, Max, or
+Ultra; the default is High). Which models and capacities work depends on your
+plan and the model. If your account doesn't offer Luna, choose an available
+model yourself; Enigma never silently switches to the first model in the list.
 
-Automated tests mock the JSON-RPC boundary and cover account-type checks, OAuth completion/cancellation, model discovery, streamed text, failures, and Stop. CI does not require Codex installation, a ChatGPT login, or paid requests.
+`/think` raises thinking capacity to at least Extra High for that message.
 
-Manual check: sign in, send a short Cloud message, stop a second response, restart the app and verify the account is restored, then sign out and verify Cloud sending is disabled. Confirm Local mode still works offline. Browser authentication requires the user's participation.
+**Sign out** in the ChatGPT row signs Enigma out. Cloud sending then stays off
+until you sign in again or choose another provider.
 
-Official references: [Codex authentication](https://learn.chatgpt.com/docs/auth), [App Server protocol](https://learn.chatgpt.com/docs/app-server), and [credential/configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+## Privacy and data handling
 
+- Enigma starts `codex app-server` as a child process and talks to it over
+  standard input and output. Sign-in uses the app server's browser OAuth flow;
+  Enigma accepts only an `https://auth.openai.com` sign-in page.
+- The app server runs with its own Codex home,
+  `~/Library/Application Support/AI Spotlight/Codex`, and stores credentials in
+  the macOS Keychain. Enigma never reads or copies the sign-in of the Codex CLI
+  you use yourself, and signing out of Enigma doesn't affect it.
+- The child process gets a minimal environment (`HOME`, a fixed `PATH`,
+  `TMPDIR`, `LANG`, and `CODEX_HOME`) and inherits no API keys. ChatGPT sign-in
+  is forced, so an API-key login is rejected rather than billed.
+- Each response runs in a new ephemeral thread with a read-only sandbox, an
+  empty working folder, and no approvals. Codex history, web search, shell
+  commands, plugins, hooks, apps, browser and computer use, image tools,
+  memories, and multi-agent features are turned off. The thread is closed when
+  the response ends, and **Stop** interrupts generation on the server.
+- Enigma sends the conversation as a bounded JSON transcript, up to 32,768
+  input tokens. Your chats stay in Enigma's own history; OpenAI's data policies
+  apply to what Codex sends.
 
-## Connect during welcome setup
+Two features use Codex differently, each with its own consent:
 
-The Connections step now uses the same ChatGPT sign-in controls as Settings:
-Sign in with ChatGPT starts Codex authentication, shows progress and Cancel,
-reports errors, and displays the connected account. If Codex is missing, the
-installation link and Check Sign-in Status remain available. Setup does not
-start sign-in without a click.
+- Cloud File Mode uses a separate Codex connection with file tools limited to
+  the files you choose. See [File-Mode.md](File-Mode.md).
+- `/messages` gives Codex only Enigma's Messages tools and declines every
+  native approval. See [Messages.md](Messages.md).
 
-Brave Search has a Get Brave API key link beside a secure key field and Save key
-button. Saving uses the existing Keychain store and clears the field on success;
-the status distinguishes a saved key from a tested connection. Both connections
-are optional. Settings and setup also expose Mac permission controls.
+## How it works
 
-![Connections during setup](design/ui-revamp/screenshots/phase-10/welcome-connections-paper.png)
+| File | Responsibility |
+| --- | --- |
+| `Enigma/Cloud/CodexAppServer.swift` | `CodexRuntimeConfiguration` (executable lookup, isolated environment, configuration overrides) and `CodexAppServer`, the JSON-RPC client that launches the app server, correlates requests, times out unanswered ones after 60 seconds, and fans out notifications. |
+| `Enigma/Cloud/CodexSubscriptionClient.swift` | `CodexSubscriptionClient`: account status, browser sign-in and cancel, sign-out, paginated model discovery, and streaming a response (`thread/start`, `turn/start`, text deltas, `turn/interrupt`, `thread/unsubscribe`). |
+| `Enigma/Cloud/CloudConnectionControls.swift` | `ChatGPTConnectionControls`, the row shared by Settings and welcome setup. |
+| `Enigma/Cloud/CloudSettingsModel.swift` | Sign-in state, the preferred provider and model, the one-time move of older saved defaults to Luna, and thinking capacity. |
+| `Enigma/Cloud/CloudDomain.swift` | `CodexThinkingCapacity`. |
+| `Enigma/Chat/ChatContext.swift` | The Codex context budget and transcript format. |
 
-![Permissions in Settings → General](design/ui-revamp/screenshots/phase-10/settings-general-paper.png)
+## Limitations
 
-Chat permission failures offer direct System Settings buttons. Cloud screenshot
-consent can be reviewed in chat, and connection/settings buttons open Cloud &
-Search directly. Existing draft and screenshot content is retained on denial.
+- The Codex CLI must be installed on this Mac.
+- Plan limits and model availability come from your ChatGPT plan. This doesn't
+  turn a ChatGPT subscription into OpenAI API credit, and it isn't the ChatGPT
+  website.
+- Responses are text only: no images are sent, and Codex's own tools are off.
+  For how screenshots are handled, see [Screen-Skill.md](Screen-Skill.md).
+- Sign-in needs a browser and your participation.
+
+## Tests
+
+`EnigmaTests/CodexSubscriptionTests.swift` mocks the JSON-RPC boundary (and
+uses a real pipe for the app server) to cover the isolated environment and
+disabled features, a missing CLI, request timeouts and disconnects, browser
+sign-in, failure, unsafe sign-in URLs and cancellation, rejection of API-key
+accounts, model pagination, the Luna default and its one-time migration,
+thinking capacity, ephemeral streaming with conversation context, partial text
+on failure, Stop, no fallback to stored API keys, sign-out, and context limits.
+None of these tests need Codex, a ChatGPT login, or paid requests.

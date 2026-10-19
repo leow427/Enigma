@@ -1,9 +1,18 @@
+# macOS
 .DS_Store
+
+# Xcode build output and per-user state
 DerivedData/
+build/
 *.xcuserstate
 xcuserdata/
-backend/.dev.vars
-backend/.dev.vars.*
-!backend/.dev.vars.example
-backend/.wrangler/
-backend/node_modules/
+*.xcarchive
+*.app
+
+# Local agent and editor state
+.claude/
+CLAUDE.md
+
+# Secrets
+.env
+.env.*

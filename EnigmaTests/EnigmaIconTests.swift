@@ -15,7 +15,7 @@ final class EnigmaIconTests: XCTestCase {
   static let assetDirectoryVariable = "ENIGMA_ICON_ASSET_DIR"
 
   /// The asset catalog in the checkout, so tests can check the committed files.
-  static let sourceCatalog = repositoryRoot.appending(path: "AI-Spotlight/Resources/Assets.xcassets")
+  static let sourceCatalog = repositoryRoot.appending(path: "Enigma/Resources/Assets.xcassets")
   static let repositoryRoot = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 
   /// Every icon asset the app draws as a template.
@@ -382,7 +382,7 @@ final class EnigmaIconTests: XCTestCase {
 
   /// The app's Swift sources by file name.
   static func appSources() throws -> [(String, String)] {
-    let root = repositoryRoot.appending(path: "AI-Spotlight")
+    let root = repositoryRoot.appending(path: "Enigma")
     let files = try XCTUnwrap(FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil))
     return try files.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }.map {
       ($0.lastPathComponent, try String(contentsOf: $0, encoding: .utf8))

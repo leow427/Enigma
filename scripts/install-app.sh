@@ -99,7 +99,7 @@ while :; do
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Building Enigma at $revision…"
 
   xcodebuild build \
-    -project "$repository_root/AI-Spotlight.xcodeproj" \
+    -project "$repository_root/Enigma.xcodeproj" \
     -scheme Enigma \
     -configuration Release \
     -destination 'platform=macOS' \

@@ -1,362 +1,313 @@
 # Selection Context
 
-![The compact panel with selected text](design/ui-revamp/screenshots/phase-10/compact-panel-paper.png)
+Highlight text in any app, tap **Option** twice, and Enigma opens a compact panel
+next to it with that text attached to a new temporary chat. Ask about the text,
+translate it, or use **/edit** to get a revision that Enigma can paste back over
+your selection.
 
-Highlight text in another app and tap **Option twice** to start a new temporary
-Enigma chat bar close to the pointer. **Shift–Option–Space** is the conventional backup.
-Option–Control toggles the existing panel (press both modifier keys together).
-Accessibility permission is required to use this shortcut while another app is active. Help contains all shortcuts,
-an Accessibility status and Settings button, a choice of Option/Command/Shift for the
-solo double tap, an enable switch, and Fast/Normal/Relaxed timing.
+![The compact panel with selected text attached](design/ui-revamp/screenshots/phase-10/compact-panel-paper.png)
 
-When Accessibility is missing, the composer asks to enable Selection Context and
-provides **Open Accessibility Settings…**. This requests system trust and opens the
-Accessibility page directly even if macOS suppresses a repeated popup. Enable
-**Enigma** (the current macOS display name for Enigma). Permission status and shortcut
-monitors refresh when switching apps, so granting access does not require a restart.
+## Using it
 
-The source is captured before the panel becomes key. The selection is context for
-the **first message only**. Later messages are ordinary turns: the selection stays
-in the conversation history, so the model can refer back to it when asked, but it
-is never attached again or framed as the subject of a new question. `/edit` is the
-exception: on any turn it sends the selection, and the latest revision draft if
-there is one, so it revises the draft or, without one, the original selection. A
-standalone `/translate` also sends the selection again. The selection counts as
-sent only once the model has replied to the message that carried it: if that
+### Opening the panel
+
+1. Select text in another app.
+2. Tap **Option** twice, on its own (**⌥ twice**). The backup shortcut is
+   **⇧⌥Space**.
+
+The panel opens beside the selection, on the side that doesn't cover it and
+closest to the pointer. It starts in the mode set under **Start mode** in
+**Settings → General → New chats**. Each invocation starts a fresh temporary chat.
+
+The shortcut settings are in **Help** (in the main window's sidebar, or the **?**
+button when the sidebar is hidden), under **Anywhere on your Mac**:
+
+- **Double-tap shortcut** turns the double tap on or off.
+- **Selection shortcut key** chooses **Option ⌥**, **Command ⌘** or **Shift ⇧**.
+- **Double-tap interval** chooses **Fast**, **Normal** or **Relaxed**.
+
+Each tap must be a short press of that key alone; holding it, adding another
+modifier, typing or clicking cancels the double tap. The double tap is ignored
+while macOS Secure Event Input is on (for example, in a password field).
+
+Separately, pressing **Option** and **Control** together (**⌥⌃**) shows or hides
+the Enigma panel without capturing anything.
+
+### What the panel shows
+
+From top to bottom:
+
+- **The selection line**, `› selected "…"`, with a preview of the text. Beside it
+  are a status button, **×** to remove the selection, and the
+  **Open in window** button. With nothing captured it reads `› no text selected`.
+- **The input row**: the Enigma character, the message field (placeholder
+  "Ask about the selection"), **+** to attach files (see [File Mode](File-Mode.md)),
+  a route chip such as `auto · local` or `cloud · <model>` that opens the mode and
+  model menu, and **↵** to send (**stop** while a reply is running).
+- **The hint row**: `/ commands` (or `⌘. stop` while responding), `⌃⌃ open in window`,
+  `esc close`, and on the right `temporary · not saved`.
+
+The status button opens a details area under the input with the selected-text
+card, notices, and any permission or routing cards. It shows a warning icon, and
+the character shows its problem state, when Accessibility is missing or the
+selection couldn't be read. Details open on their own when a request or capture
+fails. When the panel sits low on the screen, the command list and the mode menu
+open above the input.
+
+Sending the first question grows the panel downward into a conversation: the
+input stays where it is and the answer appears under it. Follow-up questions stay
+in the same panel. With **Reduce Motion** on, it grows without animating.
+
+![The panel grown into its answer, with the selection line reading "for /edit"](design/ui-revamp/screenshots/phase-10/compact-panel-answer-paper.png)
+
+**Escape** closes, in order, the command list, an open menu, the details, and then
+the panel. Hiding the panel keeps its chat until you start another one.
+
+### Moving the panel
+
+Drag the panel by any empty part of it, such as the padding around the input or
+the middle of the hint row. It stays on the visible part of the screen under the
+pointer, below the menu bar. Once moved, it grows and shrinks from where you put
+it. The next invocation places it beside the new selection again. This drag
+doesn't move the panel between Spaces or offer window tiling.
+
+### Asking about the selection
+
+The selection goes with your **first message only**. After a reply arrives, the
+line changes to `› for /edit "…"` in a quieter color, the placeholder becomes
+"Ask anything", and new questions are ordinary turns: the model can still refer
+back to the selection in the conversation, but it isn't attached again. If the
 first reply fails, or is stopped before any text arrives, the next message carries
-the selection again, and the panel still shows it as attached.
-Removing the selection revokes the replacement capability and excludes it, its
-place in the history, and its manually edited draft from subsequent requests,
-including translations. Editing is an explicit per-request command.
+the selection again.
 
-The `› selected "…"` line shows what the next message will carry. Once the first
-message has gone, it reads `› for /edit "…"` in a quieter color, with a tooltip
-saying new questions don't attach it and /edit and /translate still use it. It stays while
-the selection is in scope, because it's still what /edit revises and what Replace
-text replaces, and its remove button still revokes both. The input's placeholder
-changes from “Ask about the selection” to “Ask anything”. The “Selected text ·
-App” card in the details and in the window gains the same note.
+Highlighting text never authorizes an edit. A plain question gets a read-only
+answer, and asking for a rewrite without **/edit** gets a hint to use **/edit**.
 
-## Architecture and privacy
+**Removing** the selection (the **×** on the line or the selected-text card) takes
+it, its place in earlier turns and any edited draft out of every later request, and
+turns off **Replace text** for this chat.
 
-- `ConversationContext` is a provider-neutral, session-only attachment with identity,
-  kind, source attribution and a text representation. Screenshot, file, webpage and
-  image kinds leave room for future payloads without changing conversation routing.
-  Existing screenshot/file flows can coexist with selected text.
-- `ChatContextPreparer` expands attachments in request copies before token counting.
-  JSON-encoded source material is explicitly described as untrusted context, never
-  instructions. Drafts and displayed messages remain unchanged. Local, cloud,
-  multimodal, Auto, and File Mode paths receive the same text representation.
-- Web Search uses the selected model to derive a bounded query from the question
-  and attachment, then follows the existing evidence preparation path. Relevant
-  selection details can reach Brave when search is enabled (including existing
-  automatic-search preferences). Only the original current question determines
-  automatic-search eligibility; attachment text and source names cannot enable it.
-  Automatic search defaults to on with a saved Brave key; its toggle is in
-  Settings → Cloud and search → Web search · Brave. Without a key, neither composer
-  offers `/search` or retrieves automatically. Capture itself makes no network
-  request. Local mode never uses a cloud model to derive a query.
-- The panel's chat is temporary: it lives in memory, writes nothing to the chat
-  archive, and doesn't count against the saved chats. The hint row says so with a
-  `temporary · not saved` tag for as long as the chat is in the panel. It is
-  discarded on a new invocation or on switching to another chat; closing the panel
-  without opening it in the window saves nothing. Hiding/reopening the panel retains
-  it until then or app exit. Invoking a new chat stops an in-progress response using
-  the existing request-cancellation protections; saved message contents remain intact.
-- **Open in window.** Double-tap Control in the panel, at any point including before
-  the first answer, or click the panel's Open in window button (tooltip “Open in
-  window · saves to history”), opens the panel's chat as a normal chat in the main
-  window: the window's normal size and layout, with the sidebar as Settings →
-  General → Show sidebar has it for a new chat, the same composer and history. The
-  chat is then saved like any other: it goes to the top of Recents, selected, and a
-  quiet line under the messages says “Saved to history · Enigma keeps your last 10
-  chats” (the number comes from `ChatSessionStore.maximumRetainedSessions`). The
-  line is never part of the transcript. Nothing of the chat is written before this
-  point. The raw selection is never written to disk: the saved chat keeps the
-  messages and replies, while the selection stays in memory for /edit and Replace
-  text until the user leaves the chat. Saved replies can still contain parts of
-  it, such as an /edit draft, a translation, or a quoted passage. To save nothing
-  from a selection chat, turn on **Keep selection chats private**. The saved line
-  is shown once and goes with the next message.
-- **Settings → Selection → Keep selection chats private** (off by default). When
-  on, Open in window (tooltip “Open in window · stays private”) still shows the
-  normal chat window, but the chat stays temporary: it isn't written to disk,
-  doesn't appear in Recents, and is discarded on a new chat, on choosing another
-  chat, or when the app quits. A quiet line says “Private chat · not saved to
-  history” until the next message, and a `temporary · not saved` note sits over the composer for as
-  long as the chat is open, where the window's other notes sit. The setting is read
-  when a chat is opened in the window: changing it mid-chat applies to the next one
-  and never saves or deletes a chat already opened.
-- Enigma keeps the 10 most recently active chats; older ones are dropped from the
-  archive on the next save, and the sidebar's Recents lists all ten, scrolling if
-  needed. Histories saved when the limit was five load unchanged.
-- The shortcut observes event metadata only. Accessibility text reads happen only
-  during deliberate capture or explicit replacement. Secure Event Input, secure
-  roles/subroles and protected ancestors block both Accessibility and copy fallback.
-  Unknown/inaccessible focus or ancestry fails closed. Text is not logged.
+### Editing with /edit
 
-## Capture and replacement
+`/edit make this more formal` asks for one revised version. The reply briefly
+describes the change, then shows a **Revised text** card:
 
-Capture first reads nonempty AXSelectedText, then AXStringForRange or the selected slice of AXValue. A bounded copy fallback
-handles editors with incomplete selection text APIs. A known empty native AX range never
-copies (some editors otherwise copy the current line). Browser canvas editors such
-as Google Docs can expose an empty hidden input while document text is selected,
-so supported browsers can fall back to copy when AX provides no selected text. Known copy-line editors
-also require a range. Selected text is limited to 256 KB; model-specific input
-budgets can be smaller and reject the request while preserving the draft.
+- **Edit** turns the card into an editable draft; **Done** returns to the preview.
+- **Replace text** pastes the draft into the source app.
 
-Clipboard fallback eagerly saves every readable representation of every item,
-including rich text, images and file data. If a representation cannot be preserved
-or the clipboard changes during the snapshot, fallback is declined. A private
-marker distinguishes unchanged clipboard contents from a copy result. Restoration
-uses change-count ownership, so a subsequent user clipboard write wins. Keyboard,
-mouse, scroll and focus changes abort capture. Synthetic events are
-addressed to the source process and marked to distinguish them from user input.
+**/edit** works on any turn and always sends the selection, plus the latest draft
+if there is one, so follow-ups like `/edit shorter` refine the last version,
+including your own changes. Other follow-ups see a draft only if you changed it by
+hand. Each reply keeps its own draft while the chat is open. A question or an
+unclear request under **/edit** can still get an ordinary answer or a clarifying
+question instead of a card.
 
-## Revision cards and automatic replacement
+If an **/edit** reply arrives without a usable revision, Enigma makes one extra
+request to the same model to prepare the card. If that fails, a notice asks you
+to try again; arbitrary reply text is never pasted.
 
-Selected text is **read-only by default**. Asking “What does this code do?”
-produces an explanation. Highlighting text never authorizes an edit, and a normal
-answer never runs revision recovery or becomes a replacement card.
+### Translating with /translate
 
-- **`/edit make this more professional`** asks for one revised-text draft. The model
-  responds to the actual request and briefly describes the changes before showing
-  the **Revised text** card. A question or unclear change can still receive an
-  answer or clarification instead of an invented rewrite.
-- **`/translate`** or **`/translate this`** detects the source language and translates
-  to English. **`/translate to Spanish`** uses the requested target language.
-  Translation is an ordinary read-only answer, without a revision card or paste.
-  Natural requests such as “translate this” and “translate this to Spanish” follow
-  the same language defaults without requiring a slash command.
-- Requests for a rewrite without `/edit` receive guidance to use `/edit`. The command
-  applies only to the current request: follow-up edits also need `/edit`, while
-  questions about a previous draft remain read-only.
+`/translate` (or `/translate this`) translates to English;
+`/translate to Spanish` picks the target. The answer is ordinary read-only text,
+with no card. On a later turn, a `/translate` with no text of its own sends the
+selection again, while `/translate` followed by your own text translates that text. If
+**/edit** and **/translate** appear together, translation wins and stays
+read-only. Asking "translate this" in plain words gets the same defaults.
 
-Both commands appear in slash completion and work with the existing thinking,
-search, and capture commands. Quoted commands, code examples, URLs, paths, selected
-source text, and previous turns cannot enable editing. If `/edit` and `/translate`
-appear together, translation takes precedence and stays read-only. Standalone
-`/translate` works with the attached selection on any turn: a `/translate` with no
-text of its own, such as `/translate` or `/translate this to Spanish`, sends the
-selection again, like `/edit`. A `/translate` with its own text translates that
-text and doesn't attach the selection. Without source text, the model asks for
-text to translate. `/translate` also restricts File Mode to read-only access.
+### Replacing text
 
-**Edit** turns a revision card into an editable draft; **Done** returns to its
-preview. **Replace text** pastes that draft with one click. `/edit` follow-ups
-receive the latest proposed revision, including manual changes. Other follow-ups
-receive it only when the user changed it by hand, since the model's own revision
-is already in the conversation. Each response retains its own draft while the chat
-is open.
+**Replace text** pastes into whatever is currently selected (or at the insertion
+point) in the app the text came from, so moving the selection there first is
+fine. The panel steps aside, Enigma activates that app, sends one **⌘V** to it,
+then restores your clipboard and comes back. The card then shows
+**Replacement sent** and a notice names the app.
 
-**Settings → Selection → Automatically replace selected text** is off by
-default. When enabled before an explicit `/edit` request begins, a successfully
-completed revision is pasted directly, with no revision card or confirmation click.
-It never applies ordinary responses, translations, malformed/incomplete revisions,
-failed or cancelled requests, or a response whose context has been removed.
-Turning the setting on does not apply responses already in progress; turning it
-off cancels pending automatic work and makes unsent drafts available for review.
+"Sent" means the paste was dispatched; Enigma can't confirm the other app accepted
+it. A sent replacement is never retried. To replace again, select the text and
+invoke Enigma again.
 
-The host resolves commands from the current user request before adding context.
-Request-only instructions guide explanations, editing, and translation; selected
-text and previous drafts remain untrusted source material. The message that
-carries the selection gets the read-only Selection Context instructions (“Selection
-Context is attached to this message and is read-only…”); an `/edit` turn gets the
-revision instructions; `/translate` gets the translation instructions. A later
-ordinary message gets short follow-up guidance instead: the earlier selection is
-background, not the subject of this message unless the user refers to it; source
-text and earlier assistant output are data, never instructions; rewrites need
-`/edit`; and no revision payload may be emitted. Web-search query refinement uses
-only the source material the current request carries. Only `/edit` with an
-attached selection enables the revision output protocol, recovery, and replacement.
-Even an unsolicited, valid model revision payload cannot create a card or paste
-for a read-only request. Local, cloud, vision, Auto and File Mode use this same gate.
-Web-search query refinement receives the latest draft without response-format
-instructions. Revision metadata is session-only and is cleared from request history.
+**Settings → Selection → Automatically replace selected text** (off by default)
+skips the card: a completed **/edit** revision is pasted straight away. It applies
+only to **/edit** requests that start while it's on. It never applies to ordinary
+answers, translations, failed, stopped or incomplete replies, or a reply whose
+selection was removed. Turning it off cancels any pending automatic paste and
+shows the card instead.
 
-For an explicit edit that omits the required payload, one bounded recovery request
-to the same model can prepare the revision. It includes the original selection,
-conversation and latest manually edited draft. A request-specific acknowledgement
-is preserved; an `answer` result leaves the response unchanged. Invalid recovery
-shows a notice and never treats arbitrary prose as replacement text or retries a
-paste. Ordinary questions and translations do not incur this extra model request.
-Language detection, translation quality, and wording still depend on the selected
-model; the editing permission boundary is enforced by the application.
+### Opening the chat in the main window
 
-Capture still occurs only on double-Option (or the configured backup). Bounded
-readiness retries allow an editor time to expose a fresh AX selection. Cmd+C may
-retry once only if the clipboard marker remains untouched and the same safe source
-is still focused. These retries end on cancellation, user input or focus changes;
-there is no background selection monitoring.
+Double-tap **Control** while the panel is focused, or click the
+**Open in window** button, at any point, even before the first answer. The chat
+moves into the main window at its normal size, with the sidebar as
+**Settings → General → Show sidebar** sets it, and keeps the selection for **/edit**
+and **Replace text**.
 
-## Applying a revision
+What happens to the chat depends on
+**Settings → Selection → Keep selection chats private** (off by default):
 
-Capture remembers the source application (including its PID) and the context ID.
-Replacement activates that same running application and sends one Cmd+V directly
-to its PID using CGEvent. The app's normal paste command acts on its **current**
-selection or insertion point. There is no original AX element, range, text,
-document/URL, continuity, or expiry requirement. Moving the selection or opening
-another document in the same source app does not revoke replacement.
+- **Off**: the chat is saved like any other. It goes to the top of Recents,
+  titled from your first question, and a line under the messages says
+  "Saved to history · Enigma keeps your last 10 chats" until your next message.
+  The button's tooltip reads "Open in window · saves to history".
+- **On**: the chat stays temporary in the window. It isn't saved and doesn't
+  appear in Recents. A line says "Private chat · not saved to history" until your
+  next message, and `temporary · not saved` stays over the composer. The tooltip
+  reads "Open in window · stays private".
 
-The floating panel releases keyboard focus before the
-source app is activated. Accessibility permission, a still-running source,
-successful activation, Secure Event Input, and the current field's password or
-protected status are checked. Unknown password status fails closed. No AX text
-write, re-copy, re-selection, or post-paste readback is performed. All clipboard
-items and representations are preserved; temporary content is tagged transient
-and auto-generated. The pasteboard stays available for 600 ms before restoration.
-A newer clipboard write wins. The same Enigma panel then returns. The notice says
-"Replacement sent" because dispatch does not prove that an external editor
-accepted the paste. A dispatched attempt consumes the replacement action and is
-never retried automatically.
-
-## Verification and compatibility limits
-
-Automated tests cover remembered-PID delivery, replacing the current selection in
-an NSTextView fixture, insertion into a different document with no selection range,
-complete clipboard restoration, transient markers, competing clipboard writes,
-failed activation, permission revocation, password/secure-input blocking, event
-creation failure, and one-shot dispatch without editor acknowledgement. Existing
-capture, shortcut, placement, temporary-chat, context-routing, and panel tests
-remain in place. Original-selection guard tests were replaced to reflect the
-explicitly requested September 9 change in behavior, not to hide failures.
-
-The September 8 signed Safari editor test verified the previous paste route.
-The process-targeted paste route has automated coverage; live Google Docs,
-Gmail, and Word verification remains pending. Do not infer universal compatibility
-from unit tests. Safari was left alone at the user's request. Use the stably signed
-Xcode build for future interactive checks, never the unsigned verification host.
-The September 10 revision-card changes add coverage for acknowledgement/payload
-separation, local/manual follow-ups, cloud automatic application, draft-aware search,
-setting persistence, mid-response setting changes, cancelled/failed/incomplete
-responses, context removal, bounded readiness retries, and a native card render.
-A paste still consumes its source target to avoid repeating an ambiguous mutation.
-Refine drafts before applying them; to replace again after a successful paste,
-select the desired source text and invoke a fresh temporary chat.
-
-![Revision card](design/ui-revamp/screenshots/phase-8/panel-edit-paper.png)
-
-Some editors may delay or reject paste; the clipboard has no universal consumption
-acknowledgement, so unusually delayed apps may not receive the temporary text.
-
-API references: [Apple AXSelectedText](https://developer.apple.com/documentation/applicationservices/kaxselectedtextattribute)
-and [Apple event monitoring](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/EventOverview/MonitoringEvents/MonitoringEvents.html).
-
-The September 10 recovery fix was exercised against the installed Google Gemma 4
-12B model in Auto mode with synthetic text: “make the text sound more professional”
-produced a revision card. The updated smoke test uses `/edit` and also exercises
-code explanation, English-default translation, and explicit Spanish translation. The real model also converted a deliberately unformatted
-options response into a valid single revision. Neither check pasted into a source
-application. Run this opt-in check with `TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1`
-and `scripts/verify-xcode.sh test '-only-testing:EnigmaTests/SelectionContextTests/testInstalledGemmaHandlesSelectionCommands'`
-when that model is selected locally.
+The setting is read when you open a chat in the window; changing it later doesn't
+save or delete a chat that's already open.
 
 
-## Permission and capture recovery
+## Privacy and permissions
 
-Settings → General now starts with Accessibility and Screen Recording status and
-prominent buttons opening the exact macOS privacy panes. Selection Context also
-shows its required Accessibility access above editing preferences. Setup includes
-these controls, and chat shows an Accessibility action when access is missing.
-If an old development/demo copy is listed, replace it with the current Enigma app
-in System Settings and reopen Enigma; consent belongs to the signed app identity.
+### Accessibility
 
-Capture now enables the focused app's optional `AXManualAccessibility` interface
-before bounded readiness retries (up to ten reads). This follows the
-[Electron accessibility guidance](https://www.electronjs.org/docs/latest/tutorial/accessibility).
-Empty AX selected-text results fall through to range-based text; unsupported
-parameterized range reads fall back to the selected UTF-16 slice of AXValue.
-Valid selected text is retained even when a browser omits a selection range.
-Secure-field checks, focus-change cancellation, copy-line safeguards, and
-clipboard ownership protections remain in place. A failed capture now explains
-how to retry or manually paste, instead of silently opening an empty chat.
+Reading the selection and pasting a replacement both need macOS **Accessibility**
+permission. Accessibility also lets **⌥⌃** work while another app is active. The
+backup shortcut **⇧⌥Space** opens the panel without it, but no text is captured.
 
-Automated coverage exercises empty-text fallback, UTF-16 boundaries, readiness
-retries, and existing secure selection / clipboard behavior. Interactive capture
-must be checked with the stable development-signed app, not the unsigned test host.
+Without permission the panel still opens a temporary chat, explains what's
+missing, and offers **Open Accessibility Settings…**. That button asks macOS for
+access and opens **Privacy & Security → Accessibility** directly, in case macOS
+doesn't show its prompt again. Enable **Enigma** there. The permission's status,
+with a button that opens the same pane, is also in **Settings → Selection**,
+**Settings → General → Permissions**, the welcome setup, and **Help**. Enigma checks again whenever you switch apps or show the
+panel, so no restart is needed. If an older copy of Enigma is listed, remove it
+and add the app you're running.
 
-## Compact panel and downward expansion
+### What is read, and when
 
-Selection Context opens the compact panel: a `› selected "…"` line naming the
-selection, with a status button, a remove button and the Open in window button,
-then the input row with the
-character, Attach, a monospace route chip that opens the mode and model menu, and
-a `↵` send key, then a monospace hint row: `/ commands`, `⌃⌃ open in window` and
-`esc close` on the left, and the `temporary · not saved` tag on the right. If nothing is attached, the line reads
-`› no text selected`. The status button opens temporary-chat status and the
-routing and permission notices in an opaque details surface under the input; it
-shows a problem glyph, and the character turns amber, when capture access is
-missing or capture left a notice. Near the bottom of the screen the command list
-and mode menu open above the input. Multi-line drafts resize the panel to its
-measured height.
+- The shortcut monitor looks only at modifier keys and event types; it doesn't
+  record what you type.
+- Text is read only when you invoke the shortcut, and replacement happens only
+  when you ask for it. There is no background selection monitoring.
+- Password fields, secure text fields, protected content and anything under macOS
+  Secure Event Input are never read or pasted into. If Enigma can't tell whether a
+  field is safe, it doesn't read it.
+- Typing, clicking, scrolling or switching apps during a capture cancels it.
+- The selection is limited to 256,000 bytes; larger selections are refused with a
+  notice. A model's context limit can be smaller, in which case the request is
+  refused and your draft is kept.
+- Some apps don't expose selected text to Accessibility. For those Enigma may copy
+  the selection with **⌘C** and read it from the clipboard. Every item and format
+  on your clipboard is saved first and put back afterwards, unless you copied
+  something new in the meantime. If the clipboard can't be saved completely, the
+  copy isn't attempted.
 
-Standalone `/screen` and `/snapshot` captures also add a screenshot thumbnail
-directly above the input, labeled **Full desktop · All displays** or **Screen region**.
-**Retake** repeats that capture type; **Remove** discards its image and OCR from
-the next request without removing the selected-text card or question. The bar
-resizes to keep these controls visible before sending; the details aren't needed
-to find the screenshot. Cloud image consent previews the capture
-and names its actual scope and destination provider, as described in
-[Screen](Screen-Skill.md).
+### Temporary chats and what is saved
 
-The first accepted prompt grows the same panel downward on the `panelAnswer`
-spring. The input stays where it is; the conversation and its cards appear under
-it. Placement keeps the window within the current display, shifting up when there
-is too little room below. Reduce Motion expands immediately.
-Empty or rejected submissions do not expand, and request failures expose details.
-Follow-up sends retain the expanded panel. A fresh selection returns to the bar;
-New Chat restores the previous ordinary window size. Hiding during the animation
-settles its final frame so reopening cannot leave a partially expanded panel.
+While the chat is in the panel it lives only in memory: nothing is written to
+disk and it doesn't count toward saved chats. It's discarded when you invoke the
+selection shortcut again, start a new chat, switch to another chat, or quit.
+Closing the panel without opening the chat in the window saves nothing.
 
-The panel moves when dragged by its background, small or grown: any part with no
-control, field, or selectable text over it, such as the hint row's empty middle or
-the padding around the input. A click without movement changes nothing. A drag
-keeps the panel inside the visible part of the screen under the pointer, clear of
-the menu bar. It isn't a native title-bar drag, so it doesn't move the panel
-between Spaces or offer window tiling. Once moved, later automatic resizing (growing into
-the answer, the command list or mode menu opening above near the screen's bottom,
-the details opening and closing, returning to rest) works from where the user put
-it, kept on the visible screen, and lists open above or below for the room it has
-there. The next summons opens it by the selection again. The main window moves by
-its background the same way, except along a 6 pt band at its edges, which is
-left to resizing; its sidebar and chat keep their clicks and scrolling.
+The selected text itself is never written to disk, even in a saved chat: the
+saved chat keeps your messages and the replies. Replies can still quote parts of
+the selection, such as an **/edit** draft or a translation; turn on
+**Keep selection chats private** to save nothing from selection chats. Once you
+leave a saved selection chat, its selection and **Replace text** are gone, and
+earlier revisions show as quoted text.
 
-The interaction was informed by [Thuki’s input-to-conversation flow](https://github.com/quiet-node/thuki/blob/main/src/App.tsx), implemented here with native AppKit
-window geometry and the existing SwiftUI composer. No dependency was added.
+### Models and search
 
-Regression coverage checks first-send acceptance, context delivery, repeat
-invocation, display-edge geometry, Reduce Motion, interruption by hiding, normal
-window restoration, and native renders of both states. These use synthetic text
-and the unsigned test host; live capture and animation feel still require review
-in the stable development-signed app.
+The chat uses your selected mode and model, local or cloud. In Cloud mode, or when
+Auto picks a cloud model, the selection is sent to that provider along with your
+question. With **/search**, or automatic search when it's on, the model first
+writes a search query from your question and the selection, so relevant details
+from the selection can reach Brave Search. Only your own question decides whether
+automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
 
-![Compact panel with a selection](design/ui-revamp/screenshots/phase-10/compact-panel-paper.png)
+## How it works
 
-![The panel grown into its answer](design/ui-revamp/screenshots/phase-10/compact-panel-answer-paper.png)
+- **Shortcuts.** `SelectionShortcutMonitor` and `OptionDoubleTap`
+  (`Enigma/App/SelectionShortcut.swift`) detect the double tap from global and local
+  `flagsChanged` monitors; settings live under the `enigma.selection.*` defaults keys.
+  `GlobalHotKeyMonitor` (`Enigma/App/GlobalHotKeyMonitor.swift`) registers
+  **⇧⌥Space** as a Carbon hot key, and `PanelShortcutMonitor` handles **⌥⌃**. They
+  are started in `ApplicationDelegate` (`Enigma/App/ApplicationDelegate.swift`).
+  Help's rows and strings are in `KeyboardShortcutsHelp`
+  (`Enigma/App/EnigmaMainWindowLogic.swift`) and
+  `Enigma/App/KeyboardShortcutsHelpView.swift`.
+- **Capture.** `SelectionContextService.capture()` (`Enigma/App/SelectionContextService.swift`)
+  sets `AXManualAccessibility` on the frontmost app, finds the focused element with
+  bounded retries, and reads `AXSelectedText`, then `AXStringForRange` or the
+  selected slice of `AXValue`. `SelectionCapturePolicy` decides when the ⌘C
+  fallback is allowed (browser canvas editors yes; editors that copy the whole line
+  on an empty selection, no). `SelectionPasteboardSnapshot` saves and restores the
+  clipboard. `SelectionInteractionGuard` cancels on user input and tags Enigma's own
+  synthetic events. The result is a `ConversationContext`
+  (`Enigma/Chat/ConversationContext.swift`).
+- **Placement and panel geometry.** `SpotlightPanelController.summonSelectionContext()`
+  (`Enigma/App/SpotlightPanelController.swift`) places the panel with
+  `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, grows it with
+  `SelectionPanelExpansion` (720 pt wide, up to 600 pt tall, on
+  `EnigmaMotion.panelAnswer`), and handles double-tap Control through
+  `openSelectionChatInWindow()`. Dragging uses `enigmaWindowDragArea`
+  (`Enigma/App/EnigmaControls.swift`).
+- **Panel views.** `EnigmaCompactPanel`, `EnigmaCompactSelectionLine`,
+  `EnigmaCompactComposer`, `EnigmaCompactDetails`, `EnigmaCompactAnswer` and
+  `EnigmaCompactHints` are in `Enigma/App/EnigmaCompactPanel.swift`; their labels and
+  rules (`CompactPanelLayout`, `CompactSelectionStatus`, `CompactRouteChip`,
+  `CompactPanelHints`, `CompactPanelCharacter`) are in
+  `Enigma/App/EnigmaCompactPanelLogic.swift`. `AppShellView` (`Enigma/App/AppShellView.swift`)
+  owns the state and actions; `ShellPresentation` (`Enigma/App/ShellPresentation.swift`)
+  tracks whether the panel or the window layout is showing.
+- **Cards.** `SelectionRevisionCard`, `SelectionContextCard` and
+  `AccessibilityNeededCard` are in `Enigma/Chat/SelectionCards.swift`.
+- **Chat and requests.** `LocalChatViewModel` (`Enigma/LocalInference/LocalChatViewModel.swift`)
+  owns the temporary chat (`startTemporaryChat`, `openTemporaryChatInWindow`),
+  decides which turns carry the selection (`requestContexts`, `sentContextIDs`), and
+  handles revisions and recovery. `SelectionResponseMode` chooses the per-request
+  instructions, `ConversationContextPrompt.expand` adds the selection to request
+  copies as JSON marked as untrusted source material, and `SelectionRevisionResponse`
+  parses the `<enigma-revision>` payload; only an **/edit** request with the
+  selection attached can produce a card. Messages store contexts in memory only;
+  they aren't part of the saved chat format. `SelectionEditingSettings` holds the
+  two Selection settings.
+- **Replacement.** `SelectionContextService.replace(with:contextID:)` runs
+  `SelectionPasteTransaction`: check permission and the source app, activate it,
+  check the focused field, snapshot the clipboard, write the text with transient
+  and auto-generated markers, post ⌘V to the source process, wait 600 ms, restore.
+- **Permission.** `SelectionAccessibilityAccess` (same file) tracks trust and opens
+  System Settings; `MacPermissionRows` (`Enigma/Screen/MacPermissionRows.swift`)
+  shows it in Settings and the welcome setup.
 
-## Explicit command regression coverage
+## Limitations
 
-The September 17 command changes cover local/cloud questions and translations,
-English-default and explicit-target request guidance, unsolicited revision payloads,
-follow-ups after editing, Auto and screen text routing, command composition and
-literal examples, request-only metadata, and read-only File Mode translation.
-Existing cancellation, clipboard, context-removal and automatic-replacement checks
-continue to run with explicit `/edit` requests. The native slash-menu render includes
-both new commands. Automated fixtures verify routing and permissions.
+- Capture depends on each app's Accessibility support. Some apps expose nothing,
+  in which case the panel opens with `› no text selected` and a notice suggesting
+  you copy and paste the text yourself.
+- Replacement is a normal paste. An app that is slow to paste may read the
+  clipboard after Enigma has restored it, and Enigma can't confirm the paste landed.
+- Automated tests use synthetic fixtures and an `NSTextView`; behavior in specific
+  editors (web editors, word processors, Electron apps) has to be checked by hand.
+  Use a stably signed build run from Xcode for that, not the unsigned build from
+  `scripts/verify-xcode.sh`, which can invalidate macOS consent.
+- Translation quality and how well a model follows **/edit** depend on the model;
+  the permission to replace text is enforced by Enigma.
+- Moving the panel by dragging doesn't move it between Spaces.
 
-For the initial command change, local verification passed: `build`, the full test
-suite (525 tests, 10 opt-in tests
-skipped, zero failures), and `analyze`. The opt-in Gemma 4 12B smoke test also passed
-separately using synthetic text. It explained `numbers.map { $0 * 2 }`, translated
-“Bonjour, le monde !” to “Hello, world!” by default and “¡Hola, mundo!” when Spanish
-was requested, with and without `/translate`. None of those responses produced a
-revision card. Explicit `/edit` and revision recovery still produced valid drafts.
-These examples confirm the configured model's behavior, not translation quality
-for every language or model. No source-application paste was performed.
+## Tests
 
-The draft-removal follow-up passed `build`, `analyze`, and all 51 selection tests
-(one live-model opt-in skipped). A subsequent full local run covered 526 tests but
-had window-focus failures and extra keyboard input in the scrolling fixture.
-All 16 window-command tests passed on retry; the scrolling retry also received
-extra keystrokes. Its assertions were not changed or skipped. Use the isolated
-GitHub Actions run on the published commit for the final full-suite result.
+- `EnigmaTests/SelectionContextTests.swift`: the double-tap detector, placement,
+  AX fallbacks and readiness retries, clipboard preservation, paste transactions
+  and their failure paths, which turns carry the selection, **/edit** and
+  **/translate** handling, revision recovery, automatic replacement, temporary and
+  private chats, and panel expansion.
+- `EnigmaTests/EnigmaCompactPanelTests.swift`: the panel's chip, placeholder, hints
+  and character state; growing, resizing, dragging, the details, Escape, opening in
+  the window (saved and private), and rendered screenshots.
+- `EnigmaTests/ScreenViewTests.swift` covers screenshots captured from the panel.
+
+Run one class with
+`scripts/verify-xcode.sh test -only-testing:EnigmaTests/SelectionContextTests`.
+See [Testing](Testing.md).
+
+`SelectionContextTests/testInstalledGemmaHandlesSelectionCommands` is an opt-in
+check against an installed local model whose ID contains `12b`. It uses synthetic
+text and never pastes. Run it with:
+
+```sh
+TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1 scripts/verify-xcode.sh test \
+  -only-testing:EnigmaTests/SelectionContextTests/testInstalledGemmaHandlesSelectionCommands
+```

@@ -1,59 +1,145 @@
 # Slash commands
 
-Recognized commands stay highlighted in `accentText` in the composer and work at the start, middle, or
-end of a message. `/search` applies only to the current message and stays visible
-until acceptance. Deleting it cancels explicit search; subsequent messages follow
-the automatic-search preference in Settings → Cloud and search → Web search · Brave.
-Automatic search defaults to on and requires a saved Brave key. Capture commands
-run when you submit.
-`/think` applies only to the current answer, including File Mode requests.
+Slash commands are short words starting with `/` that you type into the message
+field to turn on a tool for one message: capture the screen, search the web,
+think harder, revise or translate selected text, or use Apple Messages. They
+work anywhere in a message and are highlighted as you type.
 
-| Command | Action |
-| --- | --- |
-| `/search` | Search the web for this message only |
-| `/screen` | Capture all displays |
-| `/snapshot` | Select a screen region |
-| `/think` | Request more careful reasoning |
-| `/messages` | Read, search, and send Apple Messages for this message only |
+## Commands
 
-Type `/` anywhere after whitespace, or click the composer's `/` button, to see
-the commands and their descriptions.
-`/search` is offered only with a saved Brave key, including in Help and the welcome
-tour. Saving or removing a key updates suggestions immediately without editing
-the draft. The automatic-search preference does not hide deliberate `/search`.
-Suggestions filter by the text before the caret, case-insensitively. Use ↑/↓ to
-select, Tab or Return to complete, or click a suggestion. Escape dismisses the
-list before hiding the panel. Shift-Return inserts a newline. Completion edits
-only the command at the caret and supports Undo.
+| Command | Shown description | What it does |
+| --- | --- | --- |
+| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved. See [Web Search](Web-Search.md). |
+| `/screen` | Capture all displays | Captures every display, then asks about it. See [Screen](Screen-Skill.md). |
+| `/snapshot` | Select a screen region to capture | Lets you drag out a region of the screen, then asks about it. |
+| `/think` | Think more deeply for this answer | Asks the model to reason more carefully for this answer, with a larger answer allowance on local models and a higher reasoning effort on cloud models that support it. Works with File Mode and `/messages` too. |
+| `/edit` | Revise selected text with your instructions | With Selection Context attached, returns one revised version of the selected text in a card you can edit and use to replace the selection. See [Selection Context](Selection-Context.md). |
+| `/translate` | Translate to English or a language you name | Translates the text you give, or the selected text when you give none. English unless you name another language, as in `/translate this to Spanish`. Always read-only. |
+| `/messages` | Read, search, and send your Messages | Gives the model the Messages tools for this message only. Sending still needs your approval. See [Messages](Messages.md). |
 
-The list is an opaque `menu` surface that floats over the composer without moving
-its attachment, model, or send controls. It opens below the composer while it sits
-high on the main page and above it once docked, and in the compact panel it opens
-above the input near the bottom of the screen. Each command is set in monospace
-`accentText` beside its description, with the chosen one on a `hover` fill. History
-remains hidden at startup.
+Every command applies to the message it's in. The next message goes back to
+normal behavior, including the automatic-search setting.
 
-Commands must be separate tokens; punctuation may follow them. Quoted examples,
-backtick code, URLs, paths, and unknown commands remain literal text. Repeated
-commands activate once; `/snapshot` takes precedence over `/screen` if both occur.
-Screen and Search remain incompatible with attached File Mode selections.
-`/messages` cannot be combined with Screen, Search, or File Mode; see
-[Messages](Messages.md).
+## Typing and completing commands
 
-Submitting `/screen` or `/snapshot` alone attaches an image and waits for your
-question. Both the window and the compact panel show a thumbnail with
-**Retake** and **Remove**. Retake repeats the capture type; Remove excludes the
-image and extracted OCR from your next request. Cloud image consent previews
-the capture and names its scope and selected provider. See
-[Screen](Screen-Skill.md) for the saved permission and OCR distinction.
+Type `/` at the start of the message or after a space, or click the **/** button
+in the composer, to open the list of commands. The list filters as you type,
+ignoring case, and shows each command in monospace next to its description.
 
-![Command suggestions under the composer](design/ui-revamp/screenshots/phase-6/composer-commands-paper.png)
+- **↑** and **↓** choose a command.
+- **Tab** or **Return** completes it. Clicking a command does the same.
+- **Esc** closes the list before it does anything else, such as hiding the panel.
+- **Shift-Return** inserts a new line. **Return** sends when the list is closed.
 
-The screenshot above is intentionally checked in as UI review documentation.
-Build products and generated test renders remain outside the repository. The
-rendering test also retains the screenshot as an XCTest attachment.
+Completion replaces only the command at the caret, adds a space after it when
+needed, and can be undone with **⌘Z**.
 
-Verification uses `scripts/verify-xcode.sh build`, `test`, and `analyze`.
-Regression coverage includes placement, boundaries, Unicode caret offsets,
-completion, undo, keyboard navigation, multiline entry, capture cancellation,
-focus restoration, and conversation scrolling.
+![The command list under the composer on the main page](design/ui-revamp/screenshots/phase-6/composer-commands-paper.png)
+
+In the main window the list opens below the composer while it sits in the middle
+of an empty chat, and above it once the composer is docked at the bottom. In the
+compact selection panel it opens below the input, or above it when the panel is
+too close to the bottom of the screen.
+
+![The command list in the compact selection panel](design/ui-revamp/screenshots/phase-8/panel-commands-paper.png)
+
+An empty chat also shows up to four example lines under the composer, such as
+`/translate "Bạn khỏe không?" → "How are you?"`. Clicking one puts the command
+into the message field. The welcome tour lists the available commands, and
+**Help** lists the screen, search and thinking commands.
+
+`/search` appears in the list, the examples, Help and the welcome tour only when
+a Brave Search key is saved. Saving or removing the key updates the list right
+away without touching your draft.
+
+## How commands are recognized
+
+- A command must be its own word: at the start of the message or after
+  whitespace, followed by a space, the end of the message, or punctuation
+  (`. , ! ? ; :`). Case doesn't matter.
+- Text in backticks or double quotes stays literal, so you can write about
+  `` `/think` `` without triggering it. URLs, paths such as `/tmp/screen`,
+  `\/think`, words such as `/thinker`, and unknown commands stay as typed.
+- A command typed more than once counts once. Commands are removed from the
+  text the model receives, except `/edit` and `/translate`, which stay at the
+  start of the message so the model knows what was asked.
+- If both `/screen` and `/snapshot` appear, `/snapshot` wins.
+- If both `/edit` and `/translate` appear, `/translate` wins and the request
+  stays read-only.
+
+## Combining commands
+
+Commands combine in any order, for example `/screen /search what changed in this
+release?` or `/think /edit make it shorter`. Some combinations are blocked
+before anything is sent:
+
+- With files attached (File Mode), `/screen`, `/snapshot`, `/search` and
+  `/messages` can't be used. Enigma shows: "Turn off Screen, Web Search, and
+  Messages to work with your attached files." Attaching files also removes
+  `/search` from the draft and any attached screenshot.
+- `/messages` can't be combined with `/screen`, `/snapshot`, `/search` or an
+  attached screenshot, so message contents never become a web search query.
+
+## Screen captures
+
+`/screen` or `/snapshot` with a question captures first, then sends the question
+with the capture. On its own, the command attaches the capture and waits for your
+question. The attachment card offers **Retake** and **Remove**. If you change the
+draft while a capture is in progress, nothing is sent automatically. See
+[Screen](Screen-Skill.md) for permissions, OCR and cloud image consent.
+
+## Privacy
+
+Only commands you type in the current message count. Text from a selection, a
+file, a screenshot or earlier messages can't turn on search, editing or
+Messages, and quoted commands stay literal. `/search` sends a query to Brave;
+`/messages` reads your local Messages database and needs your approval to send.
+
+## How it works
+
+- `Enigma/App/SlashCommand.swift`: `SlashCommand` is the one catalog of commands,
+  their descriptions, and the parsing used for highlighting, completion and
+  execution. `available(hasSearchKey:)` hides `/search` without a key.
+  `tokens(in:)` and `removing(_:from:)` find and strip commands;
+  `completion(in:selection:availableCommands:)` finds the command at the caret.
+- `Enigma/App/SlashCommandComposer.swift`: `SlashCommandComposer` wraps an
+  AppKit `SlashCommandTextView` that colors commands with the palette's
+  `accentText`, handles the keys above, and shows the list
+  (`EnigmaSlashSuggestions`, an opaque `menu` surface). `CommandCompletionModel`
+  tracks matches and the chosen row. `SlashCommandInsertion` lets the **/**
+  button and example lines insert text at the caret.
+- `Enigma/App/EnigmaComposer.swift` and `Enigma/App/EnigmaCompactPanel.swift`
+  place the field in the main window and the compact panel.
+- `Enigma/Screen/ScreenAttachment.swift`: `ComposerCommands` resolves the
+  commands in a draft once, at submission. `ThinkCommand` handles `/think`.
+- `Enigma/App/ComposerSubmission.swift`: `ComposerSubmission.plan` decides what
+  Send does, including the File Mode and Messages conflicts.
+- `Enigma/Chat/ConversationContext.swift`: `SelectionResponseMode` turns `/edit`
+  and `/translate` into the selection instructions.
+- `Enigma/App/EnigmaMainWindowLogic.swift`: `SlashCommandExample` (example
+  lines) and `KeyboardShortcutsHelp` (Help).
+
+## Limitations
+
+- `/edit` only changes behavior when Selection Context is attached. Without a
+  selection, the message is sent as an ordinary question.
+- Commands are English words and can't be renamed.
+- Help doesn't list `/edit`, `/translate` or `/messages` as rows; it describes
+  `/edit` and `/translate` in its selection notes.
+
+## Tests
+
+- `EnigmaTests/ScreenCaptureTests.swift`: parsing at every position and case,
+  literals and unknown commands, `/edit` and `/translate` combinations, caret
+  completion with Unicode text, and capture with and without a question.
+- `EnigmaTests/ScreenPipelineTests.swift`: commands in either order, once, with
+  quoted text kept.
+- `EnigmaTests/ScreenViewTests.swift`: the rendered list with a highlighted draft.
+- `EnigmaTests/EnigmaMainWindowTests.swift`: example lines follow the available
+  commands; the **/** button types a command.
+- `EnigmaTests/WebSearchTests.swift`: `/search` suggestions follow the saved key;
+  removing `/search` returns to the automatic setting.
+- `EnigmaTests/MessagesTests.swift` and `EnigmaTests/FileModeUITests.swift`:
+  `/messages` parsing and `/translate` staying read-only in File Mode.
+
+Run them with `scripts/verify-xcode.sh test`. See [Testing](Testing.md).

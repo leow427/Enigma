@@ -1,95 +1,261 @@
-# Cloud model selection (Group E)
+# Cloud models
 
-Enigma's OpenAI client implements streaming text conversations with
-`POST /v1/responses`, string user/assistant messages, `store: false`, and a bounded
-`max_output_tokens`. The general [OpenAI Models API](https://developers.openai.com/api/reference/resources/models)
-is an account model listing, not a certification that each entry accepts this
-request. A model-list check never sends a generation request.
+Enigma can send a request to a cloud model when you choose Cloud, or when Auto
+decides a request needs more than the local model. It supports five providers:
+ChatGPT via Codex, Claude via Claude Code, and the OpenAI, Anthropic and Gemini
+APIs with your own key. This page covers connecting them, choosing a model, and
+how Auto picks between this Mac and the cloud.
 
-## Compatibility and defaults
+## Modes
 
-`CloudModelCapabilities` owns both reviewed endpoint compatibility and published
-context/output limits. `ModelContextPolicy` uses that metadata for the existing
-Group A budgets; catalog selection, settings, Auto, and request preparation do
-not maintain separate model-limit tables.
+![Mode and model menu](design/ui-revamp/screenshots/phase-6/model-menu-paper.png)
 
-OpenAI discovery returns only exact IDs reviewed for text input/output, Responses,
-and streaming. The table below is the app's fallback order, not alphabetical or
-provider-list order. It favors Luna for the lightweight default, then smaller
-general-purpose alternatives before larger models. Within a row the alias is
-preferred, followed by the listed snapshots. This is a product selection policy,
-not a live price comparison or a guarantee of account access.
+Every chat runs in one of three modes, chosen on the main page or in the
+composer's mode and model menu (⌘K also opens it):
 
-| Preference | Reviewed API IDs (in order) | Published context | Published maximum output | Provider source |
-|---|---|---:|---:|---|
-| 1 | `gpt-5.6-luna` | 1,050,000 | 128,000 | [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) |
-| 2 | `gpt-5.4-mini`, `gpt-5.4-mini-2026-03-17` | 400,000 | 128,000 | [GPT-5.4 Mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) |
-| 3 | `gpt-5-mini` | 400,000 | 128,000 | [GPT-5 Mini](https://developers.openai.com/api/docs/models/gpt-5-mini) |
-| 4 | `gpt-4.1-mini`, `gpt-4.1-mini-2025-04-14` | 1,047,576 | 32,768 | [GPT-4.1 Mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) |
-| 5 | `gpt-4o-mini`, `gpt-4o-mini-2024-07-18` | 128,000 | 16,384 | [GPT-4o Mini](https://developers.openai.com/api/docs/models/gpt-4o-mini) |
-| 6 | `gpt-5.6-terra` | 1,050,000 | 128,000 | [Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra) |
-| 7 | `gpt-5.6-sol`, `gpt-5.6` | 1,050,000 | 128,000 | [Sol and its API alias](https://developers.openai.com/api/docs/models/gpt-5.6-sol) |
-| 8 | `gpt-4.1`, `gpt-4.1-2025-04-14` | 1,047,576 | 32,768 | [GPT-4.1](https://developers.openai.com/api/docs/models/gpt-4.1) |
-| 9 | `gpt-4o`, `gpt-4o-2024-11-20`, `gpt-4o-2024-08-06` | 128,000 | 16,384 | [GPT-4o](https://developers.openai.com/api/docs/models/gpt-4o) |
+- **Auto**, *on this Mac, cloud only when needed*. The default.
+- **Local**, *stays on this Mac*. Uses the selected local model only.
+- **Cloud**, *sent to* the preferred provider. Uses the preferred cloud model.
 
-Sources reviewed on **2026-09-04**. This is intentionally a reviewed subset, not
-an exhaustive provider catalog. Other aliases, older/deprecated snapshots, new
-models, and fine-tuned IDs remain available through manual entry with unverified
-feedback. Supporting another automatic choice requires reviewing its exact ID,
-text modality, endpoint, streaming, request options, and limits in provider docs,
-then updating this shared metadata and regression coverage.
+The menu also lists the models for the current mode: installed local models
+under **On this Mac**, and the preferred provider's models under its name, each
+marked **text + images** or **text only**. A new choice made while a reply is
+running applies to the next request. The composer shows where the next request
+runs: **● local** or **○ cloud**. **General → Start mode** sets the mode new
+chats start in (see [Welcome-and-Settings.md](Welcome-and-Settings.md)).
 
-Image, embedding, video, speech, transcription, realtime, and moderation families
-are unsupported by this app's text-chat request. Family matching is only used to
-identify these incompatible categories, using an exact name or hyphen boundary;
-it never grants compatibility. The [official model catalog](https://developers.openai.com/api/docs/models/all)
-documents these specialized categories. Unknown names are unverified rather than
-assumed to work because they begin with `gpt-`.
+### How Auto decides
 
-Anthropic and Codex retain their provider-supplied chat model order. Anthropic's
-[Models API](https://platform.claude.com/docs/en/api/models/list) lists the models
-available for its API, with newer releases first. Codex uses its existing
-`model/list` integration. Neither route inherits the OpenAI API allowlist. The
-existing Codex Luna default and its three exact GPT-5.6 limit entries are retained;
-the OpenAI `gpt-5.6` alias is not certified for Codex.
+Auto picks a route from the request itself, without asking another model:
 
-## Saved and manual choices
+1. If no cloud provider is ready, Auto uses the local model and doesn't examine
+   the prompt. With no local model either, it says **Choose a local model or
+   connect Cloud before using Auto.**
+2. If the prompt asks for a web lookup ("search the web", "latest news",
+   "current price" and similar) and web search isn't on for the request, Auto
+   stops and suggests using `/search`. See [Web-Search.md](Web-Search.md).
+3. If the conversation won't fit the local model's context, Auto uses the cloud,
+   provided the latest message fits the cloud budget.
+4. Coding requests (for example "write a function", "debug", "stack trace", or a
+   language name such as Swift or Python) go to the cloud.
+5. Demanding reasoning goes to the cloud: words such as "analyze", "prove" or
+   "troubleshoot", or a combination of comparison, depth and constraint words.
+   Length alone never sends a request to the cloud.
+6. Everything else stays on this Mac. With no local model installed, it goes to
+   the cloud.
 
-- Only an empty preference can receive an automatic default. A nonempty saved or
-  manual choice survives discovery, cache loading, provider changes, connection
-  checks, and an absent entry in a later list.
-- A reviewed compatible ID can be entered manually even when discovery fails or
-  the account list omits it. The feedback explicitly separates chat compatibility
-  from account access and billing.
-- An unsupported ID stays visible and editable. Sending is disabled, and request
-  preparation also rejects it before accepting a draft or inserting transcript
-  messages. Direct provider calls get the same rejection before network access.
-- An unknown ID stays usable under Group A's conservative budget. Settings and
-  idle Cloud feedback identify it as unverified. The provider can reject it when
-  the user sends; no free compatibility claim or implicit paid probe is made.
+Screenshots follow the same decision, with extra rules for sending images; see
+[Screen-Skill.md](Screen-Skill.md).
 
-A syntactically valid empty list, or a list with no reviewed compatible choices,
-is a successful account/model-list check with zero compatible models. Settings
-explain how to refresh or enter an ID. An empty preference remains empty; an
-existing preference remains intact. Authentication errors and malformed lists
-remain errors.
+## Providers
 
-## Caches, request limits, and verification
+| Provider | How it connects | Model list | Default model |
+|---|---|---|---|
+| **ChatGPT via Codex** | Your ChatGPT plan through the Codex CLI. See [ChatGPT-Setup.md](ChatGPT-Setup.md). | Codex's own model list, in Codex's order | `gpt-5.6-luna` |
+| **Claude via Claude Code** | Your Claude plan through Claude Code. See [Claude-Code-Setup.md](Claude-Code-Setup.md). | Sonnet, Opus, Fable and Haiku (latest), which Claude Code resolves to the newest model your plan offers | `sonnet` |
+| **OpenAI** | Your OpenAI API key | The account's models, filtered to the reviewed list below, in fallback order | First reviewed model in the account's list |
+| **Anthropic** | Your Anthropic API key | The account's models, in Anthropic's order | First model listed |
+| **Gemini** | Your Gemini API key | The account's models that support `generateContent`, in Google's order | First model listed |
 
-The cache format and 24-hour lifetime are unchanged. Raw discovered IDs stay in
-the cache; every read reapplies current compatibility rules, including reads of
-pre-fix caches. Duplicate, empty, and wrong-provider entries are excluded. No
-model files, chat archives, or preferences require migration. Users with a saved
-incompatible choice must explicitly choose a different model.
+ChatGPT via Codex is the preferred provider until you choose another. Signing in
+to ChatGPT or Claude makes that provider preferred and refreshes its models.
 
-All reviewed OpenAI models retain the app's 32,768-token input cap, 4,096-token
-reply cap, and 512-token protocol reserve. Unknown models retain the conservative
-8,192-token application policy. See [Context-Budgets.md](Context-Budgets.md) for
-the complete estimation and trimming behavior. Compatibility does not certify
-quotas, billing, account entitlement, model answer quality, or future availability.
+## Choosing a cloud model
 
-`CloudModelSelectionTests` exercises production catalog/cache/settings logic,
-request preparation, and the Responses client through controlled network seams.
-It covers the mixed-list regression, no-compatible results, preserved selections,
-manual feedback, account/compatibility separation, in-flight preference changes,
-and shared-budget boundaries. No API key or live paid request is needed.
+![Settings → Cloud and search](design/ui-revamp/screenshots/phase-10/settings-cloud-paper.png)
+
+**Settings → Cloud and search** has **Subscriptions** (ChatGPT and Claude
+sign-in), the Screen and web search sections, **Advanced cloud settings**, and
+**API keys**.
+
+**Advanced cloud settings** holds:
+
+- **Preferred provider**: the provider Cloud mode and Auto use.
+- **Preferred model**: the provider's listed models. A model ID you typed that
+  isn't listed appears as **Manual · *id***. Before a list loads, the row
+  explains how to refresh or enter an ID.
+- **Manual model ID**: type any model ID. The status line below it says whether
+  it is compatible (see below).
+- **Thinking capacity** (ChatGPT only, default **High**) or **Effort** (Claude
+  only, default **Model Default**). `/think` raises these for one request; see
+  [Slash-Commands.md](Slash-Commands.md).
+- **Model list**: **Refresh Models** fetches the provider's list again.
+
+Under **API keys**, each of **OpenAI API**, **Anthropic API** and **Gemini API**
+has a secure field, **Save to Keychain** (or Return), **Remove** and **Test
+connection**. A stored key reads **API key stored in Keychain**. A successful
+test reads **API reachable · Compatible chat models: *N*** with the note
+**Model-list check only. Sending and billing were not tested.** OpenAI API usage
+is billed separately; a ChatGPT plan doesn't include it.
+
+Your choice is saved per provider. Enigma fills in a default only when the
+preference is empty; a saved or typed choice survives refreshes, provider
+switches, connection tests and a later list that omits it.
+
+### Compatibility
+
+The status under **Manual model ID** is one of:
+
+- **Compatible with text chat. Account access and billing are checked when you
+  send.** A reviewed model ID, or (for every provider except the OpenAI API) one
+  the provider listed.
+- **Unverified model. You can try this ID, but text-chat support and account
+  access are not confirmed.** Sending is allowed; the provider may reject it,
+  and Enigma uses a conservative context budget.
+- **This model cannot be used for text chat in Enigma. Choose a compatible
+  model.** OpenAI image, embedding, video, speech, transcription, realtime and
+  moderation families. Sending is blocked before anything leaves the Mac.
+- **Choose a compatible model or enter a model ID.** Nothing selected.
+
+A list with no compatible models is still a successful check. Settings then
+says **No verified text-chat models were found. Refresh after checking model
+access, or enter a model ID manually. Saved selections are kept.** Wrong keys,
+rate limits, offline errors and unreadable lists are reported as errors.
+
+Cloud mode is ready when the preferred provider is signed in or has a key and
+the preferred model is compatible or unverified.
+
+### Images
+
+Cloud models receive screenshots only when you allow it (see
+[Screen-Skill.md](Screen-Skill.md)) and only if the model is on the reviewed
+image list:
+
+- OpenAI: `gpt-5.4-mini`, `gpt-5-mini`, `gpt-4.1-mini`, `gpt-4.1`,
+  `gpt-4o-mini`, `gpt-4o` and their listed snapshots.
+- Anthropic: `claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5`,
+  `claude-sonnet-4-5`, `claude-sonnet-4-20250514`, `claude-opus-4-20250514`,
+  `claude-3-7-sonnet-20250219`, `claude-3-5-haiku-20241022` and listed
+  snapshots.
+- Gemini: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`.
+
+ChatGPT via Codex and Claude via Claude Code are text-only in Enigma. A model's
+name never grants image support.
+
+## Privacy
+
+- Nothing goes to a cloud provider in Local mode. In Auto, only requests routed
+  to the cloud are sent.
+- API keys are stored in the macOS Keychain. Checking whether a key exists
+  doesn't read the key, so it never triggers a Keychain prompt.
+- A model-list check or **Test connection** sends no prompt.
+- OpenAI requests set `store: false`.
+- ChatGPT requests run in temporary Codex threads with a read-only sandbox, no
+  approvals and an instruction not to use tools. Claude requests run in a fresh
+  Claude Code process with tools, MCP servers, hooks, plugins and CLAUDE.md
+  turned off and no saved session. Neither inherits API keys from Enigma.
+- The cached model lists (`cloud-models.json` in Application Support) hold model
+  IDs and names only.
+
+## How it works
+
+| Area | Types | Files |
+|---|---|---|
+| Providers, models, errors | `CloudProviderID`, `CloudModel`, `CloudProviderError` | `Enigma/Cloud/CloudDomain.swift` |
+| Compatibility and limits | `CloudModelCapabilities`, `CloudModelCompatibility` | `Enigma/Cloud/CloudModelCapabilities.swift` |
+| Image support | `CloudModelCapabilities.visionModelIDs` | `Enigma/Screen/ScreenRoutingPolicy.swift` |
+| Model lists and cache | `CloudModelCatalog` | `Enigma/Cloud/CloudModelCatalog.swift` |
+| Preferences and connection state | `CloudSettingsModel`, `CloudPreferencesStore` | `Enigma/Cloud/CloudSettingsModel.swift` |
+| Settings UI | `CloudSettingsPage`, `AdvancedCloudSettings`, `APIKeyRow`, `CloudSettingsForm` | `Enigma/Cloud/CloudSettingsPage.swift`, `Enigma/Cloud/CloudSettingsForm.swift`, `Enigma/Cloud/CloudConnectionControls.swift` |
+| API clients | `OpenAIResponsesClient`, `AnthropicMessagesClient`, `GeminiContentClient`, `CloudProviderRegistry` | `Enigma/Cloud/CloudProviderClients.swift`, `Enigma/Cloud/GeminiContentClient.swift` |
+| Subscription clients | `CodexSubscriptionClient`, `ClaudeCodeSubscriptionClient` | `Enigma/Cloud/CodexSubscriptionClient.swift`, `Enigma/Cloud/CodexAppServer.swift`, `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` |
+| Keychain | `KeychainCredentialStore` | `Enigma/Cloud/KeychainCredentialStore.swift` |
+| Routing and budgets | `AutoRouter`, `ModelContextPolicy`, `CloudContext` | `Enigma/Chat/AutoRouter.swift`, `Enigma/Chat/ChatContext.swift` |
+| Mode menu | `ModeAndModelMenu`, `ComposerRouteIndicator` | `Enigma/App/EnigmaMainWindowLogic.swift` |
+
+The API clients stream over server-sent events: OpenAI uses
+`POST /v1/responses`, Anthropic `POST /v1/messages`, and Gemini
+`streamGenerateContent`. Model lists come from `/v1/models` (OpenAI and
+Anthropic), `v1beta/models` (Gemini), Codex's `model/list` (hidden models
+excluded) and Claude Code's sign-in status (the four aliases are fixed).
+
+`CloudModelCatalog` caches each provider's raw list for 24 hours. Every read
+reapplies the current compatibility rules and drops empty, duplicate and
+wrong-provider entries, so a rules change takes effect without a refresh.
+`CloudContext.prepare` rejects an unsupported model before any request is built.
+
+### Context budgets
+
+`ModelContextPolicy.cloud` gives every request a context window, a reply
+reserve, a protocol reserve and a 32,768-token input cap, using
+`CloudModelCapabilities` metadata where it exists. Older messages are trimmed to
+fit; see [Chat.md](Chat.md).
+
+| Route | Reviewed model | Unknown model |
+|---|---|---|
+| OpenAI, Anthropic, Gemini APIs | Published context; reply up to 4,096 tokens; 512 reserved | 8,192-token context; 4,096 reply; 512 reserved |
+| ChatGPT via Codex | Published context and maximum output; 8,192 reserved | 32,768 context; 16,384 reply; 8,192 reserved |
+| Claude via Claude Code | 200,000 context; 32,000 output; 16,384 reserved | 65,536 context; 8,192 reply; 16,384 reserved |
+
+Anthropic models on the image list use a 200,000-token context; Gemini models on
+the image list use 1,048,576. Other listed models from those providers use the
+unknown-model budget.
+
+### Sources, review date and fallback ordering
+
+The OpenAI API needs an allowlist because its general
+[Models API](https://developers.openai.com/api/reference/resources/models)
+lists every model on the account, not just ones that accept Enigma's streaming
+text request. Only these exact IDs are compatible. The order is the fallback
+order for an empty preference: the lightweight Luna first, then smaller
+general-purpose models, then larger ones. Within a row the alias comes before
+its snapshots. This is a product choice, not a price comparison or a promise of
+account access.
+
+| Order | OpenAI API IDs | Context | Maximum output | Also on Codex | Source |
+|---:|---|---:|---:|---|---|
+| 1 | `gpt-5.6-luna` | 1,050,000 | 128,000 | Yes | [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) |
+| 2 | `gpt-5.4-mini`, `gpt-5.4-mini-2026-03-17` | 400,000 | 128,000 | No | [GPT-5.4 Mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) |
+| 3 | `gpt-5-mini` | 400,000 | 128,000 | No | [GPT-5 Mini](https://developers.openai.com/api/docs/models/gpt-5-mini) |
+| 4 | `gpt-4.1-mini`, `gpt-4.1-mini-2025-04-14` | 1,047,576 | 32,768 | No | [GPT-4.1 Mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) |
+| 5 | `gpt-4o-mini`, `gpt-4o-mini-2024-07-18` | 128,000 | 16,384 | No | [GPT-4o Mini](https://developers.openai.com/api/docs/models/gpt-4o-mini) |
+| 6 | `gpt-5.6-terra` | 1,050,000 | 128,000 | Yes | [Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra) |
+| 7 | `gpt-5.6-sol`, `gpt-5.6` | 1,050,000 | 128,000 | `gpt-5.6-sol` only | [Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol) |
+| 8 | `gpt-4.1`, `gpt-4.1-2025-04-14` | 1,047,576 | 32,768 | No | [GPT-4.1](https://developers.openai.com/api/docs/models/gpt-4.1) |
+| 9 | `gpt-4o`, `gpt-4o-2024-11-20`, `gpt-4o-2024-08-06` | 128,000 | 16,384 | No | [GPT-4o](https://developers.openai.com/api/docs/models/gpt-4o) |
+
+Sources reviewed on 2026-09-04. The unsupported families are identified from
+the [OpenAI model catalog](https://developers.openai.com/api/docs/models/all) by
+exact name or a hyphenated prefix; that check only ever rules models out. Other
+aliases, older snapshots, new models and fine-tuned IDs stay usable as
+unverified manual entries.
+
+Anthropic, Gemini, Codex and Claude Code keep their providers' own order
+(Anthropic's [Models API](https://platform.claude.com/docs/en/api/models/list)
+lists newer models first). The "Also on Codex" column marks the IDs with limits
+for ChatGPT via Codex; the API alias `gpt-5.6` is not a Codex model ID.
+
+To support another model automatically, check its exact ID, text modality,
+endpoint, streaming support, request options and limits in the provider's
+documentation, then update `CloudModelCapabilities`, this page and
+`CloudModelSelectionTests`.
+
+## Limitations
+
+- Compatibility says nothing about quotas, billing, plan access, answer quality
+  or future availability; those are only known when you send.
+- The OpenAI allowlist is a reviewed subset and needs manual updates as OpenAI
+  releases models.
+- Unknown models get a small context budget even if the provider supports more.
+- Auto's routing uses keyword rules, so it can misjudge a prompt. Choose Local or
+  Cloud to override it.
+- The subscription routes don't accept images.
+
+## Tests
+
+The tests use controlled network and process seams and need no API key, sign-in
+or paid request:
+
+- `CloudModelSelectionTests`: the OpenAI allowlist and fallback order, mixed and
+  empty lists, cache filtering, saved and manual choices, compatibility feedback,
+  and shared budgets.
+- `CloudModeTests` and `CloudStreamingTransportTests`: request shapes, errors,
+  the 24-hour cache, streaming, cancellation and partial output.
+- `AutoRouterTests`: Auto's routing rules.
+- `CodexSubscriptionTests` and `ClaudeCodeSubscriptionTests`: the subscription
+  routes, sign-in and default models.
+- `EnigmaSettingsTests`: the Cloud and search page.
+
+Run one suite with
+`scripts/verify-xcode.sh test -only-testing:EnigmaTests/CloudModelSelectionTests`.
+See [Testing.md](Testing.md).

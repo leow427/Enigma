@@ -1,112 +1,258 @@
 # Screen
 
-The composer shows only **File Mode** as an attachment tool. Use **/screen** to
-capture the full desktop (all connected displays in their desktop arrangement),
-or **/snapshot** to select a region. Either command with a question captures and
-sends; the command alone attaches and waits. Retake repeats the attachment's
-capture type. `/think`, `/screen`, `/snapshot`, `/search`, `/edit`, and `/translate`
-can be combined anywhere in the draft. Quoted commands and code examples remain
-literal text. For example, `/screen /translate to Spanish` captures and requests a
-read-only translation. See [Selection Context](Selection-Context.md) for editing
-and translation behavior.
+Enigma can look at your screen when you ask it to. **/screen** captures the whole
+desktop and **/snapshot** captures a region you select. Enigma reads the text in
+the capture on your Mac first, and sends the image itself only when the question
+needs it. A screenshot goes to a cloud model only after you allow it.
 
-Both the full panel and compact selection composer show the attached screenshot
-directly above the input, with a thumbnail, capture scope, **Retake**, and **Remove**.
-The desktop label explicitly includes all displays. A standalone capture waits
-for a question without expanding the compact conversation. Remove discards the
-image and its OCR from the next request while preserving the question and any
-selected text. Hide Inactive Tools does not hide or disable an attachment; the
-obsolete Screen toggle has been removed.
+## Using it
 
-Use **/think your question** to request more reasoning for one answer. The local
-server enables thinking and reserves 2,048 output tokens, with 1,024 available for
-reasoning; ordinary replies keep their existing 512-token budget. File Mode also
-carries the request's thinking setting through its tool loop. Cloud adapters set
-provider-specific thinking controls; ChatGPT increases effort to at least Extra
-High without lowering a stronger existing setting. Reply history excludes the
-transient thinking setting and internal guidance. See
-[thinking and capture verification](Thinking-and-Capture.md).
+Type a capture command in the composer, in the main window or the compact
+selection panel:
 
-Capture preflights Screen Recording permission before hiding the panel. Permission
-denial, cancellation and failed retakes preserve the draft and previous attachment.
-The transparent, click-through panel stays ordered while macOS owns region
-selection. Capture hides other app windows, suppresses shortcuts during selection,
-restores the original panel frame and decodes/deletes its temporary PNG immediately.
-Do interactive capture testing only with the stable Apple Development-signed Xcode
-app; unsigned verification products can invalidate macOS Screen Recording consent.
+- **/screen** captures every connected display, arranged as they are on your desktop.
+- **/snapshot** opens the macOS region picker so you can drag out an area.
 
-## One selected model
+With a question, such as `/snapshot what does this error mean?`, Enigma captures
+and then sends. On its own, the command attaches the capture and waits for you to
+type a question. Commands can go anywhere in the message and combine with
+**/think**, **/search**, **/edit** and **/translate**; for example
+`/screen /translate to Spanish`. Commands inside quotes or backticks stay literal
+text. See [Slash commands](Slash-Commands.md).
 
-Install a complete recommended package from **Settings → Local models**, then use
-the ordinary model picker. That model handles text, screenshots and search answers.
-There is no independent local image-model preference or setup section. See
-[model selection](Local-Model-Selection.md) for hardware gates and legacy migration.
+The attached capture appears as a card with a thumbnail, its scope (**Full desktop ·
+All displays** or **Screen region**), a status line (`Attached · Reading text…`, then
+`Local OCR` or `Vision`), and two buttons:
 
-Apple Vision OCR remains a local internal optimization. Confident text-heavy
-captures and short word/value/error lookups can send the original question plus
-OCR text to the selected model without pixels. Colors, shapes, spatial relationships,
-layout, diagrams and other visual questions send the image to that same model;
-relevant OCR accompanies it as untrusted data. The model is instructed to treat
-screenshot content as quoted data rather than user instructions.
+- **Retake** captures again, using the same kind of capture.
+- **Remove** drops the image and its text from the next request. Your typed
+  question and any selected text stay.
 
-| Mode | Model selection | Image permission |
+In the main window the card sits above the composer. In the compact selection
+panel it sits under the input, and the panel grows to fit it; a capture on its own
+doesn't open the conversation. If you cancel the region picker, the previous
+capture (if any) and your draft are kept.
+
+![A screenshot card above the composer, with the uploads-off and Screen Recording cards](design/ui-revamp/screenshots/phase-7/cards-screen-and-files-paper.png)
+
+After you send, the sent message shows a small preview of the image for the rest
+of the app session. A short note over the composer says how the capture was used,
+for example `Local OCR · Image not sent` or `Vision · Cloud`.
+
+A capture can't be combined with File Mode or **/messages**. Attaching files
+removes the screenshot, and sending `/messages` with a capture asks you to remove one.
+
+### Text or image
+
+Enigma runs Apple's Vision text recognition (OCR) on every capture, on your Mac.
+Then it decides what the selected model receives:
+
+- **Text only** when the capture has enough clearly read text and the question is
+  about that text, for example a word, an error code, a value, or "transcribe this".
+  The model gets your question plus the extracted text.
+- **The image** (plus the OCR text) when the question is visual (colors, shapes,
+  layout, positions, charts, diagrams, icons, "what does this look like", "where
+  is…") or when there's too little readable text.
+
+Either way the model is told to treat everything in the screenshot as quoted data,
+not instructions.
+
+### Which model answers
+
+The ordinary model picker decides; there is no separate screenshot model.
+
+| Mode | Text-only request | Image request |
 |---|---|---|
-| Local | Ordinary selected local model | Pixels never leave this Mac |
-| Auto | Normal Auto policy, including task complexity/context | Selected local model is the privacy/offline fallback; cloud pixels require consent |
-| Cloud | Ordinary selected cloud model | Image-capable selected model and explicit consent required |
+| **Local** | Selected local model | Selected local model, if it supports images. Pixels never leave your Mac. |
+| **Cloud** | Selected cloud model | Selected cloud model, if it supports images and you've allowed uploads |
+| **Auto** | Whichever model Auto picks | Auto's pick. If that's a cloud model that can't take the image, or uploads aren't allowed, the selected local model is used instead when it supports images. |
 
-Legacy text-only models retain chat/OCR functionality. When pixels are needed,
-choose a recommended text-and-image package. Another installed image model is
-never silently selected to read the screenshot. Existing cloud-upload permission
-and its explanation remain in **Screen** settings, off by default. Revocation is
-checked before every image-bearing request and after retrieval. Cloud OCR can send
-extracted text under the existing routing policy; permission specifically controls
-image uploads. Local mode keeps both OCR and pixels local to model inference.
+To read images on your Mac, install a recommended text-and-image package in
+**Settings → Local models** and select it. Enigma never quietly switches to a
+different installed image model. A text-only local model still handles text-only
+requests; an image request with it stops with a message and keeps your screenshot
+and draft. See [Local model selection](Local-Model-Selection.md).
 
-When cloud image permission is needed, the consent sheet names the selected
-provider and the actual capture scope: **selected region** for `/snapshot`, or
-**full desktop, including all displays** for `/screen`. Its preview fits the whole
-captured image without cropping. **Allow & Send** saves the existing global
-preference: future region and full-desktop images may go to whichever cloud
-provider is selected in Auto or Cloud, until disabled in **Settings → Cloud and search → Screen**.
-It is not limited to this image or provider. **Keep Screenshots Local** denies
-image uploads and keeps the attachment and draft for another route. OCR text
-remains distinct from image uploads. A capture or provider replaced while the
-sheet is open cannot inherit that sheet's approval.
-See [consent and attachment verification](Screen-Consent-and-Attachments.md).
+Cloud image support is limited to reviewed model IDs from OpenAI, Anthropic and
+Gemini. The ChatGPT and Claude Code subscriptions take text only. See
+[Cloud model selection](Cloud-Model-Selection.md).
 
-## Search controls retrieval
+In Auto, if a cloud image request fails because the Mac is offline before any
+reply arrives, Enigma retries with the selected local model when it supports images.
 
-Without Search, the selected model answers directly. With Search and an attachment,
-one hidden model call resolves the question against the image/OCR and produces a
-focused query. Brave retrieves evidence; the same selected model receives the
-original question, screenshot context and fitted evidence, then streams its answer.
-There is no separate observation model or text-model handoff. Text-only chat with
-Search keeps the existing direct-question retrieval path.
+### Screenshots and web search
 
-Planning output never appears in the transcript or visible answer. Invalid,
-empty or oversized queries, retrieval failure, missing keys and context failures
-retain the draft and attachment before acceptance. Stop cancels the active stage
-and prevents late events from mutating a replacement request. Source links appear
-beneath answers and persist with chat history. No-search requests never call Brave.
-Derived queries can contain relevant screen details; full OCR, pixels and history
-are not attached to Brave. Model instructions request relevant, non-sensitive query
-content, but do not guarantee perfect interpretation or redaction.
+With **/search** (or automatic search, when enabled), the selected model first
+reads the screenshot and writes one focused search query. Brave Search receives
+only that query, never the image, the full OCR text or your chat history. The same
+model then answers from the screenshot and the evidence, and source links appear
+under the answer. Without search, Brave is never contacted. The query can include
+details from your screen that are relevant to the question; the model is asked to
+leave out unrelated, personal or credential details, but this isn't guaranteed.
+See [Web search](Web-Search.md).
 
-The 1,568-pixel image limit, context reservations, complete-turn history fitting,
-first-token acceptance, in-memory sent-image previews and persistence exclusions
-remain. Screenshot pixels/OCR are not saved with history; only the original question,
-answer and source links are persisted. Native layout/streaming scroll behavior and
-**⌘⇧H / Hide Inactive Tools** remain unchanged.
+If the model can't produce a usable query, or search fails, the request stops
+before anything is added to the chat, and your draft and screenshot are kept.
 
-## Automated verification
+## Privacy and permissions
 
-Run the shared build, test and analyzer commands in [AGENTS.md](../AGENTS.md).
-Deterministic tests inject capture/OCR, search, provider and runtime boundaries.
-Controlled loopback subprocess tests verify model reuse, switching, cancellation
-and idle cleanup without downloading a model or selecting a desktop region.
+### Screen Recording
 
-For an optional real model check, create `/tmp/AI-Spotlight-Vision-Smoke.json`:
+Captures need macOS **Screen Recording** permission. Enigma checks it before
+hiding anything. If it's missing, macOS asks; if access is still not available, a
+card explains what to do and offers **Open Screen Recording Settings…**. After
+granting access you may need to quit and reopen Enigma, and the card says so.
+Your draft is kept in every case.
+
+The permission's status and an **Open Settings…** button are also in
+**Settings → General → Permissions** and in the welcome setup. See
+[Welcome and settings](Welcome-and-Settings.md).
+
+Captures happen only when you run a command or press **Retake**. While one is in
+progress, Enigma takes its own windows off screen so they aren't captured, and
+ignores its show and selection shortcuts; everything comes back when the capture
+ends or is cancelled.
+
+### Sending screenshots to the cloud
+
+Uploading screenshots to a cloud model is off by default. The first time a request
+needs to send an image to a cloud model, Enigma shows a sheet before anything is sent:
+
+- Its title names the scope and the provider, such as
+  **Send full desktop to Anthropic?** or **Send selected region to OpenAI?**
+- It previews the whole captured image.
+- It explains that the choice applies to future region and full-desktop
+  screenshots, to whichever cloud provider you select in Auto or Cloud, not only to
+  this image or provider.
+- **Allow & Send** saves that permission and sends. **Keep Screenshots Local**
+  (or Escape) saves a refusal and keeps the screenshot and draft so you can use
+  a local model.
+
+If you replace the screenshot, change the cloud provider or switch to Local mode
+while the sheet is open, your answer saves nothing and sends nothing.
+
+Once you've declined, a request that needs a cloud upload shows a
+**Screenshot uploads are off** card with **Review screenshot permission…** (the
+sheet again) and **Open Screen Settings**. The setting itself is
+**Allow screenshots to be sent to cloud models** under **Screen** in
+**Settings → Cloud and search**. It's checked again before every image is sent,
+including after a web search, and turning it off stops a cloud reply that is
+using an image.
+
+OCR text is separate from image uploads. In Auto or Cloud, the extracted text can
+go to your cloud text model without this permission. In Local mode, text and
+pixels stay on your Mac.
+
+### What is kept
+
+Screenshot pixels, OCR text and the sent-message preview stay in memory. Chat
+history saves only your question, the answer and its source links. Temporary
+capture files are deleted as soon as they're read.
+
+### Hidden from screen sharing
+
+The chat panel, the Settings window and the screenshot consent sheet ask macOS to
+leave them out of screen sharing and recording (`NSWindow.sharingType = .none`).
+They stay fully visible and usable on your own screen. This is best effort:
+
+- Apple treats the flag as legacy, and capture apps built on ScreenCaptureKit may
+  ignore it.
+- Other separate windows, such as system menus, may still appear.
+- Whether Zoom or another app honors it depends on that app, its version and its
+  capture mode. Enigma doesn't change any other app's settings.
+
+To check a setup, share your whole screen to a second participant, open the panel,
+Settings and the consent sheet, and watch what the other side sees.
+
+## How it works
+
+The capture flow runs from the composer to the request:
+
+1. `ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) resolves
+   commands with `ComposerCommands` (`Enigma/Screen/ScreenAttachment.swift`) and
+   returns `.captureScreen` or `.screenAttachment`, or a conflict with files or Messages.
+2. `ScreenComposerCoordinator` (`Enigma/Screen/ScreenComposerCoordinator.swift`)
+   owns the draft and the attachment. It calls `prepareForCapture()` (permission),
+   posts `.screenCaptureBegan` / `.screenCaptureEnded`, runs OCR, and returns the
+   question to send automatically when there is one. A revision token discards
+   late results after Remove or Retake.
+3. `ScreenCaptureService` (`Enigma/Screen/ScreenCaptureService.swift`) checks
+   `CGPreflightScreenCaptureAccess`/`CGRequestScreenCaptureAccess`, waits 200 ms for
+   the panel to leave, then runs `/usr/sbin/screencapture` (`-i -x` for a region,
+   one file per display for the desktop, composited by `NSScreen` frames). Images
+   are decoded before the temporary files are removed.
+4. `SpotlightPanelController` (`Enigma/App/SpotlightPanelController.swift`) orders
+   the panel and Enigma's other visible windows out during capture and restores
+   them afterwards; `show`, `toggle` and `summonSelectionContext` do nothing meanwhile.
+5. `ScreenOCRService` (`Enigma/Screen/ScreenOCRService.swift`) uses
+   `VNRecognizeTextRequest` (accurate, no language correction). `ScreenOCRResult`
+   orders lines top to bottom, left to right; it's usable at 40+ non-whitespace
+   characters and confidence 0.55 or higher.
+6. `AppShellView.submitScreenAttachment` (`Enigma/App/AppShellView.swift`) asks
+   `AutoRouter` for Auto's route, then `ScreenRoutingPolicy.decide`
+   (`Enigma/Screen/ScreenRoutingPolicy.swift`) returns `.text`, `.vision`,
+   `.needsCloudPermission` or `.blocked`. `requiresVision` holds the visual
+   keywords; `hasConfidentTextForLookup` allows short lookups (1–40 characters,
+   confidence 0.85 or higher). Cloud vision IDs are in
+   `CloudModelCapabilities.visionModelIDs`.
+7. `LocalChatViewModel.submitScreen` (`Enigma/LocalInference/LocalChatViewModel.swift`)
+   wraps the question with `ScreenPromptContext`, resizes the image with
+   `ScreenImagePreprocessor` (longest edge 1,568 px, JPEG quality 0.85), plans the
+   search query with `ScreenSearchContext`, and streams from the local vision
+   engine or the cloud provider. `ScreenRequestGuard`
+   (`Enigma/Chat/MultimodalContent.swift`) rejects any cloud image without
+   permission or a vision-capable model before anything is sent.
+
+Consent lives in `ScreenSettings` and `ScreenUploadConsent`
+(`Enigma/Screen/ScreenSettings.swift`): `allowCloudScreenshots` and
+`hasExplainedCloudPermission`, stored in `UserDefaults`. The cards and sheet are in
+`Enigma/Screen/ScreenCards.swift`; `ScreenConsentWindowPrivacy`
+(`Enigma/Screen/ScreenControls.swift`) sets the sheet window's sharing type.
+`ScreenConnectivity` reports offline state to the router. `MacPermissionRows`
+(`Enigma/Screen/MacPermissionRows.swift`) shows the Accessibility and Screen
+Recording rows used in Settings and the welcome setup.
+
+## Limitations
+
+- Interactive region selection, permission prompts, multiple physical displays and
+  third-party screen-sharing behavior are not covered by automated tests; check
+  them by hand with a stably signed build run from Xcode. The unsigned build from
+  `scripts/verify-xcode.sh` can invalidate macOS Screen Recording consent.
+- OCR quality and the text-or-image choice are heuristics. A question phrased
+  unusually may send the image when text would do, or the reverse.
+- Image requests need a text-and-image model; text-only models answer only from OCR.
+- Search queries derived from a screenshot may contain on-screen details.
+- Exclusion from screen sharing is best effort, as described above.
+
+## Tests
+
+Automated tests inject capture, OCR, search, provider and runtime boundaries, so
+they run offline without selecting a region or downloading a model.
+
+- `EnigmaTests/ScreenCaptureTests.swift`: command parsing, permission and restart
+  paths, temporary-file cleanup, cancellation, Retake, hiding and restoring the panel.
+- `EnigmaTests/ScreenOCRTests.swift`: OCR ordering, thresholds and image preprocessing.
+- `EnigmaTests/ScreenRoutingTests.swift`: text-or-image decisions, Local/Cloud/Auto
+  routing, consent defaults, offline fallback and model capabilities.
+- `EnigmaTests/ScreenPipelineTests.swift`: the request pipeline, search planning,
+  stopping, permission rechecks, and what is persisted.
+- `EnigmaTests/ScreenProviderTests.swift`: image serialization and provider-side rejection.
+- `EnigmaTests/ScreenViewTests.swift`: the real composer and compact panel in a
+  hosted window: cards, Retake and Remove, the consent sheet (including its
+  sharing type), denial, revocation, and Screen Recording errors.
+- `EnigmaTests/AppCommandTests.swift` and `EnigmaTests/EnigmaSettingsTests.swift`
+  check the panel's and Settings window's sharing type.
+
+Run them with `scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenViewTests`
+(or another class). See [Testing](Testing.md).
+
+### Optional real-model checks
+
+`EnigmaTests/ScreenNativeSmokeTests.swift` has two checks that run only when their
+config file exists; they're skipped otherwise, including in CI. They never download
+models or change your installed library. Remove the config files afterwards.
+
+**Local vision engine.** Create `/tmp/AI-Spotlight-Vision-Smoke.json`:
 
 ```json
 {
@@ -118,29 +264,39 @@ For an optional real model check, create `/tmp/AI-Spotlight-Vision-Smoke.json`:
 }
 ```
 
-Run `scripts/verify-xcode.sh test '-only-testing:EnigmaTests/ScreenNativeSmokeTests'`.
-The test copies into an isolated temporary library, uses synthetic shapes, checks
-ordinary text arithmetic, and verifies the model stays resident across requests.
+`model`, `projector` and `server` are required file URLs. `prompts` defaults to
+the prompt above; `expectedAnswerTerms` is optional, and each term must appear in
+every answer. The test installs the files into a temporary library, asks about a
+synthetic image of a red circle and a blue square, checks a text-only arithmetic
+answer, checks the model stays loaded between requests, and runs a short benchmark.
+It writes a report to `/tmp/AI-Spotlight-Vision-Smoke-Result.txt`.
 
-The seven-case OCR/search matrix reads a test library and its normal selection.
-Create `/tmp/AI-Spotlight-Screen-Search-Smoke.json`:
+```sh
+scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenNativeSmokeTests
+```
+
+**Screenshot search.** Create `/tmp/AI-Spotlight-Screen-Search-Smoke.json`:
 
 ```json
 {
   "modelsDirectory": "file:///absolute/path/to/test-library/",
-  "modelID": "the-normally-selected-multimodal-model-id",
+  "modelID": "the-selected-text-and-image-model-id",
   "liveSearch": false
 }
 ```
 
-Run `scripts/verify-xcode.sh test '-only-testing:EnigmaTests/ScreenSearchNativeSmokeTests'`.
-Fixed public evidence is the default. `liveSearch: true` explicitly authorizes using
-the configured Brave credential and normal API usage; routine verification does
-not need it. Both tests are skipped in CI unless the explicit fixtures exist.
-Remove the opt-in JSON files after running. Results contain synthetic inputs and
-public evidence only. See [verification results](Screen-Search-Verification.md).
+`modelID` must be the model currently selected in that library. The test runs
+seven synthetic screenshots (words, memory figures, HTTP errors) through OCR,
+query planning and an answer, and checks each query and answer. By default search
+returns fixed public evidence; `"liveSearch": true` sends real Brave requests with
+your configured key. It writes a report to
+`/tmp/AI-Spotlight-Screen-Search-Smoke-Result.txt`.
 
-Interactive region selection, permission dialogs, secondary-display capture and
-Zoom capture-exclusion testing remain with the owner. Automated tests do not claim
-to verify those desktop interactions. [Screen-sharing privacy](Screen-Sharing-Privacy.md)
-documents the limitations of the existing macOS window-sharing flag.
+```sh
+scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenSearchNativeSmokeTests
+```
+
+The same file also holds an unrelated opt-in thinking check, driven by
+`/tmp/AI-Spotlight-Thinking-Smoke.json`.
+
+Older verification reports are in `docs/history/`.

@@ -1,202 +1,177 @@
 # Web Search
 
-Add a Brave Search API key with **LLM Context** access in **Settings → Cloud and search → Web search · Brave**.
-The key is stored in macOS Keychain under a separate search service, never in
-preferences or chat history. Brave API usage is separate from model-provider usage.
+Enigma can ground answers in current web results from Brave Search. With your own
+Brave Search API key saved, questions that need fresh information search
+automatically, and **/search** forces a search for one message. Your selected
+model, local or cloud, writes the answer and the reply lists the sources it was
+given.
+
+## Set up
+
+1. Get a Brave Search API key with **LLM Context** access from the Brave Search
+   API dashboard. Brave bills its usage separately from any model provider.
+2. Paste it into **Settings → Cloud and search → Web search · Brave** and choose
+   **Save key** (or press **Return**). The welcome setup's **Connect what you use**
+   step has the same field, under **Search**.
+3. The status changes from **no key** to **key saved**. **Remove key** deletes it.
+
+![Web search · Brave in Settings → Cloud and search](design/ui-revamp/screenshots/phase-5/settings-cloud-full-paper.png)
 
 ## Automatic search
 
-**Search automatically when fresh information is needed** is on by default in
-Settings → Cloud and search → Web search · Brave. It becomes active once a Brave key
-is saved. Questions such as “What happened in the news today?”, “Latest AI news”,
-“What is the latest Swift release?” and “Who is the president of France?” can now
-retrieve evidence without `/search`. Weather, market prices, exchange rates,
-sports scores and upcoming schedules are also recognized. The composer has no
-automatic-search status row. Use the Settings toggle to turn automatic search off
-or back on; the preference is saved for later messages, including in Local mode.
+**Search automatically when fresh information is needed** is on by default and
+takes effect once a key is saved. Turn it off for manual-only search; the choice
+is remembered and applies in Local, Cloud and Auto.
 
-The shared `WebSearchPolicy` uses deterministic freshness and lookup cues in the
-original current question, before attaching or serializing source content, with
-no extra inference call and no simple/complex classifier.
-This decision controls whether to retrieve, never the source count, evidence
-budget, or selected model. Local (both embedded and server-backed), Cloud and Auto
-all resolve it before entering their existing search pipelines. Requests are
-independent: an automatically searched question does not turn on forced search
-for the following turn.
+Enigma decides on this Mac, from the wording of the current question alone, with
+no extra model call. Questions like these search:
 
-Quoted text and code are excluded from the decision. Common text transformations,
-local file/code references, historical questions and requests such as “don't
-search” or “stay offline” avoid automatic retrieval. No conversation history,
-OCR, attached file contents or model output can opt a request into search. Screen
-questions that do opt in retain the existing query-refinement and image-consent
-flow. File Mode remains a separate workflow and does not automatically search.
+- News and recent developments: "latest AI news", "what's happening in …"
+- Facts that change: who holds an office, weather and forecasts, stock and
+  crypto prices, exchange or mortgage rates, scores, opening times and schedules
+- Questions with words like "latest", "today" or "this week", and questions
+  about this year's elections, releases or events
+- Explicit requests such as "look up … online"
 
-Turn the setting off for manual-only search. `/search` still forces retrieval
-for that message, including timeless questions. Removing the command returns
-to the automatic-search preference. Without a saved key, automatic
-retrieval is inactive, `/search` is hidden from command suggestions, Help and the
-welcome tour, and normal chat continues. Saving or removing a key updates open
-suggestions without changing the draft. Missing/rejected keys on a manually typed
-explicit search, or any failure after automatic retrieval starts, keep the draft
-and show the existing error instead of silently answering without evidence.
+These don't search automatically:
 
-The initial policy targets English and favors clear signals. It cannot recognize
-every paraphrase or resolve an ambiguous follow-up such as “And yesterday?” from
-private conversation history; use `/search` with a self-contained question when
-needed. It does not independently verify the freshness of each returned source.
+- Text in quotes, backticks or code blocks
+- Rewriting, translating, summarizing "this", writing code, and other tasks on
+  text you supply
+- Questions about your own work, such as "the current file" or "my latest draft"
+- Historical questions, and requests such as "don't search" or "stay offline"
+- File Mode and `/messages` requests
 
-![Web search in Settings → Cloud and search](design/ui-revamp/screenshots/phase-10/settings-cloud-paper.png)
+Each message is decided on its own. Searching one question doesn't make the next
+one search.
 
-## Explicit search
+## Explicit search with /search
 
-With a saved Brave key, type **/search** anywhere outside quotes or code to search
-for **this message only**. The command stays visible in the draft. Removing it before
-sending cancels that explicit request; a later message follows the automatic-search
-preference. A standalone `/search` waits for a question and can simply be deleted.
-There is no persistent manual search toggle or plus-menu search control.
+Type **/search** anywhere in a message to search for that message only, even
+for a timeless question and even when automatic search is off. It's highlighted
+in the draft and stays visible until the message is accepted; delete it before
+sending to cancel. `/search` combines with other commands, such as
+`/screen /search what is this error?`. It can't be combined with attached files
+or `/messages`. See [Slash commands](Slash-Commands.md).
 
-Combine commands in either order: `/screen /search question` or
-`/search /screen question`. After capture, `/search` remains visible in the draft
-until the request is accepted. Capture cancellation and search failure preserve
-the draft for editing or retry. Quoted examples, backtick code, URLs and paths
-remain literal text. See [Slash commands](Slash-Commands.md).
+Without a saved key, `/search` isn't offered in suggestions, Help or the welcome
+tour. If you type it anyway, Enigma reports that a key is needed and keeps your
+draft.
 
-Search may send relevant attached context to Brave **only after the current
-question or `/search` authorizes retrieval**. An attachment containing
-`"latest news"`, including JSON-escaped quotes, cannot authorize search for
-“What does this mean?”. Attachment text can still refine an authorized query.
+## Sources and citations
 
-For requests without Screen, Local mode sends the current question to Brave and
-the local model generates the answer. Cloud mode passes evidence to the provider,
-including ChatGPT via the existing Codex bridge. Auto uses the same Brave search
-and keeps choosing the model based on task complexity and context size. Automatic freshness detection also runs in Local and Cloud modes; it is independent
-of Auto model routing.
-
-With Screen attached, the ordinarily selected model resolves the question using
-local OCR or the image and generates one focused query. Brave retrieves evidence,
-then that same model answers the original question with the screenshot context and
-sources. Readable OCR avoids sending pixels when visual interpretation is not
-needed. Visual questions use the image in planning and answering. Search controls
-retrieval, not model selection; there is no cross-model handoff.
-
-The panel shows Preparing search query and Searching with Brave. Intermediate
-planning is hidden and is never saved as a chat turn. Empty, invalid or oversized
-queries retain the draft/image rather than silently searching a vague question.
-Stop applies throughout. See [Screen](Screen-Skill.md) for consent, context and
-migration behavior, and [local model setup](Local-Model-Selection.md) for packages.
-
-Derived queries can contain relevant screen details. Prompts instruct the model
-to treat screen content as untrusted data and omit unrelated or sensitive details.
-These instructions do not guarantee perfect relevance or redaction. Full OCR,
-pixels and history are never attached to Brave. Evidence is fitted to the selected
-model's context before the final answer. There is one extra model call for a
-screenshot query; its model stays loaded across both stages.
+While a search runs, the reply's activity line moves through **Preparing search
+query…** (only when the query is refined, below), **Searching…** and
+**Reading sources…**. When the answer is done, the line reads **Activity · N
+sources**; open it to see **web sources**, each with its title, site, URL and
+**Included in context**. Clicking a source opens it in your browser. The line
+under the reply includes **brave search**.
 
 ![A reply with its web sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
 
-This native panel regression uses deterministic screenshot, search, and response
-fixtures; it demonstrates tool integration rather than model answer quality.
+The model is told to treat the excerpts as untrusted data and to cite only the
+URLs it was given. Only sources that actually fit into the prompt are shown;
+other results Brave returned are dropped. A listed source means the model was
+given that excerpt, not that every claim in the answer was checked against it.
 
-Without Screen, only the current question is sent to Brave, normalized to its
-400-character / 50-word query limit. With Screen, the refined query must fit the
-same limits; trivial answers such as "Yes." are rejected. The final model still receives the full original question. Conversation
-history and model credentials are not sent to Brave. Search uses an ephemeral
-URLSession with redirects disabled and a 30-second timeout.
+If searching fails, Enigma doesn't quietly answer without evidence. It shows an
+error and keeps your draft: a missing or rejected key, rate limiting, no
+connection, an invalid response, no relevant sources, or not enough room in the
+model's context for sources. **Stop** cancels both the search and the answer.
 
-The client uses `POST https://api.search.brave.com/res/v1/llm/context` with the
-`X-Subscription-Token` header. It supports generic, point-of-interest, and map
-grounding entries. Up to ten distinct HTTP(S) candidate sources are retrieved;
-empty excerpts and unsafe URLs are discarded. Every route requests an 8,192-token
-evidence pool, with at most 2,048 retrieval tokens per source. These limits are independent of question wording.
+## Privacy
 
-Preparation reserves output, protocol/system instructions, the complete current
-question, and any image allowance first. Roughly half the remaining input capacity
-is available for evidence, including its JSON envelope, titles and URLs. The packer
-seeds ranked sources, expands their excerpts with fair shares, and redistributes
-unused space from shorter sources. Each source is capped at 2,048 measured tokens
-or one-third of the payload budget (one-half with two candidates; up to the full
-payload share, still capped at 2,048, when only one candidate exists).
-Unicode text stays intact. Complete recent chat turns fill remaining space only
-after current evidence is chosen. The original question is never truncated.
+- **What goes to Brave:** a search query and your API key, over HTTPS, with
+  nothing cached on disk and redirects refused.
+  - Normally the query is your current question, trimmed to 50 words and 400
+    characters, without slash commands.
+  - With a screenshot or selected text attached, your selected model first writes
+    a short query from your question and the relevant parts of that material. It
+    is told to leave out unrelated, personal and credential details, but that
+    isn't guaranteed. Pixels, full OCR text and the full selection are not sent.
+  - For nearby questions, such as "weather today" or "cafes near me", an
+    approximate area (city and coordinates rounded to about 1 km) is added. See
+    Location below.
+- **Never sent to Brave:** conversation history, attached files, Messages
+  content, and model-provider credentials.
+- **Who can trigger a search:** only your current question or `/search`.
+  Attached text, OCR, files and earlier messages can refine an approved query
+  but can't cause a search on their own.
+- **Where the answer comes from:** search controls retrieval, not the model. In
+  Local mode the answer is written on this Mac, but the query still goes to
+  Brave.
+- **Key storage:** the key is kept in the macOS Keychain as its own item,
+  separate from model-provider keys, and never in preferences or chat history.
+- **What is saved:** the chat keeps your message, the answer and the source
+  titles and links. The excerpts given to the model are not saved.
 
-Normal local preparation uses configured model context, then catalog recommendations,
-with 4,096 only for models lacking that metadata. The embedded bridge measures its
-actual allocated context and uses the GGUF tokenizer. Server-backed chat renders the
-same system/message/thinking template through `/apply-template`, then calls
-`/tokenize`. Images keep a separate 4,096-token reserve. An unavailable or malformed
-tokenizer falls back to the existing conservative byte estimator; cancellation
-never falls back. Cloud routes retain their existing serialization estimates.
+### Location
 
-Retrieved excerpts are labeled as untrusted data and the model is instructed to
-cite exact source URLs. Source links also appear in the reply’s expandable activity
-panel independently of the model’s citation formatting. Only sources retained in the actual prompt are
-shown or offered for citation; unselected retrieval candidates remain hidden. Only
-those links/titles and the normal chat messages are saved; injected excerpts are transient. Existing saved chats remain
-compatible. A source link indicates evidence supplied to the model, not independent
-verification of every claim in its answer.
+**Settings → General → Location → Use location for nearby questions** is on by
+default. It's used only when a search runs for a nearby question without a named
+place. macOS asks for permission the first time. The area is used for that
+question only, is not saved, and requests give up after 20 seconds. If location
+is off, denied or unavailable, Enigma asks you to name a city and doesn't search.
 
-Stop cancels both retrieval and generation. Search failures, missing or rejected
-keys, rate limits, empty results, and insufficient context preserve the draft and
-do not silently produce an answer without search. Error responses are not echoed
-into the UI. Requests with neither explicit search nor an eligible automatic-search decision do not call Brave.
+## How it works
 
-Web Search has no bundled icon: the earlier third-party icon and its redrawn
-replacement were removed in the UI revamp because no view shows them.
+- `Enigma/Search/WebSearchSettings.swift`: `WebSearchSettings` holds the
+  automatic-search preference (`webSearch.automaticallySearch` in user defaults,
+  default on) and whether a key exists. `KeychainSearchCredentialStore` stores
+  the key.
+- `Enigma/Search/WebSearchSettingsSection.swift`: the **Web search · Brave**
+  section of Settings.
+- `Enigma/Search/WebSearchPolicy.swift`: `WebSearchPolicy.needsFreshInformation`
+  is the deterministic automatic-search decision, using fixed English patterns
+  on the question with quoted material removed.
+- `Enigma/LocalInference/LocalChatViewModel.swift`: `shouldSearch` combines
+  `/search` with the policy; the Local, Cloud, Auto and Screen submission paths
+  call the private `search` method, which refines the query when material is
+  attached and adds location.
+- `Enigma/Search/BraveSearchClient.swift`: `BraveSearchClient` sends
+  `POST https://api.search.brave.com/res/v1/llm/context` with the
+  `X-Subscription-Token` header, a 30-second timeout and an ephemeral session.
+  It asks for up to 10 URLs and 8,192 evidence tokens, at most 2,048 per URL,
+  keeps generic, point-of-interest and map results with safe HTTP(S) links, and
+  never shows raw error bodies.
+- `Enigma/Search/WebSearchContext.swift`: `WebSearchContext.prepare` fits
+  evidence into the selected model's context. After reserving output, system
+  instructions, any image and the full question, about half the remaining input
+  space goes to excerpts. Each source gets at most 2,048 tokens or a third of
+  that space (half with two sources, all of it with one), measured with the
+  model's own token counting; space a short source doesn't use goes to the
+  others. The question is never cut, and older chat history only fills what's
+  left.
+- `Enigma/Screen/ScreenPromptContext.swift`: `ScreenSearchContext` writes and
+  validates refined queries: one line, at most 50 words and 400 characters, and
+  not empty or a bare reply such as "Yes" or "UNKNOWN".
+- `Enigma/Search/LocationService.swift`: `LocationIntent` decides when a question
+  is about nearby places; `LocationService` makes one bounded, cancellable
+  location request.
+- `Enigma/Chat/AssistantActivity.swift` and `AssistantActivityView.swift`: the
+  activity phases and the **web sources** list.
 
 API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
 
-## Verification
+## Limitations
 
-`WebSearchTests` covers the API request/response contract, error handling, query
-limits, command parsing, credentials, context fitting, all generation routes,
-search-off behavior, cancellation/replacement, history compatibility, and the
-actual native composer. Tests use deterministic fixtures and do not require a
-live Brave key.
-Run the repository's shared build, test, and analyze commands from `AGENTS.md`.
-A live smoke test additionally requires the owner's Brave key and an installed
-local model or configured cloud connection.
+- Automatic search recognizes English wording and clear signals only. It can
+  miss paraphrases, and can't resolve follow-ups such as "and yesterday?" from
+  earlier messages; use `/search` with a complete question.
+- Enigma doesn't check how recent or accurate each source is.
+- Screen questions that search need one extra model call to write the query.
+- Brave usage, limits and billing depend on your Brave plan.
 
-The context-aware retrieval update passes build, static analysis, and the full suite:
-424 tests, nine optional skips, zero failures. Coverage includes 10-source retrieval,
-capacity scaling, half-budget allocation, per-source caps, short-source redistribution,
-history priority, model context metadata, endpoint token counting, fallback, image
-reserves, and cancellation. An unchanged Codex EOF/timeout test failed during an
-earlier local run and passed on the final full run; its assertions were not changed.
-Brave and generation fixtures are deterministic; live search quality was not evaluated.
+## Tests
 
-Automatic-search regression coverage includes positive and negative freshness
-examples, persisted opt-out and missing-key behavior, all text routes, selected
-server models, Screen refinement, OCR isolation, non-sticky requests, unchanged
-8K retrieval budgets, prompt-selected sources, failure handling and cancellation
-with late results. Tests inject search settings and fixtures; no live Brave key is
-needed. The settings screenshot is rendered by the native SwiftUI test host.
+`EnigmaTests/WebSearchTests.swift` covers the Brave request and response format,
+error handling without exposing response bodies, query limits and command
+boundaries, saving and removing the key, automatic-search examples and opt-outs,
+the setting and missing-key behavior in the real composers, attached text that
+can't authorize a search, query refinement, location handling, evidence fitting
+and source selection across Local, Cloud, Auto and Screen, failures that keep the
+draft, cancellation, older chats without source data, and the rendered sources
+list. The tests use fixtures and need no Brave key or network.
 
-Verification for automatic search: build and static analyzer passed; the full
-suite executed 435 tests with nine optional skips and zero failures.
-
-Part 1 regression coverage exercises typing and removing `/search` in the real
-`AppShellView` editor, explicit search followed by ordinary messages, automatic
-search preferences in full and compact selection layouts, and escaped-quote
-attachments across Local, Cloud, Auto and Screen. The retired `WebSearchControls`
-icon demo and composer status row have been removed; UI tests exercise the live
-composer, default-on behavior, Settings opt-out, missing keys and live command
-availability when saving or removing a key. Temporary chat history and retention
-are unchanged. Native renders are retained as XCTest
-attachments and written to `/tmp/Enigma-auto-search.png` and
-`/tmp/Enigma-compact-auto-search.png`. They use synthetic selected text and
-response/search fixtures, with no live Brave or cloud requests.
-
-The September 18 Part 1 checks reproduced both the sticky command and quoted
-attachment authorization bug before the fix. After the fix, `scripts/verify-xcode.sh build`, `test` and `analyze` passed.
-The full offline suite ran 531 tests, with 10 optional integration/model checks
-skipped and zero failures. The regression matrix confirms that attached freshness phrases do
-not call Brave, while explicit search and fresh-information questions still do.
-Live search quality and real model/provider responses were not evaluated.
-
-The September 18 composer follow-up passes build, static analysis and the full
-537-test suite, with 10 optional skips and zero failures. Both composer layouts
-verify default automatic search, preserved opt-outs, no retrieval without a key,
-and immediate suggestion updates when credentials change. An initial full run
-caught a search-activity screenshot taken mid-expansion; the test now waits for
-all three expected labels before asserting them. Its assertions remain intact.
-The updated Settings screenshot uses a fixture key; no live Brave calls were made.
+Run them with `scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchTests`.
+See [Testing](Testing.md).

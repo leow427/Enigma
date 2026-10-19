@@ -1,74 +1,105 @@
-# Claude subscription via Claude Code
+# Claude via Claude Code
 
-Enigma can chat through the Claude Code CLI using a Claude Pro or Max plan, in the same way that
-**ChatGPT via Codex** uses a ChatGPT plan. The usage counts against the plan's Claude Code limits,
-not API billing. The Anthropic API-key route is still a separately billed alternative, and neither
-route is an automatic fallback for the other.
+Enigma can chat through your Claude Pro or Max plan by running the Claude Code
+CLI on this Mac. Usage counts against the plan's Claude Code limits, not API
+billing. The Anthropic API-key route is a separately billed alternative; neither
+route falls back to the other.
 
 ## Setup
 
-1. Install [Claude Code](https://code.claude.com/docs/en/setup). Enigma looks in `~/.local/bin`,
-   `~/.claude/local`, Homebrew's standard locations, and the launch environment's PATH. To use a
-   different executable, set an absolute path in `AI_SPOTLIGHT_CLAUDE_PATH` in the Xcode Run environment.
-2. Open **Settings → Cloud and search → Subscriptions → Claude Code**.
-3. If Claude Code is already signed in with a Claude subscription, the account appears immediately.
-   If it is not, choose **Sign in to Claude Code**. Enigma opens Terminal and runs `claude auth login --claudeai`,
-   then checks the status every two seconds until the browser sign-in finishes, for up to five minutes.
-4. Choose **Use Claude**, or select **Claude via Claude Code** as the preferred provider in Advanced
-   Cloud Settings, then switch the panel to **Cloud**.
+1. Install [Claude Code](https://code.claude.com/docs/en/setup). Enigma looks
+   for `claude` in `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, and
+   `/usr/local/bin`, and then on the app's `PATH`. To use another copy, set
+   `AI_SPOTLIGHT_CLAUDE_PATH` to its absolute path (for example in the Xcode
+   scheme's Run environment).
+2. Open **Settings → Cloud and search → Subscriptions → Claude**, or the
+   **Connect what you use** step of welcome setup. If Claude Code isn't found,
+   the row says so and offers **Claude Code installation instructions** and
+   **Check sign-in status**; **Sign in** stays off until it is installed.
+3. If Claude Code is already signed in with a Claude subscription, the row reads
+   **connected** with your email and plan. Otherwise choose **Sign in**: Enigma
+   opens Terminal, which runs `claude auth login --claudeai`, and you finish in
+   the browser. Enigma checks the sign-in every two seconds for up to five
+   minutes; **Cancel** stops waiting. Once signed in, Claude becomes the
+   preferred cloud provider and its models load.
+4. If another provider is selected, choose **Use Claude**. The row then reads
+   **connected · selected for cloud**.
+5. Choose **Cloud** in the mode and model menu (**⌘K**). Auto can also send
+   requests to the preferred cloud provider; see
+   [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
 
-The model list contains the Claude Code aliases `sonnet` (the default), `opus`, `fable`, and `haiku`.
-Each alias resolves to the newest model of that family that the plan offers. A full model name can
-be entered as a manual model ID; it is shown as unverified. The **Effort** picker sends `--effort` to
-Claude Code. **Model Default** leaves the choice to Claude Code. `/think` raises the effort to at
-least High for that message.
+![The Claude row during setup](design/ui-revamp/screenshots/phase-10/welcome-connections-paper.png)
 
-## Authentication and data handling
+### Model and effort
 
-- Enigma uses the Claude Code login already on this Mac and does not read or copy its tokens.
-  Claude Code keeps the credentials in the macOS Keychain. Signing in or out in Terminal (`claude auth logout`)
-  affects both Enigma and the CLI. To stop using Claude in Enigma without signing out, choose another provider.
-- The account check runs `claude auth status` and accepts only a `claude.ai` subscription login.
-  If the CLI uses Anthropic Console billing instead, Enigma shows an error and does not send requests.
-- The child process gets a minimal environment: `HOME`, `USER`, `LOGNAME`, a fixed `PATH`, `TMPDIR`, and `LANG`.
-  It inherits no `ANTHROPIC_API_KEY`, auth token, base URL, or Bedrock/Vertex settings.
-- Each response is a separate `claude -p` process that runs in an empty working directory under
-  `~/Library/Application Support/AI Spotlight/Claude Code`. It uses `--safe-mode` (no CLAUDE.md,
-  skills, plugins, hooks, or custom agents), `--tools ""`, `--strict-mcp-config` with no MCP servers,
-  `--disable-slash-commands`, and `--no-session-persistence`. Enigma's own system prompt replaces
-  Claude Code's coding-agent prompt.
-- Enigma sends the conversation on standard input in the same bounded JSON transcript format that the
-  Codex route uses. The input limit is 32,768 tokens. Responses arrive as `stream-json` text deltas.
-  Stop terminates the process. Anthropic's service-side data policies still apply.
-- This route is text-only. Screenshots go to a vision-capable provider or are handled with OCR, and
-  Cloud File Mode continues to use Codex.
+The model list holds Claude Code's aliases: **Sonnet (latest)** (the default),
+**Opus (latest)**, **Fable (latest)**, and **Haiku (latest)**. Each resolves to
+the newest model of that family your plan offers. You can type a full model
+name in **Manual model ID** under **Advanced cloud settings**; it is shown as
+unverified.
 
-## Verification
+**Effort** (Model Default, Low, Medium, High, Extra High, or Max) is passed to
+Claude Code as `--effort`; Model Default leaves the choice to Claude Code.
+`/think` raises effort to at least High for that message.
 
-`AI-SpotlightTests/ClaudeCodeSubscriptionTests.swift` replaces the CLI with shell scripts. The tests cover the
-process environment and flags, stream parsing across chunk boundaries, account states, the conversation
-sent on standard input, error results, unexpected exits, Stop terminating the process, and settings
-access and persistence. CI does not need Claude Code, a login, or paid requests.
+### Disconnecting
 
-Manual check: confirm the account appears in Settings, choose Use Claude, send a short Cloud message,
-stop a second response partway through, and then switch providers and confirm Claude Code is no longer used.
+Enigma shares the Claude Code sign-in on this Mac. To stop using Claude in
+Enigma, choose another provider. Running `claude auth logout` in Terminal signs
+out of both Enigma and the CLI.
 
-## Keeping /Applications up to date
+## Privacy and data handling
 
-`scripts/install-app.sh` builds a signed Release copy from the current checkout and installs it as
-`/Applications/Enigma.app`. If that copy is running, the script quits it first and then relaunches it.
-The app is signed with the project's Apple Development team, like a run from Xcode, so macOS
-permissions persist across updates. The unsigned verification product does not keep them.
+- Enigma never reads or copies Claude Code's credentials; Claude Code keeps them
+  and Enigma only runs the CLI.
+- The account check runs `claude auth status` and accepts only a `claude.ai`
+  subscription sign-in. If Claude Code is signed in with Anthropic Console
+  billing, Enigma shows an error and sends nothing.
+- The CLI runs with a minimal environment (`HOME`, `USER`, `LOGNAME`, a fixed
+  `PATH`, `TMPDIR`, and `LANG`). It inherits no `ANTHROPIC_API_KEY`, auth
+  token, base URL, or Bedrock or Vertex settings.
+- Each response is a separate `claude -p` process in an empty working folder
+  under `~/Library/Application Support/AI Spotlight/Claude Code`. It runs with
+  `--safe-mode` (no CLAUDE.md files, skills, plugins, hooks, or custom agents),
+  `--tools ""`, `--strict-mcp-config` with no MCP servers,
+  `--disable-slash-commands`, and `--no-session-persistence`. Enigma's system
+  prompt replaces Claude Code's own.
+- Enigma sends the conversation on standard input as a bounded JSON transcript,
+  up to 32,768 input tokens, and reads streamed text deltas. **Stop**
+  terminates the process. Anthropic's data policies apply.
 
-```sh
-scripts/install-app.sh                 # build, install, and launch
-scripts/install-app.sh --no-launch     # build and install only
-scripts/install-app.sh --install-hooks # reinstall after each commit or pull on main
-scripts/install-app.sh --remove-hooks  # stop reinstalling automatically
-```
+With `/messages`, the process instead gets an in-process MCP server that Enigma
+answers over Claude Code's stream-json control protocol, so no helper process
+or network listener is involved. Built-in tools stay off and only Enigma's
+Messages tools are allowed. See [Messages.md](Messages.md).
 
-The hooks are local `post-commit` and `post-merge` Git hooks and are never committed. They build in the
-background only while `main` is checked out, and relaunch Enigma only if it was already running.
-Output goes to `~/Library/Logs/Enigma-Install.log`. Only one build runs at a time. A commit made
-during a build triggers a single follow-up build, so the installed app ends on the newest commit.
-Set `ENIGMA_INSTALL_DIR` to install somewhere other than `/Applications`.
+## How it works
+
+| File | Responsibility |
+| --- | --- |
+| `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` | `ClaudeCodeRuntime` (executable lookup, environment, chat and tool-mode arguments, the Terminal sign-in script), `ClaudeCodeProcess`, `ClaudeCodeStreamParser`, and `ClaudeCodeSubscriptionClient` (account status, the model aliases, streaming). Also `ClaudeCodeEffort`. |
+| `Enigma/Cloud/CloudToolCalling.swift` | `ClaudeCodeToolMode`, which serves Enigma's MCP server for tool requests such as `/messages`. |
+| `Enigma/Cloud/CloudConnectionControls.swift` | `ClaudeCodeConnectionControls`, the row shared by Settings and welcome setup. |
+| `Enigma/Cloud/CloudSettingsModel.swift` | Account state, the sign-in polling, the preferred provider and model, and effort. |
+| `Enigma/Chat/ChatContext.swift` | The Claude Code context budget, which leaves room for the CLI's own prompt text. |
+
+## Limitations
+
+- Claude Code must be installed and signed in with a Claude subscription.
+- Plan usage limits apply.
+- Responses are text only: no images are sent. For how screenshots are handled,
+  see [Screen-Skill.md](Screen-Skill.md). Cloud File Mode uses ChatGPT via
+  Codex, not Claude; see [File-Mode.md](File-Mode.md).
+- Sign-in happens in Terminal and the browser and needs your participation.
+
+## Tests
+
+`EnigmaTests/ClaudeCodeSubscriptionTests.swift` replaces the CLI with shell
+scripts. It covers the process environment and flags, `/think` raising effort,
+stream parsing across chunk boundaries, error results and invalid output,
+account states, a missing CLI, the conversation sent on standard input,
+results without deltas, signed-out and unexpected exits, Stop terminating the
+process, settings and the default model, the Terminal sign-in flow, and the
+context budget. `EnigmaTests/MessagesToolCallingTests.swift` covers the tool
+mode's arguments and MCP handling. None of these tests need Claude Code, a
+login, or paid requests.

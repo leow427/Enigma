@@ -11,7 +11,7 @@
   "defaultOptions" : {
     "performanceAntipatternCheckerEnabled" : true,
     "targetForVariableExpansion" : {
-      "containerPath" : "container:AI-Spotlight.xcodeproj",
+      "containerPath" : "container:Enigma.xcodeproj",
       "identifier" : "A50000000000000000000001",
       "name" : "Enigma"
     }
@@ -19,7 +19,7 @@
   "testTargets" : [
     {
       "target" : {
-        "containerPath" : "container:AI-Spotlight.xcodeproj",
+        "containerPath" : "container:Enigma.xcodeproj",
         "identifier" : "A50000000000000000000002",
         "name" : "EnigmaTests"
       }
