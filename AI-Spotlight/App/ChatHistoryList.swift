@@ -18,7 +18,8 @@ struct ChatHistoryRow: Equatable, Identifiable {
 }
 
 enum ChatHistoryList {
-  static let visibleCount = 5
+  /// Every chat the store keeps; the sidebar scrolls when they don't fit.
+  static let visibleCount = ChatSessionStore.maximumRetainedSessions
 
   static func rows(sessions: [ChatSession], selectedSessionID: UUID?) -> [ChatHistoryRow] {
     guard !sessions.isEmpty else {

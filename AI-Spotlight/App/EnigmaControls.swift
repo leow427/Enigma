@@ -184,6 +184,92 @@ extension View {
   }
 }
 
+// MARK: Window dragging
+
+extension Notification.Name {
+  /// The user started dragging a window by its background; the object is the window.
+  static let enigmaWindowDragBegan = Notification.Name("enigma.windowDragBegan")
+  /// The user let go of a window they were dragging; the object is the window.
+  static let enigmaWindowDragEnded = Notification.Name("enigma.windowDragEnded")
+}
+
+extension View {
+  /// Lets the user move the window by dragging this view's background: the
+  /// parts with no control, field, or selectable text over them. Put it in
+  /// the background, over any fill. Controls and text keep their clicks.
+  /// `edgeInset` leaves the window's edges to resizing.
+  func enigmaWindowDragArea(edgeInset: CGFloat = 0) -> some View {
+    background(EnigmaWindowDragArea().padding(edgeInset))
+  }
+}
+
+/// A background that moves its window while it's dragged. Borderless windows
+/// have no title bar, and SwiftUI content doesn't move a window by its
+/// background on its own. The window stays inside the visible part of the
+/// screen under the pointer, clear of the menu bar and the Dock. Unlike a
+/// title bar drag, it doesn't move the window between Spaces or offer tiling.
+struct EnigmaWindowDragArea: NSViewRepresentable {
+  func makeNSView(context: Context) -> DragView { DragView() }
+  func updateNSView(_ view: DragView, context: Context) {}
+
+  final class DragView: NSView {
+    /// Where the pointer is on screen. Tests drive it with their own points.
+    var pointerLocation: () -> NSPoint = { NSEvent.mouseLocation }
+    /// The visible part of the screen under the pointer. Tests set their own.
+    var visibleFrame: (NSPoint) -> NSRect? = { pointer in
+      (NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
+    }
+    private var start: (pointer: NSPoint, origin: NSPoint)?
+    private var hasMoved = false
+
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func isAccessibilityElement() -> Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+      guard let window else { return super.mouseDown(with: event) }
+      start = (pointerLocation(), window.frame.origin)
+      hasMoved = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+      guard let window, var start else { return }
+      let pointer = pointerLocation()
+      guard pointer != start.pointer else { return }
+      if !hasMoved {
+        // Only a real move counts as a drag, so a click on the background
+        // changes nothing. A running resize settles first.
+        hasMoved = true
+        NotificationCenter.default.post(name: .enigmaWindowDragBegan, object: window)
+        start.origin = window.frame.origin
+        self.start = start
+      }
+      var origin = NSPoint(x: start.origin.x + pointer.x - start.pointer.x,
+                           y: start.origin.y + pointer.y - start.pointer.y)
+      if let visible = visibleFrame(pointer) {
+        origin = Self.clamped(origin, size: window.frame.size, to: visible)
+      }
+      window.setFrameOrigin(origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+      guard let window, start != nil else { return }
+      start = nil
+      if hasMoved { NotificationCenter.default.post(name: .enigmaWindowDragEnded, object: window) }
+      hasMoved = false
+    }
+
+    /// `origin` moved as little as possible to keep a window of `size` inside
+    /// `visible`, its top edge first when it's taller.
+    static func clamped(_ origin: NSPoint, size: NSSize, to visible: NSRect) -> NSPoint {
+      var result = origin
+      result.x = max(visible.minX, min(origin.x, visible.maxX - size.width))
+      result.y = min(visible.maxY - size.height, max(origin.y, visible.minY))
+      return result
+    }
+  }
+}
+
 extension EnvironmentValues {
   /// Set only by hosted tests, as with Screen's control markers.
   @Entry var enigmaTestMarker: (@MainActor @Sendable (String) -> AnyView)? = nil

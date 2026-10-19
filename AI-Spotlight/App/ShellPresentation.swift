@@ -52,6 +52,18 @@ struct ShellPresentation: Equatable {
     isSelectionDetailsPresented = false
   }
 
+  /// The panel's chat opened in the main window, by double-tap Control or the
+  /// Open in window button: the window's own layout, with the sidebar as the
+  /// user's saved preference has it for a new chat.
+  mutating func openSelectionChatInWindow(showsSidebar: Bool) {
+    isSelectionComposer = false
+    isSelectionPresentation = false
+    isSelectionDetailsPresented = false
+    isModePalettePresented = false
+    isSidebarVisible = showsSidebar
+    isComposerFocused = true
+  }
+
   mutating func cycleRecentChat() {
     isSelectionComposer = false
     isSelectionPresentation = false
@@ -67,8 +79,9 @@ struct ShellPresentation: Equatable {
   }
 
   /// The selection panel shows the compact panel: its composer, then the
-  /// answer it grows into. Opening the sidebar, as double-tap Control does,
-  /// shows the full window's layout in the panel instead.
+  /// answer it grows into. Double-tap Control opens its chat in the window
+  /// instead (`openSelectionChatInWindow`); a sidebar opened some other way
+  /// shows the full layout in the panel.
   var showsCompactPanel: Bool {
     isSelectionPresentation && (isSelectionComposer || !isSidebarVisible)
   }

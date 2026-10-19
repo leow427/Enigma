@@ -32,15 +32,15 @@ final class EnigmaCompactPanelTests: XCTestCase {
   /// Every hint names a shortcut the panel handles today; there's no ⌘O.
   @MainActor
   func testHintsNameOnlyShortcutsThatWork() {
-    XCTAssertEqual(CompactPanelHints.hints(isResponding: false).map(\.text), ["/ commands", "⌃⌃ history", "esc close"])
-    XCTAssertEqual(CompactPanelHints.hints(isResponding: true).map(\.text), ["⌘. stop", "⌃⌃ history", "esc close"])
+    XCTAssertEqual(CompactPanelHints.hints(isResponding: false).map(\.text), ["/ commands", "⌃⌃ open in window", "esc close"])
+    XCTAssertEqual(CompactPanelHints.hints(isResponding: true).map(\.text), ["⌘. stop", "⌃⌃ open in window", "esc close"])
     // Key glyphs are drawn in the system font, as the welcome's command lines draw them.
-    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ history").map(\.text), ["⌃⌃", " history"])
-    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ history").map(\.isSymbol), [true, false])
+    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ open in window").map(\.text), ["⌃⌃", " open in window"])
+    XCTAssertEqual(EnigmaCommandLine.runs("⌃⌃ open in window").map(\.isSymbol), [true, false])
     XCTAssertEqual(EnigmaCommandLine.runs("⌘. stop").map(\.isSymbol), [true, false])
     let panelKeys = Set(KeyboardShortcutsHelp.panel.map(\.keys))
     XCTAssertTrue(panelKeys.contains("Esc"))
-    XCTAssertTrue(panelKeys.contains("⌃ twice"), "Double-tap Control shows the history")
+    XCTAssertTrue(panelKeys.contains("⌃ twice"), "Double-tap Control opens the panel's chat in the window")
     XCTAssertTrue(panelKeys.contains("⌘ ."))
     XCTAssertEqual(PanelShortcut.resolve(characters: ".", modifiers: .command), .stopStreaming)
     XCTAssertNil(PanelShortcut.resolve(characters: "o", modifiers: .command), "⌘O doesn't exist, so no hint names it")
@@ -135,7 +135,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertEqual(fixture.chat.attachedContexts.count, 1)
     XCTAssertTrue(host.shows("Selected text"))
-    XCTAssertTrue(host.shows("Hint / commands") && host.shows("Hint ⌃⌃ history") && host.shows("Hint esc close"))
+    XCTAssertTrue(host.shows("Hint / commands") && host.shows("Hint ⌃⌃ open in window") && host.shows("Hint esc close"))
     let editor = try XCTUnwrap(composerEditor(in: host.view))
     XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor, "The field takes the palette's colors")
     XCTAssertTrue(host.view.bounds.contains(host.view.convert(editor.bounds, from: editor)))
@@ -470,25 +470,345 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertFalse(host.controller.isSelectionComposer)
   }
 
-  /// Double-tap Control grows the panel and shows the history, as before: the
-  /// full layout in the panel. Hiding the history goes back to the answer.
+  /// A fixed screen for the tests that move or expand the panel, whatever
+  /// the Mac's displays: GitHub's runners have small screens.
+  static let testScreen = NSRect(x: 0, y: 0, width: 1280, height: 800)
+
+  /// Double-tap Control in the panel opens its chat in the window, even before
+  /// the first answer: the normal layout, sidebar as the saved preference has
+  /// it (off here), and the chat saved from then on. Double-tap Control again
+  /// shows or hides the history, as in any chat.
   @MainActor
-  func testDoubleControlShowsTheHistoryInThePanelAndHidingItReturnsToTheAnswer() async throws {
+  func testDoubleControlOpensThePanelsChatInTheWindowBeforeTheFirstAnswer() async throws {
     let fixture = try await Fixture(test: self)
-    let host = try await CompactPanelHost(fixture, test: self)
-    host.present("Please send the report today.")
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    fixture.start.showsSidebar = false
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
     try await host.waitForComposer()
-    let composerFrame = host.window.frame
-    // What SpotlightPanel's double-tap Control does.
-    host.controller.expandSelectionPanel()
-    NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-    try await waitForUI("the full layout with the history", in: host.view) {
-      host.shows("New chat") && !host.shows("Compact panel") && !host.shows("Compact panel answer")
+    let id = try XCTUnwrap(fixture.chat.selectedSessionID)
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertTrue(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"), "The panel says its chat is temporary")
+    try host.doubleTapControl()
+    try await waitForUI("the window's chat, without the sidebar", in: host.view) {
+      !host.shows("Compact panel") && host.shows("Show chat history") && !host.shows("New chat")
+        && host.shows("Send message")
     }
-    XCTAssertEqual(host.window.frame, SelectionPanelExpansion.frame(from: composerFrame, visible: host.visible))
-    NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-    try await waitForUI("the answer panel again", in: host.view) {
-      host.shows("Compact panel answer") && !host.shows("New chat")
+    XCTAssertEqual(host.window.frame, PanelSizeStore.centeredFrame(size: host.normalFrame.size, in: Self.testScreen),
+                   "The window's normal size, on the panel's screen")
+    XCTAssertFalse(host.controller.isSelectionComposer)
+    XCTAssertFalse(fixture.chat.isTemporaryChat, "Opened in the window, the chat is an ordinary one")
+    XCTAssertEqual(fixture.chat.selectedSessionID, id, "The same chat")
+    XCTAssertEqual(fixture.chat.attachedContexts.count, 1, "The selection stays for /edit and Replace text")
+    XCTAssertFalse(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"))
+    XCTAssertFalse(host.shows("Window tag \(CompactPanelHints.temporaryTag)"), "It isn't temporary any more")
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(ChatSessionStore(applicationSupportDirectory: fixture.root).load().map(\.id), [id])
+    try host.doubleTapControl()
+    try await waitForUI("the history, as in any chat", in: host.view) { host.shows("New chat") }
+  }
+
+  /// The Open in window button does what double-tap Control does, after an
+  /// answer too. With the sidebar preference on, the chat tops Recents,
+  /// selected, and says once that it's saved.
+  @MainActor
+  func testOpenInWindowButtonOpensTheNormalChatSavedAtTheTopOfRecents() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Quantizing a GGUF")])
+    fixture.start.showsSidebar = true
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    try await host.send("Explain this passage", fixture)
+    fixture.engine.send("It asks for the report today.")
+    fixture.engine.finish()
+    try await waitForUI("the finished answer", in: host.view) {
+      fixture.chat.activeRequest == nil && host.shows("Compact panel answer") && host.shows("Open in window")
+    }
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    let before = try Data(contentsOf: fixture.root.appending(path: "chats.json"))
+    XCTAssertFalse(fixture.chat.historySessions.contains { $0.id == fixture.chat.selectedSessionID })
+    try await clickTestControl("Open in window", in: host.view)
+    try await waitForUI("the window's chat with the sidebar", in: host.view) {
+      !host.shows("Compact panel answer") && host.shows("New chat") && host.shows("Your message")
+    }
+    XCTAssertFalse(fixture.chat.isTemporaryChat)
+    let rows = ChatHistoryList.rows(sessions: fixture.chat.historySessions, selectedSessionID: fixture.chat.selectedSessionID)
+    XCTAssertEqual(rows.first?.title, "Explain this passage", "It tops Recents")
+    XCTAssertEqual(rows.first?.isSelected, true)
+    let note = "Chat footnote Saved to history · Enigma keeps your last \(ChatSessionStore.maximumRetainedSessions) chats"
+    try await waitForUI("the saved line", in: host.view) { host.shows(note) }
+    XCTAssertEqual(host.markers(note), 1, "Said once")
+    XCTAssertFalse(fixture.chat.messages.contains { $0.content.contains("Saved to history") }, "Not part of the transcript")
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    let saved = ChatSessionStore(applicationSupportDirectory: fixture.root).load()
+    XCTAssertNotEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before)
+    XCTAssertEqual(saved.first?.title, "Explain this passage")
+    XCTAssertEqual(saved.first?.messages.map(\.content), ["Explain this passage", "It asks for the report today."])
+    let file = try String(decoding: Data(contentsOf: fixture.root.appending(path: "chats.json")), as: UTF8.self)
+    XCTAssertFalse(file.contains("Please send the report today."), "Selected text is never written to disk")
+
+    // The line is a one-off: the next message ends it.
+    try await host.send("Thanks", fixture, expectsPanelToGrow: false)
+    try await waitForUI("the line gone with the next message", in: host.view) { !host.shows(note) }
+    fixture.engine.finish()
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil }
+    XCTAssertFalse(host.shows(note))
+
+    // Another chat ends the selection.
+    fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
+    try await waitForUI("the other chat", in: host.view) { !host.shows("Your message") || fixture.chat.selectedSessionID == fixture.earlierSessionID }
+    XCTAssertTrue(fixture.chat.attachedContexts.isEmpty)
+  }
+
+  /// Closed without opening in the window, the panel's chat is never written.
+  @MainActor
+  func testClosingThePanelWithoutOpeningInTheWindowSavesNothing() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Quantizing a GGUF")])
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    let before = try Data(contentsOf: fixture.root.appending(path: "chats.json"))
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    try await host.send("Explain this passage", fixture)
+    fixture.engine.send("It asks for the report today.")
+    fixture.engine.finish()
+    try await waitForUI("the finished answer", in: host.view) { fixture.chat.activeRequest == nil }
+    host.controller.hide()
+    fixture.chat.applicationBecameInactive()
+    host.present(nil, cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before)
+    XCTAssertFalse(fixture.chat.sessions.contains { $0.title == "Explain this passage" })
+  }
+
+  /// With "Keep selection chats private" on, the chat opens in the window but
+  /// stays temporary: never written, out of Recents, tagged for as long as
+  /// it's open, and gone with the next chat. Turning the setting off then
+  /// doesn't save it after the fact.
+  @MainActor
+  func testPrivateSelectionChatsOpenInTheWindowWithoutBeingSaved() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Quantizing a GGUF")])
+    fixture.selectionEditing.keepsChatsPrivate = true
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    let before = try Data(contentsOf: fixture.root.appending(path: "chats.json"))
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    try await host.send("Explain this passage", fixture)
+    fixture.engine.send("It asks for the report today.")
+    fixture.engine.finish()
+    try await waitForUI("the finished answer", in: host.view) { fixture.chat.activeRequest == nil }
+    XCTAssertTrue(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"))
+    let id = try XCTUnwrap(fixture.chat.selectedSessionID)
+    try await clickTestControl("Open in window", in: host.view)
+    try await waitForUI("the window's chat, private", in: host.view) {
+      !host.shows("Compact panel answer") && host.shows("Your message")
+        && host.shows("Window tag \(CompactPanelHints.temporaryTag)")
+        && host.shows("Chat footnote \(CompactPanelHints.privateNote)")
+    }
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertEqual(fixture.chat.selectedSessionID, id)
+    XCTAssertFalse(fixture.chat.historySessions.contains { $0.id == id }, "Not in Recents")
+    XCTAssertFalse(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"))
+    // Set mid-chat, the setting applies from the next chat opened in the window.
+    fixture.selectionEditing.keepsChatsPrivate = false
+    fixture.chat.applicationBecameInactive()
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before)
+    // The private line goes with the next message; the tag stays.
+    try await host.send("Thanks", fixture, expectsPanelToGrow: false)
+    try await waitForUI("the line gone, the tag kept", in: host.view) {
+      !host.shows("Chat footnote \(CompactPanelHints.privateNote)") && host.shows("Window tag \(CompactPanelHints.temporaryTag)")
+    }
+    fixture.engine.finish()
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil }
+    fixture.chat.applicationBecameInactive()
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before, "Still never written")
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    try await waitForUI("a new chat", in: host.view) { fixture.chat.selectedSessionID != id }
+    XCTAssertFalse(fixture.chat.sessions.contains { $0.id == id }, "Discarded with the next chat")
+  }
+
+  /// The panel moves when dragged by its background, small or grown, while
+  /// its controls keep their clicks. Moved, it keeps its place through the
+  /// automatic resizing that follows, still on the screen, and the next
+  /// summons opens it by the selection again.
+  @MainActor
+  func testDraggedPanelKeepsItsPlaceThroughAutomaticResizing() async throws {
+    let fixture = try await Fixture(test: self)
+    let screen = Self.testScreen
+    let host = try await CompactPanelHost(fixture, test: self, visible: screen)
+    let cursor = NSPoint(x: 640, y: 120)
+    host.present("Please send the report today.", cursor: cursor)
+    try await host.waitForComposer()
+    let placed = host.window.frame
+    XCTAssertLessThan(placed.minY - screen.minY, CompactPanelLayout.overlayRoomBelow, "Low enough for lists to open above")
+    for control in ["Send message", "Open in window", "Selection details", "Remove selection", "Attach files"] {
+      XCTAssertNil(host.dragArea(atMarker: control), "\(control) keeps its clicks")
+    }
+    XCTAssertTrue(composerAcceptsClicks(in: host.view), "The field keeps its clicks")
+
+    // Dragged up by its background, the lists open under the input from there.
+    try host.drag(by: NSSize(width: -200, height: 450))
+    let moved = host.window.frame
+    XCTAssertEqual(moved.origin, NSPoint(x: placed.minX - 200, y: placed.minY + 450))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    host.window.makeFirstResponder(editor)
+    editor.insertText("/", replacementRange: NSRange(location: 0, length: 0))
+    try await waitForUI("the command list under the input, where the panel is now", in: host.view) {
+      editor.completion?.commands.isEmpty == false && host.window.frame.height > moved.height + 120
+    }
+    XCTAssertEqual(host.window.frame.maxY, moved.maxY, accuracy: 1, "It grows down from where it was moved")
+    editor.completion?.dismiss()
+    editor.insertText("", replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+    try await waitForUI("back at its moved place", in: host.view) { host.window.frame == moved }
+
+    // Partly off the screen's edge, the next resize brings it back on.
+    try host.drag(by: NSSize(width: 900, height: 0))
+    try await clickTestControl("Selection details", in: host.view)
+    try await waitForUI("the details, on the screen", in: host.view) {
+      host.shows("Selection details panel") && host.window.frame.maxX <= screen.maxX + 0.5
+    }
+    try await clickTestControl("Selection details", in: host.view)
+    try await waitForUI("the details closed", in: host.view) { !host.shows("Selection details panel") }
+    let resting = host.window.frame
+    XCTAssertEqual(resting.maxY, moved.maxY, accuracy: 1)
+
+    // The answer opens under the input where it is.
+    try await host.send("Explain this passage", fixture)
+    try await waitForUI("the grown panel", in: host.view) {
+      host.window.frame == SelectionPanelExpansion.frame(from: resting, visible: screen)
+    }
+    // Grown, it moves too, and stays where it's put as the reply streams in.
+    try await waitForUI("the answer's background", in: host.view) { host.dragArea(at: host.hintRowPoint) != nil }
+    let grown = host.window.frame
+    try host.drag(by: NSSize(width: -300, height: 40))
+    XCTAssertEqual(host.window.frame.origin, NSPoint(x: grown.minX - 300, y: grown.minY + 40))
+    let grownMoved = host.window.frame
+    fixture.engine.send("It asks for the report today.")
+    fixture.engine.finish()
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil && host.shows("Reply") }
+    XCTAssertEqual(host.window.frame, grownMoved)
+
+    // The next summons opens by the selection again.
+    host.present("Another passage", cursor: cursor)
+    try await host.waitForComposer()
+    XCTAssertEqual(host.window.frame.minX, placed.minX, accuracy: 1)
+    XCTAssertEqual(host.window.frame.maxY, placed.maxY, accuracy: 1)
+  }
+
+  /// A first reply that fails, or is stopped before any text, leaves the
+  /// selection attached: the line still reads `selected`, and the next
+  /// question carries it with the first-message instructions.
+  @MainActor
+  func testSelectionStaysAttachedWhenTheFirstReplyFailsOrIsStopped() async throws {
+    for stops in [false, true] {
+      let fixture = try await Fixture(test: self)
+      let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+      host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+      try await host.waitForComposer()
+      try await host.send("Explain this passage", fixture)
+      if stops { fixture.chat.stopStreaming() } else { fixture.engine.finish(throwing: LocalInferenceError.invalidModelFile) }
+      try await waitForUI("the first reply ended without text", in: host.view) {
+        fixture.chat.activeRequest == nil && host.shows("Selected text to send")
+      }
+      XCTAssertFalse(host.shows("Selected text for /edit"))
+      try await host.send("Explain it again", fixture)
+      let current = try XCTUnwrap(fixture.engine.lastRequest?.messages.last)
+      XCTAssertTrue(current.content.contains("Please send the report today."), "Attached again")
+      XCTAssertTrue(current.content.contains(SelectionResponseMode.answer.instructions))
+      fixture.engine.send("It asks for the report today.")
+      fixture.engine.finish()
+      try await waitForUI("the reply, and the selection now sent", in: host.view) {
+        fixture.chat.activeRequest == nil && host.shows("Selected text for /edit")
+      }
+    }
+  }
+
+  /// The main window moves by its background too, but not along its edges,
+  /// which are left to resizing, and not over the sidebar or the chat.
+  @MainActor
+  func testMainWindowMovesWhenDraggedByItsBackground() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    // On the test's screen, whatever the Mac's displays.
+    host.window.setFrameOrigin(NSPoint(x: 100, y: 80))
+    let start = host.window.frame
+    // The empty page around the composer is background.
+    let point = NSPoint(x: start.width * 0.75, y: start.height * 0.12)
+    XCTAssertNotNil(host.dragArea(at: point), "The page's background moves the window")
+    let edge = EnigmaWindowChrome.resizeEdge
+    XCTAssertNil(host.dragArea(at: NSPoint(x: start.width - edge / 2, y: point.y)), "The right edge resizes")
+    XCTAssertNil(host.dragArea(at: NSPoint(x: point.x, y: edge / 2)), "The bottom edge resizes")
+    for control in ["Send message", "New chat", "Help", "Settings"] {
+      XCTAssertNil(host.dragArea(atMarker: control), "\(control) keeps its clicks")
+    }
+    XCTAssertTrue(composerAcceptsClicks(in: host.view))
+    try host.drag(from: point, by: NSSize(width: 40, height: -30))
+    XCTAssertEqual(host.window.frame.origin, NSPoint(x: start.minX + 40, y: start.minY - 30))
+    // A drag stops at the screen's visible edge, clear of the menu bar.
+    try host.drag(from: point, by: NSSize(width: 0, height: 2_000))
+    XCTAssertEqual(host.window.frame.maxY, Self.testScreen.maxY, accuracy: 0.5)
+
+    // With a chat, its messages keep their clicks and scrolling.
+    try await host.send("Explain this passage", fixture, expectsPanelToGrow: false)
+    try await waitForUI("the message", in: host.view) { host.shows("Your message") }
+    XCTAssertNil(host.dragArea(atMarker: "Your message"))
+    let scrollViews = Self.descendants(host.view).compactMap { $0 as? NSScrollView }
+    let chatScroll = try XCTUnwrap(scrollViews.max { $0.frame.width < $1.frame.width }, "The chat's scroll view")
+    let scrollPoint = chatScroll.convert(NSPoint(x: chatScroll.bounds.midX, y: chatScroll.bounds.midY), to: nil)
+    XCTAssertNil(host.dragArea(at: scrollPoint), "The chat scrolls rather than dragging")
+  }
+
+  private static func descendants(_ view: NSView) -> [NSView] {
+    [view] + view.subviews.flatMap { descendants($0) }
+  }
+
+  /// A click on the background without moving changes nothing.
+  @MainActor
+  func testClickingTheBackgroundDoesNotMoveOrResetThePanel() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    try host.drag(by: NSSize(width: -100, height: -200))
+    let moved = host.window.frame
+    var events = 0
+    let began = NotificationCenter.default.addObserver(forName: .enigmaWindowDragBegan, object: nil, queue: nil) { _ in
+      events += 1
+    }
+    defer { NotificationCenter.default.removeObserver(began) }
+    try host.drag(by: NSSize(width: 0, height: 0))
+    XCTAssertEqual(events, 0, "A click isn't a drag")
+    XCTAssertEqual(host.window.frame, moved)
+    try await clickTestControl("Selection details", in: host.view)
+    try await waitForUI("the details", in: host.view) { host.shows("Selection details panel") }
+    XCTAssertEqual(host.window.frame.maxY, moved.maxY, accuracy: 1, "It grows from where it was moved")
+  }
+
+  @MainActor
+  func testOpenInWindowButtonNamesWhatItDoes() throws {
+    XCTAssertEqual(CompactPanelHints.openInWindowHelp(keepsPrivate: false), "Open in window · saves to history")
+    XCTAssertEqual(CompactPanelHints.openInWindowHelp(keepsPrivate: true), "Open in window · stays private")
+    XCTAssertEqual(CompactPanelHints.savedNote,
+                   "Saved to history · Enigma keeps your last \(ChatSessionStore.maximumRetainedSessions) chats")
+    XCTAssertEqual(CompactPanelHints.temporaryTag, "temporary · not saved")
+    XCTAssertEqual(CompactPanelHints.openInWindowLabel, "Open in window", "The VoiceOver label")
+    // The button renders in the panel's top row, with or without a selection.
+    for keepsPrivate in [false, true] {
+      let line = EnigmaCompactSelectionLine(contexts: [], isComposing: false, remove: { _ in }, openInWindow: {},
+                                            opensPrivately: keepsPrivate)
+        .frame(width: 720).enigmaTheme(.paper)
+        .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+      let view = NSHostingView(rootView: line)
+      let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 40), styleMask: [.borderless],
+                            backing: .buffered, defer: false)
+      window.contentView = view
+      view.layoutSubtreeIfNeeded()
+      defer { window.contentView = nil }
+      XCTAssertNotNil(EnigmaMainWindowTests.Host.marker("Open in window", in: view))
     }
   }
 
@@ -607,11 +927,14 @@ final class CompactPanelHost {
   /// The window's frame before the panel opened, which a reset restores.
   let normalFrame: NSRect
 
-  init(_ fixture: EnigmaMainWindowTests.Fixture, test: XCTestCase, reduceMotion: Bool = true) async throws {
+  /// `visible` sets the screen the panel is on, instead of the Mac's own.
+  init(_ fixture: EnigmaMainWindowTests.Fixture, test: XCTestCase, reduceMotion: Bool = true,
+       visible screen: NSRect? = nil) async throws {
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
     sizes.save(NSSize(width: 900, height: 600))
-    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { reduceMotion })
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { reduceMotion },
+      visibleFrame: { window in screen ?? window.screen?.visibleFrame })
     controller.show()
     test.addTeardownBlock { @MainActor in
       controller.hide()
@@ -622,13 +945,80 @@ final class CompactPanelHost {
     self.controller = controller
     window = try XCTUnwrap(view.window)
     window.colorSpace = .sRGB
-    visible = try XCTUnwrap(window.screen?.visibleFrame)
+    visible = try screen ?? XCTUnwrap(window.screen?.visibleFrame)
     try await waitForUI("the window frame", in: view) { EnigmaMainWindowTests.Host.marker("New chat", in: view) != nil }
     normalFrame = window.frame
   }
 
   func marker(_ name: String) -> NSView? { EnigmaMainWindowTests.Host.marker(name, in: view) }
   func shows(_ name: String) -> Bool { marker(name) != nil }
+
+  /// How many visible markers are named `name`.
+  func markers(_ name: String) -> Int {
+    func isMarker(_ node: NSView) -> Bool {
+      guard node is TestControlMarker.Marker, node.identifier?.rawValue == name else { return false }
+      guard !node.isHiddenOrHasHiddenAncestor else { return false }
+      return node.visibleRect.width > 1 && node.visibleRect.height > 1
+    }
+    func count(_ node: NSView) -> Int {
+      let own = isMarker(node) ? 1 : 0
+      return own + node.subviews.reduce(0) { $0 + count($1) }
+    }
+    return count(view)
+  }
+
+  /// What double-tap Control does: four modifier changes, quickly. The panel
+  /// handles them only while it's the key window.
+  func doubleTapControl() throws {
+    window.makeKey()
+    XCTAssertTrue(window.isKeyWindow, "Double-tap Control reaches the panel only while it's key; the test host must be frontmost")
+    let base = ProcessInfo.processInfo.systemUptime
+    let taps: [(TimeInterval, NSEvent.ModifierFlags)] = [(0, .control), (0.05, []), (0.15, .control), (0.2, [])]
+    for (offset, flags) in taps {
+      let event = try XCTUnwrap(NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: flags,
+        timestamp: base + offset, windowNumber: window.windowNumber, context: nil, characters: "",
+        charactersIgnoringModifiers: "", isARepeat: false, keyCode: 59))
+      window.sendEvent(event)
+    }
+  }
+
+  /// A point in the hint row between the shortcuts and the trailing tag, in
+  /// window coordinates: background, with nothing over it.
+  var hintRowPoint: NSPoint { NSPoint(x: window.frame.width * 0.62, y: 4) }
+
+  /// The drag area a click at `point`, in window coordinates, lands on, if any.
+  func dragArea(at point: NSPoint) -> EnigmaWindowDragArea.DragView? {
+    guard let superview = view.superview else { return nil }
+    return view.hitTest(superview.convert(point, from: nil)) as? EnigmaWindowDragArea.DragView
+  }
+
+  /// The drag area a click on the control marked `name` would land on: none.
+  func dragArea(atMarker name: String) -> EnigmaWindowDragArea.DragView? {
+    guard let marker = marker(name) else { return nil }
+    return dragArea(at: marker.convert(NSPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: nil))
+  }
+
+  /// Presses at `point`, or the hint row, drags by `delta`, and lets go, as a
+  /// person dragging the window's background would.
+  func drag(from point: NSPoint? = nil, by delta: NSSize) throws {
+    let point = point ?? hintRowPoint
+    let area = try XCTUnwrap(dragArea(at: point), "The background at \(point) moves the window")
+    let pointer = PointerBox()
+    area.pointerLocation = { pointer.location }
+    let screen = visible
+    area.visibleFrame = { _ in screen }
+    func send(_ type: NSEvent.EventType) throws {
+      window.sendEvent(try XCTUnwrap(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+        eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)))
+    }
+    try send(.leftMouseDown)
+    pointer.location = NSPoint(x: pointer.location.x + delta.width / 2, y: pointer.location.y + delta.height / 2)
+    try send(.leftMouseDragged)
+    pointer.location = NSPoint(x: 500 + delta.width, y: 500 + delta.height)
+    try send(.leftMouseDragged)
+    try send(.leftMouseUp)
+  }
 
   /// What double-tap ⌥ does once the selection is read, with the pointer at
   /// `cursor`, or the middle of the screen.
@@ -659,16 +1049,23 @@ final class CompactPanelHost {
       characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)))
   }
 
-  /// Types `text` into the real field and presses Return, then waits for the request.
-  func send(_ text: String, _ fixture: EnigmaMainWindowTests.Fixture) async throws {
+  /// Types `text` into the real field and presses Return, then waits for the
+  /// request, and in the panel for it to grow.
+  func send(_ text: String, _ fixture: EnigmaMainWindowTests.Fixture, expectsPanelToGrow: Bool = true) async throws {
     let editor = try XCTUnwrap(composerEditor(in: view))
     let count = fixture.engine.requestCount
     fixture.screen.draft = text
     try await waitForUI("the draft in the field", in: view) { editor.string == text && editor.isEditable }
     try pressReturn()
     try await waitForUI("the request (state \(fixture.chat.state))", in: view) {
-      fixture.engine.requestCount == count + 1 && !controller.isSelectionComposer
+      fixture.engine.requestCount == count + 1 && (!expectsPanelToGrow || !controller.isSelectionComposer)
     }
   }
 
+}
+
+/// The pointer's place on screen for a simulated drag.
+@MainActor
+private final class PointerBox {
+  var location = NSPoint(x: 500, y: 500)
 }

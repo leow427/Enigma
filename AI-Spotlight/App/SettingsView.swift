@@ -54,7 +54,7 @@ struct SettingsView: View {
       case .local: "Run models on this Mac, without the cloud."
       case .discover: "Find your next vision or audio model."
       case .cloud: "Optional cloud models, screenshots, and web search."
-      case .selection: "Permissions for selected text, and how revisions are applied."
+      case .selection: "Permissions for selected text, how revisions are applied, and whether selection chats are saved."
       }
     }
 
@@ -353,7 +353,8 @@ private struct ReplayWelcomeButton: View {
 
 // MARK: Selection
 
-/// The Accessibility permission and automatic replacement.
+/// The Accessibility permission, automatic replacement, and whether selection
+/// chats stay private.
 struct SelectionSettingsPage: View {
   @ObservedObject var selectionEditing: SelectionEditingSettings
 
@@ -370,6 +371,13 @@ struct SelectionSettingsPage: View {
       EnigmaHairline()
       EnigmaNote("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you double-tap Option.")
         .padding(.top, 8)
+
+      EnigmaSectionHeader("Privacy")
+      EnigmaRow(SelectionEditingSettings.privateChatsTitle,
+                subtitle: SelectionEditingSettings.privateChatsSubtitle(isOn: selectionEditing.keepsChatsPrivate)) {
+        EnigmaSwitch(SelectionEditingSettings.privateChatsTitle, isOn: $selectionEditing.keepsChatsPrivate)
+      }
+      EnigmaHairline()
     }
   }
 }

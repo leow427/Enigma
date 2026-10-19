@@ -270,6 +270,27 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   @MainActor
+  func testSelectionPageKeepsSelectionChatsPrivateWhenSwitchedOn() async throws {
+    let fixture = try await Fixture(test: self)
+    XCTAssertFalse(fixture.selection.keepsChatsPrivate, "Off by default")
+    let host = Host(fixture.settings(.selection).enigmaTheme(.paper), test: self)
+    try await waitForUI("the private chats row", in: host.view) {
+      host.shows(SelectionEditingSettings.privateChatsTitle)
+        && host.shows("\(SelectionEditingSettings.privateChatsTitle) switch")
+    }
+    try host.press("\(SelectionEditingSettings.privateChatsTitle) switch")
+    try await waitForUI("private chats on", in: host.view) { fixture.selection.keepsChatsPrivate }
+    XCTAssertTrue(fixture.defaults.bool(forKey: SelectionEditingSettings.privateChatsKey))
+    try host.press("\(SelectionEditingSettings.privateChatsTitle) switch")
+    try await waitForUI("private chats off", in: host.view) { !fixture.selection.keepsChatsPrivate }
+    XCTAssertFalse(fixture.defaults.bool(forKey: SelectionEditingSettings.privateChatsKey))
+    // General doesn't hold it.
+    let general = Host(fixture.settings(.general).enigmaTheme(.paper), test: self)
+    try await waitForUI("General", in: general.view) { general.shows("Appearance: Ink") }
+    XCTAssertFalse(general.shows(SelectionEditingSettings.privateChatsTitle))
+  }
+
+  @MainActor
   func testAPIKeySavesToTheKeychainAndRemoves() async throws {
     let credentials = ScreenTestCredentialStore()
     let fixture = try await Fixture(test: self, cloudCredentials: credentials)

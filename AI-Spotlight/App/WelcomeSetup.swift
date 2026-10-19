@@ -189,7 +189,7 @@ enum WelcomeTourStep: Int, CaseIterable {
   }
   var detail: String {
     switch self {
-    case .history: "Your five most recent chats live in the sidebar. Double-tap Control to show or hide it, and use New chat to start fresh."
+    case .history: "Your \(ChatSessionStore.maximumRetainedSessions) most recent chats live in the sidebar. Double-tap Control to show or hide it, and use New chat to start fresh."
     case .composer: "Type here and press Return to send. Use Shift–Return for a new line. Your draft stays here while you explore the tour."
     case .commands: "Type / in the message box to browse commands. Use ↑ and ↓, then Tab or Return to choose one before adding your question."
     case .files: "Open the file picker to work with a file or folder. Enigma asks for access to what you choose."

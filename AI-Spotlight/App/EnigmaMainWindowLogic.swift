@@ -481,7 +481,7 @@ enum KeyboardShortcutsHelp {
     Shortcut("Open or close Mode & Model", "⌘ K"),
     Shortcut("Stop the response", "⌘ ."),
     Shortcut("Next recent chat", "⌃ Tab"),
-    Shortcut("Show or hide chat history", "⌃ twice"),
+    Shortcut("Show or hide chat history, or open the selection panel's chat in the window", "⌃ twice"),
     Shortcut("Open Settings", "⌘ ,"),
     Shortcut("Send from the message field", "Return"),
     Shortcut("Complete a slash command", "Tab / Return"),

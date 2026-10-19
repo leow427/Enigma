@@ -30,6 +30,18 @@ enum CompactPanelLayout {
   }
 }
 
+/// The selection's part in the chat. It goes with the first message only;
+/// after that it stays in the conversation, where the model can refer back
+/// to it, and `/edit` and a standalone `/translate` still use it, but new
+/// questions don't carry it.
+enum CompactSelectionStatus {
+  /// The `› selected "…"` line's label: what the selection is for now.
+  static func label(isSent: Bool) -> String { isSent ? "for /edit" : "selected" }
+
+  /// The line's tooltip and the card's note, once the selection has been sent.
+  static let sentNote = "Sent with your first message. New questions don't attach it; /edit and /translate still use it."
+}
+
 /// The monospace chip beside the input: the mode, then where Auto runs or the
 /// model a fixed mode uses, like `auto · local`. It opens the mode and model menu.
 enum CompactRouteChip {
@@ -47,8 +59,8 @@ enum CompactRouteChip {
 }
 
 /// The monospace hints under the panel. Each names a shortcut that works in
-/// the panel today: `/` opens the commands, a double-tap of Control shows the
-/// chat history, which grows the panel, `⌘.` stops a reply, and Escape hides
+/// the panel today: `/` opens the commands, a double-tap of Control expands
+/// the panel into the full window's chat, `⌘.` stops a reply, and Escape hides
 /// the panel.
 enum CompactPanelHints {
   struct Hint: Equatable, Identifiable {
@@ -61,8 +73,30 @@ enum CompactPanelHints {
 
   static func hints(isResponding: Bool) -> [Hint] {
     [isResponding ? Hint(keys: "⌘.", action: "stop") : Hint(keys: "/", action: "commands"),
-     Hint(keys: "⌃⌃", action: "history"),
+     Hint(keys: "⌃⌃", action: "open in window"),
      Hint(keys: "esc", action: "close")]
+  }
+
+  /// The tag on the hint row's trailing side while the panel's chat is
+  /// temporary, which it is for as long as it's in the panel.
+  static let temporaryTag = "temporary · not saved"
+
+  /// The Open in window button's VoiceOver label.
+  static let openInWindowLabel = "Open in window"
+
+  /// The Open in window button's tooltip: whether opening the chat in the
+  /// window saves it, as "Keep selection chats private" decides.
+  static func openInWindowHelp(keepsPrivate: Bool) -> String {
+    keepsPrivate ? "Open in window · stays private" : "Open in window · saves to history"
+  }
+
+  /// The one-time line under a selection chat opened in the window privately.
+  static let privateNote = "Private chat · not saved to history"
+
+  /// The quiet line under a chat just kept from the panel, with how many
+  /// chats the history keeps.
+  static var savedNote: String {
+    "Saved to history · Enigma keeps your last \(ChatSessionStore.maximumRetainedSessions) chats"
   }
 }
 

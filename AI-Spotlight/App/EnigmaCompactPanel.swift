@@ -21,6 +21,8 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
   /// Lists and menus open above the input, because there's no room under the panel.
   var opensOverlaysAbove = false
   let hints: [CompactPanelHints.Hint]
+  /// The chat is temporary, as it is while it's in the panel: the hint row says so.
+  var isTemporary = false
   @ViewBuilder let selection: () -> Selection
   @ViewBuilder let composer: () -> Composer
   /// Under the input while composing, like an attached screenshot.
@@ -90,7 +92,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .transition(.opacity)
       }
-      EnigmaCompactHints(hints: hints)
+      EnigmaCompactHints(hints: hints, tag: isTemporary ? CompactPanelHints.temporaryTag : nil)
     }
     .fixedSize(horizontal: false, vertical: isComposing)
     .background {
@@ -105,6 +107,8 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .coordinateSpace(.named(SlashSuggestionsFrame.coordinateSpace))
     .onPreferenceChange(SlashSuggestionsFrame.self) { suggestions = $0 }
+    // Dragging the panel anywhere off its controls and text moves it.
+    .enigmaWindowDragArea()
     .background(palette.surface.color)
     .clipShape(shape)
     .enigmaEdge(shape)
@@ -121,9 +125,13 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
 /// `› selected "…"`, with the selection's status and a button to remove it,
 /// or its own plain line when no text was selected. The status button opens
 /// the details, and shows a problem glyph when there's a notice or
-/// Accessibility is missing.
+/// Accessibility is missing. Once the selection has gone with the first
+/// message, the line reads `› for /edit "…"` in a quieter color: it's still
+/// what /edit revises and Replace text replaces, but new questions don't carry it.
 struct EnigmaCompactSelectionLine: View {
   let contexts: [ConversationContext]
+  /// The selections an earlier message already carried.
+  var sentContextIDs: Set<UUID> = []
   var isBusy = false
   /// The status button and the no-selection line show only while composing.
   var isComposing: Bool
@@ -131,17 +139,29 @@ struct EnigmaCompactSelectionLine: View {
   var isStatusPresented = false
   var toggleStatus: () -> Void = {}
   let remove: (UUID) -> Void
+  /// Opens the panel's chat in the main window, as double-tap Control does.
+  /// The button ends the top row whatever else it shows.
+  var openInWindow: (() -> Void)? = nil
+  /// Opening in the window keeps the chat private instead of saving it.
+  var opensPrivately = false
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
-    if !contexts.isEmpty || isComposing {
+    if !contexts.isEmpty || isComposing || openInWindow != nil {
       VStack(alignment: .leading, spacing: 2) {
-        if contexts.isEmpty {
-          line(nil, showsStatus: true)
-        } else {
+        if !contexts.isEmpty {
           ForEach(Array(contexts.enumerated()), id: \.element.id) { index, context in
-            line(context, showsStatus: index == 0)
+            line(context, showsStatus: index == 0, isFirst: index == 0)
           }
+        } else if isComposing {
+          line(nil, showsStatus: true, isFirst: true)
+        } else {
+          // Grown with no selection: the row holds only Open in window.
+          HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            openInWindowButton
+          }
+          .frame(minHeight: 22)
         }
       }
       .padding(.top, 9)
@@ -150,26 +170,43 @@ struct EnigmaCompactSelectionLine: View {
     }
   }
 
-  private func line(_ context: ConversationContext?, showsStatus: Bool) -> some View {
+  @ViewBuilder private var openInWindowButton: some View {
+    if let openInWindow {
+      Button(action: openInWindow) {
+        Image(systemName: "arrow.up.left.and.arrow.down.right").font(EnigmaTypography.smallIconButtonSymbol)
+      }
+      .enigmaIconButtonStyle(size: CGSize(width: 24, height: 22))
+      .help(CompactPanelHints.openInWindowHelp(keepsPrivate: opensPrivately))
+      .accessibilityLabel(CompactPanelHints.openInWindowLabel)
+      .accessibilityHint(opensPrivately ? "Opens this chat in the main window. It stays private."
+                         : "Opens this chat in the main window and saves it to history")
+      .enigmaTestMarker("Open in window")
+    }
+  }
+
+  private func line(_ context: ConversationContext?, showsStatus: Bool, isFirst: Bool) -> some View {
     HStack(alignment: .center, spacing: 8) {
       Text("›")
         .foregroundStyle(palette.textTertiary.color)
         .accessibilityHidden(true)
       if let context {
+        let isSent = sentContextIDs.contains(context.id)
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text("selected")
+          Text(CompactSelectionStatus.label(isSent: isSent))
             .fontWeight(.medium)
-            .foregroundStyle(palette.accentText.color)
+            .foregroundStyle(isSent ? palette.textTertiary.color : palette.accentText.color)
           Text("“\(context.preview)”")
-            .foregroundStyle(palette.textSecondary.color)
+            .foregroundStyle(isSent ? palette.textTertiary.color : palette.textSecondary.color)
             .lineLimit(1)
             .truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .help(context.title)
+        .help(isSent ? context.title + ". " + CompactSelectionStatus.sentNote : context.title)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(context.title): \(context.preview)")
+        .accessibilityHint(isSent ? CompactSelectionStatus.sentNote : "")
         .enigmaTestMarker("Selected text")
+        .enigmaTestMarker(isSent ? "Selected text for /edit" : "Selected text to send")
       } else {
         Text("no text selected")
           .foregroundStyle(palette.textTertiary.color)
@@ -198,6 +235,7 @@ struct EnigmaCompactSelectionLine: View {
         .accessibilityLabel("Remove selected text")
         .enigmaTestMarker("Remove selection")
       }
+      if isFirst { openInWindowButton }
     }
     .font(EnigmaTypography.mono(12))
     .frame(minHeight: 22)
@@ -364,18 +402,27 @@ struct EnigmaCompactAnswer<Conversation: View, Accessories: View>: View {
 
 // MARK: Hints
 
-/// The monospace hint row along the panel's bottom, with Escape on the right.
-/// Key symbols use the system font, which draws them properly.
+/// The monospace hint row along the panel's bottom. The shortcuts sit on the
+/// left; the trailing side holds the chat's status, `temporary · not saved`,
+/// while the chat is temporary, or Escape when there's no tag. Key symbols
+/// use the system font, which draws them properly.
 struct EnigmaCompactHints: View {
   let hints: [CompactPanelHints.Hint]
+  var tag: String? = nil
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
     HStack(spacing: 14) {
       ForEach(Array(hints.enumerated()), id: \.element.id) { index, hint in
-        if index == hints.count - 1 && hints.count > 1 { Spacer(minLength: 0) }
+        if tag == nil && index == hints.count - 1 && hints.count > 1 { Spacer(minLength: 0) }
         EnigmaKeyedText(hint.text, size: 11, symbolTracking: 1.5)
           .enigmaTestMarker("Hint \(hint.text)")
+      }
+      if let tag {
+        Spacer(minLength: 0)
+        Text(tag)
+          .font(EnigmaTypography.mono(11))
+          .enigmaTestMarker("Hint tag \(tag)")
       }
     }
     .foregroundStyle(palette.textTertiary.color)
@@ -385,6 +432,6 @@ struct EnigmaCompactHints: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .overlay(alignment: .top) { EnigmaHairline() }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Shortcuts: " + hints.map(\.text).joined(separator: ", "))
+    .accessibilityLabel("Shortcuts: " + hints.map(\.text).joined(separator: ", ") + (tag.map { ". " + $0 } ?? ""))
   }
 }

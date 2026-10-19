@@ -1239,11 +1239,14 @@ final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
   private let model: LocalModel?
   private let lock = NSLock()
   private var requests = 0
+  private var latest: LocalModelRequest?
   private var replies: [AsyncThrowingStream<String, Error>.Continuation] = []
 
   init(model: LocalModel?) { self.model = model }
 
   var requestCount: Int { lock.withLock { requests } }
+  /// The latest request's messages, as the model received them.
+  var lastRequest: LocalModelRequest? { lock.withLock { latest } }
 
   func install(_ model: LocalModel) async throws {}
   func installedModel() async -> LocalModel? { model }
@@ -1254,7 +1257,7 @@ final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
     throw LocalInferenceError.invalidModelFile
   }
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
-    lock.withLock { requests += 1 }
+    lock.withLock { requests += 1; latest = request }
     return AsyncThrowingStream { continuation in self.lock.withLock { self.replies.append(continuation) } }
   }
 

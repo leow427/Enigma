@@ -121,6 +121,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private let panel: SpotlightPanel
   private let sizeStore: PanelSizeStore
   private let reduceMotion: @MainActor () -> Bool
+  /// The visible part of the screen the panel is on. Tests set their own geometry.
+  private let visibleFrame: @MainActor (NSWindow) -> NSRect?
   private var welcomeObservation: AnyCancellable?
   private var normalSize: NSSize?
   private var selectionNormalFrame: NSRect?
@@ -143,10 +145,12 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     sizeStore: PanelSizeStore = PanelSizeStore(),
     contentView: NSView? = nil,
     welcomeSetup: WelcomeSetup? = nil,
-    reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+    visibleFrame: @escaping @MainActor (NSWindow) -> NSRect? = { $0.screen?.visibleFrame }
   ) {
     self.sizeStore = sizeStore
     self.reduceMotion = reduceMotion
+    self.visibleFrame = visibleFrame
     panel = SpotlightPanel(
       contentRect: NSRect(origin: .zero, size: sizeStore.load()),
       styleMask: [.borderless, .nonactivatingPanel, .resizable, .fullSizeContentView],
@@ -180,6 +184,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(beginSelectionReplacement), name: .selectionReplacementBegan, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(endSelectionReplacement), name: .selectionReplacementEnded, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(expandSelectionPanel), name: .selectionPanelExpandRequested, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(openSelectionChatInWindow), name: .selectionChatOpenInWindowRequested, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(userDragBegan(_:)), name: .enigmaWindowDragBegan, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(userDragEnded(_:)), name: .enigmaWindowDragEnded, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .recentChatCycleRequested, object: nil)
@@ -262,7 +269,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
           isSelectionComposer, report.height.isFinite else { return }
     let previous = selectionComposer
     selectionComposer = report
-    guard let visible = panel.screen?.visibleFrame else { return }
+    guard let visible = visibleFrame(panel) else { return }
     var frame = panel.frame
     frame.size.height = min(max(72, report.height), visible.height)
     // Someone moved the panel: where it is now is its new resting place.
@@ -271,10 +278,13 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     }
     // The input stays in place: the panel grows down from its resting top, or
     // up by the room a list or menu needs above the input. Pushed up
-    // to fit the screen, it comes back once the list closes.
+    // to fit the screen, it comes back once the list closes. Wherever the
+    // user has moved it, it stays on the visible screen.
     let top = (selectionRestingTop ?? panel.frame.maxY) + report.roomAbove
     frame.origin.y = min(max(top - frame.height, visible.minY), visible.maxY - frame.height)
-    if abs(frame.height - panel.frame.height) > 1 || abs(frame.minY - panel.frame.minY) > 1 {
+    frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
+    if abs(frame.height - panel.frame.height) > 1 || abs(frame.minY - panel.frame.minY) > 1
+        || abs(frame.minX - panel.frame.minX) > 1 {
       panel.setFrame(frame, display: true)
     }
     selectionAppliedFrame = panel.frame
@@ -284,7 +294,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     guard isSelectionComposer else { return }
     isSelectionComposer = false
     let start = panel.frame
-    let visible = panel.screen?.visibleFrame ?? start
+    let visible = visibleFrame(panel) ?? start
     let target = SelectionPanelExpansion.frame(from: start, visible: visible)
     NotificationCenter.default.post(name: .selectionPanelExpanded, object: nil)
     guard !reduceMotion(), panel.isVisible else {
@@ -318,6 +328,40 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       panel.minSize = PanelSizeStore.minimumSize
     }
     expansionTarget = nil
+  }
+
+  /// Double-tap Control or the Open in window button, at any point in the
+  /// panel: its chat becomes the main window's, at the window's normal size,
+  /// centered on the screen the panel is on, as the window opens.
+  @objc func openSelectionChatInWindow() {
+    finishExpansion()
+    guard let normal = selectionNormalFrame else { return }
+    selectionNormalFrame = nil
+    isSelectionComposer = false
+    selectionRestingTop = nil
+    selectionAppliedFrame = nil
+    panel.minSize = PanelSizeStore.minimumSize
+    let frame = visibleFrame(panel).map { PanelSizeStore.centeredFrame(size: normal.size, in: $0) } ?? normal
+    panel.setFrame(frame, display: true)
+    NotificationCenter.default.post(name: .selectionChatOpenedInWindow, object: nil)
+  }
+
+  /// The user started dragging the panel: a running expansion jumps to its
+  /// end, so the drag moves the panel at its final size.
+  @objc private func userDragBegan(_ notification: Notification) {
+    guard notification.object as? NSWindow === panel else { return }
+    finishExpansion()
+  }
+
+  /// The user moved the panel. Where it is now is its new resting place, so
+  /// later resizing grows from here, and lists open above or below for
+  /// the room it has here.
+  @objc private func userDragEnded(_ notification: Notification) {
+    guard notification.object as? NSWindow === panel, selectionNormalFrame != nil else { return }
+    selectionRestingTop = panel.frame.maxY - (isSelectionComposer ? selectionComposer?.roomAbove ?? 0 : 0)
+    selectionAppliedFrame = panel.frame
+    guard isSelectionComposer, let visible = visibleFrame(panel) else { return }
+    NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
   }
 
   @objc private func restoreNormalPanel() {
@@ -413,8 +457,13 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private func perform(_ shortcut: PanelShortcut) {
     switch shortcut {
     case .toggleSidebar:
-      expandSelectionPanel()
-      NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
+      // In the selection panel, it opens the chat in the window; there, it
+      // shows or hides the history.
+      if selectionNormalFrame != nil {
+        openSelectionChatInWindow()
+      } else {
+        NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
+      }
     case .fileMode:
       NotificationCenter.default.post(name: .fileModeRequested, object: nil)
     case .newChat:

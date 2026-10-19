@@ -507,7 +507,7 @@ final class RequestLifecycleTests: XCTestCase {
     viewModel.newChat()
     let evicted = viewModel.selectedSessionID
     await fulfillment(of: [probe.started], timeout: 2)
-    for _ in 0..<6 { viewModel.newChat() }
+    for _ in 0...ChatSessionStore.maximumRetainedSessions { viewModel.newChat() }
     viewModel.startTemporaryChat(context: nil)
     let temporary = viewModel.selectedSessionID
     viewModel.submit("Never archive this")
@@ -518,7 +518,7 @@ final class RequestLifecycleTests: XCTestCase {
     await writer.waitForPendingWrites()
     XCTAssertEqual(probe.snapshots.count, 2)
     let saved = probe.store.load()
-    XCTAssertEqual(saved.count, 5)
+    XCTAssertEqual(saved.count, ChatSessionStore.maximumRetainedSessions)
     XCTAssertFalse(saved.contains { $0.id == temporary || $0.id == evicted })
     XCTAssertTrue(saved.flatMap(\.messages).isEmpty)
     viewModel.newChat()

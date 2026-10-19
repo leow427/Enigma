@@ -20,6 +20,10 @@ struct EnigmaMessageList<Revision: View>: View {
   var gathersAtBottom = true
   /// The compact panel's narrower margins line the replies up with its input.
   var horizontalPadding: CGFloat = 24
+  /// A quiet monospace line under the messages, in the replies' meta style,
+  /// like the note that a chat kept from the panel is now saved. It's never
+  /// part of the transcript.
+  var footnote: String? = nil
   /// The /edit revision card under a reply, if it has one.
   @ViewBuilder let revision: (ChatMessage) -> Revision
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,6 +39,10 @@ struct EnigmaMessageList<Revision: View>: View {
           ForEach(Array(transcript.rows.enumerated()), id: \.element.id) { index, row in
             rowView(row)
               .padding(.top, index == 0 ? 0 : spacing(before: row))
+          }
+          if let footnote {
+            EnigmaFootnote(text: footnote)
+              .padding(.top, transcript.rows.isEmpty ? 0 : Self.replySpacing)
           }
         }
         .frame(maxWidth: MainPageLayout.columnMaximumWidth)
@@ -70,6 +78,20 @@ struct EnigmaMessageList<Revision: View>: View {
       .transition(reduceMotion ? .opacity
                   : .opacity.combined(with: .offset(y: 8)).animation(EnigmaMotion.rowEnter.animation.delay(0.14)))
     }
+  }
+}
+
+/// A quiet monospace line under the messages, in the meta line's style.
+struct EnigmaFootnote: View {
+  let text: String
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    Text(text)
+      .font(EnigmaTypography.mono(11))
+      .foregroundStyle(palette.textTertiary.color)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .enigmaTestMarker("Chat footnote \(text)")
   }
 }
 
@@ -276,7 +298,7 @@ private struct EnigmaThinkingLine: View {
 // MARK: Notes over the composer
 
 /// A short notice over the composer, like a trimmed-context note or
-/// "Temporary chat · Not saved to history", right-aligned under the route's
+/// "Automatic replacement was not sent", right-aligned under the route's
 /// status. Route details are monospace; sentences use the system font.
 struct EnigmaChatNote: View {
   let text: String

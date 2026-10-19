@@ -8,12 +8,16 @@ import SwiftUI
 /// `border` edge.
 struct EnigmaWindowChrome: ViewModifier {
   static let cornerRadius: CGFloat = 12
+  /// The band along the window's edges left to resizing, outside the drag area.
+  static let resizeEdge: CGFloat = 6
 
   @Environment(\.enigmaPalette) private var palette
 
   func body(content: Content) -> some View {
     let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
     content
+      // As the compact panel does, the window moves by its background.
+      .enigmaWindowDragArea(edgeInset: Self.resizeEdge)
       .background(palette.background.color)
       .clipShape(shape)
       .enigmaEdge(shape)

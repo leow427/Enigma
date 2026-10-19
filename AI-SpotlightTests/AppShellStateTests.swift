@@ -99,6 +99,27 @@ final class ShellPresentationTests: XCTestCase {
     XCTAssertFalse(shell.sessionChanged(isTemporaryChat: false), "Only resets once")
   }
 
+  /// Opening the panel's chat in the window shows the window's own layout,
+  /// with the sidebar as the saved preference has it, on or off.
+  func testOpeningTheSelectionChatInTheWindowFollowsTheSidebarPreference() {
+    for showsSidebar in [false, true] {
+      var shell = ShellPresentation(mode: .auto, showsSidebar: !showsSidebar)
+      shell.beginSelectionComposer(mode: .auto, showsSidebar: showsSidebar)
+      shell.isSelectionDetailsPresented = true
+      shell.isModePalettePresented = true
+      XCTAssertTrue(shell.showsCompactPanel)
+      shell.openSelectionChatInWindow(showsSidebar: showsSidebar)
+      XCTAssertFalse(shell.showsCompactPanel)
+      XCTAssertFalse(shell.isSelectionComposer)
+      XCTAssertFalse(shell.isSelectionPresentation)
+      XCTAssertFalse(shell.isSelectionDetailsPresented)
+      XCTAssertFalse(shell.isModePalettePresented)
+      XCTAssertEqual(shell.isSidebarVisible, showsSidebar)
+      XCTAssertTrue(shell.isComposerFocused)
+      XCTAssertFalse(shell.sessionChanged(isTemporaryChat: false), "Nothing left to reset")
+    }
+  }
+
   func testProblemsOpenSelectionDetailsOnlyInTheSelectionPanel() {
     var shell = ShellPresentation(mode: .auto, showsSidebar: true)
     shell.revealSelectionProblem()
@@ -278,12 +299,14 @@ final class ChatHistoryListTests: XCTestCase {
                    [ChatHistoryRow(target: .newChat, title: "New Chat", date: nil, isSelected: true)])
   }
 
-  func testShowsTheFiveMostRecentSessionsInOrder() {
-    let sessions = (0..<7).map { ChatSession(title: "Chat \($0)") }
+  func testShowsEveryRetainedSessionInOrder() {
+    XCTAssertEqual(ChatHistoryList.visibleCount, ChatSessionStore.maximumRetainedSessions)
+    XCTAssertEqual(ChatHistoryList.visibleCount, 10)
+    let sessions = (0..<12).map { ChatSession(title: "Chat \($0)") }
     let rows = ChatHistoryList.rows(sessions: sessions, selectedSessionID: sessions[2].id)
-    XCTAssertEqual(rows.map(\.title), ["Chat 0", "Chat 1", "Chat 2", "Chat 3", "Chat 4"])
-    XCTAssertEqual(rows.map(\.isSelected), [false, false, true, false, false])
-    XCTAssertEqual(rows.map(\.target), sessions.prefix(5).map { ChatHistoryRow.Target.session($0.id) })
+    XCTAssertEqual(rows.map(\.title), (0..<10).map { "Chat \($0)" })
+    XCTAssertEqual(rows.map(\.isSelected), (0..<10).map { $0 == 2 })
+    XCTAssertEqual(rows.map(\.target), sessions.prefix(10).map { ChatHistoryRow.Target.session($0.id) })
   }
 
   func testOnlyChatsWithMessagesShowADate() {

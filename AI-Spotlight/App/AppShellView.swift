@@ -17,6 +17,8 @@ struct AppShellView: View {
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
   @ObservedObject private var files: FileModeCoordinator
   @ObservedObject private var messages: MessagesCoordinator
+  /// Whether a selection chat stays private when opened in the window.
+  @ObservedObject private var selectionEditing: SelectionEditingSettings
   @State private var isFileCloudConsentPresented = false
   @StateObject private var screen: ScreenComposerCoordinator
   @ObservedObject private var screenSettings: ScreenSettings
@@ -67,6 +69,7 @@ struct AppShellView: View {
     _localChat = StateObject(wrappedValue: chat)
     self.files = chat.files
     self.messages = chat.appleMessages
+    self.selectionEditing = chat.selectionEditingSettings
   }
 
   /// Notices and cards over the composer, as opaque cards. The compact panel
@@ -86,20 +89,26 @@ struct AppShellView: View {
       if let decision = localChat.screenRouteDecision {
         EnigmaChatNote(decision.status + (decision.sendsImage ? "" : " · Image not sent"), monospaced: true)
       }
-      if !selectionAccess.isGranted && localChat.isTemporaryChat {
-        AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
+      // A private selection chat in the window says it's temporary for as long
+      // as it's open, where the panel's chat says it: in the panel, its hint row.
+      if localChat.isTemporaryChat && !shell.showsCompactPanel {
+        EnigmaChatNote(CompactPanelHints.temporaryTag, monospaced: true)
+          .enigmaTestMarker("Window tag \(CompactPanelHints.temporaryTag)")
       }
-      if localChat.isTemporaryChat {
-        EnigmaChatNote("Temporary chat · Not saved to history", monospaced: true)
+      // The selection's chat, in the panel or kept in the window, needs
+      // Accessibility to replace the selection.
+      if !selectionAccess.isGranted && localChat.isSelectionChat {
+        AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
       }
       if showsSelectedText {
         ForEach(localChat.attachedContexts) { context in
-          SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
+          SelectionContextCard(context: context, isSent: localChat.sentContextIDs.contains(context.id),
+                               isBusy: localChat.isBusy || selectionContext.isWorking) {
             localChat.removeContext(id: context.id)
           }
         }
       }
-      if let notice = selectionContext.notice, localChat.isTemporaryChat {
+      if let notice = selectionContext.notice, localChat.isSelectionChat {
         EnigmaChatNote(notice)
       }
       if showsScreenshot, let attachment = screen.attachment, localChat.pendingUserMessage == nil {
@@ -191,6 +200,12 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelExpanded)) { _ in
       shell.leaveSelectionComposer()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .selectionChatOpenedInWindow)) { _ in
+      // The panel's chat is now the window's: the normal layout with the
+      // sidebar as a new chat has it, and saved to history from here on.
+      shell.openSelectionChatInWindow(showsSidebar: startPreferences.showsSidebar)
+      localChat.openTemporaryChatInWindow()
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelPlaced)) { notification in
       guard let roomBelow = notification.object as? CGFloat else { return }
@@ -408,7 +423,8 @@ struct AppShellView: View {
 
   private var sidebar: some View {
     EnigmaSidebar(
-      rows: ChatHistoryList.rows(sessions: localChat.sessions, selectedSessionID: localChat.selectedSessionID),
+      // A private selection chat stays out of Recents.
+      rows: ChatHistoryList.rows(sessions: localChat.historySessions, selectedSessionID: localChat.selectedSessionID),
       tourStep: welcomeSetup.tour,
       select: { target in
         switch target {
@@ -544,15 +560,19 @@ struct AppShellView: View {
       isComposing: composing,
       opensOverlaysAbove: compactOpensOverlaysAbove,
       hints: CompactPanelHints.hints(isResponding: localChat.activeRequest != nil),
+      isTemporary: localChat.isTemporaryChat,
       selection: {
         EnigmaCompactSelectionLine(
-          contexts: localChat.attachedContexts, isBusy: localChat.isBusy || selectionContext.isWorking,
+          contexts: localChat.attachedContexts, sentContextIDs: localChat.sentContextIDs,
+          isBusy: localChat.isBusy || selectionContext.isWorking,
           isComposing: composing,
           statusNeedsAttention: CompactPanelCharacter.statusNeedsAttention(
             notice: selectionContext.notice, isAccessibilityGranted: selectionAccess.isGranted),
           isStatusPresented: shell.isSelectionDetailsPresented,
           toggleStatus: { shell.isSelectionDetailsPresented.toggle() },
-          remove: { localChat.removeContext(id: $0) })
+          remove: { localChat.removeContext(id: $0) },
+          openInWindow: { NotificationCenter.default.post(name: .selectionChatOpenInWindowRequested, object: nil) },
+          opensPrivately: selectionEditing.keepsChatsPrivate)
       },
       composer: { compactComposer },
       attachment: {
@@ -584,7 +604,10 @@ struct AppShellView: View {
     EnigmaCompactComposer(
       text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
       availableCommands: availableCommands,
-      placeholder: CompactPanelLayout.placeholder(hasSelection: !localChat.attachedContexts.isEmpty),
+      // Once the selection has gone with the first message, new questions don't carry it.
+      placeholder: CompactPanelLayout.placeholder(hasSelection: localChat.attachedContexts.contains {
+        !localChat.sentContextIDs.contains($0.id)
+      }),
       opensSuggestionsAbove: compactOpensOverlaysAbove,
       insertion: composerInsertion, submit: submitDraft,
       files: files, isAttachDisabled: localChat.isBusy || files.isPicking || files.isWorking,
@@ -713,8 +736,18 @@ struct AppShellView: View {
   /// The chat, with a new identity for each chat so it opens at its own end.
   private var messageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
-                      activityExpansion: activityExpansion) { revisionCard($0) }
+                      activityExpansion: activityExpansion,
+                      footnote: openedSelectionChatNote) {
+      revisionCard($0)
+    }
     .id(localChat.selectedSessionID)
+  }
+
+  /// The one-time line under a chat just opened in the window from the panel:
+  /// saved to history, or private.
+  private var openedSelectionChatNote: String? {
+    guard let opened = localChat.openedSelectionChat, opened.id == localChat.selectedSessionID else { return nil }
+    return opened.isPrivate ? CompactPanelHints.privateNote : CompactPanelHints.savedNote
   }
 
   /// The /edit revision card under a reply, when it has one to review.
@@ -848,7 +881,7 @@ struct AppShellView: View {
     let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: commands.search)
     let automatic = shell.selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
       selectedMode: .auto, webSearchEnabled: searchEnabled, prompt: prompt,
-      contextMessages: localChat.messages, localModel: localChat.installedModel,
+      contextMessages: localChat.autoRoutingContextMessages, localModel: localChat.installedModel,
       additionalInputTokens: attachment.ocrText.utf8.count + 512
         + (ScreenRoutingPolicy.requiresVision(prompt: prompt, ocr: ScreenOCRResult(text: attachment.ocrText,
           confidence: attachment.ocrConfidence)) ? 4096 : 0),

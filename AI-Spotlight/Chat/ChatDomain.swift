@@ -112,7 +112,7 @@ struct ChatSession: Codable, Sendable, Equatable, Identifiable {
     }
   }
 
-  private static func title(for content: String) -> String {
+  static func title(for content: String) -> String {
     let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return "New Chat" }
     return String(trimmed.prefix(48))
