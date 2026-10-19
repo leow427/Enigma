@@ -4,6 +4,8 @@ enum AppCommand: String, CaseIterable {
   case open = "Open"
   case newChat = "New Chat"
   case privacyHide = "Privacy Hide"
+  case restartToUpdate = "Restart to Update"
+  case checkForUpdates = "Check for Updates…"
   case settings = "Settings"
   case quit = "Quit"
 }

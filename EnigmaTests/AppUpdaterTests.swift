@@ -104,4 +104,72 @@ final class AppUpdaterTests: XCTestCase {
     XCTAssertEqual(AppUpdater.lastCheckedText(nil, now: now, locale: locale), "Not checked yet")
     XCTAssertEqual(AppUpdater.lastCheckedText(now - 300, now: now, locale: locale), "Last checked 5 minutes ago")
   }
+
+  // MARK: Menu bar
+
+  private func makeMenu(_ fake: FakeUpdaterBackend) -> (AppUpdater, MenuBarController, NSMenu) {
+    let updater = AppUpdater(backend: fake)
+    let controller = MenuBarController(panelController: SpotlightPanelController(contentView: NSView()), updater: updater)
+    let menu = controller.makeMenu()
+    controller.menuNeedsUpdate(menu)
+    return (updater, controller, menu)
+  }
+
+  private func item(_ id: String, in menu: NSMenu) throws -> NSMenuItem {
+    try XCTUnwrap(menu.items.first { $0.identifier == NSUserInterfaceItemIdentifier(id) })
+  }
+
+  private func perform(_ item: NSMenuItem, in menu: NSMenu) {
+    menu.performActionForItem(at: menu.index(of: item))
+  }
+
+  func testMenuHidesTheUpdateItemUntilOneIsPending() throws {
+    let fake = FakeUpdaterBackend()
+    let (updater, controller, menu) = makeMenu(fake)
+    XCTAssertTrue(try item("pendingUpdate", in: menu).isHidden)
+    let check = try item("checkForUpdates", in: menu)
+    XCTAssertEqual(check.title, "Check for Updates…")
+    XCTAssertFalse(check.isEnabled)
+    updater.backendCanCheckChanged(true)
+    controller.menuNeedsUpdate(menu)
+    XCTAssertTrue(check.isEnabled)
+    perform(check, in: menu)
+    XCTAssertEqual(fake.checkCount, 1)
+  }
+
+  func testMenuOffersRestartForAReadyUpdate() throws {
+    let fake = FakeUpdaterBackend()
+    let (updater, controller, menu) = makeMenu(fake)
+    var installs = 0
+    updater.backendUpdateReady(version: "0.10.1") { installs += 1 }
+    controller.menuNeedsUpdate(menu)
+    let pending = try item("pendingUpdate", in: menu)
+    XCTAssertFalse(pending.isHidden)
+    XCTAssertEqual(pending.title, "Restart to Update to 0.10.1")
+    perform(pending, in: menu)
+    XCTAssertEqual(installs, 1)
+    XCTAssertEqual(fake.checkCount, 0)
+  }
+
+  func testMenuOffersAnAvailableUpdate() throws {
+    let fake = FakeUpdaterBackend()
+    let (updater, controller, menu) = makeMenu(fake)
+    updater.backendUpdateAvailable(version: "0.10.1")
+    controller.menuNeedsUpdate(menu)
+    let pending = try item("pendingUpdate", in: menu)
+    XCTAssertFalse(pending.isHidden)
+    XCTAssertEqual(pending.title, "Update to 0.10.1 Available…")
+    perform(pending, in: menu)
+    XCTAssertEqual(fake.checkCount, 1)
+  }
+
+  func testMenuDropsAnAvailableUpdateWhenTheSessionEnds() throws {
+    let (updater, controller, menu) = makeMenu(FakeUpdaterBackend())
+    updater.backendUpdateAvailable(version: "0.10.1")
+    controller.menuNeedsUpdate(menu)
+    XCTAssertFalse(try item("pendingUpdate", in: menu).isHidden)
+    updater.backendSessionEnded()
+    controller.menuNeedsUpdate(menu)
+    XCTAssertTrue(try item("pendingUpdate", in: menu).isHidden)
+  }
 }

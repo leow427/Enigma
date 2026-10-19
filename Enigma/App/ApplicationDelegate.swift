@@ -68,7 +68,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     )
 
     let panelController = SpotlightPanelController(welcomeSetup: .shared)
-    let menuBarController = MenuBarController(panelController: panelController)
+    let menuBarController = MenuBarController(panelController: panelController, updater: .shared)
     menuBarController.install()
 
     let panelShortcut = PanelShortcutMonitor { [weak self] in

@@ -54,7 +54,7 @@ final class AppCommandTests: XCTestCase {
   func testMenuCommandsHaveExpectedOrderAndTitles() {
     XCTAssertEqual(
       AppCommand.allCases.map(\.rawValue),
-      ["Open", "New Chat", "Privacy Hide", "Settings", "Quit"]
+      ["Open", "New Chat", "Privacy Hide", "Restart to Update", "Check for Updates…", "Settings", "Quit"]
     )
   }
 
