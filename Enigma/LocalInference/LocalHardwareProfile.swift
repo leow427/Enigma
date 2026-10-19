@@ -16,6 +16,10 @@ struct LocalHardwareProfile: Codable, Sendable, Equatable {
   var metalRecommendedWorkingSet: Int64?
   var metalMaximumBufferLength: Int64?
   var lowPowerMode: Bool
+  /// GB/s from `LocalBandwidthProbe`, measured in the current power mode. Not
+  /// part of `fingerprint`, so run-to-run variation never invalidates
+  /// benchmarks; reports saved before it existed decode it as nil.
+  var measuredBandwidth: Double? = nil
 
   // Never lend the OS reserve to inference, even on very large-memory Macs.
   var osReserve: Int64 { max(4 * Self.gib, physicalMemory / 4) }

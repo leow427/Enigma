@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor
 final class LocalModelAdvisor: ObservableObject {
-  static let shared = LocalModelAdvisor()
+  static let shared = LocalModelAdvisor(measureBandwidth: { LocalBandwidthProbe.measure() })
 
   @Published private(set) var hardware: LocalHardwareProfile?
   @Published private(set) var manifest = LocalModelManifest.bundled
@@ -16,6 +16,7 @@ final class LocalModelAdvisor: ObservableObject {
   private let defaults: UserDefaults
   private let updater: LocalCatalogUpdater
   private let detect: @Sendable (URL) -> LocalHardwareProfile
+  private let measureBandwidth: (@Sendable () -> Double?)?
   private var initialized = false
 
   init(
@@ -24,12 +25,14 @@ final class LocalModelAdvisor: ObservableObject {
     modelsDirectory: URL = LocalModelInstallationStore().modelsDirectoryURL,
     defaults: UserDefaults = .standard,
     trust: LocalCatalogTrust? = .configured,
-    detect: @escaping @Sendable (URL) -> LocalHardwareProfile = LocalHardwareProfile.detect
+    detect: @escaping @Sendable (URL) -> LocalHardwareProfile = LocalHardwareProfile.detect,
+    measureBandwidth: (@Sendable () -> Double?)? = nil
   ) {
     self.directory = directory
     self.modelsDirectory = modelsDirectory
     self.defaults = defaults
     self.detect = detect
+    self.measureBandwidth = measureBandwidth
     updater = LocalCatalogUpdater(directory: directory, trust: trust)
     if let data = try? Data(contentsOf: directory.appending(path: "benchmarks.json")),
        let saved = try? JSONDecoder().decode([LocalModelBenchmark].self, from: data) {
@@ -47,12 +50,31 @@ final class LocalModelAdvisor: ObservableObject {
     await refreshCatalog()
   }
 
-  func detectHardware() async {
+  /// The bandwidth test runs at most once per hardware fingerprint and Low
+  /// Power Mode state; `remeasureBandwidth` (Check this Mac) runs it again.
+  /// A failed test is not cached, and leaves the core-count prior in use.
+  func detectHardware(remeasureBandwidth: Bool = false) async {
     guard !isDetecting else { return }
     isDetecting = true
     let directory = modelsDirectory
+    let report = self.directory.appending(path: "hardware.json")
     let detect = detect
-    let profile = await Task.detached(priority: .utility) { detect(directory) }.value
+    let measure = measureBandwidth
+    let current = remeasureBandwidth ? nil : hardware
+    let profile = await Task.detached(priority: .utility) {
+      var profile = detect(directory)
+      func reusable(_ known: LocalHardwareProfile?) -> Double? {
+        guard let known, known.fingerprint == profile.fingerprint, known.lowPowerMode == profile.lowPowerMode else { return nil }
+        return known.measuredBandwidth
+      }
+      if !remeasureBandwidth, let saved = reusable(current) ?? reusable((try? Data(contentsOf: report))
+        .flatMap { try? JSONDecoder().decode(LocalHardwareProfile.self, from: $0) }) {
+        profile.measuredBandwidth = saved
+      } else {
+        profile.measuredBandwidth = measure?()
+      }
+      return profile
+    }.value
     hardware = profile
     do {
       try save(profile, name: "hardware.json")
