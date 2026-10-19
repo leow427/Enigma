@@ -115,7 +115,11 @@ final class LocalModelAdvisor: ObservableObject {
       recordedAt: .now, metrics: metrics,
       predictedTokensPerSecond: prediction?.tokensPerSecond ?? metrics.generationTokensPerSecond,
       predictedTimeToFirstToken: prediction?.timeToFirstToken ?? metrics.timeToFirstToken,
-      activeParameterBillions: descriptor?.resolvedActiveParameterBillions,
+      // Installed records saved before 0.11 lack active parameters; their
+      // profile knows them, and the total would overstate a mixture of experts.
+      activeParameterBillions: descriptor.map {
+        $0.activeParameterBillions ?? $0.resolvedProfile?.activeParameters ?? $0.parameterBillions
+      },
       isMixtureOfExperts: descriptor?.isMixtureOfExperts
     )
     measurements.append(record)

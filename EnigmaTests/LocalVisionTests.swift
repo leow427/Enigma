@@ -68,6 +68,23 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertEqual(LlamaServerVisionEngine.imageArguments(for: nil), ["--image-max-tokens", "4096"])
   }
 
+  func testInstallsOnAnOlderRuntimeKeepTheirImageArguments() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    // Gemma 4 12B installed by 0.10.x with llama.cpp b10797, which has no image-batch cap.
+    let current = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+    json["runtimeBuild"] = 10797
+    json["minimumLlamaBuild"] = 10797
+    model.catalogDescriptor = try JSONDecoder().decode(LocalModelDescriptor.self,
+      from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertEqual(model.catalogDescriptor?.runtimeBuild, 10797)
+    let args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+  }
+
   func testLaunchUsesOnlyArgumentsTheRuntimeKnows() throws {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

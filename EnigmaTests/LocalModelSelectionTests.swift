@@ -503,6 +503,29 @@ final class LocalModelSelectionTests: XCTestCase {
   }
 
   @MainActor
+  func testBenchmarksOfInstallsSavedBefore011RecordTheProfilesActiveParameters() async throws {
+    let root = try temporaryDirectory()
+    let profile = hardware(memory: 64)
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in profile })
+    await advisor.detectHardware()
+    let current = try XCTUnwrap(catalog.models.first { $0.id == "gemma-4-26b-a4b-q4_k_m" })
+    // An installed record written by 0.10.x: no active parameters, old total.
+    let legacy = try modifying(current, ["parameterBillions": 26.0])
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(legacy)) as? [String: Any])
+    json.removeValue(forKey: "activeParameterBillions")
+    let descriptor = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
+    let source = root.appending(path: "test.gguf")
+    try Data("fixture".utf8).write(to: source)
+    let store = LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))
+    let installed = try store.install(LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+      fileURL: source, catalogDescriptor: descriptor))
+    advisor.record(benchmark(model: descriptor, hardware: profile).metrics, model: installed, prediction: nil)
+    let saved = try XCTUnwrap(advisor.measurements.last)
+    XCTAssertEqual(saved.activeParameterBillions, 3.8)
+    XCTAssertEqual(saved.isMixtureOfExperts, true)
+  }
+
+  @MainActor
   func testOnboardingAndModelManagerRenderWithRealSelectionResults() async throws {
     let root = try temporaryDirectory()
     let profile = hardware(memory: 32)

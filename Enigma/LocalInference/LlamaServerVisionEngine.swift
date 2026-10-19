@@ -97,8 +97,14 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
             "--host", "127.0.0.1", "--port", String(port), "--api-key", key, "--alias", alias,
             "--ctx-size", String(config.contextWindow), "--parallel", "1", "--offline", "--no-webui",
             "--jinja", "--no-context-shift", "--cache-ram", "0", "--reasoning-budget", "-1",
-            "--fit", "off"] + imageArguments(for: model.catalogDescriptor?.resolvedProfile)
+            "--fit", "off"] + imageArguments(for: model.catalogDescriptor.flatMap {
+              // Installs still on a runtime before the image-batch cap keep its defaults.
+              ($0.runtimeBuild ?? 0) >= imageBatchCapBuild ? $0.resolvedProfile : nil
+            })
   }
+
+  /// llama.cpp caps non-causal image tokens at the physical batch from this build.
+  static let imageBatchCapBuild = 11327
 
   /// Models whose image tokens attend to each other cap an image at the
   /// physical batch, so they get a batch large enough for a whole screenshot.
