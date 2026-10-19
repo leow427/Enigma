@@ -116,6 +116,7 @@
 		A10000000000000000000002 /* ApplicationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ApplicationDelegate.swift */; };
 		A10000000000000000000003 /* AppCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* AppCommand.swift */; };
 		5E0000000000000000000002 /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000001 /* AppUpdater.swift */; };
+		5F000000000000000000000A /* MoveToApplicationsPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000009 /* MoveToApplicationsPrompt.swift */; };
 		5F0000000000000000000006 /* ApplicationMover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000005 /* ApplicationMover.swift */; };
 		5F0000000000000000000002 /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0000000000000000000001 /* InstallLocation.swift */; };
 		5E0000000000000000000006 /* SparkleUpdaterBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000005 /* SparkleUpdaterBackend.swift */; };
@@ -309,6 +310,7 @@
 		A20000000000000000000002 /* ApplicationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationDelegate.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* AppCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommand.swift; sourceTree = "<group>"; };
 		5E0000000000000000000001 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
+		5F0000000000000000000009 /* MoveToApplicationsPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveToApplicationsPrompt.swift; sourceTree = "<group>"; };
 		5F0000000000000000000005 /* ApplicationMover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMover.swift; sourceTree = "<group>"; };
 		5F0000000000000000000001 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
 		5E0000000000000000000005 /* SparkleUpdaterBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdaterBackend.swift; sourceTree = "<group>"; };
@@ -548,6 +550,7 @@
 				A20000000000000000000002 /* ApplicationDelegate.swift */,
 				A20000000000000000000003 /* AppCommand.swift */,
 				5E0000000000000000000001 /* AppUpdater.swift */,
+				5F0000000000000000000009 /* MoveToApplicationsPrompt.swift */,
 				5F0000000000000000000005 /* ApplicationMover.swift */,
 				5F0000000000000000000001 /* InstallLocation.swift */,
 				5E0000000000000000000005 /* SparkleUpdaterBackend.swift */,
@@ -864,6 +867,7 @@
 				A10000000000000000000002 /* ApplicationDelegate.swift in Sources */,
 				A10000000000000000000003 /* AppCommand.swift in Sources */,
 				5E0000000000000000000002 /* AppUpdater.swift in Sources */,
+				5F000000000000000000000A /* MoveToApplicationsPrompt.swift in Sources */,
 				5F0000000000000000000006 /* ApplicationMover.swift in Sources */,
 				5F0000000000000000000002 /* InstallLocation.swift in Sources */,
 				5E0000000000000000000006 /* SparkleUpdaterBackend.swift in Sources */,

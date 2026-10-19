@@ -40,7 +40,9 @@ See [docs/](docs/README.md) for how each feature works.
 
 1. Download the latest `Enigma-<version>.zip` from
    [Releases](https://github.com/leow427/Enigma/releases).
-2. Unzip it and drag `Enigma.app` into Applications.
+2. Unzip it and drag `Enigma.app` into Applications. If you open it from
+   somewhere else, Enigma offers to move itself there, because it can only
+   update itself from Applications.
 3. The first time, right-click `Enigma.app` and choose **Open** (or allow it in
    System Settings → Privacy & Security), because Enigma is not notarized.
 

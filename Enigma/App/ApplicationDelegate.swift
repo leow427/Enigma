@@ -57,6 +57,8 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
     NSApp.setActivationPolicy(.accessory)
+    // A copy outside Applications cannot update; offer to move it before anything starts.
+    if MoveToApplicationsPrompt.runIfNeeded() { return }
     AppUpdater.shared.start()
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),
       name: .welcomeSetupRequested, object: nil)

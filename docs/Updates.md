@@ -37,6 +37,54 @@ Builds from Xcode (Debug) refuse background checks, so a development build
 never replaces itself. **Check for Updates…** still works in Debug for
 testing.
 
+## Moving into Applications
+
+Sparkle can only replace Enigma where it is installed. A quarantined download
+opened from outside Applications runs from an App Translocation copy, a
+random read-only path, and can never update. So at launch Enigma checks where
+it runs and offers to move itself:
+
+- **When it asks.** When Enigma is translocated, or runs from anywhere outside
+  `/Applications` and `~/Applications` (subfolders count as inside). It never
+  asks in Debug builds or in the hosted unit tests.
+- **Move offer.** **Move to Applications** copies Enigma to
+  `/Applications/Enigma.app` (always named `Enigma.app`, even if the download
+  was `Enigma 2.app`), moves the download to the Trash, and reopens the new
+  copy once the old process has quit.
+- **Home-folder fallback.** A standard account cannot write to
+  `/Applications`, so Enigma moves to `~/Applications/Enigma.app` instead,
+  creating the folder if needed. Sparkle updates there without an
+  administrator password. There is no administrator path.
+- **Reopen in place.** If Enigma is translocated but its original already
+  sits in an Applications folder (for example, moved there with `mv`), the
+  offer is **Reopen**: Enigma clears the download flag on the original and
+  reopens it, without copying.
+- **Replace confirmation.** If Applications already has an Enigma, a second
+  alert names its version (and warns when it is newer). **Replace** quits that
+  copy if it is running and moves it to the Trash; **Cancel** keeps everything
+  as it was.
+- **Quarantine removal.** A copy moved by anything other than Finder keeps
+  `com.apple.quarantine` and would be translocated again. Enigma removes the
+  attribute from the installed copy; the user has already approved this
+  build, and the code signature is unchanged, so permissions carry over.
+- **Not Now and Don't ask again.** **Not Now** keeps Enigma running where it
+  is, and the offer returns at the next launch. Checking **Don't ask again**,
+  with either button, stores `true` under the `UserDefaults` key
+  `installLocation.dontAskToMove`, and Enigma never asks again.
+- **Failures.** If any step fails, an alert gives the reason and suggests
+  dragging Enigma into Applications in Finder; Enigma keeps running where it
+  is. A staged copy is removed, and an existing copy is only touched once the
+  new one is ready to take its place.
+
+Three files implement it: `Enigma/App/InstallLocation.swift` (the decision,
+version comparison and alert wording; no AppKit or file access),
+`Enigma/App/ApplicationMover.swift` (copy, replace, quarantine removal,
+trashing the original) and `Enigma/App/MoveToApplicationsPrompt.swift` (the
+translocation check, the alerts and the relaunch). `ApplicationDelegate`
+runs it before Sparkle starts, so nothing else starts in a process that is
+about to quit. The design is in
+[superpowers/specs/2026-10-19-move-to-applications-design.md](superpowers/specs/2026-10-19-move-to-applications-design.md).
+
 ## What is sent
 
 The check is an HTTPS request for the feed. Sparkle's User-Agent names the app
@@ -65,7 +113,10 @@ release.
 Tests: `AppBundleTests` (Info.plist keys, versions, the embedded framework),
 `AppUpdaterTests` (state, the menu items, Debug checks) and
 `EnigmaSettingsTests.testUpdateSwitchesAndCheckNowReachTheUpdater`. They use a
-fake backend and stay offline.
+fake backend and stay offline. `InstallLocationTests` (the move decision,
+version comparison and alert wording) and `ApplicationMoverTests` (install,
+replace, quarantine removal and discarding the original, in a temporary
+folder with a fake Trash) cover moving into Applications.
 
 ## One-time setup: the update signing key
 
@@ -211,8 +262,10 @@ download, served from `http://127.0.0.1:8000`):
 - **Install location matters:** moved into `/Applications` from Terminal,
   the quarantined app ran from an App Translocation copy and fetched nothing.
   Dragged from Downloads into Applications in Finder, it ran in place and
-  checked at launch. Friends must drag the app into Applications in Finder
-  before opening it.
+  checked at launch. Friends should drag the app into Applications in Finder
+  before opening it; since the move to Applications was added, Enigma
+  offers to move itself there when they don't (see
+  [Moving into Applications](#moving-into-applications)).
 - **First launch:** Sparkle does not check on an app's first launch; it
   records the check time and waits a day.
 - **Automatic update:** passed. The local `http` feed works. Enigma fetched
@@ -222,6 +275,20 @@ download, served from `http://127.0.0.1:8000`):
   still granted after the update; Accessibility was not checked separately.
 - **Tampered update:** passed. Sparkle downloaded the zip with one byte
   changed, refused to install it with an error, and 0.10.0 (2) kept running.
+
+### Manual check: moving into Applications
+
+Not yet run. With a signed Release build zipped and quarantined like a
+download:
+
+1. Open it from Downloads. The move offer appears; accept. Enigma reopens from
+   `/Applications/Enigma.app`, is not translocated (`ps` shows the real path),
+   and the download is in the Trash.
+2. With an older copy already in `/Applications`, the replace confirmation
+   names both versions.
+3. Move a quarantined copy into `/Applications` with `mv` and open it. The
+   reopen offer appears, and after **Reopen** it runs in place.
+4. **Not Now** returns at the next launch; **Don't ask again** stops it.
 
 ## Future: Developer ID and notarization
 
