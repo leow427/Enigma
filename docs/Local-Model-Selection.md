@@ -17,7 +17,9 @@ Every picker shows the same three choices for this Mac, in this order:
   Recommended. It's offered only while Recommended is under 40 tokens per
   second; above that Recommended already feels instant.
 - **smarter, slower replies**: the smartest family above Recommended that fits
-  but misses the speed bar, while still reaching 8 tokens per second.
+  but misses the speed bar, while still reaching 8 tokens per second. When
+  Recommended is a 3-bit package, a 4-bit size of its own family can be
+  Smarter too (see [Ranked quality](#ranked-quality)).
 
 Empty roles are left out. When nothing fits, Enigma says **No suitable model
 found**. The choices appear in:
@@ -130,9 +132,9 @@ assumption that places it below Ministral 3 14B.
 |---|---|---|---|---|
 | Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | 8 GB Macs |
 | Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | the Faster pick |
-| Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | All models |
+| Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | the Faster pick on some 16–24 GB Macs |
 | Ministral 3 8B | 8.5B | Q4_K_M | 5 | All models |
-| Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs |
+| Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs: Recommended when fast, else Smarter at IQ4_XS |
 | Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs |
 | Ministral 3 14B | 13.5B | Q5_K_M, Q8_0 | 6 | All models |
 | Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32–48 GB Macs |
@@ -140,8 +142,11 @@ assumption that places it below Ministral 3 14B.
 | Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | 36–64 GB Macs |
 | Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Max and Ultra chips; 3-bit as Smarter on 24 GB Macs |
 
-"All models" families are offered for choosing by hand and win a role only on
-merit; on the synthetic Macs the tests check, none does.
+"All models" families are there to choose by hand and get a role only on merit.
+Ministral 3 and Gemma 4 31B get none on the Macs the tests check. Gemma 4 E4B
+is Faster on 16 GB Macs at about 120 to 225 GB/s measured and on 24 GB Macs at
+about 120 to 175 GB/s (for example a 16 GB Mac at 130 GB/s: Recommended
+Qwen3.5 4B Q8_0 at 21.8 tok/s, Faster Gemma 4 E4B at 32.8).
 
 Gemma 4 E4B and 12B are vision and audio models; Enigma sends them text and
 images only, and their rows say **Vision + Audio model · Text and images in
@@ -151,8 +156,10 @@ Enigma**. Several 3-bit, IQ4 and Q4/Q5 files are Unsloth Dynamic quantizations
 quantization drops the `UD-` prefix.
 
 **Back in the catalogue** in this release: Gemma 4 E4B and Ministral 3 8B and
-14B, with the package IDs and pins they left with, so installed copies match the
-catalogue again and get updates. **Left the catalogue**: SmolVLM2 2.2B
+14B, with the package IDs and pins they left with, so installed copies are
+recognised as catalogue packages again. Copies installed by 0.10.1 ran on
+llama.cpp b10797, so they show **Update** once: a download of the same files
+that moves them to b11734. They stay usable until then. **Left the catalogue**: SmolVLM2 2.2B
 (superseded by Qwen3.5 2B) and MiniCPM-o 4.5 (it could not be installed).
 Installed copies keep working under **On this Mac**, but they get no update:
 they, and Gemma 4 12B QAT from earlier versions, stay on the runtime they were
@@ -198,12 +205,17 @@ SHA-256 and each GGUF's largest tensor are in `BundledLocalModels.swift`.
 1. **Gates.** A package must fit the memory budget, pass the disk, runtime and
    Metal-buffer checks, and be fast (or, as a fallback, usable at 8 tokens per
    second). Quality ranks only what passes; it can never outweigh a gate.
-2. **One package per family.** A family's candidate is its highest-precision
-   fast package, or, when none is fast, its smallest package that fits.
-   Precision runs Q8_0, Q5_K_M, Q4_K_M, Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS
-   (`LocalQuantization.precisionOrder`), so a family drops to 3 bits only when
-   no larger package of it both fits and is fast, or when none is fast and the
-   3-bit is its smallest.
+2. **One package per family** (`LocalModelSelector.choice`), the first of:
+   - its highest-precision fast package. Precision runs Q8_0, Q5_K_M, Q4_K_M,
+     Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS (`LocalQuantization.precisionOrder`);
+   - when none is fast, its smallest usable package (it fits and reaches 8
+     tokens per second) with a quality factor of 0.96 or more, that is IQ4_XS
+     or better;
+   - otherwise its smallest package that fits.
+
+   So a slow family offers 3 bits only when no 4-bit size of it reaches 8
+   tokens per second, and a fast family uses 3 bits only when no larger size of
+   it is fast.
 3. **Roles.** Recommended, Faster and Smarter are chosen from the candidates by
    ranked quality, as described under [Choosing a model](#choosing-a-model).
 
@@ -227,10 +239,17 @@ Smarter must rank above Recommended. A 3-bit package therefore loses to a
 at IQ3_XXS (28 × 0.85 = 23.8) ranks above every other family. Labels outside
 the table (imported GGUFs) keep a factor of 1; they never take part in roles.
 
-The flip side of the fallback: a family that is fast at no size offers its
-smallest package, now usually a 3-bit one, which can rank below Recommended.
-On a 16 GB Mac at about 104 GB/s, Qwen3.5 9B's candidate is IQ3_XXS (11.5),
-below Qwen3.5 4B Q5_K_M (12.9), so that Mac no longer gets a Smarter choice.
+Because a slow family offers a 4-bit size when one is usable, it keeps its
+place as Smarter: on a 16 GB Mac at about 104 GB/s, Qwen3.5 9B is fast at no
+size, so its candidate is IQ4_XS (13.5 × 0.96 = 12.96, 15.1 tok/s), above
+Recommended Qwen3.5 4B Q5_K_M (12.87).
+
+When Recommended is a 3-bit package (factor under 0.96), Smarter also
+considers its own family's smallest usable package of IQ4_XS or better,
+ranked with the other candidates. On a 64 GB Mac at about 400 GB/s,
+Recommended is Qwen3.8 27B IQ3_S (23.8, 24.9 tok/s) and Smarter is Qwen3.8 27B
+IQ4_XS (26.88, 21.1 tok/s), which misses a 2-second first token by
+milliseconds.
 
 `LocalModelRecommendations.roles` holds the non-empty roles in order; Settings,
 Welcome (`WelcomeSetup.choices`) and the ⌘K sheet all render it, so every picker
@@ -461,6 +480,11 @@ unloads both engines, just before the atomic install in `LocalModelCatalog`.
 
 ## Limitations
 
+- Decode speed treats I-quants (IQ3_XXS, IQ3_S, IQ4_XS) like K-quants, as
+  purely limited by memory bandwidth. I-quants cost more to decode, so their
+  estimates may be optimistic until that package's own **Check performance**
+  runs.
+
 - Memory and speed figures are estimates, not measurements, until you run
   **Check performance**. A model inside the budget can still be slow when other
   apps use memory, and an over-budget install may swap or fail to load. Newer
@@ -495,7 +519,7 @@ The suites are offline and deterministic; none touches the GPU:
   choices, and decoding of older installed records.
 - `LocalModelCatalogueTests`: eleven families and 45 runnable packages, unique
   IDs and checksums, consistent family metadata, existing and re-added package
-  IDs and pins, re-added packages matching their installed records, the 3-bit,
+  IDs and pins, re-added packages whose 0.10.1 records (b10797) offer Update, the 3-bit,
   IQ4 and Gemma 4 31B packages, quality ordering within a line, expected picks
   on synthetic Macs, and the 24 GB M5 Pro fixture that recommends Gemma 4 12B
   and offers Qwen3.8 27B IQ3_XXS as Smarter.
