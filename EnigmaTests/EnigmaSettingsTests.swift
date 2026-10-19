@@ -260,6 +260,27 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   @MainActor
+  func testUpdateSwitchesAndCheckNowReachTheUpdater() async throws {
+    let fixture = try await Fixture(test: self)
+    let backend = fixture.updaterBackend
+    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the update switches", in: host.view) { host.shows("Check for updates automatically switch") }
+    try host.press("Check for updates automatically switch")
+    try await waitForUI("automatic checks off", in: host.view) { !backend.automaticallyChecksForUpdates }
+    try host.press("Download and install updates automatically switch")
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(backend.automaticallyDownloadsUpdates, "The download switch is disabled while checks are off.")
+
+    try host.press("Check for updates automatically switch")
+    try await waitForUI("automatic checks on", in: host.view) { backend.automaticallyChecksForUpdates }
+    fixture.updater.backendCanCheckChanged(true)
+    try await waitForUI("Check Now", in: host.view) { host.shows("Check for Updates Now") }
+    try await Task.sleep(for: .milliseconds(100)) // Let SwiftUI enable the button.
+    try host.press("Check for Updates Now")
+    try await waitForUI("a check", in: host.view) { backend.checkCount == 1 }
+  }
+
+  @MainActor
   func testSelectionSwitchTurnsOnAutomaticReplace() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture.settings(.selection).enigmaTheme(.paper), test: self)
@@ -754,8 +775,8 @@ final class EnigmaSettingsTests: XCTestCase {
       }
     }
     // Whole pages: Cloud and search's web search, advanced settings, and API
-    // keys; General's location and Messages.
-    for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1220.0)] {
+    // keys; General's location, Messages and Updates.
+    for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1400.0)] {
       let size = CGSize(width: SettingsView.windowSize.width, height: height)
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)-full",
                                     size: size, until: { !fixture.advisor.isDetecting }) {
@@ -884,6 +905,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let selection: SelectionEditingSettings
     let location: LocationService
     let appearance: EnigmaAppearancePreference
+    let updaterBackend = FakeUpdaterBackend()
+    let updater: AppUpdater
     let discovery = LocalModelDiscovery(loader: { _ in HuggingFaceModelPage(models: []) })
 
     var sources = HuggingFaceDownloadSources(loadRepository: { _ in throw URLError(.notConnectedToInternet) },
@@ -913,6 +936,7 @@ final class EnigmaSettingsTests: XCTestCase {
       selection = SelectionEditingSettings(defaults: defaults)
       location = LocationService(defaults: defaults)
       appearance = EnigmaAppearancePreference(defaults: defaults)
+      updater = AppUpdater(backend: updaterBackend)
       test.addTeardownBlock { @MainActor in
         await chat.stopStreaming()?.value
         await chat.sessionWriter.waitForPendingWrites()
@@ -926,7 +950,7 @@ final class EnigmaSettingsTests: XCTestCase {
       SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
                          discovery: discovery, advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
-                         downloads: downloads, sources: sources, size: size)
+                         downloads: downloads, sources: sources, updater: updater, size: size)
     }
   }
 
