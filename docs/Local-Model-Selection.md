@@ -130,7 +130,10 @@ Enigma.** Qwen3.8 27B's Q4_K_M and Q5_K_M packages are Unsloth Dynamic files
 2B), Gemma 4 E4B (larger than Qwen3.5 4B and lower on both quality measures),
 Ministral 3 8B and 14B (outscored by Qwen3.5 9B and Gemma 4 12B) and MiniCPM-o
 4.5 (it could not be installed). Installed copies keep working under **On this
-Mac**.
+Mac**, but they get no update: they, and Gemma 4 12B QAT from earlier versions,
+stay on the runtime they were installed with. That older runtime (b10797)
+misreads screenshots on Gemma models, so Gemma 4 12B QAT users should install
+the new Gemma 4 12B for screenshot questions.
 
 **Deferred** to a later refresh: 100B-class models for 128 GB Macs (the
 strongest has an open Metal out-of-memory bug and a non-Apache licence),
@@ -398,7 +401,9 @@ Download orchestration and idle unloading live in `LocalChatViewModel.swift`.
   chips are underestimated for prompt speed until measured.
 - A runtime update changes every catalogue package's revision, so installed
   packages offer **Update** once, which downloads the package again. The
-  installed copy stays usable under **On this Mac** until then.
+  installed copy stays usable under **On this Mac** until then. Packages no
+  longer in the catalogue never get that update and keep their old runtime,
+  including its Gemma screenshot-OCR bug.
 - Audio input and output aren't supported; audio-capable models answer text and
   images only.
 - Macs with a Metal GPU that isn't Apple unified memory can't run catalogue
