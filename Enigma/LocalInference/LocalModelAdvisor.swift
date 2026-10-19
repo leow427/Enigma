@@ -114,7 +114,9 @@ final class LocalModelAdvisor: ObservableObject {
       architecture: descriptor?.architecture ?? "unverified", contextSize: descriptor?.recommendedContextSize ?? ModelContextPolicy.localContextWindow,
       recordedAt: .now, metrics: metrics,
       predictedTokensPerSecond: prediction?.tokensPerSecond ?? metrics.generationTokensPerSecond,
-      predictedTimeToFirstToken: prediction?.timeToFirstToken ?? metrics.timeToFirstToken
+      predictedTimeToFirstToken: prediction?.timeToFirstToken ?? metrics.timeToFirstToken,
+      activeParameterBillions: descriptor?.resolvedActiveParameterBillions,
+      isMixtureOfExperts: descriptor?.isMixtureOfExperts
     )
     measurements.append(record)
     measurements = Array(measurements.suffix(100))

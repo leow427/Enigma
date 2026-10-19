@@ -29,6 +29,8 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var inferenceProfile: LocalMultimodalProfile? = nil
   var advertisedMemoryRange: String? = nil
   var modelSupportsAudio: Bool? = nil
+  /// Parameters read per token; nil in records saved before 0.11, meaning dense.
+  var activeParameterBillions: Double? = nil
 
   var summary: String {
     modelSummary ?? (supportsVision ? "A local model for general text answers and screenshot understanding."
@@ -37,6 +39,13 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var maker: String { publisher ?? (architecture == "qwen3vl" ? "Alibaba / Qwen" : "Imported model") }
   var resolvedProfile: LocalMultimodalProfile? {
     inferenceProfile ?? LocalMultimodalProfile.legacyQwen(parameters: parameterBillions)
+  }
+  var resolvedActiveParameterBillions: Double { activeParameterBillions ?? parameterBillions }
+  var isMixtureOfExperts: Bool { resolvedProfile?.isMixtureOfExperts ?? false }
+  /// Bytes read for each generated token: the whole file for a dense model,
+  /// the active experts' share for a mixture-of-experts model.
+  var activeWeightBytes: Double {
+    Double(expectedByteCount) * resolvedActiveParameterBillions / parameterBillions
   }
 
   /// Memory estimates guide recommendations, but users may intentionally install
@@ -91,7 +100,8 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
           !performanceClass.isEmpty, parameterBillions.isFinite, parameterBillions > 0,
           publisher.map({ !$0.isEmpty && $0.count <= 100 }) ?? true,
           modelSummary.map({ !$0.isEmpty && $0.count <= 300 && !$0.contains("\n") }) ?? true,
-          minimumMemory >= estimatedRuntimeMemory, recommendedMemory >= minimumMemory else {
+          minimumMemory >= estimatedRuntimeMemory, recommendedMemory >= minimumMemory,
+          activeParameterBillions.map({ $0.isFinite && $0 > 0 && $0 <= parameterBillions }) ?? true else {
       throw LocalModelCatalogError.invalidManifest(id)
     }
     if let projector {

@@ -47,11 +47,14 @@ struct LocalModelAssessment: Identifiable, Sendable {
   var permitsMemoryOverride: Bool { fit == .memory && model.permitsMemoryOverride }
   var canInstall: Bool { fit.canRun || permitsMemoryOverride }
   var isResponsive: Bool { fit.canRun && tokensPerSecond >= 8 && timeToFirstToken <= 5 }
+  /// Fast: at least 20 tok/s and a first token within 2 s on a 256-token prompt.
+  var isFast: Bool { fit.canRun && tokensPerSecond >= 20 && timeToFirstToken <= 2 }
+  var isUsable: Bool { fit.canRun && tokensPerSecond >= 8 }
   var performanceDescription: String {
     if !fit.canRun { return reason }
     let prefix = isMeasured ? "Measured" : "Estimated"
     return "\(prefix) \(Int(tokensPerSecond.rounded())) tokens/sec · "
-      + (isResponsive ? "Responsive everyday chat" : "Longer waits for replies")
+      + (isFast ? "Responsive everyday chat" : "Longer waits for replies")
   }
 }
 
@@ -142,7 +145,8 @@ enum LocalModelSelector {
     let usable = measurements.filter { $0.isApplicable(to: hardware) }
     let exact = usable.filter { $0.modelChecksum == model.checksumSHA256
       && $0.contextSize == model.recommendedContextSize }.max { $0.recordedAt < $1.recordedAt }
-    let estimate = prediction(model, hardware: hardware, measurements: usable)
+    let estimate = estimate(model, hardware: hardware,
+      calibration: measurements.filter { $0.isApplicableForCalibration(to: hardware) })
     let speed = exact?.metrics.generationTokensPerSecond ?? estimate.speed
     let ttft = exact?.metrics.timeToFirstToken ?? estimate.ttft
     func result(_ fit: LocalModelFit, _ reason: String) -> LocalModelAssessment {
@@ -180,25 +184,40 @@ enum LocalModelSelector {
     return result(comfortable ? .excellent : .good, "Fits with memory reserved for macOS.")
   }
 
-  private static func prediction(
-    _ model: LocalModelDescriptor, hardware: LocalHardwareProfile, measurements: [LocalModelBenchmark]
-  ) -> (speed: Double, ttft: Double) {
-    // Conservative throughput prior based on resources, never chip-name tables.
-    // It is a heuristic, not advertised memory bandwidth or a measured benchmark.
+  static let denseEfficiency = 0.75
+  static let mixtureEfficiency = 0.45
+  static let promptFactor = 1.3
+
+  /// GB/s: the measured bandwidth when present (measured in the current power
+  /// mode); otherwise a conservative prior from CPU resources, never chip names.
+  static func bandwidth(for hardware: LocalHardwareProfile) -> Double {
+    if let measured = hardware.measuredBandwidth { return measured }
     let cores = Double(max(1, min(hardware.performanceCPUCount, hardware.cpuCount)))
-    let bandwidth = hardware.hasMetal ? min(100, 18 + cores * 5) : min(16, cores * 2)
-    let weightsGiB = Double(model.expectedByteCount) / Double(LocalHardwareProfile.gib)
-    var speed = bandwidth / max(0.5, weightsGiB)
-    var promptSpeed = (hardware.hasMetal ? cores * 80 : cores * 12) / max(1, model.parameterBillions)
-    if hardware.lowPowerMode { speed *= 0.65; promptSpeed *= 0.65 }
-    // Calibrate from the latest same-architecture run. Limit upward extrapolation
-    // to 2x the resource prior; exact measurements above already take precedence.
-    if let latest = measurements.filter({ $0.architecture == model.architecture }).max(by: { $0.recordedAt < $1.recordedAt }) {
-      speed = min(speed * 2, latest.metrics.generationTokensPerSecond
-        * Double(latest.modelByteCount) / Double(model.expectedByteCount))
-      promptSpeed = min(promptSpeed * 2, latest.metrics.promptTokensPerSecond
-        * latest.parameterBillions / model.parameterBillions)
+    let prior = hardware.hasMetal ? min(100, 18 + 5 * cores) : min(16, 2 * cores)
+    return hardware.lowPowerMode ? prior * 0.65 : prior
+  }
+
+  /// The latest benchmark of the same kind (dense or mixture-of-experts),
+  /// preferring the same architecture. Pass only calibration-applicable runs.
+  static func calibration(for model: LocalModelDescriptor, from benchmarks: [LocalModelBenchmark]) -> LocalModelBenchmark? {
+    let kind = benchmarks.filter { $0.calibrationIsMixtureOfExperts == model.isMixtureOfExperts }
+    func latest(_ runs: [LocalModelBenchmark]) -> LocalModelBenchmark? { runs.max { $0.recordedAt < $1.recordedAt } }
+    return latest(kind.filter { $0.architecture == model.architecture }) ?? latest(kind)
+  }
+
+  /// Decode is memory-bound: bandwidth × efficiency ÷ active weight bytes. A
+  /// benchmark on this Mac replaces the starting efficiency and prompt factor.
+  static func estimate(_ model: LocalModelDescriptor, hardware: LocalHardwareProfile,
+                       calibration benchmarks: [LocalModelBenchmark]) -> (speed: Double, ttft: Double) {
+    let bandwidth = bandwidth(for: hardware)
+    var efficiency = model.isMixtureOfExperts ? mixtureEfficiency : denseEfficiency
+    var factor = promptFactor
+    if let run = calibration(for: model, from: benchmarks) {
+      efficiency = run.metrics.generationTokensPerSecond * run.calibrationActiveWeightBytes / (bandwidth * 1e9)
+      factor = run.metrics.promptTokensPerSecond * run.calibrationActiveParameterBillions / (bandwidth * 7)
     }
-    return (speed, 256 / max(1, promptSpeed) + 1 / max(0.1, speed))
+    let decode = bandwidth * 1e9 * efficiency / model.activeWeightBytes
+    let prompt = factor * bandwidth * 7 / model.resolvedActiveParameterBillions
+    return (decode, 256 / max(1, prompt) + 1 / max(0.1, decode))
   }
 }

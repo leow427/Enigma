@@ -101,7 +101,8 @@ enum BundledLocalModels {
       recommendedMemory: max(memory, minimumGiB * LocalHardwareProfile.gib), projector: projector,
       runtimeBuild: LocalVisionRuntime.build, publisher: publisher,
       modelSummary: summary(for: profile), inferenceProfile: profile,
-      advertisedMemoryRange: memoryRange, modelSupportsAudio: audio)
+      advertisedMemoryRange: memoryRange, modelSupportsAudio: audio,
+      activeParameterBillions: profile.activeParameters)
   }
 }
 

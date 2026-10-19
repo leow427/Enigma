@@ -209,7 +209,7 @@ final class LocalModelSelectionTests: XCTestCase {
   }
 
   func testChipNamesDoNotControlSelectionAndCPUResourcesDo() throws {
-    var mac = hardware(memory: 64)
+    var mac = hardware(memory: 24)
     mac.performanceCPUCount = 12
     let first = LocalModelSelector.select(manifest: catalog, hardware: mac)
     mac.chip = "A future chip with an unknown name"
@@ -302,7 +302,7 @@ final class LocalModelSelectionTests: XCTestCase {
   }
 
   func testFastRealMeasurementsCanPromoteASmarterModelWithoutOverridingMemorySafety() throws {
-    var mac = hardware(memory: 64)
+    var mac = hardware(memory: 24)
     mac.performanceCPUCount = 12
     let initial = LocalModelSelector.select(manifest: catalog, hardware: mac)
     let recommended = try XCTUnwrap(initial.recommended)
@@ -406,6 +406,25 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertEqual(restored.measurements, advisor.measurements)
     XCTAssertNotNil(restored.latestBenchmark(for: installed))
     XCTAssertEqual(store.installedModel(), installed)
+  }
+
+  @MainActor
+  func testRecordedBenchmarksKeepActiveParameters() async throws {
+    let root = try temporaryDirectory()
+    let profile = hardware(memory: 64)
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in profile })
+    await advisor.detectHardware()
+    let descriptor = try XCTUnwrap(catalog.models.first { $0.id == "gemma-4-26b-a4b-q4_k_m" })
+    let source = root.appending(path: "test.gguf")
+    try Data("fixture".utf8).write(to: source)
+    let store = LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))
+    let installed = try store.install(LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+      fileURL: source, catalogDescriptor: descriptor))
+    advisor.record(benchmark(model: descriptor, hardware: profile).metrics, model: installed, prediction: nil)
+    let saved = try JSONDecoder().decode([LocalModelBenchmark].self,
+      from: Data(contentsOf: root.appending(path: "benchmarks.json")))
+    XCTAssertEqual(saved.last?.activeParameterBillions, 3.8)
+    XCTAssertEqual(saved.last?.isMixtureOfExperts, true)
   }
 
   @MainActor
