@@ -49,6 +49,41 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertTrue(args.contains("--offline"))
     XCTAssertEqual(args[args.firstIndex(of: "--host")! + 1], "127.0.0.1")
     XCTAssertEqual(args[args.firstIndex(of: "--port")! + 1], "55432")
+    XCTAssertEqual(args[args.firstIndex(of: "--image-max-tokens")! + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+  }
+
+  func testGemmaLaunchKeepsWholeScreenshotsInOneBatch() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
+    var args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--ubatch-size")) + 1], "1024")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "1024")
+    model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "qwen3.5-4b-q5_k_m" })
+    args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+    XCTAssertEqual(args[try XCTUnwrap(args.firstIndex(of: "--image-max-tokens")) + 1], "4096")
+    XCTAssertFalse(args.contains("--ubatch-size"))
+    XCTAssertEqual(LlamaServerVisionEngine.imageArguments(for: nil), ["--image-max-tokens", "4096"])
+  }
+
+  func testLaunchUsesOnlyArgumentsTheRuntimeKnows() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let known: Set<String> = ["-m", "--mmproj", "--host", "--port", "--api-key", "--alias", "--ctx-size", "--parallel",
+      "--offline", "--no-webui", "--jinja", "--no-context-shift", "--cache-ram", "--reasoning-budget", "--fit",
+      "--image-max-tokens", "--ubatch-size"]
+    for id in ["gemma-4-12b-q5_k_m", "qwen3.5-4b-q5_k_m"] {
+      var model = try fixture(in: directory)
+      model.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == id })
+      let args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+      for (index, argument) in args.enumerated() where argument.hasPrefix("-") {
+        if index > 0 && args[index - 1] == "--reasoning-budget" { continue }
+        XCTAssertTrue(known.contains(argument), "\(id): \(argument)")
+      }
+      for removed in ["--mmap", "--no-mmap", "--mlock", "-dio"] { XCTAssertFalse(args.contains(removed)) }
+    }
   }
 
   func testInvalidOrMissingProjectorCannotBecomeAVisionProfile() throws {
@@ -85,7 +120,8 @@ final class LocalVisionTests: XCTestCase {
       XCTAssertGreaterThan(model.downloadByteCount, model.model.expectedByteCount + model.projector.expectedByteCount)
     }
     try LocalVisionRuntime.bundled.validate()
-    XCTAssertTrue(LocalVisionRuntime.bundled.archive.url.path.contains("b10797"))
+    XCTAssertTrue(LocalVisionRuntime.bundled.archive.url.path.contains("b11734"))
+    XCTAssertEqual(LocalVisionRuntime.directoryName, "llama-b11734")
     let input = LocalVisionModelDescriptor.bundled[0]
     let mismatched = LocalVisionModelDescriptor(id: input.id, displayName: input.displayName, summary: input.summary,
       model: input.model, projector: LocalVisionModelDescriptor.bundled[1].projector,

@@ -160,13 +160,17 @@ final class LocalModelSelectionTests: XCTestCase {
   }
 
   func testOldInstalledDescriptorDecodesWithoutDescriptionsOrProfilesAndKeepsPackageIdentity() throws {
-    let model = LegacyModelFixtures.models[0]
+    // The legacy fixture is pinned to an older runtime; re-pin it so the
+    // decoded record can still be validated as a supported package.
+    let model = try modifying(LegacyModelFixtures.models[0],
+      ["runtimeBuild": LocalVisionRuntime.build, "minimumLlamaBuild": LocalVisionRuntime.build])
     var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(model)) as? [String: Any])
     for key in ["publisher", "modelSummary", "inferenceProfile"] { json.removeValue(forKey: key) }
     let restored = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
     try restored.validate()
     XCTAssertEqual(restored.packageRevision, model.packageRevision)
     XCTAssertTrue(LocalModelCompatibility.supports(restored))
+    XCTAssertFalse(LocalModelCompatibility.supports(LegacyModelFixtures.models[0]))
     XCTAssertFalse(restored.summary.isEmpty)
     XCTAssertEqual(restored.maker, "Alibaba / Qwen")
   }

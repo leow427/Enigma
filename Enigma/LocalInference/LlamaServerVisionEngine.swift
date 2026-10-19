@@ -97,7 +97,14 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
             "--host", "127.0.0.1", "--port", String(port), "--api-key", key, "--alias", alias,
             "--ctx-size", String(config.contextWindow), "--parallel", "1", "--offline", "--no-webui",
             "--jinja", "--no-context-shift", "--cache-ram", "0", "--reasoning-budget", "-1",
-            "--fit", "off", "--image-max-tokens", "4096"]
+            "--fit", "off"] + imageArguments(for: model.catalogDescriptor?.resolvedProfile)
+  }
+
+  /// Models whose image tokens attend to each other cap an image at the
+  /// physical batch, so they get a batch large enough for a whole screenshot.
+  static func imageArguments(for profile: LocalMultimodalProfile?) -> [String] {
+    guard let profile, profile.usesNonCausalImageAttention else { return ["--image-max-tokens", "4096"] }
+    return ["--ubatch-size", String(profile.physicalBatchSize), "--image-max-tokens", String(profile.imageMaxTokens)]
   }
 
   private static func preparationBudget(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) throws -> ContextBudget {
@@ -553,21 +560,21 @@ enum LocalOnlyNetworking {
 /// its dynamic libraries. Nothing depends on a temporary folder or shell PATH.
 struct LocalVisionRuntime: Sendable {
   let archive: VerifiedModelArtifact
-  static let build = 10797
-  static let directoryName = "llama-b10797"
+  static let build = 11734
+  static let directoryName = "llama-b11734"
 
   static var bundled: LocalVisionRuntime {
     #if arch(arm64)
     let architecture = "arm64"
-    let size: Int64 = 11108860
-    let checksum = "474a788ec73d17a066360b1c50c9733c78a47d062616e91963c65a344548e889"
+    let size: Int64 = 12292927
+    let checksum = "c823aad1d1c40728e8f1565663078fa2b3b7fd06bf484fa43e9e48b8b1b2509c"
     #else
     let architecture = "x64"
-    let size: Int64 = 11156383
-    let checksum = "a12a85385c74e1e0260dd207cc49f90db902df0fa2f12fc734971d0323aa1df0"
+    let size: Int64 = 11781759
+    let checksum = "696521c81f21816e5b7686aa308425004ee1ec1fc2d2679414e9e6fa0aa8fbfc"
     #endif
     return LocalVisionRuntime(archive: VerifiedModelArtifact(
-      url: URL(string: "https://github.com/ggml-org/llama.cpp/releases/download/b10797/llama-b10797-bin-macos-\(architecture).tar.gz")!,
+      url: URL(string: "https://github.com/ggml-org/llama.cpp/releases/download/b11734/llama-b11734-bin-macos-\(architecture).tar.gz")!,
       expectedByteCount: size, checksumSHA256: checksum))
   }
 
