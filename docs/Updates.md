@@ -21,9 +21,9 @@ a release with one script, `scripts/release.sh`. The design is in
   needs an administrator), the same slot shows **Update to X Available…**,
   which opens Sparkle's update window. That item disappears once the user
   dismisses or skips the update; a downloaded update stays until it installs.
-- **Gentle reminders.** A scheduled update alert never takes focus from
-  another app. If Sparkle cannot show it in focus, Enigma offers it in the menu
-  instead.
+- **Gentle reminders.** Sparkle shows a scheduled update alert itself only
+  near launch or after the user has been idle. At other times Enigma offers
+  the update in the menu instead of interrupting.
 - **Settings → General → Updates.** One switch turns the daily check on or off.
   Another turns automatic download and install on or off; it is unavailable
   while checks are off. The **Version** row shows the version and build, when

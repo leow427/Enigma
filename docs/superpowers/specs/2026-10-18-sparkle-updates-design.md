@@ -25,8 +25,9 @@ history.
    Sparkle's "check automatically?" prompt, downloads updates by itself and
    installs them when it quits. Because a menu-bar app rarely quits, a
    **Restart to Update to X** menu item appears once an update is downloaded.
-   Sparkle's gentle scheduled update reminders stop its alerts from taking
-   focus from other apps. Settings → General has toggles for automatic checks
+   With Sparkle's gentle scheduled update reminders, Sparkle shows a scheduled
+   alert only near launch or after the user has been idle; otherwise Enigma
+   offers the update in the menu. Settings → General has toggles for automatic checks
    and for automatic download and install.
 3. **Approach A: release from a local script, appcast in the repository.**
    `scripts/release.sh <version>` builds, signs and publishes a release. The
@@ -94,8 +95,9 @@ Sparkle installs on termination as usual.
 
 - `supportsGentleScheduledUpdateReminders` returns `true`.
 - `standardUserDriverShouldHandleShowingScheduledUpdate(_:andInImmediateFocus:)`
-  returns `immediateFocus`, so Sparkle shows a scheduled alert only when it
-  would not take focus from another app.
+  returns `immediateFocus`, so Sparkle shows a scheduled alert itself only
+  near launch or after the user has been idle; otherwise it is offered in the
+  menu.
 - When Sparkle leaves the alert to us,
   `standardUserDriverWillHandleShowingUpdate(_:forUpdate:state:)` sets
   `updateReadyToInstall` (for `state.stage == .downloaded`) or an
