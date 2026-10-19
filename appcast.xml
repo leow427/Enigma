@@ -3,6 +3,21 @@
     <channel>
         <title>Enigma</title>
         <item>
+            <title>0.10.1</title>
+            <pubDate>Mon, 19 Oct 2026 10:32:37 -0500</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.10.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# Enigma 0.10.1
+
+A tidier sidebar.
+
+- **Developer Tools is gone from the sidebar.** It was meant for testing Enigma, not for everyday use.
+- **Its tools are in Settings.** **Detect Mac capabilities** is in Settings → Local models, which now also shows your Mac's CPU count and Metal support. **Replay welcome setup** stays in Settings → General.
+]]></description>
+            <enclosure url="https://github.com/leow427/Enigma/releases/download/v0.10.1/Enigma-0.10.1.zip" length="8379534" type="application/octet-stream" sparkle:edSignature="flTBVf7Y2hrw/zrUyxCo7+ZLpSfoJmxEJM47dXBBTxmH3ZjWxrZxDubq2G+KC+vjEoZOEU2HgBVQll80vU2NCQ=="/>
+        </item>
+        <item>
             <title>0.10.0</title>
             <pubDate>Mon, 19 Oct 2026 10:03:29 -0500</pubDate>
             <sparkle:version>2</sparkle:version>
