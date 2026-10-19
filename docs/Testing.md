@@ -70,13 +70,53 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on `macos-26` for pushes to
 
 ```sh
 xcodebuild test -project Enigma.xcodeproj -scheme Enigma \
-  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+  -destination 'platform=macOS' -resultBundlePath "$RUNNER_TEMP/Enigma.xcresult" \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 120 \
+  -maximum-test-execution-time-allowance 120 CODE_SIGNING_ALLOWED=NO
 ```
+
+Each test gets two minutes; the slowest normally takes about 10 seconds on
+the runner. A test that runs longer is treated as hung: XCTest records a
+spindump (a stack sample of every thread in the test host), fails that test,
+and runs the rest of the suite in a fresh host. The job stops after 30
+minutes as a last resort. When a run fails or is cancelled, its result bundle
+is uploaded as the `Enigma-xcresult-…` artifact on the run's summary page.
+Download it and open the `.xcresult` in Xcode to see each failure, its
+attachments, and any spindump.
 
 CI does not run the `build` or `analyze` actions, so run those locally when a
 change could affect them. GitHub's macOS runners have Reduce Motion turned on;
 tests that depend on animation set it explicitly with
 `enigmaTestReduceMotion(_:)`.
+
+### Stress runs on CI
+
+A test that passes once can still fail now and then on GitHub's runners,
+which are several times slower than a recent Mac and vary from run to run.
+The **Stress tests** workflow (`.github/workflows/stress.yml`) measures that.
+Five runners each build once and run the suite several times (six by
+default, so 30 runs), with the same time allowances as CI and no retries.
+A summary job then lists every run and how many runs each test failed in.
+
+Start it from the repository's **Actions** tab: choose **Stress tests**, then
+**Run workflow**. The inputs are the number of runs per runner and an optional
+`-only-testing` filter, such as `EnigmaTests/ScreenViewTests`, to stress one
+class or test. With the GitHub CLI:
+
+```sh
+gh workflow run stress.yml -f runs=6 -f only-testing=EnigmaTests/ScreenViewTests
+```
+
+To stress a change before it is merged, push it to a branch whose name starts
+with `stress/`, which runs the workflow with the defaults:
+
+```sh
+git push origin HEAD:refs/heads/stress/my-change
+```
+
+The results are on the run's summary page. The run fails if any suite run
+failed, and each failing run's result bundle and log are uploaded as
+`stress-failures-…` artifacts. Delete the `stress/` branch when you are done.
 
 ## Screenshots and snapshot rendering
 
