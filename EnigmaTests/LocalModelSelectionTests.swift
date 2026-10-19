@@ -249,8 +249,9 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testCatalogPinsEveryQuantizationAndMatchesEmbeddedBuild() throws {
     try catalog.validate()
-    XCTAssertEqual(catalog.models.count, 20)
-    XCTAssertEqual(Set(catalog.models.map(\.quantization)), ["Q4_K_M", "Q5_K_M", "Q8_0"])
+    XCTAssertEqual(catalog.models.count, 35)
+    XCTAssertEqual(Set(catalog.models.map(\.quantization)),
+                   ["IQ3_XXS", "IQ3_S", "Q3_K_M", "IQ4_XS", "Q4_K_M", "Q5_K_M", "Q8_0"])
     XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google"])
     XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)), Set([.qwen35_2B, .qwen35_4B, .qwen35_9B, .gemma4_12B, .gemma4A4B, .qwen36_35BA3B, .qwen38_27B]))
     for model in catalog.models {
@@ -314,7 +315,7 @@ final class LocalModelSelectionTests: XCTestCase {
     }
     XCTAssertEqual(LocalMultimodalProfile.ministral14B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 1_342_177_280)
     XCTAssertEqual(LocalMultimodalProfile.gemma4E4B.cacheLayout.bytes(context: 8192, physicalBatch: 512), 308_281_344)
-    let moe = try XCTUnwrap(catalog.models.first { $0.inferenceProfile == .gemma4A4B })
+    let moe = try XCTUnwrap(catalog.models.first { $0.id == "gemma-4-26b-a4b-q4_k_m" })
     XCTAssertGreaterThan(moe.expectedByteCount, 14_000_000_000)
     XCTAssertGreaterThan(moe.estimatedRuntimeMemory, 19 * gib)
   }
@@ -384,8 +385,13 @@ final class LocalModelSelectionTests: XCTestCase {
     if let faster = first.faster {
       XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5)
     }
-    XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.qualityScore, recommended.model.qualityScore)
-    XCTAssertGreaterThanOrEqual(first.roles.count, 2)
+    // At about 78 GB/s only Qwen3.5 4B Q4_K_M is fast. The slower families'
+    // candidates are their smallest packages, 3-bit for Qwen3.5 9B and Gemma 4
+    // 12B (ranked 11.48 and 11.9, below 12.61), and Qwen3.8 27B IQ3_XXS is
+    // under 8 tok/s, so no family is offered as Smarter.
+    XCTAssertEqual(recommended.id, "qwen3.5-4b-q4_k_m")
+    XCTAssertNil(first.smarter)
+    XCTAssertEqual(first.roles.map(\.id), ["qwen3.5-4b-q4_k_m"])
     XCTAssertEqual(Set(first.roles.map(\.id)).count, first.roles.count)
   }
 
