@@ -252,6 +252,7 @@ final class ComposerIntentResolveTests: XCTestCase {
     XCTAssertEqual(WebSearchPolicy.questionText("  What’s\tthe\r\n\u{00A0}latest\u{2028}NEWS \"Sam\"  "),
                    "what's the latest news")
     XCTAssertEqual(WebSearchPolicy.questionText(" \n "), "")
+    XCTAssertEqual(WebSearchPolicy.questionText("Whats new? whatsapp"), "what's new? whatsapp")
   }
 
   func testResolvingIsFast() {
@@ -352,6 +353,7 @@ final class ComposerIntentChipsTests: XCTestCase {
 
   func testShellChipFollowsTheDraftAndDismissingTurnsItOff() async throws {
     let fixture = try await Fixture(test: self)
+    fixture.defaults.set(true, forKey: ComposerIntent.inferCommandsKey)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
                     root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
     try await waitForUI("the composer", in: host.view) { host.shows("Send message") }
@@ -369,6 +371,17 @@ final class ComposerIntentChipsTests: XCTestCase {
     try await waitForUI("the chip back for a new draft", in: host.view) { host.shows("Recognized messages") }
     fixture.screen.draft = "/messages what did Sam text me"
     try await waitForUI("no chip for a typed command", in: host.view) { !host.shows("Recognized messages") }
+  }
+
+  func testShellRecognizesNothingByDefault() async throws {
+    let fixture = try await Fixture(test: self)
+    XCTAssertNil(fixture.defaults.object(forKey: ComposerIntent.inferCommandsKey))
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
+                    root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
+    try await waitForUI("the composer", in: host.view) { host.shows("Send message") }
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the draft in the editor", in: host.view) { composerEditor(in: host.view)?.string == fixture.screen.draft }
+    XCTAssertFalse(host.shows("Recognized messages"), "Off until the person turns it on")
   }
 
   func testShellHidesChipsWhenRecognitionIsOff() async throws {

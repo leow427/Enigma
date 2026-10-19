@@ -27,18 +27,67 @@ with a screen capture.
 
 You can also just ask. When your message reads as a Messages request, Enigma
 shows a `messages` chip in the composer before you send and runs the message as
-if you'd typed `/messages`:
+if you'd typed `/messages`. A message reads as one when it has all three of:
 
-- "what did Sam text me?", "did Mom message me today?", "check my messages from
-  Alex", "any new texts from Jordan?", "what did Sam say in our chat?"
-- "text Alex that I'm running late", "send her a message saying hi", "message
-  Sam that dinner is at 7", "reply to Mom with ok", "tell Jordan on iMessage
-  I'm here"
+- **A messaging word:** message, text, texted, iMessage, SMS, group chat or
+  group text, "the family chat", "sent me", "got back to me", "answered my
+  text", or "my conversation (or text thread) with …". "Replied" and
+  "responded" count only in a question that is just about the reply: "has Dad
+  replied yet", "has my brother responded yet", "did Alex reply", "check
+  whether Alex replied". "Got back to me" counts in any question: "did Priya
+  get back to me about the trip".
+- **A person or your own messages:** a name, a relative or someone close such
+  as "my dad", "my best friend" or "my boss", a pronoun, "the group chat", or
+  "my texts". "My" followed by anything else, such as "my queue" or "my essay",
+  isn't a person.
+- **A request to read or send:** a question ("what did …", "has …", "any …"),
+  or a verb such as check, read, show, pull up, go through, catch me up on,
+  summarize, text, message, send, shoot, drop, reply, or "let … know … via
+  text".
 
-Everyday uses of "message" and "text" don't count: "what does this error
-message mean", "write a commit message", "summarize this text", "write a
-message to my landlord" (drafting, not sending), "send me a summary", or "send
-an email to Alex".
+So all of these count:
+
+- "what are the most recent messages from my dad", "did my sister message me
+  today", "has Dad replied yet", "catch me up on the group chat", "what was
+  Alex's last text", "summarize my conversation with Alex", "see if Alex got
+  back to me"
+- "read my last 5 messages", "show the texts between me and Alex", "how many
+  unread messages do I have", "when is dinner according to Mom's text", "any
+  SMS from the bank today?", "summarize what I missed in the family chat",
+  "recap my text thread with my brother", "I'm behind on texts, who do I need
+  to reply to", "can u check my messages from dad", "anything new from my wife
+  in iMessage", "yo whats my sister been texting me"
+- "text my dad that I'll be late", "send Alex a text saying I'm outside",
+  "shoot Sam a text that I'm here", "reply to Jordan with sounds good", "let Mom
+  know I landed via text", "message Mom: running late", "send a text message
+  to the plumber confirming Thursday at 9", "reply to my moms text and say yes",
+  "tell my boss via text that I'm running late"
+
+When in doubt it doesn't match. These don't count:
+
+- Noun compounds: "text classification", "message passing", "what does this
+  error message mean"
+- Other services: "send an email to Alex", "how do I send a message in Slack",
+  unless iMessage or SMS is named
+- "send me a summary", "text me a joke"
+- How-to and advice questions: "how do I text …", "what's the best way to
+  message a landlord", "what should I text my crush", "what do I say in a text
+  to cancel plans", "text my ex or not?"
+- Idioms: "send a clear message to investors in my pitch deck"
+- Replies to Enigma itself: "just text back yes or no"
+- Replies in the news: "did Microsoft respond to the allegations", "has the
+  White House responded"
+- Something someone sent you, pasted in: "Sam sent me this article, summarize
+  it"
+- Titles, lyrics and slang: "the song Text Me Back", "who sang Send Me a Text",
+  "what does text me mean"
+- This chat: "my last message", "your last message", "summarize our
+  conversation", "this chat"
+- Drafting and reviewing: "write a message to my landlord", "write my dad a
+  text saying …", "read my message to my boss and tell me if it's too harsh"
+  stay ordinary writing requests
+- Questions without a messaging word, such as "what did Sam say about dinner"
+  or "tell Sam I'm running late", unless they follow a Messages request (below)
 
 **Follow-ups.** After a message that used Messages in this chat, typed or
 recognized, a follow-up with a looser cue also uses it: "send it", "reply with
@@ -53,8 +102,8 @@ causes the conflict error above: with files or a screenshot attached, or with
 `/search`, `/screen` or `/snapshot` typed, `messages` simply isn't recognized.
 A recognized `messages` keeps every safeguard below: the Full Disk Access check,
 the one-time cloud notice, Auto staying on this Mac, and your approval for each
-send. **Settings → General → Recognize commands from your wording** turns
-recognition off. See [Slash commands](Slash-Commands.md#recognized-commands).
+send. Recognition only happens with **Settings → General → Recognize commands
+from your wording** on, and it's off by default. See [Slash commands](Slash-Commands.md#recognized-commands).
 
 ### Approving a send
 
@@ -211,8 +260,9 @@ the selected route before starting:
 - Answers from the OpenAI, Anthropic, and Gemini API routes appear as each
   model turn finishes rather than streaming token by token.
 - Enigma doesn't watch for new messages.
-- Recognizing a Messages request without `/messages` follows English phrasings
-  only, and a follow-up needs a cue in the new message. A chat reopened from
+- Recognizing a Messages request without `/messages` follows English wording
+  only and needs a messaging word, and a follow-up needs a cue in the new
+  message. A chat reopened from
   history starts without the follow-up.
 
 ## Tests
@@ -231,5 +281,9 @@ the selected route before starting:
   and aren't recognized (`MessagesIntentPolicyTests`), recognition next to
   files, screenshots and other commands, and follow-ups
   (`ComposerIntentResolveTests`).
+- `EnigmaTests/ComposerIntentPhrasingTests.swift` is the phrasing corpus: about
+  920 English drafts, each tagged `messages`, `think`, `search` or none, that
+  must resolve as tagged, including the hard negatives above. Messages drafts
+  must never get the `search` chip. A miss found later becomes a line in it.
 
 No test reads the real `chat.db` or sends a message.

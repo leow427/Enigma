@@ -20,8 +20,9 @@ work anywhere in a message and are highlighted as you type.
 Every command applies to the message it's in. The next message goes back to
 normal behavior, including the automatic-search setting.
 
-You don't always have to type the command. Enigma also recognizes some commands
-from the wording of your message and shows them as chips before you send. See
+You don't always have to type the command. Once you turn on **Recognize commands
+from your wording**, Enigma also recognizes some commands from the wording of your
+message and shows them as chips before you send. See
 [Recognized commands](#recognized-commands).
 
 ## Typing and completing commands
@@ -86,16 +87,18 @@ before anything is sent:
 
 ## Recognized commands
 
-Enigma reads the wording of the message you're typing and turns on the matching
-command for you, as if you'd typed it. It checks fixed English phrasings on this
-Mac, with no extra model call.
+With **Recognize commands from your wording** on (it's off until you turn it on,
+see [The setting](#the-setting)), Enigma reads the wording of the message you're
+typing and turns on the matching command for you, as if you'd typed it. It checks fixed English rules on this
+Mac, with no extra model call. Rather than whole sentences, the rules look for
+signals that together mark a request, so ordinary rewordings still count.
 
 | Recognized | When your message says something like | Not recognized |
 | --- | --- | --- |
-| `messages` | "what did Sam text me?", "check my messages from Alex", "any new texts from Jordan?", "text Alex that I'm running late", "send her a message saying hi", "reply to Mom with ok", "tell Jordan on iMessage I'm here" | "what does this error message mean", "write a commit message", "summarize this text", "write a message to my landlord", "send me a summary", "send an email to Alex" |
+| `messages` | A messaging word tied to a person or to your own messages, in a question or a read or send request: "what are the most recent messages from my dad", "has Dad replied yet", "catch me up on the group chat", "what was Alex's last text", "text Alex that I'm running late", "shoot Sam a text that I'm here", "let Mom know I landed via text" | Noun compounds ("text classification", "what does this error message mean"), other services ("send an email to Alex"), "send me a summary", how-to and advice questions ("how do I text …", "text my ex or not?"), replies in the news ("did Microsoft respond to the allegations"), pasted content ("Sam sent me this article, summarize it"), "my" things that aren't people ("read messages from my queue"), titles and slang ("the song Text Me Back"), this chat ("your last message", "summarize our conversation"), drafting and reviewing ("write a message to my landlord", "check the tone of my message to my boss"), and questions without a messaging word ("what did Sam say about dinner") |
 | `messages`, as a follow-up | After a message that used Messages in this chat: "send it", "reply with sounds good", "tell her I'm on my way", "what about Alex?", "what else did she say" | A follow-up without one of these cues, such as "thanks!" |
 | `search` | A question that automatic search would search for, such as "what's the latest AI news?" | Anything automatic search wouldn't search for |
-| `think` | "think hard", "think carefully", "take your time", "step by step", "reason it through" | "I think …", "what do you think of this?" |
+| `think` | Think, reason or consider with a depth word ("think hard", "think it over", "consider this carefully before answering"), or an effort phrase: "take your time", "take a while to think", "don't rush", "be thorough", "be very careful with this one", "be meticulous", "go slow and verify each step", "step by step", "double-check your answer", "triple check the dates", "give this some serious thought", "go deep on this", "spend extra time on this", "use deep reasoning", "ultrathink", "use extended thinking"; and polite requests such as "can you think this through more carefully" | "I think …", "what do you think of this?", "do you think it will rain", "think of a name for my dog", "I'm thinking about buying …", "how to think critically", "think more positively", "what is deep thought", "it can take a while", "be thorough when cleaning a bathroom" |
 | `edit` | With Selection Context attached: "rewrite this", "make it shorter", "make this more formal", "fix the grammar", "reword this", "proofread it", "tighten this up" | Anything without a selection; questions about the selection, such as "what does this mean?" |
 | `translate` | With Selection Context attached: "translate this", "translate it to Spanish" | Anything without a selection |
 
@@ -138,10 +141,11 @@ The conflicts between typed commands still show the errors described in
 
 ### The setting
 
-**Settings → General → Commands → Recognize commands from your wording**, on by
-default, controls `messages`, `think`, `edit` and `translate`. With it off, only
-`search` can still be recognized, and that follows the automatic-search setting
-in **Settings → Cloud and search**.
+**Settings → General → Commands → Recognize commands from your wording** controls
+`messages`, `think`, `edit` and `translate`. It's off by default, so a new user's
+wording never turns on a command by surprise; turn it on to get these chips. With
+it off, only `search` can still be recognized, and that follows the
+automatic-search setting in **Settings → Cloud and search**.
 
 ## Screen captures
 
@@ -205,6 +209,11 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
 - Commands are English words and can't be renamed.
 - Recognized commands follow English phrasings only. Unusual wording gets no
   chip; typing the command still works.
+- `think` reads "step by step" as a request for care even when it's part of
+  the topic, as in "step by step instructions to bake bread". Click the chip to
+  send without it.
+- `messages` can't tell a person's name from a company's: "has Meta replied?"
+  on its own is recognized, while "has Meta responded to the fine" isn't.
 - A Messages follow-up needs a cue such as "send", "reply" or "what about …" in
   the new message. A chat reopened from history starts without the follow-up.
 - Help doesn't list `/edit`, `/translate` or `/messages` as rows; it describes

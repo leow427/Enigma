@@ -277,7 +277,7 @@ struct GeneralSettingsPage: View {
   /// Only Replay reads it, through `ReplayWelcomeButton`.
   let chat: LocalChatViewModel
   @ObservedObject var updater: AppUpdater
-  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = true
+  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = ComposerIntent.infersCommandsByDefault
   @Environment(\.enigmaPalette) private var palette
 
   static let newChatsNote = "Used at launch, for each new chat, and for each selection chat."

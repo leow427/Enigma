@@ -124,6 +124,20 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
+  func testAutomaticSearchReadsWhatsWithoutAnApostropheAndThisWeekend() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in ["whats my teams score tonight, the lakers", "whats the latest ios update for my iphone",
+                   "whats the latest version of python for my project",
+                   "whats the weather like this weekend where i live in seattle",
+                   "What's on at the cinema this weekend?"] {
+      XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+    for prompt in ["whats a closure in swift", "whats the difference between a set and an array",
+                   "whatsapp vs imessage, which is more private"] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+  }
+
   func testAutomaticSearchAvoidsTimelessLocalQuotedAndOptedOutRequests() {
     let date = Date(timeIntervalSince1970: 1_788_825_600)
     for prompt in [
@@ -140,6 +154,50 @@ final class WebSearchTests: XCTestCase {
     ] {
       XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
     }
+  }
+
+  func testAutomaticSearchSkipsThePersonsOwnCommunications() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in [
+      "what are the most recent messages from my dad", "what's new in my texts", "whats new in my texts",
+      "what did Jordan send me yesterday", "what are the latest emails from my boss today", "what are the latest texts from my sister",
+      "what's the latest in our group chat", "did I miss any calls from my mom today", "check my inbox for anything new today",
+      "what are my latest DMs about", "what texts did I get today", "what did I get from mom today",
+      "what emails came in today", "any news from my sister today", "what did mom say today",
+      "what did grandpa say on the phone yesterday about the hurricane",
+      "who's been blowing up my phone with texts today", "I got so many texts today, who were they from",
+      "what voicemails came today? I was out", "what was the first message i sent you today"
+    ] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+      let intent = ComposerIntent.resolve(.init(draft: prompt, infersCommands: false, searchesAutomatically: true), now: date)
+      XCTAssertFalse(intent.search, prompt)
+    }
+    for prompt in ["what's the latest message from the White House on tariffs", "latest news from the Fed today",
+                   "what did the president say in his latest message to Congress",
+                   "when is the next earnings call for my stock nvda", "latest news about calls for my resignation",
+                   "what are the latest chats about my favorite show on reddit",
+                   "what time does my local post office mail pickup happen today",
+                   "latest dm news for my dungeon master group this week", "what's the latest from Sam"] {
+      XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+    let typed = ComposerIntent.resolve(.init(draft: "/search what are the most recent messages from my dad",
+                                             searchesAutomatically: true), now: date)
+    XCTAssertTrue(typed.search, "A typed /search still searches")
+  }
+
+  func testTypedSearchStillSearchesPersonalCommunications() async {
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, automatic: true)
+    let prompt = "what are the most recent messages from my dad"
+    XCTAssertFalse(model.shouldSearch(prompt, explicitlyEnabled: false))
+    model.submitCloud(prompt, provider: .chatGPT, modelID: "model")
+    await finish(model)
+    let automatic = await search.queries
+    XCTAssertEqual(automatic, [])
+    model.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let forced = await search.queries
+    XCTAssertEqual(forced, [prompt])
   }
 
   func testAutomaticSearchSettingsPersistAndRequireAKey() throws {

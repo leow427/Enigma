@@ -143,7 +143,7 @@ How Enigma looks, starts, and works with your Mac.
   the sidebar hidden. Modes are explained in [Chat.md](Chat.md).
 - **Location → Use location for nearby questions** (on by default) and
   **Location Services → Open Settings…**. See [Location](#location) below.
-- **Commands → Recognize commands from your wording** (on by default): turns
+- **Commands → Recognize commands from your wording** (off by default): turns
   on `/messages`, `/think`, `/edit` and `/translate` when the wording of your
   message asks for them, shown as a chip in the composer that you can click to
   remove. `/screen` and `/snapshot` always need their command. The `search`

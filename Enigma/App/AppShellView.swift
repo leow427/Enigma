@@ -38,7 +38,7 @@ struct AppShellView: View {
   /// The compact panel sits too low on its screen for lists and menus to open
   /// under it, so they open above its input.
   @State private var compactOpensOverlaysAbove = false
-  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = true
+  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = ComposerIntent.infersCommandsByDefault
   /// Recognized commands turned off for the current draft. Cleared when the draft empties.
   @State private var dismissedInferences: Set<SlashCommand> = []
 

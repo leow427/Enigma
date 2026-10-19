@@ -29,7 +29,8 @@ no extra model call. Questions like these search:
 - News and recent developments: "latest AI news", "what's happening in …"
 - Facts that change: who holds an office, weather and forecasts, stock and
   crypto prices, exchange or mortgage rates, scores, opening times and schedules
-- Questions with words like "latest", "today" or "this week", and questions
+- Questions with words like "latest", "today", "this week" or "this weekend"
+  ("whats" without an apostrophe counts as "what's"), and questions
   about this year's elections, releases or events
 - Explicit requests such as "look up … online"
 
@@ -41,6 +42,21 @@ These don't search automatically:
 - Questions about your own work, such as "the current file" or "my latest draft"
 - Historical questions, and requests such as "don't search" or "stay offline"
 - File Mode and Messages requests, typed or recognized
+- Questions about this chat, such as "the first message I sent you"
+- Questions about your own communications, even when Messages isn't
+  recognized. Texts, text messages, iMessages, SMS, voicemails, DMs and missed
+  calls almost always mean your own, so any "my", "me", "I" or "our" anywhere
+  in the message is enough: "who's been blowing up my phone with texts
+  today". This can also hold back a public question such as "what are the latest
+  SMS rules for my store"; type `/search` for those. Messages, emails, chats and calls
+  have public meanings too, so they need "my", "me", a relative or "did I get"
+  right next to them: "what are the most recent messages from my dad", "what
+  emails came in today", "what did Mom say today", or a call with family such
+  as "what did Grandpa say on the phone yesterday". News about others still
+  searches, such as "the latest message from the White House on tariffs" or
+  "when is the next earnings call for my stock", and so does a draft that
+  can't tell, such as "what's the latest from Sam". A typed `/search` always
+  searches.
 
 Each message is decided on its own. Searching one question doesn't make the next
 one search.
@@ -189,7 +205,8 @@ and source selection across Local, Cloud, Auto and Screen, failures that keep th
 draft, cancellation, older chats without source data, the rendered sources
 list, and a decided search staying off on every route.
 `EnigmaTests/ComposerIntentTests.swift` covers the `search` chip, its dismissal
-and its conflicts, and `ComposerSubmissionTests` in
+and its conflicts; `EnigmaTests/ComposerIntentPhrasingTests.swift`, the phrasing
+corpus, checks which drafts get the chip and that Messages drafts never do; and `ComposerSubmissionTests` in
 `EnigmaTests/AppShellStateTests.swift` covers a dismissed chip sending without
 search. The tests use fixtures and need no Brave key or network.
 

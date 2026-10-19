@@ -23,8 +23,10 @@ struct ComposerIntent: Equatable, Sendable {
     var dismissed: Set<SlashCommand> = []
   }
 
-  /// The user default behind "Recognize commands from your wording" (default on).
+  /// The user default behind "Recognize commands from your wording".
   static let inferCommandsKey = "composer.inferCommands"
+  /// Off until the person turns it on, so a new user's wording never turns on a command by surprise.
+  static let infersCommandsByDefault = false
 
   /// The order chips appear in.
   static let chipOrder: [SlashCommand] = [.messages, .search, .think, .edit, .translate]
