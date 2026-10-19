@@ -1,0 +1,136 @@
+name: Stress tests
+
+# Runs the test suite many times on GitHub's macOS runners and reports how
+# often each test failed. Nothing is retried: every failure is counted.
+#
+# Start it from the Actions tab ("Stress tests" > "Run workflow"), or push a
+# commit to a branch named stress/<anything> to stress a change before it is
+# merged. See docs/Testing.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Suite runs per runner (5 runners run in parallel)
+        default: "6"
+      only-testing:
+        description: Optional test filter, for example EnigmaTests/ScreenViewTests (empty runs everything)
+        default: ""
+  push:
+    branches: ["stress/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  stress:
+    runs-on: macos-26
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      # Five is the free plan's limit of macOS jobs running at once.
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    env:
+      RUNS: ${{ inputs.runs || '6' }}
+      ONLY_TESTING: ${{ inputs.only-testing || '' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Build for testing
+        run: >-
+          xcodebuild build-for-testing
+          -project Enigma.xcodeproj
+          -scheme Enigma
+          -destination 'platform=macOS'
+          -derivedDataPath "$RUNNER_TEMP/DerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          | tail -n 20
+      - name: Run the suite repeatedly
+        run: |
+          # Keep going after a failing run; every run is counted.
+          set +e -u
+          mkdir -p results
+          results="results/shard-${{ matrix.shard }}.tsv"
+          : > "$results"
+          filter=()
+          if [ -n "$ONLY_TESTING" ]; then filter=("-only-testing:$ONLY_TESTING"); fi
+          for run in $(seq 1 "$RUNS"); do
+            bundle="$RUNNER_TEMP/run-$run.xcresult"
+            start=$(date +%s)
+            # Same settings as ci.yml, so a hang fails one test with a spindump.
+            xcodebuild test-without-building \
+              -project Enigma.xcodeproj -scheme Enigma -destination 'platform=macOS' \
+              -derivedDataPath "$RUNNER_TEMP/DerivedData" -resultBundlePath "$bundle" \
+              -test-timeouts-enabled YES \
+              -default-test-execution-time-allowance 120 \
+              -maximum-test-execution-time-allowance 120 \
+              "${filter[@]+"${filter[@]}"}" CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/run-$run.log" 2>&1
+            status=$?
+            seconds=$(( $(date +%s) - start ))
+            summary=$(xcrun xcresulttool get test-results summary --path "$bundle" 2>/dev/null || echo '{}')
+            passed=$(echo "$summary" | jq -r '.passedTests // "?"')
+            failed=$(echo "$summary" | jq -r '.failedTests // "?"')
+            echo "Run $run: exit $status, $passed passed, $failed failed, ${seconds}s"
+            printf 'run\t%s\t%s\t%s\t%s\t%s\t%s\n' "${{ matrix.shard }}" "$run" "$status" "$passed" "$failed" "$seconds" >> "$results"
+            echo "$summary" | jq -r --arg shard "${{ matrix.shard }}" --arg run "$run" \
+              '.testFailures[]? | ["failure", $shard, $run, .testIdentifierString, (.failureText | gsub("[\t\n]"; " "))] | @tsv' >> "$results"
+            if [ "$status" -ne 0 ]; then
+              grep -E "error: |failed \(" "$RUNNER_TEMP/run-$run.log" | head -n 20 || true
+              mkdir -p failed-results
+              mv "$bundle" "failed-results/shard-${{ matrix.shard }}-run-$run.xcresult"
+              cp "$RUNNER_TEMP/run-$run.log" "failed-results/shard-${{ matrix.shard }}-run-$run.log"
+            fi
+          done
+      - name: Upload counts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: stress-counts-${{ matrix.shard }}
+          path: results
+      - name: Upload failed runs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: stress-failures-${{ matrix.shard }}
+          path: failed-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+  summary:
+    needs: stress
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: stress-counts-*
+          merge-multiple: true
+          path: results
+      - name: Summarize
+        run: |
+          cat results/*.tsv > all.tsv 2>/dev/null || : > all.tsv
+          runs=$(awk -F'\t' '$1 == "run"' all.tsv | wc -l | tr -d ' ')
+          failing=$(awk -F'\t' '$1 == "run" && $4 != 0' all.tsv | wc -l | tr -d ' ')
+          {
+            echo "## Stress results for ${GITHUB_SHA::7}"
+            echo
+            echo "$runs suite runs, $failing with at least one failure."
+            echo
+            echo "| Shard | Run | Exit | Passed | Failed | Seconds |"
+            echo "| ---: | ---: | ---: | ---: | ---: | ---: |"
+            awk -F'\t' '$1 == "run" { printf "| %s | %s | %s | %s | %s | %s |\n", $2, $3, $4, $5, $6, $7 }' all.tsv
+            echo
+            echo "### Failures by test"
+            echo
+            echo "| Test | Failed runs |"
+            echo "| --- | ---: |"
+            awk -F'\t' '$1 == "failure" { print $4 "\t" $2 "-" $3 }' all.tsv | sort -u | cut -f1 | sort | uniq -c | sort -rn \
+              | awk '{ count = $1; $1 = ""; sub(/^ /, ""); printf "| `%s` | %d of '"$runs"' |\n", $0, count }'
+            echo
+            echo "### Failure messages"
+            echo
+            awk -F'\t' '$1 == "failure" { printf "- shard %s run %s, `%s`: %s\n", $2, $3, $4, substr($5, 1, 300) }' all.tsv
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+          [ "$failing" -eq 0 ] && [ "$runs" -gt 0 ]
