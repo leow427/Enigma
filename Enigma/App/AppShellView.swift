@@ -496,7 +496,8 @@ struct AppShellView: View {
       // Closing the menu returns to the message field.
       menuClosed: { shell.isComposerFocused = true },
       isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
-      send: submitDraft, stop: { localChat.stopStreaming() })
+      send: submitDraft, stop: { localChat.stopStreaming() },
+      inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand)
   }
 
   /// The selected route's state, for the status line on the main page and above the composer.
@@ -628,7 +629,8 @@ struct AppShellView: View {
       isMenuPresented: $shell.isModePalettePresented,
       menuClosed: { shell.isComposerFocused = true },
       isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
-      send: submitDraft, stop: { localChat.stopStreaming() })
+      send: submitDraft, stop: { localChat.stopStreaming() },
+      inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand)
   }
 
   /// The model a fixed mode uses, for the compact panel's route chip.
@@ -826,6 +828,16 @@ struct AppShellView: View {
   }
 
   private var composerIntent: ComposerIntent { ComposerIntent.resolve(composerIntentContext) }
+
+  /// The chips for the draft the field shows; none while a sent message is pending.
+  private var recognizedCommands: [SlashCommand] {
+    localChat.pendingUserMessage == nil ? composerIntent.inferred : []
+  }
+
+  private func dismissRecognizedCommand(_ command: SlashCommand) {
+    dismissedInferences.insert(command)
+    shell.isComposerFocused = true
+  }
 
   private func submitDraft() {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }

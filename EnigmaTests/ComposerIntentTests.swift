@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import XCTest
 @testable import Enigma
 
@@ -242,3 +244,119 @@ final class ComposerIntentResolveTests: XCTestCase {
     }
   }
 }
+
+/// The chips, rendered in both composers and in the real shell.
+@MainActor
+final class ComposerIntentChipsTests: XCTestCase {
+  private typealias Fixture = EnigmaMainWindowTests.Fixture
+  private typealias Host = EnigmaMainWindowTests.Host
+
+  private var menu: ModeAndModelMenu {
+    ModeAndModelMenu(mode: .local, isBusy: false, hasActiveRequest: false,
+                     localModels: [.init(id: "f", name: "Fixture 8B", supportsVision: false)], selectedLocalID: "f",
+                     cloudProvider: .anthropic, cloudModels: [], selectedCloudID: "")
+  }
+  private let actions = ModeAndModelMenu.Actions(chooseMode: { _ in }, selectLocalModel: { _ in },
+    selectCloudModel: { _ in }, findModel: {}, importModel: {}, openSettings: {})
+
+  private func render(_ view: some View, fixture: Fixture, size: CGSize) -> Host {
+    Host(fixture, size: size, test: self, root: AnyView(view
+      .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+      .enigmaTheme(.paper)
+      .enigmaMenuHost()))
+  }
+
+  private func mainComposer(_ commands: [SlashCommand], fixture: Fixture,
+                            dismiss: @escaping (SlashCommand) -> Void = { _ in }) -> some View {
+    EnigmaComposer(
+      text: .constant("what did Sam text me"), isFocused: .constant(false), isEnabled: true,
+      availableCommands: SlashCommand.allCases, insertion: nil, opensSuggestionsBelow: true, submit: {},
+      files: fixture.files, isAttachDisabled: false, attach: {}, beginCommand: {},
+      route: nil, menu: menu, menuActions: actions, isMenuPresented: .constant(false), menuClosed: {},
+      isResponding: false, canSend: true, send: {}, stop: {},
+      inferredCommands: commands, dismissInferred: dismiss)
+      .frame(width: 680)
+      .padding(20)
+  }
+
+  private func compactComposer(_ commands: [SlashCommand], fixture: Fixture) -> some View {
+    EnigmaCompactComposer(
+      text: .constant("what did Sam text me"), isFocused: .constant(false), isEnabled: true,
+      availableCommands: SlashCommand.allCases, placeholder: "Ask anything", submit: {},
+      files: fixture.files, isAttachDisabled: false, attach: {}, chip: "● local · Fixture 8B",
+      menu: menu, menuActions: actions, isMenuPresented: .constant(false), menuClosed: {},
+      isResponding: false, canSend: true, send: {}, stop: {},
+      inferredCommands: commands, dismissInferred: { _ in })
+      .frame(width: 680)
+  }
+
+  func testMainComposerShowsRecognizedCommandsAndDismissesThem() async throws {
+    let fixture = try await Fixture(test: self)
+    var dismissed: [SlashCommand] = []
+    let host = render(mainComposer([.messages, .think], fixture: fixture) { dismissed.append($0) },
+                      fixture: fixture, size: CGSize(width: 720, height: 160))
+    try await waitForUI("the recognized chips", in: host.view) {
+      host.shows("Recognized messages") && host.shows("Recognized think")
+    }
+    XCTAssertFalse(host.shows("Recognized search"))
+    try await clickTestControl("Recognized messages", in: host.view)
+    XCTAssertEqual(dismissed, [.messages])
+  }
+
+  /// Saved only when `ENIGMA_SNAPSHOT_DIR` is set, in Paper and Ink.
+  func testRecognizedChipsScreenshot() throws {
+    try EnigmaSnapshot.save("composer-recognized-commands", size: CGSize(width: 300, height: 40)) {
+      ComposerIntentChips(commands: [.messages, .search, .think], dismiss: { _ in }).padding(10)
+    }
+  }
+
+  func testMainComposerWithoutRecognizedCommandsShowsNoChip() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = render(mainComposer([], fixture: fixture), fixture: fixture, size: CGSize(width: 720, height: 160))
+    try await waitForUI("the composer", in: host.view) { host.shows("Send message") }
+    for command in SlashCommand.allCases { XCTAssertFalse(host.shows("Recognized \(command.rawValue)"), command.rawValue) }
+  }
+
+  func testCompactComposerShowsRecognizedCommands() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = render(compactComposer([.messages], fixture: fixture), fixture: fixture, size: CGSize(width: 720, height: 80))
+    try await waitForUI("the recognized chip", in: host.view) { host.shows("Recognized messages") }
+    let empty = render(compactComposer([], fixture: fixture), fixture: fixture, size: CGSize(width: 720, height: 80))
+    try await waitForUI("the compact composer", in: empty.view) { empty.shows("Send message") }
+    XCTAssertFalse(empty.shows("Recognized messages"))
+  }
+
+  func testShellChipFollowsTheDraftAndDismissingTurnsItOff() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
+                    root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
+    try await waitForUI("the composer", in: host.view) { host.shows("Send message") }
+    XCTAssertFalse(host.shows("Recognized messages"))
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the messages chip", in: host.view) { host.shows("Recognized messages") }
+    try await clickTestControl("Recognized messages", in: host.view)
+    try await waitForUI("the dismissed chip", in: host.view) { !host.shows("Recognized messages") }
+    fixture.screen.draft = "what did Sam text me today"
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertFalse(host.shows("Recognized messages"), "A dismissal lasts for the draft")
+    fixture.screen.draft = ""
+    try await waitForUI("the cleared draft", in: host.view) { composerEditor(in: host.view)?.string == "" }
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the chip back for a new draft", in: host.view) { host.shows("Recognized messages") }
+    fixture.screen.draft = "/messages what did Sam text me"
+    try await waitForUI("no chip for a typed command", in: host.view) { !host.shows("Recognized messages") }
+  }
+
+  func testShellHidesChipsWhenRecognitionIsOff() async throws {
+    let fixture = try await Fixture(test: self)
+    fixture.defaults.set(false, forKey: ComposerIntent.inferCommandsKey)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
+                    root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
+    try await waitForUI("the composer", in: host.view) { host.shows("Send message") }
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the draft in the editor", in: host.view) { composerEditor(in: host.view)?.string == fixture.screen.draft }
+    XCTAssertFalse(host.shows("Recognized messages"))
+  }
+}
+
+
