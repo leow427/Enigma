@@ -217,17 +217,18 @@ final class LocalModelCatalogueTests: XCTestCase {
   func testExpectedPicksOnSyntheticMacs() {
     let expected: [(Int, Double, String?, String?, String?)] = [
       (8, 68, "qwen3.5-2b-q4_k_m", nil, nil),
-      // Qwen3.5 9B misses the speed bar, so its candidate is its smallest
-      // package, IQ3_XXS: 13.5 × 0.85 ranks below Qwen3.5 4B Q5_K_M (13 × 0.99).
-      (16, 120, "qwen3.5-4b-q5_k_m", "qwen3.5-2b-q8_0", nil),
+      // Qwen3.5 9B misses the speed bar, so its candidate is its smallest usable
+      // package of IQ4_XS or better: 13.5 × 0.96 ranks above Qwen3.5 4B Q5_K_M (13 × 0.99).
+      (16, 120, "qwen3.5-4b-q5_k_m", "qwen3.5-2b-q8_0", "qwen3.5-9b-iq4_xs"),
       // Qwen3.8 27B IQ3_XXS fits at 13.08 GiB and reaches 8 tok/s.
       (24, 307, "gemma-4-12b-q5_k_m", "qwen3.5-4b-q8_0", "qwen3.8-27b-iq3_xxs"),
       // Qwen3.6 35B-A3B IQ4_XS fits (18 × 0.96 above Gemma 26B-A4B Q4_K_M's
       // 17 × 0.97) at 35.8 tok/s, so no family is 1.5 times as fast.
       (36, 150, "qwen3.6-35b-a3b-iq4_xs", nil, "qwen3.8-27b-iq3_xxs"),
       // Qwen3.8 27B IQ3_S is fast (24.9 tok/s, first token in 1.99 s); IQ4_XS
-      // misses 2 s by milliseconds. Qwen3.6 Q8_0 is 2.3 times as fast.
-      (64, 460, "qwen3.8-27b-iq3_s", "qwen3.6-35b-a3b-q8_0", nil),
+      // misses 2 s by milliseconds and, as a 3-bit Recommended's own 4-bit
+      // size, is Smarter. Qwen3.6 Q8_0 is 2.3 times as fast.
+      (64, 460, "qwen3.8-27b-iq3_s", "qwen3.6-35b-a3b-q8_0", "qwen3.8-27b-iq4_xs"),
       (128, 614, "qwen3.8-27b-q5_k_m", "qwen3.6-35b-a3b-q8_0", nil),
     ]
     for (memory, bandwidth, recommended, faster, smarter) in expected {

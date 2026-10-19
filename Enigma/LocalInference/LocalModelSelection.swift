@@ -141,7 +141,11 @@ enum LocalModelSelector {
   static let instantTokensPerSecond = 40.0
   static let fasterSpeedup = 1.5
 
-  /// The family's package: the highest-precision fast package, else the smallest runnable one, else nil.
+  /// A quantization keeping at least this share of quality counts as 4-bit or better.
+  static let fourBitQualityFactor = 0.96
+
+  /// The family's package: the highest-precision fast package; else its smallest usable
+  /// package of IQ4_XS or better; else its smallest runnable one; else nil.
   static func choice(in family: [LocalModelAssessment]) -> LocalModelAssessment? {
     func precision(_ assessment: LocalModelAssessment) -> (Int, Int64) {
       (LocalQuantization.precision(assessment.model.quantization), assessment.model.expectedByteCount)
@@ -149,7 +153,14 @@ enum LocalModelSelector {
     if let fast = family.filter(\.isFast).max(by: { precision($0) < precision($1) }) {
       return fast
     }
-    return family.filter(\.fit.canRun).min { $0.model.expectedByteCount < $1.model.expectedByteCount }
+    return smallestUsableFourBit(in: family)
+      ?? family.filter(\.fit.canRun).min { $0.model.expectedByteCount < $1.model.expectedByteCount }
+  }
+
+  /// The smallest package that fits, reaches 8 tok/s and keeps a quality factor of 0.96 or more.
+  static func smallestUsableFourBit(in family: [LocalModelAssessment]) -> LocalModelAssessment? {
+    family.filter { $0.isUsable && LocalQuantization.qualityFactor($0.model.quantization) >= fourBitQualityFactor }
+      .min { $0.model.expectedByteCount < $1.model.expectedByteCount }
   }
 
   /// Speed and memory are gates; quality ranks only what passes them.
@@ -182,7 +193,13 @@ enum LocalModelSelector {
             && $0.tokensPerSecond >= recommended.tokensPerSecond * fasterSpeedup
         }
       }
-      smarter = candidates.first {
+      // A 3-bit Recommended may also be outranked by a 4-bit size of its own family.
+      var smarterCandidates = candidates
+      if LocalQuantization.qualityFactor(recommended.model.quantization) < fourBitQualityFactor,
+         let ownFourBit = smallestUsableFourBit(in: families[recommended.model.familyID] ?? []) {
+        smarterCandidates = (smarterCandidates + [ownFourBit]).sorted(by: qualityOrder)
+      }
+      smarter = smarterCandidates.first {
         $0.isUsable && !$0.isFast && $0.model.rankedQualityScore > recommended.model.rankedQualityScore
       }
     }
