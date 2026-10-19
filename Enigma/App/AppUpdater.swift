@@ -27,6 +27,9 @@ struct PendingUpdate: Equatable {
 
 /// The update state the menu bar and Settings read and drive. It holds no Sparkle types.
 @MainActor final class AppUpdater: ObservableObject {
+  /// The app's updater. Sparkle starts only when the app calls `start()` after launch.
+  static let shared = AppUpdater(backend: SparkleUpdaterBackend())
+
   @Published private(set) var canCheckForUpdates = false
   @Published private(set) var pendingUpdate: PendingUpdate?
   @Published private(set) var lastUpdateCheckDate: Date?

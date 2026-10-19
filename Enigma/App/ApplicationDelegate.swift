@@ -57,6 +57,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
     NSApp.setActivationPolicy(.accessory)
+    AppUpdater.shared.start()
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),
       name: .welcomeSetupRequested, object: nil)
     NotificationCenter.default.addObserver(

@@ -86,6 +86,13 @@ final class AppUpdaterTests: XCTestCase {
     XCTAssertEqual(updater.lastUpdateCheckDate, date)
   }
 
+  func testDebugBuildsRefuseOnlyBackgroundChecks() {
+    XCTAssertFalse(SparkleUpdaterBackend.permitsCheck(isBackground: true, isDebugBuild: true))
+    XCTAssertTrue(SparkleUpdaterBackend.permitsCheck(isBackground: false, isDebugBuild: true))
+    XCTAssertTrue(SparkleUpdaterBackend.permitsCheck(isBackground: true, isDebugBuild: false))
+    XCTAssertTrue(SparkleUpdaterBackend.permitsCheck(isBackground: false, isDebugBuild: false))
+  }
+
   func testVersionText() {
     XCTAssertEqual(AppUpdater.versionText(info: ["CFBundleShortVersionString": "0.10.0", "CFBundleVersion": "2"]), "0.10.0 (2)")
     XCTAssertEqual(AppUpdater.versionText(info: [:]), "Unknown version")

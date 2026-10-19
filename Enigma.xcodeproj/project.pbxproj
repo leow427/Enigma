@@ -116,6 +116,7 @@
 		A10000000000000000000002 /* ApplicationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ApplicationDelegate.swift */; };
 		A10000000000000000000003 /* AppCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* AppCommand.swift */; };
 		5E0000000000000000000002 /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000001 /* AppUpdater.swift */; };
+		5E0000000000000000000006 /* SparkleUpdaterBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000005 /* SparkleUpdaterBackend.swift */; };
 		A10000000000000000000004 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* MenuBarController.swift */; };
 		A10000000000000000000005 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppShellView.swift */; };
 		A10000000000000000000006 /* AppCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* AppCommandTests.swift */; };
@@ -304,6 +305,7 @@
 		A20000000000000000000002 /* ApplicationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationDelegate.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* AppCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommand.swift; sourceTree = "<group>"; };
 		5E0000000000000000000001 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
+		5E0000000000000000000005 /* SparkleUpdaterBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdaterBackend.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -538,6 +540,7 @@
 				A20000000000000000000002 /* ApplicationDelegate.swift */,
 				A20000000000000000000003 /* AppCommand.swift */,
 				5E0000000000000000000001 /* AppUpdater.swift */,
+				5E0000000000000000000005 /* SparkleUpdaterBackend.swift */,
 				A20000000000000000000004 /* MenuBarController.swift */,
 				A20000000000000000000005 /* AppShellView.swift */,
 				EF1100000000000000000001 /* WelcomeSetup.swift */,
@@ -849,6 +852,7 @@
 				A10000000000000000000002 /* ApplicationDelegate.swift in Sources */,
 				A10000000000000000000003 /* AppCommand.swift in Sources */,
 				5E0000000000000000000002 /* AppUpdater.swift in Sources */,
+				5E0000000000000000000006 /* SparkleUpdaterBackend.swift in Sources */,
 				A10000000000000000000004 /* MenuBarController.swift in Sources */,
 				A10000000000000000000005 /* AppShellView.swift in Sources */,
 				EF1200000000000000000001 /* WelcomeSetup.swift in Sources */,
