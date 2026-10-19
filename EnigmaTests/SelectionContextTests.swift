@@ -849,9 +849,108 @@ final class SelectionContextTests: XCTestCase {
     let empty = CFRange(location: 0, length: 0)
     XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.google.Chrome"))
     XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.apple.Notes"))
-    XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.microsoft.VSCode"))
     XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: "com.jetbrains.pycharm"))
+    XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.sublimetext.4"))
     XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 1, length: 2), bundleID: "com.microsoft.VSCode"))
+    // VS Code-family editors may copy with an empty or missing AX range; the copy is then
+    // accepted only when VS Code's clipboard metadata confirms a real selection.
+    for bundleID in ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
+                     "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"] {
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: bundleID), bundleID)
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: bundleID), bundleID)
+    }
+  }
+
+  private static let vscodeSelectedCopyData = Data(base64Encoded: "QAMAAAIAAAAhAAAAYQBwAHAAbABpAGMAYQB0AGkAbwBuAC8AdgBuAGQALgBjAG8AZABlAC4AYwBvAHAAeQBtAGUAdABhAGQAYQB0AGEAAADXAAAAewAiAGkAZAAiADoAIgAwADgAMgBkADUANABhADgALQA1ADUANABlAC0ANABlAGYAOQAtAGEAMQA5AGQALQA3ADkAOQBkAGEAMQA3ADkAMgBhAGUANgAiACwAIgBwAHIAbwB2AGkAZABlAHIAQwBvAHAAeQBNAGkAbQBlAFQAeQBwAGUAcwAiADoAWwAiAGEAcABwAGwAaQBjAGEAdABpAG8AbgAvAHYAbgBkAC4AYwBvAGQAZQAuAGEAZABkAGkAdABpAG8AbgBhAGwALQBlAGQAaQB0AG8AcgAtAGQAYQB0AGEAIgBdACwAIgBkAGUAZgBhAHUAbAB0AFAAYQBzAHQAZQBQAGEAeQBsAG8AYQBkACIAOgB7ACIAbQB1AGwAdABpAGMAdQByAHMAbwByAFQAZQB4AHQAIgA6AG4AdQBsAGwALAAiAHAAYQBzAHQAZQBPAG4ATgBlAHcATABpAG4AZQAiADoAZgBhAGwAcwBlACwAIgBpAHMAQgBsAG8AYwBrACIAOgBmAGEAbABzAGUALAAiAG0AbwBkAGUAIgA6AG4AdQBsAGwAfQB9AAAAEgAAAHYAcwBjAG8AZABlAC0AZQBkAGkAdABvAHIALQBkAGEAdABhAIoAAAB7ACIAdgBlAHIAcwBpAG8AbgAiADoAMQAsACIAaQBkACIAOgAiADkAMAAyAGIAMwAyAGUAZAAtAGEAMQA2ADUALQA0ADYANQAzAC0AOAA3AGMAMAAtAGUANAAyADcAZQA2AGYAOQA0ADgAZABiACIALAAiAGkAcwBGAHIAbwBtAEUAbQBwAHQAeQBTAGUAbABlAGMAdABpAG8AbgAiADoAZgBhAGwAcwBlACwAIgBpAHMAQgBsAG8AYwBrACIAOgBmAGEAbABzAGUALAAiAG0AdQBsAHQAaQBjAHUAcgBzAG8AcgBUAGUAeAB0ACIAOgBuAHUAbABsACwAIgBtAG8AZABlACIAOgAiAGMAcABwACIAfQA=")!
+
+  /// Chromium web-custom-data Pickle: payload size, entry count, then UTF-16LE strings padded to 4 bytes.
+  private static func customData(_ entries: [(String, String)]) -> Data {
+    var payload = Data()
+    func append(_ value: UInt32) { withUnsafeBytes(of: value.littleEndian) { payload.append(contentsOf: $0) } }
+    append(UInt32(entries.count))
+    for string in entries.flatMap({ [$0.0, $0.1] }) {
+      let units = Array(string.utf16)
+      append(UInt32(units.count))
+      for unit in units { withUnsafeBytes(of: unit.littleEndian) { payload.append(contentsOf: $0) } }
+      if payload.count % 4 != 0 { payload.append(contentsOf: [0, 0]) }
+    }
+    var data = Data()
+    withUnsafeBytes(of: UInt32(payload.count).littleEndian) { data.append(contentsOf: $0) }
+    return data + payload
+  }
+
+  private static func editorData(fromEmptySelection: Bool, multicursorText: String = "null") -> Data {
+    customData([("application/vnd.code.copymetadata", "{\"id\":\"x\"}"),
+                ("vscode-editor-data", "{\"version\":1,\"id\":\"y\",\"isFromEmptySelection\":\(fromEmptySelection),\"isBlock\":false,\"multicursorText\":\(multicursorText),\"mode\":\"cpp\"}")])
+  }
+
+  func testVSCodeClipboardMetadataReadsCopySource() {
+    typealias Metadata = SelectionCapturePolicy.VSCodeClipboardMetadata
+    XCTAssertEqual(Metadata.copySource(Self.vscodeSelectedCopyData), .selection)
+    XCTAssertEqual(Metadata.copySource(Self.editorData(fromEmptySelection: true)), .emptySelection)
+    XCTAssertEqual(Metadata.copySource(Self.editorData(fromEmptySelection: false)), .selection)
+    // Several cursors report false even when every cursor is empty, so per-cursor text is ambiguous.
+    XCTAssertEqual(Metadata.copySource(Self.editorData(fromEmptySelection: false, multicursorText: "[\"a\",\"b\"]")), .multicursor)
+    XCTAssertEqual(Metadata.copySource(Self.editorData(fromEmptySelection: false, multicursorText: "\"a\"")), .multicursor)
+    XCTAssertEqual(Metadata.copySource(Self.editorData(fromEmptySelection: true, multicursorText: "[\"a\"]")), .emptySelection)
+    XCTAssertEqual(Metadata.copySource(Self.customData([("vscode-editor-data", "{\"isFromEmptySelection\":false}")])), .selection)
+    // Odd UTF-16 lengths are padded to 4 bytes; the parser must skip that padding to reach the marker.
+    XCTAssertEqual(Metadata.copySource(Self.customData([("odd", "x"),
+      ("vscode-editor-data", "{\"isFromEmptySelection\":true}")])), .emptySelection)
+    XCTAssertEqual(.unknown, Metadata.copySource(Self.customData([("application/vnd.code.copymetadata", "{}")])))
+    XCTAssertEqual(.unknown, Metadata.copySource(Self.customData([("vscode-editor-data", "{\"version\":1}")])))
+    XCTAssertEqual(.unknown, Metadata.copySource(Self.customData([("vscode-editor-data", "not json")])))
+    XCTAssertEqual(.unknown, Metadata.copySource(Self.customData([("vscode-editor-data", "{\"isFromEmptySelection\":\"no\"}")])))
+    XCTAssertEqual(.unknown, Metadata.copySource(Self.customData([("vscode-editor-data", "{\"isFromEmptySelection\":0}")])))
+    XCTAssertEqual(.unknown, Metadata.copySource(nil))
+    XCTAssertEqual(.unknown, Metadata.copySource(Data()))
+    XCTAssertEqual(.unknown, Metadata.copySource(Data("garbage bytes that are not a pickle".utf8)))
+    XCTAssertEqual(.unknown, Metadata.copySource(Data(repeating: 0xFF, count: 64)))
+    let real = Self.vscodeSelectedCopyData
+    for length in stride(from: 0, to: real.count, by: 7) {
+      XCTAssertEqual(.unknown, Metadata.copySource(real.prefix(length)), "truncated to \(length)")
+    }
+    // A header that claims more payload than exists, a huge string length or entry count is rejected.
+    var oversized = Self.editorData(fromEmptySelection: false)
+    oversized.replaceSubrange(0..<4, with: [0xFF, 0xFF, 0xFF, 0x7F])
+    XCTAssertEqual(.unknown, Metadata.copySource(oversized))
+    var hugeLength = Self.editorData(fromEmptySelection: false)
+    hugeLength.replaceSubrange(8..<12, with: [0xFF, 0xFF, 0xFF, 0xFF])
+    XCTAssertEqual(.unknown, Metadata.copySource(hugeLength))
+    var hugeCount = Self.editorData(fromEmptySelection: false)
+    hugeCount.replaceSubrange(4..<8, with: [0xFF, 0xFF, 0xFF, 0xFF])
+    XCTAssertEqual(.unknown, Metadata.copySource(hugeCount))
+  }
+
+  func testVSCodeFamilyCopyIsAcceptedOnlyWhenMetadataConfirmsASelection() {
+    let empty = CFRange(location: 0, length: 0), selected = CFRange(location: 1, length: 2)
+    let real = Self.vscodeSelectedCopyData, line = Self.editorData(fromEmptySelection: true)
+    let cursors = Self.editorData(fromEmptySelection: false, multicursorText: "[\"first line\",\"second line\"]")
+    let single = Self.editorData(fromEmptySelection: false)
+    for bundleID in ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
+                     "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"] {
+      for range in [nil, empty] as [CFRange?] {
+        XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: real), bundleID)
+        XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: line), bundleID)
+        XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: nil), bundleID)
+        XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: Data([1, 2, 3])), bundleID)
+        XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: single), bundleID)
+        XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: range, bundleID: bundleID, webCustomData: cursors), bundleID)
+      }
+      // A nonempty AX range keeps today's behavior unless the marker says the copy was a whole line.
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: nil), bundleID)
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: real), bundleID)
+      XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: line), bundleID)
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: cursors), bundleID)
+    }
+    // Other apps are decided by allowsCopy alone; their copies are never filtered by VS Code metadata.
+    for bundleID in ["com.google.Chrome", "com.apple.Notes", nil] as [String?] {
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID, webCustomData: nil))
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID, webCustomData: line))
+      // Clipboard metadata is never read for other apps.
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID,
+        webCustomData: { XCTFail("read web custom data"); return nil }()))
+    }
   }
 
   func testAlternateConfiguredModifierUsesItsOwnKeyCodes() {
