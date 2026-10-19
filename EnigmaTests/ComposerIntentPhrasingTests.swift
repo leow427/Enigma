@@ -166,6 +166,15 @@ private enum PhrasingCorpus {
     "what time is the game tonight, my friend texted me but i forgot", "did my uncle text me the score of the match",
     "read my latest texts about the concert tonight", "did my kid's school text me about the snow day today",
     "check my recent messages for todays meeting time",
+    // Final fresh probe.
+    "yo whats my sister been texting me", "did the landlord ever text me back about the leak",
+    "pull up the last few texts from coach", "anything new from my wife in imessage",
+    "what time did mom say to come over in her text", "any unread imessages",
+    "who's been blowing up my phone with texts today", "show me what dad sent in the family group chat",
+    "text my roommate that i'm locking the door", "pls message mike saying the meeting moved to 3",
+    "send my mom a text that says happy anniversary", "reply to the group chat with lol same",
+    "shoot a text to jess asking if she's free tonight", "tell my boss via text that i'm running 10 min late",
+    "what did my dad text me about the game tonight",
   ]
 
   static let think = [
@@ -214,6 +223,9 @@ private enum PhrasingCorpus {
     "triple check the dates in this itinerary", "think deeply, why did the roman empire fall",
     "can you think this through more carefully", "please use extended thinking for this",
     "step by step instructions for changing a tire",
+    // Final fresh probe.
+    "take your time on this one, what's the best db for my app", "really think it through before you answer: is p=np",
+    "no rush, walk me through how vaccines work", "be careful with the math here: 17% of 2340",
   ]
 
   static let search = [
@@ -249,6 +261,8 @@ private enum PhrasingCorpus {
     "has my senator voted on the new bill this week", "current exchange rate for my trip to japan, usd to yen",
     "whats the latest news on my company's stock nvidia", "when is my teams next game, the chiefs",
     "did my favorite author release a new book this month",
+    // Final fresh probe.
+    "who won the game last night",
   ]
 
   static let none = [
@@ -478,5 +492,18 @@ private enum PhrasingCorpus {
     "any missed calls from my sister today", "what did my dad say about the game score last night",
     "who called me today", "what did my coworker say in his latest email about the price change",
     "any new voicemails today", "what did grandpa say on the phone yesterday about the hurricane",
+    // Final fresh probe.
+    "how do i parse sms messages in python", "why does my react chat app drop messages on reconnect",
+    "write a regex that extracts phone numbers from text messages", "what's the max length of an sms message",
+    "what did lincoln say in his letter to grant", "did the senator text the lobbyist according to the report",
+    "can you repeat your last message but shorter", "what was the first message i sent you today",
+    "help me write a text to my dad apologizing for missing dinner", "is it rude to text my boss after 9pm",
+    "how should i respond if my ex texts me", "rewrite this text so it sounds less angry: you never listen",
+    "check my email from my dad", "what did sam say in slack", "text me a summary of this later",
+    "what message is the author trying to send in chapter 4", "the text of the constitution says what about speech",
+    "mixed messages from my body after running, should i rest", "how long should i boil an egg",
+    "explain big o notation with examples", "convert 5 miles to km", "i think i messed up my resume, can you look",
+    "what do you think of my essay intro", "think of 5 birthday gift ideas for my dad",
+    "it might take a while to load, ignore that", "any new emails from my boss today",
   ]
 }
