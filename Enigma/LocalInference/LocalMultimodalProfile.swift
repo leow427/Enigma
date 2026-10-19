@@ -94,10 +94,15 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
 
   var isMixtureOfExperts: Bool { self == .gemma4A4B || self == .qwen36_35BA3B }
 
+  /// The reviewed quantizations: the original ones first, then the smaller sizes.
   var quantizations: [String] {
-    if architecture == "gemma4" { return ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0"] }
-    if self == .qwen35_2B { return ["Q4_K_M", "Q8_0"] }
-    return ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    switch self {
+    case _ where architecture == "gemma4": ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
+    case .qwen35_2B: ["Q4_K_M", "Q8_0"]
+    case .qwen38_27B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"]
+    case .qwen35_9B, .qwen36_35BA3B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
+    default: ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    }
   }
 
   var cacheLayout: LocalCacheLayout {

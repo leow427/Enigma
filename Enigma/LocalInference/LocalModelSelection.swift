@@ -22,6 +22,34 @@ enum LocalModelCompatibility {
   }
 }
 
+/// The quantizations the catalogue ships, by precision, and how much of a
+/// family's quality score each keeps.
+enum LocalQuantization {
+  /// Highest precision first.
+  static let precisionOrder = ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS"]
+
+  /// Higher is more precise; a label outside `precisionOrder` ranks below every known one.
+  static func precision(_ quantization: String) -> Int {
+    precisionOrder.firstIndex(of: quantization).map { precisionOrder.count - $0 } ?? 0
+  }
+
+  /// Unknown and imported labels keep the whole score; they never take part in role selection.
+  static func qualityFactor(_ quantization: String) -> Double {
+    switch quantization {
+    case "Q5_K_M": 0.99
+    case "Q4_K_M", "Q4_0": 0.97
+    case "IQ4_XS": 0.96
+    case "Q3_K_M", "IQ3_S", "IQ3_XXS": 0.85
+    default: 1
+    }
+  }
+}
+
+extension LocalModelDescriptor {
+  /// The family's quality score after its quantization's factor; roles rank by this.
+  var rankedQualityScore: Double { qualityScore * LocalQuantization.qualityFactor(quantization) }
+}
+
 enum LocalModelFit: String, Sendable {
   case excellent = "Excellent fit"
   case good = "Good fit"
@@ -113,10 +141,12 @@ enum LocalModelSelector {
   static let instantTokensPerSecond = 40.0
   static let fasterSpeedup = 1.5
 
-  /// The family's package: the largest fast package, else the smallest runnable one, else nil.
-  /// Within a family a higher precision is a larger file.
+  /// The family's package: the highest-precision fast package, else the smallest runnable one, else nil.
   static func choice(in family: [LocalModelAssessment]) -> LocalModelAssessment? {
-    if let fast = family.filter(\.isFast).max(by: { $0.model.expectedByteCount < $1.model.expectedByteCount }) {
+    func precision(_ assessment: LocalModelAssessment) -> (Int, Int64) {
+      (LocalQuantization.precision(assessment.model.quantization), assessment.model.expectedByteCount)
+    }
+    if let fast = family.filter(\.isFast).max(by: { precision($0) < precision($1) }) {
       return fast
     }
     return family.filter(\.fit.canRun).min { $0.model.expectedByteCount < $1.model.expectedByteCount }
@@ -153,16 +183,17 @@ enum LocalModelSelector {
         }
       }
       smarter = candidates.first {
-        $0.isUsable && !$0.isFast && $0.model.qualityScore > recommended.model.qualityScore
+        $0.isUsable && !$0.isFast && $0.model.rankedQualityScore > recommended.model.rankedQualityScore
       }
     }
     return LocalModelRecommendations(assessments: assessments, recommended: recommended,
                                      faster: faster, smarter: smarter, allFamilies: allFamilies)
   }
 
+  /// Ranked quality (the family's score after the quantization factor), then speed.
   static func qualityOrder(_ lhs: LocalModelAssessment, _ rhs: LocalModelAssessment) -> Bool {
-    if lhs.model.qualityScore != rhs.model.qualityScore {
-      return lhs.model.qualityScore > rhs.model.qualityScore
+    if lhs.model.rankedQualityScore != rhs.model.rankedQualityScore {
+      return lhs.model.rankedQualityScore > rhs.model.rankedQualityScore
     }
     if lhs.tokensPerSecond != rhs.tokensPerSecond { return lhs.tokensPerSecond > rhs.tokensPerSecond }
     return lhs.id < rhs.id

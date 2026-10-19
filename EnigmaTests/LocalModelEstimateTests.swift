@@ -93,12 +93,19 @@ final class LocalModelEstimateTests: XCTestCase {
       XCTAssertEqual(profile.activeParameters, active[profile] ?? profile.parameters, profile.rawValue)
       XCTAssertEqual(profile.isMixtureOfExperts, profile == .gemma4A4B || profile == .qwen36_35BA3B, profile.rawValue)
       if profile.rawValue.hasPrefix("gemma4") {
-        XCTAssertEqual(profile.quantizations, ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0"], profile.rawValue)
+        XCTAssertEqual(profile.quantizations, ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"],
+                       profile.rawValue)
       } else if profile == .qwen35_2B {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q8_0"])
+      } else if profile == .qwen38_27B {
+        XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"])
+      } else if profile == .qwen35_9B || profile == .qwen36_35BA3B {
+        XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"],
+                       profile.rawValue)
       } else {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0"], profile.rawValue)
       }
+      XCTAssertTrue(profile.quantizations.allSatisfy(LocalQuantization.precisionOrder.contains), profile.rawValue)
     }
     XCTAssertEqual(LocalMultimodalProfile.qwen35_2B.architecture, "qwen35")
     XCTAssertEqual(LocalMultimodalProfile.qwen38_27B.architecture, "qwen35")
