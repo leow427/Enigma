@@ -147,7 +147,7 @@ private enum PhrasingCorpus {
     "what does this error message mean", "write a commit message for this diff", "what does this message mean",
     "explain how a message queue works", "send me a summary", "tell me about Denmark", "send an email to Alex",
     "write a text for my slide", #"what does "text Alex" mean"#, "`message Sam` is a command",
-    "the error message says file not found", "what's the exit message from this script", "message me a joke",
+    "the error message says file not found", "what's the exit message from this script", "message me a joke", "text me a joke",
     "text me a summary", "draft a text to my boss asking for Friday off", "reply to this email politely",
     "explain this message broker", "what's on my screen", "what does “text Alex” mean", "translate this text to French",
     "check the log message", "text editor recommendations", "what is a text message", "send me the last text you wrote",
@@ -167,6 +167,8 @@ private enum PhrasingCorpus {
     "what's the reason he replied like that", "has anyone replied to my post", "who texted you",
     "did my professor reply to my email", "show me the messages from the server log", "read the text from the image",
     "what did my mom say on whatsapp", "find text in a file with grep",
+    // No messaging word: these need a previous Messages request and a follow-up cue.
+    "tell Sam I'm running late", "what did Sam say about dinner",
     // This chat.
     "what was my last message", "rewrite your last message", "summarize our conversation", "summarize this chat",
     "what did you say in your last message", "can you repeat your last reply", "what did I ask in my first message",
