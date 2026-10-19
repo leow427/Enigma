@@ -1092,6 +1092,9 @@ extension EnigmaMainWindowTests {
     var animates = false
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
+    /// Where Replace text would paste, never the Mac's real selection: none
+    /// until a test remembers one.
+    let selectionContext = SelectionContextService()
     private(set) var earlierSessionID: UUID?
 
     static func savedSession(_ title: String) -> ChatSession {
@@ -1153,7 +1156,7 @@ extension EnigmaMainWindowTests {
       AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
         welcomeSetup: setup, appearance: appearance, character: character,
-        selectionAccess: selectionAccess)
+        selectionAccess: selectionAccess, selectionContext: selectionContext)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .enigmaTestReduceMotion(reduceMotion)
         .transaction { [animates] in if !animates { $0.disablesAnimations = true } }

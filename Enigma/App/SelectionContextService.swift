@@ -108,12 +108,19 @@ final class SelectionContextService: ObservableObject {
     }
     if let range, range.length > 0 { capturedBounds = bounds(element: element, range: range) }
     let context = ConversationContext(sourceName: app.localizedName ?? "Application", text: text)
-    target = Target(contextID: context.id, app: app)
+    remember(context, from: app)
 
     return context
   }
 
   func selectionBounds() -> NSRect? { capturedBounds }
+
+  /// Replace text pastes `context`'s revision back into `app`, as long as `app`
+  /// is the one running then.
+  func remember(_ context: ConversationContext, from app: NSRunningApplication) {
+    objectWillChange.send()
+    target = Target(contextID: context.id, app: app)
+  }
 
   private func bounds(element: AXUIElement, range: CFRange) -> NSRect? {
     var range = range

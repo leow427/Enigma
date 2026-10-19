@@ -11,7 +11,7 @@ struct AppShellView: View {
   /// here but not observed: the stage redraws it, and nothing here reads it.
   @State private var character: EnigmaCharacterController
   @ObservedObject private var selectionAccess: SelectionAccessibilityAccess
-  @ObservedObject private var selectionContext = SelectionContextService.shared
+  @ObservedObject private var selectionContext: SelectionContextService
   @ObservedObject private var cloudSettings: CloudSettingsModel
   @StateObject private var localChat: LocalChatViewModel
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
@@ -52,9 +52,11 @@ struct AppShellView: View {
     welcomeSetup: WelcomeSetup = .shared,
     appearance: EnigmaAppearancePreference = .shared,
     character: EnigmaCharacterController? = nil,
-    selectionAccess: SelectionAccessibilityAccess = .shared
+    selectionAccess: SelectionAccessibilityAccess = .shared,
+    selectionContext: SelectionContextService = .shared
   ) {
     self.selectionAccess = selectionAccess
+    self.selectionContext = selectionContext
     self.cloudSettings = cloudSettings
     self.modelAdvisor = modelAdvisor
     self.searchSettings = searchSettings

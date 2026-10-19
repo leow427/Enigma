@@ -535,7 +535,8 @@ final class EnigmaConversationTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
     try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
-    fixture.chat.startTemporaryChat(context: ConversationContext(sourceName: "Mail", text: "send report now"))
+    let context = ConversationContext(sourceName: "Mail", text: "send report now")
+    fixture.chat.startTemporaryChat(context: context)
     fixture.chat.submit("/edit Make it formal")
     try await waitForUI("the reply's stream", in: host.view) { fixture.engine.requestCount == 1 }
     fixture.engine.send("Here it is, more formal.\n" + SelectionRevisionResponse.opening
@@ -547,12 +548,13 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(fixture.chat.selectionRevisions.values.first?.text, "Please send the report today.")
     XCTAssertTrue(host.shows("Remove selected text"), "The selected text card stays over the composer")
     try await clickTestControl("Replace text", in: host.view)
-    if SelectionContextService.shared.canReplace {
-      try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == ["Please send the report today."] }
-    } else {
-      try await Task.sleep(for: .milliseconds(100))
-      XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
-    }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
+
+    // Once the selection's app is remembered, Replace text pastes the revision.
+    fixture.selectionContext.remember(context, from: .current)
+    try await clickTestControl("Replace text", in: host.view)
+    try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == ["Please send the report today."] }
   }
 
   // MARK: Sizes

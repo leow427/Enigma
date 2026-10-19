@@ -365,13 +365,12 @@ final class EnigmaCompactPanelTests: XCTestCase {
   func testUnreadableSelectionShowsTheErrorStateAndProblemsOpenTheDetails() async throws {
     let fixture = try await Fixture(test: self)
     let host = try await CompactPanelHost(fixture, test: self)
-    addTeardownBlock { @MainActor in SelectionContextService.shared.notice = nil }
     host.present("Please send the report today.")
     try await host.waitForComposer()
     try await waitForUI("no problem with a readable selection", in: host.view) { fixture.character.state == .idle }
     // As when the capture couldn't read anything.
     host.present(nil)
-    SelectionContextService.shared.notice = "No selected text could be read."
+    fixture.selectionContext.notice = "No selected text could be read."
     try await host.waitForComposer()
     try await waitForUI("the error state with no text selected", in: host.view) {
       fixture.character.state == .error && host.shows("No text selected")
@@ -443,12 +442,13 @@ final class EnigmaCompactPanelTests: XCTestCase {
     }
     XCTAssertTrue(fixture.pastes.texts.isEmpty, "Manual replacement waits for Replace text")
     try await clickTestControl("Replace text", in: host.view)
-    if SelectionContextService.shared.canReplace {
-      try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == [revision] }
-    } else {
-      try await Task.sleep(for: .milliseconds(100))
-      XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
-    }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(fixture.pastes.texts.isEmpty, "Replace text stays off without a selection to replace, as before")
+
+    // Once the selection's app is remembered, Replace text pastes the revision.
+    fixture.selectionContext.remember(ConversationContext(sourceName: "Test editor", text: "send report now"), from: .current)
+    try await clickTestControl("Replace text", in: host.view)
+    try await waitForUI("the paste", in: host.view) { fixture.pastes.texts == [revision] }
   }
 
   @MainActor
