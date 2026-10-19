@@ -17,7 +17,11 @@ scripts/verify-xcode.sh analyze
 The helper runs `xcodebuild <action>` on `Enigma.xcodeproj` with the `Enigma`
 scheme and `platform=macOS` as the destination. It also:
 
-- puts derived data in `/tmp/Enigma-Verification`, away from Xcode's own;
+- puts derived data in `/tmp/Enigma-Verification-<id>`, away from Xcode's own,
+  where `<id>` comes from the checkout's path, so two worktrees can verify at
+  once without building into each other's products. Their hosted UI tests
+  still share the screen and keyboard focus, so don't run two test actions at
+  the same time;
 - sets `CODE_SIGNING_ALLOWED=NO`, so the product is unsigned;
 - sets `REGISTER_WITH_LAUNCH_SERVICES=NO`, and unregisters any `Enigma.app` left
   in its Debug or Release products from Launch Services before and after the
