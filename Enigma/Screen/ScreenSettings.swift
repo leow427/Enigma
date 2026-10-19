@@ -41,6 +41,8 @@ struct ScreenUploadConsent: Identifiable {
   let id = UUID()
   let attachment: ScreenAttachment
   let provider: CloudProviderID
+  /// False when the request came straight from a typed capture, which runs only typed commands.
+  var recognizesCommands = true
   var title: String {
     "Send \(attachment.source == .fullDesktop ? "full desktop" : "selected region") to \(provider.displayName)?"
   }

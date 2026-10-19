@@ -58,6 +58,13 @@ enum ComposerSubmission: Equatable {
     return .chat(prompt: intent.submissionPrompt, searchEnabled: intent.search)
   }
 
+  /// The draft once a request sent from `sent` is accepted: cleared, unless it was
+  /// edited meanwhile. Compare with the draft as it was when sent, never with the
+  /// prompt, which can carry recognized commands the draft doesn't show.
+  static func draftAfterAcceptance(current: String, sent: String) -> String {
+    current == sent ? "" : current
+  }
+
   /// Whether the selected mode has a model ready and no request is running. The cloud
   /// checks run only for the modes that need them, since they can reach the Keychain.
   static func canSubmit(

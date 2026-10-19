@@ -297,6 +297,14 @@ final class ComposerSubmissionTests: XCTestCase {
     XCTAssertEqual(plan(intent: "think hard about these", files: true), .files(prompt: "/think think hard about these"))
   }
 
+  func testAcceptedRequestClearsTheDraftItWasSentFrom() {
+    // The sent prompt can differ from the draft, as with a recognized /think in File Mode.
+    XCTAssertEqual(ComposerSubmission.draftAfterAcceptance(current: "think hard about these",
+                                                           sent: "think hard about these"), "")
+    XCTAssertEqual(ComposerSubmission.draftAfterAcceptance(current: "a newer draft", sent: "think hard about these"),
+                   "a newer draft", "A draft edited since sending is kept")
+  }
+
   func testTypedConflictsStillReportThemselves() {
     XCTAssertEqual(plan(intent: "/messages /search Sam"), .messagesConflict)
     XCTAssertEqual(plan(intent: "/messages Sam", screenshot: true), .messagesConflict)

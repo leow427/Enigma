@@ -1049,6 +1049,18 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
+  func testTypedCaptureSendsOnlyItsTypedCommands() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .cloud)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/snapshot think hard and read the text", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { !fixture.cloudProvider.requests.isEmpty && !fixture.chat.isBusy }
+    let request = try XCTUnwrap(fixture.cloudProvider.requests.first)
+    XCTAssertFalse(ThinkCommand.enabled(in: request.messages), "A capture never picks up a recognized /think")
+    XCTAssertFalse(request.messages.contains { $0.content.contains(ThinkCommand.guidance) })
+    XCTAssertTrue(request.messages.last?.content.contains("think hard and read the text") == true)
+  }
+
   func testRealComposerScreenRecordingDenialKeepsCompactDraft() async throws {
     let fixture = try await makeScreenshotComposer(compact: true)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
@@ -1274,6 +1286,7 @@ final class ScreenViewTests: XCTestCase {
       appearance: EnigmaAppearancePreference(defaults: defaults))
       .environment(\.screenControlMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
       .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+      .defaultAppStorage(defaults)
       .transaction { $0.disablesAnimations = true })
     let sizes = PanelSizeStore(defaults: defaults)
     sizes.save(NSSize(width: 752, height: 462))
