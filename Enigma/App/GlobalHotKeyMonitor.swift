@@ -158,6 +158,14 @@ struct PanelShortcutChord {
   }
 
   private var phase = Phase.idle
+  private var armedCounter: UInt32 = 0
+  /// A count of key and mouse-button presses system-wide. Global monitors never
+  /// see a key another app consumes as a hot key (like Control-Option-Right in
+  /// a window manager), but this count does, so a change since the chord armed
+  /// means something else was pressed.
+  private let inputCounter: () -> UInt32
+
+  init(inputCounter: @escaping () -> UInt32 = { 0 }) { self.inputCounter = inputCounter }
 
   /// Adopts the current modifiers without firing, for when events were missed.
   mutating func synchronize(modifiers: NSEvent.ModifierFlags) {
@@ -174,7 +182,7 @@ struct PanelShortcutChord {
     let flags = modifiers.intersection(Self.tracked)
     if flags.isEmpty {
       defer { phase = .idle }
-      return phase == .armed
+      return phase == .armed && completes()
     }
     guard flags.subtracting([.option, .control]).isEmpty else {
       phase = .cancelled
@@ -183,15 +191,18 @@ struct PanelShortcutChord {
     switch phase {
     case .idle, .partial:
       phase = flags == [.option, .control] ? .armed : .partial
+      if phase == .armed { armedCounter = inputCounter() }
       return false
     case .armed:
       if flags == [.option, .control] { return false }
       phase = .cancelled
-      return true
+      return completes()
     case .cancelled:
       return false
     }
   }
+
+  private func completes() -> Bool { inputCounter() == armedCounter }
 
   private static let tracked: NSEvent.ModifierFlags = [.option, .control, .command, .shift, .function]
 }
@@ -202,7 +213,7 @@ final class PanelShortcutMonitor {
   private var local: Any?
   private var activationObserver: NSObjectProtocol?
   private var accessibilityGranted = false
-  private var detector = PanelShortcutChord()
+  private var detector = PanelShortcutMonitor.makeDetector()
   private let handler: @MainActor () -> Void
 
   init(handler: @escaping @MainActor () -> Void) { self.handler = handler }
@@ -239,7 +250,15 @@ final class PanelShortcutMonitor {
     if let local { NSEvent.removeMonitor(local) }
     global = nil
     local = nil
-    detector = PanelShortcutChord()
+    detector = Self.makeDetector()
+  }
+
+  private static func makeDetector() -> PanelShortcutChord {
+    PanelShortcutChord {
+      [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].reduce(0) {
+        $0 &+ CGEventSource.counterForEventType(.hidSystemState, eventType: $1)
+      }
+    }
   }
 
   private func receive(_ event: NSEvent) {

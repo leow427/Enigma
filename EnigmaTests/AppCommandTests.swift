@@ -39,6 +39,22 @@ final class AppCommandTests: XCTestCase {
     XCTAssertFalse(chord.flagsChanged(modifiers: []))
   }
 
+  func testShowHideChordIgnoresInputSwallowedByAnotherApp() {
+    var counter: UInt32 = 5
+    var chord = PanelShortcutChord { counter }
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    counter += 1 // a hot key consumed by a window manager, unseen by event monitors
+    XCTAssertFalse(chord.flagsChanged(modifiers: .control))
+    XCTAssertFalse(chord.flagsChanged(modifiers: []))
+
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    counter += 1
+    XCTAssertFalse(chord.flagsChanged(modifiers: []), "Releasing both at once")
+
+    _ = chord.flagsChanged(modifiers: [.option, .control])
+    XCTAssertTrue(chord.flagsChanged(modifiers: .control), "Nothing pressed, so it fires")
+  }
+
   func testShowHideChordFiresAgainAfterACancelledChord() {
     var chord = PanelShortcutChord()
     _ = chord.flagsChanged(modifiers: [.option, .control])
@@ -127,6 +143,10 @@ final class AppCommandTests: XCTestCase {
     XCTAssertNil(PanelShortcut.resolve(characters: "o", modifiers: [.command, .shift]))
     XCTAssertEqual(PanelShortcut.resolve(characters: "A", modifiers: [.command, .shift]), .fileMode)
     XCTAssertEqual(PanelShortcut.resolve(characters: nil, modifiers: [.command, .shift, .capsLock], keyCode: 0), .fileMode)
+    XCTAssertNil(PanelShortcut.resolve(characters: "q", modifiers: [.command, .shift], keyCode: 0), "AZERTY: this key is Q")
+    XCTAssertEqual(PanelShortcut.resolve(characters: "s", modifiers: [.control, .command], keyCode: 31), .toggleSidebar)
+    XCTAssertEqual(PanelShortcut.resolve(characters: "S", modifiers: [.control, .command], keyCode: 31), .toggleSidebar)
+    XCTAssertNil(PanelShortcut.resolve(characters: "o", modifiers: [.control, .command], keyCode: 1), "QWERTY S key, but an O on this layout")
     XCTAssertNil(PanelShortcut.resolve(characters: "a", modifiers: .command))
     XCTAssertNil(PanelShortcut.resolve(characters: "f", modifiers: [.shift, .option], keyCode: 3), "⇧⌥F is gone")
     XCTAssertNil(PanelShortcut.resolve(characters: "h", modifiers: [.command, .shift], keyCode: 4), "⇧⌘H is gone")

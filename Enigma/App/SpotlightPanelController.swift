@@ -460,10 +460,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     switch shortcut {
     case .toggleSidebar:
       // The history belongs to the window; the selection panel has none, and
-      // the shortcut does nothing there.
-      if selectionNormalFrame == nil {
-        NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
-      }
+      // the shortcut is left unhandled there.
+      guard selectionNormalFrame == nil else { return false }
+      NotificationCenter.default.post(name: .sidebarToggleRequested, object: nil)
       return true
     case .openInWindow:
       // Only the selection panel's chat opens in the window; elsewhere the key

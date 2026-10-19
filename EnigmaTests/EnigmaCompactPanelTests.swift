@@ -483,6 +483,12 @@ final class EnigmaCompactPanelTests: XCTestCase {
     let id = try XCTUnwrap(fixture.chat.selectedSessionID)
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertTrue(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"), "The panel says its chat is temporary")
+    // The selection panel has no history: ⌃⌘S is left unhandled there.
+    let sidebarKey = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.control, .command],
+      timestamp: 0, windowNumber: host.window.windowNumber, context: nil, characters: "\u{13}",
+      charactersIgnoringModifiers: "s", isARepeat: false, keyCode: 1))
+    host.window.makeKey()
+    XCTAssertFalse(host.window.performKeyEquivalent(with: sidebarKey))
     try host.press("o", keyCode: 31, modifiers: .command)
     try await waitForUI("the window's chat, without the sidebar", in: host.view) {
       !host.shows("Compact panel") && host.shows("Show chat history") && !host.shows("New chat")
