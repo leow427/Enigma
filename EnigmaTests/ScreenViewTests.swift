@@ -85,9 +85,17 @@ final class ScreenViewTests: XCTestCase {
     let settings = CloudSettingsModel(credentialStore: credentials,
       catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
       codexAvailable: { false })
+    // A test advisor: the shared one runs the real Metal test and writes the real hardware report.
+    let root = FileManager.default.temporaryDirectory.appending(path: "ScreenViewSettings-\(UUID())")
+    addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+    let mac = LocalHardwareProfile(physicalMemory: 32 * LocalHardwareProfile.gib, isAppleSilicon: true, hasMetal: true,
+      hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
+      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in mac })
     for destination in SettingsView.SettingsDestination.allCases {
       let view = NSHostingView(rootView: SettingsView(settings: settings, initialDestination: destination,
-        updater: AppUpdater(backend: FakeUpdaterBackend())).enigmaTheme(.ink))
+        advisor: advisor, updater: AppUpdater(backend: FakeUpdaterBackend())).enigmaTheme(.ink))
       let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
       window.contentView = view
       defer { window.contentView = nil }

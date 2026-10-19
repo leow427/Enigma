@@ -80,7 +80,14 @@ final class FileModeUITests: XCTestCase {
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
     defaults.set(true, forKey: WelcomeSetup.completedKey)
     addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
-    let view = NSHostingView(rootView: AppShellView(localChat: chat, screen: screen,
+    // A test advisor: the shared one runs the real Metal test and writes the real hardware report.
+    let mac = LocalHardwareProfile(physicalMemory: 32 * LocalHardwareProfile.gib, isAppleSilicon: true, hasMetal: true,
+      hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
+      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil,
+                                    detect: { _ in mac })
+    let view = NSHostingView(rootView: AppShellView(localChat: chat, screen: screen, modelAdvisor: advisor,
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: WelcomeSetup(defaults: defaults),
       appearance: EnigmaAppearancePreference(defaults: defaults)))
     let controller = SpotlightPanelController(contentView: view)
