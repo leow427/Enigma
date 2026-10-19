@@ -55,11 +55,13 @@ So all of these count:
   unread messages do I have", "when is dinner according to Mom's text", "any
   SMS from the bank today?", "summarize what I missed in the family chat",
   "recap my text thread with my brother", "I'm behind on texts, who do I need
-  to reply to", "can u check my messages from dad"
+  to reply to", "can u check my messages from dad", "anything new from my wife
+  in iMessage", "yo whats my sister been texting me"
 - "text my dad that I'll be late", "send Alex a text saying I'm outside",
   "shoot Sam a text that I'm here", "reply to Jordan with sounds good", "let Mom
   know I landed via text", "message Mom: running late", "send a text message
-  to the plumber confirming Thursday at 9", "reply to my moms text and say yes"
+  to the plumber confirming Thursday at 9", "reply to my moms text and say yes",
+  "tell my boss via text that I'm running late"
 
 When in doubt it doesn't match. These don't count:
 
@@ -280,7 +282,7 @@ the selected route before starting:
   files, screenshots and other commands, and follow-ups
   (`ComposerIntentResolveTests`).
 - `EnigmaTests/ComposerIntentPhrasingTests.swift` is the phrasing corpus: about
-  870 English drafts, each tagged `messages`, `think`, `search` or none, that
+  920 English drafts, each tagged `messages`, `think`, `search` or none, that
   must resolve as tagged, including the hard negatives above. Messages drafts
   must never get the `search` chip. A miss found later becomes a line in it.
 
