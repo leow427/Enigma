@@ -38,6 +38,9 @@ struct AppShellView: View {
   /// The compact panel sits too low on its screen for lists and menus to open
   /// under it, so they open above its input.
   @State private var compactOpensOverlaysAbove = false
+  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = true
+  /// Recognized commands turned off for the current draft. Cleared when the draft empties.
+  @State private var dismissedInferences: Set<SlashCommand> = []
 
   init(
     localEngine: (any LocalModelEngine)? = nil,
@@ -299,6 +302,10 @@ struct AppShellView: View {
       character.attention = typing ? MainWindowCharacter.composerTarget : nil
     }
     .onChange(of: screen.draft) { old, new in
+      // Sending or clearing the draft brings back dismissed recognized commands.
+      if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !dismissedInferences.isEmpty {
+        dismissedInferences = []
+      }
       // A nudge toward the composer for each keystroke that adds text.
       guard !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
       character.key(towards: MainWindowCharacter.composerTarget)
@@ -809,11 +816,22 @@ struct AppShellView: View {
     shell.leaveSelectionComposer()
   }
 
+  /// What the composer's chips and Send both resolve, so they agree.
+  private var composerIntentContext: ComposerIntent.Context {
+    ComposerIntent.Context(
+      draft: draft, hasSelection: localChat.attachedContexts.contains { $0.kind == .selectedText },
+      hasFileSelection: files.selection != nil, hasScreenshot: screen.isEnabled,
+      previousTurnUsedMessages: localChat.previousTurnUsedMessages, infersCommands: infersCommands,
+      searchesAutomatically: searchSettings.canSearchAutomatically, dismissed: dismissedInferences)
+  }
+
+  private var composerIntent: ComposerIntent { ComposerIntent.resolve(composerIntentContext) }
+
   private func submitDraft() {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
-    let submission = ComposerSubmission.plan(ComposerSubmission.Context(
-      draft: draft, hasFileSelection: files.selection != nil, hasScreenshot: screen.isEnabled), canSubmit: canSubmit)
+    let submission = ComposerSubmission.plan(composerIntent, hasFileSelection: files.selection != nil,
+                                             hasScreenshot: screen.isEnabled, canSubmit: canSubmit)
     switch submission {
     case .none:
       return
@@ -843,19 +861,22 @@ struct AppShellView: View {
         expandSelectionConversation()
         if draft == originalDraft { draft = "" }
       }
+      // The resolved draft already decided search, including a dismissed search chip.
       switch shell.selectedMode {
       case .local:
-        localChat.submit(prompt, searchEnabled: searchEnabled, onAccepted: accepted)
+        localChat.submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: accepted)
       case .cloud:
         localChat.submitCloud(
           prompt,
           provider: cloudSettings.preferredProvider,
           modelID: cloudSettings.preferredModelID,
           searchEnabled: searchEnabled,
+          allowsAutomaticSearch: false,
           onAccepted: accepted
         )
       case .auto:
-        localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: searchEnabled, onAccepted: accepted)
+        localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: searchEnabled,
+                             allowsAutomaticSearch: false, onAccepted: accepted)
       }
     }
   }
@@ -875,13 +896,13 @@ struct AppShellView: View {
 
   private func submitScreenAttachment(_ attachment: ScreenAttachment) {
     let originalDraft = draft
-    let commands = ComposerCommands(draft)
-    guard commands.hasPrompt else { return }
-    let prompt = commands.submissionPrompt
+    let intent = composerIntent
+    guard intent.hasPrompt else { return }
+    let prompt = intent.submissionPrompt
     let cloudText = cloudSettings.isConfigured
       ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
                    provider: cloudSettings.preferredProvider).screenModel : nil
-    let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: commands.search)
+    let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: intent.search, allowsAutomaticSearch: false)
     let automatic = shell.selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
       selectedMode: .auto, webSearchEnabled: searchEnabled, prompt: prompt,
       contextMessages: localChat.autoRoutingContextMessages, localModel: localChat.installedModel,
@@ -910,7 +931,7 @@ struct AppShellView: View {
       screen.error = reason
     case .text, .vision:
       localChat.submitScreen(prompt, attachment: attachment, decision: decision, selectedMode: shell.selectedMode,
-        searchEnabled: searchEnabled,
+        searchEnabled: searchEnabled, allowsAutomaticSearch: false,
         cloudUploadAllowed: { screenSettings.allowCloudScreenshots && screenSettings.hasExplainedCloudPermission }) {
           expandSelectionConversation()
           if draft == originalDraft { draft = "" }

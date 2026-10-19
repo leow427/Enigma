@@ -242,5 +242,3 @@ final class ComposerIntentResolveTests: XCTestCase {
     }
   }
 }
-
-

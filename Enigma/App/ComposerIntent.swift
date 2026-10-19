@@ -23,9 +23,14 @@ struct ComposerIntent: Equatable, Sendable {
     var dismissed: Set<SlashCommand> = []
   }
 
+  /// The user default behind "Recognize commands from your wording" (default on).
+  static let inferCommandsKey = "composer.inferCommands"
+
   /// The order chips appear in.
   static let chipOrder: [SlashCommand] = [.messages, .search, .think, .edit, .translate]
 
+  /// The draft as typed.
+  let draft: String
   let typed: ComposerCommands
   /// The inferred commands that will apply, in chip order.
   let inferred: [SlashCommand]
@@ -39,6 +44,13 @@ struct ComposerIntent: Equatable, Sendable {
   var hasPrompt: Bool { !typed.prompt.isEmpty || edit || translate }
   var submissionPrompt: String {
     (think ? "/think " : "") + (translate ? "/translate " : edit ? "/edit " : "") + typed.prompt
+  }
+  /// The draft as typed, with inferred `think`, `edit` and `translate` written in front, for
+  /// paths such as File Mode that send the draft as typed.
+  var draftWithInferredCommands: String {
+    let prefix = (inferred.contains(.think) ? "/think " : "")
+      + (inferred.contains(.translate) ? "/translate " : inferred.contains(.edit) ? "/edit " : "")
+    return prefix + draft
   }
 
   static func resolve(_ context: Context, now: Date = Date()) -> ComposerIntent {
@@ -79,6 +91,7 @@ struct ComposerIntent: Equatable, Sendable {
 
     let translate = typed.translate || candidates.contains(.translate)
     return ComposerIntent(
+      draft: context.draft,
       typed: typed,
       inferred: chipOrder.filter(candidates.contains),
       messages: typed.messages || candidates.contains(.messages),

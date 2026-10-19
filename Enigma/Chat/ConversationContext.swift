@@ -70,7 +70,7 @@ enum SelectionResponseMode: Sendable {
   }
 
   private static let selectionOnlyTranslation = try? NSRegularExpression(
-    pattern: #"^((this|it|that|the selection|the selected text)\s*)?((to|into)\s+[\p{L}-]+(\s+[\p{L}-]+)?)?\s*[.!?]?$"#,
+    pattern: #"^((please\s+)?translate\s*)?((this|it|that|the selection|the selected text)\s*)?((to|into)\s+[\p{L}-]+(\s+[\p{L}-]+)?)?\s*[.!?]?$"#,
     options: [.caseInsensitive])
 
   private static func translatesNoTextOfItsOwn(_ prompt: String) -> Bool {

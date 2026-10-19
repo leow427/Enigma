@@ -28,23 +28,34 @@ enum ComposerSubmission: Equatable {
     var hasScreenshot = false
   }
 
-  /// `canSubmit` is only evaluated for a plain chat message, because checking cloud
-  /// configuration can reach the Keychain.
+  /// Plans typed commands only, with nothing recognized from the wording.
   static func plan(_ context: Context, canSubmit: @autoclosure () -> Bool) -> ComposerSubmission {
-    let commands = ComposerCommands(context.draft)
-    if context.hasFileSelection {
-      if context.hasScreenshot || commands.screen || commands.search || commands.messages { return .fileConflict }
-      return .files(prompt: context.draft)
+    let intent = ComposerIntent.resolve(ComposerIntent.Context(
+      draft: context.draft, hasFileSelection: context.hasFileSelection, hasScreenshot: context.hasScreenshot,
+      infersCommands: false, searchesAutomatically: false))
+    return plan(intent, hasFileSelection: context.hasFileSelection, hasScreenshot: context.hasScreenshot,
+                canSubmit: canSubmit())
+  }
+
+  /// Plans a resolved draft. Only typed commands can conflict; `ComposerIntent` has already
+  /// dropped any recognized command that would. `canSubmit` is only evaluated for a plain
+  /// chat message, because checking cloud configuration can reach the Keychain.
+  static func plan(_ intent: ComposerIntent, hasFileSelection: Bool, hasScreenshot: Bool,
+                   canSubmit: @autoclosure () -> Bool) -> ComposerSubmission {
+    let typed = intent.typed
+    if hasFileSelection {
+      if hasScreenshot || typed.screen || typed.search || typed.messages { return .fileConflict }
+      return .files(prompt: intent.draftWithInferredCommands)
     }
-    if commands.messages {
+    if intent.messages {
       // Message contents must never become a web search query or share a request with a capture.
-      if commands.screen || commands.search || context.hasScreenshot { return .messagesConflict }
-      return commands.hasPrompt ? .messages(prompt: commands.submissionPrompt) : .none
+      if typed.screen || typed.search || hasScreenshot { return .messagesConflict }
+      return intent.hasPrompt ? .messages(prompt: intent.submissionPrompt) : .none
     }
-    if commands.screen { return .captureScreen }
-    if context.hasScreenshot { return .screenAttachment }
-    guard canSubmit(), commands.hasPrompt else { return .none }
-    return .chat(prompt: commands.submissionPrompt, searchEnabled: commands.search)
+    if typed.screen { return .captureScreen }
+    if hasScreenshot { return .screenAttachment }
+    guard canSubmit(), intent.hasPrompt else { return .none }
+    return .chat(prompt: intent.submissionPrompt, searchEnabled: intent.search)
   }
 
   /// Whether the selected mode has a model ready and no request is running. The cloud
