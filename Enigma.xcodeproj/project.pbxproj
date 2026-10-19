@@ -29,7 +29,6 @@
 		4DC6842798E6A6D965A6026D /* Enigma/App/EnigmaMainWindowLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986CB99157D968506FA6560B /* Enigma/App/EnigmaMainWindowLogic.swift */; };
 		41210F1C09D1947EA1AB3C67 /* EnigmaTests/EnigmaSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9483E9D7600D10AD53F8F68 /* EnigmaTests/EnigmaSettingsTests.swift */; };
 		76C597823BC773D32A000CDA /* Enigma/Files/LocalFileToolsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDF18A09BA530EF7800F041 /* Enigma/Files/LocalFileToolsViews.swift */; };
-		3B287C322A61EEC25ADC78E7 /* Enigma/LocalInference/LocalModelDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */; };
 		FC5011DD693B0424EBE11153 /* Enigma/LocalInference/LocalModelManagerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */; };
 		888845646DFB86CA2CD71708 /* Enigma/LocalInference/LocalModelSettingsLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */; };
 		02BC0673CC8A80AD04E8EA32 /* LocalBandwidthProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF32A419976150543BF501C5 /* LocalBandwidthProbe.swift */; };
@@ -71,10 +70,6 @@
 		242CD98023FD572834238844 /* Enigma/Messages/MessagesDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173A386DA7BA5428E6D54BE9 /* Enigma/Messages/MessagesDatabase.swift */; };
 		1B17241BB2F93B0FB787A0B2 /* Enigma/Messages/AttributedBodyDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EE1E1A783052F9D6D79B18 /* Enigma/Messages/AttributedBodyDecoder.swift */; };
 		8F0137440101729044EAB110 /* Enigma/Messages/AppleMessageDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475A60D279A435AB95DFBFB7 /* Enigma/Messages/AppleMessageDate.swift */; };
-		AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000006; };
-		AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000004; };
-		AE9200000000000000000003 /* LocalModelDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000003; };
-		AE9200000000000000000001 /* HuggingFaceModelDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9100000000000000000001; };
 		EF1200000000000000000001 /* WelcomeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1100000000000000000001; };
 		ED2000000000000000000001 = {isa = PBXBuildFile; fileRef = ED1000000000000000000001; };
 		ED2000000000000000000000 = {isa = PBXBuildFile; fileRef = ED1000000000000000000000; };
@@ -232,7 +227,6 @@
 		986CB99157D968506FA6560B /* Enigma/App/EnigmaMainWindowLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaMainWindowLogic.swift"; sourceTree = SOURCE_ROOT; };
 		B9483E9D7600D10AD53F8F68 /* EnigmaTests/EnigmaSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/EnigmaSettingsTests.swift"; sourceTree = SOURCE_ROOT; };
 		AEDF18A09BA530EF7800F041 /* Enigma/Files/LocalFileToolsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Files/LocalFileToolsViews.swift"; sourceTree = SOURCE_ROOT; };
-		F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelDiscoveryView.swift"; sourceTree = SOURCE_ROOT; };
 		54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelManagerSection.swift"; sourceTree = SOURCE_ROOT; };
 		E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalModelSettingsLogic.swift"; sourceTree = SOURCE_ROOT; };
 		FF32A419976150543BF501C5 /* LocalBandwidthProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalBandwidthProbe.swift"; sourceTree = SOURCE_ROOT; };
@@ -274,10 +268,6 @@
 		173A386DA7BA5428E6D54BE9 /* Enigma/Messages/MessagesDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesDatabase.swift"; sourceTree = SOURCE_ROOT; };
 		20EE1E1A783052F9D6D79B18 /* Enigma/Messages/AttributedBodyDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/AttributedBodyDecoder.swift"; sourceTree = SOURCE_ROOT; };
 		475A60D279A435AB95DFBFB7 /* Enigma/Messages/AppleMessageDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/AppleMessageDate.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/HuggingFaceModelDownloadsTests.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/HuggingFaceModelDownloads.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000003 /* LocalModelDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalModelDiscoveryTests.swift"; sourceTree = SOURCE_ROOT; };
-		AE9100000000000000000001 /* HuggingFaceModelDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/HuggingFaceModelDiscovery.swift"; sourceTree = SOURCE_ROOT; };
 		EF1100000000000000000001 /* WelcomeSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeSetup.swift; sourceTree = "<group>"; };
 		ED1000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/LocationService.swift"; sourceTree = SOURCE_ROOT; };
 		ED1000000000000000000000 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/StartPreferences.swift"; sourceTree = SOURCE_ROOT; };
@@ -450,7 +440,6 @@
 				986CB99157D968506FA6560B /* Enigma/App/EnigmaMainWindowLogic.swift */,
 				B9483E9D7600D10AD53F8F68 /* EnigmaTests/EnigmaSettingsTests.swift */,
 				AEDF18A09BA530EF7800F041 /* Enigma/Files/LocalFileToolsViews.swift */,
-				F3A5F5F60A5F7C1C0D288DA3 /* Enigma/LocalInference/LocalModelDiscoveryView.swift */,
 				54E873A2DCFDB4A43A11B39D /* Enigma/LocalInference/LocalModelManagerSection.swift */,
 				E04F226017D7E2D4E35601F2 /* Enigma/LocalInference/LocalModelSettingsLogic.swift */,
 				FF32A419976150543BF501C5 /* LocalBandwidthProbe.swift */,
@@ -608,9 +597,7 @@
 				31DE8D7B2FB32F43FBF8973A /* LocalBandwidthProbeTests.swift */,
 				A795709EB21FFFC646E2CD8F /* LocalModelEstimateTests.swift */,
 				AB0300000000000000000001 /* LocalModelSelectionTests.swift */,
-				AE9100000000000000000006 /* HuggingFaceModelDownloadsTests.swift */,
 				D0A100000000000000000004 /* ResumableArtifactTransferTests.swift */,
-				AE9100000000000000000003 /* LocalModelDiscoveryTests.swift */,
 				D20000000000000000000005 /* LocalInferenceTests.swift */,
 				C30000000000000000000001 /* LocalModelInstallationStoreTests.swift */,
 				C40000000000000000000001 /* CloudStreamingTransportTests.swift */,
@@ -657,8 +644,6 @@
 				AB0100000000000000000004 /* LocalCatalogUpdates.swift */,
 				AB0100000000000000000005 /* LocalModelAdvisor.swift */,
 				AB0100000000000000000006 /* BundledLocalModels.swift */,
-				AE9100000000000000000004 /* HuggingFaceModelDownloads.swift */,
-				AE9100000000000000000001 /* HuggingFaceModelDiscovery.swift */,
 				E20000000000000000000003 /* LocalModelManifest.swift */,
 				D0A100000000000000000002 /* ResumableArtifactTransfer.swift */,
 			);
@@ -820,7 +805,6 @@
 				BEB703A6ED5E3CC6B0ADA784 /* Enigma/App/EnigmaSidebar.swift in Sources */,
 				4DC6842798E6A6D965A6026D /* Enigma/App/EnigmaMainWindowLogic.swift in Sources */,
 				76C597823BC773D32A000CDA /* Enigma/Files/LocalFileToolsViews.swift in Sources */,
-				3B287C322A61EEC25ADC78E7 /* Enigma/LocalInference/LocalModelDiscoveryView.swift in Sources */,
 				FC5011DD693B0424EBE11153 /* Enigma/LocalInference/LocalModelManagerSection.swift in Sources */,
 				888845646DFB86CA2CD71708 /* Enigma/LocalInference/LocalModelSettingsLogic.swift in Sources */,
 				02BC0673CC8A80AD04E8EA32 /* LocalBandwidthProbe.swift in Sources */,
@@ -917,8 +901,6 @@
 				AB0200000000000000000004 /* LocalCatalogUpdates.swift in Sources */,
 				AB0200000000000000000005 /* LocalModelAdvisor.swift in Sources */,
 				AB0200000000000000000006 /* BundledLocalModels.swift in Sources */,
-				AE9200000000000000000004 /* HuggingFaceModelDownloads.swift in Sources */,
-				AE9200000000000000000001 /* HuggingFaceModelDiscovery.swift in Sources */,
 				E10000000000000000000003 /* LocalModelManifest.swift in Sources */,
 				D0A100000000000000000001 /* ResumableArtifactTransfer.swift in Sources */,
 				E10000000000000000000005 /* AutoRouter.swift in Sources */,
@@ -982,9 +964,7 @@
 				1BAD81044B0C0FE27D7EFFB5 /* LocalBandwidthProbeTests.swift in Sources */,
 				C09969EC7BD1A0AEB1FD5C68 /* LocalModelEstimateTests.swift in Sources */,
 				AB0300000000000000000002 /* LocalModelSelectionTests.swift in Sources */,
-				AE9200000000000000000006 /* HuggingFaceModelDownloadsTests.swift in Sources */,
 				D0A100000000000000000003 /* ResumableArtifactTransferTests.swift in Sources */,
-				AE9200000000000000000003 /* LocalModelDiscoveryTests.swift in Sources */,
 				D10000000000000000000006 /* LocalInferenceTests.swift in Sources */,
 				C30000000000000000000002 /* LocalModelInstallationStoreTests.swift in Sources */,
 				C40000000000000000000002 /* CloudStreamingTransportTests.swift in Sources */,

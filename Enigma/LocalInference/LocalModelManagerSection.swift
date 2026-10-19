@@ -1,19 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Local models in Settings: install, update, use, and delete, the
-/// performance check, file downloads, imported models, file tools, and GGUF
-/// import.
+/// Local models in Settings, the one place to choose a model: this Mac, the
+/// three choices picked for it, installed models, every catalogue family,
+/// file tools, and GGUF import.
 struct LocalModelManagerSection: View {
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel
-  var downloads: HuggingFaceModelDownloads = .shared
-  var sources: HuggingFaceDownloadSources = .live
   @State private var isImporterPresented = false
   @State private var pendingDeletion: LocalModel?
-  @State private var downloadListing: HuggingFaceModelListing?
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.enigmaAppearance) private var appearance
 
   var body: some View {
     let recommendations = advisor.recommendations(installedModels: chat.installedModels)
@@ -23,6 +19,8 @@ struct LocalModelManagerSection: View {
           stat(hardware.inferenceMemoryBudget.formatted(.byteCount(style: .memory)), "available for inference")
           stat(hardware.availableDiskBytes.formatted(.byteCount(style: .file)), "free disk")
           stat(hardware.chip, "chip")
+          let bandwidth = LocalModelSettingsLogic.bandwidthStat(hardware)
+          stat(bandwidth.value, bandwidth.label)
         }
         .padding(.top, 16)
         Text(LocalModelSettingsLogic.hardwareDetails(hardware))
@@ -42,25 +40,43 @@ struct LocalModelManagerSection: View {
       }
       .padding(.top, 14)
       HStack(spacing: 8) {
-        Button("Detect Mac capabilities") { Task { await advisor.detectHardware() } }
-          .enigmaButtonStyle(.secondary)
-        Button("Refresh recommendations") {
+        Button("Check this Mac") {
           Task {
-            await advisor.detectHardware()
+            await advisor.detectHardware(remeasureBandwidth: true)
             await advisor.refreshCatalog(force: true)
           }
         }
         .enigmaButtonStyle(.secondary)
+        .enigmaTestMarker("Check this Mac")
         Button("Check performance") { chat.runModelBenchmark() }
           .enigmaButtonStyle(.secondary)
           .disabled(chat.installedModel == nil)
+          .enigmaTestMarker("Check performance")
       }
       .disabled(chat.isBusy || advisor.isDetecting)
       .padding(.top, 12)
 
       EnigmaSectionHeader("For this Mac")
+      EnigmaNote("Picked for this Mac's memory and measured speed. Check performance measures the selected model here.")
+      if recommendations.roles.isEmpty {
+        VStack(alignment: .leading, spacing: 4) {
+          EnigmaStatusLine(.problem, "No suitable model found")
+          Text("No supported text-and-image model fits this Mac's memory or disk budget. All models below shows the specific limits. Cloud is also available.")
+            .font(EnigmaTypography.ui(12))
+            .foregroundStyle(palette.textSecondary.color)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 10)
+      }
       ForEach(recommendations.roles) { choice in modelRow(choice.assessment, badge: choice.tag) }
       EnigmaHairline()
+
+      if !chat.installedModels.isEmpty {
+        EnigmaSectionHeader("On this Mac")
+        ForEach(chat.installedModels) { model in installedRow(model) }
+        EnigmaHairline()
+      }
+
       if !recommendations.allFamilies.isEmpty {
         EnigmaDisclosure("All models") {
           VStack(alignment: .leading, spacing: 0) {
@@ -69,13 +85,6 @@ struct LocalModelManagerSection: View {
           }
         }
         .padding(.top, 12)
-      }
-
-      let imported = chat.installedModels.filter { model in !advisor.manifest.models.contains { $0.id == model.id } }
-      if !imported.isEmpty {
-        EnigmaSectionHeader("Imported models")
-        ForEach(imported) { model in importedRow(model) }
-        EnigmaHairline()
       }
 
       EnigmaSectionHeader("Files")
@@ -93,10 +102,6 @@ struct LocalModelManagerSection: View {
     .fileImporter(isPresented: $isImporterPresented,
       allowedContentTypes: [UTType(filenameExtension: "gguf") ?? .data], allowsMultipleSelection: false) { result in
       if case .success(let urls) = result, let url = urls.first { chat.installModel(from: url) }
-    }
-    .sheet(item: $downloadListing) { model in
-      HuggingFaceDownloadSheet(model: model, sources: sources, downloads: downloads)
-        .enigmaTheme(appearance)
     }
     .alert(item: $pendingDeletion) { model in
       Alert(
@@ -118,6 +123,7 @@ struct LocalModelManagerSection: View {
         .foregroundStyle(palette.textTertiary.color)
     }
     .accessibilityElement(children: .combine)
+    .enigmaTestMarker(value)
   }
 
   private func modelRow(_ assessment: LocalModelAssessment, badge: String? = nil) -> some View {
@@ -170,13 +176,11 @@ struct LocalModelManagerSection: View {
     case .use(let isSelected): isSelected ? "Selected" : "Use"
     case .update: assessment.permitsMemoryOverride ? "Update anyway" : "Update"
     case .install: "Install"
-    case .downloadFiles: "Download files"
     }
     Button(title) {
       switch state.action {
       case .use: chat.selectModel(id: assessment.id)
       case .update, .install: chat.downloadModel(assessment.model)
-      case .downloadFiles: downloadListing = HuggingFaceModelListing(id: assessment.model.huggingFaceRepositoryID)
       }
     }
     .enigmaButtonStyle(.secondary)
@@ -185,12 +189,13 @@ struct LocalModelManagerSection: View {
     .enigmaTestMarker("\(title) \(assessment.model.displayName)")
   }
 
-  private func importedRow(_ model: LocalModel) -> some View {
+  /// An installed model, from the catalogue or not. The installed copy stays
+  /// usable while For this Mac offers its update.
+  private func installedRow(_ model: LocalModel) -> some View {
     let selected = chat.installedModel?.id == model.id
+    let inCatalogue = advisor.manifest.models.contains { $0.id == model.id }
     return EnigmaRow(model.displayName,
-                     subtitle: model.supportsVision
-                       ? "Legacy/imported image model · Select to use for all requests"
-                       : "Legacy/imported text-only model · OCR available, images unsupported") {
+                     subtitle: LocalModelSettingsLogic.installedSubtitle(for: model, inCatalogue: inCatalogue)) {
       HStack(spacing: 6) {
         Button(selected ? "Selected" : "Use") { chat.selectModel(id: model.id) }
           .enigmaButtonStyle(.secondary)
