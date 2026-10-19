@@ -87,15 +87,16 @@ before anything is sent:
 ## Recognized commands
 
 Enigma reads the wording of the message you're typing and turns on the matching
-command for you, as if you'd typed it. It checks fixed English phrasings on this
-Mac, with no extra model call.
+command for you, as if you'd typed it. It checks fixed English rules on this
+Mac, with no extra model call. Rather than whole sentences, the rules look for
+signals that together mark a request, so ordinary rewordings still count.
 
 | Recognized | When your message says something like | Not recognized |
 | --- | --- | --- |
-| `messages` | "what did Sam text me?", "check my messages from Alex", "any new texts from Jordan?", "text Alex that I'm running late", "send her a message saying hi", "reply to Mom with ok", "tell Jordan on iMessage I'm here" | "what does this error message mean", "write a commit message", "summarize this text", "write a message to my landlord", "send me a summary", "send an email to Alex" |
+| `messages` | A messaging word tied to a person or to your own messages, in a question or a read or send request: "what are the most recent messages from my dad", "has Dad replied yet", "catch me up on the group chat", "what was Alex's last text", "text Alex that I'm running late", "shoot Sam a text that I'm here", "let Mom know I landed via text" | Noun compounds ("text classification", "what does this error message mean"), other services ("send an email to Alex"), "send me a summary", how-to questions ("how do I text …"), this chat ("your last message", "summarize our conversation"), drafting ("write a message to my landlord", "write my dad a text saying …"), and questions without a messaging word ("what did Sam say about dinner") |
 | `messages`, as a follow-up | After a message that used Messages in this chat: "send it", "reply with sounds good", "tell her I'm on my way", "what about Alex?", "what else did she say" | A follow-up without one of these cues, such as "thanks!" |
 | `search` | A question that automatic search would search for, such as "what's the latest AI news?" | Anything automatic search wouldn't search for |
-| `think` | "think hard", "think carefully", "take your time", "step by step", "reason it through" | "I think …", "what do you think of this?" |
+| `think` | Think, reason or consider with a depth word ("think hard", "think it over", "consider this carefully before answering"), or an effort phrase: "take your time", "take a while to think", "don't rush", "be thorough", "step by step", "double-check your answer", "give this some serious thought", "go deep", "use extended thinking" | "I think …", "what do you think of this?", "do you think it will rain", "think of a name for my dog", "I'm thinking about buying …" |
 | `edit` | With Selection Context attached: "rewrite this", "make it shorter", "make this more formal", "fix the grammar", "reword this", "proofread it", "tighten this up" | Anything without a selection; questions about the selection, such as "what does this mean?" |
 | `translate` | With Selection Context attached: "translate this", "translate it to Spanish" | Anything without a selection |
 

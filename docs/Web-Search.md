@@ -41,6 +41,11 @@ These don't search automatically:
 - Questions about your own work, such as "the current file" or "my latest draft"
 - Historical questions, and requests such as "don't search" or "stay offline"
 - File Mode and Messages requests, typed or recognized
+- Questions about your own communications, such as "what are the most recent
+  messages from my dad", "what's new in my texts" or "any new emails from my
+  boss today", even when Messages isn't recognized. News about others, such as
+  "the latest message from the White House on tariffs", still searches, and a
+  typed `/search` always does.
 
 Each message is decided on its own. Searching one question doesn't make the next
 one search.
@@ -189,7 +194,8 @@ and source selection across Local, Cloud, Auto and Screen, failures that keep th
 draft, cancellation, older chats without source data, the rendered sources
 list, and a decided search staying off on every route.
 `EnigmaTests/ComposerIntentTests.swift` covers the `search` chip, its dismissal
-and its conflicts, and `ComposerSubmissionTests` in
+and its conflicts; `EnigmaTests/ComposerIntentPhrasingTests.swift`, the phrasing
+corpus, checks which drafts get the chip and that Messages drafts never do; and `ComposerSubmissionTests` in
 `EnigmaTests/AppShellStateTests.swift` covers a dismissed chip sending without
 search. The tests use fixtures and need no Brave key or network.
 
