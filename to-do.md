@@ -32,7 +32,64 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
-### B2. Setup runs the performance check again for the suggested model
+### B2. Sign in is greyed out even though Codex is installed
+
+**Problem:** On at least one Mac with Codex installed (it works on others),
+Settings → Cloud and search shows ChatGPT's **Sign in** greyed out. The button
+is disabled whenever `CodexRuntimeConfiguration.executableURL()`
+(`CodexAppServer.swift`) can't find `codex`, and it only looks in a fixed
+list: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, two app bundle
+paths, and `PATH`. An app opened from Finder or the menu bar gets a minimal
+`PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), not the one from the user's shell,
+so any other install location is missed. Likely misses:
+
+- npm installs under a Node version manager: `~/.nvm/versions/node/*/bin`,
+  `~/.volta/bin`, `~/.fnm`/`~/.local/state/fnm_multishells`, `~/.asdf/shims`.
+- A custom npm prefix (`~/.npm-global/bin`) or Bun (`~/.bun/bin`).
+- The Codex or ChatGPT app installed in `~/Applications`, or a bundle layout
+  different from the two hard-coded paths.
+
+Even once found, an npm install of `codex` is a Node script, and the runtime
+launches it with a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:…`), so
+`node` from a version manager would not be found either.
+`ClaudeCodeRuntime.executableURL()` has the same pattern.
+
+**Wanted:**
+
+- Find Codex (and Claude Code) wherever the user's own shell would: ask the
+  login shell once (`$SHELL -lc 'command -v codex'`, with a timeout) and add
+  the common version-manager and `~/Applications` locations, keeping the
+  existing absolute-path and executable checks.
+- Run it with a `PATH` that includes the found executable's folder, so a
+  Node-based install can find `node`.
+- When it still can't be found, say so next to the greyed-out button, with the
+  places checked, a "Choose Codex…" file picker to point at it manually, and
+  the installation link.
+- **To confirm first:** ask how Codex was installed on the affected Mac and
+  what `which codex` prints in Terminal.
+
+### B3. "Check sign-in status" gives no feedback and no way to set up
+
+**Problem:** In Settings → Cloud and search (`CloudConnectionControls.swift`),
+"Check sign-in status" for ChatGPT and Claude re-runs
+`refreshChatGPTAccount()` / `refreshClaudeCodeAccount()`. When the result
+doesn't change, for example still not signed in, nothing visible happens: no
+progress, no "checked just now", no message. When the CLI is missing it
+returns early without any error. It also never leads to a sign-in or setup
+page.
+
+**Wanted:**
+
+- Show that a check is running, then always show the result: "Signed in as
+  …", "Not signed in", "Codex/Claude Code not found on this Mac (looked in …)",
+  or the error.
+- Each result offers the next step: not signed in → **Sign in**; not installed
+  → the setup guide (`docs/ChatGPT-Setup.md`, `docs/Claude-Code-Setup.md`) or
+  the official installation page; error → what to try.
+- Applies to both setup's connections step and Settings, since they share
+  these controls.
+
+### B4. Setup runs the performance check again for the suggested model
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
