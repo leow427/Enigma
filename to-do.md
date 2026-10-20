@@ -54,6 +54,21 @@ It works on Macs where Codex was installed separately.
   that re-detects without restarting Enigma. Consider a guided install later.
 - Show the same message in setup's connections step and in Settings, since
   they share `ChatGPTConnectionControls`.
+- **Install commands in the cloud sign-in section:** for both ChatGPT (Codex)
+  and Claude (Claude Code), show the install command right there, with a Copy
+  button and short steps, so nobody has to go looking. Show it whenever the
+  tool isn't found, not only after a failed sign-in. For example:
+  1. Open Terminal (Applications → Utilities → Terminal).
+  2. Paste the command and press Return:
+     - Codex: `brew install codex` or `npm install -g @openai/codex`
+     - Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`
+  3. When it finishes, come back here and press **Check again**, then
+     **Sign in**.
+
+  Prefer one command per tool, check the commands against the official install
+  docs when implementing (they change), and say which one needs Homebrew or
+  Node. Mention it once in `docs/ChatGPT-Setup.md` and
+  `docs/Claude-Code-Setup.md` too.
 - **Verify:** whether current ChatGPT or Codex app bundles contain a `codex`
   executable at all, and at what path. Fix or remove the hard-coded app-bundle
   candidates to match.
