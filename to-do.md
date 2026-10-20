@@ -134,7 +134,34 @@ and an email whom you haven't messaged from this Mac yet.
   email only, and an existing email conversation (which should still be used).
 - Update `docs/Messages.md`.
 
-### B5. Setup runs the performance check again for the suggested model
+### B5. The animated character covers the model picker
+
+**Problem:** The Enigma character can sit on top of the model picker (the
+Auto/Local/Cloud and model menu beside Send, ⌘K), hiding rows of the open
+menu.
+
+**Likely cause:** The character is drawn by `.enigmaCharacterStage(_:)`,
+applied at the window root (`AppShellView.swift`), as an
+`overlayPreferenceValue` layer over the whole window
+(`EnigmaCharacterStage.swift`). Anything drawn inside the window, including
+the model menu's in-place list (`EnigmaMenuList` in `EnigmaControls.swift`,
+which only raises itself with `zIndex(1)` among its siblings), ends up
+underneath it. The character's hit area (`handle`) can also catch clicks meant
+for the menu.
+
+**Wanted:**
+
+- Open menus and popovers always draw above the character and receive their
+  clicks: draw menus in a layer above the character stage, or have the stage
+  sit below the menu layer.
+- If moving the layer isn't practical, hide the character or move it out of
+  the way while a menu overlaps it, and turn off its hit area while a menu is
+  open.
+- Check the other menus and overlays too (slash-command completion, the
+  attach menu, the tour's callouts), on the empty page and in a chat, and in
+  the compact selection panel.
+
+### B6. Setup runs the performance check again for the suggested model
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
