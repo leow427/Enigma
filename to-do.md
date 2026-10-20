@@ -257,7 +257,7 @@ Bug reports (F4) use the same value.
   chat history.
 - Stored locally only, never sent anywhere except as part of a request.
   Temporary chats (F5) still use it.
-- The occupation picker (F15) can pre-fill it.
+- The occupation picker (F16) can pre-fill it.
 
 ### F7. Keep typing while a reply streams
 
@@ -279,15 +279,36 @@ Bug reports (F4) use the same value.
   same OCR, vision-model and cloud upload consent rules.
 - Today there is no `onDrop`/`dropDestination` or paste handling anywhere.
 
-### F9. Settings revamp with an Advanced toggle
+### F9. Sources as a small expandable icon, not typed out in the reply
+
+**Today:** with web search, the prompt tells the model "Cite only supporting
+URLs below" (`WebSearchContext.swift`), so replies often spell out every URL
+or end with a list of sources. The same sources already appear in the
+activity panel's "web sources" list (`AssistantActivityView.swift`), so they
+are shown twice and the reply gets long.
+
+**Wanted:**
+
+- The reply text stays clean: no typed-out URLs or source lists.
+- Under the reply, a small sources icon (for example a link or globe glyph
+  with a count, "3") that expands to the list: title, site and link, as the
+  activity panel shows them now. Collapsed by default.
+- Optional: small inline markers ([1], [2]) in the text that match the
+  expanded list and open the source on click.
+- Change the grounding prompt to cite with those short markers (or not at
+  all) instead of URLs, and keep the existing source data
+  (`WebSearchSource`, saved per message as `searchSources`) as the list.
+- Keep it accessible: the icon has a label such as "3 sources, collapsed".
+
+### F10. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
 - An "Advanced" toggle reveals the detailed options, such as the default
-  model, performance checks, catalogue details, local context size (F10) and
-  keyboard shortcuts (F11).
-- Do this before F14 and F15 so they have a clear place to link to.
+  model, performance checks, catalogue details, local context size (F11) and
+  keyboard shortcuts (F12).
+- Do this before F15 and F16 so they have a clear place to link to.
 
-### F10. Local context size (Advanced)
+### F11. Local context size (Advanced)
 
 - An Advanced setting for how much conversation the local model can see.
   Catalogue packages run with 8,192 tokens today (`recommendedContextSize`);
@@ -305,7 +326,7 @@ Bug reports (F4) use the same value.
   default size.
 - The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
 
-### F11. Remappable keyboard shortcuts with collision warnings
+### F12. Remappable keyboard shortcuts with collision warnings
 
 - Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
   shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
@@ -318,7 +339,7 @@ Bug reports (F4) use the same value.
 - Offer "Restore defaults". Move the selection-shortcut settings out of the
   Help sheet into this section.
 
-### F12. Saved prompts and custom slash commands
+### F13. Saved prompts and custom slash commands
 
 - Let people define their own commands, such as `/summarize` → "Summarize this
   in three bullet points:", that appear in the completion list next to the
@@ -327,13 +348,13 @@ Bug reports (F4) use the same value.
   separately and refuse names that clash with built-in commands.
 - Optional per-command route (Local / Cloud / Auto).
 
-### F13. Browse every model and size in Settings
+### F14. Browse every model and size in Settings
 
 - Settings → Local models → "All models" shows only one size per family today
   (`LocalModelRecommendations.allFamilies` picks the best-fitting size, or the
   smallest). Let people browse **every** catalogue package, every family and
   every size, very small and very large alike.
-- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F9),
+- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F10),
   so the default view stays simple.
 - Every row says how it fits this Mac, as a warning on its label:
   - **Too big:** "Too large for this Mac" (memory or disk), using the existing
@@ -349,26 +370,26 @@ Bug reports (F4) use the same value.
 - Sort by family then size, and mark the recommended pick so people can find
   their way back.
 
-### F14. Explore page revamp
+### F15. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F15 needs the tags. See
+- Tag catalogue entries with these use cases; F16 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-### F15. Welcome page asks your occupation
+### F16. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (F14); hardware fit then narrows the
+- Occupation picks the use-case tags (F15); hardware fit then narrows the
   list, as the recommendations do today. It can also pre-fill custom
   instructions (F6).
 
-### F16. Voice dictation
+### F17. Voice dictation
 
 - A microphone button in the composer using on-device speech recognition
   (`SFSpeechRecognizer` with on-device recognition required), so audio never
@@ -379,16 +400,16 @@ Bug reports (F4) use the same value.
 - Check the selection shortcut's double-tap Command option, which already
   warns about clashing with the macOS Dictation shortcut.
 
-### F17. Better, more complete tour
+### F18. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search, plus whatever of F6–F16 has shipped.
+  Messages and web search, plus whatever of F6–F17 has shipped.
 - Do this after the features above, since they change what the tour should
   show.
 
-### F18. Maps integration (later)
+### F19. Maps integration (later)
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
