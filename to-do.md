@@ -104,7 +104,37 @@ page.
 - Applies to both setup's connections step and Settings, since they share
   these controls.
 
-### B4. Setup runs the performance check again for the suggested model
+### B4. Messages asks "phone or email?" instead of using the contact's number
+
+**Problem:** Asking Enigma to text a contact by name finds the contact, then
+asks whether to send to their phone number or email address. It only sends
+once the user says "use the number" or types the number out.
+
+**Cause (in code, not the model):** `MessagesTools.swift`, recipient
+resolution for a contact name. If one of the contact's handles already has a
+conversation, the most recent one is used. If none does, and the contact has
+more than one handle (phones and emails together, `MessagesContact.handles` is
+`phones + emails`), it throws `MessagesError.ambiguousRecipient` with every
+handle, and the model has to ask. So this happens for any contact with a phone
+and an email whom you haven't messaged from this Mac yet.
+
+**Wanted:**
+
+- Resolve it in code, not by prompting the model: when there's no existing
+  conversation, prefer the contact's phone number over email.
+- With several phone numbers, prefer the one labelled mobile or iPhone (keep
+  the `CNLabeledValue` labels in `MessagesContactsLoader`, which drops them
+  today). Only ask when that still leaves more than one equal choice, and then
+  list phone numbers first.
+- Use email only when the contact has no phone number.
+- Keep the rest as is: an existing conversation still wins, and the "Send this
+  message?" approval card still shows the exact number before anything is
+  sent.
+- Add tests for phone + email, several phones with and without a mobile label,
+  email only, and an existing email conversation (which should still be used).
+- Update `docs/Messages.md`.
+
+### B5. Setup runs the performance check again for the suggested model
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
