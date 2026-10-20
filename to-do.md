@@ -32,7 +32,38 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
-### B2. ChatGPT sign-in is greyed out when only the ChatGPT app is installed
+### B2. The chat jumps away from the conversation after sending a message
+
+**Problem:** After the first message, sending another makes the main chat view
+jump: it shoots down past the conversation, and the user has to scroll back up
+to find the new message and the reply as it streams in.
+
+**Where to look:** `EnigmaMessageList.swift`. The list is a `LazyVStack` in a
+`ScrollView` with `minHeight` equal to the view and bottom alignment, plus
+`.defaultScrollAnchor(.bottom, for: .initialOffset)` and
+`.defaultScrollAnchor(.top, for: .alignment)`. Following the end of the chat
+is done separately in AppKit by `ConversationScrollObserver`, which scrolls the
+clip view to the document's bottom 30 ms after each content or frame change.
+Likely suspects, to confirm by reproducing:
+
+- Lazy rows are first laid out with estimated heights, so the document can be
+  taller than the real content when the observer scrolls; the view ends up
+  below the messages until rows are measured, or stays there.
+- The row-enter animations (`.animation(..., value: transcript.rows.map(\.id))`,
+  the new message's `offset(y: 18)` and the reply's delayed transition) animate
+  the layout in SwiftUI while the observer jumps the clip view in AppKit, so the
+  two disagree about where the bottom is.
+- The `.top` alignment anchor and the pending-message row being replaced by
+  the saved message (see the "waiting row" comment in `boundsChanged`) may
+  also move the offset.
+
+**Wanted:** Sending a message keeps the new message and its reply in view,
+pinned to the bottom like ChatGPT, with no jump past the content. Streaming
+keeps following while the reader is at the bottom, and stops following when
+they scroll up (as now). Add a UI test or an observer unit test for the second
+and third message in a chat, and check with Reduce Motion on and off.
+
+### B3. ChatGPT sign-in is greyed out when only the ChatGPT app is installed
 
 **Problem:** On a Mac with the ChatGPT desktop app but no Codex CLI, ChatGPT's
 **Sign in** in Settings → Cloud and search (and setup) is greyed out with
@@ -83,7 +114,7 @@ folder on `PATH` so a Node-based install can find `node`, and offer a "Choose
 Codex…" picker as a last resort. `ClaudeCodeRuntime.executableURL()` has the
 same pattern.
 
-### B3. "Check sign-in status" gives no feedback and no way to set up
+### B4. "Check sign-in status" gives no feedback and no way to set up
 
 **Problem:** In Settings → Cloud and search (`CloudConnectionControls.swift`),
 "Check sign-in status" for ChatGPT and Claude re-runs
@@ -104,7 +135,7 @@ page.
 - Applies to both setup's connections step and Settings, since they share
   these controls.
 
-### B4. Messages asks "phone or email?" instead of using the contact's number
+### B5. Messages asks "phone or email?" instead of using the contact's number
 
 **Problem:** Asking Enigma to text a contact by name finds the contact, then
 asks whether to send to their phone number or email address. It only sends
@@ -134,7 +165,7 @@ and an email whom you haven't messaged from this Mac yet.
   email only, and an existing email conversation (which should still be used).
 - Update `docs/Messages.md`.
 
-### B5. The animated character covers the model picker
+### B6. The animated character covers the model picker
 
 **Problem:** The Enigma character can sit on top of the model picker (the
 Auto/Local/Cloud and model menu beside Send, ⌘K), hiding rows of the open
@@ -161,7 +192,7 @@ for the menu.
   attach menu, the tour's callouts), on the empty page and in a chat, and in
   the compact selection panel.
 
-### B6. Setup runs the performance check again for the suggested model
+### B7. Setup runs the performance check again for the suggested model
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
