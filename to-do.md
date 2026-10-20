@@ -23,7 +23,7 @@ only in that function, so these chats never reach the sidebar, even with
 - A selection chat always opens in the normal chat layout, no matter what.
 - The privacy toggle only decides whether it is saved:
   - Off: an ordinary chat, saved to Recents.
-  - On: the chat opens in ghost mode (temporary chat, see F4). It is not
+  - On: the chat opens in ghost mode (temporary chat, see F5). It is not
     saved and stays out of Recents.
 - The selection stays attached in memory for /edit and Replace text, as it
   does now. Selected text is never written to disk.
@@ -180,9 +180,27 @@ performance" in Settings still runs one by hand.
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
-Bug reports (F3) use the same value.
+Bug reports (F4) use the same value.
 
-### F2. Warn slow Macs that small local models handle tools poorly
+### F2. One shared system prompt: Enigma, a friendly personal assistant
+
+- Every route should know it is **Enigma: a friendly, general personal
+  assistant that is concise, yet always useful.**
+- Today the identity is inconsistent. Local models (`LlamaCPPModelEngine`,
+  `LocalMultimodalClient`, agent runs) and the OpenAI/Anthropic/Gemini API
+  clients (`CloudProviderClients.swift`) get only `ChatResponseStyle.
+  instructions`, with no name at all. Claude Code, Codex and cloud tool calling
+  each hard-code their own "You are Enigma, a helpful general-purpose
+  assistant…" line, and File Mode says "a helpful assistant for file analysis
+  and editing".
+- Put one identity line at the top of `ChatResponseStyle.instructions` (or a
+  new shared `EnigmaPersona` used by all of them), and remove the per-client
+  copies so it lives in one place. Keep route-specific additions (text-only,
+  file tools) after it.
+- Keep it short: local models run with an 8,192-token context. Check that
+  small local models still follow the existing length and Markdown guidance.
+
+### F3. Warn slow Macs that small local models handle tools poorly
 
 - On Macs whose recommendation is a ~4B model or smaller (or whose
   performance check says the model underperformed), show a short note:
@@ -194,7 +212,7 @@ Bug reports (F3) use the same value.
 - Use the advisor's existing hardware profile, recommendation roles and
   benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic.
 
-### F3. Bug reporting
+### F4. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
@@ -210,7 +228,7 @@ Bug reports (F3) use the same value.
   can replace it later if wanted.
 - Put it in Settings and the Help menu.
 
-### F4. Temporary chat (ghost mode)
+### F5. Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
   top-right of the main window starts a temporary chat.
@@ -222,18 +240,26 @@ Bug reports (F3) use the same value.
 - Reuse the existing private-chat machinery (`temporarySessionID`,
   `isTemporaryChat`, `historySessions`) instead of building a second one.
 
-### F5. Custom instructions
+### F6. Personalization tab in Settings (custom instructions)
 
-- A text box in Settings for standing instructions, such as "Answer briefly"
-  or "I write Swift for macOS".
-- Added to the hard-coded system prompt (`ChatResponseStyle.instructions` in
-  `ChatContext.swift`) for every route: local text and vision, agent runs, the
-  cloud APIs and the Claude Code / Codex subscriptions.
-- Cap its length and count it in the context budget: local models run with an
-  8,192-token context, so long instructions crowd out chat history.
-- The occupation picker (F14) can pre-fill it.
+- A new **Personalization** tab in Settings, like Claude's and ChatGPT's,
+  where people add to the system prompt:
+  - "What should Enigma know about you?" (for example "I'm a Swift developer
+    on macOS").
+  - "How should Enigma respond?" (for example "Answer briefly, use British
+    spelling").
+  - An on/off switch, so people can pause it without deleting the text.
+- Added after the shared Enigma prompt (F2) for every route: local text and
+  vision, agent runs, the cloud APIs and the Claude Code / Codex subscriptions.
+  It can never replace the built-in safety and tool rules.
+- Cap its length (show a character count) and count it in the context budget:
+  local models run with an 8,192-token context, so long instructions crowd out
+  chat history.
+- Stored locally only, never sent anywhere except as part of a request.
+  Temporary chats (F5) still use it.
+- The occupation picker (F15) can pre-fill it.
 
-### F6. Keep typing while a reply streams
+### F7. Keep typing while a reply streams
 
 - Today the composer is disabled until the reply finishes
   (`AppShellView.swift`, `isBusy`). Let people type their next message while
@@ -243,7 +269,7 @@ Bug reports (F3) use the same value.
 - Make sure slash-command completion, attachments and the selection panel
   behave the same while a reply runs.
 
-### F7. Drag and drop files, and paste images
+### F8. Drag and drop files, and paste images
 
 - Drop files or folders onto the window or composer to attach them, as the
   Attach button (⇧⌘A) does today, within File Mode's limits (16 items, access
@@ -253,15 +279,15 @@ Bug reports (F3) use the same value.
   same OCR, vision-model and cloud upload consent rules.
 - Today there is no `onDrop`/`dropDestination` or paste handling anywhere.
 
-### F8. Settings revamp with an Advanced toggle
+### F9. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
 - An "Advanced" toggle reveals the detailed options, such as the default
-  model, performance checks, catalogue details, local context size (F9) and
-  keyboard shortcuts (F10).
-- Do this before F13 and F14 so they have a clear place to link to.
+  model, performance checks, catalogue details, local context size (F10) and
+  keyboard shortcuts (F11).
+- Do this before F14 and F15 so they have a clear place to link to.
 
-### F9. Local context size (Advanced)
+### F10. Local context size (Advanced)
 
 - An Advanced setting for how much conversation the local model can see.
   Catalogue packages run with 8,192 tokens today (`recommendedContextSize`);
@@ -279,7 +305,7 @@ Bug reports (F3) use the same value.
   default size.
 - The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
 
-### F10. Remappable keyboard shortcuts with collision warnings
+### F11. Remappable keyboard shortcuts with collision warnings
 
 - Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
   shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
@@ -292,7 +318,7 @@ Bug reports (F3) use the same value.
 - Offer "Restore defaults". Move the selection-shortcut settings out of the
   Help sheet into this section.
 
-### F11. Saved prompts and custom slash commands
+### F12. Saved prompts and custom slash commands
 
 - Let people define their own commands, such as `/summarize` → "Summarize this
   in three bullet points:", that appear in the completion list next to the
@@ -301,13 +327,13 @@ Bug reports (F3) use the same value.
   separately and refuse names that clash with built-in commands.
 - Optional per-command route (Local / Cloud / Auto).
 
-### F12. Browse every model and size in Settings
+### F13. Browse every model and size in Settings
 
 - Settings → Local models → "All models" shows only one size per family today
   (`LocalModelRecommendations.allFamilies` picks the best-fitting size, or the
   smallest). Let people browse **every** catalogue package, every family and
   every size, very small and very large alike.
-- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F8),
+- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F9),
   so the default view stays simple.
 - Every row says how it fits this Mac, as a warning on its label:
   - **Too big:** "Too large for this Mac" (memory or disk), using the existing
@@ -318,31 +344,31 @@ Bug reports (F3) use the same value.
   - **Too small:** a new "Smaller than this Mac can run, so answers may be
     weaker" warning when a much larger size of the same or a better family
     runs comfortably here. Smaller models get noticeably less capable,
-    especially with tools (see F2).
+    especially with tools (see F3).
   - Fine fits keep the current labels (Excellent fit, Good fit, May be slow).
 - Sort by family then size, and mark the recommended pick so people can find
   their way back.
 
-### F13. Explore page revamp
+### F14. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F14 needs the tags. See
+- Tag catalogue entries with these use cases; F15 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-### F14. Welcome page asks your occupation
+### F15. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (F13); hardware fit then narrows the
+- Occupation picks the use-case tags (F14); hardware fit then narrows the
   list, as the recommendations do today. It can also pre-fill custom
-  instructions (F5).
+  instructions (F6).
 
-### F15. Voice dictation
+### F16. Voice dictation
 
 - A microphone button in the composer using on-device speech recognition
   (`SFSpeechRecognizer` with on-device recognition required), so audio never
@@ -353,16 +379,16 @@ Bug reports (F3) use the same value.
 - Check the selection shortcut's double-tap Command option, which already
   warns about clashing with the macOS Dictation shortcut.
 
-### F16. Better, more complete tour
+### F17. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search, plus whatever of F5–F15 has shipped.
+  Messages and web search, plus whatever of F6–F16 has shipped.
 - Do this after the features above, since they change what the tour should
   show.
 
-### F17. Maps integration (later)
+### F18. Maps integration (later)
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
@@ -370,4 +396,4 @@ Bug reports (F3) use the same value.
   existing approximate-location support (`LocationService`) used by web
   search; keep location rounded and unsaved as it is now.
 - Likely a new tool or slash command (`/maps`), with the same small-model
-  caveat as F2.
+  caveat as F3.
