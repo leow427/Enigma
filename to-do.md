@@ -231,7 +231,7 @@ Bug reports (F3) use the same value.
   cloud APIs and the Claude Code / Codex subscriptions.
 - Cap its length and count it in the context budget: local models run with an
   8,192-token context, so long instructions crowd out chat history.
-- The occupation picker (F13) can pre-fill it.
+- The occupation picker (F14) can pre-fill it.
 
 ### F6. Keep typing while a reply streams
 
@@ -259,7 +259,7 @@ Bug reports (F3) use the same value.
 - An "Advanced" toggle reveals the detailed options, such as the default
   model, performance checks, catalogue details, local context size (F9) and
   keyboard shortcuts (F10).
-- Do this before F12 and F13 so they have a clear place to link to.
+- Do this before F13 and F14 so they have a clear place to link to.
 
 ### F9. Local context size (Advanced)
 
@@ -301,26 +301,48 @@ Bug reports (F3) use the same value.
   separately and refuse names that clash with built-in commands.
 - Optional per-command route (Local / Cloud / Auto).
 
-### F12. Explore page revamp
+### F12. Browse every model and size in Settings
+
+- Settings → Local models → "All models" shows only one size per family today
+  (`LocalModelRecommendations.allFamilies` picks the best-fitting size, or the
+  smallest). Let people browse **every** catalogue package, every family and
+  every size, very small and very large alike.
+- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F8),
+  so the default view stays simple.
+- Every row says how it fits this Mac, as a warning on its label:
+  - **Too big:** "Too large for this Mac" (memory or disk), using the existing
+    fit checks (`LocalModelFit.memory`/`.disk`). It can still be installed
+    with a clear warning where the memory override already allows it
+    (`permitsMemoryOverride`); otherwise the button stays disabled and the
+    label says why.
+  - **Too small:** a new "Smaller than this Mac can run, so answers may be
+    weaker" warning when a much larger size of the same or a better family
+    runs comfortably here. Smaller models get noticeably less capable,
+    especially with tools (see F2).
+  - Fine fits keep the current labels (Excellent fit, Good fit, May be slow).
+- Sort by family then size, and mark the recommended pick so people can find
+  their way back.
+
+### F13. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F13 needs the tags. See
+- Tag catalogue entries with these use cases; F14 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-### F13. Welcome page asks your occupation
+### F14. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (F12); hardware fit then narrows the
+- Occupation picks the use-case tags (F13); hardware fit then narrows the
   list, as the recommendations do today. It can also pre-fill custom
   instructions (F5).
 
-### F14. Voice dictation
+### F15. Voice dictation
 
 - A microphone button in the composer using on-device speech recognition
   (`SFSpeechRecognizer` with on-device recognition required), so audio never
@@ -331,16 +353,16 @@ Bug reports (F3) use the same value.
 - Check the selection shortcut's double-tap Command option, which already
   warns about clashing with the macOS Dictation shortcut.
 
-### F15. Better, more complete tour
+### F16. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search, plus whatever of F5–F14 has shipped.
+  Messages and web search, plus whatever of F5–F15 has shipped.
 - Do this after the features above, since they change what the tour should
   show.
 
-### F16. Maps integration (later)
+### F17. Maps integration (later)
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
