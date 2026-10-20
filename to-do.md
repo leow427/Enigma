@@ -23,7 +23,7 @@ only in that function, so these chats never reach the sidebar, even with
 - A selection chat always opens in the normal chat layout, no matter what.
 - The privacy toggle only decides whether it is saved:
   - Off: an ordinary chat, saved to Recents.
-  - On: the chat opens in ghost mode (temporary chat, see F5). It is not
+  - On: the chat opens in ghost mode (temporary chat, see F6). It is not
     saved and stays out of Recents.
 - The selection stays attached in memory for /edit and Replace text, as it
   does now. Selected text is never written to disk.
@@ -180,7 +180,7 @@ performance" in Settings still runs one by hand.
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
-Bug reports (F4) use the same value.
+Bug reports (F5) use the same value.
 
 ### F2. One shared system prompt: Enigma, a friendly personal assistant
 
@@ -200,7 +200,41 @@ Bug reports (F4) use the same value.
 - Keep it short: local models run with an 8,192-token context. Check that
   small local models still follow the existing length and Markdown guidance.
 
-### F3. Warn slow Macs that small local models handle tools poorly
+### F3. Copy buttons and syntax highlighting, like ChatGPT
+
+**Today:** code blocks (`ChatMarkdownView.swift`) are plain monospaced text in
+a scrolling box: no copy button, no language label, no colours. Replies and
+user messages can only be copied by selecting the text and pressing ⌘C.
+
+**Wanted:**
+
+- **Code blocks:** a header bar with the language name on the left and a
+  **Copy** icon in the top right that briefly turns into a check mark
+  ("Copied"). Syntax highlighting: keywords, strings, numbers, comments,
+  types and variables in different colours, using palette colours that work in
+  both Paper and Ink themes.
+- **Terminal commands** (`bash`, `sh`, `zsh`, `shell`, `console`): styled as
+  a terminal block, with commands, flags, paths and variables coloured
+  differently. Copy takes only the commands, without any `$ ` prompt or
+  shown output.
+- **Essays and other writing** (emails, cover letters, posts): a copy icon on
+  the whole reply (on hover, top right or in the reply's meta line). When the
+  reply contains a standalone draft, show the draft in a document-style block
+  with its own Copy icon, so the user copies just the piece and not the
+  surrounding chat. Ask the model to put such drafts in a fenced block
+  (for example ```` ```text ````) so they can be found reliably.
+- Copy writes plain text for code, and plain text plus rich text for writing,
+  so it pastes cleanly in editors and in Mail or Pages.
+- Accessibility: "Copy code", "Copy reply" labels; keep the existing
+  "Code" accessibility value.
+- **Highlighter choice:** a small built-in tokenizer for the common languages
+  (Swift, Python, JavaScript/TypeScript, shell, JSON, HTML/CSS, SQL) is
+  probably enough. If a library is used, assess its maintenance, license and
+  bundle size first (AGENTS.md), and avoid web-view-based highlighters.
+- Streaming: highlight as the block streams in, without flicker or layout
+  jumps; an unfinished fence still renders as code.
+
+### F4. Warn slow Macs that small local models handle tools poorly
 
 - On Macs whose recommendation is a ~4B model or smaller (or whose
   performance check says the model underperformed), show a short note:
@@ -212,7 +246,7 @@ Bug reports (F4) use the same value.
 - Use the advisor's existing hardware profile, recommendation roles and
   benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic.
 
-### F4. Bug reporting
+### F5. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
@@ -228,7 +262,7 @@ Bug reports (F4) use the same value.
   can replace it later if wanted.
 - Put it in Settings and the Help menu.
 
-### F5. Temporary chat (ghost mode)
+### F6. Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
   top-right of the main window starts a temporary chat.
@@ -240,7 +274,7 @@ Bug reports (F4) use the same value.
 - Reuse the existing private-chat machinery (`temporarySessionID`,
   `isTemporaryChat`, `historySessions`) instead of building a second one.
 
-### F6. Personalization tab in Settings (custom instructions)
+### F7. Personalization tab in Settings (custom instructions)
 
 - A new **Personalization** tab in Settings, like Claude's and ChatGPT's,
   where people add to the system prompt:
@@ -256,10 +290,10 @@ Bug reports (F4) use the same value.
   local models run with an 8,192-token context, so long instructions crowd out
   chat history.
 - Stored locally only, never sent anywhere except as part of a request.
-  Temporary chats (F5) still use it.
-- The occupation picker (F16) can pre-fill it.
+  Temporary chats (F6) still use it.
+- The occupation picker (F17) can pre-fill it.
 
-### F7. Keep typing while a reply streams
+### F8. Keep typing while a reply streams
 
 - Today the composer is disabled until the reply finishes
   (`AppShellView.swift`, `isBusy`). Let people type their next message while
@@ -269,7 +303,7 @@ Bug reports (F4) use the same value.
 - Make sure slash-command completion, attachments and the selection panel
   behave the same while a reply runs.
 
-### F8. Drag and drop files, and paste images
+### F9. Drag and drop files, and paste images
 
 - Drop files or folders onto the window or composer to attach them, as the
   Attach button (⇧⌘A) does today, within File Mode's limits (16 items, access
@@ -279,7 +313,7 @@ Bug reports (F4) use the same value.
   same OCR, vision-model and cloud upload consent rules.
 - Today there is no `onDrop`/`dropDestination` or paste handling anywhere.
 
-### F9. Sources as a small expandable icon, not typed out in the reply
+### F10. Sources as a small expandable icon, not typed out in the reply
 
 **Today:** with web search, the prompt tells the model "Cite only supporting
 URLs below" (`WebSearchContext.swift`), so replies often spell out every URL
@@ -300,15 +334,15 @@ are shown twice and the reply gets long.
   (`WebSearchSource`, saved per message as `searchSources`) as the list.
 - Keep it accessible: the icon has a label such as "3 sources, collapsed".
 
-### F10. Settings revamp with an Advanced toggle
+### F11. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
 - An "Advanced" toggle reveals the detailed options, such as the default
-  model, performance checks, catalogue details, local context size (F11) and
-  keyboard shortcuts (F12).
-- Do this before F15 and F16 so they have a clear place to link to.
+  model, performance checks, catalogue details, local context size (F12) and
+  keyboard shortcuts (F13).
+- Do this before F16 and F17 so they have a clear place to link to.
 
-### F11. Local context size (Advanced)
+### F12. Local context size (Advanced)
 
 - An Advanced setting for how much conversation the local model can see.
   Catalogue packages run with 8,192 tokens today (`recommendedContextSize`);
@@ -326,7 +360,7 @@ are shown twice and the reply gets long.
   default size.
 - The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
 
-### F12. Remappable keyboard shortcuts with collision warnings
+### F13. Remappable keyboard shortcuts with collision warnings
 
 - Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
   shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
@@ -339,7 +373,7 @@ are shown twice and the reply gets long.
 - Offer "Restore defaults". Move the selection-shortcut settings out of the
   Help sheet into this section.
 
-### F13. Saved prompts and custom slash commands
+### F14. Saved prompts and custom slash commands
 
 - Let people define their own commands, such as `/summarize` → "Summarize this
   in three bullet points:", that appear in the completion list next to the
@@ -348,13 +382,13 @@ are shown twice and the reply gets long.
   separately and refuse names that clash with built-in commands.
 - Optional per-command route (Local / Cloud / Auto).
 
-### F14. Browse every model and size in Settings
+### F15. Browse every model and size in Settings
 
 - Settings → Local models → "All models" shows only one size per family today
   (`LocalModelRecommendations.allFamilies` picks the best-fitting size, or the
   smallest). Let people browse **every** catalogue package, every family and
   every size, very small and very large alike.
-- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F10),
+- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F11),
   so the default view stays simple.
 - Every row says how it fits this Mac, as a warning on its label:
   - **Too big:** "Too large for this Mac" (memory or disk), using the existing
@@ -365,31 +399,31 @@ are shown twice and the reply gets long.
   - **Too small:** a new "Smaller than this Mac can run, so answers may be
     weaker" warning when a much larger size of the same or a better family
     runs comfortably here. Smaller models get noticeably less capable,
-    especially with tools (see F3).
+    especially with tools (see F4).
   - Fine fits keep the current labels (Excellent fit, Good fit, May be slow).
 - Sort by family then size, and mark the recommended pick so people can find
   their way back.
 
-### F15. Explore page revamp
+### F16. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F16 needs the tags. See
+- Tag catalogue entries with these use cases; F17 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-### F16. Welcome page asks your occupation
+### F17. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (F15); hardware fit then narrows the
+- Occupation picks the use-case tags (F16); hardware fit then narrows the
   list, as the recommendations do today. It can also pre-fill custom
-  instructions (F6).
+  instructions (F7).
 
-### F17. Voice dictation
+### F18. Voice dictation
 
 - A microphone button in the composer using on-device speech recognition
   (`SFSpeechRecognizer` with on-device recognition required), so audio never
@@ -400,16 +434,16 @@ are shown twice and the reply gets long.
 - Check the selection shortcut's double-tap Command option, which already
   warns about clashing with the macOS Dictation shortcut.
 
-### F18. Better, more complete tour
+### F19. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search, plus whatever of F6–F17 has shipped.
+  Messages and web search, plus whatever of F7–F18 has shipped.
 - Do this after the features above, since they change what the tour should
   show.
 
-### F19. Maps integration (later)
+### F20. Maps integration (later)
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
@@ -417,4 +451,4 @@ are shown twice and the reply gets long.
   existing approximate-location support (`LocationService`) used by web
   search; keep location rounded and unsaved as it is now.
 - Likely a new tool or slash command (`/maps`), with the same small-model
-  caveat as F3.
+  caveat as F4.
