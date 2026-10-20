@@ -23,7 +23,7 @@ only in that function, so these chats never reach the sidebar, even with
 - A selection chat always opens in the normal chat layout, no matter what.
 - The privacy toggle only decides whether it is saved:
   - Off: an ordinary chat, saved to Recents.
-  - On: the chat opens in ghost mode (temporary chat, see F3). It is not
+  - On: the chat opens in ghost mode (temporary chat, see F4). It is not
     saved and stays out of Recents.
 - The selection stays attached in memory for /edit and Replace text, as it
   does now. Selected text is never written to disk.
@@ -51,9 +51,21 @@ performance" in Settings still runs one by hand.
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
-Bug reports (F2) use the same value.
+Bug reports (F3) use the same value.
 
-### F2. Bug reporting
+### F2. Warn slow Macs that small local models handle tools poorly
+
+- On Macs whose recommendation is a ~4B model or smaller (or whose
+  performance check says the model underperformed), show a short note:
+  features that use tools, such as File Mode, Messages and web search, may not
+  work correctly with small local models, and connecting a cloud provider is
+  strongly suggested.
+- Show it in setup's model step and in Settings → Local models, with a link to
+  Cloud and search. Do not nag again once a cloud provider is connected.
+- Use the advisor's existing hardware profile, recommendation roles and
+  benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic.
+
+### F3. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
@@ -69,7 +81,7 @@ Bug reports (F2) use the same value.
   can replace it later if wanted.
 - Put it in Settings and the Help menu.
 
-### F3. Temporary chat (ghost mode)
+### F4. Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
   top-right of the main window starts a temporary chat.
@@ -81,35 +93,130 @@ Bug reports (F2) use the same value.
 - Reuse the existing private-chat machinery (`temporarySessionID`,
   `isTemporaryChat`, `historySessions`) instead of building a second one.
 
-### F4. Settings revamp with an Advanced toggle
+### F5. Custom instructions
+
+- A text box in Settings for standing instructions, such as "Answer briefly"
+  or "I write Swift for macOS".
+- Added to the hard-coded system prompt (`ChatResponseStyle.instructions` in
+  `ChatContext.swift`) for every route: local text and vision, agent runs, the
+  cloud APIs and the Claude Code / Codex subscriptions.
+- Cap its length and count it in the context budget: local models run with an
+  8,192-token context, so long instructions crowd out chat history.
+- The occupation picker (F13) can pre-fill it.
+
+### F6. Keep typing while a reply streams
+
+- Today the composer is disabled until the reply finishes
+  (`AppShellView.swift`, `isBusy`). Let people type their next message while
+  it streams.
+- Simplest version: typing works, Send stays disabled until the reply ends
+  (Stop still works). Queueing the next message can come later.
+- Make sure slash-command completion, attachments and the selection panel
+  behave the same while a reply runs.
+
+### F7. Drag and drop files, and paste images
+
+- Drop files or folders onto the window or composer to attach them, as the
+  Attach button (⇧⌘A) does today, within File Mode's limits (16 items, access
+  choice, size limits).
+- Drop or paste (⌘V) images to attach them like a screenshot: a new
+  `ScreenAttachment` source next to `screenRegion` and `fullDesktop`, with the
+  same OCR, vision-model and cloud upload consent rules.
+- Today there is no `onDrop`/`dropDestination` or paste handling anywhere.
+
+### F8. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
 - An "Advanced" toggle reveals the detailed options, such as the default
-  model, performance checks and catalogue details.
-- Do this before F5 and F6 so they have a clear place to link to.
+  model, performance checks, catalogue details, local context size (F9) and
+  keyboard shortcuts (F10).
+- Do this before F12 and F13 so they have a clear place to link to.
 
-### F5. Explore page revamp
+### F9. Local context size (Advanced)
+
+- An Advanced setting for how much conversation the local model can see.
+  Catalogue packages run with 8,192 tokens today (`recommendedContextSize`);
+  the fallback is 4,096 and File Mode allows up to 16,384.
+- **Worth it, with guardrails.** A larger context keeps longer chats and bigger
+  pasted text without trimming, but the KV cache grows with it (more memory),
+  and long prompts take longer to process. A smaller one saves memory on 8 GB
+  Macs.
+- Offer a few presets (for example Smaller 4K / Default 8K / Larger 16K /
+  Max 32K), limited by the model's trained maximum and this Mac's memory.
+  Re-run the memory-fit estimate (`LocalCacheLayout` already models the KV
+  cache per model) and warn before applying a size that may not fit.
+- Benchmarks are matched by context size (`LocalModelSelection`), so a new
+  size needs its own performance check or should say the figures are for the
+  default size.
+- The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
+
+### F10. Remappable keyboard shortcuts with collision warnings
+
+- Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
+  shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
+  ones (⌘N, ⌘K, ⌘., ⇧⌘A, ⌃Tab, ⌃⌘S, ⌘O).
+- Warn when a new shortcut collides with another Enigma shortcut, and with
+  known macOS ones (Spotlight ⌘Space, input source ⌃Space, Dictation, Mission
+  Control). System shortcuts can be read from the `com.apple.symbolichotkeys`
+  preferences; other apps' global shortcuts cannot be listed reliably, so the
+  warning should say it only checks Enigma and macOS.
+- Offer "Restore defaults". Move the selection-shortcut settings out of the
+  Help sheet into this section.
+
+### F11. Saved prompts and custom slash commands
+
+- Let people define their own commands, such as `/summarize` → "Summarize this
+  in three bullet points:", that appear in the completion list next to the
+  built-in ones.
+- `SlashCommand` is a fixed enum today; custom commands should be stored
+  separately and refuse names that clash with built-in commands.
+- Optional per-command route (Local / Cloud / Auto).
+
+### F12. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F6 needs the tags. See
+- Tag catalogue entries with these use cases; F13 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-### F6. Welcome page asks your occupation
+### F13. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (F5); hardware fit then narrows the list,
-  as the recommendations do today.
+- Occupation picks the use-case tags (F12); hardware fit then narrows the
+  list, as the recommendations do today. It can also pre-fill custom
+  instructions (F5).
 
-### F7. Better, more complete tour
+### F14. Voice dictation
+
+- A microphone button in the composer using on-device speech recognition
+  (`SFSpeechRecognizer` with on-device recognition required), so audio never
+  leaves the Mac.
+- Needs microphone and speech-recognition usage strings in `Info.plist` and the
+  audio-input entitlement; handle denied permission like the existing
+  permission rows.
+- Check the selection shortcut's double-tap Command option, which already
+  warns about clashing with the macOS Dictation shortcut.
+
+### F15. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search.
-- Do this last, since B1 and F3–F6 change what the tour should show.
+  Messages and web search, plus whatever of F5–F14 has shipped.
+- Do this after the features above, since they change what the tour should
+  show.
+
+### F16. Maps integration (later)
+
+- Eventually: answer place and direction questions with Apple Maps, for
+  example nearby search, travel times and "open in Maps".
+- MapKit (`MKLocalSearch`, `MKDirections`) needs no API key and fits the
+  existing approximate-location support (`LocationService`) used by web
+  search; keep location rounded and unsaved as it is now.
+- Likely a new tool or slash command (`/maps`), with the same small-model
+  caveat as F2.
