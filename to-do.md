@@ -1,9 +1,15 @@
 # To-do
 
-Planned work for Enigma, most important first. Bugs come first, then quick
-wins, then the revamps in the order they depend on each other.
+> **Note for agents:** This file has two lists: **Bug fixes** and
+> **Features**. Each list is ranked by priority, most important first. Bug
+> fixes generally come before features. Bug fixes use IDs B1, B2, …; features
+> use F1, F2, …. Keep that split, the ranking and the IDs when you add,
+> reorder or finish items. Remove an item, or tick it off, once it is done and
+> on `main`, and update any cross-references to it.
 
-## 1. Selection chats always open in the normal chat layout (bug)
+## Bug fixes
+
+### B1. Selection chats always open in the normal chat layout
 
 **Problem:** A chat started from a selection stays in the compact panel UI
 (`EnigmaCompactPanel`). It only becomes a normal window chat when the user
@@ -17,7 +23,7 @@ only in that function, so these chats never reach the sidebar, even with
 - A selection chat always opens in the normal chat layout, no matter what.
 - The privacy toggle only decides whether it is saved:
   - Off: an ordinary chat, saved to Recents.
-  - On: the chat opens in ghost mode (temporary chat, see #5). It is not
+  - On: the chat opens in ghost mode (temporary chat, see F3). It is not
     saved and stays out of Recents.
 - The selection stays attached in memory for /edit and Replace text, as it
   does now. Selected text is never written to disk.
@@ -26,7 +32,7 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
-## 2. Setup runs the performance check again for the suggested model (bug)
+### B2. Setup runs the performance check again for the suggested model
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
@@ -39,13 +45,15 @@ recommendations (`WelcomeSetup.choices`).
 Mac, so the suggested model installs without another check. "Check
 performance" in Settings still runs one by hand.
 
-## 3. Show the version number in Settings
+## Features
+
+### F1. Show the version number in Settings
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
-Bug reports (#4) use the same value.
+Bug reports (F2) use the same value.
 
-## 4. Bug reporting
+### F2. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
@@ -61,7 +69,7 @@ Bug reports (#4) use the same value.
   can replace it later if wanted.
 - Put it in Settings and the Help menu.
 
-## 5. Temporary chat (ghost mode)
+### F3. Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
   top-right of the main window starts a temporary chat.
@@ -69,39 +77,39 @@ Bug reports (#4) use the same value.
   eye holes, and a "Temporary · not saved" tag is shown.
 - Temporary chats are never written to disk, stay out of Recents, and are
   gone when you leave them.
-- Private selection chats (#1) open in this same mode.
+- Private selection chats (B1) open in this same mode.
 - Reuse the existing private-chat machinery (`temporarySessionID`,
   `isTemporaryChat`, `historySessions`) instead of building a second one.
 
-## 6. Settings revamp with an Advanced toggle
+### F4. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
 - An "Advanced" toggle reveals the detailed options, such as the default
   model, performance checks and catalogue details.
-- Do this before #7 and #8 so they have a clear place to link to.
+- Do this before F5 and F6 so they have a clear place to link to.
 
-## 7. Explore page revamp
+### F5. Explore page revamp
 
 - Add newer models that suit the app better.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; #8 needs the tags. See
+- Tag catalogue entries with these use cases; F6 needs the tags. See
   `docs/Updating-the-Model-Catalogue.md`.
 
-## 8. Welcome page asks your occupation
+### F6. Welcome page asks your occupation
 
 - A setup step asks what you do, then suggests models for it.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
     documents.
-- Occupation picks the use-case tags (#7); hardware fit then narrows the list,
+- Occupation picks the use-case tags (F5); hardware fit then narrows the list,
   as the recommendations do today.
 
-## 9. Better, more complete tour
+### F7. Better, more complete tour
 
 - The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
   files, model, help).
 - Add the missing features: selection, temporary chat (ghost mode), screen,
   Messages and web search.
-- Do this last, since #1 and #5–#8 change what the tour should show.
+- Do this last, since B1 and F3–F6 change what the tour should show.
