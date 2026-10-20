@@ -32,41 +32,41 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
-### B2. Sign in is greyed out even though Codex is installed
+### B2. ChatGPT sign-in is greyed out when only the ChatGPT app is installed
 
-**Problem:** On at least one Mac with Codex installed (it works on others),
-Settings → Cloud and search shows ChatGPT's **Sign in** greyed out. The button
-is disabled whenever `CodexRuntimeConfiguration.executableURL()`
-(`CodexAppServer.swift`) can't find `codex`, and it only looks in a fixed
-list: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, two app bundle
-paths, and `PATH`. An app opened from Finder or the menu bar gets a minimal
-`PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), not the one from the user's shell,
-so any other install location is missed. Likely misses:
-
-- npm installs under a Node version manager: `~/.nvm/versions/node/*/bin`,
-  `~/.volta/bin`, `~/.fnm`/`~/.local/state/fnm_multishells`, `~/.asdf/shims`.
-- A custom npm prefix (`~/.npm-global/bin`) or Bun (`~/.bun/bin`).
-- The Codex or ChatGPT app installed in `~/Applications`, or a bundle layout
-  different from the two hard-coded paths.
-
-Even once found, an npm install of `codex` is a Node script, and the runtime
-launches it with a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:…`), so
-`node` from a version manager would not be found either.
-`ClaudeCodeRuntime.executableURL()` has the same pattern.
+**Problem:** On a Mac with the ChatGPT desktop app but no Codex CLI, ChatGPT's
+**Sign in** in Settings → Cloud and search (and setup) is greyed out with
+little explanation. Enigma's ChatGPT route runs the Codex CLI (`codex
+app-server`), and the button is disabled whenever
+`CodexRuntimeConfiguration.executableURL()` (`CodexAppServer.swift`) can't
+find `codex`. It does check `/Applications/ChatGPT.app/Contents/Resources/codex`,
+but the ChatGPT app evidently doesn't ship a usable `codex` there, so having
+the app is not enough. People who have "ChatGPT" reasonably expect it to work.
+It works on Macs where Codex was installed separately.
 
 **Wanted:**
 
-- Find Codex (and Claude Code) wherever the user's own shell would: ask the
-  login shell once (`$SHELL -lc 'command -v codex'`, with a timeout) and add
-  the common version-manager and `~/Applications` locations, keeping the
-  existing absolute-path and executable checks.
-- Run it with a `PATH` that includes the found executable's folder, so a
-  Node-based install can find `node`.
-- When it still can't be found, say so next to the greyed-out button, with the
-  places checked, a "Choose Codex…" file picker to point at it manually, and
-  the installation link.
-- **To confirm first:** ask how Codex was installed on the affected Mac and
-  what `which codex` prints in Terminal.
+- Detect the ChatGPT app (and the Codex app) when `codex` isn't found, and say
+  plainly: "The ChatGPT app is installed, but Enigma connects through the Codex
+  command-line tool. Install Codex to sign in with your ChatGPT plan."
+- Give a clear path to install it: the official install command(s) to copy
+  (Homebrew or npm), a link to the instructions, and a **Check again** button
+  that re-detects without restarting Enigma. Consider a guided install later.
+- Show the same message in setup's connections step and in Settings, since
+  they share `ChatGPTConnectionControls`.
+- **Verify:** whether current ChatGPT or Codex app bundles contain a `codex`
+  executable at all, and at what path. Fix or remove the hard-coded app-bundle
+  candidates to match.
+
+**Also harden detection** (same area, lower priority): an app opened from
+Finder gets a minimal `PATH`, so Codex or Claude Code installed via a Node
+version manager (`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, fnm, asdf), a
+custom npm prefix (`~/.npm-global/bin`), Bun (`~/.bun/bin`) or in
+`~/Applications` is not found. Ask the login shell once (`$SHELL -lc 'command
+-v codex'`, with a timeout), add those folders, run the tool with its own
+folder on `PATH` so a Node-based install can find `node`, and offer a "Choose
+Codex…" picker as a last resort. `ClaudeCodeRuntime.executableURL()` has the
+same pattern.
 
 ### B3. "Check sign-in status" gives no feedback and no way to set up
 
