@@ -251,9 +251,20 @@ user messages can only be copied by selecting the text and pressing ⌘C.
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
 - An "Include logs" checkbox, **unchecked by default**.
+- An "Include this conversation" toggle, **off by default**, to help
+  understand what happened. Directly under it, a clear note: "Never turn this
+  on if the chat contains anything sensitive, such as passwords, personal or
+  financial details, or private messages."
+  - Lets the user pick which chat (the current one by default) and shows what
+    will be sent before sending.
+  - Sends the chat's text only: no attachments, screenshots, file contents,
+    selected text or Messages data unless they are already in the visible
+    text, and it says so.
+  - Not available for temporary chats (F6), which are never saved.
 - Adds diagnostics automatically: app version, macOS version, chip and memory,
   and the active route and model. It never includes chat content unless the
-  user turns logs on.
+  user turns on "Include this conversation", and logs must not contain chat
+  content either.
 - Reports go to walshleo427@gmail.com.
 - **Delivery (the easiest option):** open a ready-to-send email in the user's
   mail app with the report filled in (`NSSharingService(named: .composeEmail)`,
