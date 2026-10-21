@@ -124,8 +124,12 @@ recipient twice in one request, the second send is refused.
 When the model names a person rather than a handle, Enigma resolves it to one
 recipient without guessing. If a name matches more than one person or group,
 the model is told to ask you which one. For a person with several handles, the
-conversation with the most recent activity is used; the card shows the handle
-before you approve.
+conversation with the most recent activity is used, on any of their handles.
+With no conversation yet, a phone number is used rather than an email, and when
+there are several phone numbers the one labelled mobile or iPhone. An email is
+used only for a contact with no phone number. If that still leaves more than one
+equal choice, the model is told to ask you which, with phone numbers listed
+first. The card shows the exact handle before you approve.
 
 After a send, Enigma checks the Messages history for up to three seconds and
 reports either that the message appears there or that Messages accepted it.

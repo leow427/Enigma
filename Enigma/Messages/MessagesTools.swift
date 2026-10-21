@@ -288,8 +288,13 @@ struct MessagesTools: AgentToolbox {
       .max(by: { ($0.lastActivity ?? .distantPast) < ($1.lastActivity ?? .distantPast) }) {
       return try await approval(for: chat, text: text)
     }
-    guard handles.count == 1, let handle = handles.first else {
-      throw MessagesError.ambiguousRecipient(recipient, candidates: handles)
+    // No conversation yet: a phone number beats an email, and a mobile beats other phones.
+    let phones = candidates.flatMap(\.phones), mobiles = candidates.flatMap(\.mobilePhones)
+    let choices = phones.isEmpty ? handles : mobiles.isEmpty ? phones : mobiles
+    guard Set(choices.map(MessagesHandle.key)).count == 1, let handle = choices.first else {
+      var seenKeys = Set<String>()
+      let listed = (phones + candidates.flatMap(\.emails)).filter { seenKeys.insert(MessagesHandle.key($0)).inserted }
+      throw MessagesError.ambiguousRecipient(recipient, candidates: listed)
     }
     let normalized = handle.contains("@") ? handle.lowercased() : handle.filter { $0.isNumber || $0 == "+" }
     return MessagesSendApproval(conversationName: nil, recipients: [.init(name: candidates[0].name, handle: normalized)],

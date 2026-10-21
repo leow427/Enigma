@@ -5,6 +5,8 @@ struct MessagesContact: Sendable, Equatable {
   let name: String
   let phones: [String]
   let emails: [String]
+  /// The phones labelled mobile or iPhone; a subset of `phones`.
+  var mobilePhones: [String] = []
 
   var handles: [String] { phones + emails }
 }
@@ -41,9 +43,12 @@ struct SystemContactDirectory: MessagesContactDirectory {
         let name = [formatted, contact.nickname, contact.organizationName]
           .compactMap { $0 }.first { !$0.isEmpty }
         let phones = contact.phoneNumbers.map(\.value.stringValue)
+        let mobiles = contact.phoneNumbers.filter {
+          $0.label == CNLabelPhoneNumberMobile || $0.label == CNLabelPhoneNumberiPhone
+        }.map(\.value.stringValue)
         let emails = contact.emailAddresses.map { $0.value as String }
         guard let name, !(phones.isEmpty && emails.isEmpty) else { return }
-        contacts.append(MessagesContact(name: name, phones: phones, emails: emails))
+        contacts.append(MessagesContact(name: name, phones: phones, emails: emails, mobilePhones: mobiles))
       }
       return contacts
     }.value

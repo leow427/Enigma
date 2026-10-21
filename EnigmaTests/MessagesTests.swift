@@ -419,6 +419,61 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(runner.invocations.count, 3)
   }
 
+  func testNewConversationPrefersPhoneThenMobileThenEmail() async throws {
+    var contacts = FixtureContacts()
+    contacts.list += [
+      MessagesContact(name: "Pat Both", phones: ["+15550001001"], emails: ["pat@example.com"]),
+      MessagesContact(name: "Quinn Mobile", phones: ["+15550002001", "+15550002002"], emails: ["quinn@example.com"],
+        mobilePhones: ["+15550002002"]),
+      MessagesContact(name: "Rene Phones", phones: ["+15550003001", "+15550003002"], emails: ["rene@example.com"]),
+      MessagesContact(name: "Sky Email", phones: [], emails: ["sky@example.com"]),
+      MessagesContact(name: "Tess Twice", phones: ["+15550005001", "(555) 000-5001"], emails: []),
+      MessagesContact(name: "Uma Mobiles", phones: ["+15550006001", "+15550006002"], emails: [],
+        mobilePhones: ["+15550006001", "+15550006002"]),
+    ]
+    let seen = ApprovalRecorder()
+    let tools = tools(contacts: contacts) { await seen.record($0); return true }
+    for name in ["Pat Both", "Quinn Mobile", "Sky Email", "Tess Twice"] {
+      _ = try json(await tools.execute(name: "send_message",
+        arguments: .object(["recipient": .string(name), "text": .string("Hi")])))
+    }
+    let approvals = await seen.approvals
+    XCTAssertEqual(approvals.map(\.target),
+      [.iMessage("+15550001001"), .iMessage("+15550002002"), .iMessage("sky@example.com"),
+       .iMessage("+15550005001")])
+    let twoMobiles = await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Uma Mobiles"), "text": .string("Hi")]))
+    XCTAssertFalse(twoMobiles.success)
+    XCTAssertTrue(twoMobiles.text.contains("+15550006001") && twoMobiles.text.contains("+15550006002"))
+    let ambiguous = await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Rene Phones"), "text": .string("Hi")]))
+    XCTAssertFalse(ambiguous.success)
+    let first = try XCTUnwrap(ambiguous.text.range(of: "+15550003001"))
+    let email = try XCTUnwrap(ambiguous.text.range(of: "rene@example.com"))
+    XCTAssertTrue(ambiguous.text.contains("+15550003002") && first.lowerBound < email.lowerBound)
+    let count = await seen.approvals.count
+    XCTAssertEqual(count, 4)
+  }
+
+  func testExistingEmailConversationStillWinsOverPhone() async throws {
+    var db: OpaquePointer?
+    XCTAssertEqual(sqlite3_open(database.url.path, &db), SQLITE_OK)
+    XCTAssertEqual(sqlite3_exec(db, """
+      INSERT INTO handle VALUES (4, 'dana@example.com', 'iMessage');
+      INSERT INTO chat VALUES (4, 'iMessage;-;dana@example.com', 'dana@example.com', NULL, 'iMessage', 45);
+      INSERT INTO chat_handle_join VALUES (4, 4);
+      """, nil, nil, nil), SQLITE_OK)
+    sqlite3_close(db)
+    var contacts = FixtureContacts()
+    contacts.list.append(MessagesContact(name: "Dana Email", phones: ["+15550004001"], emails: ["dana@example.com"]))
+    let seen = ApprovalRecorder()
+    let tools = tools(contacts: contacts) { await seen.record($0); return true }
+    _ = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Dana Email"), "text": .string("Hi")])))
+    let approvals = await seen.approvals
+    XCTAssertEqual(approvals.first?.target, .chat("iMessage;-;dana@example.com"))
+  }
+
   func testAutomationDenialStopsTheRequestWithSettingsGuidance() async throws {
     let runner = RecordingRunner()
     runner.result = ProcessOutput(status: 1, output: "", error: "execution error: Not authorized to send Apple events to Messages. (-1743)")
