@@ -60,6 +60,17 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     // A copy outside Applications cannot update; offer to move it before anything starts.
     if MoveToApplicationsPrompt.runIfNeeded() { return }
     AppUpdater.shared.start()
+    // In the background, alongside startup: tidy or upgrade the built-in Codex
+    // (new Codex processes prefer the pinned folder, and cleanup only runs once it
+    // exists), and ask the shell where Codex and Claude Code are, so the synchronous
+    // lookups find Node-manager installs from the start.
+    Task.detached(priority: .utility) {
+      await CodexRuntime.maintainAtLaunch()
+    }
+    Task.detached(priority: .utility) {
+      await LoginShellToolLookup.shared.resolve("codex")
+      await LoginShellToolLookup.shared.resolve("claude")
+    }
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),
       name: .welcomeSetupRequested, object: nil)
     NotificationCenter.default.addObserver(

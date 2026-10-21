@@ -45,9 +45,9 @@ If a compatible runtime is already on this Mac, for example from an installed
 vision model, Enigma uses it instead. The download contains only the runtime and
 sends none of your files.
 
-Cloud File Mode needs a ChatGPT sign-in with the Codex CLI installed; see
-[ChatGPT setup](ChatGPT-Setup.md). Other cloud providers can still be used for
-ordinary chat.
+Cloud File Mode needs a ChatGPT sign-in through Codex; the first sign-in
+downloads Codex when this Mac has none. See [ChatGPT setup](ChatGPT-Setup.md).
+Other cloud providers can still be used for ordinary chat.
 
 ## Safe and protected edits
 

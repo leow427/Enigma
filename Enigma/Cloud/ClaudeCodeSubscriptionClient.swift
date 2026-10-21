@@ -46,7 +46,7 @@ enum ClaudeCodeError: LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .notInstalled:
-      "Install Claude Code, then check again. Enigma uses its Claude subscription sign-in."
+      "Claude Code could not be found on this Mac. Install it from Settings, then check again."
     case .notSignedIn:
       "Sign in to Claude Code in Settings to use your Claude plan."
     case .notSubscription:
@@ -67,20 +67,44 @@ enum ClaudeCodeError: LocalizedError, Equatable {
 struct ClaudeCodeRuntime: Sendable {
   static let live = ClaudeCodeRuntime(
     directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-      .appending(path: "AI Spotlight/Claude Code", directoryHint: .isDirectory)
+      .appending(path: "AI Spotlight/Claude Code", directoryHint: .isDirectory),
+    prepareLookup: { askAgain in
+      if askAgain { LoginShellToolLookup.shared.forgetNotFound("claude") }
+      _ = await LoginShellToolLookup.shared.resolve("claude")
+    }
   )
+
+  static let chosenPathKey = "aiSpotlight.cloud.claudeCodePath"
+  /// Anthropic's official installer, from https://code.claude.com/docs/en/setup.
+  static let installCommand = "curl -fsSL https://claude.ai/install.sh | bash"
 
   let directory: URL
   var executable: @Sendable () -> URL? = { ClaudeCodeRuntime.executableURL() }
+  /// Asks the shell where `claude` is; `true` first forgets a cached "not found".
+  /// Only the live runtime asks.
+  var prepareLookup: (@Sendable (Bool) async -> Void)?
+  /// Where the lookup looks, for "not found".
+  var lookedIn: @Sendable () -> String = { ClaudeCodeRuntime.search().lookedIn }
 
-  static func executableURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
-    let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let candidates = [environment["AI_SPOTLIGHT_CLAUDE_PATH"]].compactMap { $0 }
-      + ["\(home)/.local/bin/claude", "\(home)/.claude/local/claude",
-         "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
-      + (environment["PATH"] ?? "").split(separator: ":").map { "\($0)/claude" }
-    return candidates.first { $0.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: $0) }
-      .map { URL(fileURLWithPath: $0) }
+  static func executableURL(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    home: String = FileManager.default.homeDirectoryForCurrentUser.path,
+    loginShellPath: String? = LoginShellToolLookup.shared.cachedPath(for: "claude"),
+    chosenPath: String? = UserDefaults.standard.string(forKey: chosenPathKey)
+  ) -> URL? {
+    search(environment: environment, home: home, loginShellPath: loginShellPath, chosenPath: chosenPath).executableURL()
+  }
+
+  static func search(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    home: String = FileManager.default.homeDirectoryForCurrentUser.path,
+    loginShellPath: String? = LoginShellToolLookup.shared.cachedPath(for: "claude"),
+    chosenPath: String? = UserDefaults.standard.string(forKey: chosenPathKey)
+  ) -> CommandLineToolSearch {
+    CommandLineToolSearch(
+      name: "claude", preferred: [environment["AI_SPOTLIGHT_CLAUDE_PATH"]].compactMap { $0 },
+      usualFolders: ["\(home)/.local/bin", "\(home)/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"],
+      home: home, environment: environment, loginShellPath: loginShellPath, chosenPath: chosenPath)
   }
 
   /// Claude Code reads its subscription login from the user's Keychain, which needs
@@ -132,6 +156,7 @@ struct ClaudeCodeRuntime: Sendable {
     let workspace = directory.appending(path: "workspace", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
     var environment = environment
+    environment["PATH"] = CommandLineToolSearch.path(for: executableURL)
     // A send waits for the user's approval inside a tool call.
     if interactive { environment["MCP_TOOL_TIMEOUT"] = "900000" }
     return try ClaudeCodeProcess(
@@ -143,19 +168,57 @@ struct ClaudeCodeRuntime: Sendable {
   /// A Terminal script for the interactive browser sign-in Claude Code owns.
   func signInScript() throws -> URL {
     guard let executableURL = executable() else { throw ClaudeCodeError.notInstalled }
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let script = directory.appending(path: "Sign in to Claude Code.command")
-    let quoted = "'" + executableURL.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     let contents = """
       #!/bin/sh
-      \(quoted) auth login --claudeai
+      \(Self.quoted(executableURL.path)) auth login --claudeai
       echo
       echo "You can close this window and return to Enigma."
 
       """
+    return try writeScript(named: "Sign in to Claude Code.command", contents: contents)
+  }
+
+  /// A Terminal script that runs Anthropic's official installer and, when it
+  /// succeeds, the new Claude Code's browser sign-in in the same window.
+  /// Enigma never downloads or bundles Claude Code itself.
+  func installScript() throws -> URL {
+    let contents = """
+      #!/bin/bash
+      set -o pipefail
+      echo "Installing Claude Code with Anthropic's official installer…"
+      echo "\(Self.installCommand)"
+      echo
+      if \(Self.installCommand); then
+        claude="$HOME/.local/bin/claude"
+        [ -x "$claude" ] || claude="$(command -v claude)"
+        if [ -n "$claude" ] && [ -x "$claude" ]; then
+          echo
+          echo "Claude Code is installed. Signing in…"
+          "$claude" auth login --claudeai
+        else
+          echo "Claude Code was installed, but Enigma could not find it. In Enigma, choose Check again."
+        fi
+      else
+        echo
+        echo "The Claude Code installer did not finish. Check your connection, then try again from Enigma."
+      fi
+      echo
+      echo "You can close this window and return to Enigma."
+
+      """
+    return try writeScript(named: "Install Claude Code.command", contents: contents)
+  }
+
+  private func writeScript(named name: String, contents: String) throws -> URL {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let script = directory.appending(path: name)
     try Data(contents.utf8).write(to: script, options: .atomic)
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
     return script
+  }
+
+  private static func quoted(_ path: String) -> String {
+    "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
   }
 }
 
@@ -351,6 +414,11 @@ struct ClaudeCodeSubscriptionClient: ChatProvider {
   var isInstalled: Bool { runtime.executable() != nil }
 
   func runtimeSignInScript() throws -> URL { try runtime.signInScript() }
+
+  func runtimeInstallScript() throws -> URL { try runtime.installScript() }
+
+  /// Lets the live runtime ask the login shell before `isInstalled` is read.
+  func prepareLookup(askAgain: Bool = false) async { await runtime.prepareLookup?(askAgain) }
 
   func account() async throws -> ClaudeCodeAccount? {
     let process = try runtime.launch(arguments: ["auth", "status"], input: nil)

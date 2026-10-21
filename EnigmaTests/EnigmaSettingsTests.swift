@@ -643,6 +643,14 @@ final class EnigmaSettingsTests: XCTestCase {
   // MARK: Failure paths
 
   @MainActor
+  func testCloudPageShowsTheAnthropicAPIKeyRouteWhenClaudeCodeIsMissing() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the Terminal steps disclosure", in: host.view) { host.shows("Terminal steps") }
+    XCTAssertTrue(host.shows("Anthropic API key note"))
+  }
+
+  @MainActor
   func testFailedKeySaveShowsTheSameErrorAndKeepsTheKey() async throws {
     let fixture = try await Fixture(test: self, cloudCredentials: FailingCloudCredentials())
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)

@@ -59,7 +59,9 @@ as `2/4`. Each step has one primary button, which Return presses.
    ![Pick a local model](design/ui-revamp/screenshots/phase-4/welcome-2-models-paper.png)
 
 3. **Connect what you use.** Everything here is optional.
-   - **Claude** and **ChatGPT** use the same sign-in controls as Settings. See
+   - **Claude** and **ChatGPT** use the same sign-in controls as Settings,
+     except that setup leaves out the note about the Anthropic API-key route
+     to save room. Neither needs a command-line tool installed first. See
      [Claude-Code-Setup.md](Claude-Code-Setup.md) and
      [ChatGPT-Setup.md](ChatGPT-Setup.md).
    - **Brave Search** has a secure key field and **Save key** (Return in the

@@ -7,19 +7,33 @@ route falls back to the other.
 
 ## Setup
 
-1. Install [Claude Code](https://code.claude.com/docs/en/setup). Enigma looks
-   for `claude` in `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, and
-   `/usr/local/bin`, and then on the app's `PATH`. To use another copy, set
-   `AI_SPOTLIGHT_CLAUDE_PATH` to its absolute path (for example in the Xcode
-   scheme's Run environment).
-2. Open **Settings → Cloud and search → Subscriptions → Claude**, or the
-   **Connect what you use** step of welcome setup. If Claude Code isn't found,
-   the row says so and offers **Claude Code installation instructions** and
-   **Check sign-in status**; **Sign in** stays off until it is installed.
-   **Check sign-in status** shows **Checking…** while it runs and then always
-   reports the result under the row: signed in as an account, not signed in
-   (choose **Sign in**), Claude Code not found on this Mac (use the install link, then
-   check again), or the error with a hint to retry.
+1. Open **Settings → Cloud and search → Subscriptions → Claude**, or the
+   **Connect what you use** step of welcome setup.
+2. If Claude Code isn't found, the row's main button is **Install Claude
+   Code**. Enigma never bundles or downloads Claude Code itself: the button
+   opens Terminal with a script that runs Anthropic's official installer,
+   `curl -fsSL https://claude.ai/install.sh | bash` (from
+   [Anthropic's setup guide](https://code.claude.com/docs/en/setup)), and, if
+   it succeeds, the new `claude auth login --claudeai` in the same window, so
+   one click covers install and sign-in. The row reads **installing** with
+   **Cancel**; Enigma checks every two seconds for up to 15 minutes and, once
+   signed in, selects Claude and loads its models. The **Terminal steps**
+   disclosure (hidden while Enigma waits) shows the command with **Copy** and
+   three steps for doing it yourself: open Terminal, paste the command and
+   press Return, then come back and choose **Check again**, then **Sign in**. If Claude Code is installed somewhere
+   Enigma doesn't look, **Choose Claude Code…** picks the `claude` file; Enigma
+   saves that path and uses it while it is still an executable file.
+
+   Anthropic's officially supported way to use Claude in third-party apps is an
+   Anthropic API key (**API keys** on the same Settings page); the Claude row
+   in Settings says so. Welcome setup leaves that note out for room.
+
+   **Check sign-in status** (**Check again** while Claude Code is missing)
+   shows **Checking…** while it runs and then always reports the result under
+   the row: signed in as an account, not signed in (choose **Sign in**), Claude
+   Code not found on this Mac with the folders Enigma looked in (choose
+   **Install Claude Code** or **Choose Claude Code…**), or the error with a
+   hint to retry.
 3. If Claude Code is already signed in with a Claude subscription, the row reads
    **connected** with your email and plan. Otherwise choose **Sign in**: Enigma
    opens Terminal, which runs `claude auth login --claudeai`, and you finish in
@@ -32,7 +46,22 @@ route falls back to the other.
    requests to the preferred cloud provider; see
    [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
 
-![The Claude row during setup](design/ui-revamp/screenshots/phase-10/welcome-connections-paper.png)
+### Which Claude Code Enigma uses
+
+Enigma looks for `claude` in this order and uses the first executable it finds:
+`AI_SPOTLIGHT_CLAUDE_PATH` (an absolute path for developers, for example in
+the Xcode scheme's Run environment); `~/.local/bin` (where the official
+installer puts it), `~/.claude/local`, `/opt/homebrew/bin`, `/usr/local/bin`;
+the folders Node version managers, npm and Bun install into
+(`~/.nvm/versions/node/*/bin` newest first, `~/.volta/bin`, fnm's
+`node-versions/*/installation/bin`, `~/.asdf/shims`, `~/.npm-global/bin`,
+`~/.bun/bin`); where your shell finds it (`$SHELL -ilc 'command -v claude'`,
+asked in the background with a 5-second limit, as for
+[Codex](ChatGPT-Setup.md#which-codex-enigma-uses)); the
+file chosen with **Choose Claude Code…**; and the app's `PATH`. Enigma doesn't
+look in `~/Applications`, because Claude Code has no app-bundle layout there.
+
+![The ChatGPT and Claude rows on a Mac with neither tool installed](images/cloud-connections-not-installed-paper.png)
 
 ### Model and effort
 
@@ -55,12 +84,14 @@ out of both Enigma and the CLI.
 ## Privacy and data handling
 
 - Enigma never reads or copies Claude Code's credentials; Claude Code keeps them
-  and Enigma only runs the CLI.
+  and Enigma only runs the CLI. The only thing Enigma saves for Claude Code is
+  the path chosen with **Choose Claude Code…**.
 - The account check runs `claude auth status` and accepts only a `claude.ai`
   subscription sign-in. If Claude Code is signed in with Anthropic Console
   billing, Enigma shows an error and sends nothing.
 - The CLI runs with a minimal environment (`HOME`, `USER`, `LOGNAME`, a fixed
-  `PATH`, `TMPDIR`, and `LANG`). It inherits no `ANTHROPIC_API_KEY`, auth
+  `PATH` with the `claude` executable's own folder first, so a Node-based
+  install finds its `node`, `TMPDIR`, and `LANG`). It inherits no `ANTHROPIC_API_KEY`, auth
   token, base URL, or Bedrock or Vertex settings.
 - Each response is a separate `claude -p` process in an empty working folder
   under `~/Library/Application Support/AI Spotlight/Claude Code`. It runs with
@@ -81,20 +112,26 @@ Messages tools are allowed. See [Messages.md](Messages.md).
 
 | File | Responsibility |
 | --- | --- |
-| `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` | `ClaudeCodeRuntime` (executable lookup, environment, chat and tool-mode arguments, the Terminal sign-in script), `ClaudeCodeProcess`, `ClaudeCodeStreamParser`, and `ClaudeCodeSubscriptionClient` (account status, the model aliases, streaming). Also `ClaudeCodeEffort`. |
+| `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` | `ClaudeCodeRuntime` (executable lookup order, environment, chat and tool-mode arguments, the install command, and the Terminal install and sign-in scripts), `ClaudeCodeProcess`, `ClaudeCodeStreamParser`, and `ClaudeCodeSubscriptionClient` (account status, the model aliases, streaming). Also `ClaudeCodeEffort`. |
+| `Enigma/Cloud/CommandLineToolLocator.swift` | The lookup folders shared with Codex, the "looked in" text, `PATH` with the tool's folder, and the cached login-shell question. |
 | `Enigma/Cloud/CloudToolCalling.swift` | `ClaudeCodeToolMode`, which serves Enigma's MCP server for tool requests such as `/messages`. |
 | `Enigma/Cloud/CloudConnectionControls.swift` | `ClaudeCodeConnectionControls`, the row shared by Settings and welcome setup. |
-| `Enigma/Cloud/CloudSettingsModel.swift` | Account state, the sign-in polling, the preferred provider and model, and effort. |
+| `Enigma/Cloud/CloudSettingsModel.swift` | Account state, the install and sign-in polling, the chosen Claude Code path, the preferred provider and model, and effort. |
 | `Enigma/Chat/ChatContext.swift` | The Claude Code context budget, which leaves room for the CLI's own prompt text. |
 
 ## Limitations
 
-- Claude Code must be installed and signed in with a Claude subscription.
+- Claude Code must be installed (by Anthropic's installer, not by Enigma) and
+  signed in with a Claude subscription. Anthropic's Agent SDK documentation says
+  that, unless previously approved, third-party developers may not offer
+  claude.ai login or rate limits in their products; the API-key route is the
+  supported one.
 - Plan usage limits apply.
 - Responses are text only: no images are sent. For how screenshots are handled,
   see [Screen-Skill.md](Screen-Skill.md). Cloud File Mode uses ChatGPT via
   Codex, not Claude; see [File-Mode.md](File-Mode.md).
-- Sign-in happens in Terminal and the browser and needs your participation.
+- Install and sign-in happen in Terminal and the browser and need your
+  participation.
 
 ## Tests
 
@@ -103,7 +140,10 @@ scripts. It covers the process environment and flags, `/think` raising effort,
 stream parsing across chunk boundaries, error results and invalid output,
 account states, a missing CLI, the conversation sent on standard input,
 results without deltas, signed-out and unexpected exits, Stop terminating the
-process, settings and the default model, the Terminal sign-in flow, and the
-context budget. `EnigmaTests/MessagesToolCallingTests.swift` covers the tool
+process, settings and the default model, the Terminal sign-in flow, the install script
+and the install-then-sign-in wait, cancelling it, choosing a Claude Code file,
+and the context budget. `EnigmaTests/CloudToolInstallTests.swift` covers the
+lookup order, the "looked in" text, the login-shell question and `PATH` with
+the tool's own folder. `EnigmaTests/MessagesToolCallingTests.swift` covers the tool
 mode's arguments and MCP handling. None of these tests need Claude Code, a
 login, or paid requests.

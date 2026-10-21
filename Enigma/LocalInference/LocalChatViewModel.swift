@@ -339,7 +339,7 @@ final class LocalChatViewModel: ObservableObject {
     self.fileCodex = fileCodex
     self.fileCloudAvailability = fileCloudAvailability ?? {
       if await ScreenConnectivity.shared.isOffline { return .unavailable(reason: "This Mac is offline.") }
-      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Codex is not installed.") }
+      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Sign in to ChatGPT in Settings → Cloud and search to use Codex.") }
       return await fileCodex.fileEditingAvailability(preferredModelID: CloudPreferencesStore().preferredModel(for: .chatGPT))
     }
     self.visionEngine = visionEngine

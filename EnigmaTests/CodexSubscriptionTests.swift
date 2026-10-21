@@ -452,7 +452,7 @@ final class CodexSubscriptionTests: XCTestCase {
     let missing = model(MockCodexTransport(), installed: false)
     XCTAssertNil(missing.chatGPTCheck)
     await missing.checkChatGPTSignIn()
-    XCTAssertEqual(missing.chatGPTCheck, .notInstalled)
+    XCTAssertEqual(missing.chatGPTCheck, .notSignedInNeedsCodexDownload, "No Codex yet is not a problem: Sign in downloads it")
     XCTAssertFalse(missing.isCheckingChatGPT)
 
     let out = model(MockCodexTransport(account: .null), installed: true)
@@ -486,6 +486,154 @@ final class CodexSubscriptionTests: XCTestCase {
     XCTAssertEqual(noEmail.chatGPTCheck, .signedIn(nil))
   }
 
+  @MainActor
+  func testSignInWithoutCodexDownloadsItThenContinuesIntoBrowserSignIn() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installed = InstallState()
+    let transport = MockCodexTransport(loginSuccess: true)
+    let settings = settingsModel(transport: transport, root: root, installed: installed) { progress in
+      installed.record("started")
+      await progress(ModelDownloadProgress(receivedByteCount: 50, expectedByteCount: 100))
+      await progress(ModelDownloadProgress(receivedByteCount: 100, expectedByteCount: 100))
+      installed.isInstalled = true
+    }
+    XCTAssertFalse(settings.isCodexAvailable)
+    let opened = InstallState()
+    settings.signInWithChatGPT { url in opened.record(url.host ?? ""); return true }
+    XCTAssertTrue(settings.isSigningIn)
+    try await waitUntil { !settings.isSigningIn }
+    XCTAssertEqual(installed.events, ["started"])
+    XCTAssertEqual(opened.events, ["auth.openai.com"], "Sign-in continues without a second click")
+    XCTAssertEqual(settings.chatGPTAccount?.email, "person@example.com")
+    XCTAssertTrue(settings.isCodexAvailable)
+    XCTAssertFalse(settings.isDownloadingCodex)
+    XCTAssertEqual(settings.codexDownloadProgress, 1)
+    XCTAssertNil(settings.accountError)
+  }
+
+  @MainActor
+  func testCancellingOrFailingTheCodexDownloadNeverStartsSignInAndCanRetry() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installed = InstallState()
+    let transport = MockCodexTransport(loginSuccess: true)
+    let settings = settingsModel(transport: transport, root: root, installed: installed) { progress in
+      installed.record("attempt")
+      switch installed.events.count {
+      case 1:
+        await progress(ModelDownloadProgress(receivedByteCount: 10, expectedByteCount: 100))
+        try await Task.sleep(for: .seconds(60))
+      case 2:
+        throw CodexRuntimeError.cannotStart
+      default:
+        installed.isInstalled = true
+      }
+    }
+    settings.signInWithChatGPT { _ in true }
+    try await waitUntil { settings.isDownloadingCodex && settings.codexDownloadProgress > 0 }
+    settings.cancelSignIn()
+    try await waitUntil { !settings.isSigningIn }
+    XCTAssertFalse(settings.isDownloadingCodex)
+    XCTAssertNil(settings.accountError, "Cancelling is not an error")
+
+    settings.signInWithChatGPT { _ in true }
+    try await waitUntil { !settings.isSigningIn }
+    let failure = CodexInstallFailure(CodexRuntimeError.cannotStart)
+    XCTAssertEqual(settings.accountError, failure.localizedDescription)
+    XCTAssertTrue(failure.localizedDescription.hasPrefix("Codex was downloaded but could not be started."))
+    XCTAssertTrue(failure.localizedDescription.contains("Choose Sign in to try again"))
+    XCTAssertNil(settings.chatGPTAccount)
+    var requests = await transport.recordedRequests
+    XCTAssertFalse(requests.contains { $0.method == "account/login/start" })
+
+    settings.signInWithChatGPT { _ in true }
+    try await waitUntil { !settings.isSigningIn }
+    XCTAssertEqual(installed.events.count, 3)
+    XCTAssertNil(settings.accountError)
+    XCTAssertEqual(settings.chatGPTAccount?.email, "person@example.com")
+    requests = await transport.recordedRequests
+    XCTAssertEqual(requests.filter { $0.method == "account/login/start" }.count, 1)
+  }
+
+  func testCodexInstallFailureSaysWhichStepFailed() {
+    XCTAssertTrue(CodexInstallFailure(URLError(.notConnectedToInternet)).localizedDescription
+      .hasPrefix("Codex could not be downloaded from OpenAI."))
+    XCTAssertTrue(CodexInstallFailure(LocalModelCatalogError.checksumMismatch).localizedDescription
+      .hasPrefix("Codex could not be downloaded from OpenAI."))
+    for error in [CodexRuntimeError.invalidArchive, .incomplete, .wrongPackage] {
+      XCTAssertTrue(CodexInstallFailure(error).localizedDescription
+        .hasPrefix("Codex was downloaded but could not be installed."), "\(error)")
+    }
+    XCTAssertEqual(CodexInstallFailure(CodexRuntimeError.cannotStart).stage, .start)
+    XCTAssertEqual(CodexInstallFailure(CodexRuntimeError.timedOut).stage, .install)
+    XCTAssertEqual(CodexInstallFailure(CodexRuntimeError.installFailed("The disk is full.")).stage, .install,
+                   "Anything after the download, such as a full disk, is an install failure")
+  }
+
+  @MainActor
+  func testCheckSignInAsksTheShellAgainAfterACachedNotFound() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let asked = InstallState()
+    let lookup = LoginShellToolLookup(shell: "/bin/sh") { _, _, _ in asked.record("asked"); return "" }
+    let client = CodexSubscriptionClient(transport: MockCodexTransport())
+    let suite = "CodexShellRetry.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let settings = CloudSettingsModel(
+      credentialStore: CodexTestCredentials(),
+      catalog: CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(), cacheDirectory: root, codex: client),
+      preferences: CloudPreferencesStore(defaults: defaults), codex: client,
+      codexAvailable: { false }, codexShellLookup: lookup
+    )
+    await settings.refreshChatGPTAccount()
+    await settings.refreshChatGPTAccount()
+    XCTAssertEqual(asked.events.count, 1, "Background refreshes use the cached \"not found\"")
+    await settings.checkChatGPTSignIn()
+    XCTAssertEqual(asked.events.count, 2, "Check sign-in status asks the shell again")
+    XCTAssertEqual(settings.chatGPTCheck, .notSignedInNeedsCodexDownload)
+  }
+
+  @MainActor
+  func testBackgroundRefreshSkipsTheShellWhenCodexIsFound() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let asked = InstallState()
+    let lookup = LoginShellToolLookup(shell: "/bin/sh") { _, _, _ in asked.record("asked"); return "" }
+    let client = CodexSubscriptionClient(transport: MockCodexTransport())
+    let suite = "CodexShellSkip.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let settings = CloudSettingsModel(
+      credentialStore: CodexTestCredentials(),
+      catalog: CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(), cacheDirectory: root, codex: client),
+      preferences: CloudPreferencesStore(defaults: defaults), codex: client,
+      codexAvailable: { true }, codexShellLookup: lookup
+    )
+    await settings.refreshChatGPTAccount()
+    await settings.refreshChatGPTAccount()
+    XCTAssertTrue(asked.events.isEmpty, "The shell ranks below a found Codex, so it isn't asked")
+    XCTAssertEqual(settings.chatGPTAccount?.email, "person@example.com")
+    await settings.checkChatGPTSignIn()
+    XCTAssertEqual(asked.events.count, 1, "The explicit check still asks")
+  }
+
+  @MainActor
+  func testSignInWithCodexPresentSkipsTheDownload() async throws {
+
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installed = InstallState()
+    installed.isInstalled = true
+    let settings = settingsModel(transport: MockCodexTransport(loginSuccess: true), root: root, installed: installed) { _ in
+      XCTFail("Codex is already available")
+    }
+    settings.signInWithChatGPT { _ in true }
+    try await waitUntil { !settings.isSigningIn }
+    XCTAssertEqual(settings.chatGPTAccount?.email, "person@example.com")
+  }
+
   func testCodexBoundsSerializedContextAndKeepsOriginalMessages() async throws {
     let transport = MockCodexTransport(turnNotifications: [completion("completed")])
     let base = request()
@@ -517,6 +665,30 @@ final class CodexSubscriptionTests: XCTestCase {
     } catch { XCTAssertTrue(error is ChatContextError) }
     let requests = await transport.recordedRequests
     XCTAssertTrue(requests.isEmpty)
+  }
+
+  @MainActor
+  private func settingsModel(transport: MockCodexTransport, root: URL, installed: InstallState,
+                             install: @escaping CloudSettingsModel.CodexInstall) -> CloudSettingsModel {
+    let client = CodexSubscriptionClient(transport: transport)
+    let suite = "CodexInstall.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    return CloudSettingsModel(
+      credentialStore: CodexTestCredentials(),
+      catalog: CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(), cacheDirectory: root, codex: client),
+      preferences: CloudPreferencesStore(defaults: defaults), codex: client,
+      codexAvailable: { installed.isInstalled }, installCodex: install
+    )
+  }
+
+  @MainActor
+  private func waitUntil(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+    while !condition() {
+      guard ContinuousClock.now < deadline else { return XCTFail("Timed out", file: file, line: line) }
+      try await Task.sleep(for: .milliseconds(10))
+    }
   }
 
   private func request(modelID: String = "model-one") -> ChatRequest {
@@ -558,6 +730,18 @@ final class CodexSubscriptionTests: XCTestCase {
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     return url
   }
+}
+
+private final class InstallState: @unchecked Sendable {
+  private let lock = NSLock()
+  private var installed = false
+  private var recorded: [String] = []
+  var isInstalled: Bool {
+    get { lock.withLock { installed } }
+    set { lock.withLock { installed = newValue } }
+  }
+  var events: [String] { lock.withLock { recorded } }
+  func record(_ event: String) { lock.withLock { recorded.append(event) } }
 }
 
 private struct FailingCodexTransport: CodexRPCTransport {

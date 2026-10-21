@@ -3,18 +3,28 @@ import SwiftUI
 
 // The subscription connections, shared by setup and Settings.
 
-/// ChatGPT through the Codex sign-in on this Mac.
+/// ChatGPT through the Codex sign-in on this Mac. When no Codex is found, Sign in
+/// first downloads Enigma's pinned copy from OpenAI.
 struct ChatGPTConnectionControls: View {
   @ObservedObject var settings: CloudSettingsModel
 
-  static func status(isConnected: Bool, isSigningIn: Bool) -> (EnigmaStatusLine.Status, String) {
+  static let downloadNote = "Signing in the first time downloads Codex from OpenAI · \(CodexRuntime.downloadSize)"
+  static let downloadCheckText = "Not signed in · Sign in downloads Codex from OpenAI (\(CodexRuntime.downloadSize))"
+
+  static func status(isConnected: Bool, isSigningIn: Bool, isDownloading: Bool = false,
+                     isInstalling: Bool = false) -> (EnigmaStatusLine.Status, String) {
     if isConnected { return (.on, "connected") }
+    if isInstalling { return (.busy, "installing Codex") }
+    if isDownloading { return (.busy, "downloading Codex") }
     if isSigningIn { return (.busy, "signing in") }
     return (.off, "not connected")
   }
 
   var body: some View {
-    let status = Self.status(isConnected: settings.chatGPTAccount != nil, isSigningIn: settings.isSigningIn)
+    // The download reports 100% before the package is checked and installed.
+    let isInstalling = settings.isDownloadingCodex && settings.codexDownloadProgress >= 1
+    let status = Self.status(isConnected: settings.chatGPTAccount != nil, isSigningIn: settings.isSigningIn,
+                             isDownloading: settings.isDownloadingCodex, isInstalling: isInstalling)
     VStack(alignment: .leading, spacing: 0) {
       EnigmaRow("ChatGPT", subtitle: "Through your ChatGPT plan, using Codex") {
         HStack(spacing: 12) {
@@ -25,13 +35,17 @@ struct ChatGPTConnectionControls: View {
       EnigmaConnectionDetails {
         if let account = settings.chatGPTAccount {
           EnigmaConnectionNote(account.email ?? "Signed in with ChatGPT")
+        } else if isInstalling {
+          EnigmaConnectionNote("Installing Codex… Sign-in continues in your browser when it finishes.")
+        } else if settings.isDownloadingCodex {
+          EnigmaProgressBar(fraction: settings.codexDownloadProgress, width: nil, label: "Codex download progress")
+          EnigmaConnectionNote("Downloading Codex from OpenAI. Sign-in continues in your browser when it finishes.")
         } else if settings.isSigningIn {
           EnigmaConnectionNote("Finish signing in in your browser…")
+        } else if !settings.isCodexAvailable {
+          EnigmaConnectionNote(Self.downloadNote)
         }
         EnigmaConnectionNote("Uses your ChatGPT plan's Codex allowance, not API billing. Plan limits and model availability apply. This is a Codex-powered chat, not the ChatGPT website.")
-        if !settings.isCodexAvailable {
-          EnigmaConnectionNote("The Codex CLI is required on this Mac. Install or update it, then check again.")
-        }
         EnigmaConnectionNote("Codex securely stores your sign-in on this Mac.")
         HStack(spacing: 2) {
           Button(settings.isCheckingChatGPT ? "Checking…" : "Check sign-in status") {
@@ -39,10 +53,6 @@ struct ChatGPTConnectionControls: View {
           }
           .enigmaButtonStyle(.text)
           .disabled(settings.isSigningIn || settings.isCheckingChatGPT)
-          if !settings.isCodexAvailable {
-            Link("Codex installation instructions", destination: URL(string: "https://learn.chatgpt.com/docs/cli")!)
-              .enigmaButtonStyle(.text)
-          }
           if settings.chatGPTAccount != nil {
             Button("Sign out") {
               Task { await settings.signOutOfChatGPT() }
@@ -53,8 +63,7 @@ struct ChatGPTConnectionControls: View {
         }
         .padding(.leading, -8)
         if let check = settings.chatGPTCheck {
-          SignInCheckResult(check, product: "Codex",
-                            signInHint: "Choose Sign in to connect your ChatGPT plan.")
+          SignInCheckResult(check, product: "Codex", signInHint: "Choose Sign in to connect your ChatGPT plan.")
         } else if let accountError = settings.accountError {
           EnigmaStatusLine(.problem, accountError)
         }
@@ -76,7 +85,7 @@ struct ChatGPTConnectionControls: View {
     } else if settings.isSigningIn {
       Button("Cancel") { settings.cancelSignIn() }
         .enigmaButtonStyle(.secondary)
-        .accessibilityLabel("Cancel ChatGPT sign-in")
+        .accessibilityLabel(settings.isDownloadingCodex ? "Cancel Codex download and sign-in" : "Cancel ChatGPT sign-in")
     } else {
       Button("Sign in") {
         settings.signInWithChatGPT { url in
@@ -84,26 +93,42 @@ struct ChatGPTConnectionControls: View {
         }
       }
       .enigmaButtonStyle(.secondary)
-      .disabled(!settings.isCodexAvailable || settings.isCheckingChatGPT)
-      .accessibilityLabel("Sign in with ChatGPT")
+      .disabled(settings.isCheckingChatGPT)
+      .accessibilityLabel(settings.isCodexAvailable ? "Sign in with ChatGPT"
+        : "Sign in with ChatGPT, downloading Codex from OpenAI first (\(CodexRuntime.downloadSize))")
     }
   }
 }
 
 /// Claude through the Claude Code sign-in on this Mac, which Claude Code owns.
+/// Claude Code is never bundled: when it is missing, Install runs Anthropic's
+/// official installer in Terminal.
 struct ClaudeCodeConnectionControls: View {
   @ObservedObject var settings: CloudSettingsModel
+  /// Settings shows the API-key note; welcome setup, short on room, leaves it out.
+  var showsAPIKeyNote = true
 
-  static func status(isConnected: Bool, isSelected: Bool, isWaiting: Bool) -> (EnigmaStatusLine.Status, String) {
+  static let installSteps = [
+    "1. Open Terminal (Applications → Utilities → Terminal).",
+    "2. Paste the command below and press Return.",
+    "3. Come back and choose Check again, then Sign in.",
+  ]
+  static let apiKeyNote = "Anthropic's supported way to use Claude in other apps is an Anthropic API key: add one under API keys below."
+
+  /// Once the installed Claude Code is found, the wait is for sign-in.
+  static func status(isConnected: Bool, isSelected: Bool, isWaiting: Bool, isInstalling: Bool = false,
+                     isFound: Bool = false) -> (EnigmaStatusLine.Status, String) {
     if isConnected { return (.on, isSelected ? "connected · selected for cloud" : "connected") }
-    if isWaiting { return (.busy, "signing in") }
+    if isWaiting { return (.busy, isInstalling && !isFound ? "installing" : "signing in") }
     return (.off, "not connected")
   }
 
   var body: some View {
     let isSelected = settings.preferredProvider == .claudeCode
     let status = Self.status(isConnected: settings.claudeCodeAccount != nil, isSelected: isSelected,
-                             isWaiting: settings.isWaitingForClaudeCodeSignIn)
+                             isWaiting: settings.isWaitingForClaudeCodeSignIn,
+                             isInstalling: settings.isInstallingClaudeCode, isFound: settings.isClaudeCodeAvailable)
+    let isMissing = !settings.isClaudeCodeAvailable && settings.claudeCodeAccount == nil
     VStack(alignment: .leading, spacing: 0) {
       EnigmaRow("Claude", subtitle: "Through your Claude plan, using Claude Code") {
         HStack(spacing: 12) {
@@ -117,29 +142,43 @@ struct ClaudeCodeConnectionControls: View {
           if let plan = account.plan, !plan.isEmpty {
             EnigmaConnectionNote("Claude \(plan.capitalized) plan")
           }
+        } else if settings.isInstallingClaudeCode && !settings.isClaudeCodeAvailable {
+          EnigmaConnectionNote("Finish installing in Terminal, then sign in from your browser…")
         } else if settings.isWaitingForClaudeCodeSignIn {
           EnigmaConnectionNote("Finish signing in from Terminal and your browser…")
         }
         EnigmaConnectionNote("Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Responses are text-only: Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved.")
-        if !settings.isClaudeCodeAvailable {
-          EnigmaConnectionNote("Claude Code is required on this Mac. Install it, then check again.")
+        if isMissing && !settings.isWaitingForClaudeCodeSignIn {
+          EnigmaConnectionNote("Install Claude Code runs Anthropic's installer in Terminal, then signs in.")
+          if showsAPIKeyNote { EnigmaConnectionNote(Self.apiKeyNote).enigmaTestMarker("Anthropic API key note") }
+          EnigmaDisclosure("Terminal steps") {
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(Self.installSteps, id: \.self) { EnigmaConnectionNote($0) }
+              InstallCommandLine(command: ClaudeCodeRuntime.installCommand)
+            }
+          }
         }
         EnigmaConnectionNote("Enigma shares the Claude Code sign-in on this Mac. To disconnect, choose another provider, or run claude auth logout in Terminal to sign out everywhere.")
         HStack(spacing: 2) {
-          Button(settings.isCheckingClaudeCode ? "Checking…" : "Check sign-in status") {
+          Button(settings.isCheckingClaudeCode ? "Checking…" : isMissing ? "Check again" : "Check sign-in status") {
             Task { await settings.checkClaudeCodeSignIn() }
           }
           .enigmaButtonStyle(.text)
           .disabled(settings.isWaitingForClaudeCodeSignIn || settings.isCheckingClaudeCode)
-          if !settings.isClaudeCodeAvailable {
-            Link("Claude Code installation instructions", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
+          .accessibilityLabel(isMissing ? "Check again for Claude Code" : "Check sign-in status")
+          if isMissing {
+            Button("Choose Claude Code…", action: chooseClaudeCode)
               .enigmaButtonStyle(.text)
+              .disabled(settings.isWaitingForClaudeCodeSignIn || settings.isCheckingClaudeCode)
+              .accessibilityLabel("Choose the Claude Code program")
           }
         }
         .padding(.leading, -8)
         if let check = settings.claudeCodeCheck {
           SignInCheckResult(check, product: "Claude Code",
-                            signInHint: "Choose Sign in to connect your Claude plan.")
+                            signInHint: "Choose Sign in to connect your Claude plan.",
+                            lookedIn: settings.claudeCodeLookedIn,
+                            installHint: "Choose Install Claude Code, or Choose Claude Code… if it is installed somewhere else.")
         } else if let error = settings.claudeCodeError {
           EnigmaStatusLine(.problem, error)
         }
@@ -147,7 +186,9 @@ struct ClaudeCodeConnectionControls: View {
     }
     .task { await settings.refreshClaudeCodeAccount() }
     .onChange(of: settings.claudeCodeCheck) { _, check in
-      if let check { SignInCheckResult.announce(check, product: "Claude Code") }
+      if let check {
+        SignInCheckResult.announce(check, product: "Claude Code", lookedIn: settings.claudeCodeLookedIn)
+      }
     }
   }
 
@@ -162,14 +203,67 @@ struct ClaudeCodeConnectionControls: View {
     } else if settings.isWaitingForClaudeCodeSignIn {
       Button("Cancel") { settings.cancelClaudeCodeSignIn() }
         .enigmaButtonStyle(.secondary)
-        .accessibilityLabel("Cancel Claude Code sign-in")
+        .accessibilityLabel(settings.isInstallingClaudeCode ? "Cancel Claude Code install" : "Cancel Claude Code sign-in")
+    } else if !settings.isClaudeCodeAvailable {
+      Button("Install Claude Code") {
+        settings.installClaudeCode { NSWorkspace.shared.open($0) }
+      }
+      .enigmaButtonStyle(.secondary)
+      .disabled(settings.isCheckingClaudeCode)
+      .accessibilityLabel("Install Claude Code in Terminal, then sign in")
     } else {
       Button("Sign in") {
         settings.signInToClaudeCode { NSWorkspace.shared.open($0) }
       }
       .enigmaButtonStyle(.secondary)
-      .disabled(!settings.isClaudeCodeAvailable || settings.isCheckingClaudeCode)
+      .disabled(settings.isCheckingClaudeCode)
       .accessibilityLabel("Sign in to Claude Code")
+    }
+  }
+
+  private func chooseClaudeCode() {
+    let panel = NSOpenPanel()
+    panel.title = "Choose Claude Code"
+    panel.message = "Choose the claude program from your Claude Code install."
+    panel.prompt = "Choose"
+    // Keep the path as picked: an npm `bin/claude` link must not become its `cli.js`.
+    panel.resolvesAliases = false
+    panel.canChooseFiles = true
+    panel.canChooseDirectories = false
+    panel.allowsMultipleSelection = false
+    panel.showsHiddenFiles = true
+    panel.treatsFilePackagesAsDirectories = true
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+    Task { await settings.chooseClaudeCode(at: url) }
+  }
+}
+
+/// A command to paste into Terminal, with Copy.
+struct InstallCommandLine: View {
+  let command: String
+  @State private var didCopy = false
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    HStack(spacing: 8) {
+      Text(command)
+        .font(EnigmaTypography.mono(12))
+        .foregroundStyle(palette.accentText.color)
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityLabel("Install command: \(command)")
+      Button(didCopy ? "Copied" : "Copy") {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
+        didCopy = true
+        AccessibilityNotification.Announcement("Install command copied").post()
+        Task {
+          try? await Task.sleep(for: .seconds(2))
+          didCopy = false
+        }
+      }
+      .enigmaButtonStyle(.text)
+      .accessibilityLabel(didCopy ? "Install command copied" : "Copy the install command")
     }
   }
 }
@@ -179,33 +273,43 @@ struct SignInCheckResult: View {
   let check: CloudSettingsModel.SignInCheck
   let product: String
   let signInHint: String
+  let lookedIn: String
+  let installHint: String
 
-  init(_ check: CloudSettingsModel.SignInCheck, product: String, signInHint: String) {
+  init(_ check: CloudSettingsModel.SignInCheck, product: String, signInHint: String,
+       lookedIn: String = "", installHint: String = "") {
     self.check = check
     self.product = product
     self.signInHint = signInHint
+    self.lookedIn = lookedIn
+    self.installHint = installHint
   }
 
-  static func message(_ check: CloudSettingsModel.SignInCheck, product: String) -> (EnigmaStatusLine.Status, String) {
+  static func message(_ check: CloudSettingsModel.SignInCheck, product: String,
+                      lookedIn: String = "") -> (EnigmaStatusLine.Status, String) {
     switch check {
     case .signedIn(let who): (.on, who.map { "Signed in as \($0)" } ?? "Signed in")
     case .notSignedIn: (.off, "Not signed in")
-    case .notInstalled: (.problem, "\(product) not found on this Mac")
+    case .notSignedInNeedsCodexDownload: (.off, ChatGPTConnectionControls.downloadCheckText)
+    case .notInstalled:
+      (.problem, "\(product) not found on this Mac" + (lookedIn.isEmpty ? "" : " (looked in \(lookedIn))"))
     case .failed(let message): (.problem, message)
     }
   }
 
-  static func announce(_ check: CloudSettingsModel.SignInCheck, product: String) {
-    AccessibilityNotification.Announcement(message(check, product: product).1).post()
+  static func announce(_ check: CloudSettingsModel.SignInCheck, product: String, lookedIn: String = "") {
+    AccessibilityNotification.Announcement(message(check, product: product, lookedIn: lookedIn).1).post()
   }
 
   var body: some View {
-    let line = Self.message(check, product: product)
+    let line = Self.message(check, product: product, lookedIn: lookedIn)
     VStack(alignment: .leading, spacing: 4) {
       EnigmaStatusLine(line.0, line.1)
       switch check {
-      case .signedIn, .notInstalled: EmptyView()
+      case .signedIn: EmptyView()
+      case .notInstalled: if !installHint.isEmpty { EnigmaConnectionNote(installHint) }
       case .notSignedIn: EnigmaConnectionNote(signInHint)
+      case .notSignedInNeedsCodexDownload: EmptyView()
       case .failed: EnigmaConnectionNote("Try again in a moment. If it keeps failing, update \(product) and restart Enigma.")
       }
     }

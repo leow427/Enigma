@@ -191,8 +191,11 @@
 		F10000000000000000000007 /* CloudSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* CloudSettingsModel.swift */; };
 		F10000000000000000000008 /* CloudModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* CloudModeTests.swift */; };
 		F10000000000000000000009 /* CodexAppServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* CodexAppServer.swift */; };
+		B10000000000000000000B22 /* CodexRuntimeInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B22 /* CodexRuntimeInstaller.swift */; };
+		B10000000000000000000B21 /* CommandLineToolLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B21 /* CommandLineToolLocator.swift */; };
 		F1000000000000000000000A /* CodexSubscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* CodexSubscriptionClient.swift */; };
 		F1000000000000000000000B /* CodexSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* CodexSubscriptionTests.swift */; };
+		B10000000000000000000B23 /* CloudToolInstallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B23 /* CloudToolInstallTests.swift */; };
 		F1000000000000000000000C /* ClaudeCodeSubscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* ClaudeCodeSubscriptionClient.swift */; };
 		F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */; };
 		F368AD14CC3718DC0F973BFC /* Enigma/Cloud/GeminiContentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C7C96CC8B68E10665AB266 /* Enigma/Cloud/GeminiContentClient.swift */; };
@@ -396,8 +399,11 @@
 		F20000000000000000000007 /* CloudSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSettingsModel.swift; sourceTree = "<group>"; };
 		F20000000000000000000008 /* CloudModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudModeTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000009 /* CodexAppServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAppServer.swift; sourceTree = "<group>"; };
+		B20000000000000000000B22 /* CodexRuntimeInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRuntimeInstaller.swift; sourceTree = "<group>"; };
+		B20000000000000000000B21 /* CommandLineToolLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineToolLocator.swift; sourceTree = "<group>"; };
 		F2000000000000000000000A /* CodexSubscriptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSubscriptionClient.swift; sourceTree = "<group>"; };
 		F2000000000000000000000B /* CodexSubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSubscriptionTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000B23 /* CloudToolInstallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudToolInstallTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000000C /* ClaudeCodeSubscriptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSubscriptionClient.swift; sourceTree = "<group>"; };
 		F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSubscriptionTests.swift; sourceTree = "<group>"; };
 		F225835FFF11A442B82A63B4 /* Enigma/Screen/ScreenControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenControls.swift"; sourceTree = SOURCE_ROOT; };
@@ -621,6 +627,7 @@
 				E20000000000000000000006 /* AutoRouterTests.swift */,
 				F20000000000000000000008 /* CloudModeTests.swift */,
 				F2000000000000000000000B /* CodexSubscriptionTests.swift */,
+				B20000000000000000000B23 /* CloudToolInstallTests.swift */,
 				F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */,
 			);
 			path = "EnigmaTests";
@@ -683,6 +690,8 @@
 			children = (
 				F20000000000000000000001 /* CloudDomain.swift */,
 				F20000000000000000000009 /* CodexAppServer.swift */,
+				B20000000000000000000B22 /* CodexRuntimeInstaller.swift */,
+				B20000000000000000000B21 /* CommandLineToolLocator.swift */,
 				F2000000000000000000000A /* CodexSubscriptionClient.swift */,
 				F2000000000000000000000C /* ClaudeCodeSubscriptionClient.swift */,
 				F20000000000000000000002 /* KeychainCredentialStore.swift */,
@@ -931,6 +940,8 @@
 				C50000000000000000000004 /* CloudModelCapabilities.swift in Sources */,
 				F10000000000000000000007 /* CloudSettingsModel.swift in Sources */,
 				F10000000000000000000009 /* CodexAppServer.swift in Sources */,
+				B10000000000000000000B22 /* CodexRuntimeInstaller.swift in Sources */,
+				B10000000000000000000B21 /* CommandLineToolLocator.swift in Sources */,
 				F1000000000000000000000A /* CodexSubscriptionClient.swift in Sources */,
 				F1000000000000000000000C /* ClaudeCodeSubscriptionClient.swift in Sources */,
 			);
@@ -993,6 +1004,7 @@
 				E10000000000000000000006 /* AutoRouterTests.swift in Sources */,
 				F10000000000000000000008 /* CloudModeTests.swift in Sources */,
 				F1000000000000000000000B /* CodexSubscriptionTests.swift in Sources */,
+				B10000000000000000000B23 /* CloudToolInstallTests.swift in Sources */,
 				F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

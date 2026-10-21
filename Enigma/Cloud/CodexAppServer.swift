@@ -67,7 +67,7 @@ enum CodexError: LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .notInstalled:
-      "Install the Codex CLI, then reopen Settings. Enigma uses its supported ChatGPT sign-in."
+      "Codex could not be found on this Mac. Choose Sign in in Settings to download it from OpenAI."
     case .notSignedIn:
       "Sign in with ChatGPT in Settings to use your plan's Codex allowance."
     case .invalidResponse:
@@ -96,15 +96,32 @@ struct CodexRuntimeConfiguration: Sendable {
   let directory: URL
   var allowsFileTools = false
 
-  static func executableURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
-    let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let candidates = [environment["AI_SPOTLIGHT_CODEX_PATH"]].compactMap { $0 }
-      + ["/opt/homebrew/bin/codex", "/usr/local/bin/codex", "\(home)/.local/bin/codex",
-         "/Applications/Codex.app/Contents/Resources/codex",
-         "/Applications/ChatGPT.app/Contents/Resources/codex"]
-      + (environment["PATH"] ?? "").split(separator: ":").map { "\($0)/codex" }
-    return candidates.first { $0.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: $0) }
-      .map { URL(fileURLWithPath: $0) }
+  /// The developer override, then Enigma's pinned runtime (or, until it is
+  /// upgraded, an older built-in one), then a Codex installed on this Mac, so
+  /// people with a working Codex need no download.
+  static func executableURL(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    home: String = FileManager.default.homeDirectoryForCurrentUser.path,
+    runtimeDirectory: URL = CodexRuntime.directory,
+    loginShellPath: String? = LoginShellToolLookup.shared.cachedPath(for: "codex")
+  ) -> URL? {
+    search(environment: environment, home: home, runtimeDirectory: runtimeDirectory,
+           loginShellPath: loginShellPath).executableURL()
+  }
+
+  static func search(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    home: String = FileManager.default.homeDirectoryForCurrentUser.path,
+    runtimeDirectory: URL = CodexRuntime.directory,
+    loginShellPath: String? = LoginShellToolLookup.shared.cachedPath(for: "codex")
+  ) -> CommandLineToolSearch {
+    CommandLineToolSearch(
+      name: "codex",
+      preferred: [environment["AI_SPOTLIGHT_CODEX_PATH"],
+                  runtimeDirectory.appending(path: CodexRuntime.folderName + "/bin/codex").path].compactMap { $0 }
+        + CodexRuntime.fallbackExecutables(in: runtimeDirectory).map(\.path),
+      usualFolders: ["/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin"],
+      home: home, environment: environment, loginShellPath: loginShellPath)
   }
 
   // A separate home keeps app logins, plugins, hooks, and preferences isolated from the user's CLI.
@@ -116,6 +133,19 @@ struct CodexRuntimeConfiguration: Sendable {
       "LANG": "en_US.UTF-8",
       "CODEX_HOME": directory.path,
     ]
+  }
+
+  /// The isolated environment with `executable`'s own folder first on `PATH`,
+  /// and for an OpenAI package its `codex-path` folder (which holds `rg`).
+  func environment(for executable: URL) -> [String: String] {
+    let packagePath = executable.deletingLastPathComponent().deletingLastPathComponent().appending(path: "codex-path")
+    var isDirectory: ObjCBool = false
+    let extra = executable.deletingLastPathComponent().lastPathComponent == "bin"
+      && FileManager.default.fileExists(atPath: packagePath.path, isDirectory: &isDirectory) && isDirectory.boolValue
+      ? [packagePath.path] : []
+    var environment = environment
+    environment["PATH"] = CommandLineToolSearch.path(for: executable, extra: extra)
+    return environment
   }
 
   var arguments: [String] {
@@ -215,7 +245,7 @@ actor CodexAppServer: CodexRPCTransport {
     // Match the app-server isolation. Xcode's injected libraries and the user's CLI
     // environment must not leak into this short-lived compatibility check.
     try FileManager.default.createDirectory(at: configuration.directory, withIntermediateDirectories: true)
-    process.environment = configuration.environment
+    process.environment = configuration.environment(for: executableURL)
     process.currentDirectoryURL = directory
     process.standardInput = FileHandle.nullDevice
     process.standardOutput = FileHandle.nullDevice
@@ -307,7 +337,7 @@ actor CodexAppServer: CodexRPCTransport {
     let outputPipe = Pipe()
     process.executableURL = executableURL
     process.arguments = configuration.arguments
-    process.environment = configuration.environment
+    process.environment = configuration.environment(for: executableURL)
     process.currentDirectoryURL = workspace
     process.standardInput = inputPipe
     process.standardOutput = outputPipe

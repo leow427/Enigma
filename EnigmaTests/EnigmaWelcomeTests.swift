@@ -505,6 +505,16 @@ extension EnigmaWelcomeTests {
   }
 
   @MainActor
+  func testConnectionsStepLeavesOutTheAPIKeyNoteForRoom() async throws {
+    let fixture = try await Fixture(test: self)
+    fixture.setup.replay()
+    fixture.setup.step = .connections
+    let host = Host(fixture, test: self)
+    try await waitForUI("the Terminal steps disclosure", in: host.view) { host.shows("Terminal steps") }
+    XCTAssertFalse(host.shows("Anthropic API key note"))
+  }
+
+  @MainActor
   func testFailedKeySaveShowsTheErrorAndTheCharactersErrorState() async throws {
     let fixture = try await Fixture(test: self, searchCredentials: FailingSearchCredentials())
     fixture.setup.replay()

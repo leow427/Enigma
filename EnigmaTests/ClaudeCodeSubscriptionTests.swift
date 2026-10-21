@@ -309,6 +309,195 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertEqual(settings.models.map(\.id), ["sonnet", "opus", "fable", "haiku"])
   }
 
+  @MainActor
+  func testInstallRunsTheOfficialInstallerThenWaitsForSignIn() async throws {
+    let root = try temporaryDirectory()
+    let installedMarker = root.appending(path: "installed")
+    let signedInMarker = root.appending(path: "signed-in")
+    let executable = root.appending(path: "fake-claude")
+    try Data("""
+      #!/bin/sh
+      if [ -e '\(signedInMarker.path)' ]; then
+        /usr/bin/printf '%s\\n' '{"loggedIn":true,"authMethod":"claude.ai","email":"person@example.com","subscriptionType":"pro"}'
+      else
+        /usr/bin/printf '%s\\n' '{"loggedIn":false}'
+      fi
+      """.utf8).write(to: executable)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+    let runtime = ClaudeCodeRuntime(directory: root.appending(path: "runtime"), executable: {
+      FileManager.default.fileExists(atPath: installedMarker.path) ? executable : nil
+    })
+    let claudeCode = ClaudeCodeSubscriptionClient(runtime: runtime, statusTimeout: .seconds(10))
+    let suite = "ClaudeCodeInstall-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let credentials = ClaudeCodeTestCredentials()
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false },
+      claudeCode: claudeCode, claudeCodeSignInPollInterval: .milliseconds(20)
+    )
+    XCTAssertFalse(settings.isClaudeCodeAvailable)
+    var openedScript: URL?
+    settings.installClaudeCode { url in
+      openedScript = url
+      return true
+    }
+    XCTAssertTrue(settings.isWaitingForClaudeCodeSignIn)
+    XCTAssertTrue(settings.isInstallingClaudeCode)
+    let scriptURL = try XCTUnwrap(openedScript)
+    XCTAssertEqual(scriptURL.pathExtension, "command")
+    let script = try String(contentsOf: scriptURL, encoding: .utf8)
+    XCTAssertTrue(script.hasPrefix("#!/bin/bash\nset -o pipefail\n"))
+    XCTAssertTrue(script.contains("if \(ClaudeCodeRuntime.installCommand); then"))
+    XCTAssertEqual(ClaudeCodeRuntime.installCommand, "curl -fsSL https://claude.ai/install.sh | bash")
+    XCTAssertTrue(script.contains("\"$claude\" auth login --claudeai"))
+    let attributes = try FileManager.default.attributesOfItem(atPath: scriptURL.path)
+    XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    let check = Process()
+    check.executableURL = URL(fileURLWithPath: "/bin/bash")
+    check.arguments = ["-n", scriptURL.path]
+    try check.run()
+    check.waitUntilExit()
+    XCTAssertEqual(check.terminationStatus, 0, "The install script is valid bash")
+
+    // Installed but not signed in yet: Enigma keeps waiting.
+    try Data().write(to: installedMarker)
+    try await waitUntil { settings.isClaudeCodeAvailable }
+    XCTAssertTrue(settings.isWaitingForClaudeCodeSignIn)
+    try Data().write(to: signedInMarker)
+    try await waitUntil { !settings.isWaitingForClaudeCodeSignIn }
+    XCTAssertFalse(settings.isInstallingClaudeCode)
+    XCTAssertEqual(settings.claudeCodeAccount?.email, "person@example.com")
+    XCTAssertEqual(settings.preferredProvider, .claudeCode)
+    XCTAssertEqual(settings.models.map(\.id), ["sonnet", "opus", "fable", "haiku"])
+    XCTAssertGreaterThan(CloudSettingsModel.claudeCodeInstallAttempts, CloudSettingsModel.claudeCodeSignInAttempts)
+  }
+
+  @MainActor
+  func testCancellingTheInstallWaitStopsWaitingAndTerminalFailureIsReported() async throws {
+    let root = try temporaryDirectory()
+    let claudeCode = ClaudeCodeSubscriptionClient(runtime: ClaudeCodeRuntime(directory: root, executable: { nil }))
+    let suite = "ClaudeCodeInstallCancel-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let credentials = ClaudeCodeTestCredentials()
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false },
+      claudeCode: claudeCode, claudeCodeSignInPollInterval: .milliseconds(20)
+    )
+    settings.installClaudeCode { _ in false }
+    XCTAssertFalse(settings.isWaitingForClaudeCodeSignIn)
+    XCTAssertEqual(settings.claudeCodeError, "Terminal could not be opened to install Claude Code.")
+
+    settings.installClaudeCode { _ in true }
+    XCTAssertTrue(settings.isWaitingForClaudeCodeSignIn)
+    settings.cancelClaudeCodeSignIn()
+    try await waitUntil { !settings.isWaitingForClaudeCodeSignIn }
+    XCTAssertFalse(settings.isInstallingClaudeCode)
+    XCTAssertNil(settings.claudeCodeAccount)
+  }
+
+  @MainActor
+  func testChoosingClaudeCodeSavesOnlyAnExecutableFile() async throws {
+    let root = try temporaryDirectory()
+    let claudeCode = ClaudeCodeSubscriptionClient(runtime: ClaudeCodeRuntime(directory: root, executable: { nil }))
+    let suite = "ClaudeCodeChoose-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let credentials = ClaudeCodeTestCredentials()
+    let preferences = CloudPreferencesStore(defaults: defaults)
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+      preferences: preferences, codexAvailable: { false }, claudeCode: claudeCode
+    )
+    let document = root.appending(path: "notes.txt")
+    try Data("text".utf8).write(to: document)
+    let rejected = await settings.chooseClaudeCode(at: document)
+    XCTAssertFalse(rejected)
+    XCTAssertNotNil(settings.claudeCodeError)
+    XCTAssertNil(preferences.chosenClaudeCodePath())
+
+    let program = root.appending(path: "claude")
+    try Data("#!/bin/sh\n".utf8).write(to: program)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: program.path)
+    let accepted = await settings.chooseClaudeCode(at: program)
+    XCTAssertTrue(accepted)
+    XCTAssertFalse(settings.isCheckingClaudeCode)
+    XCTAssertNotNil(settings.claudeCodeCheck, "Choosing a file checks it, like Check again")
+    XCTAssertEqual(preferences.chosenClaudeCodePath(), program.path)
+    XCTAssertEqual(defaults.dictionaryRepresentation().keys.filter { $0.contains("claudeCodePath") }.count, 1)
+    XCTAssertEqual(ClaudeCodeRuntime.executableURL(environment: [:], home: root.appending(path: "home").path,
+                                                   loginShellPath: nil, chosenPath: program.path), program)
+  }
+
+  @MainActor
+  func testBackgroundRefreshSkipsTheShellWhenClaudeCodeIsFound() async throws {
+    let root = try temporaryDirectory()
+    let executable = root.appending(path: "fake-claude")
+    try Data("""
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' '{"loggedIn":false}'
+      """.utf8).write(to: executable)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+    let asked = ShellCalls()
+    let runtime = ClaudeCodeRuntime(directory: root.appending(path: "runtime"), executable: { executable },
+                                    prepareLookup: { _ in asked.record() })
+    let claudeCode = ClaudeCodeSubscriptionClient(runtime: runtime, statusTimeout: .seconds(10))
+    let suite = "ClaudeCodeShellSkip-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let credentials = ClaudeCodeTestCredentials()
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false }, claudeCode: claudeCode
+    )
+    let result = await settings.refreshClaudeCodeAccount()
+    XCTAssertEqual(result, .notSignedIn)
+    XCTAssertEqual(asked.count, 0, "The shell ranks below a found Claude Code, so it isn't asked")
+    await settings.checkClaudeCodeSignIn()
+    XCTAssertEqual(asked.count, 1, "The explicit check still asks")
+  }
+
+  @MainActor
+  func testCheckAgainAsksTheShellAgainAfterACachedNotFound() async throws {
+
+    let root = try temporaryDirectory()
+    let asked = ShellCalls()
+    let lookup = LoginShellToolLookup(shell: "/bin/sh") { _, _, _ in asked.record(); return "" }
+    let runtime = ClaudeCodeRuntime(directory: root, executable: { nil }, prepareLookup: { askAgain in
+      if askAgain { lookup.forgetNotFound("claude") }
+      _ = await lookup.resolve("claude")
+    }, lookedIn: { "~/somewhere and PATH" })
+    let claudeCode = ClaudeCodeSubscriptionClient(runtime: runtime)
+    let suite = "ClaudeCodeShellRetry-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let credentials = ClaudeCodeTestCredentials()
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+      preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false }, claudeCode: claudeCode
+    )
+    await settings.refreshClaudeCodeAccount()
+    await settings.refreshClaudeCodeAccount()
+    XCTAssertEqual(asked.count, 1, "Background refreshes use the cached \"not found\"")
+    await settings.checkClaudeCodeSignIn()
+    XCTAssertEqual(asked.count, 2, "Check again asks the shell again")
+    XCTAssertEqual(settings.claudeCodeCheck, .notInstalled)
+    XCTAssertEqual(settings.claudeCodeLookedIn, "~/somewhere and PATH", "\"Looked in\" comes from the injected runtime")
+  }
+
   func testClaudeCodeBudgetLeavesRoomForReplies() {
     let budget = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "sonnet")
     XCTAssertEqual(budget.availableInputTokens, 32_768)
@@ -336,6 +525,15 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
       ChatMessage(role: .assistant, content: "Previous answer"),
       ThinkCommand.message(latest),
     ], route: Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: modelID, usesNetwork: true))
+  }
+
+  @MainActor
+  private func waitUntil(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+    while !condition() {
+      guard ContinuousClock.now < deadline else { return XCTFail("Timed out", file: file, line: line) }
+      try await Task.sleep(for: .milliseconds(20))
+    }
   }
 
   private func events(_ stream: AsyncThrowingStream<ChatEvent, Error>) async throws -> [ChatEvent] {
@@ -383,4 +581,11 @@ private struct ClaudeCodeTestCredentials: CloudCredentialStore {
   func apiKey(for provider: CloudProviderID) throws -> String? { nil }
   func setAPIKey(_ apiKey: String, for provider: CloudProviderID) throws {}
   func removeAPIKey(for provider: CloudProviderID) throws {}
+}
+
+private final class ShellCalls: @unchecked Sendable {
+  private let lock = NSLock()
+  private var calls = 0
+  var count: Int { lock.withLock { calls } }
+  func record() { lock.withLock { calls += 1 } }
 }

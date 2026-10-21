@@ -399,7 +399,7 @@ struct WelcomeSetupView: View {
   private var connections: some View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("Cloud models")
-      ClaudeCodeConnectionControls(settings: cloud)
+      ClaudeCodeConnectionControls(settings: cloud, showsAPIKeyNote: false)
       ChatGPTConnectionControls(settings: cloud)
       EnigmaSectionHeader("Search")
       EnigmaRow("Brave Search", subtitle: "Used by /search, with sources cited.") {

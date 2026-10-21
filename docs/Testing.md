@@ -226,7 +226,12 @@ or verify real macOS consent, multi-display capture, or live provider quality.
   `URLProtocol`. Credentials come from in-memory stores or injected Keychain
   calls, never the real Keychain.
 - **No real CLIs.** Codex and Claude Code tests replace the executable with
-  shell scripts, so no login or paid request is needed.
+  shell scripts, so no login or paid request is needed. The Codex runtime
+  install uses small fixture archives built in the test, the tool lookup uses
+  temporary folders and an injected home, and the login-shell question uses an
+  injected runner. In a test host, `LoginShellToolLookup.shared` does nothing
+  and the default Codex install throws, so a test that reaches the live
+  lookup or the install never runs the developer's shell or downloads Codex.
 - **Isolated state.** Tests write to their own temporary directories and
   named `UserDefaults` suites, not the app's real data or preferences.
 - **No fixed sleeps.** UI tests wait with `waitForUI`, a bounded poll of the
