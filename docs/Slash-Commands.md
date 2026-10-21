@@ -239,6 +239,8 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
   `ComposerIntentResolveTests` covers every conflict, dismissals, the setting,
   follow-ups and speed; `ComposerIntentChipsTests` renders the chips in both
   composers and in the shell.
+- `EnigmaTests/ComposerIntentPhrasingTests.swift`: a corpus of realistic
+  phrasings, each with the one chip it should get, and phrasings that get none.
 - `EnigmaTests/AppShellStateTests.swift`: `ComposerSubmissionTests` plans
   recognized commands like typed ones.
 

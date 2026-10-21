@@ -21,8 +21,9 @@ Every picker shows the same three choices for this Mac, in this order:
   Recommended is a 3-bit package, a 4-bit size of its own family can be
   Smarter too (see [Ranked quality](#ranked-quality)).
 
-Empty roles are left out. When nothing fits, Enigma says **No suitable model
-found**. The choices appear in:
+Empty roles are left out, and a best-available Recommended is offered alone.
+When nothing fits, Enigma says **No suitable model found**. The choices
+appear in:
 
 - **Welcome setup.** The **Pick a local model** step lists the roles, with
   **Skip local models** to use the cloud only. A model you picked earlier stays
@@ -126,19 +127,20 @@ context and is Apache-2.0 licensed. Quality scores are the Artificial Analysis
 Intelligence Index (v4.3.2, October 2026), checked against MMMU-Pro for vision;
 within one model line a larger model never scores below a smaller one, except
 that Gemma 4 31B keeps the index's 15 below the mixture-of-experts Gemma 4
-26B-A4B's estimated 17. Ministral 3 8B has no confirmed index score; its 5 is an
-assumption that places it below Ministral 3 14B.
+26B-A4B's estimated 17. Qwen3.5 2B and Ministral 3 8B have no confirmed index
+score; their 8 and 5 are assumptions that place them below Qwen3.5 4B and
+Ministral 3 14B.
 
 | Family | Parameters (active) | Quantizations | Quality | Mainly for |
 |---|---|---|---|---|
 | Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | 8 GB Macs |
-| Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | the Faster pick |
+| Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | slower 16 GB Macs; the Faster pick on faster 24 GB Macs |
 | Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | the Faster pick on some 16–24 GB Macs |
 | Ministral 3 8B | 8.5B | Q4_K_M | 5 | All models |
 | Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs: Recommended when fast, else Smarter at IQ4_XS |
 | Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs |
 | Ministral 3 14B | 13.5B | Q5_K_M, Q8_0 | 6 | All models |
-| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32–48 GB Macs |
+| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32 GB Macs |
 | Gemma 4 31B | 31B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 15 | All models |
 | Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | 36–64 GB Macs |
 | Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Max and Ultra chips; 3-bit as Smarter on 24 GB Macs |
@@ -383,9 +385,9 @@ CDN, not by the offline tests.
   sleep, not display sleep. `DownloadActivity` makes this injectable for tests.
 - Cleanup of the staging folder and the unused runtime folder is explicit and
   never throws, so the error the person sees is the one that ended the
-  download. The runtime archive is extracted only if every path
-stays inside its folder, no link escapes it, and `llama-server --help` lists
-`--mmproj` and `--offline`.
+  download. The runtime is installed only if every path in its archive
+  stays inside its folder, no link escapes it, and `llama-server --help` lists
+  `--mmproj` and `--offline`.
 
 `LocalModelInstallationStore` copies files under fresh names (`model-<id>.gguf`,
 `mmproj-<id>.gguf`) and commits by atomically writing its library metadata.
@@ -437,8 +439,8 @@ app uses the bundled catalogue, and new models ship with app releases. When
 configured, it checks at most every 30 days (**Check this Mac** forces a check),
 limits responses to 1 MB, verifies the signature, rejects older versions, and
 falls back to the cached or bundled catalogue when offline. A signed catalogue
-cannot add architectures, runtime builds, contexts or repositories the app
-hasn't reviewed. Never bundle the private key.
+cannot add architectures, runtime builds, contexts or Hugging Face accounts
+the app hasn't reviewed. Never bundle the private key.
 
 ### Key files
 
@@ -475,9 +477,9 @@ unloads both engines, just before the atomic install in `LocalModelCatalog`.
   releases (runtime) only to install a catalogue package you chose. No chat
   content and no credentials are sent.
 - The bandwidth test runs on the Mac's GPU and sends nothing. Hardware detection
-  reads memory, chip, CPU counts, Metal limits, free disk and Low Power Mode,
-  and collects no serial numbers or other stable identifiers. The report and
-  performance results stay in Application Support on this Mac.
+  reads memory, chip, Mac model, CPU counts, Metal limits, free disk and Low
+  Power Mode, and collects no serial numbers or other stable identifiers. The
+  report and performance results stay in Application Support on this Mac.
 
 ## Limitations
 

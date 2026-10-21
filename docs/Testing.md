@@ -143,11 +143,11 @@ TEST_RUNNER_ENIGMA_SNAPSHOT_DIR=/tmp/enigma-screenshots \
 ```
 
 The screenshot tests live in the `EnigmaMainWindowTests`, `EnigmaConversationTests`,
-`EnigmaSettingsTests`, `EnigmaWelcomeTests`, `EnigmaCharacterTests`, and
-`EnigmaIconTests` classes. The committed screenshots of the redesigned UI are
-under `docs/design/ui-revamp/screenshots/`; copy new ones there when the visible
-UI changes materially. See [UI-Style.md](design/UI-Style.md) for the visual
-reference.
+`EnigmaSettingsTests`, `EnigmaWelcomeTests`, `EnigmaCharacterTests`,
+`EnigmaIconTests`, and `ComposerIntentChipsTests` classes. The committed
+screenshots of the redesigned UI are under `docs/design/ui-revamp/screenshots/`;
+copy new ones there when the visible UI changes materially. See
+[UI-Style.md](design/UI-Style.md) for the visual reference.
 
 ## App icons
 
@@ -188,9 +188,14 @@ environment variable, and they never run in CI.
   `ScreenSearchNativeSmokeTests` classes read JSON configuration files in `/tmp`.
   [Screen-Skill.md](Screen-Skill.md) describes the files and how to run them.
 - **File Mode:** `FileModeRuntimeTests` has opt-in local-model, Codex, and
-  evaluation checks, and `scripts/evaluate-file-mode.py` and
+  evaluation checks, `CodexSubscriptionTests` has one for the installed Codex
+  CLI, and `scripts/evaluate-file-mode.py` and
   `scripts/verify-file-mode-codex.py` run model evaluations and a Codex
   app-server check outside XCTest. See [File-Mode.md](File-Mode.md).
+- **Selection:** `SelectionContextTests/testInstalledGemmaHandlesSelectionCommands`
+  runs an installed local model on synthetic text when
+  `TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1` is set. See
+  [Selection-Context.md](Selection-Context.md).
 - **Memory bandwidth:** the real Metal copy test runs only when asked, on a Mac
   with a GPU:
   `TEST_RUNNER_ENIGMA_BANDWIDTH_PROBE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalBandwidthProbeTests/testMetalProbeOnThisMac`.

@@ -29,6 +29,8 @@ no extra model call. Questions like these search:
 - News and recent developments: "latest AI news", "what's happening in …"
 - Facts that change: who holds an office, weather and forecasts, stock and
   crypto prices, exchange or mortgage rates, scores, opening times and schedules
+- Nearby places and local weather without a named place: "cafes near me",
+  "weather today" (see Location below)
 - Questions with words like "latest", "today", "this week" or "this weekend"
   ("whats" without an apostrophe counts as "what's"), and questions
   about this year's elections, releases or events
@@ -96,9 +98,10 @@ under the reply includes **brave search**.
 ![A reply with its web sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
 
 The model is told to treat the excerpts as untrusted data and to cite only the
-URLs it was given. Only sources that actually fit into the prompt are shown;
-other results Brave returned are dropped. A listed source means the model was
-given that excerpt, not that every claim in the answer was checked against it.
+supporting URLs it was given. Only sources that actually fit into the prompt
+are shown; other results Brave returned are dropped. A listed source means the
+model was given that excerpt, not that every claim in the answer was checked
+against it.
 
 If searching fails, Enigma doesn't quietly answer without evidence. It shows an
 error and keeps your draft: a missing or rejected key, rate limiting, no
@@ -158,8 +161,8 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
   `/search` with the policy. With `allowsAutomaticSearch: false`, as the composer
   and Auto's chosen route pass, it keeps the decision it was given, so a
   dismissed chip stays off. The Local, Cloud, Auto and Screen submission paths
-  call the private `search` method, which refines the query when material is
-  attached and adds location.
+  call the private `search` method, which refines the query when text is
+  attached and adds location. The Screen path writes its refined query first.
 - `Enigma/Search/BraveSearchClient.swift`: `BraveSearchClient` sends
   `POST https://api.search.brave.com/res/v1/llm/context` with the
   `X-Subscription-Token` header, a 30-second timeout and an ephemeral session.

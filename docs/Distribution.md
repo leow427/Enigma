@@ -42,6 +42,8 @@ The script:
 - launches it (unless `--no-launch` is given).
 
 Set `ENIGMA_INSTALL_DIR` to install somewhere other than `/Applications`.
+Outside `/Applications` and `~/Applications`, the Release build offers to move
+itself there at launch; see [Updates.md](Updates.md#moving-into-applications).
 
 Only one install runs at a time. A request that arrives during a build is
 remembered, and one more build runs when the current one finishes, so the
@@ -101,9 +103,10 @@ signing and notarization are not set up; [Updates.md](Updates.md) describes the
 later move. `release.sh` checks every release with the commands above: the
 signature must verify, carry the hardened runtime flag, and keep the previous
 release's designated requirement. A distribution build should not contain
-`com.apple.security.get-task-allow`; `release.sh` reports it when the free
-team's Apple Development signature includes it. Passing tests does not show
-that a build is notarized.
+`com.apple.security.get-task-allow`; `release.sh` stops if the signed app's
+entitlements differ from `Enigma.entitlements`, so it fails if the free team's
+Apple Development signature adds it. Passing tests does not show that a build
+is notarized.
 
 Before sharing a build, check with the signed app: a local model, a cloud
 sign-in, screen and selection capture, a nearby or weather question, and

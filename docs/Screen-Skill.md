@@ -175,9 +175,10 @@ Settings and the consent sheet, and watch what the other side sees.
 
 The capture flow runs from the composer to the request:
 
-1. `ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) resolves
-   commands with `ComposerCommands` (`Enigma/Screen/ScreenAttachment.swift`) and
-   returns `.captureScreen` or `.screenAttachment`, or a conflict with files or Messages.
+1. `ComposerIntent` (`Enigma/App/ComposerIntent.swift`) resolves the draft's
+   commands with `ComposerCommands` (`Enigma/Screen/ScreenAttachment.swift`), and
+   `ComposerSubmission.plan` (`Enigma/App/ComposerSubmission.swift`) returns
+   `.captureScreen` or `.screenAttachment`, or a conflict with files or Messages.
 2. `ScreenComposerCoordinator` (`Enigma/Screen/ScreenComposerCoordinator.swift`)
    owns the draft and the attachment. It calls `prepareForCapture()` (permission),
    posts `.screenCaptureBegan` / `.screenCaptureEnded`, runs OCR, and returns the

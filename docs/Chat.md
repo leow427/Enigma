@@ -38,8 +38,9 @@ character, and the conversation is saved to the sidebar's **Recents**.
 
 The composer holds the message field ("Ask anything, or type / for commands"),
 **Attach files** (**+**, also **⇧⌘A**), a **/** button that starts a command, a
-**● local** or **○ cloud** indicator for where the next request runs, the
-**Mode and model** menu (**⌘K**), and **Send**.
+**● local** or **○ cloud** indicator for where the next request runs, chips for
+any commands recognized from your wording, the **Mode and model** menu
+(**⌘K**), and **Send**.
 
 - **Return** sends; **⇧Return** inserts a new line. Send is available only when
   the draft isn't empty and the selected mode has a usable model.
@@ -113,7 +114,8 @@ listed source means its excerpt was sent, not that the full page was read.
   first 48 characters of its first message ("New Chat" until then).
 - Enigma keeps the **10 most recently active chats**. Older chats are dropped
   for good, and an empty new chat counts toward the ten.
-- You can't switch chats while a request is running.
+- You can't switch chats while a request is running; **New chat** stops it
+  first.
 - **Temporary chats.** A chat started from selected text in the compact panel is
   temporary: it's marked **temporary · not saved** and nothing of it is written
   to disk. Opening it in the window saves it to history, unless **Keep selection
@@ -257,9 +259,9 @@ A `ContextBudget` gives the input allowance as the smaller of an input cap and
   shifting and prompt caching are off.
 
 **Cloud** (`ModelContextPolicy.cloud` and `CloudContext`): input is counted as one
-token per UTF-8 byte of the serialized messages, which deliberately overestimates.
-No tokenizer or network call is used. Every cloud client checks the budget again
-before sending.
+token per UTF-8 byte of the serialized messages, which deliberately overestimates,
+plus 4,096 tokens for an image. No tokenizer or network call is used. Every cloud
+client checks the budget again before sending.
 
 | Provider | Context window | Output reserve | Protocol reserve | Input cap |
 |---|---:|---:|---:|---:|

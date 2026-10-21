@@ -108,7 +108,7 @@ release.
   `MARKETING_VERSION` and the build number from `CURRENT_PROJECT_VERSION`.
   Sparkle compares the build number, so it must be a plain integer that grows
   with every release.
-- The feed URL is a project build setting rather than an `.xcconfig` value,
+- The feed URL is an app-target build setting rather than an `.xcconfig` value,
   because `//` starts a comment in `.xcconfig` files. A test build can point
   elsewhere with `xcodebuild … ENIGMA_UPDATE_FEED_URL=<url>`.
 
@@ -227,8 +227,9 @@ builds an app that checks a test feed instead. A real release refuses this
 variable.
 
 Releases are zips from 0.10.0 on; 0.9.x shipped as DMGs without an updater.
-Friends install 0.10.0 by hand once: download the zip, drag `Enigma.app` into
-Applications, and right-click → **Open** the first time.
+Friends install the newest release by hand once: download the zip, drag
+`Enigma.app` into Applications in Finder, and open it. The first time, macOS
+needs **Open Anyway** in System Settings → Privacy & Security.
 
 ## Resolved during implementation
 
@@ -293,7 +294,7 @@ reported that it worked. The steps:
 1. Open it from Downloads. The move offer appears; accept. Enigma reopens from
    `/Applications/Enigma.app`, is not translocated (`ps` shows the real path),
    and the download is in the Trash.
-2. With an older copy already in `/Applications`, the replace confirmation
+2. With a newer copy already in `/Applications`, the replace confirmation
    names both versions.
 3. Move a quarantined copy into `/Applications` with `mv` and open it. The
    reopen offer appears, and after **Reopen** it runs in place.
@@ -308,5 +309,5 @@ identity change for that one release only, through an explicit flag such as
 `--accept-new-identity`. Sparkle accepts it because the EdDSA key is unchanged.
 macOS ties Screen Recording and Accessibility approval to the signature, so
 every user re-grants them once, and that release's notes must say so.
-Afterwards Gatekeeper no longer needs right-click → Open, and releasing from
+Afterwards Gatekeeper no longer needs **Open Anyway**, and releasing from
 GitHub Actions can be reconsidered.

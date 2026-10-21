@@ -80,7 +80,7 @@ Codex.
 Deleting a file always asks first: **Delete this file?** with **Delete** and
 **Keep File**.
 
-After a task changes files, a line under the composer shows **N files changed**
+After a task changes files, a line above the composer shows **N files changed**
 with **Review** and **Undo**, and an **Earlier changes** menu for older tasks in
 the same chat. **Review** lists each file as Created, Edited or Deleted (a move
 shows as both), with before and after previews, and **Undo Changes**.
@@ -104,7 +104,7 @@ confirmation. Edits made before Stop remain and can be undone.
   inside an attachment, hard-linked files and special files are refused. Writes
   inside `.git`, `.codex` and `.agents` are refused. To use a link's target,
   attach the target itself.
-- **No extra permissions.** Enigma doesn't ask for Full Disk Access. The picker
+- **No extra permissions.** File Mode doesn't need Full Disk Access. The picker
   grants access to what you choose, and that grant is saved with the chat as a
   security-scoped bookmark.
 - **Local stays local.** Local and Auto run the model on this Mac, bound to
@@ -183,10 +183,10 @@ The local loop asks for one tool call at a time at temperature zero and runs onl
 the first call in a response, so an edit can't run before the model has seen what
 it read. It counts the prompt's tokens before each step and keeps room for a
 1,024-token response (2,048 with **/think**). A patch must use text the model
-actually read. A run stops after 16 steps, two recoverable errors, or three
-identical results in a row, and the model can't claim success while an edit has
-failed. After each change, the tool reads the file back to confirm it reached
-disk.
+actually read. A run stops after 16 steps, a third failed tool call, or the same
+call and result three times with no successful edit between them, and the model
+can't claim success while an edit has failed. After each change, the tool reads
+the file back to confirm it reached disk.
 
 ## Limitations
 

@@ -28,8 +28,9 @@ from the catalogue.
   the projector type, which the add-model script prints: in b11734 every
   Gemma 4 projector is non-causal except E2B's and E4B's.
 - A family that needs a newer llama.cpp bumps `LocalVisionRuntime` (build,
-  archive sizes and SHA-256) in the same release. Check that every launch
-  argument still exists in the new build's `common/arg.cpp`.
+  directory name, archive URLs, sizes and SHA-256) in the same release. Check
+  that every launch argument still exists in the new build's
+  `common/arg.cpp`.
 
 ## 3. Pin the files and read the headers
 
@@ -79,7 +80,9 @@ It prints three blocks:
    (`parameters`, `activeParameters`) and `isMixtureOfExperts` by hand.
 
 Add any new quantization label to `LocalQuantization.precisionOrder` and
-`qualityFactor` in `LocalModelSelection.swift`, too.
+`qualityFactor` in `LocalModelSelection.swift`, too. A repository from a new
+Hugging Face account also needs that account added to the allowed owners in
+`LocalVisionModelDescriptor.validate` (`LocalModelManifest.swift`).
 
 ## 4. Check the header by hand when needed
 

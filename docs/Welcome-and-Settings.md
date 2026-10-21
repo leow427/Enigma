@@ -2,9 +2,9 @@
 
 On first launch, Enigma walks you through a short setup: a welcome, a local model
 choice, optional connections, and an optional tour of the window. Afterwards,
-the Settings window holds appearance, permissions, startup preferences, models,
-connections, and selection options. This page also covers how to open Enigma
-and the keyboard-shortcut reference.
+the Settings window holds appearance, permissions, startup preferences, updates,
+models, connections, and selection options. This page also covers how to open
+Enigma and the keyboard-shortcut reference.
 
 ## Opening Enigma
 
@@ -15,7 +15,9 @@ Enigma lives in the menu bar and has no Dock icon. Open it with:
   while another app is active.
 - The menu bar item, which shows the Enigma character as a monochrome icon. Its
   menu has **Open**, **New Chat**, **Privacy Hide** (hides the window),
-  **Settings**, and **Quit**.
+  **Check for Updates…**, **Settings**, and **Quit**. When an update is
+  waiting, an item to install it appears above **Check for Updates…** (see
+  [Updates.md](Updates.md)).
 - Selected text in another app, then the selection shortcut (Option twice by
   default), which opens a temporary chat about the selection. See
   [Selection-Context.md](Selection-Context.md).
@@ -106,9 +108,10 @@ sidebar shown or hidden.
 - **Settings → General → Replay welcome setup → Replay** starts again from the
   first step. It closes Settings and shows the window. Replay keeps your chats,
   installed models, and credentials, and is unavailable while a response is
-  running. In Debug builds the sidebar's **Developer Tools** has the same
-  **Replay welcome setup** action, plus **Detect Mac capabilities**; release
-  builds offer **Check this Mac** in **Settings → Local models**.
+  running or a model is being installed or checked. In Debug builds the
+  sidebar's **Developer Tools** has the same **Replay welcome setup** action,
+  plus **Detect Mac capabilities**; release builds offer **Check this Mac** in
+  **Settings → Local models**.
 
 ## Settings
 
@@ -154,6 +157,9 @@ How Enigma looks, starts, and works with your Mac.
   See [Slash-Commands.md](Slash-Commands.md#recognized-commands).
 - **Messages · /messages:** Full Disk Access, Contacts, and Automation for
   `/messages`. See [Messages.md](Messages.md).
+- **Updates:** **Check for updates automatically**, **Download and install
+  updates automatically**, and a **Version** row with the version, when Enigma
+  last checked, and **Check Now**. See [Updates.md](Updates.md).
 
 ### Local models
 
@@ -294,20 +300,20 @@ to the defaults. Settings pages can be opened programmatically by posting
 
 - `EnigmaTests/EnigmaWelcomeTests.swift`: the step counter and navigation, the
   character's slots and states, the model step's button and Return behavior,
-  saving the Brave key, tour card placement, rendering every step at minimum
-  and default sizes, and focus returning to the chat after every way of
-  leaving.
+  one performance check per setup, saving the Brave key, tour card placement,
+  rendering every step at minimum and default sizes, and focus returning to the
+  chat after every way of leaving.
 - `EnigmaTests/LocalModelSelectionTests.swift`: first-run detection, resume,
   migration of existing installs, replay, the role choices in order,
   keeping the chosen model through reranking, and the continue gate.
 - `EnigmaTests/EnigmaSettingsTests.swift`: appearance defaults, persistence,
   and live switching of windows and the welcome; every page rendered in Paper
   and Ink; deep links to pages; Start mode and switches, including **Recognize
-  commands from your wording**; API and Brave key saving; permission status
-  text.
-- `EnigmaTests/AppCommandTests.swift`: startup preference persistence and
-  recovery, in-window and global shortcuts, and the temporary setup window
-  size.
+  commands from your wording**; the update switches and **Check Now**; API and
+  Brave key saving; permission status text.
+- `EnigmaTests/AppCommandTests.swift`: the menu bar item's commands, startup
+  preference persistence and recovery, in-window and global shortcuts, and the
+  temporary setup window size.
 - `EnigmaTests/AppShellStateTests.swift`: starting from saved preferences and
   resetting to Auto after setup.
 - `EnigmaTests/EnigmaMainWindowTests.swift`: first-run versus existing install,

@@ -27,7 +27,7 @@ works in the code, its limitations, and which tests cover it.
 | [Updating the model catalogue](Updating-the-Model-Catalogue.md) | The release checklist for adding or refreshing local models |
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
-| [Updates](Updates.md) | Automatic updates through Sparkle, the update signing key, and publishing a release with `scripts/release.sh` |
+| [Updates](Updates.md) | Automatic updates through Sparkle, moving the app into Applications, the update signing key, and publishing a release with `scripts/release.sh` |
 
 ## Design and history
 
@@ -37,3 +37,8 @@ works in the code, its limitations, and which tests cover it.
   Paper and Ink interface, with mockups and screenshots.
 - [history/](history/README.md) keeps earlier reports. They describe the app as
   it was then, not as it is now.
+- [superpowers/](superpowers/) keeps the design specs and implementation plans
+  written before recent features were built. Like history, they describe the
+  plan at the time.
+- [release-notes/](release-notes/) has the notes for each release, which
+  `scripts/release.sh` publishes with the update. See [Updates](Updates.md).

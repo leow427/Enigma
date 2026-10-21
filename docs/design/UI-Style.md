@@ -28,8 +28,8 @@ palette in the environment and the matching color scheme.
 
 Colors come only from the palette in the environment
 (`@Environment(\.enigmaPalette)`), defined in
-`AI-Spotlight/App/EnigmaTheme.swift`. Translucent tokens are the base color at
-the given opacity.
+`Enigma/App/EnigmaTheme.swift`. Translucent tokens are the base color at the
+given opacity.
 
 | Token | Paper | Ink | Use |
 | --- | --- | --- | --- |
@@ -78,20 +78,21 @@ glyph is Stop, on the solid Send button.
 ## Layout
 
 - **Window.** An opaque `background` with 12 pt corners and a `border` edge.
-  Double-tap Control shows or hides the sidebar.
+  `⌃⌘S` shows or hides the sidebar.
 - **Sidebar.** The app mark and "Enigma", New chat (`⌘N`), then "Recents" as
-  plain rows with a dot on the open chat, then Help, Settings, and Developer
-  Tools. When it's hidden, a slim bar keeps Show history, Help, Settings, and
-  New chat in reach.
+  plain rows with a dot on the open chat, then Help, Settings, and, in Debug
+  builds, Developer Tools. When it's hidden, a slim bar keeps Show chat
+  history, New chat, Help, and Settings in reach.
 - **Main page.** The character centered, a time-of-day greeting, a monospace
   status line built from the real route state, the Auto / Local / Cloud text
   control, the composer, and the slash commands as monospace example lines.
   On short windows the examples drop first, then the character.
 - **Composer.** One rounded opaque `surface` box with the message field,
   Attach and `/` on the left, a monospace `● local` or `○ cloud` indicator,
-  the mode and model menu, and the `accent` Send button, which becomes Stop
-  while a reply runs. After the first send it springs to the bottom. `⌘K`
-  opens the mode and model menu.
+  chips for any commands recognized from the wording, the mode and model
+  menu, and the `accent` Send button, which becomes Stop while a reply runs.
+  After the first send it springs to the bottom. `⌘K` opens the mode and
+  model menu.
 - **Chat.** The person's messages are right-aligned `userBubble` bubbles.
   Replies are serif text with the character in a 30 pt slot to their left and
   a monospace meta line under them: `model · where it ran · time`. Earlier
@@ -110,15 +111,14 @@ glyph is Stop, on the solid Send button.
   rows, and one primary button. A six-stop tour over the main window follows.
 
 Write shortcuts as the app does: `⌥⌃` opens Enigma, a double-tap of `⌥` asks
-about a selection (people can change the key or turn it off), double-tap
-Control toggles the sidebar, and `⌘K` is the mode palette. Copy is plain,
-short sentences.
+about a selection (people can change the key or turn it off), `⌃⌘S` toggles
+the sidebar, and `⌘K` is the mode palette. Copy is plain, short sentences.
 
 ## Shared controls
 
 Buttons, icon buttons, switches, segmented text controls, menus, rows, text
 fields, keycaps, hints, status lines, notes, disclosures, progress bars, and
-card chrome live in `AI-Spotlight/App/EnigmaControls.swift`. Extend them
+card chrome live in `Enigma/App/EnigmaControls.swift`. Extend them
 rather than making a local copy. Every control has a VoiceOver label, and
 every clickable row is reachable with Tab and shows an `accent` focus ring.
 

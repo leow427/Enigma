@@ -83,6 +83,10 @@ the selection again.
 
 Highlighting text never authorizes an edit. A plain question gets a read-only
 answer, and asking for a rewrite without **/edit** gets a hint to use **/edit**.
+With **Recognize commands from your wording** on (**Settings → General**), a
+rewrite request such as "make this more formal" turns on **/edit** for you,
+shown as a chip you can remove before sending. See
+[Slash commands](Slash-Commands.md#recognized-commands).
 
 **Removing** the selection (the **×** on the line or the selected-text card) takes
 it, its place in earlier turns and any edited draft out of every later request, and
@@ -251,7 +255,8 @@ automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
   (`Enigma/App/SpotlightPanelController.swift`) places the panel with
   `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, grows it with
   `SelectionPanelExpansion` (720 pt wide, up to 600 pt tall, on
-  `EnigmaMotion.panelAnswer`), and handles **⌘O** through
+  `EnigmaMotion.panelAnswer`), and handles **⌘O** and the **Open in window**
+  button (`.selectionChatOpenInWindowRequested`) through
   `openSelectionChatInWindow()`. Dragging uses `enigmaWindowDragArea`
   (`Enigma/App/EnigmaControls.swift`).
 - **Panel views.** `EnigmaCompactPanel`, `EnigmaCompactSelectionLine`,
