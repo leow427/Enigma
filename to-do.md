@@ -1006,6 +1006,50 @@ collapsed in its activity line ("Activity · 3 sources",
 - Keep it accessible: the icon has a label such as "3 sources, collapsed".
   Update `docs/Web-Search.md`.
 
+### F28. See the model's thinking while it answers
+
+**Today:** while a reply is generating, its status line reads **Thinking…**
+(`AssistantActivity.swift`). Opening it shows only the steps (searching,
+reading sources, tool calls), and `docs/Chat.md` says model reasoning is never
+shown. Every route drops it: Codex handles only `item/agentMessage/delta`
+(`CodexSubscriptionClient.swift`), Claude Code and the Anthropic API keep only
+`text_delta` (`ClaudeCodeSubscriptionClient.swift`,
+`CloudProviderClients.swift`), and the OpenAI Responses tool loop omits
+`reasoning` items (`CloudToolCalling.swift`). Local reasoning models run with
+thinking off except under **/think** (`enable_thinking`).
+
+**Wanted (like ChatGPT's "Thought for 12s" and Claude's thinking blocks):**
+
+- Clicking the status line while a reply generates opens a live, formatted
+  view of the model's thought process: Markdown streaming in a quieter style
+  than the reply (secondary colour, smaller type), following its own end as
+  it grows. Closed again, it shows the latest line or the current step.
+- When the reply ends, the line reads something like **Thought for 12 s**,
+  collapsed, and opens to the full thinking. Steps such as searches and tool
+  calls sit in order between the thinking, in the existing activity panel
+  (`AssistantActivityView.swift`), not a second disclosure.
+- Show only what the provider really sends, and never make up a thought
+  process:
+  - **OpenAI API and Codex:** reasoning summaries. Ask for them
+    (`reasoning.summary`) and read Codex's reasoning summary events.
+  - **Anthropic API and Claude Code:** `thinking_delta` blocks, which recent
+    Claude models send summarised.
+  - **Local:** `<think>…</think>` text, or llama-server's
+    `reasoning_content`. Check whether the bundled llama.cpp text engine
+    strips that text or lets it into the reply today.
+  - Models that send no reasoning keep today's steps.
+- Thinking is display only. It's never sent back to the model in later turns,
+  except where a provider requires its signed thinking blocks to continue a
+  tool loop. Decide whether it is saved with the chat. Keeping it in memory
+  only fits Enigma's minimal-history aim; if it is saved, temporary chats
+  still save nothing.
+- The panel growing must not break following the end of the chat (B1, B13),
+  and long thinking must not slow streaming: coalesce updates the way the
+  reply does.
+- Accessibility: a label such as "Thinking, collapsed" or "Thought for 12
+  seconds", and Reduce Motion respected. Update `docs/Chat.md` and add tests
+  for each route's parsing and for the panel while streaming and after.
+
 ### F12. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
