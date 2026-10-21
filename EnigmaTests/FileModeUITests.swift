@@ -66,6 +66,37 @@ final class FileModeUITests: XCTestCase {
     XCTAssertEqual(files.selection, selection)
   }
 
+  func testMoreThanSixteenAttachmentsShowTheLimitAndKeepTheSelection() async throws {
+    let picker = FileTestPicker([project])
+    let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
+    await files.activate(from: .menu)
+    let previous = try XCTUnwrap(files.selection)
+    let others = root.appendingPathComponent("Others")
+    try FileManager.default.createDirectory(at: others, withIntermediateDirectories: true)
+    picker.urls = try (1...17).map { index in
+      let url = others.appendingPathComponent("file\(index).txt")
+      try Data("\(index)".utf8).write(to: url)
+      return url
+    }
+    await files.activate(from: .menu)
+    XCTAssertEqual(files.error, "You can attach up to 16 files or folders.")
+    XCTAssertEqual(files.selection, previous)
+  }
+
+  func testFilesInsideAnAttachedFolderDoNotCountTowardTheLimit() async throws {
+    let inside = try (1...16).map { index in
+      let url = project.appendingPathComponent("file\(index).txt")
+      try Data("\(index)".utf8).write(to: url)
+      return url
+    }
+    let files = FileModeCoordinator(picker: FileTestPicker([project] + inside),
+      journalDirectory: root.appendingPathComponent("Recovery"))
+    await files.activate(from: .menu)
+    XCTAssertNil(files.error)
+    XCTAssertEqual(files.selection?.attachments.count, 1)
+    XCTAssertEqual(files.selection?.attachments.first?.isDirectory, true)
+  }
+
   func testShiftCommandAInvokesSamePickerThroughNativePanelWhileTyping() async throws {
     XCTAssertEqual(PanelShortcut.resolve(characters: "A", modifiers: [.command, .shift], keyCode: 0), .fileMode)
     XCTAssertNil(PanelShortcut.resolve(characters: "a", modifiers: [.command]))

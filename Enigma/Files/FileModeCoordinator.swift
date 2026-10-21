@@ -85,10 +85,12 @@ final class FileModeCoordinator: ObservableObject {
         let attachment = try WorkspaceAttachment.select(url)
         if !attachments.contains(where: { $0.url == attachment.url }) { attachments.append(attachment) }
       }
-      guard attachments.count <= 16 else { throw FileModeError.invalidArguments }
+      // Count after normalizing: a file inside an attached folder is covered by that folder.
+      let normalized = WorkspaceSelection.normalized(attachments)
+      guard normalized.attachments.count <= WorkspaceSelection.attachmentLimit else { throw FileModeError.tooManyAttachments }
       protectedWrite = nil
       protectedWritePrompt = nil
-      selection = WorkspaceSelection.normalized(attachments)
+      selection = normalized
       selectionRevision = UUID()
       error = nil
       onSelectionChange?(selection)

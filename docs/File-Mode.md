@@ -10,7 +10,8 @@ can review it and undo it.
 Click **+** (**Attach files**) in the composer, or press **⇧⌘A**. Choose one or
 more files or folders in the picker and click **Attach**. Choosing again adds
 more, up to 16; a file inside a folder you've already attached is covered by that
-folder.
+folder and doesn't count toward the 16. Choosing more than that shows "You can
+attach up to 16 files or folders." and keeps the current attachments.
 
 A card above the composer lists each attachment with its access, **read & edit**
 or **read only**, and an **×** to remove it. Removing the last one returns to

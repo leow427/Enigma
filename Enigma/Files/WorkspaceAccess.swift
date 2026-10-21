@@ -4,7 +4,7 @@ import Foundation
 enum FileModeError: LocalizedError, Equatable {
   case outsideWorkspace, unsafeFile, readOnly, invalidArguments, tooLarge, conflict, inactive
   case patchNotFound, patchAmbiguous, patchUnobserved, patchBoundary, incompleteResponse, contextExhausted, alreadyExists, fileNotFound
-  case protectedWriteRequiresCloud
+  case protectedWriteRequiresCloud, tooManyAttachments
   case operation(String)
 
   var errorDescription: String? {
@@ -25,6 +25,7 @@ enum FileModeError: LocalizedError, Equatable {
     case .conflict: "A file changed outside this task. Your newer work was kept. Review the files before trying again."
     case .inactive: "File access has ended. Attach the location again to continue."
     case .protectedWriteRequiresCloud: "This protected edit requires the user's Codex cloud permission. No protected file was changed."
+    case .tooManyAttachments: "You can attach up to \(WorkspaceSelection.attachmentLimit) files or folders."
     case .operation(let message): message
     }
   }
@@ -80,6 +81,7 @@ struct WorkspaceAttachment: Codable, Equatable, Sendable, Identifiable {
 }
 
 struct WorkspaceSelection: Codable, Equatable, Sendable {
+  static let attachmentLimit = 16
   let attachments: [WorkspaceAttachment]
   var displayName: String {
     attachments.count == 1 ? attachments[0].name : "\(attachments.count) attachments"
@@ -148,7 +150,7 @@ final class WorkspaceAccess: @unchecked Sendable {
   static let fileLimit = 2 * 1_024 * 1_024
 
   init(selection: WorkspaceSelection) throws {
-    guard !selection.attachments.isEmpty, selection.attachments.count <= 16 else {
+    guard !selection.attachments.isEmpty, selection.attachments.count <= WorkspaceSelection.attachmentLimit else {
       throw FileModeError.invalidArguments
     }
     guard WorkspaceSelection.normalized(selection.attachments) == selection else { throw FileModeError.invalidArguments }
