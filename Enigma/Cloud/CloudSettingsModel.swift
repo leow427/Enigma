@@ -79,6 +79,14 @@ final class CloudSettingsModel: ObservableObject {
     case failed(String)
   }
 
+  /// The outcome of an explicit "Check sign-in status".
+  enum SignInCheck: Equatable {
+    case signedIn(String?)
+    case notSignedIn
+    case notInstalled
+    case failed(String)
+  }
+
   static let shared: CloudSettingsModel = {
     let credentialStore = KeychainCredentialStore()
     return CloudSettingsModel(
@@ -133,6 +141,10 @@ final class CloudSettingsModel: ObservableObject {
   @Published private(set) var isClaudeCodeAvailable: Bool
   @Published private(set) var isWaitingForClaudeCodeSignIn = false
   @Published private(set) var claudeCodeError: String?
+  @Published private(set) var isCheckingChatGPT = false
+  @Published private(set) var chatGPTCheck: SignInCheck?
+  @Published private(set) var isCheckingClaudeCode = false
+  @Published private(set) var claudeCodeCheck: SignInCheck?
 
   private let credentialStore: any CloudCredentialStore
   private let catalog: CloudModelCatalog
@@ -198,16 +210,32 @@ final class CloudSettingsModel: ObservableObject {
     }
   }
 
-  func refreshClaudeCodeAccount() async {
+  @discardableResult
+  func refreshClaudeCodeAccount() async -> SignInCheck {
+    claudeCodeCheck = nil
     isClaudeCodeAvailable = claudeCode.isInstalled
-    guard isClaudeCodeAvailable else { claudeCodeAccount = nil; return }
+    guard isClaudeCodeAvailable else { claudeCodeAccount = nil; return .notInstalled }
     do {
-      claudeCodeAccount = try await claudeCode.account()
+      let account = try await claudeCode.account()
+      claudeCodeAccount = account
       claudeCodeError = nil
+      return account.map { .signedIn($0.email) } ?? .notSignedIn
     } catch {
       claudeCodeAccount = nil
       claudeCodeError = error.localizedDescription
+      if let error = error as? ClaudeCodeError, error == .notSignedIn { return .notSignedIn }
+      return .failed(error.localizedDescription)
     }
+  }
+
+  /// The explicit button: shows progress, then always leaves a result.
+  func checkClaudeCodeSignIn() async {
+    guard !isCheckingClaudeCode, !isWaitingForClaudeCodeSignIn else { return }
+    isCheckingClaudeCode = true
+    claudeCodeCheck = nil
+    defer { isCheckingClaudeCode = false }
+    let result = await refreshClaudeCodeAccount()
+    if !isWaitingForClaudeCodeSignIn { claudeCodeCheck = result }
   }
 
   /// Claude Code owns its browser sign-in, so it runs in Terminal while Enigma
@@ -215,6 +243,7 @@ final class CloudSettingsModel: ObservableObject {
   func signInToClaudeCode(openScript: @escaping @MainActor (URL) -> Bool) {
     guard !isWaitingForClaudeCodeSignIn else { return }
     claudeCodeError = nil
+    claudeCodeCheck = nil
     do {
       guard openScript(try claudeCode.runtimeSignInScript()) else {
         claudeCodeError = "Terminal could not be opened to sign in to Claude Code."
@@ -244,23 +273,40 @@ final class CloudSettingsModel: ObservableObject {
 
   func cancelClaudeCodeSignIn() { claudeCodeSignInTask?.cancel() }
 
-  func refreshChatGPTAccount() async {
-    guard !isSigningIn else { return }
+  @discardableResult
+  func refreshChatGPTAccount() async -> SignInCheck? {
+    chatGPTCheck = nil
+    guard !isSigningIn else { return nil }
     isCodexAvailable = codexAvailable()
-    guard isCodexAvailable else { chatGPTAccount = nil; return }
+    guard isCodexAvailable else { chatGPTAccount = nil; return .notInstalled }
     do {
-      chatGPTAccount = try await codex.account()
+      let account = try await codex.account()
+      chatGPTAccount = account
       accountError = nil
+      return account.map { .signedIn($0.email) } ?? .notSignedIn
     } catch {
       chatGPTAccount = nil
       accountError = error.localizedDescription
+      if let error = error as? CodexError, error == .notSignedIn { return .notSignedIn }
+      return .failed(error.localizedDescription)
     }
+  }
+
+  /// The explicit button: shows progress, then always leaves a result.
+  func checkChatGPTSignIn() async {
+    guard !isCheckingChatGPT, !isSigningIn else { return }
+    isCheckingChatGPT = true
+    chatGPTCheck = nil
+    defer { isCheckingChatGPT = false }
+    let result = await refreshChatGPTAccount()
+    if !isSigningIn { chatGPTCheck = result }
   }
 
   func signInWithChatGPT(openURL: @escaping @Sendable (URL) async -> Bool) {
     guard !isSigningIn else { return }
     isSigningIn = true
     accountError = nil
+    chatGPTCheck = nil
     loginTask = Task {
       defer { isSigningIn = false; loginTask = nil }
       do {
@@ -284,6 +330,7 @@ final class CloudSettingsModel: ObservableObject {
       try await codex.signOut()
       chatGPTAccount = nil
       accountError = nil
+      chatGPTCheck = nil
       if preferredProvider == .chatGPT { models = [] }
       try await catalog.clearCache(for: .chatGPT)
     } catch {

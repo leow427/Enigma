@@ -16,6 +16,10 @@ route falls back to the other.
    **Connect what you use** step of welcome setup. If Claude Code isn't found,
    the row says so and offers **Claude Code installation instructions** and
    **Check sign-in status**; **Sign in** stays off until it is installed.
+   **Check sign-in status** shows **Checking…** while it runs and then always
+   reports the result under the row: signed in as an account, not signed in
+   (choose **Sign in**), Claude Code not found on this Mac (use the install link, then
+   check again), or the error with a hint to retry.
 3. If Claude Code is already signed in with a Claude subscription, the row reads
    **connected** with your email and plan. Otherwise choose **Sign in**: Enigma
    opens Terminal, which runs `claude auth login --claudeai`, and you finish in

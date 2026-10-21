@@ -436,6 +436,56 @@ final class CodexSubscriptionTests: XCTestCase {
     XCTAssertFalse((defaults.persistentDomain(forName: suite) ?? [:]).keys.contains { $0.lowercased().contains("token") })
   }
 
+  @MainActor
+  func testCheckSignInReportsEveryOutcomeAndClearsRunningFlag() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    func model(_ transport: any CodexRPCTransport, installed: Bool) -> CloudSettingsModel {
+      let client = CodexSubscriptionClient(transport: transport)
+      let defaults = UserDefaults(suiteName: "CodexCheck.\(UUID().uuidString)")!
+      return CloudSettingsModel(
+        credentialStore: CodexTestCredentials(),
+        catalog: CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(), cacheDirectory: root, codex: client),
+        preferences: CloudPreferencesStore(defaults: defaults), codex: client, codexAvailable: { installed }
+      )
+    }
+    let missing = model(MockCodexTransport(), installed: false)
+    XCTAssertNil(missing.chatGPTCheck)
+    await missing.checkChatGPTSignIn()
+    XCTAssertEqual(missing.chatGPTCheck, .notInstalled)
+    XCTAssertFalse(missing.isCheckingChatGPT)
+
+    let out = model(MockCodexTransport(account: .null), installed: true)
+    await out.checkChatGPTSignIn()
+    XCTAssertEqual(out.chatGPTCheck, .notSignedIn)
+    XCTAssertFalse(out.isCheckingChatGPT)
+
+    let signedIn = model(MockCodexTransport(), installed: true)
+    await signedIn.checkChatGPTSignIn()
+    XCTAssertEqual(signedIn.chatGPTCheck, .signedIn("person@example.com"))
+    XCTAssertFalse(signedIn.isCheckingChatGPT)
+
+    let broken = model(FailingCodexTransport(), installed: true)
+    await broken.checkChatGPTSignIn()
+    XCTAssertEqual(broken.chatGPTCheck, .failed(CodexError.disconnected.localizedDescription))
+    XCTAssertFalse(broken.isCheckingChatGPT)
+
+    // Only the explicit check records a result.
+    let quiet = model(MockCodexTransport(account: .null), installed: true)
+    await quiet.refreshChatGPTAccount()
+    XCTAssertNil(quiet.chatGPTCheck)
+
+    // A later refresh clears a result it may contradict.
+    await signedIn.checkChatGPTSignIn()
+    XCTAssertNotNil(signedIn.chatGPTCheck)
+    await signedIn.refreshChatGPTAccount()
+    XCTAssertNil(signedIn.chatGPTCheck)
+
+    let noEmail = model(MockCodexTransport(account: .object(["type": .string("chatgpt"), "planType": .string("plus")])), installed: true)
+    await noEmail.checkChatGPTSignIn()
+    XCTAssertEqual(noEmail.chatGPTCheck, .signedIn(nil))
+  }
+
   func testCodexBoundsSerializedContextAndKeepsOriginalMessages() async throws {
     let transport = MockCodexTransport(turnNotifications: [completion("completed")])
     let base = request()
@@ -508,6 +558,12 @@ final class CodexSubscriptionTests: XCTestCase {
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     return url
   }
+}
+
+private struct FailingCodexTransport: CodexRPCTransport {
+  func request(_ method: String, params: CodexValue) async throws -> CodexValue { throw CodexError.disconnected }
+  func notifications() async throws -> CodexNotificationSubscription { throw CodexError.disconnected }
+  func setFileHandler(threadID: String, handler: CodexServerRequestHandler?) async throws {}
 }
 
 private actor MockCodexTransport: CodexRPCTransport {

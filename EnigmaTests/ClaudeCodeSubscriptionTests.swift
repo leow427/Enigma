@@ -207,6 +207,70 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
   }
 
   @MainActor
+  func testCheckSignInReportsEveryOutcomeAndClearsRunningFlag() async throws {
+    let root = try temporaryDirectory()
+    func model(script: String?, name: String) throws -> CloudSettingsModel {
+      let claudeCode: ClaudeCodeSubscriptionClient
+      if let script {
+        claudeCode = try client(root: root, name: name, script: script)
+      } else {
+        let runtime = ClaudeCodeRuntime(directory: root.appending(path: "none"), executable: { nil })
+        claudeCode = ClaudeCodeSubscriptionClient(runtime: runtime)
+      }
+      let credentials = ClaudeCodeTestCredentials()
+      let defaults = try XCTUnwrap(UserDefaults(suiteName: "ClaudeCodeCheck-\(UUID())"))
+      return CloudSettingsModel(
+        credentialStore: credentials,
+        catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                   cacheDirectory: root.appending(path: "cache"), claudeCode: claudeCode),
+        preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false }, claudeCode: claudeCode
+      )
+    }
+    let missing = try model(script: nil, name: "missing")
+    await missing.checkClaudeCodeSignIn()
+    XCTAssertEqual(missing.claudeCodeCheck, .notInstalled)
+    XCTAssertFalse(missing.isCheckingClaudeCode)
+
+    let out = try model(script: """
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' '{"loggedIn":false}'
+      """, name: "out")
+    await out.checkClaudeCodeSignIn()
+    XCTAssertEqual(out.claudeCodeCheck, .notSignedIn)
+    XCTAssertFalse(out.isCheckingClaudeCode)
+
+    let signedIn = try model(script: """
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' '{"loggedIn":true,"authMethod":"claude.ai","email":"person@example.com","subscriptionType":"pro"}'
+      """, name: "in")
+    await signedIn.checkClaudeCodeSignIn()
+    XCTAssertEqual(signedIn.claudeCodeCheck, .signedIn("person@example.com"))
+    XCTAssertFalse(signedIn.isCheckingClaudeCode)
+
+    let broken = try model(script: """
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' 'not json'
+      """, name: "broken")
+    await broken.checkClaudeCodeSignIn()
+    guard case .failed(let message) = broken.claudeCodeCheck else { return XCTFail("Expected a failure") }
+    XCTAssertFalse(message.isEmpty)
+    XCTAssertFalse(broken.isCheckingClaudeCode)
+
+    let quiet = try model(script: """
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' '{"loggedIn":false}'
+      """, name: "quiet")
+    await quiet.refreshClaudeCodeAccount()
+    XCTAssertNil(quiet.claudeCodeCheck)
+
+    // A later refresh clears a result it may contradict.
+    await quiet.checkClaudeCodeSignIn()
+    XCTAssertEqual(quiet.claudeCodeCheck, .notSignedIn)
+    await quiet.refreshClaudeCodeAccount()
+    XCTAssertNil(quiet.claudeCodeCheck)
+  }
+
+  @MainActor
   func testSignInOpensTerminalScriptAndSelectsClaudeOnceStatusReportsLogin() async throws {
     let root = try temporaryDirectory()
     let marker = root.appending(path: "signed-in")

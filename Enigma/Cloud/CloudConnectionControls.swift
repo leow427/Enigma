@@ -34,11 +34,11 @@ struct ChatGPTConnectionControls: View {
         }
         EnigmaConnectionNote("Codex securely stores your sign-in on this Mac.")
         HStack(spacing: 2) {
-          Button("Check sign-in status") {
-            Task { await settings.refreshChatGPTAccount() }
+          Button(settings.isCheckingChatGPT ? "Checking…" : "Check sign-in status") {
+            Task { await settings.checkChatGPTSignIn() }
           }
           .enigmaButtonStyle(.text)
-          .disabled(settings.isSigningIn)
+          .disabled(settings.isSigningIn || settings.isCheckingChatGPT)
           if !settings.isCodexAvailable {
             Link("Codex installation instructions", destination: URL(string: "https://learn.chatgpt.com/docs/cli")!)
               .enigmaButtonStyle(.text)
@@ -52,12 +52,18 @@ struct ChatGPTConnectionControls: View {
           }
         }
         .padding(.leading, -8)
-        if let accountError = settings.accountError {
+        if let check = settings.chatGPTCheck {
+          SignInCheckResult(check, product: "Codex",
+                            signInHint: "Choose Sign in to connect your ChatGPT plan.")
+        } else if let accountError = settings.accountError {
           EnigmaStatusLine(.problem, accountError)
         }
       }
     }
     .task { await settings.refreshChatGPTAccount() }
+    .onChange(of: settings.chatGPTCheck) { _, check in
+      if let check { SignInCheckResult.announce(check, product: "Codex") }
+    }
   }
 
   @ViewBuilder private var action: some View {
@@ -78,7 +84,7 @@ struct ChatGPTConnectionControls: View {
         }
       }
       .enigmaButtonStyle(.secondary)
-      .disabled(!settings.isCodexAvailable)
+      .disabled(!settings.isCodexAvailable || settings.isCheckingChatGPT)
       .accessibilityLabel("Sign in with ChatGPT")
     }
   }
@@ -120,23 +126,29 @@ struct ClaudeCodeConnectionControls: View {
         }
         EnigmaConnectionNote("Enigma shares the Claude Code sign-in on this Mac. To disconnect, choose another provider, or run claude auth logout in Terminal to sign out everywhere.")
         HStack(spacing: 2) {
-          Button("Check sign-in status") {
-            Task { await settings.refreshClaudeCodeAccount() }
+          Button(settings.isCheckingClaudeCode ? "Checking…" : "Check sign-in status") {
+            Task { await settings.checkClaudeCodeSignIn() }
           }
           .enigmaButtonStyle(.text)
-          .disabled(settings.isWaitingForClaudeCodeSignIn)
+          .disabled(settings.isWaitingForClaudeCodeSignIn || settings.isCheckingClaudeCode)
           if !settings.isClaudeCodeAvailable {
             Link("Claude Code installation instructions", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
               .enigmaButtonStyle(.text)
           }
         }
         .padding(.leading, -8)
-        if let error = settings.claudeCodeError {
+        if let check = settings.claudeCodeCheck {
+          SignInCheckResult(check, product: "Claude Code",
+                            signInHint: "Choose Sign in to connect your Claude plan.")
+        } else if let error = settings.claudeCodeError {
           EnigmaStatusLine(.problem, error)
         }
       }
     }
     .task { await settings.refreshClaudeCodeAccount() }
+    .onChange(of: settings.claudeCodeCheck) { _, check in
+      if let check { SignInCheckResult.announce(check, product: "Claude Code") }
+    }
   }
 
   @ViewBuilder private func action(isSelected: Bool) -> some View {
@@ -156,8 +168,46 @@ struct ClaudeCodeConnectionControls: View {
         settings.signInToClaudeCode { NSWorkspace.shared.open($0) }
       }
       .enigmaButtonStyle(.secondary)
-      .disabled(!settings.isClaudeCodeAvailable)
+      .disabled(!settings.isClaudeCodeAvailable || settings.isCheckingClaudeCode)
       .accessibilityLabel("Sign in to Claude Code")
+    }
+  }
+}
+
+/// What "Check sign-in status" found, with the next step.
+struct SignInCheckResult: View {
+  let check: CloudSettingsModel.SignInCheck
+  let product: String
+  let signInHint: String
+
+  init(_ check: CloudSettingsModel.SignInCheck, product: String, signInHint: String) {
+    self.check = check
+    self.product = product
+    self.signInHint = signInHint
+  }
+
+  static func message(_ check: CloudSettingsModel.SignInCheck, product: String) -> (EnigmaStatusLine.Status, String) {
+    switch check {
+    case .signedIn(let who): (.on, who.map { "Signed in as \($0)" } ?? "Signed in")
+    case .notSignedIn: (.off, "Not signed in")
+    case .notInstalled: (.problem, "\(product) not found on this Mac")
+    case .failed(let message): (.problem, message)
+    }
+  }
+
+  static func announce(_ check: CloudSettingsModel.SignInCheck, product: String) {
+    AccessibilityNotification.Announcement(message(check, product: product).1).post()
+  }
+
+  var body: some View {
+    let line = Self.message(check, product: product)
+    VStack(alignment: .leading, spacing: 4) {
+      EnigmaStatusLine(line.0, line.1)
+      switch check {
+      case .signedIn, .notInstalled: EmptyView()
+      case .notSignedIn: EnigmaConnectionNote(signInHint)
+      case .failed: EnigmaConnectionNote("Try again in a moment. If it keeps failing, update \(product) and restart Enigma.")
+      }
     }
   }
 }
