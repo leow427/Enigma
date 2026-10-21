@@ -192,6 +192,42 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertGreaterThan(document.bounds.maxY - scroll.contentView.bounds.maxY, 2)
   }
 
+  func testOnlyANewSendBringsTheReaderBackToTheEnd() {
+    let document = ConversationTestDocument(flipped: true)
+    document.frame = NSRect(x: 0, y: 0, width: 400, height: 1600)
+    let observer = ConversationScrollObserver.ObserverView()
+    observer.frame = document.bounds
+    document.addSubview(observer)
+    let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+    scroll.documentView = document
+    let window = NSWindow(contentRect: scroll.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.contentView = scroll
+    defer { window.contentView = nil }
+    observer.sendChanged("opened")
+    observer.scrollToBottomIfFollowing()
+    func scrollAway() {
+      NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+      scroll.contentView.scroll(to: NSPoint(x: 0, y: 400))
+      NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+      XCTAssertFalse(observer.followsLatest)
+    }
+    func assertStaysAway(_ revision: String, _ message: String) {
+      observer.sendChanged(revision)
+      observer.scrollToBottomIfFollowing()
+      XCTAssertFalse(observer.followsLatest, message)
+      XCTAssertEqual(scroll.contentView.bounds.minY, 400, accuracy: 1, message)
+    }
+    scrollAway()
+    assertStaysAway("opened", "The chat as it opened isn't a send")
+    observer.sendChanged("sent")
+    XCTAssertTrue(observer.followsLatest, "A new send follows again")
+    observer.scrollToBottomIfFollowing()
+    XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
+    scrollAway()
+    assertStaysAway("sent", "The same send again doesn't move the reader")
+    assertStaysAway("opened", "Going back to an earlier send (a failed one removed) doesn't move the reader")
+  }
+
   func testConversationScrollPreservesReadingPositionAcrossLayoutAndStreaming() throws {
     for flipped in [true, false] {
       let document = ConversationTestDocument(flipped: flipped)

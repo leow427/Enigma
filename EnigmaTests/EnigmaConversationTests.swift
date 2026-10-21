@@ -607,6 +607,68 @@ final class EnigmaConversationTests: XCTestCase {
     }
   }
 
+  /// Sending after scrolling up brings the new message back into view, and the
+  /// chat follows its reply; scrolling up during the reply still stops that.
+  @MainActor
+  func testSendingAfterScrollingUpBringsTheMessageIntoViewWithAndWithoutReduceMotion() async throws {
+    for reduceMotion in [false, true] {
+      var session = ChatSession(title: "Long chat")
+      for index in 0..<24 {
+        session.append(ChatMessage(role: index.isMultiple(of: 2) ? .user : .assistant,
+          content: "Earlier message \(index). " + String(repeating: "A longer reply with wrapping text. ", count: 1 + index % 5)))
+      }
+      let fixture = try await Fixture(test: self, sessions: [session])
+      fixture.animates = true
+      fixture.reduceMotion = reduceMotion
+      let host = Host(fixture, size: CGSize(width: 1000, height: 760), test: self)
+      defer { host.window.orderOut(nil) }
+      fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
+      func observer() -> ConversationScrollObserver.ObserverView? { Self.scrollObserver(in: host.view) }
+      try await waitForUI("the chat open at its end", in: host.view) {
+        guard let scroll = observer()?.enclosingScrollView, let document = scroll.documentView else { return false }
+        return document.bounds.height > scroll.contentView.bounds.height * 2 && Self.distanceFromBottom(scroll) <= 2
+          && !host.shows("Example /screen") && composerAcceptsClicks(in: host.view)
+      }
+      let scroll = try XCTUnwrap(observer()?.enclosingScrollView)
+      let watcher = try XCTUnwrap(observer())
+      func scrollUp(_ distance: CGFloat) {
+        NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+        let flipped = scroll.documentView?.isFlipped != false
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: scroll.contentView.bounds.minY + (flipped ? -distance : distance)))
+        NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+      }
+      scrollUp(600)
+      XCTAssertFalse(watcher.followsLatest)
+      XCTAssertGreaterThan(Self.distanceFromBottom(scroll), 500)
+
+      try await send("A new question", in: host, fixture)
+      try await waitForUI("the request", in: host.view) { fixture.engine.requestCount == 1 }
+      try await waitForUI("the new message in view at the bottom (Reduce Motion \(reduceMotion)); distance \(Self.distanceFromBottom(scroll)), visible \(Self.lastMessageIsVisible(in: scroll)), following \(watcher.followsLatest)", in: host.view) {
+        Self.distanceFromBottom(scroll) <= 2 && Self.lastMessageIsVisible(in: scroll) && watcher.followsLatest
+      }
+      let reply = String(repeating: "A streamed answer. ", count: 300)
+      fixture.engine.send(reply)
+      try await waitForUI("the reply followed (Reduce Motion \(reduceMotion))", in: host.view) {
+        fixture.chat.messages.last?.content == reply && Self.distanceFromBottom(scroll) <= 2
+      }
+
+      // Scrolling up during the reply still stops the chat following.
+      scrollUp(120)
+      XCTAssertFalse(watcher.followsLatest)
+      let reading = scroll.contentView.bounds.minY
+      fixture.engine.send(String(repeating: " More streamed detail.", count: 60))
+      try await waitForUI("the reply to grow", in: host.view) {
+        fixture.chat.messages.last?.content.hasSuffix("More streamed detail.") == true
+      }
+      host.view.layoutSubtreeIfNeeded()
+      watcher.scrollToBottomIfFollowing()
+      XCTAssertEqual(scroll.contentView.bounds.minY, reading, accuracy: 2, "Streaming leaves the reader where they are")
+      XCTAssertGreaterThan(Self.distanceFromBottom(scroll), 2)
+      fixture.engine.finish()
+      try await waitForUI("the request to finish", in: host.view) { fixture.chat.activeRequest == nil }
+    }
+  }
+
   @MainActor
   private static func scrollObserver(in view: NSView) -> ConversationScrollObserver.ObserverView? {
     if let observer = view as? ConversationScrollObserver.ObserverView { return observer }

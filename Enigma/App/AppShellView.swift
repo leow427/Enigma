@@ -650,6 +650,7 @@ struct AppShellView: View {
   /// and per-chat identity as the main window's, gathered at the top.
   private var compactMessageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
+                      sendRevision: conversationSendRevision,
                       activityExpansion: activityExpansion, gathersAtBottom: false, horizontalPadding: 16) {
       revisionCard($0)
     }
@@ -746,9 +747,15 @@ struct AppShellView: View {
       + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)
   }
 
+  /// The latest message the person sent, for both lists: a new one brings the end into view.
+  private var conversationSendRevision: String {
+    localChat.presentationMessages.last { $0.role == .user }?.id.uuidString ?? ""
+  }
+
   /// The chat, with a new identity for each chat so it opens at its own end.
   private var messageList: some View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
+                      sendRevision: conversationSendRevision,
                       activityExpansion: activityExpansion,
                       footnote: openedSelectionChatNote) {
       revisionCard($0)

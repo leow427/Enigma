@@ -14,6 +14,8 @@ struct EnigmaMessageList<Revision: View>: View {
   let transcript: ConversationTranscript
   /// Changes with anything that should keep a reader at the bottom following it.
   let scrollRevision: String
+  /// Changes when the person sends a message, which brings the end back into view.
+  var sendRevision = ""
   let activityExpansion: (UUID) -> Binding<Bool>
   /// Messages gather at the bottom, by a composer under the list, or at the
   /// top, under the compact panel's input.
@@ -56,7 +58,7 @@ struct EnigmaMessageList<Revision: View>: View {
         .padding(.bottom, 14)
         // Messages gather by the composer, as in the mockups.
         .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: gathersAtBottom ? .bottom : .top)
-        .background(ConversationScrollObserver(contentRevision: scrollRevision).allowsHitTesting(false))
+        .background(ConversationScrollObserver(contentRevision: scrollRevision, sendRevision: sendRevision).allowsHitTesting(false))
         .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.rowEnter.animation,
                    value: transcript.rows.map(\.id))
       }
@@ -326,14 +328,34 @@ struct EnigmaChatNote: View {
 
 // MARK: Following the end of the chat
 
-/// Follow new layout only while the reader remains at the end of the chat.
+/// Follow new layout only while the reader remains at the end of the chat, or
+/// has just sent a message.
 struct ConversationScrollObserver: NSViewRepresentable {
   var contentRevision = ""
+  var sendRevision = ""
   func makeNSView(context: Context) -> ObserverView { ObserverView() }
-  func updateNSView(_ view: ObserverView, context: Context) { view.contentChanged(contentRevision) }
+  func updateNSView(_ view: ObserverView, context: Context) {
+    view.sendChanged(sendRevision)
+    view.contentChanged(contentRevision)
+  }
 
   final class ObserverView: NSView {
     private var contentRevision = ""
+    /// Every send this list has shown. The first value is the chat as opened, and
+    /// going back to an earlier one (a failed send removed) isn't a new send.
+    private var seenSends: Set<String>?
+    func sendChanged(_ revision: String) {
+      guard let seen = seenSends else { seenSends = [revision]; return }
+      guard !seen.contains(revision) else { return }
+      seenSends?.insert(revision)
+      // Sending is an explicit wish to see the message and its reply.
+      followsLatest = true
+      isLiveScrolling = false
+      isSettlingDocumentLayout = true
+      pendingScroll?.cancel()
+      pendingScroll = nil
+      scheduleScroll()
+    }
     func contentChanged(_ revision: String) {
       guard revision != contentRevision else { return }
       contentRevision = revision

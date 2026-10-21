@@ -69,7 +69,8 @@ closes an open menu or, with none open, hides the window.
   links, block quotes and tables. Code and tables scroll sideways when they're
   wide. Reply and message text can be selected and copied.
 - The chat opens at its end and follows new text while you're at the bottom.
-  Sending a message brings it and its reply to the bottom of the view; a reply
+  Sending a message always brings it and its reply to the bottom of the view,
+  even if you had scrolled up, and the chat follows the reply again; a reply
   taller than the window scrolls the message off the top as the chat follows
   the end. Scroll up and it stops following, so you can read earlier messages
   while a reply streams; scroll back to the bottom and it follows again.
@@ -172,9 +173,11 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   height is exact: a lazy stack estimates rows it hasn't drawn, which can leave
   empty space below the messages for following to scroll into. Its
   `ConversationScrollObserver` watches the native scroll view: it follows only
-  while within 2 pt of the bottom, stops on live scrolling, wheel or key
-  navigation, coalesces scroll corrections for 30 ms, and treats layout changes
-  (such as the waiting row being replaced) as layout, not navigation. The list
+  while within 2 pt of the bottom, or once the list's send revision (the id of
+  the latest message you sent) changes to a message it hasn't shown, stops on
+  live scrolling, wheel or key navigation, coalesces scroll corrections for
+  30 ms, and treats layout changes (such as the waiting row being replaced) as
+  layout, not navigation. The list
   gets a new identity per chat, so each opens at its end.
 - `ChatMarkdownView` (`Enigma/Chat/ChatMarkdownView.swift`) renders Foundation's
   Markdown parse as native blocks. `ChatResponseNormalizer`
