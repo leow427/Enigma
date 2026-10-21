@@ -193,7 +193,18 @@ page.
 - Applies to both setup's connections step and Settings, since they share
   these controls.
 
-### B10. Two contacts with the same name are treated as one person
+### B10. ✅ Done: Two contacts with the same name are treated as one person
+
+> **Solved:** `resolve` treats each contact card as its own person and applies
+> the existing-conversation and B6 phone preferences only within one card. When
+> a name matches more than one card, the model is told to ask. People who share
+> a name with each other or with a matching group are told apart by company and
+> labelled numbers and emails, led by the handle a send would use
+> (`Alex Kim (Example Co): mobile +1…, work alex@example.com`); others are
+> listed by name, sorted, and the list stops at 20. Cards with the same name and exactly
+> the same handles count as one person, with their mobile labels combined.
+> `MessagesContact` now keeps the organization and Contacts' label for each
+> handle.
 
 **Problem:** Asking Enigma to text someone by name merges every contact card
 with that name. With two different people called "Alex Kim", their numbers are
@@ -281,7 +292,14 @@ starts.
 - `testAutomationDenialStopsTheRequestWithSettingsGuidance` checks only the
   flag; make it check that the request stops and the card shows, on each route.
 
-### B13. Sending after scrolling up leaves the new message out of view
+### B13. ✅ Done: Sending after scrolling up leaves the new message out of view
+
+> **Solved:** Both lists get a send revision, the id of the latest message the
+> person sent. When it changes to one the list hasn't shown, the observer
+> resumes following and scrolls to the end the same way it follows a reply; the
+> value a chat opens with doesn't count. Scrolling up during the reply still
+> stops following. A hosted test scrolls up, sends and streams, with Reduce
+> Motion on and off.
 
 **Problem:** Scroll up in a chat, then send: the new message and its reply stay
 below the view. In a reproduction the new message ended about 290 pt below the
@@ -415,7 +433,12 @@ the user lands in an old conversation instead of a fresh page.
   current chat. There is no injectable clock today, so put the rule in a small
   pure policy type (like `ShellPresentation`) that is given the times.
 
-### B14. Attaching more than 16 items gives a vague error
+### B14. ✅ Done: Attaching more than 16 items gives a vague error
+
+> **Solved:** `activate` normalizes the selection before checking the count
+> (`WorkspaceSelection.attachmentLimit`), so files inside an attached folder
+> don't count, and over the limit it shows "You can attach up to 16 files or
+> folders." with the current attachments kept.
 
 **Problem:** Picking 17 files shows "The file operation was incomplete or
 ambiguous. No change was made." without mentioning the limit. Files inside an
@@ -431,7 +454,14 @@ own, such as "You can attach up to 16 files or folders." Keep the two
 reproductions as tests in `FileModeUITests`. F4's drag and drop will use the
 same path.
 
-### B9. Some text names the wrong shortcut
+### B9. ✅ Done: Some text names the wrong shortcut
+
+> **Solved:** The tour's history step says ⌃⌘S. The Accessibility row, the
+> chat's Accessibility card and Settings → Selection name the chosen key
+> and the ⇧⌥Space backup ("when you double-tap Command or press ⇧⌥Space")
+> through `SelectionShortcutPhrase`, or only ⇧⌥Space while the double tap is
+> turned off. The stale comments now say ⌘O and ⌃⌘S, and the test is
+> `testCommandOOpensThePanelsChatInTheWindowBeforeTheFirstAnswer`.
 
 **Problem:**
 
