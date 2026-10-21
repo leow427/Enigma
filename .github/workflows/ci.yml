@@ -1,9 +1,12 @@
 name: CI
 
+# Changes that touch only docs or Markdown files skip CI.
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**']
 
 permissions:
   contents: read
