@@ -9,7 +9,16 @@
 
 ## Bug fixes
 
-### B1. The chat jumps away from the conversation after sending a message
+### B1. ✅ Done: The chat jumps away from the conversation after sending a message
+
+> **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
+> animations or the observer. It sizes rows it hasn't drawn from an estimate,
+> so after a tall reply a new message grew the chat by hundreds of points of
+> empty space, and following the end scrolled into it. The list is now a plain
+> `VStack`, so its height is exact. A hosted test sends a second and third
+> message after tall replies, with Reduce Motion on and off. The trade-off:
+> every row is laid out on each streaming update, which costs more in very long
+> chats (see `docs/Chat.md`).
 
 **Problem:** After the first message, sending another makes the main chat view
 jump: it shoots down past the conversation, and the user has to scroll back up
