@@ -26,7 +26,8 @@ struct ShellPresentation: Equatable {
     isSidebarVisible = showsSidebar
   }
 
-  /// Double-Option with text selected opens the compact selection panel.
+  /// The selection shortcut (a double tap, or ⇧⌥Space) opens the compact selection
+  /// panel.
   mutating func beginSelectionComposer(mode: ChatMode, showsSidebar: Bool) {
     isSelectionComposer = true
     isSelectionPresentation = true
@@ -79,7 +80,7 @@ struct ShellPresentation: Equatable {
   }
 
   /// The selection panel shows the compact panel: its composer, then the
-  /// answer it grows into. Double-tap Control opens its chat in the window
+  /// answer it grows into. ⌘O opens its chat in the window
   /// instead (`openSelectionChatInWindow`); a sidebar opened some other way
   /// shows the full layout in the panel.
   var showsCompactPanel: Bool {

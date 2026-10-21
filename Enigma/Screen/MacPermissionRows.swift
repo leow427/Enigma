@@ -6,6 +6,7 @@ import SwiftUI
 struct MacPermissionRows: View {
   @ObservedObject private var selection = SelectionAccessibilityAccess.shared
   @State private var screenGranted = CGPreflightScreenCaptureAccess()
+  @SelectionShortcutPhrase private var selectionShortcut
   /// Selection settings show only Accessibility.
   var showScreen = true
 
@@ -20,7 +21,7 @@ struct MacPermissionRows: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       row("Accessibility", isEnabled: selection.isGranted,
-          explanation: "Required to attach selected text with double-Option and replace text in other apps.",
+          explanation: "Required to attach selected text when you \(selectionShortcut), and to replace text in other apps.",
           settingsName: "Accessibility", action: selection.requestAccess)
       if showScreen {
         row("Screen Recording", isEnabled: screenGranted,

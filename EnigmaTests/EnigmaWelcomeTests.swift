@@ -123,6 +123,23 @@ final class EnigmaWelcomeTests: XCTestCase {
     XCTAssertNil(WelcomeSetup.selectionShortcut(modifier: "option", isEnabled: false))
   }
 
+  @MainActor
+  func testSelectionTextsNameTheChosenKey() {
+    XCTAssertEqual(SelectionModifier.shortcutPhrase(modifier: "option", isEnabled: true), "double-tap Option or press ⇧⌥Space")
+    XCTAssertEqual(SelectionModifier.shortcutPhrase(modifier: "command", isEnabled: true), "double-tap Command or press ⇧⌥Space")
+    XCTAssertEqual(SelectionModifier.shortcutPhrase(modifier: "shift", isEnabled: true), "double-tap Shift or press ⇧⌥Space")
+    XCTAssertEqual(SelectionModifier.shortcutPhrase(modifier: "nonsense", isEnabled: true), "double-tap Option or press ⇧⌥Space")
+    XCTAssertEqual(SelectionModifier.shortcutPhrase(modifier: "command", isEnabled: false), "press ⇧⌥Space",
+                   "The backup shortcut is always registered")
+  }
+
+  @MainActor
+  func testTourNamesTheSidebarShortcut() {
+    XCTAssertTrue(WelcomeTourStep.history.detail.contains("⌃⌘S"), WelcomeTourStep.history.detail)
+    XCTAssertFalse(WelcomeTourStep.history.detail.contains("Control"), WelcomeTourStep.history.detail)
+    XCTAssertEqual(PanelShortcut.resolve(characters: "s", modifiers: [.control, .command]), .toggleSidebar)
+  }
+
   func testTourCardStaysInsideTheWindowAndBesideItsTarget() {
     for container in [CGSize(width: 640, height: 420), CGSize(width: 1200, height: 780)] {
       let height: CGFloat = 200

@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Carbon
+import SwiftUI
 
 enum SelectionModifier: String, CaseIterable, Identifiable {
   case option, command, shift
@@ -9,6 +10,20 @@ enum SelectionModifier: String, CaseIterable, Identifiable {
   var symbol: String { switch self { case .option: "⌥"; case .command: "⌘"; case .shift: "⇧" } }
   var flags: NSEvent.ModifierFlags { switch self { case .option: .option; case .command: .command; case .shift: .shift } }
   var keyCodes: [UInt16] { switch self { case .option: [58, 61]; case .command: [54, 55]; case .shift: [56, 60] } }
+
+  /// What captures a selection, to follow "when you": the double tap of the chosen key
+  /// while it's on, and the ⇧⌥Space backup, which is always registered.
+  static func shortcutPhrase(modifier: String, isEnabled: Bool) -> String {
+    guard isEnabled else { return "press ⇧⌥Space" }
+    return "double-tap " + (SelectionModifier(rawValue: modifier) ?? .option).title + " or press ⇧⌥Space"
+  }
+}
+
+/// `SelectionModifier.shortcutPhrase` for the chosen key, kept current with the setting.
+@MainActor @propertyWrapper struct SelectionShortcutPhrase: DynamicProperty {
+  @AppStorage(SelectionShortcutMonitor.modifierKey) private var modifier = SelectionModifier.option.rawValue
+  @AppStorage(SelectionShortcutMonitor.enabledKey) private var isEnabled = true
+  var wrappedValue: String { SelectionModifier.shortcutPhrase(modifier: modifier, isEnabled: isEnabled) }
 }
 
 struct OptionDoubleTap {

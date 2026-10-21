@@ -74,7 +74,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     shell.leaveSelectionComposer()
     XCTAssertTrue(shell.showsCompactPanel, "The answer opens inside the panel")
     shell.isSidebarVisible = true
-    XCTAssertFalse(shell.showsCompactPanel, "Double-tap Control shows the full layout with the history")
+    XCTAssertFalse(shell.showsCompactPanel, "A visible history shows the full layout")
     shell.isSidebarVisible = false
     XCTAssertTrue(shell.showsCompactPanel)
     XCTAssertTrue(shell.sessionChanged(isTemporaryChat: false))
@@ -475,12 +475,12 @@ final class EnigmaCompactPanelTests: XCTestCase {
   /// the Mac's displays: GitHub's runners have small screens.
   static let testScreen = NSRect(x: 0, y: 0, width: 1280, height: 800)
 
-  /// Double-tap Control in the panel opens its chat in the window, even before
-  /// the first answer: the normal layout, sidebar as the saved preference has
-  /// it (off here), and the chat saved from then on. Double-tap Control again
-  /// shows or hides the history, as in any chat.
+  /// ⌘O in the panel opens its chat in the window, even before the first
+  /// answer: the normal layout, sidebar as the saved preference has it (off
+  /// here), and the chat saved from then on. ⌃⌘S then shows or hides the
+  /// history, as in any chat.
   @MainActor
-  func testDoubleControlOpensThePanelsChatInTheWindowBeforeTheFirstAnswer() async throws {
+  func testCommandOOpensThePanelsChatInTheWindowBeforeTheFirstAnswer() async throws {
     let fixture = try await Fixture(test: self)
     let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
     fixture.start.showsSidebar = false

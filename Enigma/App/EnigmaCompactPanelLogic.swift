@@ -59,9 +59,8 @@ enum CompactRouteChip {
 }
 
 /// The monospace hints under the panel. Each names a shortcut that works in
-/// the panel today: `/` opens the commands, a double-tap of Control expands
-/// the panel into the full window's chat, `⌘.` stops a reply, and Escape hides
-/// the panel.
+/// the panel today: `/` opens the commands, `⌘O` opens the panel's chat in
+/// the full window, `⌘.` stops a reply, and Escape hides the panel.
 enum CompactPanelHints {
   struct Hint: Equatable, Identifiable {
     let keys: String

@@ -387,6 +387,7 @@ private struct ReplayWelcomeButton: View {
 /// chats stay private.
 struct SelectionSettingsPage: View {
   @ObservedObject var selectionEditing: SelectionEditingSettings
+  @SelectionShortcutPhrase private var selectionShortcut
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -399,7 +400,7 @@ struct SelectionSettingsPage: View {
         EnigmaSwitch("Automatically replace selected text", isOn: $selectionEditing.automaticallyReplace)
       }
       EnigmaHairline()
-      EnigmaNote("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you double-tap Option.")
+      EnigmaNote("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you \(selectionShortcut).")
         .padding(.top, 8)
 
       EnigmaSectionHeader("Privacy")

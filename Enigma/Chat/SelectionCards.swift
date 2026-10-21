@@ -110,11 +110,12 @@ struct SelectionContextCard: View {
 struct AccessibilityNeededCard: View {
   let appName: String
   let openSettings: () -> Void
+  @SelectionShortcutPhrase private var selectionShortcut
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       EnigmaCardTitle("Action needed: allow Accessibility", systemImage: "exclamationmark.triangle")
-      EnigmaNote("Allow \(appName) (Enigma) in System Settings → Privacy & Security → Accessibility to use double-Option and attach selected text.")
+      EnigmaNote("Allow \(appName) (Enigma) in System Settings → Privacy & Security → Accessibility to attach selected text when you \(selectionShortcut).")
       Button("Open Accessibility Settings…", action: openSettings)
         .enigmaButtonStyle(.compactPrimary)
         .padding(.top, 2)

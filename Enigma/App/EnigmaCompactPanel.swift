@@ -1,12 +1,12 @@
 import SwiftUI
 
-// The compact selection panel: the panel that opens over
-// another app when you select text and double-tap ⌥. From top to bottom: the
-// `› selected "…"` line, the input row with the character in its 40 pt slot,
-// the answer area once a question is sent, and a monospace hint row. It's one
-// opaque `surface` with a `border` edge. AppShellView owns every action and
-// all the state; these views only lay them out, reusing the main window's
-// composer pieces and the conversation's replies and cards.
+// The compact selection panel: the panel that opens over another app when you
+// select text and use the selection shortcut (double-tap ⌥ by default). From
+// top to bottom: the `› selected "…"` line, the input row with the character
+// in its 40 pt slot, the answer area once a question is sent, and a monospace
+// hint row. It's one opaque `surface` with a `border` edge. AppShellView owns
+// every action and all the state; these views only lay them out, reusing the
+// main window's composer pieces and the conversation's replies and cards.
 
 /// The panel. While composing, it's as tall as its content, which it reports
 /// so the window fits it, with room for the command list or the mode and model

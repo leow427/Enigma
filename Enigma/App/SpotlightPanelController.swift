@@ -330,7 +330,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     expansionTarget = nil
   }
 
-  /// Double-tap Control or the Open in window button, at any point in the
+  /// ⌘O or the Open in window button, at any point in the
   /// panel: its chat becomes the main window's, at the window's normal size,
   /// centered on the screen the panel is on, as the window opens.
   @objc func openSelectionChatInWindow() {
