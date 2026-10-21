@@ -631,16 +631,69 @@ there's no way to retry one.
   `ChatResponseStyle.instructions` itself, so add one that checks the identity
   reaches every route.
 
+### F27. Keep file edits and message sending off on small local models
+
+**Today:** every local model gets the same skills. Local File Mode can create,
+edit, move and delete files with any model (`LocalFileCapabilities.access(for:)`
+takes the model but returns read & edit for all of them), and `/messages` gives
+any model `send_message`. Small models make mistakes with tools (the wrong
+file, a bad patch, the wrong recipient or text), and people tend to approve
+what they're shown.
+
+**Wanted:**
+
+- **Which models:** sensitive skills need a local model of about 9B parameters
+  or more, counted in total parameters so mixture-of-experts models qualify,
+  that also scores at least 13.5 on the catalogue's quality index. In today's
+  catalogue that allows Qwen3.5 9B, Gemma 4 12B, 26B-A4B and 31B, Qwen3.6
+  35B-A3B and Qwen3.8 27B. It blocks Qwen3.5 2B and 4B, Gemma 4 E4B (a 4B
+  model in effect, though 7.5B in total), and both Ministral 3 sizes, which
+  score below Qwen3.5 4B. Imported GGUFs are blocked, since their size and
+  quality are unknown. Store the result as a field on each catalogue family,
+  so it is reviewed per model (for example with `scripts/evaluate-file-mode.py`
+  at the family's smallest quantization) rather than worked out at run time.
+- **Sensitive skills:** changing files (create, edit, move, delete) and sending
+  messages. With a blocked model, File Mode stays read-only (return
+  `.readOnly` from `LocalFileCapabilities.access(for:)`), and `/messages` can
+  still read and search but isn't given `send_message`. Everything else stays
+  on: chat, `/think`, `/search`, `/screen`, `/snapshot`, `/translate`, and
+  `/edit` (nothing changes until the person clicks Replace text). New skills
+  that act, such as F26's search before acting or F24's Maps, follow the same
+  rule.
+- **The model decides, not the Mac:** the check uses the model the next
+  request runs on, so a capable Mac that switches to Qwen3.5 4B loses these
+  skills too.
+- **Cloud is never blocked:** Cloud mode keeps every skill it has today,
+  whatever the local model (in Cloud, only the ChatGPT route edits files
+  today). Auto keeps File Mode and Messages on this Mac by design, so with a
+  blocked model it doesn't move them to the cloud on its own: it explains and
+  offers **Switch to Cloud**.
+- **A notice when it changes:** when the selected model changes which skills
+  are on (choosing another local model, switching between Local and Cloud, or
+  a model install finishing), show a short notice in the main window and the
+  compact panel, such as "File edits and sending messages are off with
+  Qwen3.5 4B. Use Cloud or a larger model to turn them on." and "File edits
+  and sending messages are back on." Show it only on a change, not at launch;
+  announce it to VoiceOver; respect Reduce Motion.
+- **At the point of use:** attaching files with a blocked model shows **Read
+  only** with the reason, and asking to send a message explains why, with
+  **Switch to Cloud**, instead of failing later.
+- Settings → Local models says on each model whether it can change files and
+  send messages (see F18).
+- Tests: the rule for every catalogue family and for imported models;
+  read-only File Mode and no `send_message` with a blocked model; Cloud
+  unchanged; the notice when switching each way. Update `docs/File-Mode.md`,
+  `docs/Messages.md` and `docs/Local-Model-Selection.md`.
+
 ### F6. Warn slow Macs that small local models handle tools poorly
 
-- When this Mac's recommendation or the model in use is small, the performance
-  check says the model underperformed (`LocalModelBenchmark.underperformed`),
-  or no model fits, show a short note: features that use tools, such as File
-  Mode and Messages, may not work correctly with small local models, and
-  connecting a cloud provider is strongly suggested. ("Small" needs a precise
-  rule on a catalogue field, such as total `parameterBillions`:
-  mixture-of-experts and "E4B" models make "~4B" ambiguous. Local web search
-  fetches results before the model answers, so it isn't tool calling.)
+- When this Mac's recommendation or the model in use is small (F27's rule),
+  the performance check says the model underperformed
+  (`LocalModelBenchmark.underperformed`), or no model fits, show a short note:
+  file edits and sending messages are off with small local models (F27), other
+  tools may work poorly too, and connecting a cloud provider is strongly
+  suggested. (Local web search fetches results before the model answers, so it
+  isn't tool calling.)
 - Show it in setup's model step, pointing to the Connections step that comes
   next, and in Settings → Local models, with a link to Cloud and search. Do not
   nag again once any cloud provider is connected
@@ -671,8 +724,8 @@ first: commands leak into the query today.
   before answering. Each query shows in the activity line as it runs, and
   every source is listed as today. Cloud routes already run tools
   (`CloudToolLoop`, the Codex and Claude Code tool modes); on local models keep
-  the single search unless the model is strong enough (see F6). Only in chats
-  without files or Messages.
+  the single search unless the model passes F27's rule. Only in chats without
+  files or Messages.
 - **Search before acting:** allow `/search` with File Mode, `/messages` and
   `/edit` by running the search first, from the typed request only, and
   handing the results to the step that acts:
