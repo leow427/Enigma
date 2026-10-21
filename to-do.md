@@ -354,6 +354,70 @@ click-outside-to-close layer.
   the Attach file picker (`NSOpenPanel`) and the menu-bar menu are separate
   windows and aren't affected.
 
+### B16. Selection capture fails in some apps, such as Claude
+
+**Problem:** Selecting text and invoking Enigma reads nothing in some apps,
+for example the Claude desktop app, and the panel says "No selected text could
+be read". Which apps fail, and why, isn't known yet.
+
+**How capture works:** `SelectionContextService.capture()`
+(`SelectionContextService.swift`) sets `AXManualAccessibility` on the
+frontmost app, takes the focused element (10 tries, 30 ms apart), and reads
+`AXSelectedText`, then `AXStringForRange` or the selected part of `AXValue`.
+If that's empty, `SelectionCapturePolicy.allowsCopy` decides whether to fall
+back to ⌘C. Likely causes, to confirm:
+
+- **Read-only text in Electron and web-based apps.** Selecting text in a reply
+  (not in an input) usually leaves focus on the app's message box, which
+  reports an empty selection (range length 0). `allowsCopy` then allows ⌘C
+  only for a fixed list of browsers, so Claude (Electron), Slack, Discord,
+  Notion, Obsidian, Teams and similar apps get nothing. Chromium exposes the
+  real selection on the web area through `AXSelectedTextMarkerRange` and
+  `AXStringForTextMarkerRange`, which could be read without touching the
+  clipboard.
+- **Electron's accessibility tree isn't ready yet.** `AXManualAccessibility` is
+  set just before reading, and Chromium builds its tree asynchronously, so
+  the first invocation in an app may find no focused element within the
+  roughly 300 ms of retries, while a second one works.
+- **Apps that expose little or no text**: canvas-drawn editors (Google Docs,
+  Figma), Terminal and iTerm2, PDF views, Catalyst and Java apps.
+
+**Wanted:**
+
+- **Find out first.** Test a list of common apps, with both read-only text
+  and text in an input: Claude, ChatGPT, Slack, Discord, Notion, Obsidian,
+  Microsoft Word, Outlook and Teams, Figma, Google Docs, Safari, Chrome,
+  Firefox, Arc, Mail, Messages, Notes, Pages, Preview (PDF), Terminal,
+  iTerm2, Xcode, VS Code, JetBrains, Zed, WhatsApp. For each, record the
+  bundle ID, the focused element's role, which attributes return text, and
+  whether ⌘C would work. Keep the results as a table in
+  `docs/Selection-Context.md`.
+- **Fix the common cases:** read Chromium and WebKit selections through text
+  markers on the focused web area. Add Electron apps to the ⌘C fallback only
+  where that's safe (the fallback copies the whole line in some editors when
+  nothing is selected, so check each app). Give a just-enabled Electron tree
+  more time on the first invocation in that app.
+- **Fail clearly:** when an app can't be read, name it ("Enigma can't read
+  selections in Claude yet. Copy the text and paste it here.") instead of the
+  generic notice.
+- Keep the privacy rules: no background reading, secure fields skipped, and
+  the clipboard restored exactly.
+
+**Can an agent investigate this?** Partly:
+
+- In a cloud session (Linux, no macOS): only by reading code, as above. It
+  can't run Mac apps or the Accessibility API.
+- In a local session on the Mac: an agent can write a small diagnostic (for
+  example `scripts/selection-probe.swift`, run with `swift`) that waits a few
+  seconds, then prints the frontmost app, the focused element's role and the
+  text attributes it exposes. The terminal running it needs Accessibility
+  permission. Someone still has to select the text in each app before the
+  probe reads it, unless computer use is enabled so the agent can drive the
+  apps itself. The agent then reads the output and fixes the code.
+- Unit tests can cover `SelectionCapturePolicy` decisions per bundle ID, but
+  not real apps. Interactive checks need the signed app from Xcode (see
+  AGENTS.md), not the unsigned build from `scripts/verify-xcode.sh`.
+
 ### B5. Selection chats stay in the compact panel and never reach Recents
 
 **Problem:** A chat started from a selection stays in the compact panel UI
@@ -378,6 +442,20 @@ selection chats private" off.
     the chat picks up ghost mode's look when F10 ships.
 - The selection stays attached in memory for /edit and Replace text, as it
   does now. Selected text is never written to disk.
+- **⌘O and Open in window** keep working at any point, even before the first
+  answer: they always switch to the normal chat view, and the chat is saved to
+  the sidebar (Recents) only while "Keep selection chats private" is off. With
+  it on, the chat stays temporary and nothing is saved. This is what
+  `openTemporaryChatInWindow()` does today; the switch on send follows the
+  same rule.
+- **Off by default:** "Keep selection chats private" stays off for new users,
+  so selection chats are saved unless someone opts out. It is off today
+  (`defaults.bool` returns false for the unset key); add a test that pins the
+  default.
+- Update the setting's subtitle in `SelectionEditingSettings`
+  ("…saved to history when you open it in the window") and the "Opening the
+  chat in the main window" section of `docs/Selection-Context.md` to say the
+  chat is saved once it moves to the normal chat view, by sending or by ⌘O.
 
 **Notes:** Every way of opening or expanding a selection chat should go
 through the same conversion: the Open in window path above, and
@@ -385,7 +463,8 @@ through the same conversion: the Open in window path above, and
 question is sent (`.selectionPanelExpandRequested` → `expandSelectionPanel()`)
 and is the natural place to convert. Reuse
 `.selectionChatOpenInWindowRequested` rather than copying it. Add regression
-tests for both toggle states.
+tests for both toggle states, for both sending and ⌘O: off saves the chat to the
+top of Recents, on saves nothing to Recents or disk.
 
 ### B8. Enigma reopens the last chat instead of a new one
 
