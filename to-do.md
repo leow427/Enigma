@@ -49,7 +49,22 @@ keeps following while the reader is at the bottom, and stops following when
 they scroll up (as now). Add a UI test or an observer unit test for the second
 and third message in a chat, and check with Reduce Motion on and off.
 
-### B2. Signing in to ChatGPT or Claude means installing a command-line tool first
+### B2. ✅ Done: Signing in to ChatGPT or Claude means installing a command-line tool first
+
+> **Solved:** On a Mac without Codex, the first ChatGPT **Sign in** downloads
+> Enigma's own pinned copy of OpenAI's signed Codex package (0.163.0, about
+> 133 MB, checked by size and SHA-256), installs it into Application Support
+> and goes straight on to the browser sign-in. The app-bundle candidates are
+> gone, and a later pin bump upgrades quietly at launch. For Claude, **Install
+> Claude Code** runs Anthropic's installer in Terminal and then signs in, with
+> the command and Copy for Terminal users, **Choose Claude Code…**, and a note
+> pointing to the API-key route. Detection also checks Node version manager,
+> npm and Bun folders and the login shell, runs each tool with its own folder
+> on `PATH`, and says where it looked. See `docs/ChatGPT-Setup.md`,
+> `docs/Claude-Code-Setup.md` and
+> `docs/superpowers/plans/2026-10-21-one-click-cloud-sign-in.md`. Still open
+> for the owner: confirm OpenAI's terms for embedding `codex app-server`, and
+> whether Enigma's Claude subscription route needs Anthropic's approval.
 
 **Problem:** Enigma's ChatGPT route runs the Codex CLI (`codex app-server`)
 and its Claude route runs Claude Code (`claude`), and both must already be
