@@ -35,7 +35,12 @@ struct EnigmaMessageList<Revision: View>: View {
   var body: some View {
     GeometryReader { proxy in
       ScrollView {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // Not lazy: a LazyVStack sizes rows it hasn't drawn from an estimate,
+        // so after a tall reply a new message can grow the chat by hundreds of
+        // points of empty space, and following the end scrolls into it. A plain
+        // stack keeps exact heights but lays out every row on each update:
+        // fine for the short chats Enigma intends, slower in very long ones.
+        VStack(alignment: .leading, spacing: 0) {
           ForEach(Array(transcript.rows.enumerated()), id: \.element.id) { index, row in
             rowView(row)
               .padding(.top, index == 0 ? 0 : spacing(before: row))
@@ -446,7 +451,7 @@ struct ConversationScrollObserver: NSViewRepresentable {
       guard followsLatest, !isLiveScrolling, pendingScroll == nil else { return }
       let work = DispatchWorkItem { [weak self] in self?.scrollToBottomIfFollowing() }
       pendingScroll = work
-      // Coalesce repeated lazy-row measurements; recheck reader intent at execution.
+      // Coalesce repeated layout changes; recheck reader intent at execution.
       DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(30), execute: work)
     }
 

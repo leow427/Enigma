@@ -68,8 +68,10 @@ closes an open menu or, with none open, hides the window.
   links, block quotes and tables. Code and tables scroll sideways when they're
   wide. Reply and message text can be selected and copied.
 - The chat opens at its end and follows new text while you're at the bottom.
-  Scroll up and it stops following, so you can read earlier messages while a
-  reply streams; scroll back to the bottom and it follows again.
+  Sending a message brings it and its reply to the bottom of the view; a reply
+  taller than the window scrolls the message off the top as the chat follows
+  the end. Scroll up and it stops following, so you can read earlier messages
+  while a reply streams; scroll back to the bottom and it follows again.
 
 **/think** asks for a more careful answer for that one message. It adds checking
 guidance to the request and gives the model more room: local models reserve
@@ -164,11 +166,14 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   row for a request that's still preparing. `ReplyMetaLine` formats the meta line
   from the reply's session-only `ReplyOrigin`.
 - `EnigmaMessageList` (`Enigma/Chat/EnigmaMessageList.swift`) lays out the rows
-  and is reused by the compact panel. Its `ConversationScrollObserver` watches the
-  native scroll view: it follows only while within 2 pt of the bottom, stops on
-  live scrolling, wheel or key navigation, coalesces scroll corrections for 30 ms,
-  and treats layout changes (such as the waiting row being replaced) as layout,
-  not navigation. The list gets a new identity per chat, so each opens at its end.
+  and is reused by the compact panel. It uses a plain `VStack` so the chat's
+  height is exact: a lazy stack estimates rows it hasn't drawn, which can leave
+  empty space below the messages for following to scroll into. Its
+  `ConversationScrollObserver` watches the native scroll view: it follows only
+  while within 2 pt of the bottom, stops on live scrolling, wheel or key
+  navigation, coalesces scroll corrections for 30 ms, and treats layout changes
+  (such as the waiting row being replaced) as layout, not navigation. The list
+  gets a new identity per chat, so each opens at its end.
 - `ChatMarkdownView` (`Enigma/Chat/ChatMarkdownView.swift`) renders Foundation's
   Markdown parse as native blocks. `ChatResponseNormalizer`
   (`Enigma/Chat/ChatMarkdown.swift`) repairs clearly escaped formatting and odd
@@ -285,6 +290,9 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - Every request's input is capped at 32,768 tokens for cloud models, however large
   the model's window.
 - Screenshots and request activity aren't saved, so they're gone after a relaunch.
+- The chat lays out every message on each update while a reply streams, so a
+  very long chat costs more per update (about 2 ms at 20 messages, 13 ms at 100
+  and 70 ms at 400). Enigma's chats are meant to be short.
 
 ## Tests
 
@@ -297,7 +305,9 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,
   replacement, draft preservation, partial output, and saves during streaming.
 - `EnigmaTests/EnigmaConversationTests.swift`: transcript rows, the character's
-  slot, meta lines, list layout and scrolling, sent images and activity.
+  slot, meta lines, list layout and scrolling (including the second and third
+  message staying in view, with Reduce Motion on and off), sent images and
+  activity.
 - `EnigmaTests/ScreenViewTests.swift`: the scroll observer while streaming and
   while reading, and typing after Stop with a blocked save.
 - `EnigmaTests/AppShellStateTests.swift`: `ShellPresentation`,

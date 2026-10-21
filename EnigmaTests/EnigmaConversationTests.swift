@@ -481,17 +481,10 @@ final class EnigmaConversationTests: XCTestCase {
     let fixture = try await Fixture(test: self, sessions: [session])
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
     fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
-    func observer() -> ConversationScrollObserver.ObserverView? {
-      descendants(host.view).compactMap { $0 as? ConversationScrollObserver.ObserverView }.first
-    }
-    func distanceFromBottom(_ scroll: NSScrollView) -> CGFloat {
-      guard let document = scroll.documentView else { return .infinity }
-      return document.isFlipped ? document.bounds.maxY - scroll.contentView.bounds.maxY
-        : scroll.contentView.bounds.minY - document.bounds.minY
-    }
+    func observer() -> ConversationScrollObserver.ObserverView? { Self.scrollObserver(in: host.view) }
     try await waitForUI("the chat open at its end", in: host.view) {
       guard let scroll = observer()?.enclosingScrollView, let document = scroll.documentView else { return false }
-      return document.bounds.height > scroll.contentView.bounds.height * 2 && distanceFromBottom(scroll) <= 2
+      return document.bounds.height > scroll.contentView.bounds.height * 2 && Self.distanceFromBottom(scroll) <= 2
         && !host.shows("Example /screen")
     }
 
@@ -501,7 +494,7 @@ final class EnigmaConversationTests: XCTestCase {
     fixture.engine.send(first)
     let scroll = try XCTUnwrap(observer()?.enclosingScrollView)
     try await waitForUI("the list to follow the reply", in: host.view) {
-      fixture.chat.messages.last?.content == first && distanceFromBottom(scroll) <= 2
+      fixture.chat.messages.last?.content == first && Self.distanceFromBottom(scroll) <= 2
     }
     // The reply is taller than the chat, so its start has scrolled away: the
     // character stays beside it, just inside the chat's top edge.
@@ -528,6 +521,117 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(scroll.contentView.bounds.minY, reading, accuracy: 2, "Streaming leaves the reader where they are")
     fixture.engine.finish()
     try await waitForUI("the request to finish", in: host.view) { fixture.chat.activeRequest == nil }
+  }
+
+  /// Sending the second and third message in a chat keeps them, and their
+  /// replies, in view at the bottom. The chat never grows past its messages
+  /// while a new row is laid out, so it never scrolls into empty space below
+  /// them; and scrolling up still stops it following.
+  @MainActor
+  func testSecondAndThirdMessagesStayInViewAtTheBottomWithAndWithoutReduceMotion() async throws {
+    for reduceMotion in [false, true] {
+      let fixture = try await Fixture(test: self)
+      fixture.animates = true
+      fixture.reduceMotion = reduceMotion
+      let host = Host(fixture, size: CGSize(width: 1000, height: 760), test: self)
+      defer { host.window.orderOut(nil) }
+      try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+      func observer() -> ConversationScrollObserver.ObserverView? { Self.scrollObserver(in: host.view) }
+      // A tall reply, with code and a table, as real replies have.
+      let reply = (0..<6).map { "Paragraph \($0) of the answer, with **bold** words and a list:\n\n- one\n- two\n\n" }
+        .joined() + "```swift\nlet value = 1\nprint(value)\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\nThe end."
+
+      for (index, text) in ["First question", "Second question", "Third question"].enumerated() {
+        let scrollBefore = observer()?.enclosingScrollView
+        var heights: [CGFloat] = []
+        let token = scrollBefore?.documentView.map { document in
+          NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: document,
+                                                 queue: nil) { _ in
+            MainActor.assumeIsolated { heights.append(document.bounds.height) }
+          }
+        }
+        defer { token.map(NotificationCenter.default.removeObserver) }
+        try await send(text, in: host, fixture)
+        try await waitForUI("request \(index + 1)", in: host.view) { fixture.engine.requestCount == index + 1 }
+        let scroll = try XCTUnwrap(observer()?.enclosingScrollView)
+        let document = try XCTUnwrap(scroll.documentView)
+        try await waitForUI("\(text) in view at the bottom (Reduce Motion \(reduceMotion)); distance \(Self.distanceFromBottom(scroll)), visible \(Self.lastMessageIsVisible(in: scroll)), following \(observer()?.followsLatest == true), document \(document.bounds.height), clip \(scroll.contentView.bounds)", in: host.view) {
+          Self.distanceFromBottom(scroll) <= 2 && Self.lastMessageIsVisible(in: scroll)
+        }
+        for _ in 0..<30 { // Let the rows' enter animations finish.
+          try await Task.sleep(for: .milliseconds(10))
+          host.view.layoutSubtreeIfNeeded()
+        }
+        let settled = document.bounds.height
+        if index > 0 {
+          XCTAssertFalse(heights.isEmpty, "Sending \(text) grows the chat (Reduce Motion \(reduceMotion))")
+        }
+        XCTAssertLessThanOrEqual(heights.max() ?? 0, settled + 1,
+          "Sending \(text) never makes the chat taller than its messages (Reduce Motion \(reduceMotion)): \(heights)")
+        XCTAssertLessThanOrEqual(Self.distanceFromBottom(scroll), 2, "\(text) leaves the chat at its end")
+        XCTAssertTrue(Self.lastMessageIsVisible(in: scroll), "\(text) is in view")
+        XCTAssertTrue(try XCTUnwrap(observer()).followsLatest)
+
+        // The reply streams in below it, and the chat follows.
+        fixture.engine.send(reply)
+        try await waitForUI("the reply to \(text) followed", in: host.view) {
+          fixture.chat.messages.last?.content == reply && Self.distanceFromBottom(scroll) <= 2
+            && host.shows("Reply")
+        }
+        if index < 2 {
+          fixture.engine.finish()
+          try await waitForUI("the reply to \(text) to finish", in: host.view) {
+            fixture.chat.activeRequest == nil && Self.distanceFromBottom(scroll) <= 2
+          }
+        }
+      }
+
+      // Scrolling up while the third reply streams stops the chat following.
+      let scroll = try XCTUnwrap(observer()?.enclosingScrollView)
+      let watcher = try XCTUnwrap(observer())
+      NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+      scroll.contentView.scroll(to: NSPoint(x: 0, y: scroll.contentView.bounds.minY - 120))
+      NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+      XCTAssertFalse(watcher.followsLatest)
+      let reading = scroll.contentView.bounds.minY
+      fixture.engine.send(String(repeating: " More streamed detail.", count: 60))
+      try await waitForUI("the third reply to grow", in: host.view) {
+        fixture.chat.messages.last?.content.hasSuffix("More streamed detail.") == true
+      }
+      host.view.layoutSubtreeIfNeeded()
+      watcher.scrollToBottomIfFollowing()
+      XCTAssertEqual(scroll.contentView.bounds.minY, reading, accuracy: 2, "Streaming leaves the reader where they are")
+      XCTAssertGreaterThan(Self.distanceFromBottom(scroll), 2)
+      fixture.engine.finish()
+      try await waitForUI("the third request to finish", in: host.view) { fixture.chat.activeRequest == nil }
+    }
+  }
+
+  @MainActor
+  private static func scrollObserver(in view: NSView) -> ConversationScrollObserver.ObserverView? {
+    if let observer = view as? ConversationScrollObserver.ObserverView { return observer }
+    return view.subviews.lazy.compactMap { scrollObserver(in: $0) }.first
+  }
+
+  @MainActor
+  private static func distanceFromBottom(_ scroll: NSScrollView) -> CGFloat {
+    guard let document = scroll.documentView else { return .infinity }
+    return document.isFlipped ? document.bounds.maxY - scroll.contentView.bounds.maxY
+      : scroll.contentView.bounds.minY - document.bounds.minY
+  }
+
+  /// Whether the newest of the person's messages is inside the visible chat.
+  @MainActor
+  private static func lastMessageIsVisible(in scroll: NSScrollView) -> Bool {
+    guard let document = scroll.documentView else { return false }
+    func markers(_ view: NSView) -> [NSView] {
+      (view is TestControlMarker.Marker && view.identifier?.rawValue == "Your message" ? [view] : [])
+        + view.subviews.flatMap(markers)
+    }
+    let frames = markers(document).map { document.convert($0.bounds, from: $0) }
+    guard let last = document.isFlipped ? frames.max(by: { $0.minY < $1.minY }) : frames.min(by: { $0.minY < $1.minY })
+    else { return false }
+    return document.convert(scroll.contentView.bounds, from: scroll.contentView).contains(last)
   }
 
   @MainActor
