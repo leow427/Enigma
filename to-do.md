@@ -190,6 +190,31 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
+### B8. Enigma reopens the last chat instead of a new one
+
+**Problem:** After quitting and reopening Enigma, the window shows the most
+recent chat. It does the same when summoned again after a long break, so
+the user lands in an old conversation instead of a fresh page.
+
+**Where to look:** `LocalChatViewModel.init` selects `sessions.first?.id`
+after loading saved chats, so launch always opens the most recent one.
+`newChat()` in the same file starts a fresh chat. Summoning goes through
+`SpotlightPanelController.show()` and the show/hide shortcut.
+
+**Wanted:**
+
+- **On launch:** always open to a new chat. Saved chats stay in Recents.
+- **After 5 minutes away:** if Enigma hasn't been shown or used for more than
+  5 minutes, summoning it opens a new chat. Under 5 minutes, it comes back to
+  the chat the user left.
+- Don't pile up empty chats: if the current chat has no messages, reuse it
+  instead of making another.
+- Never interrupt a reply that is still streaming, or a model download; if a
+  reply is running, stay on that chat.
+- Temporary chats (F10) are discarded as usual when a new chat starts.
+- Add tests for launch, coming back under and over 5 minutes (with an
+  injected clock), and an empty current chat.
+
 ### B6. ✅ Done: Messages asks "phone or email?" instead of using the contact's number
 
 > **Solved:** `MessagesContact` now keeps the phones labelled mobile or iPhone.
