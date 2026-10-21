@@ -710,6 +710,30 @@ final class ConcurrentModelInstallTests: XCTestCase {
     try await until { !chat.isManagingModels }
   }
 
+  func testADownloadChecksPerformanceUnlessSkipped() async throws {
+    let gib = Int64(1 << 30)
+    let mac = LocalHardwareProfile(physicalMemory: 32 * gib, isAppleSilicon: true, hasMetal: true,
+      hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 200 * gib, metalRecommendedWorkingSet: nil, metalMaximumBufferLength: 8 * gib, lowPowerMode: false)
+    for check in [true, false] {
+      let root = FileManager.default.temporaryDirectory.appending(path: "DownloadCheck-\(UUID().uuidString)")
+      try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+      addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+      let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in mac })
+      await advisor.detectHardware()
+      let engine = InstallingEngine()
+      let chat = LocalChatViewModel(engine: engine, modelAdvisor: advisor, sessionStore: makeSessionStore())
+      await chat.refreshInstalledModel()
+      chat.downloadModel(LocalModelManifest.bundled.models[0], checkPerformance: check)
+      try await until { engine.isDownloading }
+      engine.finishDownload()
+      try await until { !chat.isManagingModels }
+      XCTAssertEqual(engine.managementCalls.contains("benchmark"), check)
+      XCTAssertNil(chat.modelFailure)
+      if !check { XCTAssertNil(chat.benchmarkNotice) }
+    }
+  }
+
   func testTheCommitUnloadsBothEnginesBeforeInstallingAndShowsWhatItWaitsFor() async throws {
     let (reply, continuation) = AsyncThrowingStream<String, Error>.makeStream()
     let engine = InstallingEngine(stream: reply)

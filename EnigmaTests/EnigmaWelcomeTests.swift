@@ -290,6 +290,17 @@ final class EnigmaWelcomeTests: XCTestCase {
     }
   }
 
+  @MainActor
+  func testSetupChecksPerformanceOnlyAfterTheFirstCheckRan() throws {
+    let setup = WelcomeSetup(defaults: try defaults())
+    XCTAssertTrue(setup.needsPerformanceCheck)
+    XCTAssertTrue(setup.needsPerformanceCheck, "Asking must not use up the check")
+    setup.performanceCheckRan()
+    XCTAssertFalse(setup.needsPerformanceCheck, "A later install, even one that fails, skips the check")
+    setup.replay()
+    XCTAssertTrue(setup.needsPerformanceCheck, "Replaying setup calibrates again")
+  }
+
   // MARK: Helpers
 
   @MainActor

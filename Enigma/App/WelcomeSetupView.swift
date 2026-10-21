@@ -95,6 +95,7 @@ struct WelcomeSetupView: View {
       }
       if new == .connections { Task { await cloud.refreshChatGPTAccount() } }
     }
+    .onChange(of: chat.modelOperation) { _, operation in if operation == .benchmarking { setup.performanceCheckRan() } }
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
     .onChange(of: isEnteringKey) { _, entering in character.attention = entering ? Self.keyFieldTarget : nil }
     .onChange(of: braveAPIKey) { _, _ in if isEnteringKey { character.key() } }
@@ -323,7 +324,7 @@ struct WelcomeSetupView: View {
     case .install, .update:
       guard let selected else { return }
       selectedID = selected.id
-      chat.downloadModel(selected.model)
+      chat.downloadModel(selected.model, checkPerformance: setup.needsPerformanceCheck)
     case .use:
       guard let selected else { return }
       selectedID = selected.id

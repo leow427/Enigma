@@ -15,6 +15,7 @@ final class WelcomeSetup: ObservableObject {
   @Published private(set) var tour: WelcomeTourStep?
   private let defaults: UserDefaults
   private var started = false
+  private var calibrated = false
 
   init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
@@ -33,6 +34,7 @@ final class WelcomeSetup: ObservableObject {
   }
 
   func replay() {
+    calibrated = false
     isPresented = true
     tour = nil
     step = .welcome
@@ -52,6 +54,12 @@ final class WelcomeSetup: ObservableObject {
   }
 
   func endTour() { tour = nil }
+
+  /// The first performance check in a setup run calibrates this Mac; installs
+  /// after it skip the check. Only a check that actually ran counts.
+  var needsPerformanceCheck: Bool { !calibrated }
+
+  func performanceCheckRan() { calibrated = true }
 
   static func choices(_ recommendations: LocalModelRecommendations, preserving selectedID: String? = nil) -> [LocalModelAssessment] {
     var choices = recommendations.roles.map(\.assessment)

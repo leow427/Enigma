@@ -49,7 +49,10 @@ as `2/4`. Each step has one primary button, which Return presses.
    the button instead. Downloads are verified before they are installed, and
    **Continue** appears only once the chosen model is installed, current, and
    selected. If a performance check reorders the recommendations, the model you
-   chose stays in the list. See [Local-Model-Selection.md](Local-Model-Selection.md).
+   chose stays in the list. Setup's first performance check
+   calibrates this Mac; installing another model in the same setup (such as
+   the suggested one) skips the check. Settings installs
+   always check. See [Local-Model-Selection.md](Local-Model-Selection.md).
 
    ![Pick a local model](design/ui-revamp/screenshots/phase-4/welcome-2-models-paper.png)
 

@@ -412,7 +412,8 @@ final class LocalChatViewModel: ObservableObject {
   /// Chat keeps working while the package downloads, verifies and unpacks.
   /// Only the commit, which may select the new model, and the performance
   /// check wait for the current request to end and hold chat while they run.
-  func downloadModel(_ descriptor: LocalModelDescriptor) {
+  /// `checkPerformance: false` installs without the check, for setup's later installs.
+  func downloadModel(_ descriptor: LocalModelDescriptor, checkPerformance: Bool = true) {
     guard canChangeModels else { return }
     clearModelFailure()
     modelOperation = .downloading(ModelDownloadProgress(receivedByteCount: 0, expectedByteCount: descriptor.downloadByteCount))
@@ -429,7 +430,9 @@ final class LocalChatViewModel: ObservableObject {
         await self.refreshInstalledModel()
         // An engine without a commit hook has installed already; still measure only an idle chat.
         try await self.holdChatForModelCommit()
-        if prediction?.permitsMemoryOverride == true {
+        if !checkPerformance {
+          self.benchmarkNotice = nil
+        } else if prediction?.permitsMemoryOverride == true {
           self.benchmarkNotice = "Installed. Memory use may be high; choose Check Performance when you are ready to test it."
         } else {
           await self.benchmarkInstalledModel(prediction: prediction)

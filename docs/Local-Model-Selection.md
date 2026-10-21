@@ -104,7 +104,8 @@ After an install, Enigma runs a short performance check (**checking performance
 on this Mac…**, cancellable) and shows first-token time, generation and prompt
 speed, and peak app memory. **Check performance** repeats it at any time. If
 the model ran well below its estimate, Enigma suggests a faster package. A
-failed check never undoes an install.
+failed check never undoes an install. In Welcome setup the first
+performance check calibrates this Mac; later installs in that setup skip it.
 
 Packages installed above the memory budget skip the automatic check; Enigma
 says **Installed. Memory use may be high; choose Check Performance when you are
