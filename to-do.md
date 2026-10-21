@@ -40,56 +40,73 @@ keeps following while the reader is at the bottom, and stops following when
 they scroll up (as now). Add a UI test or an observer unit test for the second
 and third message in a chat, and check with Reduce Motion on and off.
 
-### B2. ChatGPT sign-in is greyed out when only the ChatGPT app is installed
+### B2. Signing in to ChatGPT or Claude means installing a command-line tool first
 
-**Problem:** On a Mac with the ChatGPT desktop app but no Codex CLI, ChatGPT's
-**Sign in** in Settings → Cloud and search (and setup) is greyed out with
-little explanation. Enigma's ChatGPT route runs the Codex CLI (`codex
-app-server`), and the button is disabled whenever
-`CodexRuntimeConfiguration.executableURL()` (`CodexAppServer.swift`) can't
-find `codex`. It does check `/Applications/ChatGPT.app/Contents/Resources/codex`,
-but the ChatGPT app evidently doesn't ship a usable `codex` there, so having
-the app is not enough. People who have "ChatGPT" reasonably expect it to work.
-It works on Macs where Codex was installed separately.
+**Problem:** Enigma's ChatGPT route runs the Codex CLI (`codex app-server`)
+and its Claude route runs Claude Code (`claude`), and both must already be
+installed. On a Mac without them, **Sign in** in Settings → Cloud and search
+(and setup) is greyed out with little explanation, because
+`CodexRuntimeConfiguration.executableURL()` (`CodexAppServer.swift`) or
+`ClaudeCodeRuntime.executableURL()` can't find the tool. This hits people
+with the ChatGPT desktop app hardest: Enigma checks
+`/Applications/ChatGPT.app/Contents/Resources/codex`, but the app evidently
+doesn't ship a usable `codex` there, so having "ChatGPT" is not enough.
+Signing in should be one click, with no Terminal, Homebrew or npm.
 
-**Wanted:**
+**Wanted, ChatGPT: a built-in Codex runtime.** Codex is open source
+(Apache-2.0) and OpenAI publishes standalone macOS binaries that don't need
+Node, so Enigma can ship its own copy:
 
-- Detect the ChatGPT app (and the Codex app) when `codex` isn't found, and say
-  plainly: "The ChatGPT app is installed, but Enigma connects through the Codex
-  command-line tool. Install Codex to sign in with your ChatGPT plan."
-- Give a clear path to install it: the official install command(s) to copy
-  (Homebrew or npm), a link to the instructions, and a **Check again** button
-  that re-detects without restarting Enigma. Consider a guided install later.
-- Show the same message in setup's connections step and in Settings, since
-  they share `ChatGPTConnectionControls`.
-- **Install commands in the cloud sign-in section:** for both ChatGPT (Codex)
-  and Claude (Claude Code), show the install command right there, with a Copy
-  button and short steps, so nobody has to go looking. Show it whenever the
-  tool isn't found, not only after a failed sign-in. For example:
+- Use Enigma's own pinned `codex` first, and drop the hard-coded app-bundle
+  candidates (`Codex.app`, `ChatGPT.app`) once it works. Sign-in already goes
+  through Codex's browser login (`account/login/start` in
+  `CodexSubscriptionClient.swift`), so with the binary present, **Sign in**
+  is one click.
+- Ship both Apple silicon and Intel (the app builds the default
+  architectures), for example as one universal binary.
+- Pin the version and checksum, as `Packages/LlamaBridge` pins llama.cpp, and
+  sign the helper with the app's identity and hardened runtime so notarization
+  and Sparkle updates cover it. New Codex versions ship with Enigma releases.
+- **Bundle or download:** measure the binary's size. If it's acceptable,
+  bundle it in the app; otherwise download the pinned, checksum-verified copy
+  into Application Support the first time someone presses **Sign in**, with
+  progress and a clear failure message.
+- Keep the existing isolation (`CODEX_HOME`, the disabled features) and the
+  check result from B3. "Codex not found" should no longer be reachable, or
+  only when a download failed.
+- Add Codex's license to `Enigma/Resources/ThirdPartyNotices.txt`, update
+  `docs/ChatGPT-Setup.md`, and check OpenAI's current terms for embedding
+  `codex app-server` in a third-party app.
+
+**Wanted, Claude: one-click install, not a bundled runtime.** Claude Code is
+proprietary ("All rights reserved", under Anthropic's Commercial Terms), so
+Enigma can't redistribute it. Anthropic's Agent SDK docs also say that,
+unless previously approved, third-party developers may not offer claude.ai
+login or rate limits in their products. So:
+
+- When Claude Code isn't found, offer an **Install Claude Code** button that
+  runs Anthropic's official installer (in Terminal, like the sign-in script
+  today), then re-detects and goes on to **Sign in**. Also show the install
+  command with a Copy button and short steps for people who prefer Terminal:
   1. Open Terminal (Applications → Utilities → Terminal).
-  2. Paste the command and press Return:
-     - Codex: `brew install codex` or `npm install -g @openai/codex`
-     - Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`
-  3. When it finishes, come back here and press **Check again**, then
-     **Sign in**.
+  2. Paste `curl -fsSL https://claude.ai/install.sh | bash` and press Return.
+  3. Come back and press **Check again**, then **Sign in**.
 
-  Prefer one command per tool, check the commands against the official install
-  docs when implementing (they change), and say which one needs Homebrew or
-  Node. Mention it once in `docs/ChatGPT-Setup.md` and
-  `docs/Claude-Code-Setup.md` too.
-- **Verify:** whether current ChatGPT or Codex app bundles contain a `codex`
-  executable at all, and at what path. Fix or remove the hard-coded app-bundle
-  candidates to match.
+  Check the command against Anthropic's install docs when implementing (it
+  changes), and mention it once in `docs/Claude-Code-Setup.md`.
+- Point to the Anthropic API key route as the officially supported way to
+  use Claude in a third-party app.
+- Bundle Claude Code only if Anthropic approves it in writing. Confirm
+  Enigma's current Claude subscription route fits Anthropic's terms too.
 
-**Also harden detection** (same area, lower priority): an app opened from
-Finder gets a minimal `PATH`, so Codex or Claude Code installed via a Node
-version manager (`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, fnm, asdf), a
-custom npm prefix (`~/.npm-global/bin`), Bun (`~/.bun/bin`) or in
-`~/Applications` is not found. Ask the login shell once (`$SHELL -lc 'command
--v codex'`, with a timeout), add those folders, run the tool with its own
-folder on `PATH` so a Node-based install can find `node`, and offer a "Choose
-Codex…" picker as a last resort. `ClaudeCodeRuntime.executableURL()` has the
-same pattern.
+**Also harden Claude Code detection** (lower priority): an app opened from
+Finder gets a minimal `PATH`, so Claude Code installed via a Node version
+manager (`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, fnm, asdf), a custom
+npm prefix (`~/.npm-global/bin`), Bun (`~/.bun/bin`) or in `~/Applications`
+is not found. Ask the login shell once (`$SHELL -lc 'command -v claude'`,
+with a timeout), add those folders, run the tool with its own folder on
+`PATH` so a Node-based install can find `node`, and offer a "Choose Claude
+Code…" picker as a last resort.
 
 **Notes:** B3 (done) changed the same controls; build on its check result.
 
