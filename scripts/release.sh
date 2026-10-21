@@ -300,9 +300,11 @@ restore_checkout=false
 git -C "$repository_root" tag "$tag"
 say "pushing $tag"
 git -C "$repository_root" push --quiet origin "$tag" \
-  || fail "pushing $tag failed; nothing is published. Retry with: git push origin $tag, then gh release create $tag $archive_copy --notes-file docs/release-notes/$version.md and git push origin main. Or undo with: git tag -d $tag && git reset --hard HEAD~1"
+  || fail "pushing $tag failed; nothing is published. Retry with: git push origin $tag, then gh release create $tag $archive_copy --notes-file docs/release-notes/$version.md --prerelease and git push origin main. Or undo with: git tag -d $tag && git reset --hard HEAD~1"
 say "creating the GitHub release"
-(cd "$repository_root" && gh release create "$tag" "$archive_copy" --notes-file "docs/release-notes/$version.md") \
+# Every release is a pre-release while Enigma is in early development. Sparkle
+# reads the feed from main and downloads by tag, so it doesn't need a "Latest" release.
+(cd "$repository_root" && gh release create "$tag" "$archive_copy" --notes-file "docs/release-notes/$version.md" --prerelease) \
   || fail "gh release create failed; re-run it, or delete the pushed tag. main and the live feed are unchanged."
 say "pushing main"
 git -C "$repository_root" push --quiet origin main \

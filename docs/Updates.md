@@ -193,8 +193,13 @@ the archive copy), outside the repository. It stops at the first failure:
    missing file:
    1. commit `Release <version>` and tag `v<version>`;
    2. push the tag;
-   3. `gh release create` with the zip and the release notes;
+   3. `gh release create --prerelease` with the zip and the release notes;
    4. push `main`. From this point on, the raw feed serves the new item.
+
+Every release is published as a GitHub pre-release while Enigma is in early
+development, so the repository has no "Latest" release. Updates don't depend
+on one: the feed is read from `main` and each enclosure URL names its tag. To
+publish full releases later, drop `--prerelease` from `release.sh`.
 
 Just before step 6, the script checks again that `origin/main` hasn't moved.
 If anything fails before the release commit, it restores `project.pbxproj`
@@ -208,7 +213,7 @@ retry or undo:
   and safe. Run `git push origin main` again.
 
 The previous release used for the signature check is the newest one that isn't
-a draft. Pre-releases count, since v0.9.1 is one.
+a draft. Pre-releases count, since every release is one.
 
 `--dry-run` runs steps 1–5 in a temporary detached worktree of `HEAD`. It
 copies the zip, `appcast.xml` and `project.pbxproj` to
