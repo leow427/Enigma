@@ -178,6 +178,112 @@ page.
 - Applies to both setup's connections step and Settings, since they share
   these controls.
 
+### B10. Two contacts with the same name are treated as one person
+
+**Problem:** Asking Enigma to text someone by name merges every contact card
+with that name. With two different people called "Alex Kim", their numbers are
+pooled, and the most recent conversation (or, with none, B6's phone and mobile
+preferences) picks one of them without asking. `docs/Messages.md` says the
+model asks when a name matches more than one person. The approval card still
+shows the exact number, which is the only safeguard left. Reproduced with
+temporary tests in `MessagesTests`.
+
+**Cause:** `MessagesTools.resolve` treats the candidates as one person when
+`Set(candidates.map(\.name)).count == 1`, so cards that share a name pool their
+handles.
+
+**Wanted:**
+
+- Treat each contact card as a separate person, and apply the
+  existing-conversation and phone preferences (B6) only within one card.
+- When a name matches more than one card, ask which person, with something
+  that tells them apart (the number or email, its label, the company).
+- Add tests for two same-name cards: with a conversation with one of them,
+  with only one mobile-labelled number, and with a phone on one card and only
+  an email on the other.
+
+### B11. Web search can send more than the user saw or meant
+
+**Problem:** Brave can receive text it shouldn't, in three ways. Each was
+reproduced with a failing test.
+
+1. **Commands go into the query.** `/think` reaches Brave on the Local,
+   Auto → local and local vision routes ("/think What happened in the news
+   today?"), and `/edit` and `/translate` on every route, since they stay in
+   the message text. When nothing is attached, the private `search` in
+   `LocalChatViewModel` passes the text as it is, and
+   `BraveSearchClient.query(from:)` only shortens it. `docs/Web-Search.md` says
+   queries are sent without slash commands.
+2. **Refining from attached text has no privacy rule.** With selected text or
+   a draft attached, the query-writing prompt in `LocalChatViewModel.search`
+   never says to leave out personal details and credentials. The screenshot
+   prompt (`ScreenSearchContext.queryPrompt`) does, and `Web-Search.md`
+   promises it for both.
+3. **A search nobody saw after a typed `/screen` or `/snapshot`.** While
+   `/screen` is in the draft, no search chip shows. After the capture,
+   `submitDraft(recognizesCommands: false)` resolves the draft again without
+   `/screen`, automatic search is still on, and a query the model writes from
+   the screenshot's text goes to Brave. That breaks the promises in
+   `Slash-Commands.md` ("runs only the commands you typed") and `Web-Search.md`
+   (the chip tells you before sending).
+
+**Wanted:**
+
+- Strip every slash-command token in `LocalChatViewModel.search` before
+  refining or sending, so all routes are covered.
+- One query-writing prompt for screenshots and attached text, with the "omit
+  unrelated content, credentials and personal details" line.
+- When `recognizesCommands` is false, turn off automatic search too
+  (`composerIntent(recognizesCommands:)`), so the request after a capture runs
+  only what the user typed.
+- Keep the three reproductions as regression tests (`WebSearchTests`,
+  `ComposerIntentResolveTests`, `ScreenViewTests`).
+
+### B12. Denying Automation doesn't stop a Messages send
+
+**Problem:** When macOS denies Automation while a Messages request runs (or
+Full Disk Access is lost mid-request), the request carries on and the **Open
+Automation Settings…** card never appears, although `docs/Messages.md` says
+it stops there. The error goes back to the model, which answers "I couldn't
+send that" or tries again. Each retry runs `osascript` again, and a failed send
+isn't recorded, so nothing stops the retries. Reproduced on the local and API
+routes with failing tests.
+
+**Cause:** `MessagesTools.execute` marks these results `terminal: true`, but no
+Messages route reads the flag: `LocalToolAgent.run` (`AgentToolLoop.swift`),
+`CloudToolLoop.run` (OpenAI, Anthropic and Gemini), `CodexToolMode.handle`
+(which drops it) and `ClaudeCodeToolMode.respond`. Only File Mode's loop checks
+it. The card (`appleMessages.issue`) is set only by the checks before a request
+starts.
+
+**Wanted:**
+
+- Every tool loop stops on a terminal result and raises its `MessagesError`;
+  `submitMessages` reports any `MessagesError` with a `privacyPane`, so the card
+  appears with the right button.
+- `MessagesIssueCard` names its button after the pane (a Contacts pane would
+  also read "Open Automation Settings…" today).
+- `testAutomationDenialStopsTheRequestWithSettingsGuidance` checks only the
+  flag; make it check that the request stops and the card shows, on each route.
+
+### B13. Sending after scrolling up leaves the new message out of view
+
+**Problem:** Scroll up in a chat, then send: the new message and its reply stay
+below the view. In a reproduction the new message ended about 290 pt below the
+bottom and the reply grew out of sight, with Reduce Motion on and off.
+`docs/Chat.md` says sending brings the message and its reply into view.
+
+**Cause:** `ConversationScrollObserver` (`EnigmaMessageList.swift`) resumes
+following only when the reader scrolls back to the bottom (`endScrolling()`,
+`boundsChanged()`). A send changes `conversationScrollRevision`, but
+`contentChanged(_:)` → `scheduleScroll()` returns early while `followsLatest`
+is false. B1's hosted test only sends while already at the bottom.
+
+**Wanted:** Sending always resumes following and scrolls to the end, as smoothly
+as B1's fix; scrolling up during the reply still stops following. Add a hosted
+test next to B1's in `EnigmaConversationTests` that scrolls up, sends, and
+checks the new message is visible, with Reduce Motion on and off.
+
 ### B4. The animated character covers the model picker
 
 **Problem:** The Enigma character can sit on top of the model picker (the
@@ -294,16 +400,59 @@ the user lands in an old conversation instead of a fresh page.
   current chat. There is no injectable clock today, so put the rule in a small
   pure policy type (like `ShellPresentation`) that is given the times.
 
-### B9. The tour says "double-tap Control" to show the sidebar
+### B14. Attaching more than 16 items gives a vague error
 
-**Problem:** The tour's history step (`WelcomeTourStep.history` in
-`WelcomeSetup.swift`) tells people to double-tap Control to show or hide the
-sidebar. That shortcut became ⌃⌘S in eefd872 ("Make Enigma's shortcuts
-consistent and collision-free"), so the tip doesn't work.
+**Problem:** Picking 17 files shows "The file operation was incomplete or
+ambiguous. No change was made." without mentioning the limit. Files inside an
+attached folder also count separately, so a folder plus 16 of its own files is
+refused, although `docs/File-Mode.md` says a file inside an attached folder is
+covered by that folder. Both reproduced with failing tests.
 
-**Wanted:** The tip says ⌃⌘S. Also fix the comments that still say "double-tap
-Control" in `SpotlightPanelController.swift` and `ShellPresentation.swift`
-(opening a selection chat in the window is ⌘O).
+**Cause:** `FileModeCoordinator.activate` checks the count before
+`WorkspaceSelection.normalized`, and throws `.invalidArguments`.
+
+**Wanted:** Normalize first, then check the count, and show a message of its
+own, such as "You can attach up to 16 files or folders." Keep the two
+reproductions as tests in `FileModeUITests`. F4's drag and drop will use the
+same path.
+
+### B9. Some text names the wrong shortcut
+
+**Problem:**
+
+- The tour's history step (`WelcomeTourStep.history` in `WelcomeSetup.swift`)
+  tells people to double-tap Control to show or hide the sidebar. That
+  shortcut became ⌃⌘S in eefd872 ("Make Enigma's shortcuts consistent and
+  collision-free"), so the tip doesn't work.
+- The selection key can be Option, Command or Shift, but three texts always
+  say Option: the Accessibility row ("…with double-Option…",
+  `MacPermissionRows.swift`), the Accessibility note in the chat
+  (`SelectionCards.swift`), and Settings → Selection ("Text is captured only
+  when you double-tap Option.", `SettingsView.swift`).
+
+**Wanted:** The tip says ⌃⌘S, and the selection texts name the chosen key (or
+say "the selection shortcut"). Also fix the comments that still say
+"double-tap Control" (`SpotlightPanelController.swift`,
+`ShellPresentation.swift`, `CompactPanelHints` in
+`EnigmaCompactPanelLogic.swift`) and rename
+`testDoubleControlOpensThePanelsChatInTheWindowBeforeTheFirstAnswer` (opening
+a selection chat in the window is ⌘O).
+
+### B15. Messages can report a send as checked when it wasn't
+
+**Problem:** `docs/Messages.md` says each send is checked against Messages'
+history for three seconds. A send to someone you haven't messaged from this Mac
+skips that check and returns "handed_to_messages" straight away; the tool's
+text only says Messages accepted it, but the model may tell the user it was
+sent. Reproduced with failing tests. Also, from reading the code: for existing
+conversations `MessagesDatabase.latestOutgoing` ignores whether Messages
+marked the message as failed, so "sent" can be reported for a message that
+wasn't delivered.
+
+**Wanted:** After a send to a new handle, find the conversation Messages
+creates for it and run the same check. Leave out failed messages in
+`latestOutgoing` (check which `chat.db` columns mark a failure). Add tests with
+the existing fakes, and update `docs/Messages.md` to match.
 
 ### B6. ✅ Done: Messages asks "phone or email?" instead of using the contact's number
 
@@ -500,6 +649,50 @@ there's no way to retry one.
   benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic, and
   keep it consistent with the existing "ran slower than expected" note
   (`LocalModelViews.swift`).
+
+### F26. Commands that work together: think with search, and search before acting
+
+**Today:** typed commands combine, but each runs once in a fixed order.
+`/search` (or automatic search) runs one search from the typed message before
+the model starts, and `/think` then only makes the answer more careful, so the
+model can't decide what to look up after thinking, or search again. Search
+can't be used at all with attached files (File Mode) or `/messages`, and a
+screenshot can't be used with either (the conflicts in `ComposerCommands` and
+`ComposerIntent`, `docs/Slash-Commands.md` → Combining commands). Fix B11
+first: commands leak into the query today.
+
+**Wanted:**
+
+- **Search, then think** (what `/think /search` does today) stays the default:
+  one search from the typed request, then a careful answer over the results.
+- **Think, then search:** when the model handles tools well, give it web
+  search as a tool during `/think`, so it can plan its queries, search a few
+  times (with a cap, for example three searches) and check what it found
+  before answering. Each query shows in the activity line as it runs, and
+  every source is listed as today. Cloud routes already run tools
+  (`CloudToolLoop`, the Codex and Claude Code tool modes); on local models keep
+  the single search unless the model is strong enough (see F6). Only in chats
+  without files or Messages.
+- **Search before acting:** allow `/search` with File Mode, `/messages` and
+  `/edit` by running the search first, from the typed request only, and
+  handing the results to the step that acts:
+  - files: "update the README with the latest SwiftLint release";
+  - `/messages`: "text Sam tomorrow's forecast" (the approval card still shows
+    the exact text before sending);
+  - `/edit`: "update these figures to this year's numbers".
+- **Keep the privacy rule:** messages and file contents never become a search
+  query, and selected text and screenshots only through the query-writing
+  prompt that leaves out personal details and credentials (B11). So the
+  combinations above search once, before acting, never as a tool the model
+  drives.
+- **Optional, a screenshot with an action:** `/snapshot` with File Mode ("make
+  this page match the design on screen") or with `/messages` ("text Alex the
+  address on my screen"). The screenshot's text goes only into the files or
+  the message the user approves.
+- Show every command that will run as a chip or highlighted word, in the order
+  it runs. Update the conflict rules and their tests
+  (`ComposerIntentResolveTests`), and `docs/Slash-Commands.md` and
+  `Web-Search.md`.
 
 ### F7. ✅ Done: Show the version number in Settings
 
