@@ -341,6 +341,30 @@ A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
 Bug reports (F12) use the same value.
 
+### F25. "What's new?" button after an update
+
+**Today:** after Sparkle installs a new version, nothing in the app says what
+changed. The notes exist (`docs/release-notes/<version>.md`, embedded in
+`appcast.xml` by `scripts/release.sh`), but users only see them in Sparkle's
+update window, if at all.
+
+**Wanted:**
+
+- After Enigma launches on a newer version than last time, show a small blue
+  **What's new?** button in the top right of the main window. Use a blue from
+  `docs/design/UI-Style.md` that reads well in both Paper and Ink, and leave
+  room for F10's ghost button, which also sits there.
+- Clicking it shows everything added in that update: the release notes for the
+  new version (and any versions skipped since the last one seen), rendered as
+  Markdown in a sheet or popover.
+- Once it has been opened, the button goes away for good for that version.
+  Remember the last version seen (for example in `UserDefaults`); a fresh
+  install doesn't show it.
+- Bundle the release notes with the app, or read them from Sparkle's appcast
+  item, so it works offline.
+- Accessibility: label it "What's new in Enigma X". Respect Reduce Motion for
+  any appear/disappear animation.
+
 ### F8. Syntax highlighting and terminal blocks
 
 Builds on F1's code block header.
