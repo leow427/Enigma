@@ -54,32 +54,59 @@ and third message in a chat, and check with Reduce Motion on and off.
 **Problem:** Enigma's ChatGPT route runs the Codex CLI (`codex app-server`)
 and its Claude route runs Claude Code (`claude`), and both must already be
 installed. On a Mac without them, **Sign in** in Settings → Cloud and search
-(and setup) is greyed out with little explanation, because
-`CodexRuntimeConfiguration.executableURL()` (`CodexAppServer.swift`) or
-`ClaudeCodeRuntime.executableURL()` can't find the tool. This hits people
-with the ChatGPT desktop app hardest: Enigma checks
-`/Applications/ChatGPT.app/Contents/Resources/codex`, but the app evidently
-doesn't ship a usable `codex` there, so having "ChatGPT" is not enough.
-Signing in should be one click, with no Terminal, Homebrew or npm.
+(and setup) is disabled, with a note that the tool is required and a link to
+its install page, so signing in means Terminal, Homebrew or npm first. The
+lookups are `CodexRuntimeConfiguration.executableURL()`
+(`CodexAppServer.swift`) and `ClaudeCodeRuntime.executableURL()`
+(`ClaudeCodeSubscriptionClient.swift`). Signing in should be one click.
+
+- People with the ChatGPT desktop app already have a working Codex, but
+  Enigma looks in the wrong place: it checks
+  `/Applications/ChatGPT.app/Contents/Resources/codex`, while the app ships it
+  at `Contents/Resources/codex-cli/bin/codex` (a small wrapper around a bundled
+  `CodexCLI.app`).
+- Both tools run with a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:…`),
+  so a Node-based install (Homebrew's `codex` is a `#!/usr/bin/env node`
+  script; npm or nvm installs of either tool) fails to start when `node` lives
+  somewhere else.
+
+**Quick fix first:** replace the `ChatGPT.app` candidate with
+`ChatGPT.app/Contents/Resources/codex-cli/bin/codex`, so ChatGPT desktop users
+can sign in now.
 
 **Wanted, ChatGPT: a built-in Codex runtime.** Codex is open source
-(Apache-2.0) and OpenAI publishes standalone macOS binaries that don't need
-Node, so Enigma can ship its own copy:
+(Apache-2.0) and OpenAI publishes standalone, signed macOS packages that don't
+need Node, so Enigma can provide its own copy:
 
-- Use Enigma's own pinned `codex` first, and drop the hard-coded app-bundle
+- Use Enigma's own pinned Codex first, and drop the hard-coded app-bundle
   candidates (`Codex.app`, `ChatGPT.app`) once it works. Sign-in already goes
   through Codex's browser login (`account/login/start` in
-  `CodexSubscriptionClient.swift`), so with the binary present, **Sign in**
-  is one click.
-- Ship both Apple silicon and Intel (the app builds the default
-  architectures), for example as one universal binary.
-- Pin the version and checksum, as `Packages/LlamaBridge` pins llama.cpp, and
-  sign the helper with the app's identity and hardened runtime so notarization
-  and Sparkle updates cover it. New Codex versions ship with Enigma releases.
-- **Bundle or download:** measure the binary's size. If it's acceptable,
-  bundle it in the app; otherwise download the pinned, checksum-verified copy
-  into Application Support the first time someone presses **Sign in**, with
-  progress and a clear failure message.
+  `CodexSubscriptionClient.swift`), so with Codex present, **Sign in** is one
+  click.
+- **Ship the whole package, not one binary.** Enigma turns on
+  `features.code_mode_host` for File Mode and tool calls (`CodexFileMode.swift`,
+  `CloudToolCalling.swift`), which needs the separate `codex-code-mode-host`
+  binary (about 65 MB) next to `codex`. OpenAI's package also carries `rg` and
+  a resources folder.
+- **Download it, don't bundle it.** The package is roughly 250 MB per
+  architecture (ChatGPT.app's `codex-cli` folder is 325 MB), against a 25 MB
+  Enigma.app, and Sparkle updates always download the full zip
+  (`--maximum-deltas 0` in `scripts/release.sh`). So the first time someone
+  presses **Sign in**, download the pinned package for this Mac's architecture
+  into Application Support, with progress, Cancel and a clear failure message.
+  The vision runtime already does exactly this: `LocalVisionRuntime`
+  (`LlamaServerVisionEngine.swift`) pins a URL, size and SHA-256 per
+  architecture, extracts safely, runs a smoke test and installs into a
+  versioned folder, driven by `LocalFileRuntimeSetup`. Follow it.
+  (`Packages/LlamaBridge` is the wrong model: SwiftPM binary targets only work
+  for linked frameworks, not helper executables.) New Codex versions ship with
+  Enigma releases by bumping the pin.
+- **Keep OpenAI's signature.** The binaries are already Developer ID-signed
+  with the hardened runtime and their own entitlements, while Enigma is signed
+  with Apple Development and isn't notarized (`docs/Distribution.md`).
+  Re-signing would also change which code identity owns the Codex login in the
+  Keychain (`cli_auth_credentials_store="keyring"`), which could sign existing
+  users out.
 - Keep the existing isolation (`CODEX_HOME`, the disabled features) and the
   check result from B3. "Codex not found" should no longer be reachable, or
   only when a download failed.
@@ -95,8 +122,10 @@ login or rate limits in their products. So:
 
 - When Claude Code isn't found, offer an **Install Claude Code** button that
   runs Anthropic's official installer (in Terminal, like the sign-in script
-  today), then re-detects and goes on to **Sign in**. Also show the install
-  command with a Copy button and short steps for people who prefer Terminal:
+  today), then re-detects and goes on to **Sign in**. The installer puts
+  `claude` in `~/.local/bin`, which Enigma already checks first. Also show the
+  install command with a Copy button and short steps for people who prefer
+  Terminal:
   1. Open Terminal (Applications → Utilities → Terminal).
   2. Paste `curl -fsSL https://claude.ai/install.sh | bash` and press Return.
   3. Come back and press **Check again**, then **Sign in**.
@@ -108,16 +137,18 @@ login or rate limits in their products. So:
 - Bundle Claude Code only if Anthropic approves it in writing. Confirm
   Enigma's current Claude subscription route fits Anthropic's terms too.
 
-**Also harden Claude Code detection** (lower priority): an app opened from
-Finder gets a minimal `PATH`, so Claude Code installed via a Node version
-manager (`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, fnm, asdf), a custom
-npm prefix (`~/.npm-global/bin`), Bun (`~/.bun/bin`) or in `~/Applications`
-is not found. Ask the login shell once (`$SHELL -lc 'command -v claude'`,
-with a timeout), add those folders, run the tool with its own folder on
-`PATH` so a Node-based install can find `node`, and offer a "Choose Claude
-Code…" picker as a last resort.
+**Also harden detection** (lower priority): an app opened from Finder gets a
+minimal `PATH`, so Claude Code installed via a Node version manager
+(`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, fnm, asdf), a custom npm prefix
+(`~/.npm-global/bin`), Bun (`~/.bun/bin`) or in `~/Applications` is not found.
+Ask the login shell once (`$SHELL -lc 'command -v claude'`, with a timeout),
+add those folders, run the tool with its own folder on `PATH` so a Node-based
+install can find `node`, and offer a "Choose Claude Code…" picker as a last
+resort. Until the built-in Codex ships, do the same for `codex`.
 
 **Notes:** B3 (done) changed the same controls; build on its check result.
+Its "not found" message doesn't yet say where Enigma looked ("looked in …");
+add that here.
 
 ### B3. ✅ Done: "Check sign-in status" gives no feedback and no way to set up
 
@@ -153,39 +184,53 @@ page.
 Auto/Local/Cloud and model menu beside Send, ⌘K), hiding rows of the open
 menu.
 
-**Likely cause:** The character is drawn by `.enigmaCharacterStage(_:)`,
-applied at the window root (`AppShellView.swift`), as an
+**Cause:** The character is drawn by `.enigmaCharacterStage(_:)` as an
 `overlayPreferenceValue` layer over the whole window
-(`EnigmaCharacterStage.swift`). Anything drawn inside the window, including
-the model menu's in-place list (`EnigmaMenuList` in `EnigmaControls.swift`,
-which only raises itself with `zIndex(1)` among its siblings), ends up
-underneath it. The character's hit area (`handle`) can also catch clicks meant
-for the menu.
+(`EnigmaCharacterStage.swift`). Open menus are drawn by a menu host
+(`.enigmaMenuHost()` and `EnigmaMenuPresenter` in `EnigmaControls.swift`) as a
+full-window overlay too. But the main window's and the compact panel's hosts
+sit inside `welcomeShell`, and the stage is applied outside them
+(`AppShellView.swift`). So the stage draws over every hosted menu, and the
+character's hit area (`handle`) catches clicks meant for the menu or for its
+click-outside-to-close layer.
 
 **Wanted:**
 
-- Open menus and popovers always draw above the character and receive their
-  clicks: draw menus in a layer above the character stage, or have the stage
-  sit below the menu layer.
-- If moving the layer isn't practical, hide the character or move it out of
-  the way while a menu overlaps it, and turn off its hit area while a menu is
-  open.
-- Check the other menus and overlays too (slash-command completion, the
-  attach menu, the tour's callouts), on the empty page and in a chat, and in
-  the compact selection panel.
+- Open menus always draw above the character and receive their clicks. The
+  simple fix: apply one `.enigmaMenuHost()` to `welcomeShell`, between
+  `.enigmaCharacterStage(character)` and `.enigmaTheme(...)` (the theme must
+  stay outside so menus get the palette), and remove the two inner hosts.
+  `EnigmaMenuRoom` finds the presenter through the environment, so the compact
+  panel still grows to fit. Menus are then no longer clipped by
+  `EnigmaWindowChrome`; check that still looks right.
+- Move the tour's overlay (`overlayPreferenceValue(WelcomeTourAnchors.self)`)
+  outside the stage too, so the character can't cover its Next and End
+  buttons.
+- The slash-command list is an in-place overlay in `SlashCommandComposer.swift`,
+  not a hosted menu. Route it through the menu host, or have the stage hide
+  the character and turn off `handle` while the list overlaps it.
+- Check every in-window menu, on the empty page and in a chat, and in the
+  compact selection panel: the model picker, the slash list, the tour, and the
+  file-change menus ("Review saved file changes", "Earlier changes"). Sheets,
+  the Attach file picker (`NSOpenPanel`) and the menu-bar menu are separate
+  windows and aren't affected.
 
-### B5. Selection chats always open in the normal chat layout
+### B5. Selection chats stay in the compact panel and never reach Recents
 
 **Problem:** A chat started from a selection stays in the compact panel UI
 (`EnigmaCompactPanel`). It only becomes a normal window chat when the user
-double-taps Control (`.selectionChatOpenedInWindow` in `AppShellView.swift`
-calls `localChat.openTemporaryChatInWindow()`). Saving to Recents also happens
-only in that function, so these chats never reach the sidebar, even with
-"Keep selection chats private" off.
+presses ⌘O or the panel's Open in window button
+(`.selectionChatOpenInWindowRequested` →
+`SpotlightPanelController.openSelectionChatInWindow()` →
+`.selectionChatOpenedInWindow` in `AppShellView.swift`, which calls
+`localChat.openTemporaryChatInWindow()`). Saving to Recents also happens only
+in that function, so these chats never reach the sidebar, even with "Keep
+selection chats private" off.
 
 **Wanted:**
 
-- A selection chat always opens in the normal chat layout, no matter what.
+- The selection panel opens exactly as it does now. Once the question is
+  sent, the chat always switches to the normal chat layout, no matter what.
 - The privacy toggle only decides whether it is saved:
   - Off: an ordinary chat, saved to Recents.
   - On: the chat opens as a temporary chat. It is not saved and stays out of
@@ -196,7 +241,11 @@ only in that function, so these chats never reach the sidebar, even with
   does now. Selected text is never written to disk.
 
 **Notes:** Every way of opening or expanding a selection chat should go
-through the same conversion as `openTemporaryChatInWindow()`. Add regression
+through the same conversion: the Open in window path above, and
+`expandSelectionConversation()` in `AppShellView.swift`, which runs when a
+question is sent (`.selectionPanelExpandRequested` → `expandSelectionPanel()`)
+and is the natural place to convert. Reuse
+`.selectionChatOpenInWindowRequested` rather than copying it. Add regression
 tests for both toggle states.
 
 ### B8. Enigma reopens the last chat instead of a new one
@@ -205,24 +254,56 @@ tests for both toggle states.
 recent chat. It does the same when summoned again after a long break, so
 the user lands in an old conversation instead of a fresh page.
 
-**Where to look:** `LocalChatViewModel.init` selects `sessions.first?.id`
-after loading saved chats, so launch always opens the most recent one.
-`newChat()` in the same file starts a fresh chat. Summoning goes through
-`SpotlightPanelController.show()` and the show/hide shortcut.
+**Where to look:**
+
+- `LocalChatViewModel.init` selects `sessions.first?.id` after loading saved
+  chats (and restores that chat's file workspace), so launch always opens the
+  most recent one. Leaving `selectedSessionID` nil is enough:
+  `ensureSelectedSession()` creates a chat when one is needed, so nothing is
+  written on every launch.
+- `newChat()` in the same file stops any running reply, then always adds and
+  saves a new empty chat.
+- New chats from the UI go through the `.newChatRequested` handler in
+  `AppShellView.swift` plus `restoreNormalPanel` in `SpotlightPanelController`.
+  Use that path, not `localChat.newChat()` alone, or a compact panel keeps its
+  frame.
+- Summoning: `SpotlightPanelController.show()` and `hide()`, the show/hide
+  shortcut (`toggle()` in `ApplicationDelegate`), the `show()` at launch, and
+  the menu-bar item's Open and New chat (`MenuBarController`). Nothing records
+  when the window was last hidden today.
 
 **Wanted:**
 
 - **On launch:** always open to a new chat. Saved chats stay in Recents.
 - **After 5 minutes away:** if Enigma hasn't been shown or used for more than
   5 minutes, summoning it opens a new chat. Under 5 minutes, it comes back to
-  the chat the user left.
+  the chat the user left. Record the time in `hide()` and check it in
+  `show()`. Don't hang it on `.panelPresented`: selection, screen capture and
+  text replacement post it too, and would throw away a selection chat the user
+  just started. Decide whether a window left open behind other apps counts as
+  away (it doesn't hide when Enigma loses focus).
 - Don't pile up empty chats: if the current chat has no messages, reuse it
-  instead of making another.
-- Never interrupt a reply that is still streaming, or a model download; if a
-  reply is running, stay on that chat.
-- Temporary chats (F10) are discarded as usual when a new chat starts.
-- Add tests for launch, coming back under and over 5 minutes (with an
-  injected clock), and an empty current chat.
+  instead of making another. Put this in `newChat()` so ⌘N and the menu bar's
+  New chat benefit too.
+- Never interrupt a reply that is still running: if `isBusy`, stay on that
+  chat. Model downloads don't block chatting and `newChat()` leaves them
+  alone, so they need nothing extra.
+- Temporary chats (private selection chats, and F10) are discarded as usual
+  when a new chat starts.
+- Add tests for launch, coming back under and over 5 minutes, and an empty
+  current chat. There is no injectable clock today, so put the rule in a small
+  pure policy type (like `ShellPresentation`) that is given the times.
+
+### B9. The tour says "double-tap Control" to show the sidebar
+
+**Problem:** The tour's history step (`WelcomeTourStep.history` in
+`WelcomeSetup.swift`) tells people to double-tap Control to show or hide the
+sidebar. That shortcut became ⌃⌘S in eefd872 ("Make Enigma's shortcuts
+consistent and collision-free"), so the tip doesn't work.
+
+**Wanted:** The tip says ⌃⌘S. Also fix the comments that still say "double-tap
+Control" in `SpotlightPanelController.swift` and `ShellPresentation.swift`
+(opening a selection chat in the window is ⌘O).
 
 ### B6. ✅ Done: Messages asks "phone or email?" instead of using the contact's number
 
@@ -283,40 +364,61 @@ performance" in Settings still runs one by hand.
 ### F1. Copy buttons on code blocks and replies, like ChatGPT
 
 **Today:** code blocks (`ChatMarkdownView.swift`) are plain monospaced text in
-a scrolling box: no copy button, no language label, no colours. Replies and
-user messages can only be copied by selecting the text and pressing ⌘C.
+a scrolling box: no copy button, no language label, no colours. There is no
+copy control anywhere in the chat. Each paragraph is its own selectable
+`Text`, and a selection can't cross them, so a whole reply can't even be
+selected and copied in one go.
 
 **Wanted:**
 
-- **Code blocks:** a header bar with the language name on the left and a
-  **Copy** icon in the top right that briefly turns into a check mark
-  ("Copied").
-- **Terminal commands** (`bash`, `sh`, `zsh`, `shell`, `console`): Copy takes
-  only the commands, without any `$ ` prompt or shown output.
+- **Code blocks:** a header bar with the language name on the left (the parser
+  already has it as the block's `languageHint`) and a **Copy** icon in the top
+  right that briefly turns into a check mark ("Copied").
+- **Terminal commands** (`bash`, `sh`, `zsh`, `shell`, `console`): when some
+  lines start with a `$ ` or `% ` prompt, Copy keeps only those lines (and
+  their `\` continuation lines) without the prompt, and drops the rest as
+  output. Otherwise it copies the block as shown. Never treat `# ` as a
+  prompt; it is also a comment.
 - **Whole replies:** a copy icon on the whole reply (on hover, top right or in
   the reply's meta line), for essays and other writing (emails, cover letters,
   posts).
-- Copy writes plain text for code, and plain text plus rich text for writing,
-  so it pastes cleanly in editors and in Mail or Pages.
-- Accessibility: "Copy code", "Copy reply" labels; keep the existing
-  "Code" accessibility value.
+- Code Copy writes plain text. Reply Copy writes plain text (as shown, without
+  Markdown marks) plus rich text, so it pastes cleanly in editors and in Mail
+  or Pages. There is no ready source of rich text: `AttributedString(markdown:)`
+  has no fonts, paragraph breaks or list markers, so build the RTF from the
+  parsed `ChatMarkdownBlock`s, without palette colours (Ink's light text would
+  paste invisibly on white).
+- Accessibility: "Copy code", "Copy reply" labels; keep the code block's
+  existing "Code" accessibility label. Icons shown on hover must also be
+  reachable with Tab and VoiceOver.
 - Syntax highlighting is F8; standalone draft blocks and editing them in place
-  are F22.
+  are F22 (draft blocks aren't drawn as code blocks).
 
 ### F2. Keep typing while a reply streams
 
-- Today the composer is disabled until the reply finishes
-  (`AppShellView.swift`, `isBusy`). Let people type their next message while
-  it streams.
+- Today the composer is read-only while `localChat.isBusy`
+  (`composerIsEnabled` in `AppShellView.swift` sets the `SlashCommandTextView`'s
+  `isEditable`), and the `/` button, suggestions and Attach turn off with it.
+  `isBusy` also covers model operations, File Mode runs and applying a
+  selection revision. Let people type their next message while a reply runs.
 - Simplest version: typing works, Send stays disabled until the reply ends
-  (Stop still works). Queueing the next message can come later.
-- Make sure slash-command completion, attachments and the selection panel
+  (Stop still works; Return already does nothing while busy). Queueing the
+  next message can come later.
+- Besides `isEditable`: `shell.requestBusyChanged` takes focus away while busy
+  (`ShellPresentation.swift`), and `composerText` shows an empty field while
+  `pendingUserMessage` is set, so text typed just after Send would be lost.
+  Build on `draftAfterAcceptance` (`ComposerSubmission.swift`), which already
+  keeps a draft edited after Send.
+- Decide whether ⌘N and the selection shortcut, which clear the draft today,
+  should discard text typed during a reply.
+- Keep Attach disabled during a File Mode run (Stop revokes the live
+  workspace). Make sure slash-command completion and the selection panel
   behave the same while a reply runs.
 
 ### F3. Regenerate the latest reply
 
-**Today:** sent messages are static (`EnigmaUserMessage` in
-`EnigmaMessageList.swift`); there's no way to retry a reply.
+**Today:** replies have no actions, only a meta line (`EnigmaMessageList.swift`);
+there's no way to retry one.
 
 **Wanted (like ChatGPT and Claude):**
 
@@ -324,52 +426,86 @@ user messages can only be copied by selecting the text and pressing ⌘C.
   choice of route or model. Especially useful with small local models, whose
   first answer is often weak.
 - Disabled while a reply is streaming. Works with history saving and
-  temporary chats.
+  temporary chats. Keep the old reply until the new request is accepted, so a
+  failed retry doesn't lose it.
+- Start with plain chat turns. There is no single send path to replay:
+  `submitDraft` in `AppShellView.swift` picks Files, Messages, Screen, local or
+  cloud from the composer's state, and a saved `ChatMessage` keeps only its
+  text, sources and attachment names, not its screenshot, selection context or
+  kind of turn. Re-running those turns after a relaunch needs more stored.
 - Actions the reply already took (File Mode edits, sent iMessages) aren't
   undone by regenerating, so say so instead of implying they were reversed.
-- Editing a sent message and rewinding the chat are F9.
+  For file edits, point to File Mode's existing Review and Undo.
+- Regenerating is editing the last message without changing it (F9): build
+  one truncate-and-resend path for both.
 
 ### F4. Drag and drop files, and paste images
 
 - Drop files or folders onto the window or composer to attach them, as the
-  Attach button (⇧⌘A) does today, within File Mode's limits (16 items, access
-  choice, size limits).
+  Attach button (⇧⌘A) does today, within File Mode's limits (16 items, 2 MiB
+  per file; access comes from the route, not a choice). Split the URL handling
+  out of the picker in `FileModeCoordinator.activate` so drops can use it.
 - Drop or paste (⌘V) images to attach them like a screenshot: a new
   `ScreenAttachment` source next to `screenRegion` and `fullDesktop`, with the
-  same OCR, vision-model and cloud upload consent rules.
-- Today there is no `onDrop`/`dropDestination` or paste handling anywhere.
+  same OCR, vision-model and cloud upload consent rules. Add an
+  `attach(image:)` that reuses `capture()`'s OCR step, and update the labels
+  that assume two sources (`ScreenSettings.swift` would call a pasted image a
+  "selected region").
+- Rules: image files go to the image attachment, other files to File Mode.
+  File Mode and a screenshot can't be combined, so decide what a mixed drop
+  does. There is one image attachment at a time.
+- Today there is no `onDrop`/`dropDestination` or paste handling anywhere. The
+  composer is an AppKit text view (`SlashCommandTextView`), which can insert a
+  dropped file's path as text; handle drops and `paste(_:)` there, since a
+  SwiftUI `.onDrop` won't get drops over the field.
 
 ### F5. One shared system prompt: Enigma, a friendly personal assistant
 
 - Every route should know it is **Enigma: a friendly, general personal
   assistant that is concise, yet always useful.**
 - Today the identity is inconsistent. Local models (`LlamaCPPModelEngine`,
-  `LocalMultimodalClient`, agent runs) and the OpenAI/Anthropic/Gemini API
-  clients (`CloudProviderClients.swift`) get only `ChatResponseStyle.
-  instructions`, with no name at all. Claude Code, Codex and cloud tool calling
-  each hard-code their own "You are Enigma, a helpful general-purpose
-  assistant…" line, and File Mode says "a helpful assistant for file analysis
-  and editing".
-- Put one identity line at the top of `ChatResponseStyle.instructions` (or a
-  new shared `EnigmaPersona` used by all of them), and remove the per-client
-  copies so it lives in one place. Keep route-specific additions (text-only,
-  file tools) after it.
-- Keep it short: local models run with an 8,192-token context. Check that
-  small local models still follow the existing length and Markdown guidance.
+  `LocalMultimodalClient`, agent runs, local File Mode in `AgentFileTools.swift`),
+  the OpenAI and Anthropic API clients (`CloudProviderClients.swift`), Gemini
+  (`GeminiContentClient.swift`) and API-key tool calling (`CloudToolLoop`) get
+  only `ChatResponseStyle.instructions`, with no name at all. Claude Code,
+  Codex, and their tool-calling prompts each hard-code their own "You are
+  Enigma, a helpful general-purpose assistant…" line, and Codex File Mode says
+  "a helpful assistant for file analysis and editing".
+- Every route already includes `ChatResponseStyle.instructions`, so put one
+  identity line at its top and remove the per-client copies so it lives in one
+  place. Keep route-specific additions (text-only, file tools) after it. Make
+  it a function rather than a constant: F13 adds the user's own text at run
+  time.
+- Keep it short: catalogue models run with an 8,192-token context, imported
+  ones with 4,096. Check that small local models still follow the existing
+  length and Markdown guidance. Existing tests compare prompts against
+  `ChatResponseStyle.instructions` itself, so add one that checks the identity
+  reaches every route.
 
 ### F6. Warn slow Macs that small local models handle tools poorly
 
-- On Macs whose recommendation is a ~4B model or smaller (or whose
-  performance check says the model underperformed), show a short note:
-  features that use tools, such as File Mode, Messages and web search, may not
-  work correctly with small local models, and connecting a cloud provider is
-  strongly suggested.
-- Show it in setup's model step and in Settings → Local models, with a link to
-  Cloud and search. Do not nag again once a cloud provider is connected.
+- When this Mac's recommendation or the model in use is small, the performance
+  check says the model underperformed (`LocalModelBenchmark.underperformed`),
+  or no model fits, show a short note: features that use tools, such as File
+  Mode and Messages, may not work correctly with small local models, and
+  connecting a cloud provider is strongly suggested. ("Small" needs a precise
+  rule on a catalogue field, such as total `parameterBillions`:
+  mixture-of-experts and "E4B" models make "~4B" ambiguous. Local web search
+  fetches results before the model answers, so it isn't tool calling.)
+- Show it in setup's model step, pointing to the Connections step that comes
+  next, and in Settings → Local models, with a link to Cloud and search. Do not
+  nag again once any cloud provider is connected
+  (`CloudSettingsModel.isConfigured` checks only the preferred one).
 - Use the advisor's existing hardware profile, recommendation roles and
-  benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic.
+  benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic, and
+  keep it consistent with the existing "ran slower than expected" note
+  (`LocalModelViews.swift`).
 
-### F7. Show the version number in Settings
+### F7. ✅ Done: Show the version number in Settings
+
+> **Solved:** Settings → General → Updates already has a Version row
+> ("0.11.0 (4) · Last checked …") from `AppUpdater.versionText(info:)`, tested
+> in `AppUpdaterTests`. It shipped in 5dcc378, before this item was written.
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
@@ -384,18 +520,29 @@ update window, if at all.
 
 **Wanted:**
 
-- After Enigma launches on a newer version than last time, show a small blue
-  **What's new?** button in the top right of the main window. Use a blue from
-  `docs/design/UI-Style.md` that reads well in both Paper and Ink, and leave
-  room for F10's ghost button, which also sits there.
+- After Enigma launches on a newer version than last time, show a small
+  **What's new?** button in the top right of the main window.
+  - Colour: the palette has no blue (`docs/design/UI-Style.md`,
+    `EnigmaTheme.swift`) and colours aren't hard-coded, so either add a token
+    with Paper and Ink values (and `EnigmaThemeTests` contrast coverage) or use
+    `accentText` in an outlined style.
+  - Place: the top right has no permanent home yet; its bar only shows while
+    the sidebar is hidden (`EnigmaHiddenSidebarBar`). Make one slot there that
+    F10's ghost button shares.
 - Clicking it shows everything added in that update: the release notes for the
-  new version (and any versions skipped since the last one seen), rendered as
-  Markdown in a sheet or popover.
+  new version (and any versions skipped since the last one seen), rendered with
+  `ChatMarkdownView` in a sheet or popover.
 - Once it has been opened, the button goes away for good for that version.
-  Remember the last version seen (for example in `UserDefaults`); a fresh
-  install doesn't show it.
-- Bundle the release notes with the app, or read them from Sparkle's appcast
-  item, so it works offline.
+  Remember the last build seen (`CFBundleVersion`) in `UserDefaults`. A fresh
+  install doesn't show it; since the first release with this feature has no
+  saved build to compare, treat a finished welcome setup
+  (`WelcomeSetup.completedKey`) as the sign of an existing user.
+- Bundle the release notes with the app so it works offline: add
+  `docs/release-notes/*.md` to the app's resources (the project lists files
+  explicitly, so use a folder reference or a copy phase). `scripts/release.sh`
+  already requires the notes before it builds. Sparkle's copy is only reachable
+  in its callbacks before the relaunch, and misses copies installed with
+  `scripts/install-app.sh`.
 - Accessibility: label it "What's new in Enigma X". Respect Reduce Motion for
   any appear/disappear animation.
 
@@ -404,8 +551,10 @@ update window, if at all.
 Builds on F1's code block header.
 
 - **Syntax highlighting:** keywords, strings, numbers, comments, types and
-  variables in different colours, using palette colours that work in both
-  Paper and Ink themes.
+  variables in different colours that work in both Paper and Ink. The palette
+  has no syntax colours yet (only greys, `accentText` and `warning`), so add
+  tokens to `EnigmaPalette` and the UI-Style table, covered by
+  `EnigmaThemeTests`' contrast checks.
 - **Terminal commands** (`bash`, `sh`, `zsh`, `shell`, `console`): styled as
   a terminal block, with commands, flags, paths and variables coloured
   differently.
@@ -413,8 +562,11 @@ Builds on F1's code block header.
   (Swift, Python, JavaScript/TypeScript, shell, JSON, HTML/CSS, SQL) is
   probably enough. If a library is used, assess its maintenance, license and
   bundle size first (AGENTS.md), and avoid web-view-based highlighters.
-- Streaming: highlight as the block streams in, without flicker or layout
-  jumps; an unfinished fence still renders as code.
+- Streaming: an unfinished fence already renders as code (`ChatMarkdownStream`);
+  keep that. While a fence is open its block is parsed again on every
+  fragment, so highlight line by line or cache finished lines rather than
+  re-highlighting the whole block per token, without flicker or layout jumps.
+- F22's draft blocks aren't code and aren't highlighted.
 
 ### F9. Edit a sent message, and rewind the chat
 
@@ -429,49 +581,70 @@ Builds on F1's code block header.
   dropping the later messages (with a confirmation, or Undo).
 - Optional later: keep the earlier versions as branches ("2 / 3" arrows)
   instead of discarding them, for edits and regenerated replies (F3) alike.
-- Edge cases: attachments, screenshots and selection context on the edited
-  message; actions already taken (File Mode edits, sent iMessages) can't be
-  undone by rewinding, so say so instead of implying they were reversed;
-  disabled while a reply is streaming; history saving and temporary chats.
+- One truncate-and-resend path serves this and F3. Truncating must also drop
+  the removed messages' selection revisions and expanded activity state.
+- Edge cases: screenshots and selection context aren't saved and attachments
+  are kept by name only, so start with plain chat turns (as F3 does); actions
+  already taken (File Mode edits, sent iMessages) can't be undone by
+  rewinding, so say so instead of implying they were reversed; disabled while
+  a reply is streaming; history saving and temporary chats.
 
 ### F10. Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
-  top-right of the main window starts a temporary chat.
+  top-right of the main window starts a temporary chat. It shares F25's slot
+  there, which also has to exist while the sidebar is shown.
 - In ghost mode the Enigma character wears a silly bedsheet ghost costume with
-  eye holes, and a "Temporary · not saved" tag is shown.
-- Temporary chats are never written to disk, stay out of Recents, and are
-  gone when you leave them.
+  eye holes (new drawing in the character renderer). The "Temporary · not
+  saved" tag already exists for temporary chats
+  (`CompactPanelHints.temporaryTag`); reuse it.
+- The private-chat machinery already exists: temporary chats are never
+  written to disk, stay out of Recents, and are discarded when you leave them
+  (`temporarySessionID`, `isTemporaryChat`, `historySessions`,
+  `discardTemporaryChat` in `LocalChatViewModel`), and the Claude Code and
+  Codex routes don't keep sessions either. Build on it instead of a second one.
+- `startTemporaryChat(context:)` is selection-only: it also sets
+  `selectionSessionID`, which turns on selection behaviour such as the
+  Accessibility card. Add a variant for ghost mode, and reset the shell and
+  panel the way `.newChatRequested` does.
 - Private selection chats (B5) open in this same mode.
-- Reuse the existing private-chat machinery (`temporarySessionID`,
-  `isTemporaryChat`, `historySessions`) instead of building a second one.
 
 ### F11. Sources as a small expandable icon, not typed out in the reply
 
 **Today:** with web search, the prompt tells the model "Cite only supporting
 URLs below" (`WebSearchContext.swift`), so replies often spell out every URL
-or end with a list of sources. The same sources already appear in the
-activity panel's "web sources" list (`AssistantActivityView.swift`), so they
-are shown twice and the reply gets long.
+or end with a list of sources. The sources are already under the reply,
+collapsed in its activity line ("Activity · 3 sources",
+`AssistantActivityView.swift`), so the reply repeats them and gets long.
 
 **Wanted:**
 
-- The reply text stays clean: no typed-out URLs or source lists.
+- The reply text stays clean: no typed-out URLs or source lists. That is
+  mostly a prompt change.
 - Under the reply, a small sources icon (for example a link or globe glyph
   with a count, "3") that expands to the list: title, site and link, as the
-  activity panel shows them now. Collapsed by default.
+  activity panel shows them now. Collapsed by default. Reuse
+  `ActivitySourceRow` and the existing disclosure rather than a second list.
 - Optional: small inline markers ([1], [2]) in the text that match the
-  expanded list and open the source on click.
+  expanded list and open the source on click. `searchSources` is already in
+  the same order as the excerpts sent to the model, but the excerpts carry no
+  number, so add one. Clickable markers mean passing the sources to
+  `ChatMarkdownView`, which today gets only the text.
 - Change the grounding prompt to cite with those short markers (or not at
   all) instead of URLs, and keep the existing source data
   (`WebSearchSource`, saved per message as `searchSources`) as the list.
 - Keep it accessible: the icon has a label such as "3 sources, collapsed".
+  Update `docs/Web-Search.md`.
 
 ### F12. Bug reporting
 
 - A very short form: what happened, optional steps to reproduce, and optional
   contact email.
-- An "Include logs" checkbox, **unchecked by default**.
+- An "Include logs" checkbox, **unchecked by default**. Enigma has almost no
+  logs today (a few `NSLog` errors; llama-server and Codex output go to
+  `/dev/null`), so first add event-only logging (`os.Logger`) that never
+  records chat content or model output. `OSLogStore` only reads the current
+  launch, so keep a small rolling log file for earlier ones.
 - An "Include this conversation" toggle, **off by default**, to help
   understand what happened. Directly under it, a clear note: "Never turn this
   on if the chat contains anything sensitive, such as passwords, personal or
@@ -482,17 +655,21 @@ are shown twice and the reply gets long.
     selected text or Messages data unless they are already in the visible
     text, and it says so.
   - Not available for temporary chats (F10), which are never saved.
-- Adds diagnostics automatically: app version, macOS version, chip and memory,
-  and the active route and model. It never includes chat content unless the
-  user turns on "Include this conversation", and logs must not contain chat
-  content either.
-- Reports go to walshleo427@gmail.com.
+- Adds diagnostics automatically: app version (`AppUpdater.versionText`),
+  macOS version, chip and memory, and the active route and model. It never
+  includes chat content unless the user turns on "Include this conversation",
+  and logs must not contain chat content either.
+- Reports go to the owner's email address. Keep it in one place in the app
+  (for example an `Info.plist` key), not in this file.
 - **Delivery (the easiest option):** open a ready-to-send email in the user's
-  mail app with the report filled in (`NSSharingService(named: .composeEmail)`,
-  with logs as an attachment when checked; `mailto:` as a fallback). It needs
-  no account, API key, server or new dependency. A silent in-app form service
-  can replace it later if wanted.
-- Put it in Settings and the Help menu.
+  mail app with the report filled in (`NSSharingService(named: .composeEmail)`;
+  `mailto:` as a fallback). It needs no account, API key, server or new
+  dependency. Logs attach only when the mail app supports it (Mail does);
+  `mailto:` can't attach, so the fallback puts them in the body or offers
+  "Show log in Finder". A silent in-app form service can replace it later if
+  wanted.
+- Put it in Settings and in the Help sheet (the sidebar's Help button; as a
+  menu-bar app, Enigma has no Help menu), and optionally the menu-bar menu.
 
 ### F13. Personalization tab in Settings (custom instructions)
 
@@ -506,9 +683,10 @@ are shown twice and the reply gets long.
 - Added after the shared Enigma prompt (F5) for every route: local text and
   vision, agent runs, the cloud APIs and the Claude Code / Codex subscriptions.
   It can never replace the built-in safety and tool rules.
-- Cap its length (show a character count) and count it in the context budget:
-  local models run with an 8,192-token context, so long instructions crowd out
-  chat history.
+- Cap its length (show a character count) and count it in the context budget
+  against the model's real context (`LocalModel.contextWindow`: 8,192 for
+  catalogue models, 4,096 for imported ones, and changeable with F15), since
+  long instructions crowd out chat history.
 - Stored locally only, never sent anywhere except as part of a request.
   Temporary chats (F10) still use it.
 - The occupation picker (F20) can pre-fill it.
@@ -516,102 +694,143 @@ are shown twice and the reply gets long.
 ### F14. Settings revamp with an Advanced toggle
 
 - Simpler default view: the active model, connections, and the common toggles.
-- An "Advanced" toggle reveals the detailed options, such as the default
-  model, performance checks, catalogue details, local context size (F15) and
-  keyboard shortcuts (F16).
+- An "Advanced" toggle reveals the detailed options, such as Start mode,
+  performance checks, catalogue details, local context size (F15) and
+  keyboard shortcuts (F16). Fold in the "Advanced" pieces that exist today:
+  `AdvancedCloudSettings`, Local models' "Advanced: Import text GGUF…" and the
+  main window's "Advanced settings…" menu item. Find a place for F13's tab
+  too.
 - Do this before F19 and F20 so they have a clear place to link to.
 
 ### F15. Local context size (Advanced)
 
 - An Advanced setting for how much conversation the local model can see.
-  Catalogue packages run with 8,192 tokens today (`recommendedContextSize`);
-  the fallback is 4,096 and File Mode allows up to 16,384.
+  Catalogue packages run with 8,192 tokens today (`recommendedContextSize`),
+  and imported models fall back to 4,096. File Mode clamps to 4,096–16,384 but
+  in practice uses the same 8,192.
 - **Worth it, with guardrails.** A larger context keeps longer chats and bigger
   pasted text without trimming, but the KV cache grows with it (more memory),
   and long prompts take longer to process. A smaller one saves memory on 8 GB
   Macs.
 - Offer a few presets (for example Smaller 4K / Default 8K / Larger 16K /
-  Max 32K), limited by the model's trained maximum and this Mac's memory.
-  Re-run the memory-fit estimate (`LocalCacheLayout` already models the KV
-  cache per model) and warn before applying a size that may not fit.
-- Benchmarks are matched by context size (`LocalModelSelection`), so a new
-  size needs its own performance check or should say the figures are for the
-  default size.
+  Max 32K), limited by the model's trained maximum (a new catalogue field) and
+  this Mac's memory. Re-run the memory-fit estimate (`LocalCacheLayout` already
+  models the KV cache per model) and warn before applying a size that may not
+  fit.
+- Make it a runtime override, not a package change: compatibility, memory
+  estimates and the install manifest all assume `recommendedContextSize` is
+  8,192, and a mismatch makes the installed model ask to Update. Pass the
+  chosen size to llama-server's `--ctx-size` and `LocalModel.contextWindow`.
+- Benchmarks are matched by context size (`LocalModelSelection`), so
+  `LocalModelAdvisor.record` must save the size actually used, not
+  `recommendedContextSize`. A new size needs its own performance check, or
+  should say the figures are for the default size.
 - The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
 
 ### F16. Remappable keyboard shortcuts with collision warnings
 
 - Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
   shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
-  ones (⌘N, ⌘K, ⌘., ⇧⌘A, ⌃Tab, ⌃⌘S, ⌘O).
+  ones (⌘N, ⌘K, ⌘., ⇧⌘A, ⌃Tab, ⌃⌘S, ⌘O). Keep ⌘, (Settings) and Esc (hide)
+  fixed.
+- They work three ways today: ⌥⌃ and the selection double-tap are `NSEvent`
+  monitors (`PanelShortcutChord`, `SelectionShortcut.swift`), ⇧⌥Space is one
+  hard-coded Carbon hot key (`GlobalHotKeyMonitor`), and in-app keys are
+  matched by hand in `PanelShortcut.swift`. Their labels are hard-coded in
+  several places (`EnigmaMainWindowLogic.swift`, `EnigmaCompactPanelLogic.swift`,
+  `EnigmaComposer.swift`); read them all from one shortcut model.
 - Warn when a new shortcut collides with another Enigma shortcut, and with
   known macOS ones (Spotlight ⌘Space, input source ⌃Space, Dictation, Mission
-  Control). System shortcuts can be read from the `com.apple.symbolichotkeys`
-  preferences; other apps' global shortcuts cannot be listed reliably, so the
-  warning should say it only checks Enigma and macOS.
-- Offer "Restore defaults". Move the selection-shortcut settings out of the
-  Help sheet into this section.
+  Control). Read system shortcuts with Carbon's `CopySymbolicHotKeys()`
+  rather than parsing the `com.apple.symbolichotkeys` preferences. Neither
+  lists Dictation's press-twice shortcuts or other modifier-only gestures, so
+  keep a short fixed list for those (like `selectionKeyNote`). Other apps'
+  global shortcuts cannot be listed reliably, so the warning should say it only
+  checks Enigma and macOS.
+- Offer "Restore defaults". Put the section in Settings (under Advanced, F14)
+  and move the selection-shortcut settings there from the Help sheet.
 
 ### F17. Saved prompts and custom slash commands
 
 - Let people define their own commands, such as `/summarize` → "Summarize this
   in three bullet points:", that appear in the completion list next to the
   built-in ones.
-- `SlashCommand` is a fixed enum today; custom commands should be stored
-  separately and refuse names that clash with built-in commands.
-- Optional per-command route (Local / Cloud / Auto).
+- `SlashCommand` is a fixed enum, and completion, highlighting and parsing all
+  use it, so custom commands need their own suggestion type, stored
+  separately. Simplest: expand the saved text when the suggestion is accepted
+  (`accept` in `SlashCommandComposer.swift`), so nothing downstream sees a new
+  command.
+- Names are letters only (commands are matched as `/[A-Za-z]*`) and must not
+  clash with any built-in command, including hidden ones (`/search` is hidden
+  without an API key, so check `SlashCommand.allCases`).
+- Optional per-command route (Local / Cloud / Auto), which needs more than text
+  expansion.
 
-### F18. Browse every model and size in Settings
+### F18. Browse every quantization in Settings
 
-- Settings → Local models → "All models" shows only one size per family today
-  (`LocalModelRecommendations.allFamilies` picks the best-fitting size, or the
-  smallest). Let people browse **every** catalogue package, every family and
-  every size, very small and very large alike.
-- Keep it behind a "Show all sizes" disclosure (or the Advanced toggle, F14),
-  so the default view stays simple.
+- Settings → Local models → "All models" already lists every model size,
+  including ones that don't fit: in the catalogue a family is one size
+  (`familyID` is the display name). What it hides is the other quantizations:
+  `LocalModelRecommendations.allFamilies` shows one per size (the
+  best-fitting, or the smallest). Let people browse **every** catalogue
+  package.
+- Keep it behind a "Show all quantizations" disclosure (or the Advanced
+  toggle, F14), so the default view stays simple.
 - Every row says how it fits this Mac, as a warning on its label:
-  - **Too big:** "Too large for this Mac" (memory or disk), using the existing
-    fit checks (`LocalModelFit.memory`/`.disk`). It can still be installed
-    with a clear warning where the memory override already allows it
-    (`permitsMemoryOverride`); otherwise the button stays disabled and the
-    label says why.
+  - **Too big:** already shown as "Insufficient memory" or "Insufficient disk
+    space" with the reason, installable with a warning where the memory
+    override allows it (`permitsMemoryOverride`), disabled otherwise. Reuse
+    it, at most reworded as "Too large for this Mac".
   - **Too small:** a new "Smaller than this Mac can run, so answers may be
-    weaker" warning when a much larger size of the same or a better family
-    runs comfortably here. Smaller models get noticeably less capable,
+    weaker" warning when a much larger size of the same or a better model line
+    runs comfortably here (rank with `rankedQualityScore`, with a set
+    threshold for "much larger"). Smaller models get noticeably less capable,
     especially with tools (see F6).
   - Fine fits keep the current labels (Excellent fit, Good fit, May be slow).
 - Sort by family then size, and mark the recommended pick so people can find
   their way back.
 
-### F19. Explore page revamp
+### F19. Model list revamp
 
-- Add newer models that suit the app better.
+- There is no Explore page: the model lists are Settings → Local models
+  ("All models") and setup's model step. Revamp those.
+- Add newer models that suit the app better. The catalogue only admits
+  image-capable models with an inference profile (`LocalModelSelection`), so
+  text-only models, such as many coding models, need that rule changed first.
 - Group models by what they are good for (coding, writing, everyday use,
   studying, documents and research) instead of only by size and fit.
-- Tag catalogue entries with these use cases; F20 needs the tags. See
-  `docs/Updating-the-Model-Catalogue.md`.
+- Tag catalogue entries with these use cases (a new field on
+  `LocalModelFamily` and in the signed catalogue), and add the step to
+  `docs/Updating-the-Model-Catalogue.md`. F20 needs the tags.
 
 ### F20. Welcome page asks your occupation
 
-- A setup step asks what you do, then suggests models for it.
+- A setup step asks what you do, then suggests models for it. Setup saves its
+  progress as a step number (`WelcomeSetup`), so inserting a step would resume
+  people at the wrong one; migrate the saved value.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
-    documents.
+    documents. Every package runs at 8,192 tokens today, so this needs F15.
 - Occupation picks the use-case tags (F19); hardware fit then narrows the
-  list, as the recommendations do today. It can also pre-fill custom
-  instructions (F13).
+  list, as the recommendations do today (`LocalModelSelector.select`,
+  `WelcomeSetup.choices`). Say how it combines with the three recommendation
+  roles. It can also pre-fill custom instructions (F13).
 
 ### F21. Voice dictation
 
-- A microphone button in the composer using on-device speech recognition
-  (`SFSpeechRecognizer` with on-device recognition required), so audio never
-  leaves the Mac.
-- Needs microphone and speech-recognition usage strings in `Info.plist` and the
-  audio-input entitlement; handle denied permission like the existing
-  permission rows.
-- Check the selection shortcut's double-tap Command option, which already
-  warns about clashing with the macOS Dictation shortcut.
+- A microphone button in the composer using on-device speech recognition, so
+  audio never leaves the Mac. On macOS 26, use `SpeechAnalyzer` with
+  `SpeechTranscriber` (on-device; its model downloads through
+  `AssetInventory`), falling back to `DictationTranscriber` where it isn't
+  available, rather than the older `SFSpeechRecognizer`.
+- Needs a microphone usage string in `Info.plist` (and a speech-recognition
+  one if the API asks for it) and the `com.apple.security.device.audio-input`
+  entitlement, which the hardened runtime requires. Add a Microphone row to
+  `MacPermissionRows` and handle denied permission like the existing rows.
+- If dictation gets a shortcut, don't use a double-tapped modifier: macOS
+  Dictation already uses those, which is why the selection shortcut's
+  double-tap Command option warns about it.
 
 ### F22. Draft blocks and in-place editing
 
@@ -620,16 +839,22 @@ Builds on F1's copy buttons.
 - **Standalone drafts** (emails, cover letters, posts): when the reply
   contains a standalone draft, show the draft in a document-style block with
   its own Copy icon, so the user copies just the piece and not the surrounding
-  chat. Ask the model to put such drafts in a fenced block (for example
-  ```` ```text ````) so they can be found reliably.
+  chat. Ask the model (in `ChatResponseStyle.instructions`) to put such drafts
+  in a dedicated fence such as ```` ```draft ```` so they can be found
+  reliably. Not ```` ```text ````: models use it for logs and file trees, and
+  F1 and F8 draw it as code. Fenced text isn't rendered as Markdown. `/edit`
+  already parses a structured block and hides it while streaming
+  (`<enigma-revision>` in `ConversationContext.swift`); follow that.
 - **Edit the draft in place:** next to Copy, a pencil icon turns the
   document block into an editor (like ChatGPT's canvas-style editing). The
   user changes the text directly, then **Save** or **Cancel**. Saved edits
-  replace the draft in that reply, are kept in history (not for temporary
-  chats), and are what the model sees in later turns, so "make it shorter"
-  works on the edited version. Copy then copies the edited text. Reuse what
-  makes sense from the selection revision card's editor
-  (`SelectionCards.swift`).
+  replace the draft in that reply (rewrite the fence in the saved message,
+  lengthening it if the text contains ```` ``` ````), are kept in history (not
+  for temporary chats), and are what the model sees in later turns, so "make
+  it shorter" works on the edited version. Copy then copies the edited text.
+  The selection revision card's editor (`SelectionCards.swift`) saves on every
+  keystroke with no Save or Cancel, and its text isn't kept, so reuse only its
+  look.
 
 ### F23. Better, more complete tour
 
@@ -638,7 +863,9 @@ Builds on F1's copy buttons.
 - Add the missing features: selection, temporary chat (ghost mode), screen,
   Messages and web search, plus whatever of the features above has shipped
   (copy and editing, regenerate and rewind, drag and drop, personalization,
-  shortcuts, saved prompts, dictation and so on).
+  shortcuts, saved prompts, dictation and so on). Selection is a global
+  shortcut with nothing on screen to point at, so it needs a step without a
+  target (`welcomeTourTarget`).
 - Do this after the features above, since they change what the tour should
   show.
 
@@ -646,8 +873,9 @@ Builds on F1's copy buttons.
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
-- MapKit (`MKLocalSearch`, `MKDirections`) needs no API key and fits the
-  existing approximate-location support (`LocationService`) used by web
-  search; keep location rounded and unsaved as it is now.
+- MapKit (`MKLocalSearch`, `MKDirections`) needs no API key, and
+  `LocationService` already uses MapKit for the approximate location web
+  search uses. Keep location rounded and unsaved as it is now; the rounding
+  makes travel times approximate. Requests go to Apple, so say so in the docs.
 - Likely a new tool or slash command (`/maps`), with the same small-model
   caveat as F6.
