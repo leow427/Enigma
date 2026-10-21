@@ -91,9 +91,16 @@ folder on `PATH` so a Node-based install can find `node`, and offer a "Choose
 Codex…" picker as a last resort. `ClaudeCodeRuntime.executableURL()` has the
 same pattern.
 
-**Notes:** Do this together with B3; they touch the same controls.
+**Notes:** B3 (done) changed the same controls; build on its check result.
 
-### B3. "Check sign-in status" gives no feedback and no way to set up
+### B3. ✅ Done: "Check sign-in status" gives no feedback and no way to set up
+
+> **Solved:** `CloudSettingsModel` gained a per-provider "checking" flag and a
+> `SignInCheck` result (signed in, not signed in, not installed, failed) set
+> only by the button. The shared controls show "Checking…", then the result
+> with its next step, and announce it to VoiceOver. Sign in is disabled
+> during a check, and any other account refresh clears an old result so it
+> never contradicts the live state.
 
 **Problem:** In Settings → Cloud and search (`CloudConnectionControls.swift`),
 "Check sign-in status" for ChatGPT and Claude re-runs
@@ -166,7 +173,13 @@ only in that function, so these chats never reach the sidebar, even with
 through the same conversion as `openTemporaryChatInWindow()`. Add regression
 tests for both toggle states.
 
-### B6. Messages asks "phone or email?" instead of using the contact's number
+### B6. ✅ Done: Messages asks "phone or email?" instead of using the contact's number
+
+> **Solved:** `MessagesContact` now keeps the phones labelled mobile or iPhone.
+> With no existing conversation, `resolve` picks phones over email and mobile
+> over other phones, comparing normalised handles so one number in two formats
+> isn't a tie. It asks only for a real tie, listing phones first. An existing
+> conversation still wins.
 
 **Problem:** Asking Enigma to text a contact by name finds the contact, then
 asks whether to send to their phone number or email address. It only sends
@@ -196,7 +209,12 @@ and an email whom you haven't messaged from this Mac yet.
   email only, and an existing email conversation (which should still be used).
 - Update `docs/Messages.md`.
 
-### B7. Setup runs the performance check again for the suggested model
+### B7. ✅ Done: Setup runs the performance check again for the suggested model
+
+> **Solved:** `downloadModel` takes `checkPerformance` (default true, so
+> Settings is unchanged). Welcome setup marks itself calibrated once a check
+> actually starts and passes false for later installs, so a cancelled or
+> failed first install still gets its check. Replaying setup re-arms it.
 
 **Problem:** In welcome setup the flow is: pick model A → it installs →
 performance check → recommendation. If you then install the suggested model,
