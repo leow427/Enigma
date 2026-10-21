@@ -122,14 +122,23 @@ sends one message. If the model tries to send the same text to the same
 recipient twice in one request, the second send is refused.
 
 When the model names a person rather than a handle, Enigma resolves it to one
-recipient without guessing. If a name matches more than one person or group,
-the model is told to ask you which one. For a person with several handles, the
-conversation with the most recent activity is used, on any of their handles.
-With no conversation yet, a phone number is used rather than an email, and when
-there are several phone numbers the one labelled mobile or iPhone. An email is
-used only for a contact with no phone number. If that still leaves more than one
-equal choice, the model is told to ask you which, with phone numbers listed
-first. The card shows the exact handle before you approve.
+recipient without guessing. Each contact card is its own person, even when two
+cards share a name; two cards with the same name and exactly the same numbers
+and emails count as one. If a name matches more than one person or group, the
+model is told to ask you which one, from at most 20 choices: groups first, then
+people sorted by name. People with different names are listed by name. People who share a name with
+another person or with a matching group are told apart by each card's company
+and its numbers and emails with their labels, led by the one a send would use
+(their latest conversation's handle and chat_id, or else as below), for example
+`Alex Kim (Example Co): mobile +15550001111, work alex@example.com`.
+
+For one person's card, the conversation with the most recent activity is used,
+on any of their handles. With no conversation yet, a phone number is used
+rather than an email, and when there are several phone numbers the one
+labelled mobile or iPhone. An email is used only for a contact with no phone
+number. If that still leaves more than one equal choice, the model is told to
+ask you which, with phone numbers listed first. The card shows the exact handle
+before you approve.
 
 After a send, Enigma checks the Messages history for up to three seconds and
 reports either that the message appears there or that Messages accepted it.
@@ -176,7 +185,8 @@ different signing identity, such as the unsigned product of
 
 - **Local and Auto:** Messages data stays on this Mac.
 - **Cloud:** the tool results the model asks for (message text, names, phone
-  numbers, and email addresses) are sent to the selected provider, the same
+  numbers, and email addresses, plus companies and Contacts labels when telling
+  apart people who share a name with each other or with a group) are sent to the selected provider, the same
   place your chat already goes. Before the first cloud `/messages` request to
   each provider, Enigma asks **Use Messages with \<provider\>?**. Choosing
   **Continue** is remembered for that provider; **Cancel** sends nothing.
@@ -208,7 +218,7 @@ The capability lives in `Enigma/Messages/`:
 | `MessagesDatabase.swift` | Opens `chat.db` through short-lived connections with a `mode=ro` URI, `SQLITE_OPEN_READONLY`, and `query_only`, and runs the conversation, message, and search queries. Distinguishes a missing database from one hidden by privacy controls. |
 | `AppleMessageDate.swift` | Converts Apple-epoch timestamps (nanoseconds since 2001-01-01, or seconds in older databases) and formats local ISO 8601 times. |
 | `AttributedBodyDecoder.swift` | Extracts the text from the `attributedBody` blob when `message.text` is empty. |
-| `MessagesContacts.swift` | Resolves handles to names with the Contacts framework, once per request. Phone numbers are matched on their last ten digits. Without Contacts access, raw handles are used. |
+| `MessagesContacts.swift` | Resolves handles to names with the Contacts framework, once per request, keeping each card's company and handle labels. Phone numbers are matched on their last ten digits. Without Contacts access, raw handles are used. |
 | `MessagesSender.swift` | Runs `/usr/bin/osascript -` with a constant AppleScript on standard input. The target and text are passed only as `on run argv` arguments, never interpolated into the script. |
 | `MessagesTools.swift` | The tool definitions, instructions, argument validation, recipient resolution, and the send ledger. Shared by every model route. |
 | `MessagesCoordinator.swift` | Holds the pending send approval, the problem shown in chat, and the per-provider cloud consent. |

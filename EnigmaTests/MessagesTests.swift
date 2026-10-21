@@ -474,6 +474,133 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(approvals.first?.target, .chat("iMessage;-;dana@example.com"))
   }
 
+  func testSameNameContactCardsAreDifferentPeopleAndAreAskedAbout() async throws {
+    var contacts = FixtureContacts()
+    contacts.list += [
+      // A second Alice Smith; the fixture's first one already has a conversation.
+      MessagesContact(name: "Alice Smith", phones: ["+15550007001"], emails: [], organization: "Acme",
+        labels: ["+15550007001": "work"]),
+      MessagesContact(name: "Jordan Lee", phones: ["+15550008001"], emails: [], mobilePhones: ["+15550008001"],
+        labels: ["+15550008001": "mobile"]),
+      MessagesContact(name: "Jordan Lee", phones: ["+15550008002"], emails: [], labels: ["+15550008002": "home"]),
+      MessagesContact(name: "Casey Tran", phones: ["+15550009001"], emails: []),
+      MessagesContact(name: "Casey Tran", phones: [], emails: ["casey@example.com"], organization: "Initech"),
+      MessagesContact(name: "Robin Twice", phones: ["+15550010001"], emails: []),
+      MessagesContact(name: "Robin Twice", phones: ["(555) 001-0001"], emails: []),
+    ]
+    let seen = ApprovalRecorder()
+    let runner = RecordingRunner()
+    let tools = tools(contacts: contacts, runner: runner) { await seen.record($0); return true }
+    func ask(_ name: String) async -> String {
+      let result = await tools.execute(name: "send_message",
+        arguments: .object(["recipient": .string(name), "text": .string("Hi")]))
+      XCTAssertFalse(result.success, name)
+      XCTAssertTrue(result.text.contains("Ask the user which one"), result.text)
+      return result.text
+    }
+    let alice = await ask("Alice Smith")
+    XCTAssertTrue(alice.contains("Alice Smith: (555) 123-0001"), alice)
+    XCTAssertTrue(alice.contains("Alice Smith (Acme): work +15550007001"), alice)
+    let jordan = await ask("Jordan Lee")
+    XCTAssertTrue(jordan.contains("mobile +15550008001") && jordan.contains("home +15550008002"), jordan)
+    let casey = await ask("Casey Tran")
+    XCTAssertTrue(casey.contains("Casey Tran: +15550009001"), casey)
+    XCTAssertTrue(casey.contains("Casey Tran (Initech): casey@example.com"), casey)
+    var count = await seen.approvals.count
+    XCTAssertEqual(count, 0, "Choosing between people never reaches approval")
+    XCTAssertTrue(runner.invocations.isEmpty)
+    // One person saved twice with the same number is still one person.
+    _ = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Robin Twice"), "text": .string("Hi")])))
+    count = await seen.approvals.count
+    let target = await seen.approvals.first?.target
+    XCTAssertEqual(count, 1)
+    XCTAssertEqual(target, .iMessage("+15550010001"))
+  }
+
+  func testAmbiguityListsNamesOnlyForDifferentPeopleAndIsCapped() async throws {
+    var contacts = FixtureContacts()
+    contacts.list += [
+      MessagesContact(name: "Sam Lee", phones: ["+15550000001"], emails: [], organization: "Example Co"),
+      MessagesContact(name: "Sam Park", phones: ["+15550000002"], emails: ["sam@example.com"]),
+      // Two cards named like the group: both people are told apart, as in the person-only case.
+      MessagesContact(name: "Weekend Trip", phones: ["+15550000003"], emails: []),
+      MessagesContact(name: "Weekend Trip", phones: ["+15550000004"], emails: []),
+    ]
+    // Listed out of order, as Contacts may enumerate them: the list is sorted before the cap.
+    contacts.list += (1...25).reversed().map { MessagesContact(name: String(format: "Pat Many %02d", $0),
+      phones: [String(format: "+155500200%02d", $0)], emails: []) }
+    contacts.list += [MessagesContact(name: "Quill Apart", phones: ["+15550030001"], emails: []),
+      MessagesContact(name: "Quill Between", phones: ["+15550030002"], emails: []),
+      MessagesContact(name: "Quill Apart", phones: ["+15550030003"], emails: [])]
+    let seen = ApprovalRecorder()
+    let tools = tools(contacts: contacts) { await seen.record($0); return true }
+    func ask(_ name: String) async -> String {
+      let result = await tools.execute(name: "send_message",
+        arguments: .object(["recipient": .string(name), "text": .string("Hi")]))
+      XCTAssertFalse(result.success, name)
+      return result.text
+    }
+    let sam = await ask("Sam")
+    XCTAssertTrue(sam.contains("Sam Lee; Sam Park"), sam)
+    XCTAssertFalse(sam.contains("+1555000000") || sam.contains("Example Co") || sam.contains("@"), sam)
+    let trip = await ask("Weekend Trip")
+    XCTAssertTrue(trip.contains("group Weekend Trip (chat_id \(MessagesFixture.groupChat))"), trip)
+    XCTAssertTrue(trip.contains("Weekend Trip: +15550000003") && trip.contains("Weekend Trip: +15550000004"), trip)
+    // One person named like a group still gets their handle, so choosing them doesn't ask again.
+    var single = FixtureContacts()
+    single.list.append(MessagesContact(name: "Weekend Trip", phones: ["+15550000005"], emails: []))
+    let lone = await self.tools(contacts: single).execute(name: "send_message",
+      arguments: .object(["recipient": .string("Weekend Trip"), "text": .string("Hi")]))
+    XCTAssertFalse(lone.success)
+    XCTAssertTrue(lone.text.contains("group Weekend Trip (chat_id \(MessagesFixture.groupChat)); Weekend Trip: +15550000005"),
+                  lone.text)
+    let many = await ask("Pat Many")
+    XCTAssertTrue(many.contains("Pat Many 01; Pat Many 02") && many.contains("Pat Many 20"), many)
+    XCTAssertFalse(many.contains("Pat Many 21"), many)
+    let quill = await ask("Quill")
+    XCTAssertTrue(quill.contains("Quill Apart: +15550030001; Quill Apart: +15550030003; Quill Between"), quill)
+    XCTAssertTrue(many.contains("and 5 more (use search_contacts to narrow it down)"), many)
+    let count = await seen.approvals.count
+    XCTAssertEqual(count, 0)
+  }
+
+  func testSameNameChoicesLeadWithTheHandleASendWouldUse() async throws {
+    var db: OpaquePointer?
+    XCTAssertEqual(sqlite3_open(database.url.path, &db), SQLITE_OK)
+    XCTAssertEqual(sqlite3_exec(db, """
+      INSERT INTO handle VALUES (4, 'dana@example.com', 'iMessage');
+      INSERT INTO chat VALUES (4, 'iMessage;-;dana@example.com', 'dana@example.com', NULL, 'iMessage', 45);
+      INSERT INTO chat_handle_join VALUES (4, 4);
+      """, nil, nil, nil), SQLITE_OK)
+    sqlite3_close(db)
+    var contacts = FixtureContacts()
+    contacts.list += [
+      MessagesContact(name: "Dana Email", phones: ["+15550004001"], emails: ["dana@example.com"]),
+      MessagesContact(name: "Dana Email", phones: ["+15550004002", "+15550004003"], emails: ["dana.home@example.com"],
+        mobilePhones: ["+15550004003"],
+        labels: ["+15550004002": "home", "+15550004003": "mobile", "dana.home@example.com": "home"]),
+    ]
+    let result = await tools(contacts: contacts).execute(name: "send_message",
+      arguments: .object(["recipient": .string("Dana Email"), "text": .string("Hi")]))
+    XCTAssertFalse(result.success)
+    XCTAssertTrue(result.text.contains("Dana Email: dana@example.com (chat_id iMessage;-;dana@example.com), +15550004001"),
+                  result.text)
+    XCTAssertTrue(result.text.contains("Dana Email: mobile +15550004003, home +15550004002, home dana.home@example.com"), result.text)
+  }
+
+  func testDuplicateCardsCombineTheirMobileLabels() {
+    let plain = MessagesContact(name: "Robin Twice", phones: ["+15550010001", "+15550010002"], emails: [])
+    let labelled = MessagesContact(name: "Robin Twice", phones: ["(555) 001-0001", "+15550010002"], emails: [],
+      mobilePhones: ["(555) 001-0001"], labels: ["(555) 001-0001": "mobile"])
+    for order in [[plain, labelled], [labelled, plain]] {
+      let merged = MessagesContact.mergingDuplicates(order)
+      XCTAssertEqual(merged.count, 1)
+      XCTAssertEqual(merged[0].mobilePhones.map(MessagesHandle.key), ["5550010001"])
+      XCTAssertTrue(merged[0].distinguishingDescription().contains("mobile"), merged[0].distinguishingDescription())
+    }
+  }
+
   func testAutomationDenialStopsTheRequestWithSettingsGuidance() async throws {
     let runner = RecordingRunner()
     runner.result = ProcessOutput(status: 1, output: "", error: "execution error: Not authorized to send Apple events to Messages. (-1743)")

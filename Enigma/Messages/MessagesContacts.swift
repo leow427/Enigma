@@ -7,8 +7,55 @@ struct MessagesContact: Sendable, Equatable {
   let emails: [String]
   /// The phones labelled mobile or iPhone; a subset of `phones`.
   var mobilePhones: [String] = []
+  var organization: String? = nil
+  /// Contacts' label for each handle, such as mobile, home or work.
+  var labels: [String: String] = [:]
 
   var handles: [String] { phones + emails }
+
+  /// Handles in the order a new conversation prefers them: mobiles, other phones, then emails.
+  var preferredHandles: [String] {
+    var seen = Set<String>()
+    return (mobilePhones + phones + emails).filter { seen.insert(MessagesHandle.key($0)).inserted }
+  }
+
+  /// What tells this card apart from another with the same name: company and labelled handles,
+  /// led by the one a send would use, the handle of `latestChat` if there is one.
+  func distinguishingDescription(latestChat: (handle: String, chatID: String)? = nil) -> String {
+    let chatKey = latestChat.map { MessagesHandle.key($0.handle) }
+    let handles = preferredHandles
+    let listed = (handles.filter { MessagesHandle.key($0) == chatKey } + handles.filter { MessagesHandle.key($0) != chatKey })
+      .map { handle in
+        let text = labels[handle].map { "\($0) \(handle)" } ?? handle
+        guard MessagesHandle.key(handle) == chatKey, let latestChat else { return text }
+        return text + " (chat_id \(latestChat.chatID))"
+      }
+    let company = organization.flatMap { $0.isEmpty || $0 == name ? nil : " (\($0))" } ?? ""
+    return "\(name)\(company): \(listed.joined(separator: ", "))"
+  }
+
+  /// Cards with the same name and exactly the same handles are one person saved twice, so
+  /// they count once. Their mobile labels and other labels are combined, so which card
+  /// Contacts lists first doesn't change the number chosen.
+  static func mergingDuplicates(_ contacts: [MessagesContact]) -> [MessagesContact] {
+    var merged: [MessagesContact] = []
+    var indexes: [[String]: Int] = [:]
+    for contact in contacts {
+      let key = [contact.name.lowercased()] + Set(contact.handles.map(MessagesHandle.key)).sorted()
+      guard let index = indexes[key] else { indexes[key] = merged.count; merged.append(contact); continue }
+      let kept = merged[index]
+      func own(_ handle: String) -> String {
+        kept.handles.first { MessagesHandle.key($0) == MessagesHandle.key(handle) } ?? handle
+      }
+      let mobileKeys = Set(kept.mobilePhones.map(MessagesHandle.key))
+      merged[index].mobilePhones += contact.mobilePhones.filter { !mobileKeys.contains(MessagesHandle.key($0)) }.map(own)
+      for (handle, label) in contact.labels where merged[index].labels[own(handle)] == nil {
+        merged[index].labels[own(handle)] = label
+      }
+      if kept.organization?.isEmpty ?? true { merged[index].organization = contact.organization }
+    }
+    return merged
+  }
 }
 
 enum MessagesContactsAccess: String, Sendable, Equatable {
@@ -38,6 +85,7 @@ struct SystemContactDirectory: MessagesContactDirectory {
         CNContactOrganizationNameKey as CNKeyDescriptor, CNContactNicknameKey as CNKeyDescriptor,
         CNContactPhoneNumbersKey as CNKeyDescriptor, CNContactEmailAddressesKey as CNKeyDescriptor]
       var contacts: [MessagesContact] = []
+      var localizedLabels: [String: String] = [:]
       try CNContactStore().enumerateContacts(with: CNContactFetchRequest(keysToFetch: keys)) { contact, _ in
         let formatted = CNContactFormatter.string(from: contact, style: .fullName)
         let name = [formatted, contact.nickname, contact.organizationName]
@@ -48,7 +96,17 @@ struct SystemContactDirectory: MessagesContactDirectory {
         }.map(\.value.stringValue)
         let emails = contact.emailAddresses.map { $0.value as String }
         guard let name, !(phones.isEmpty && emails.isEmpty) else { return }
-        contacts.append(MessagesContact(name: name, phones: phones, emails: emails, mobilePhones: mobiles))
+        var labels: [String: String] = [:]
+        let labelled = contact.phoneNumbers.map { ($0.value.stringValue, $0.label) }
+          + contact.emailAddresses.map { ($0.value as String, $0.label) }
+        for (handle, label) in labelled {
+          guard let label, labels[handle] == nil else { continue }
+          let text = localizedLabels[label] ?? CNLabeledValue<NSString>.localizedString(forLabel: label)
+          localizedLabels[label] = text
+          if !text.isEmpty { labels[handle] = text }
+        }
+        contacts.append(MessagesContact(name: name, phones: phones, emails: emails, mobilePhones: mobiles,
+          organization: contact.organizationName, labels: labels))
       }
       return contacts
     }.value

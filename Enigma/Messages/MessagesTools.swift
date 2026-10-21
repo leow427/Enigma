@@ -272,33 +272,60 @@ struct MessagesTools: AgentToolbox {
     let candidates = people.isEmpty ? await names.contacts().filter {
       $0.name.range(of: recipient, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     } : people
-    if groups.count == 1, candidates.isEmpty { return try await approval(for: groups[0], text: text) }
-    guard groups.isEmpty, !candidates.isEmpty else {
-      if groups.isEmpty && candidates.isEmpty { throw MessagesError.recipientNotFound(recipient) }
-      throw MessagesError.ambiguousRecipient(recipient,
-        candidates: groups.map { "group \($0.displayName ?? $0.guid) (chat_id \($0.guid))" } + candidates.map(\.name))
+    // Each card is its own person, even when two share a name.
+    let cards = MessagesContact.mergingDuplicates(candidates)
+    if groups.count == 1, cards.isEmpty { return try await approval(for: groups[0], text: text) }
+    guard groups.isEmpty, cards.count == 1, let person = cards.first else {
+      if groups.isEmpty && cards.isEmpty { throw MessagesError.recipientNotFound(recipient) }
+      throw MessagesError.ambiguousRecipient(recipient, candidates: Self.choices(groups: groups, people: cards, chats: chats))
     }
-    guard Set(candidates.map(\.name)).count == 1 else {
-      throw MessagesError.ambiguousRecipient(recipient, candidates: Array(Set(candidates.map(\.name))).sorted())
-    }
-    let handles = candidates.flatMap(\.handles)
+    let handles = person.handles
     // The same person's handles: their most recent conversation is the natural choice,
     // and the approval card shows the exact handle before anything is sent.
-    if let chat = handles.compactMap({ chats[MessagesHandle.key($0)] })
-      .max(by: { ($0.lastActivity ?? .distantPast) < ($1.lastActivity ?? .distantPast) }) {
-      return try await approval(for: chat, text: text)
-    }
+    if let chat = Self.latestChat(for: person, in: chats) { return try await approval(for: chat, text: text) }
     // No conversation yet: a phone number beats an email, and a mobile beats other phones.
-    let phones = candidates.flatMap(\.phones), mobiles = candidates.flatMap(\.mobilePhones)
+    let phones = person.phones, mobiles = person.mobilePhones
     let choices = phones.isEmpty ? handles : mobiles.isEmpty ? phones : mobiles
     guard Set(choices.map(MessagesHandle.key)).count == 1, let handle = choices.first else {
       var seenKeys = Set<String>()
-      let listed = (phones + candidates.flatMap(\.emails)).filter { seenKeys.insert(MessagesHandle.key($0)).inserted }
+      let listed = (phones + person.emails).filter { seenKeys.insert(MessagesHandle.key($0)).inserted }
       throw MessagesError.ambiguousRecipient(recipient, candidates: listed)
     }
     let normalized = handle.contains("@") ? handle.lowercased() : handle.filter { $0.isNumber || $0 == "+" }
-    return MessagesSendApproval(conversationName: nil, recipients: [.init(name: candidates[0].name, handle: normalized)],
+    return MessagesSendApproval(conversationName: nil, recipients: [.init(name: person.name, handle: normalized)],
       service: "iMessage", text: text, target: .iMessage(normalized))
+  }
+
+  /// What the model asks the user to choose from, at most `maximumChoices`. Only people who
+  /// share a name are told apart by company and handles; the rest are named.
+  static func choices(groups: [MessagesChatRecord], people: [MessagesContact],
+                      chats: [String: MessagesChatRecord] = [:]) -> [String] {
+    // A person who shares a name with a group, or with another person, needs their handles,
+    // or choosing them by name would only ask again.
+    var nameCounts: [String: Int] = [:]
+    for name in groups.compactMap(\.displayName) + people.map(\.name) { nameCounts[name.lowercased(), default: 0] += 1 }
+    // By name, so the cap keeps the same people and same-name cards sit together; ties keep their order.
+    let sorted = people.enumerated().sorted {
+      let order = $0.element.name.localizedStandardCompare($1.element.name)
+      return order == .orderedSame ? $0.offset < $1.offset : order == .orderedAscending
+    }.map(\.element)
+    let listed = groups.map { "group \($0.displayName ?? $0.guid) (chat_id \($0.guid))" }
+      + sorted.map { person in
+        guard nameCounts[person.name.lowercased(), default: 0] > 1 else { return person.name }
+        let chat = latestChat(for: person, in: chats).map { (handle: $0.handles.first ?? $0.identifier, chatID: $0.guid) }
+        return person.distinguishingDescription(latestChat: chat)
+      }
+    guard listed.count > maximumChoices else { return listed }
+    return listed.prefix(maximumChoices)
+      + ["and \(listed.count - maximumChoices) more (use search_contacts to narrow it down)"]
+  }
+
+  static let maximumChoices = 20
+
+  /// The person's most recent direct conversation, on any of their handles.
+  static func latestChat(for person: MessagesContact, in chats: [String: MessagesChatRecord]) -> MessagesChatRecord? {
+    person.handles.compactMap { chats[MessagesHandle.key($0)] }
+      .max { ($0.lastActivity ?? .distantPast) < ($1.lastActivity ?? .distantPast) }
   }
 
   private func approval(for chat: MessagesChatRecord, text: String) async throws -> MessagesSendApproval {
