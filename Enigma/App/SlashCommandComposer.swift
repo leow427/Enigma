@@ -67,7 +67,11 @@ struct SlashCommandComposer: View {
   }
 
   @ViewBuilder private var inlineSuggestions: some View {
-    let suggestions = EnigmaSlashSuggestions(completion: completion).background { suggestionsFrame }
+    // The list opens in place, under the window's character stage, so the
+    // stage hides the character where the list covers it.
+    let suggestions = EnigmaSlashSuggestions(completion: completion)
+      .enigmaCharacterCover(cornerRadius: EnigmaSlashSuggestions.cornerRadius)
+      .background { suggestionsFrame }
     switch suggestionPlacement {
     case .above(let gap): suggestions.padding(.bottom, completion.height + gap)
     case .below(let gap): suggestions.padding(.top, completion.height + gap)
@@ -99,11 +103,13 @@ struct SlashSuggestionsFrame: PreferenceKey {
 /// `border` edge, each command in monospace `accentText` beside its
 /// description, and the chosen one on a `hover` fill.
 private struct EnigmaSlashSuggestions: View {
+  static let cornerRadius: CGFloat = 10
+
   @ObservedObject var completion: CommandCompletionModel
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
-    let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+    let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
     VStack(alignment: .leading, spacing: 0) {
       ForEach(Array(completion.commands.enumerated()), id: \.element) { index, command in
         let isSelected = index == completion.selected
@@ -135,6 +141,7 @@ private struct EnigmaSlashSuggestions: View {
         .focusable(false)
         .accessibilityLabel(command.token + ", " + command.description)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .enigmaTestMarker("Slash command \(command.token)")
       }
     }
     .padding(5)

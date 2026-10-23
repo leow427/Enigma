@@ -161,7 +161,14 @@ Its outline is thick and redrawn with a slight jitter 12 times a second.
 Screens hold an `EnigmaCharacterController`, mark where it sits with
 `.enigmaCharacterSlot(id:size:)`, and the window root draws it once with
 `.enigmaCharacterStage(_:)`. It falls to a lower slot and glides to a higher
-one.
+one. Open menus and the welcome tour draw above the character, and take the
+clicks on their rows and buttons: the window has one `.enigmaMenuHost()`,
+outside the stage. The slash-command list opens in place, under the stage, so
+it marks itself with `.enigmaCharacterCover(cornerRadius:)`; the stage doesn't
+draw the character or let it be grabbed where the list covers it. Because the
+menus and the tour sit outside the stage, the window passes
+`tracksPointer: false` to the stage and applies `.enigmaCharacterPointer(_:)`
+outside them, so the character still follows the pointer while one is open.
 
 The app icon, the menu bar template (`EnigmaMenuBarMark`), and the sidebar
 mark (`EnigmaMark`) are all drawn from the character's still pose by its own

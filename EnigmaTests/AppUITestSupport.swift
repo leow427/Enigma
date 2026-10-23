@@ -63,6 +63,46 @@ func composerAcceptsClicks(in view: NSView) -> Bool {
   return hit === editor || hit.isDescendant(of: editor)
 }
 
+/// `marker`'s frame in `view` measured from the top-left, as the window's
+/// SwiftUI layout and `EnigmaSnapshot.capture` measure it.
+@MainActor
+func frameFromTop(of marker: NSView, in view: NSView) -> CGRect {
+  let frame = view.convert(marker.bounds, from: marker)
+  guard !view.isFlipped else { return frame }
+  return CGRect(x: frame.minX, y: view.bounds.height - frame.maxY, width: frame.width, height: frame.height)
+}
+
+/// Holds the window's character pressed at `point`, from the top-left of the
+/// window's root view, as if someone had dragged it there, so it sits over
+/// whatever is drawn there until the drag ends.
+@MainActor
+func holdCharacter(_ character: EnigmaCharacterController, at point: CGPoint, in view: NSView,
+                   file: StaticString = #filePath, line: UInt = #line) async throws {
+  try await waitForUI("the character drawn", in: view, file: file, line: line) { character.isPresent }
+  character.recordFrames(true)
+  defer { character.recordFrames(false) }
+  character.beginDrag(at: character.model.position)
+  character.moveDrag(to: point)
+  // Drawn there, with its hit area, by the stage.
+  try await waitForUI("the character drawn at \(point)", in: view, file: file, line: line) {
+    character.recordedFrames?.last.map { $0.present && $0.position == point } == true
+  }
+}
+
+/// How many of the two points beside the character's hole at `center` show
+/// its body in a capture, in the body's color or the error state's. Points
+/// outside the capture show nothing.
+func characterBodyPixels(_ image: NSBitmapImageRep, around center: CGPoint, bodyRadius: CGFloat) throws -> Int {
+  let bounds = CGRect(origin: .zero, size: image.size)
+  return try [-1.0, 1.0].count { side in
+    let point = CGPoint(x: center.x + side * bodyRadius * 0.6, y: center.y)
+    guard bounds.insetBy(dx: 0.5, dy: 0.5).contains(point) else { return false }
+    let color = try EnigmaSnapshot.pixel(image, at: point)
+    return EnigmaSnapshot.matches(color, EnigmaPalette.paper.characterBody)
+      || EnigmaSnapshot.matches(color, EnigmaPalette.paper.warning)
+  }
+}
+
 extension View {
   /// Sets Reduce Motion for this view, whatever the Mac's setting. GitHub's
   /// macOS runners turn it on, which makes the character move instantly and rest.

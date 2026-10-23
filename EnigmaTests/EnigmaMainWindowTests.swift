@@ -958,6 +958,106 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the more-rows strip gone at the end", in: host.view) { !host.shows("Menu has more rows") }
   }
 
+  // MARK: Character under menus
+
+  @MainActor
+  func testOpenMenuDrawsAboveTheCharacterAndTakesTheClickOnItsRow() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    let character = fixture.character
+    try await waitForUI("the character on the main page", in: host.view) {
+      character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
+    }
+    try await waitForUI("the local route", in: host.view) { host.shows("Route ● local") }
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Cloud") }
+    let row = frameFromTop(of: try XCTUnwrap(host.marker("Menu item Cloud")), in: host.view)
+    let center = CGPoint(x: row.midX, y: row.midY)
+    try await holdCharacter(character, at: center, in: host.view)
+    let radius = character.model.bodyRadius
+    XCTAssertEqual(try characterBodyPixels(host.capture(), around: center, bodyRadius: radius), 0,
+                   "The menu's row draws over the character")
+
+    try await clickTestControl("Menu item Cloud", in: host.view)
+    try await waitForUI("the row picked, not the character", in: host.view) {
+      host.shows("Route ○ cloud") && !host.shows("Menu item Cloud")
+    }
+    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
+    try await waitForUI("the character where the menu was", in: host.view) {
+      (try? characterBodyPixels(host.capture(), around: center, bodyRadius: radius)) == 2
+    }
+  }
+
+  @MainActor
+  func testOpenMenuClosesWhenTheWelcomeDisablesTheWindow() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Auto") }
+    // As when Replay Welcome is chosen from the menu bar while the menu is open.
+    fixture.setup.replay()
+    try await waitForUI("the menu closed under the welcome", in: host.view) {
+      fixture.setup.isPresented && !host.shows("Menu item Auto")
+    }
+  }
+
+  @MainActor
+  func testTourCardDrawsAboveTheCharacterAndTakesTheClickOnNext() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    let character = fixture.character
+    fixture.setup.replay()
+    fixture.setup.finish(takeTour: true)
+    let first = try XCTUnwrap(fixture.setup.tour)
+    try await waitForUI("the first tour stop with the character on the main page", in: host.view) {
+      host.shows("Next tour stop") && character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
+    }
+    let next = frameFromTop(of: try XCTUnwrap(host.marker("Next tour stop")), in: host.view)
+    let center = CGPoint(x: next.midX, y: next.midY)
+    try await holdCharacter(character, at: center, in: host.view)
+    let radius = character.model.bodyRadius
+    XCTAssertEqual(try characterBodyPixels(host.capture(), around: center, bodyRadius: radius), 0,
+                   "The tour's card draws over the character")
+
+    try await clickTestControl("Next tour stop", in: host.view)
+    try await waitForUI("the next tour stop", in: host.view) {
+      fixture.setup.tour.map { $0.rawValue == first.rawValue + 1 } == true
+    }
+    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
+    fixture.setup.endTour()
+    try await waitForUI("the character where the card was, once the tour ends", in: host.view) {
+      (try? characterBodyPixels(host.capture(), around: center, bodyRadius: radius)) == 2
+    }
+  }
+
+  @MainActor
+  func testSlashCommandListHidesTheCharacterItCoversAndTakesTheClickOnItsRow() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    let character = fixture.character
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    try await clickTestControl("Commands", in: host.view)
+    try await waitForUI("the command list", in: host.view) { editor.completion?.commands.isEmpty == false }
+    let command = try XCTUnwrap(editor.completion?.commands.last)
+    try await waitForUI("the command's row", in: host.view) { host.shows("Slash command \(command.token)") }
+    let row = frameFromTop(of: try XCTUnwrap(host.marker("Slash command \(command.token)")), in: host.view)
+    let center = CGPoint(x: row.midX, y: row.midY)
+    try await holdCharacter(character, at: center, in: host.view)
+    let radius = character.model.bodyRadius
+    XCTAssertEqual(try characterBodyPixels(host.capture(), around: center, bodyRadius: radius), 0,
+                   "The command list hides the character it covers")
+
+    try await clickTestControl("Slash command \(command.token)", in: host.view)
+    try await waitForUI("the command picked, not the character", in: host.view) {
+      editor.string == command.token + " " && editor.completion?.commands.isEmpty == true
+    }
+    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
+    try await waitForUI("the character where the list was", in: host.view) {
+      (try? characterBodyPixels(host.capture(), around: center, bodyRadius: radius)) == 2
+    }
+  }
+
   // MARK: Screenshots
 
   @MainActor

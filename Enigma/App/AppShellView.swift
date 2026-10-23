@@ -164,16 +164,16 @@ struct AppShellView: View {
     }
   }
 
+  /// The window's corners. The compact panel draws its own.
+  private var windowShape: AnyShape {
+    shell.showsCompactPanel ? AnyShape(Rectangle())
+      : AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous))
+  }
+
   private var welcomeShell: some View {
     windowFrame
     .disabled(welcomeSetup.isPresented || welcomeSetup.tour != nil)
     .accessibilityHidden(welcomeSetup.isPresented)
-    .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
-      if welcomeSetup.tour != nil {
-        WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-          availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
-      }
-    }
     .overlay {
       ZStack {
         if welcomeSetup.isPresented {
@@ -186,14 +186,34 @@ struct AppShellView: View {
       .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
                  value: welcomeSetup.isPresented)
     }
-    // The window's corners, so the tour's scrim and the welcome stay inside
-    // it. The compact panel draws its own corners.
-    .clipShape(shell.showsCompactPanel ? AnyShape(Rectangle())
-               : AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous)))
+    // The welcome stays inside the window's corners.
+    .clipShape(windowShape)
     // One stage for the whole window, so the character can fall from the
     // welcome into the main page.
-    .enigmaCharacterStage(character)
-    // One theme for the window, its welcome, tour, and character.
+    .enigmaCharacterStage(character, tracksPointer: false)
+    // The tour and open menus draw above the character, so it never covers
+    // their rows and buttons or takes their clicks. The tour's scrim stays
+    // inside the window's corners.
+    .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
+      ZStack {
+        if welcomeSetup.tour != nil {
+          WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
+            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
+            .clipShape(windowShape)
+            .transition(.opacity)
+        }
+      }
+      // The tour fades in as the welcome fades away under it.
+      .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
+                 value: welcomeSetup.tour != nil)
+    }
+    // One menu host for the window, the compact panel, and the welcome,
+    // above everything else in them. The window's controls are disabled
+    // during the welcome and the tour, which closes their open menus.
+    .enigmaMenuHost()
+    // The character follows the pointer over the tour and open menus too.
+    .enigmaCharacterPointer(character)
+    // One theme for the window, its welcome, tour, menus, and character.
     .enigmaTheme(appearance.appearance)
   }
 
@@ -425,7 +445,6 @@ struct AppShellView: View {
       .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
                  value: shell.isSidebarVisible)
     }
-    .enigmaMenuHost()
     .modifier(EnigmaWindowChrome())
     .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
   }
@@ -611,7 +630,6 @@ struct AppShellView: View {
       })
     .animation(reduceMotion ? .easeOut(duration: 0.12) : EnigmaMotion.menu.animation,
                value: shell.isSelectionDetailsPresented)
-    .enigmaMenuHost()
     .frame(minWidth: 640)
   }
 

@@ -352,7 +352,23 @@ as B1's fix; scrolling up during the reply still stops following. Add a hosted
 test next to B1's in `EnigmaConversationTests` that scrolls up, sends, and
 checks the new message is visible, with Reduce Motion on and off.
 
-### B4. The animated character covers the model picker
+### B4. ✅ Done: The animated character covers the model picker
+
+> **Solved:** The window now has one menu host, applied to `welcomeShell`
+> outside the character stage, and the tour's overlay sits outside the stage
+> too, clipped to the window's corners and fading in as the welcome fades away.
+> So open menus and the tour draw above the character and get the clicks on
+> their rows and buttons. The slash-command list stays in place and marks
+> itself with `.enigmaCharacterCover(cornerRadius:)`; the stage doesn't draw
+> the character or let it be grabbed where the list covers it. Character
+> slots and targets now add to the anchors inside them instead of replacing
+> them, which would have hidden the list's cover inside the composer. A
+> hosted menu closes when its trigger turns disabled, as when the welcome
+> replays, since its list is no longer inside the disabled views. The
+> character follows the pointer over menus and the tour as before. Hosted
+> tests hold the character over a menu row (main window and compact panel),
+> the tour's Next button and a slash-command row, and check that it's hidden
+> there and the click picks the item.
 
 **Problem:** The Enigma character can sit on top of the model picker (the
 Auto/Local/Cloud and model menu beside Send, ⌘K), hiding rows of the open
