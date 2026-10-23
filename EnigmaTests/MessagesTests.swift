@@ -351,6 +351,10 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertTrue(unknown.text.contains("chat_id"))
     let range = await tools.execute(name: "list_conversations", arguments: .object(["limit": .number(500)]))
     XCTAssertFalse(range.success)
+    for result in [unknown, range] {
+      XCTAssertFalse(result.terminal, "The model can correct its arguments")
+      XCTAssertNil(result.stop)
+    }
     let locked = MessagesTools(database: MessagesDatabase(url: root.appendingPathComponent("none.db")),
       contacts: FixtureContacts(), confirmSend: { _ in true })
     let missing = await locked.execute(name: "list_conversations", arguments: .object([:]))
@@ -386,6 +390,8 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertFalse(result.success)
     XCTAssertTrue(result.text.contains("declined"))
     XCTAssertTrue(runner.invocations.isEmpty)
+    XCTAssertFalse(result.terminal, "A declined send goes back to the model, not to a settings card")
+    XCTAssertNil(result.stop)
   }
 
   func testRecipientResolutionCoversGroupsNewNumbersAndAmbiguity() async throws {
@@ -411,6 +417,8 @@ final class MessagesToolsTests: XCTestCase {
       arguments: .object(["recipient": .string("Sam"), "text": .string("Hi")]))
     XCTAssertFalse(ambiguous.success)
     XCTAssertTrue(ambiguous.text.contains("Sam Lee") && ambiguous.text.contains("Sam Park"))
+    XCTAssertFalse(ambiguous.terminal, "The model asks which person is meant")
+    XCTAssertNil(ambiguous.stop)
     let unknown = await tools.execute(name: "send_message",
       arguments: .object(["recipient": .string("Nobody Known"), "text": .string("Hi")]))
     XCTAssertTrue(unknown.text.contains("No contact"))
@@ -608,7 +616,26 @@ final class MessagesToolsTests: XCTestCase {
       arguments: .object(["recipient": .string(MessagesFixture.aliceChat), "text": .string("hi")]))
     XCTAssertFalse(result.success)
     XCTAssertTrue(result.terminal)
+    XCTAssertEqual(result.stop, .messages(.automationDenied), "The request ends with the error that offers Automation settings")
     XCTAssertTrue(result.text.contains("Automation"))
+    XCTAssertEqual(runner.invocations.count, 1)
+  }
+
+  func testStoppedRequestEndsAsCancelledWithoutSettingsGuidance() async throws {
+    let toolbox = tools()
+    let result = await Task {
+      withUnsafeCurrentTask { $0?.cancel() }
+      return await toolbox.execute(name: "list_conversations", arguments: .object([:]))
+    }.value
+    XCTAssertTrue(result.terminal)
+    XCTAssertEqual(result.stop, .cancelled)
+    XCTAssertTrue(result.stopError is CancellationError)
+  }
+
+  func testSettingsButtonsAreNamedAfterTheirPane() {
+    XCTAssertEqual(MessagesPrivacyPane.fullDiskAccess.settingsButtonTitle, "Open Full Disk Access Settings…")
+    XCTAssertEqual(MessagesPrivacyPane.automation.settingsButtonTitle, "Open Automation Settings…")
+    XCTAssertEqual(MessagesPrivacyPane.contacts.settingsButtonTitle, "Open Contacts Settings…")
   }
 
   func testWithoutContactsAccessHandlesAreShown() async throws {

@@ -7,7 +7,8 @@ struct MessagesIssue: Equatable {
   let pane: MessagesPrivacyPane?
 }
 
-/// Owns the one pending send approval and the Messages preflight error for the chat UI.
+/// Owns the one pending send approval and the Messages problem for the chat UI: a preflight
+/// error, or a permission lost while a request ran.
 @MainActor
 final class MessagesCoordinator: ObservableObject {
   @Published private(set) var pendingSend: MessagesSendApproval?

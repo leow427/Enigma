@@ -720,7 +720,7 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(MessagesPermissionStatus.fullDiskAccess(check: {}), true)
     XCTAssertEqual(MessagesPermissionStatus.fullDiskAccessDetail(nil), "Messages has no history on this Mac yet.")
     XCTAssertTrue(MessagesPermissionStatus.fullDiskAccessDetail(false).hasPrefix("Required to read"))
-    XCTAssertEqual(MessagesSettingsSection.settingsName(for: .automation), "Open Automation Settings…")
+    XCTAssertEqual(MessagesPrivacyPane.automation.settingsButtonTitle, "Open Automation Settings…")
   }
 
   // MARK: Shared Cloud logic

@@ -171,6 +171,29 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertNotEqual(kill(pid, 0), 0, "Claude Code kept running after Stop")
   }
 
+  func testTerminalToolResultStopsTheProcessWithTheMessagesError() async throws {
+    let root = try temporaryDirectory()
+    let pidFile = root.appending(path: "pid")
+    let call = #"{"type":"control_request","request_id":"req-1","request":{"subtype":"mcp_message","server_name":"enigma","message":{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"lookup","arguments":{"query":"x"}}}}}"#
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      echo $$ > '\(pidFile.path)'
+      /usr/bin/printf '%s\\n' '\(call)'
+      /usr/bin/printf '%s\\n' '\(call)'
+      exec /bin/sleep 10
+      """)
+    let toolbox = StoppingToolbox(.automationDenied)
+    do {
+      _ = try await events(client.stream(request(), toolbox: toolbox))
+      XCTFail("Expected the request to stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    XCTAssertEqual(toolbox.callCount, 1, "A second call must not run the tool again")
+    let pid = try await waitForPID(at: pidFile)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while kill(pid, 0) == 0, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+    XCTAssertNotEqual(kill(pid, 0), 0, "Claude Code kept running after the stop")
+  }
+
   @MainActor
   func testSettingsUseClaudeCodeAccessAndDefaultModel() async throws {
     let root = try temporaryDirectory()

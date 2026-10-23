@@ -19,6 +19,38 @@ final class RecordingToolbox: AgentToolbox, @unchecked Sendable {
   func phase(for _: String) -> AssistantActivity.Phase { .readingMessages }
 }
 
+/// Waits inside its call until released, then ends the request as a denied permission would.
+private final class GatedStoppingToolbox: AgentToolbox, @unchecked Sendable {
+  let instructions = "Use lookup for facts."
+  let definitions = RecordingToolbox().definitions
+  let entered = AsyncStream<Void>.makeStream()
+  let release = AsyncStream<Void>.makeStream()
+
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    entered.continuation.yield()
+    for await _ in release.stream { break }
+    return AgentToolResult(text: MessagesError.automationDenied.localizedDescription, success: false, terminal: true,
+      stop: .messages(.automationDenied))
+  }
+}
+
+/// A toolbox whose every call ends the request, as Messages does when macOS withholds a permission.
+final class StoppingToolbox: AgentToolbox, @unchecked Sendable {
+  private let lock = NSLock()
+  private var count = 0
+  let error: MessagesError
+  var callCount: Int { lock.withLock { count } }
+  let instructions = "Use lookup for facts."
+  let definitions = RecordingToolbox().definitions
+
+  init(_ error: MessagesError = .automationDenied) { self.error = error }
+
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    lock.withLock { count += 1 }
+    return AgentToolResult(text: error.localizedDescription, success: false, terminal: true, stop: .messages(error))
+  }
+}
+
 private struct ToolTestCredentials: CloudCredentialStore {
   func apiKey(for provider: CloudProviderID) throws -> String? { "test-key" }
   func setAPIKey(_ apiKey: String, for provider: CloudProviderID) throws {}
@@ -137,6 +169,88 @@ final class CloudToolLoopTests: XCTestCase {
     } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit) }
   }
 
+  func testTerminalResultEndsTheLoopWithItsError() async throws {
+    let toolbox = StoppingToolbox()
+    var steps = 0
+    var deliveries = 0
+    do {
+      try await CloudToolLoop.run(toolbox: toolbox, emit: { _ in }, step: {
+        steps += 1
+        return .init(text: "", calls: [.init(id: "1", name: "lookup", arguments: #"{"query":"a"}"#),
+                                       .init(id: "2", name: "lookup", arguments: #"{"query":"b"}"#)])
+      }, deliver: { _ in deliveries += 1 })
+      XCTFail("Expected the request to stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    XCTAssertEqual(steps, 1, "No model turn after the stop")
+    XCTAssertEqual(deliveries, 0, "The result never goes back to the model")
+    XCTAssertEqual(toolbox.callCount, 1, "The rest of the turn's calls never run")
+  }
+
+  func testTerminalResultStopsTheProviderStreamWithTheMessagesError() async throws {
+    let calling: [String: Any] = ["content": [["type": "tool_use", "id": "t", "name": "lookup", "input": ["query": "x"]]]]
+    // A regression answers with text and fails the assertions below rather than draining the queue.
+    let answering: [String: Any] = ["content": [["type": "text", "text": "I couldn't do that."]]]
+    let transport = QueuedTransport([calling, answering])
+    let toolbox = StoppingToolbox(.fullDiskAccessRequired)
+    let client = AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    do {
+      _ = try await collect(client.stream(request(.anthropic, model: "claude-sonnet-4-6"), toolbox: toolbox))
+      XCTFail("Expected the request to stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .fullDiskAccessRequired) }
+    XCTAssertEqual(transport.bodies.count, 1, "No model turn after the stop")
+    XCTAssertEqual(toolbox.callCount, 1)
+  }
+
+  func testCodexTerminalResultInterruptsTheTurnWithTheMessagesError() async throws {
+    let transport = ToolCallingCodexTransport()
+    let toolbox = StoppingToolbox()
+    let client = CodexSubscriptionClient(transport: transport)
+    do {
+      _ = try await collect(client.stream(request(.chatGPT, model: "gpt-5.6-luna"), toolbox: toolbox))
+      XCTFail("Expected the request to stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await !transport.methods.contains("turn/interrupt"), ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    let methods = await transport.methods
+    XCTAssertTrue(methods.contains("turn/interrupt"), "The Codex turn must be interrupted")
+    XCTAssertEqual(toolbox.callCount, 1, "A retried call must not run the tool again")
+  }
+
+  func testCodexToolModeRunsNoCallAfterATerminalResult() async {
+    let toolbox = StoppingToolbox()
+    let stop = CodexToolMode.Stop()
+    let call = CodexValue.object(["tool": .string("lookup"), "turnId": .string("turn"), "callId": .string("call"),
+      "arguments": .object(["query": .string("q")])])
+    let first = await CodexToolMode.handle(method: "item/tool/call", params: call, toolbox: toolbox, stop: stop)
+    XCTAssertEqual(first["success"].bool, false)
+    XCTAssertEqual(stop.error as? MessagesError, .automationDenied)
+    let retried = await CodexToolMode.handle(method: "item/tool/call", params: call, toolbox: toolbox, stop: stop)
+    XCTAssertEqual(retried["success"].bool, false)
+    XCTAssertEqual(toolbox.callCount, 1, "The retried call is refused without running the tool")
+  }
+
+  func testCodexToolResultsGoBackToTheModelUntilTheTurnCompletes() async throws {
+    let transport = ToolCallingCodexTransport()
+    let toolbox = RecordingToolbox()
+    let events = try await collect(CodexSubscriptionClient(transport: transport)
+      .stream(request(.chatGPT, model: "gpt-5.6-luna"), toolbox: toolbox))
+    XCTAssertEqual(events.last, .completed)
+    XCTAssertEqual(toolbox.calls.count, 2, "Each call runs and goes back to the model")
+    let methods = await transport.methods
+    XCTAssertFalse(methods.contains("turn/interrupt"))
+  }
+
+  func testCodexDoesNotRecordACancelledCall() async {
+    let stop = CodexToolMode.Stop()
+    let call = CodexValue.object(["tool": .string("lookup"), "turnId": .string("turn"), "callId": .string("call"),
+      "arguments": .object(["query": .string("q")])])
+    _ = await CodexToolMode.handle(method: "item/tool/call", params: call, toolbox: CancelledResultToolbox(), stop: stop)
+    XCTAssertFalse(stop.isStopped, "Only a permission stop ends the Codex turn")
+    XCTAssertNil(stop.error)
+  }
+
   func testCodexToolModeIsolatesTheThread() throws {
     let toolbox = RecordingToolbox()
     let thread = try CodexToolMode.threadParameters(model: "gpt-5.6-luna", toolbox: toolbox)
@@ -161,6 +275,63 @@ final class CloudToolLoopTests: XCTestCase {
   }
 }
 
+/// Calls the host tool twice per turn, as a model that retries would, until the turn is interrupted.
+private actor ToolCallingCodexTransport: CodexRPCTransport {
+  private var handler: CodexServerRequestHandler?
+  private var observers: [UUID: AsyncThrowingStream<CodexNotification, Error>.Continuation] = [:]
+  private var interrupted = false
+  private(set) var methods: [String] = []
+
+  func request(_ method: String, params: CodexValue) async throws -> CodexValue {
+    methods.append(method)
+    switch method {
+    case "account/read": return .object(["account": .object(["type": .string("chatgpt"), "planType": .string("plus")])])
+    case "thread/start": return .object(["thread": .object(["id": .string("thread-one")])])
+    case "turn/start":
+      Task { await runTurn() }
+      return .object(["turn": .object(["id": .string("turn-one")])])
+    case "turn/interrupt":
+      interrupted = true
+      emit(completion("interrupted"))
+      return .object([:])
+    default: return .object([:])
+    }
+  }
+
+  func prepareFileMode() async throws {}
+  func setFileHandler(threadID: String, handler: CodexServerRequestHandler?) async throws { self.handler = handler }
+
+  func notifications() -> CodexNotificationSubscription {
+    let id = UUID()
+    let stream = AsyncThrowingStream<CodexNotification, Error> { continuation in
+      observers[id] = continuation
+      continuation.onTermination = { [weak self] _ in Task { await self?.removeObserver(id) } }
+    }
+    return CodexNotificationSubscription(stream: stream, cancel: { [weak self] in await self?.removeObserver(id) })
+  }
+
+  private func runTurn() async {
+    let call = CodexValue.object(["threadId": .string("thread-one"), "turnId": .string("turn-one"),
+      "callId": .string("call"), "tool": .string("lookup"), "arguments": .object(["query": .string("x")])])
+    for _ in 0..<2 {
+      guard !interrupted, let handler else { return }
+      _ = await handler("item/tool/call", call)
+    }
+    if !interrupted { emit(completion("completed")) }
+  }
+
+  private func completion(_ status: String) -> CodexNotification {
+    CodexNotification(method: "turn/completed", params: .object([
+      "threadId": .string("thread-one"), "turn": .object(["id": .string("turn-one"), "status": .string(status)])]))
+  }
+
+  private func emit(_ notification: CodexNotification) {
+    for continuation in observers.values { continuation.yield(notification) }
+  }
+
+  private func removeObserver(_ id: UUID) { observers.removeValue(forKey: id)?.finish() }
+}
+
 final class ClaudeCodeToolModeTests: XCTestCase {
   func testArgumentsAllowOnlyEnigmaToolsWithBuiltInsDisabled() {
     let arguments = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: RecordingToolbox())
@@ -173,29 +344,29 @@ final class ClaudeCodeToolModeTests: XCTestCase {
 
   func testServesMCPInitializeListAndCall() async throws {
     let toolbox = RecordingToolbox()
-    let initialize = await ClaudeCodeToolMode.respond(to: .object(["jsonrpc": .string("2.0"), "id": .number(0),
+    let initialize = try await ClaudeCodeToolMode.respond(to: .object(["jsonrpc": .string("2.0"), "id": .number(0),
       "method": .string("initialize"), "params": .object(["protocolVersion": .string("2025-11-25")])]), toolbox: toolbox)
     XCTAssertEqual(initialize["result"]["protocolVersion"].string, "2025-11-25")
-    let list = await ClaudeCodeToolMode.respond(to: .object(["id": .number(1), "method": .string("tools/list")]), toolbox: toolbox)
+    let list = try await ClaudeCodeToolMode.respond(to: .object(["id": .number(1), "method": .string("tools/list")]), toolbox: toolbox)
     XCTAssertEqual(list["result"]["tools"].array?.first?["inputSchema"]["required"], .array([.string("query")]))
     var called: [String] = []
-    let call = await ClaudeCodeToolMode.respond(to: .object(["id": .number(2), "method": .string("tools/call"),
+    let call = try await ClaudeCodeToolMode.respond(to: .object(["id": .number(2), "method": .string("tools/call"),
       "params": .object(["name": .string("lookup"), "arguments": .object(["query": .string("x")])])]), toolbox: toolbox) {
       called.append($0)
     }
     XCTAssertEqual(called, ["lookup"])
     XCTAssertEqual(call["result"]["isError"], .bool(false))
     XCTAssertEqual(call["result"]["content"].array?.first?["text"].string, #"{"answer":"42"}"#)
-    let unknown = await ClaudeCodeToolMode.respond(to: .object(["id": .number(3), "method": .string("resources/list")]), toolbox: toolbox)
+    let unknown = try await ClaudeCodeToolMode.respond(to: .object(["id": .number(3), "method": .string("resources/list")]), toolbox: toolbox)
     XCTAssertEqual(unknown["error"]["code"].integer, -32601)
   }
 
   func testControlRequestsForOtherServersOrPermissionsAreRefused() async throws {
     let toolbox = RecordingToolbox()
-    let other = await ClaudeCodeToolMode.controlResponse(id: "r1", request: .object([
+    let other = try await ClaudeCodeToolMode.controlResponse(id: "r1", request: .object([
       "subtype": .string("mcp_message"), "server_name": .string("other"), "message": .object([:])]), toolbox: toolbox)
     XCTAssertEqual(other["response"]["subtype"].string, "error")
-    let permission = await ClaudeCodeToolMode.controlResponse(id: "r2", request: .object(["subtype": .string("can_use_tool")]), toolbox: toolbox)
+    let permission = try await ClaudeCodeToolMode.controlResponse(id: "r2", request: .object(["subtype": .string("can_use_tool")]), toolbox: toolbox)
     XCTAssertEqual(permission["response"]["response"]["behavior"].string, "deny")
     var parser = ClaudeCodeStreamParser()
     let events = try parser.consume(Data(#"{"type":"control_request","request_id":"req","request":{"subtype":"mcp_message"}}"#.utf8 + [0x0a]))
@@ -214,6 +385,45 @@ private actor ScriptedToolInference: LocalToolInference {
       ])
     }
     return AgentInferenceMessage(role: "assistant", content: "Your latest chat is Weekend Trip.")
+  }
+}
+
+/// A model that keeps calling a tool, so a request ends only when the loop stops it.
+private actor RepeatingToolInference: LocalToolInference {
+  let name: String
+  let arguments: String
+  private(set) var requests = 0
+  init(name: String = "lookup", arguments: String = #"{"query":"x"}"#) { self.name = name; self.arguments = arguments }
+  func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    requests += 1
+    return AgentInferenceMessage(role: "assistant", content: nil, toolCalls: [
+      AgentToolCall(id: "call", function: .init(name: name, arguments: arguments))])
+  }
+}
+
+/// Waits inside `unload()` until released, which the local route awaits after its loop ends.
+private actor GatedUnloadInference: LocalToolInference {
+  nonisolated let unloading = AsyncStream<Void>.makeStream()
+  nonisolated let release = AsyncStream<Void>.makeStream()
+
+  func unload() async {
+    unloading.continuation.yield()
+    for await _ in release.stream { break }
+  }
+
+  func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    AgentInferenceMessage(role: "assistant", content: nil, toolCalls: [
+      AgentToolCall(id: "call", function: .init(name: "lookup", arguments: #"{"query":"x"}"#))])
+  }
+}
+
+/// Returns the result a stopped Messages call gives.
+private final class CancelledResultToolbox: AgentToolbox, @unchecked Sendable {
+  let instructions = "Use lookup for facts."
+  let definitions = RecordingToolbox().definitions
+
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    AgentToolResult(text: "The request was stopped.", success: false, terminal: true, stop: .cancelled)
   }
 }
 
@@ -298,6 +508,156 @@ final class MessagesRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.map(\.content), ["Who texted me last?", "Your latest chat is Weekend Trip."])
     XCTAssertEqual(toolbox.calls.map(\.0), ["list_conversations"])
     XCTAssertNil(chat.appleMessages.pendingSend)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  func testAutomationDenialEndsTheLocalLoopWithoutRetrying() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let inference = RepeatingToolInference(name: "send_message",
+      arguments: #"{"recipient":"\#(MessagesFixture.aliceChat)","text":"hi"}"#)
+    let runner = RecordingRunner()
+    runner.result = ProcessOutput(status: 1, output: "", error: "execution error: Not authorized to send Apple events to Messages. (-1743)")
+    var tools = MessagesTools(database: database, contacts: FixtureContacts(), sender: MessagesSender(run: runner.run),
+      confirmSend: { _ in true })
+    tools.sendConfirmationTimeout = .zero
+    do {
+      try await LocalToolAgent(inference: inference).run(messages: [ChatMessage(role: .user, content: "Text Alice hi")],
+        model: LocalModel(id: "m", displayName: "M", fileURL: root.appendingPathComponent("m.gguf")), toolbox: tools) { _ in }
+      XCTFail("Expected the request to stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    let requests = await inference.requests
+    XCTAssertEqual(requests, 1, "No model step after the denial")
+    XCTAssertEqual(runner.invocations.count, 1, "osascript must not run again")
+  }
+
+  func testAutomationDenialDuringARequestShowsTheSettingsCard() async throws {
+    let toolbox = StoppingToolbox(.automationDenied)
+    let inference = RepeatingToolInference()
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in toolbox }, messagesAccess: {},
+      localToolRuntime: { _ in true }, fileInference: inference, sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertEqual(chat.appleMessages.issue?.pane, .automation)
+    XCTAssertTrue(chat.appleMessages.issue?.message.contains("Automation") == true)
+    XCTAssertEqual(toolbox.callCount, 1)
+    let requests = await inference.requests
+    XCTAssertEqual(requests, 1)
+    XCTAssertEqual(chat.state, .idle, "The card explains the problem; the status line doesn't repeat it")
+    XCTAssertEqual(chat.messages.last?.role, .assistant)
+    XCTAssertEqual(chat.messages.last?.activity?.phase, .failed, "The reply reads Request failed rather than staying empty")
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  private func waitForTheRequestToFinish(_ chat: LocalChatViewModel) async {
+    let finished = expectation(description: "Messages request finished")
+    let token = chat.$state.dropFirst().filter { _ in chat.activeRequest == nil }.prefix(1).sink { _ in finished.fulfill() }
+    await fulfillment(of: [finished], timeout: 3)
+    token.cancel()
+  }
+
+  func testAutomationDenialOnTheAnthropicRouteShowsTheSettingsCard() async throws {
+    let calling: [String: Any] = ["content": [["type": "tool_use", "id": "t", "name": "lookup", "input": ["query": "x"]]]]
+    let answering: [String: Any] = ["content": [["type": "text", "text": "I couldn't send that."]]]
+    let transport = QueuedTransport([calling, answering])
+    let toolbox = StoppingToolbox(.automationDenied)
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in toolbox }, messagesAccess: {},
+      localToolRuntime: { _ in true },
+      cloudProviders: CloudProviderRegistry(credentialStore: ToolTestCredentials(), transport: transport),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Text Alice hi", mode: .cloud, cloudProvider: .anthropic, cloudModelID: "claude-sonnet-4-6")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertEqual(chat.appleMessages.issue?.pane, .automation)
+    XCTAssertEqual(transport.bodies.count, 1, "No model turn after the denial")
+    XCTAssertEqual(toolbox.callCount, 1)
+    XCTAssertEqual(chat.state, .idle)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  func testFullDiskAccessLostOnTheCodexRouteShowsTheSettingsCard() async throws {
+    let toolbox = StoppingToolbox(.fullDiskAccessRequired)
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in toolbox }, messagesAccess: {},
+      localToolRuntime: { _ in true }, fileCodex: CodexSubscriptionClient(transport: ToolCallingCodexTransport()),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Who texted me?", mode: .cloud, cloudProvider: .chatGPT, cloudModelID: "gpt-5.6-luna")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertEqual(chat.appleMessages.issue?.pane, .fullDiskAccess)
+    XCTAssertEqual(toolbox.callCount, 1)
+    XCTAssertEqual(chat.state, .idle)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  func testStopDuringADeniedSendShowsNoCard() async throws {
+    let toolbox = GatedStoppingToolbox()
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in toolbox }, messagesAccess: {},
+      localToolRuntime: { _ in true }, fileInference: RepeatingToolInference(),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    var entered = toolbox.entered.stream.makeAsyncIterator()
+    _ = await entered.next()
+    let task = chat.stopStreaming()
+    toolbox.release.continuation.yield()
+    await task?.value
+    XCTAssertNil(chat.appleMessages.issue, "Stop must not show the settings card")
+    XCTAssertEqual(chat.state, .idle)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  func testNewChatWhileUnloadingAfterADenialShowsNoCard() async throws {
+    let inference = GatedUnloadInference()
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in StoppingToolbox() }, messagesAccess: {},
+      localToolRuntime: { _ in true }, fileInference: inference, sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    // The loop has already thrown the denial; the request is unloading the model.
+    var unloading = inference.unloading.stream.makeAsyncIterator()
+    _ = await unloading.next()
+    let task = chat.stopStreaming()
+    chat.newChat()
+    inference.release.continuation.yield()
+    await task?.value
+    XCTAssertNil(chat.appleMessages.issue, "A new chat opened while the model unloads must not get the old card")
+    XCTAssertEqual(chat.state, .idle)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  func testNewChatOrAnotherChatClearsTheSettingsCard() async throws {
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in StoppingToolbox() },
+      messagesAccess: {}, localToolRuntime: { _ in true }, fileInference: RepeatingToolInference(),
+      sessionStore: .init(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    let deniedChat = try XCTUnwrap(chat.selectedSessionID)
+    XCTAssertEqual(chat.appleMessages.issue?.pane, .automation)
+    chat.newChat()
+    XCTAssertNil(chat.appleMessages.issue, "A new chat starts without the card")
+    let freshChat = try XCTUnwrap(chat.selectedSessionID)
+
+    chat.selectSession(id: deniedChat)
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertNotNil(chat.appleMessages.issue)
+    chat.selectSession(id: freshChat)
+    XCTAssertNil(chat.appleMessages.issue, "Switching chats clears the card")
+
+    chat.selectSession(id: deniedChat)
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertNotNil(chat.appleMessages.issue)
+    chat.cycleRecentChat()
+    XCTAssertNotEqual(chat.selectedSessionID, deniedChat)
+    XCTAssertNil(chat.appleMessages.issue, "Cycling to another chat clears the card")
+
+    chat.selectSession(id: deniedChat)
+    chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    XCTAssertNotNil(chat.appleMessages.issue)
+    chat.startTemporaryChat(context: nil)
+    XCTAssertNil(chat.appleMessages.issue, "A selection chat starts without the previous chat's card")
     await chat.sessionWriter.waitForPendingWrites()
   }
 

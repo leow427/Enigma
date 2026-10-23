@@ -135,6 +135,7 @@ struct CodexSubscriptionClient: ChatProvider {
         var threadID: String?
         var turnID: String?
         var completed = false
+        let toolStop = CodexToolMode.Stop()
         do {
           guard request.route.providerID == CloudProviderID.chatGPT.rawValue else { throw CodexError.invalidResponse }
           let prepared = try CloudContext.prepare(request)
@@ -164,7 +165,11 @@ struct CodexSubscriptionClient: ChatProvider {
                 continuation.yield(.activity(.phase(toolbox.phase(for: name))))
               }
               defer { continuation.yield(.activity(.phase(.thinking))) }
-              return await CodexToolMode.handle(method: method, params: params, toolbox: toolbox)
+              let response = await CodexToolMode.handle(method: method, params: params, toolbox: toolbox, stop: toolStop)
+              // A permission stop ends the notification loop below, which throws its error and
+              // interrupts the turn, so the model doesn't continue.
+              if toolStop.isStopped { await notifications.cancel() }
+              return response
             }
           }
           try Task.checkCancellation()
@@ -207,13 +212,14 @@ struct CodexSubscriptionClient: ChatProvider {
             if completed { break }
           }
           try Task.checkCancellation()
+          if let error = toolStop.error { throw error }
           guard completed else { throw CodexError.disconnected }
           if let fileTools { await fileTools.workspace.revoke() }
           continuation.yield(.completed)
           continuation.finish()
         } catch {
           if let fileTools { await fileTools.workspace.revoke() }
-          continuation.finish(throwing: error)
+          continuation.finish(throwing: toolStop.error ?? error)
         }
         // Cleanup runs outside the cancelled task so Stop also interrupts server-side generation.
         if let threadID {

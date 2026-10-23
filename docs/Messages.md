@@ -162,8 +162,13 @@ return to Enigma. See [Welcome-and-Settings.md](Welcome-and-Settings.md).
 
 If Full Disk Access is missing when you use `/messages`, Enigma explains it and
 offers **Open Full Disk Access Settings…** without starting a request. If
-Automation is denied during a send, the request stops with **Open Automation
-Settings…**.
+Automation is denied during a send, or Full Disk Access is lost while a request
+runs, the request stops there on every model route: no later tool call runs
+(on Codex, a call already running alongside it may still finish), nothing is
+retried, and the reply reads **Request failed** while a card explains the
+problem with **Open Automation Settings…** or **Open Full Disk Access
+Settings…**. The card goes away with a new chat, another chat, or a selection
+chat.
 
 macOS ties these permissions to the app's code signature. A copy built with a
 different signing identity, such as the unsigned product of
@@ -263,6 +268,18 @@ the selected route before starting:
   stream-json control protocol, with built-in tools disabled and only the
   Enigma tools allowed.
 
+A tool result that macOS settings must fix, or one from a stopped request,
+carries how it ends the request (`AgentToolResult.stop`). A permission stop ends
+every route instead of returning to the model: `LocalToolAgent` and
+`CloudToolLoop` throw its error, Codex records it, interrupts the turn and runs
+no later call, and Claude Code throws it in place of the MCP reply and ends the
+CLI process. A stopped (`.cancelled`) result ends the local, API and Claude
+Code routes as cancelled; on Codex it goes back to the model, since the request
+is already ending. Recoverable errors, such as invalid arguments,
+a declined send or an ambiguous recipient, still go back to the model.
+`submitMessages` shows a `MessagesError` with a settings pane in the problem
+card, whose button is named after the pane.
+
 ## Limitations
 
 - AppleScript can't send tapbacks, edits, unsends, threaded replies, or
@@ -289,8 +306,14 @@ the selected route before starting:
   per-provider cloud consent, and `/messages` parsing.
 - `EnigmaTests/MessagesToolCallingTests.swift` covers each provider's tool loop
   with recorded responses, the step limit, Codex and Claude Code tool isolation,
-  the local tool agent, the Full Disk Access and runtime preflight checks, and
+  the local tool agent, a terminal result stopping each route with its error,
+  the Full Disk Access and runtime preflight checks, the settings card after a
+  mid-request permission loss on the local, Anthropic and Codex routes (and no
+  card after Stop, a new chat, switching or cycling chats, or a selection
+  chat), Codex results going back to the model until the turn completes, and
   the follow-up note staying with the chat that used Messages.
+- `EnigmaTests/ClaudeCodeSubscriptionTests.swift` covers the Claude Code route
+  ending its CLI process with the Messages error on a terminal result.
 - `EnigmaTests/ComposerIntentTests.swift` covers the Messages phrasings that are
   and aren't recognized (`MessagesIntentPolicyTests`), recognition next to
   files, screenshots and other commands, and follow-ups

@@ -35,6 +35,28 @@ enum AgentToolError: LocalizedError, Equatable {
   }
 }
 
+/// How a terminal tool result ends its request. The request fails with this error rather
+/// than handing it back to the model, so a permission problem reaches the user unchanged.
+enum AgentToolStop: Sendable, Equatable {
+  /// The user stopped the request.
+  case cancelled
+  /// macOS withheld a permission Messages needs.
+  case messages(MessagesError)
+
+  var error: Error {
+    switch self {
+    case .cancelled: CancellationError()
+    case .messages(let error): error
+    }
+  }
+}
+
+extension AgentToolResult {
+  /// The error a non-file tool loop ends the request with, or nil when the model may carry on.
+  /// File Mode reads `terminal` itself; these loops key off `stop`.
+  var stopError: Error? { stop?.error }
+}
+
 /// The local tool loop for non-file toolboxes. One call per step, so each call is
 /// chosen after the model has seen the previous result.
 struct LocalToolAgent: Sendable {
@@ -75,6 +97,7 @@ struct LocalToolAgent: Sendable {
       await onActivity(.phase(toolbox.phase(for: call.function.name)))
       let result = await toolbox.execute(name: call.function.name, jsonArguments: call.function.arguments)
       try Task.checkCancellation()
+      if let error = result.stopError { throw error }
       let output = (try? JSONDecoder().decode(CodexValue.self, from: Data(result.text.utf8))) ?? .string(result.text)
       let content = String(decoding: try encoder.encode(CodexValue.object([
         "success": .bool(result.success), "result": output,

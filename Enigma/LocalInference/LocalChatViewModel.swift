@@ -208,6 +208,7 @@ final class LocalChatViewModel: ObservableObject {
     sessions.append(session)
     selectedSessionID = session.id
     messagesFollowUpSessionID = nil
+    appleMessages.issue = nil
     files.conversationID = session.id
     attachedContexts = context.map { [$0] } ?? []
     if case .failed = state { state = .idle }
@@ -680,7 +681,11 @@ final class LocalChatViewModel: ObservableObject {
       if local { await fileInference.unload() }
       // A request that ends while an approval is open never sends.
       self?.appleMessages.answer(false)
-      await self?.finishGeneration(id: active.id, error: failure)
+      // A permission macOS withheld mid-request gets the card with its settings button, which
+      // says everything the status line would; the reply still reads Request failed.
+      let settingsError = (failure as? MessagesError).flatMap { $0.privacyPane == nil ? nil : $0 }
+      if let settingsError, self?.activeRequest?.id == active.id { self?.appleMessages.report(settingsError) }
+      await self?.finishGeneration(id: active.id, error: failure, showsProblem: settingsError == nil)
     }
     messagesFollowUpSessionID = sessionID
     onAccepted()
@@ -1199,6 +1204,7 @@ final class LocalChatViewModel: ObservableObject {
     SelectionContextService.shared.discardTarget()
     files.restoreSelection(nil)
     contextNotice = nil
+    appleMessages.issue = nil
     autoRouteDecision = nil
     screenRouteDecision = nil
     let session = ChatSession()
@@ -1213,7 +1219,7 @@ final class LocalChatViewModel: ObservableObject {
   func selectSession(id: UUID) {
     guard sessions.contains(where: { $0.id == id }), !isBusy else { return }
     if id != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
-    if id != selectedSessionID { messagesFollowUpSessionID = nil }
+    if id != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
     selectedSessionID = id
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1226,7 +1232,7 @@ final class LocalChatViewModel: ObservableObject {
     let selectedIndex = selectedSessionID.flatMap { id in sessions.firstIndex(where: { $0.id == id }) }
     let nextID = sessions[selectedIndex.map { ($0 + 1) % sessions.count } ?? 0].id
     if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
-    if nextID != selectedSessionID { messagesFollowUpSessionID = nil }
+    if nextID != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
     selectedSessionID = nextID
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1534,7 +1540,8 @@ final class LocalChatViewModel: ObservableObject {
     return SelectionRevisionResponse.recover(try await ScreenSearchContext.collect(stream, maximumBytes: 300_000))
   }
 
-  private func finishGeneration(id: UUID, error: Error? = nil) async {
+  /// `showsProblem` is false when a card already explains the error.
+  private func finishGeneration(id: UUID, error: Error? = nil, showsProblem: Bool = true) async {
     if error == nil, !Task.isCancelled, let active = activeRequest, active.id == id,
        let editing = selectionEditRequest, editing.id == id,
        attachedContexts.contains(where: { $0.id == editing.contextID }),
@@ -1582,7 +1589,7 @@ final class LocalChatViewModel: ObservableObject {
     activityMessageID = nil
     pendingUserMessage = nil
     generationTask = nil
-    state = error.map { .failed($0.localizedDescription) } ?? .idle
+    state = showsProblem ? (error.map { .failed($0.localizedDescription) } ?? .idle) : .idle
     sessionWriter.flush()
     scheduleIdleUnload()
   }

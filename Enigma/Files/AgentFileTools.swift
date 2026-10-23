@@ -26,6 +26,8 @@ struct AgentToolResult: Sendable, Equatable {
   var requiresCloudConsent = false
   var terminal = false
   var canRecoverCompletion = false
+  /// Outside File Mode, how this result ends the request; set only with `terminal`.
+  var stop: AgentToolStop? = nil
   var codex: CodexValue {
     .object(["success": .bool(success), "contentItems": .array([
       .object(["type": .string("inputText"), "text": .string(text)])])])

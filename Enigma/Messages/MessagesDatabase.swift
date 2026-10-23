@@ -57,6 +57,15 @@ enum MessagesPrivacyPane: String, Sendable {
   case contacts = "Privacy_Contacts"
 
   var url: URL { URL(string: "x-apple.systempreferences:com.apple.preference.security?\(rawValue)")! }
+
+  /// The button that opens this pane.
+  var settingsButtonTitle: String {
+    switch self {
+    case .fullDiskAccess: "Open Full Disk Access Settings…"
+    case .automation: "Open Automation Settings…"
+    case .contacts: "Open Contacts Settings…"
+    }
+  }
 }
 
 /// One row of `chat`, with its participants' raw handles.

@@ -41,15 +41,6 @@ struct MessagesSettingsSection: View {
   private func settingsButton(for pane: MessagesPrivacyPane) -> some View {
     Button("Open Settings…") { NSWorkspace.shared.open(pane.url) }
       .enigmaButtonStyle(.secondary)
-      .accessibilityLabel(Self.settingsName(for: pane))
-  }
-
-  /// Each button's full name, for VoiceOver.
-  static func settingsName(for pane: MessagesPrivacyPane) -> String {
-    switch pane {
-    case .fullDiskAccess: "Open Full Disk Access Settings…"
-    case .contacts: "Open Contacts Settings…"
-    case .automation: "Open Automation Settings…"
-    }
+      .accessibilityLabel(pane.settingsButtonTitle)
   }
 }

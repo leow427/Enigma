@@ -821,14 +821,19 @@ final class EnigmaConversationTests: XCTestCase {
       XCTAssertEqual(answers, [expected], button)
     }
 
-    var panes: [MessagesPrivacyPane] = []
-    var dismissed = 0
-    let issue = CardHost(MessagesIssueCard(issue: MessagesIssue(message: "Allow Full Disk Access.", pane: .fullDiskAccess),
-                                                 openSettings: { panes.append($0) }, dismiss: { dismissed += 1 }), test: self)
-    try await clickTestControl("Open Full Disk Access Settings…", in: issue.view)
-    try await clickTestControl("Dismiss", in: issue.view)
-    XCTAssertEqual(panes, [.fullDiskAccess])
-    XCTAssertEqual(dismissed, 1)
+    // Each pane's card names its own settings button.
+    let titles: [(MessagesPrivacyPane, String)] = [(.fullDiskAccess, "Open Full Disk Access Settings…"),
+      (.automation, "Open Automation Settings…"), (.contacts, "Open Contacts Settings…")]
+    for (pane, title) in titles {
+      var panes: [MessagesPrivacyPane] = []
+      var dismissed = 0
+      let issue = CardHost(MessagesIssueCard(issue: MessagesIssue(message: "Allow access.", pane: pane),
+                                                   openSettings: { panes.append($0) }, dismiss: { dismissed += 1 }), test: self)
+      try await clickTestControl(title, in: issue.view)
+      try await clickTestControl("Dismiss", in: issue.view)
+      XCTAssertEqual(panes, [pane], title)
+      XCTAssertEqual(dismissed, 1, title)
+    }
   }
 
   @MainActor

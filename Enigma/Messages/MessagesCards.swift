@@ -83,10 +83,9 @@ struct MessagesIssueCard: View {
       EnigmaStatusLine(.problem, issue.message)
       HStack(spacing: 8) {
         if let pane = issue.pane {
-          let title = pane == .fullDiskAccess ? "Open Full Disk Access Settings…" : "Open Automation Settings…"
-          Button(title) { openSettings(pane) }
+          Button(pane.settingsButtonTitle) { openSettings(pane) }
             .enigmaButtonStyle(.compactPrimary)
-            .enigmaTestMarker(title)
+            .enigmaTestMarker(pane.settingsButtonTitle)
         }
         Button("Dismiss", action: dismiss)
           .enigmaButtonStyle(.secondary)

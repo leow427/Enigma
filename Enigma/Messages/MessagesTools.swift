@@ -122,10 +122,13 @@ struct MessagesTools: AgentToolbox {
       encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
       return AgentToolResult(text: String(decoding: try encoder.encode(output), as: UTF8.self), success: true)
     } catch is CancellationError {
-      return AgentToolResult(text: "The request was stopped.", success: false, terminal: true)
+      return AgentToolResult(text: "The request was stopped.", success: false, terminal: true, stop: .cancelled)
     } catch {
-      return AgentToolResult(text: error.localizedDescription, success: false,
-        terminal: (error as? MessagesError)?.privacyPane != nil)
+      // A missing permission ends the request, so the chat can offer its settings pane.
+      guard let error = error as? MessagesError, error.privacyPane != nil else {
+        return AgentToolResult(text: error.localizedDescription, success: false)
+      }
+      return AgentToolResult(text: error.localizedDescription, success: false, terminal: true, stop: .messages(error))
     }
   }
 

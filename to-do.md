@@ -288,7 +288,19 @@ reproduced with a failing test.
 - Keep the three reproductions as regression tests (`WebSearchTests`,
   `ComposerIntentResolveTests`, `ScreenViewTests`).
 
-### B12. Denying Automation doesn't stop a Messages send
+### B12. ✅ Done: Denying Automation doesn't stop a Messages send
+
+> **Solved:** A permission error or a stopped request now carries how the
+> request ends (`AgentToolResult.stop`: stopped, or the `MessagesError`);
+> recoverable errors still go back to the model. The local loop and
+> `CloudToolLoop` throw it before the model sees the result; Codex records a
+> permission stop, runs no later call and interrupts the turn; Claude Code
+> throws it in place of the MCP reply and ends the process. `submitMessages`
+> reports a `MessagesError` with a settings pane in the card (not after Stop),
+> the reply reads Request failed, and the status line doesn't repeat the card,
+> which a new chat, another chat or a selection chat clears. The card's button
+> is named after its pane. Tests cover each route, the card on the local,
+> Anthropic and Codex routes, and Stop.
 
 **Problem:** When macOS denies Automation while a Messages request runs (or
 Full Disk Access is lost mid-request), the request carries on and the **Open
