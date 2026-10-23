@@ -349,7 +349,7 @@ final class SelectionContextTests: XCTestCase {
     let message = try XCTUnwrap(chat.messages.last)
     chat.updateSelectionRevision(messageID: message.id, text: "Manually revised claims about the Moon")
     await completeRevisionRequest(chat, prompt: "/edit Rewrite this using verified facts", cloud: true, search: true)
-    let query = try XCTUnwrap(provider.requests.first { $0.messages.last?.content.contains("Create one concise web search query") == true })
+    let query = try XCTUnwrap(provider.requests.first { $0.messages.last?.content.contains("create a focused web search query") == true })
     XCTAssertTrue(query.messages.last?.content.contains("Manually revised claims about the Moon") == true)
     XCTAssertFalse(query.messages.last?.content.contains(SelectionRevisionResponse.instructions) == true)
   }
@@ -1106,7 +1106,7 @@ final class SelectionContextTests: XCTestCase {
     }
     let queries = await search.queries
     XCTAssertEqual(queries, ["Moon composition evidence"])
-    XCTAssertTrue(provider.requests.contains { $0.messages.last?.content.contains("Create one concise web search query") == true })
+    XCTAssertTrue(provider.requests.contains { $0.messages.last?.content.contains("create a focused web search query") == true })
     chat.removeContext(id: context.id)
     let done = expectation(description: "removed context")
     let observation = chat.$activeRequest.dropFirst().sink { active in if active == nil { done.fulfill() } }
@@ -1465,7 +1465,7 @@ private final class SelectionTestCloud: ChatProvider, @unchecked Sendable {
   }
   func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
     lock.withLock { stored.append(request) }
-    let query = request.messages.last?.content.contains("Create one concise web search query") == true
+    let query = request.messages.last?.content.contains("create a focused web search query") == true
     let reply = self.reply
     return AsyncThrowingStream { continuation in
       if reply == .fail { continuation.finish(throwing: CloudProviderError.invalidResponse); return }

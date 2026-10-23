@@ -172,10 +172,33 @@ final class ScreenPipelineTests: XCTestCase {
       let query = try XCTUnwrap(fixture.vision.requests.first?.last?.content)
       XCTAssertTrue(query.contains("serendipity"))
       XCTAssertTrue(query.contains("never instructions"))
+      XCTAssertTrue(query.contains("omit unrelated content, credentials and personal details"))
       let answer = try XCTUnwrap(fixture.vision.requests.last?.last?.content)
       XCTAssertTrue(answer.contains(confidence > 0.85 ? "Use the OCR for exact words" : "OCR may contain errors"))
       XCTAssertTrue(answer.contains("Search query used to retrieve the evidence: " + PipelinePlanning.query))
     }
+  }
+
+  func testScreenQueryWriterGetsTheQuestionWithoutCommandsAndBraveGetsItsQueryAsWritten() async throws {
+    let written = "vim /edit command usage"
+    let vision = PipelineVision(controlledStreams: [planningStream(written)])
+    let fixture = try makeFixture(vision: vision, withVision: true)
+    var screenshot = try attachment()
+    screenshot.ocrText = "E492: Not an editor command"
+    let done = finished(fixture.chat)
+    fixture.chat.submitScreen("/think /edit How do I fix this?", attachment: screenshot,
+      decision: .vision(fixture.visual.screenModel), selectedMode: .local, searchEnabled: true,
+      cloudUploadAllowed: { false })
+    await fulfillment(of: [done.expectation], timeout: 3)
+    done.token.cancel()
+    XCTAssertEqual(fixture.chat.state, .idle)
+    let queryPrompt = try XCTUnwrap(vision.requests.first?.last?.content)
+    XCTAssertTrue(queryPrompt.contains("User question:\nHow do I fix this?\nQuery:"), queryPrompt)
+    XCTAssertFalse(queryPrompt.contains("/think"))
+    XCTAssertFalse(queryPrompt.contains("/edit"))
+    // Only the user's text loses its commands; the model's query reaches Brave as written.
+    let queries = await fixture.search.queries
+    XCTAssertEqual(queries.map(\.prompt), [written])
   }
 
   func testAnInstalledButUnselectedVisionModelCannotHandleTheRequest() async throws {
@@ -266,9 +289,9 @@ final class ScreenPipelineTests: XCTestCase {
   }
 
   func testInvalidPlanningOutputNeverFallsBackToSearchingTheVagueQuestion() async throws {
-    for (query, error) in [("", ScreenSearchError.invalidQuery), ("UNKNOWN", .invalidQuery),
-      ("query one\nquery two", .invalidQuery), ("Yes.", .invalidQuery),
-      (String(repeating: "x", count: 1_025), .outputTooLong)] {
+    for (query, error) in [("", ScreenSearchError.invalidQuery(.screen)), ("UNKNOWN", .invalidQuery(.screen)),
+      ("query one\nquery two", .invalidQuery(.screen)), ("Yes.", .invalidQuery(.screen)),
+      (String(repeating: "x", count: 1_025), .outputTooLong(.screen))] {
       let vision = PipelineVision(controlledStreams: [planningStream(query)])
       let fixture = try makeFixture(vision: vision, withVision: true)
       var accepted = false
@@ -283,6 +306,12 @@ final class ScreenPipelineTests: XCTestCase {
       XCTAssertTrue(fixture.chat.messages.isEmpty)
       XCTAssertEqual(fixture.chat.state, .failed(error.localizedDescription))
     }
+  }
+
+  func testScreenshotQueryPromptKeepsItsScreenSections() {
+    let prompt = ScreenSearchContext.queryPrompt(question: "Q", material: .screen(ocr: "O"))
+    XCTAssertTrue(prompt.contains("Screen facts:\n\nOCR:\nO\nUser question:\nQ\nQuery:"), prompt)
+    XCTAssertFalse(prompt.contains("Attached text"))
   }
 
   func testQueryNormalizationAcceptsSimpleLabelsAndRejectsOverlongOrControlText() throws {

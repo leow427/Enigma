@@ -104,9 +104,14 @@ signals that together mark a request, so ordinary rewordings still count.
 
 `/screen` and `/snapshot` are never recognized, because they capture your
 screen. "What's on my screen?" stays an ordinary question until you type the
-command. The request a typed `/screen` or `/snapshot` sends after
-its capture runs only the commands you typed: nothing else is recognized from
-its wording.
+command. The request a typed `/screen` or `/snapshot` sends after its capture
+runs only the commands you typed: nothing else is recognized from its wording,
+and it doesn't search automatically, since no chip was shown for it. Type
+`/search` with the capture command to search. Other questions are answered
+without search, except in Auto with Cloud set up, where a message that asks for
+a web lookup ("look this up", "latest news", "current price" and similar) isn't
+sent: Enigma keeps the capture and asks you to use `/search`. See
+[How Auto decides](Cloud-Model-Selection.md#how-auto-decides).
 
 ### Chips
 
@@ -226,7 +231,10 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
   completion with Unicode text, and capture with and without a question.
 - `EnigmaTests/ScreenPipelineTests.swift`: commands in either order, once, with
   quoted text kept.
-- `EnigmaTests/ScreenViewTests.swift`: the rendered list with a highlighted draft.
+- `EnigmaTests/ScreenViewTests.swift`: the rendered list with a highlighted
+  draft; the request after a typed capture runs only its typed commands, never
+  searches automatically, still searches with a typed `/search`, and in Auto
+  asks for `/search` when it needs a web lookup.
 - `EnigmaTests/EnigmaMainWindowTests.swift`: example lines follow the available
   commands; the **/** button types a command.
 - `EnigmaTests/WebSearchTests.swift`: `/search` suggestions follow the saved key;
@@ -237,7 +245,8 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
   `ThinkIntentTests` and `SelectionIntentPolicyTests` cover the phrasings that
   are and aren't recognized, including quoted text and curly apostrophes;
   `ComposerIntentResolveTests` covers every conflict, dismissals, the setting,
-  follow-ups and speed; `ComposerIntentChipsTests` renders the chips in both
+  follow-ups, speed, and no recognized commands or automatic search after a
+  typed capture; `ComposerIntentChipsTests` renders the chips in both
   composers and in the shell.
 - `EnigmaTests/ComposerIntentPhrasingTests.swift`: a corpus of realistic
   phrasings, each with the one chip it should get, and phrasings that get none.

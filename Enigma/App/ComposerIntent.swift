@@ -21,6 +21,17 @@ struct ComposerIntent: Equatable, Sendable {
     var searchesAutomatically = false
     /// Inferences the person turned off for this draft.
     var dismissed: Set<SlashCommand> = []
+
+    /// `recognizesCommands` is false for the request a typed `/screen` or `/snapshot` sends after
+    /// its capture. That request runs only the typed commands: no chip was shown for it, so
+    /// nothing is inferred and automatic search stays off.
+    func recognizingCommands(_ recognizesCommands: Bool) -> Context {
+      guard !recognizesCommands else { return self }
+      var context = self
+      context.infersCommands = false
+      context.searchesAutomatically = false
+      return context
+    }
   }
 
   /// The user default behind "Recognize commands from your wording".

@@ -222,6 +222,26 @@ final class ComposerIntentResolveTests: XCTestCase {
     }
   }
 
+  func testRequestAfterCaptureRunsOnlyTypedCommands() {
+    let context = ComposerIntent.Context(draft: "think hard: what's the latest AI news", hasScreenshot: true,
+                                         searchesAutomatically: true)
+    XCTAssertEqual(ComposerIntent.resolve(context).inferred, [.search, .think])
+    XCTAssertEqual(ComposerIntent.resolve(context.recognizingCommands(true)), ComposerIntent.resolve(context))
+    let afterCapture = ComposerIntent.resolve(context.recognizingCommands(false))
+    XCTAssertEqual(afterCapture.inferred, [])
+    XCTAssertFalse(afterCapture.search, "No chip was shown, so nothing may search automatically")
+    XCTAssertFalse(afterCapture.think)
+
+    // What a typed `/screen /search /think` draft becomes once the capture consumes `/screen`.
+    let typed = SlashCommand.removing([.screen, .snapshot], from: "/screen /search /think what's the latest AI news")
+    var typedContext = context
+    typedContext.draft = typed
+    let typedAfterCapture = ComposerIntent.resolve(typedContext.recognizingCommands(false))
+    XCTAssertTrue(typedAfterCapture.search)
+    XCTAssertTrue(typedAfterCapture.think)
+    XCTAssertEqual(typedAfterCapture.inferred, [])
+  }
+
   func testFollowUpCarriesMessagesOnlyWithTheFlag() {
     XCTAssertEqual(resolve("send her a message saying hi", previousTurnUsedMessages: true).inferred, [.messages])
     XCTAssertEqual(resolve("what about Alex?", previousTurnUsedMessages: true).inferred, [.messages])

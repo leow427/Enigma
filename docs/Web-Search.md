@@ -70,6 +70,13 @@ composer bar while you type, so you know before sending. Click the chip to send
 that message without searching; it stays off while you keep editing, on every
 route (Local, Cloud and Auto), and comes back for the next message or when you
 clear the field. With automatic search off, or without a key, there's no chip.
+A typed `/screen` or `/snapshot` shows no chip, so the request it sends after
+its capture never searches automatically; type `/search` with it to search.
+That request is answered without search, with one exception: in Auto with Cloud
+set up, a message that asks for a web lookup ("search the web", "look this up",
+"latest news", "current price" and similar) isn't sent. Enigma keeps the capture
+and draft and says "Use /search in your message to look this up with Brave."
+See [How Auto decides](Cloud-Model-Selection.md#how-auto-decides).
 The chip follows the automatic-search setting, not **Recognize commands from
 your wording**. See [Slash commands](Slash-Commands.md#recognized-commands).
 
@@ -113,11 +120,20 @@ model's context for sources. **Stop** cancels both the search and the answer.
 - **What goes to Brave:** a search query and your API key, over HTTPS, with
   nothing cached on disk and redirects refused.
   - Normally the query is your current question, trimmed to 50 words and 400
-    characters, without slash commands.
-  - With a screenshot or selected text attached, your selected model first writes
-    a short query from your question and the relevant parts of that material. It
-    is told to leave out unrelated, personal and credential details, but that
-    isn't guaranteed. Pixels, full OCR text and the full selection are not sent.
+    characters. Slash commands such as `/think`, `/edit` and `/translate` are
+    removed on every route. If nothing is left and nothing is attached (for
+    example `/search /translate` with no selection), nothing is sent: Enigma
+    says there's nothing to search for and keeps your draft.
+  - With a screenshot, selected text or a proposed revision attached, your
+    selected model first writes a short query from your question (without slash
+    commands) and the relevant parts of that material. Screenshots and attached
+    text use the same query-writing prompt, which treats the material as quoted
+    data and tells the model to leave out unrelated content, credentials and
+    personal details, but that isn't guaranteed. Pixels, full OCR text and the
+    full selection are not sent. A message that is only commands, such as
+    `/search /translate` with a selection, still searches, with a query written
+    from the attached material alone. If the model can't write a usable query,
+    Enigma says so, names the screen or the attached text, and keeps your draft.
   - For nearby questions, such as "weather today" or "cafes near me", an
     approximate area (city and coordinates rounded to about 1 km) is added. See
     Location below.
@@ -125,7 +141,8 @@ model's context for sources. **Stop** cancels both the search and the answer.
   content, and model-provider credentials.
 - **Who can trigger a search:** only your current question or `/search`.
   Attached text, OCR, files and earlier messages can refine an approved query
-  but can't cause a search on their own.
+  but can't cause a search on their own. An automatic search always shows its
+  chip before you send.
 - **Where the answer comes from:** search controls retrieval, not the model. In
   Local mode the answer is written on this Mac, but the query still goes to
   Brave.
@@ -156,13 +173,15 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
 - `Enigma/App/ComposerIntent.swift`: `ComposerIntent.resolve` runs the policy on
   the typed draft for the `search` chip, and drops it for dismissals, attached
   files and Messages requests. The composer sends its result as the final
-  decision.
+  decision. `Context.recognizingCommands(false)`, used for the request a typed
+  capture sends, turns off recognized commands and automatic search.
 - `Enigma/LocalInference/LocalChatViewModel.swift`: `shouldSearch` combines
   `/search` with the policy. With `allowsAutomaticSearch: false`, as the composer
   and Auto's chosen route pass, it keeps the decision it was given, so a
   dismissed chip stays off. The Local, Cloud, Auto and Screen submission paths
-  call the private `search` method, which refines the query when text is
-  attached and adds location. The Screen path writes its refined query first.
+  call the private `search` method, which removes slash commands, refines the
+  query when text is attached and adds location. The Screen path writes its
+  refined query first.
 - `Enigma/Search/BraveSearchClient.swift`: `BraveSearchClient` sends
   `POST https://api.search.brave.com/res/v1/llm/context` with the
   `X-Subscription-Token` header, a 30-second timeout and an ephemeral session.
@@ -177,9 +196,13 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
   model's own token counting; space a short source doesn't use goes to the
   others. The question is never cut, and older chat history only fills what's
   left.
-- `Enigma/Screen/ScreenPromptContext.swift`: `ScreenSearchContext` writes and
-  validates refined queries: one line, at most 50 words and 400 characters, and
-  not empty or a bare reply such as "Yes" or "UNKNOWN".
+- `Enigma/Screen/ScreenPromptContext.swift`: `ScreenSearchContext` removes slash
+  commands from the user's question (`question`), holds the one query-writing
+  prompt (`queryPrompt`; its `Material` is a screenshot's OCR or attached text,
+  and the prompt mentions only that), and validates refined queries: one line,
+  at most 50 words and 400 characters, and not empty or a bare reply such as
+  "Yes" or "UNKNOWN". A query the model wrote is sent as written.
+  `ScreenSearchError` names the source when no usable query comes back.
 - `Enigma/Search/LocationService.swift`: `LocationIntent` decides when a question
   is about nearby places; `LocationService` makes one bounded, cancellable
   location request.
@@ -203,15 +226,21 @@ API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/docume
 error handling without exposing response bodies, query limits and command
 boundaries, saving and removing the key, automatic-search examples and opt-outs,
 the setting and missing-key behavior in the real composers, attached text that
-can't authorize a search, query refinement, location handling, evidence fitting
+can't authorize a search, slash commands kept out of the query on every route,
+query refinement and its privacy prompt, location handling, evidence fitting
 and source selection across Local, Cloud, Auto and Screen, failures that keep the
 draft, cancellation, older chats without source data, the rendered sources
 list, and a decided search staying off on every route.
 `EnigmaTests/ComposerIntentTests.swift` covers the `search` chip, its dismissal
-and its conflicts; `EnigmaTests/ComposerIntentPhrasingTests.swift`, the phrasing
-corpus, checks which drafts get the chip and that Messages drafts never do; and `ComposerSubmissionTests` in
-`EnigmaTests/AppShellStateTests.swift` covers a dismissed chip sending without
-search. The tests use fixtures and need no Brave key or network.
+and its conflicts, and no automatic search after a typed capture;
+`EnigmaTests/ScreenViewTests.swift` checks that in the real composer, in Cloud
+and Auto; `EnigmaTests/ScreenPipelineTests.swift` covers the screenshot query
+writer, which never sees slash commands;
+`EnigmaTests/ComposerIntentPhrasingTests.swift`, the phrasing corpus, checks
+which drafts get the chip and that Messages drafts never do; and
+`ComposerSubmissionTests` in `EnigmaTests/AppShellStateTests.swift` covers a
+dismissed chip sending without search. The tests use fixtures and need no Brave
+key or network.
 
 Run them with `scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchTests`.
 See [Testing](Testing.md).

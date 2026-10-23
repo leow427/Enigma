@@ -223,8 +223,12 @@ The chat uses your selected mode and model, local or cloud. In Cloud mode, or wh
 Auto picks a cloud model, the selection is sent to that provider along with your
 question. With **/search**, or automatic search when it's on, the model first
 writes a search query from your question and the selection, so relevant details
-from the selection can reach Brave Search. Only your own question decides whether
-automatic search runs. See [Web search](Web-Search.md) and [Chat](Chat.md).
+from the selection can reach Brave Search. It uses the same query-writing prompt
+as screenshots: the selection is quoted data, never instructions, and the model
+is told to leave out unrelated content, credentials and personal details, though
+that isn't guaranteed. Your slash commands are removed before the query is
+written. Only your own question decides whether automatic search runs. See
+[Web search](Web-Search.md) and [Chat](Chat.md).
 
 ## How it works
 

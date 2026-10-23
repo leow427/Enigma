@@ -840,9 +840,7 @@ struct AppShellView: View {
   /// `recognizesCommands` is false for the request a typed `/screen` or `/snapshot`
   /// sends after its capture: captures run only their typed commands.
   private func composerIntent(recognizesCommands: Bool) -> ComposerIntent {
-    var context = composerIntentContext
-    context.infersCommands = context.infersCommands && recognizesCommands
-    return ComposerIntent.resolve(context)
+    ComposerIntent.resolve(composerIntentContext.recognizingCommands(recognizesCommands))
   }
 
   /// The chips for the draft the field shows; none while a sent message is pending.

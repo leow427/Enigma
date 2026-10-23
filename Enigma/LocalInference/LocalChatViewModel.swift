@@ -892,7 +892,7 @@ final class LocalChatViewModel: ObservableObject {
                   owner.state = .refiningSearch
                   owner.receiveActivity(.phase(.refiningSearch), requestID: active.id)
                   let queryRequest = [ChatMessage(role: .user, content:
-                    ScreenSearchContext.queryPrompt(question: prompt, facts: "", ocr: attachment.ocrText))]
+                    ScreenSearchContext.queryPrompt(question: ScreenSearchContext.question(prompt), material: .screen(ocr: attachment.ocrText)))]
                   let queryContext = try await prepare(queryRequest, requestImage)
                   let queryStream = try await owner.screenOutput(queryContext, image: requestImage,
                     target: target, localModel: localModel, activeID: active.id, cloudUploadAllowed: cloudUploadAllowed,
@@ -908,7 +908,7 @@ final class LocalChatViewModel: ObservableObject {
                 owner.state = .searching
                 // Screen queries resolve the user's references with relevant observed facts.
                 // Pixels, raw OCR, and conversation history are never attached to Brave.
-                searchResults = try await owner.search(searchQuery ?? prompt, locationPrompt: prompt, maximumTokens: BraveSearchClient.evidenceTokens, requestID: active.id)
+                searchResults = try await owner.search(prompt, writtenQuery: searchQuery, maximumTokens: BraveSearchClient.evidenceTokens, requestID: active.id)
               }
               try Task.checkCancellation()
               guard owner.activeRequest?.id == active.id else { return }
@@ -1363,22 +1363,24 @@ final class LocalChatViewModel: ObservableObject {
     modelFailure = nil
   }
 
-  private func search(_ query: String, locationPrompt: String? = nil, maximumTokens: Int, requestID: UUID) async throws -> [WebSearchResult] {
+  /// `prompt` is the user's text; `writtenQuery`, a query the screen path's model already wrote from it.
+  private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
+                      requestID: UUID) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
-    var contextualQuery = query
+    // The user's text loses its slash commands here on every route, before refining, the location
+    // check and Brave. A model-written query is used as written.
+    let question = writtenQuery ?? ScreenSearchContext.question(prompt)
+    var contextualQuery = question
     // Only the source material this request carries refines its query.
     let source = requestSource
     if !source.contexts.isEmpty || source.draft != nil, let active = activeRequest, active.id == requestID {
       state = .refiningSearch
       receiveActivity(.phase(.refiningSearch), requestID: requestID)
-      var message = ChatMessage(role: .user, content:
-        "Create one concise web search query that helps answer the user's question about the attached context. "
-        + "Return only the query, without quotes or commentary. Question: " + query)
       var contexts = source.contexts
       if let draft = source.draft {
         contexts.append(ConversationContext(sourceName: "Proposed revision", text: draft))
       }
-      message.contexts = contexts
+      let message = ChatMessage(role: .user, content: ScreenSearchContext.queryPrompt(question: question, material: .attachedText(contexts)))
       let prepared: PreparedConversation
       let stream: AsyncThrowingStream<String, Error>
       if active.route.mode == .local {
@@ -1396,14 +1398,19 @@ final class LocalChatViewModel: ObservableObject {
         stream = cloudProviders.provider(for: providerID).textStream(ChatRequest(
           sessionID: selectedSessionID ?? UUID(), messages: prepared.messages, route: active.route))
       }
-      contextualQuery = try ScreenSearchContext.query(from:
-        await ScreenSearchContext.collect(stream, maximumBytes: 1_024))
+      do {
+        contextualQuery = try ScreenSearchContext.query(from:
+          await ScreenSearchContext.collect(stream, maximumBytes: 1_024), source: .attachedText)
+      } catch ScreenSearchError.outputTooLong {
+        throw ScreenSearchError.outputTooLong(.attachedText)
+      }
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }
       state = .searching
       receiveActivity(.phase(.searching), requestID: requestID)
     }
-    if LocationIntent.needsLocation(locationPrompt ?? query), let locationProvider {
+    guard !contextualQuery.isEmpty else { throw WebSearchError.emptyQuery }
+    if LocationIntent.needsLocation(ScreenSearchContext.question(prompt)), let locationProvider {
       let location = try await locationProvider.currentLocation()
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }

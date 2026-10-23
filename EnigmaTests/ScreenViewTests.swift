@@ -1104,6 +1104,45 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertTrue(request.messages.last?.content.contains("think hard and read the text") == true)
   }
 
+  func testTypedCaptureNeverSearchesAutomatically() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .cloud, hasSearchKey: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    let question = "What is the latest news about this?"
+    XCTAssertTrue(ComposerIntent.resolve(.init(draft: question, hasScreenshot: true, searchesAutomatically: true)).search,
+                  "With a chip showing, this question would search automatically")
+    try await editScreenshotComposer("/screen " + question, in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { !fixture.cloudProvider.requests.isEmpty && !fixture.chat.isBusy }
+    var queries = await fixture.webSearch.queries
+    XCTAssertEqual(queries, [], "No chip showed after the capture, so the screenshot's text must not reach Brave")
+    XCTAssertNil(fixture.chat.messages.last?.searchSources)
+    XCTAssertTrue(fixture.cloudProvider.requests.last?.messages.last?.content.contains(question) == true)
+
+    // A typed /search still runs after the capture.
+    let answered = fixture.cloudProvider.requests.count
+    try await editScreenshotComposer("/search /screen " + question, in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.cloudProvider.requests.count > answered && !fixture.chat.isBusy }
+    queries = await fixture.webSearch.queries
+    XCTAssertEqual(queries.count, 1)
+    XCTAssertEqual(fixture.chat.messages.last?.searchSources, [PanelSearch.source])
+  }
+
+  func testTypedCaptureInAutoAsksForSearchInsteadOfSearching() async throws {
+    let fixture = try await makeScreenshotComposer(mode: .auto, hasSearchKey: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("/screen What is the latest news about this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.screen.error != nil && !fixture.screen.isBusy && !fixture.chat.isBusy }
+    // Auto won't answer a fresh question without search, and nothing may search automatically.
+    XCTAssertEqual(fixture.screen.error, AutoRouter.Limitation.unavailableCapability(.webSearch).message)
+    let queries = await fixture.webSearch.queries
+    XCTAssertEqual(queries, [])
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+    XCTAssertTrue(fixture.engine.requests.isEmpty)
+    XCTAssertNotNil(fixture.screen.attachment)
+  }
+
   func testRealComposerScreenRecordingDenialKeepsCompactDraft() async throws {
     let fixture = try await makeScreenshotComposer(compact: true)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
@@ -1293,7 +1332,7 @@ final class ScreenViewTests: XCTestCase {
   private func makeScreenshotComposer(compact: Bool = false, mode: ChatMode = .local,
                                       provider: CloudProviderID = .openAI,
                                       sessionWriter: ChatSessionWriter? = nil,
-                                      response: AsyncThrowingStream<String, Error>? = nil,
+                                      response: AsyncThrowingStream<String, Error>? = nil, hasSearchKey: Bool = false,
                                       streamStarted: @escaping @Sendable () -> Void = {}) async throws -> ScreenshotComposerFixture {
     let suite = "ScreenshotComposer-\(UUID())"
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -1308,10 +1347,12 @@ final class ScreenViewTests: XCTestCase {
     let model = LocalModel(id: "text", displayName: "Fixture text model", fileURL: directory.appending(path: "text.gguf"))
     let engine = RepeatedPanelEngine(model: model, response: response, started: streamStarted)
     let cloudProvider = ComposerScreenProvider()
-    let search = WebSearchSettings(credentials: PanelSearchCredentials(), defaults: defaults)
+    let search = WebSearchSettings(credentials: hasSearchKey ? PresenceOnlyCredentials() as any WebSearchCredentialStore
+      : PanelSearchCredentials(), defaults: defaults)
+    let webSearch = PanelSearch()
     let chat = LocalChatViewModel(engine: engine,
       cloudProviders: CloudProviderRegistry(openAI: cloudProvider, anthropic: cloudProvider, chatGPT: cloudProvider, gemini: cloudProvider),
-      webSearch: PanelSearch(), searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory),
+      webSearch: webSearch, searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory),
       sessionWriter: sessionWriter)
     addTeardownBlock { @MainActor in
       await chat.stopStreaming()?.value
@@ -1358,7 +1399,8 @@ final class ScreenViewTests: XCTestCase {
       }
     }
     return ScreenshotComposerFixture(controller: controller, window: window, view: view, screen: screen,
-      capture: capture, chat: chat, engine: engine, cloud: cloud, cloudProvider: cloudProvider, settings: settings)
+      capture: capture, chat: chat, engine: engine, cloud: cloud, cloudProvider: cloudProvider, settings: settings,
+      webSearch: webSearch)
   }
 
   private func editScreenshotComposer(_ text: String, in fixture: ScreenshotComposerFixture) async throws {
@@ -1533,6 +1575,7 @@ private struct ScreenshotComposerFixture {
   let cloud: CloudSettingsModel
   let cloudProvider: ComposerScreenProvider
   let settings: ScreenSettings
+  let webSearch: PanelSearch
 }
 
 @MainActor

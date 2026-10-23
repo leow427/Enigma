@@ -89,13 +89,20 @@ reply arrives, Enigma retries with the selected local model when it supports ima
 
 ### Screenshots and web search
 
-With **/search** (or automatic search, when enabled), the selected model first
-reads the screenshot and writes one focused search query. Brave Search receives
-only that query, never the image, the full OCR text or your chat history. The same
-model then answers from the screenshot and the evidence, and source links appear
-under the answer. Without search, Brave is never contacted. The query can include
-details from your screen that are relevant to the question; the model is asked to
-leave out unrelated, personal or credential details, but this isn't guaranteed.
+With **/search**, or automatic search when it's enabled and its chip shows, the
+selected model first reads the screenshot and writes one focused search query.
+A typed `/screen` or `/snapshot` shows no chip, so the request after its capture
+searches only when you also typed `/search`. Without it, the question is
+answered without search, except in Auto with Cloud set up, where a message that
+asks for a web lookup ("latest news", "current price" and similar) asks you to
+add `/search` instead of being sent; see
+[How Auto decides](Cloud-Model-Selection.md#how-auto-decides). Brave Search
+receives only that query, never the image, the full OCR text or your chat
+history. The same model then answers from the screenshot and the evidence, and
+source links appear under the answer. Without search, Brave is never contacted.
+The query can include details from your screen that are relevant to the
+question; the model is asked to leave out unrelated, personal or credential
+details, but this isn't guaranteed.
 See [Web search](Web-Search.md).
 
 If the model can't produce a usable query, or search fails, the request stops

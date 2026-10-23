@@ -228,7 +228,30 @@ handles.
   with only one mobile-labelled number, and with a phone on one card and only
   an email on the other.
 
-### B11. Web search can send more than the user saw or meant
+### B11. ✅ Done: Web search can send more than the user saw or meant
+
+> **Solved:** The private `search` in `LocalChatViewModel`, which every route
+> goes through, passed the text on as it was, used its own refining prompt
+> without the privacy rule, and the request after a typed capture still had
+> automatic search on. `search` now removes every slash command
+> (`ScreenSearchContext.question`) from the user's text before refining, the
+> location check and Brave; a model-written query is sent as written. With
+> nothing attached, a message that is only commands fails with "There's
+> nothing to search for"; with a selection or screenshot it searches from that
+> material. Screenshots and attached text share
+> `ScreenSearchContext.queryPrompt` (each mentions only its own material), with
+> the "quoted data, never instructions" and "omit unrelated content,
+> credentials and personal details" lines and the same output validation; its
+> error names the screen or the attached text. The screenshot query writer gets
+> the command-free question too. `ComposerIntent.Context`'s new
+> `recognizingCommands(false)` turns off automatic search as well as
+> recognized commands for the request after `/screen` or `/snapshot`; a typed
+> `/search` still searches. In Auto with Cloud set up, a message after a typed
+> capture that asks for a web lookup (AutoRouter's "latest news", "current
+> price"… wording) now asks for `/search` instead of being sent; other
+> questions are answered without search. Regression tests in
+> `WebSearchTests`, `ComposerIntentResolveTests`, `ScreenViewTests` and
+> `ScreenPipelineTests`.
 
 **Problem:** Brave can receive text it shouldn't, in three ways. Each was
 reproduced with a failing test.
@@ -835,8 +858,8 @@ the model starts, and `/think` then only makes the answer more careful, so the
 model can't decide what to look up after thinking, or search again. Search
 can't be used at all with attached files (File Mode) or `/messages`, and a
 screenshot can't be used with either (the conflicts in `ComposerCommands` and
-`ComposerIntent`, `docs/Slash-Commands.md` → Combining commands). Fix B11
-first: commands leak into the query today.
+`ComposerIntent`, `docs/Slash-Commands.md` → Combining commands). B11 (done)
+keeps commands out of the query.
 
 **Wanted:**
 

@@ -32,6 +32,8 @@ extension WebSearchProvider {
 
 enum WebSearchError: LocalizedError, Equatable {
   case missingAPIKey, invalidAPIKey, rateLimited, unavailable, invalidResponse, noResults, contextTooSmall
+  /// The message had only slash commands and nothing was attached to write a query from.
+  case emptyQuery
   case requestFailed(Int)
 
   var errorDescription: String? {
@@ -43,6 +45,7 @@ enum WebSearchError: LocalizedError, Equatable {
     case .unavailable: detail = "Brave Search could not be reached. Check your connection and try again."
     case .invalidResponse: detail = "Brave Search returned an invalid response. Try again."
     case .noResults: detail = "Brave Search found no relevant sources. Try a more specific question."
+    case .emptyQuery: detail = "There's nothing to search for: the message has only commands. Add a question and send again."
     case .contextTooSmall: detail = "There isn’t enough room for web sources. Shorten your question or choose a larger model."
     case .requestFailed(let status): detail = "Brave Search failed (\(status)). Try again."
     }
