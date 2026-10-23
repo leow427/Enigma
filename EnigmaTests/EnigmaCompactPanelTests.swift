@@ -845,6 +845,37 @@ final class EnigmaCompactPanelTests: XCTestCase {
     try await waitForUI("thinking while the panel answers", in: host.view) { fixture.character.state == .thinking }
   }
 
+  @MainActor
+  func testOpenMenuDrawsAboveTheCharacterAndTakesTheClickOnItsRow() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = try await CompactPanelHost(fixture, test: self)
+    host.present("Please send the report today.")
+    try await host.waitForComposer()
+    let character = fixture.character
+    try await waitForUI("the character beside the input", in: host.view) {
+      character.activeSlot == CompactPanelLayout.inputSlot && character.isPresent
+    }
+    let slot = try XCTUnwrap(character.model.slot?.center)
+    NotificationCenter.default.post(name: .modePaletteRequested, object: nil)
+    try await waitForUI("the mode and model menu", in: host.view) { host.shows("Menu item Auto") }
+    // Beside the input, clear of the menu, the capture shows the character.
+    try await holdCharacter(character, at: slot, in: host.view)
+    let radius = character.model.bodyRadius
+    XCTAssertEqual(try characterBodyPixels(EnigmaSnapshot.capture(host.view), around: slot, bodyRadius: radius), 2,
+                   "The character beside the input")
+    let row = frameFromTop(of: try XCTUnwrap(host.marker("Menu item Auto")), in: host.view)
+    let center = CGPoint(x: row.midX, y: row.midY)
+    try await holdCharacter(character, at: center, in: host.view)
+    XCTAssertEqual(try characterBodyPixels(EnigmaSnapshot.capture(host.view), around: center, bodyRadius: radius), 0,
+                   "The menu's row draws over the character")
+
+    try await clickTestControl("Menu item Auto", in: host.view)
+    try await waitForUI("the row picked, not the character", in: host.view) {
+      !host.shows("Menu item Auto") && host.shows("Route chip auto · local")
+    }
+    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
+  }
+
   // MARK: Screenshots
 
   @MainActor

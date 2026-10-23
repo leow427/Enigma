@@ -486,6 +486,30 @@ final class EnigmaCharacterTests: XCTestCase {
   }
 
   @MainActor
+  func testStageHidesTheCharacterWhereSomethingCoversIt() throws {
+    let controller = EnigmaCharacterController(seed: 9)
+    controller.move(to: "main")
+    // A cover over the left half of the character: (0, 0) to (110, 240).
+    let image = try EnigmaSnapshot.render(
+      StageHarness(controller: controller, cover: CGRect(x: 0, y: 0, width: 110, height: 240)).enigmaTheme(.paper),
+      size: CGSize(width: 220, height: 240))
+    let offset = 92 * 0.34 * 0.6
+    try assertPixel(image, at: CGPoint(x: 110 - offset, y: 96), is: EnigmaPalette.paper.background, "covered body")
+    try assertPixel(image, at: CGPoint(x: 110 + offset, y: 96), is: EnigmaPalette.paper.characterBody, "uncovered body")
+  }
+
+  func testCharacterHitAreaLeavesOutWhatCoversIt() {
+    let side: CGFloat = 40
+    let cover = Path(CGRect(x: 0, y: 0, width: 20, height: 40))
+    let shape = EnigmaCharacterHitShape(covers: [cover]).path(in: CGRect(x: 0, y: 0, width: side, height: side))
+    XCTAssertFalse(shape.contains(CGPoint(x: 10, y: 20)), "A covered point isn't the character's")
+    XCTAssertTrue(shape.contains(CGPoint(x: 30, y: 20)), "An uncovered point inside the circle is")
+    XCTAssertFalse(shape.contains(CGPoint(x: 39, y: 1)), "A point outside the circle isn't")
+    XCTAssertTrue(EnigmaCharacterHitShape(covers: []).path(in: CGRect(x: 0, y: 0, width: side, height: side))
+      .contains(CGPoint(x: 10, y: 20)), "With nothing over it, the whole circle is")
+  }
+
+  @MainActor
   func testTimelineRestsWhileNothingIsDrawn() async throws {
     let controller = EnigmaCharacterController(seed: 4)
     var time = 50.0
@@ -751,6 +775,8 @@ final class EnigmaCharacterTests: XCTestCase {
 /// A window with one character slot, as a screen would mark it.
 private struct StageHarness: View {
   let controller: EnigmaCharacterController
+  /// Something shown in place over the character, from the top-left.
+  var cover: CGRect?
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
@@ -760,6 +786,16 @@ private struct StageHarness: View {
       Spacer(minLength: 0)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .topLeading) {
+      if let cover {
+        Color.clear.frame(width: cover.width, height: cover.height).enigmaCharacterCover()
+          .padding(.leading, cover.minX)
+          .padding(.top, cover.minY)
+      }
+    }
+    // A target around the slot and the cover, as the composer is around the
+    // slash-command list, adds to them rather than hiding them.
+    .enigmaCharacterTarget("page")
     .background(palette.background.color)
     .enigmaCharacterStage(controller)
   }

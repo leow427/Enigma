@@ -1691,6 +1691,14 @@ struct EnigmaMenu<Label: View>: View {
     // A shortcut can open or close it from outside.
     .onChange(of: isPresented?.wrappedValue ?? false) { _, open in setOpen(open) }
     .onAppear { if isPresented?.wrappedValue == true { setOpen(true) } }
+    // The host draws the list outside the trigger's views, so a trigger that
+    // turns disabled, as when the welcome covers the window, closes its menu.
+    // A list open in place is disabled with its trigger.
+    .onChange(of: isEnabled) { _, enabled in
+      guard !enabled, let presenter, presenter.presentation?.id == id else { return }
+      presenter.dismiss(id, restoringFocus: false)
+      if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }
+    }
     .onDisappear {
       presenter?.dismiss(id, restoringFocus: false)
       if isPresented?.wrappedValue == true { isPresented?.wrappedValue = false }

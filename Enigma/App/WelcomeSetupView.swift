@@ -607,6 +607,7 @@ struct WelcomeTourCard: View {
         }
         .enigmaButtonStyle(.primary)
         .keyboardShortcut(.defaultAction)
+        .enigmaTestMarker("Next tour stop")
       }
       .padding(.top, 4)
     }

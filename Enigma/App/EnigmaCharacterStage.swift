@@ -300,6 +300,8 @@ struct EnigmaCharacterAnchor {
   enum Role {
     case slot(EnigmaCharacterSlotID, size: CGFloat, movesWithContent: Bool)
     case target(EnigmaCharacterTargetID, point: UnitPoint)
+    /// Something drawn over the character, like the slash-command list.
+    case cover(cornerRadius: CGFloat)
   }
 
   let role: Role
@@ -314,15 +316,26 @@ struct EnigmaCharacterAnchorKey: PreferenceKey {
   }
 }
 
-/// Slots and targets resolved into the stage's points.
+/// Slots, targets, and covers resolved into the stage's points.
 struct EnigmaCharacterPlaces: Equatable {
+  /// Where something covers the character: the character isn't drawn or
+  /// grabbed there.
+  struct Cover: Equatable {
+    var frame: CGRect
+    var cornerRadius: CGFloat
+
+    var path: Path { Path(roundedRect: frame, cornerRadius: cornerRadius, style: .continuous) }
+  }
+
   var slots: [EnigmaCharacterSlotID: EnigmaCharacterModel.Slot] = [:]
   var targets: [EnigmaCharacterTargetID: CGPoint] = [:]
+  var covers: [Cover] = []
 
   init(slots: [EnigmaCharacterSlotID: EnigmaCharacterModel.Slot] = [:],
-       targets: [EnigmaCharacterTargetID: CGPoint] = [:]) {
+       targets: [EnigmaCharacterTargetID: CGPoint] = [:], covers: [Cover] = []) {
     self.slots = slots
     self.targets = targets
+    self.covers = covers
   }
 
   init(_ anchors: [EnigmaCharacterAnchor], in proxy: GeometryProxy) {
@@ -333,6 +346,8 @@ struct EnigmaCharacterPlaces: Equatable {
         slots[id] = .init(center: CGPoint(x: rect.midX, y: rect.midY), size: size, movesWithContent: movesWithContent)
       case let .target(id, point):
         targets[id] = CGPoint(x: rect.minX + rect.width * point.x, y: rect.minY + rect.height * point.y)
+      case let .cover(cornerRadius):
+        covers.append(Cover(frame: rect, cornerRadius: cornerRadius))
       }
     }
   }
@@ -346,22 +361,48 @@ extension View {
   /// character scrolls with it rather than trailing behind.
   func enigmaCharacterSlot(id: EnigmaCharacterSlotID, size: CGFloat, movesWithContent: Bool = false) -> some View {
     frame(width: size, height: size)
-      .anchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
-        [EnigmaCharacterAnchor(role: .slot(id, size: size, movesWithContent: movesWithContent), bounds: $0)]
+      .transformAnchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
+        $0.append(EnigmaCharacterAnchor(role: .slot(id, size: size, movesWithContent: movesWithContent), bounds: $1))
       }
   }
 
   /// Marks something the character can turn toward, at `point` within this view.
   func enigmaCharacterTarget(_ id: EnigmaCharacterTargetID, at point: UnitPoint = .center) -> some View {
-    anchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
-      [EnigmaCharacterAnchor(role: .target(id, point: point), bounds: $0)]
+    // Added to what's inside, like the slash-command list's cover in the composer.
+    transformAnchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
+      $0.append(EnigmaCharacterAnchor(role: .target(id, point: point), bounds: $1))
+    }
+  }
+
+  /// Marks this view as drawn over the character, for something shown in
+  /// place below the stage, like the slash-command list: the stage doesn't
+  /// draw the character or let it be grabbed within the view's bounds, a
+  /// rounded rectangle with `cornerRadius`. Menus and the tour don't need it:
+  /// they draw above the stage.
+  func enigmaCharacterCover(cornerRadius: CGFloat = 0) -> some View {
+    transformAnchorPreference(key: EnigmaCharacterAnchorKey.self, value: .bounds) {
+      $0.append(EnigmaCharacterAnchor(role: .cover(cornerRadius: cornerRadius), bounds: $1))
     }
   }
 
   /// Draws `controller`'s character over this view at its active slot. Apply it
-  /// once, at the window root, inside `.enigmaTheme(_:)`.
-  func enigmaCharacterStage(_ controller: EnigmaCharacterController) -> some View {
-    modifier(EnigmaCharacterStage(controller: controller))
+  /// once, at the window root, inside `.enigmaTheme(_:)`. A window that draws
+  /// things above the stage, like menus, passes `tracksPointer: false` and
+  /// applies `.enigmaCharacterPointer(_:)` outside them, so the character
+  /// still follows the pointer over them.
+  func enigmaCharacterStage(_ controller: EnigmaCharacterController, tracksPointer: Bool = true) -> some View {
+    modifier(EnigmaCharacterStage(controller: controller, tracksPointer: tracksPointer))
+  }
+
+  /// Tells `controller` where the pointer is over this view, which must have
+  /// the stage's bounds.
+  func enigmaCharacterPointer(_ controller: EnigmaCharacterController) -> some View {
+    onContinuousHover(coordinateSpace: .local) { phase in
+      switch phase {
+      case let .active(location): controller.pointerMoved(to: location)
+      case .ended: controller.pointerMoved(to: nil)
+      }
+    }
   }
 }
 
@@ -373,6 +414,7 @@ struct EnigmaCharacterStage: ViewModifier {
   static let coordinateSpace = "EnigmaCharacterStage"
 
   @ObservedObject var controller: EnigmaCharacterController
+  var tracksPointer = true
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var isWindowVisible = true
@@ -382,12 +424,7 @@ struct EnigmaCharacterStage: ViewModifier {
       windowVisible: isWindowVisible, reduceMotion: reduceMotion,
       isAtRest: controller.activity == .rest, needsEveryFrame: controller.activity == .live)
     content
-      .onContinuousHover(coordinateSpace: .local) { phase in
-        switch phase {
-        case let .active(location): controller.pointerMoved(to: location)
-        case .ended: controller.pointerMoved(to: nil)
-        }
-      }
+      .modifier(PointerTracking(controller: controller, isOn: tracksPointer))
       .overlayPreferenceValue(EnigmaCharacterAnchorKey.self) { anchors in
         GeometryReader { proxy in
           EnigmaCharacterLayer(controller: controller, places: EnigmaCharacterPlaces(anchors, in: proxy),
@@ -396,6 +433,15 @@ struct EnigmaCharacterStage: ViewModifier {
       }
       .background(EnigmaWindowVisibilityReader { isWindowVisible = $0 })
       .onDisappear { controller.stageDidDisappear() }
+  }
+}
+
+private struct PointerTracking: ViewModifier {
+  let controller: EnigmaCharacterController
+  let isOn: Bool
+
+  @ViewBuilder func body(content: Content) -> some View {
+    if isOn { content.enigmaCharacterPointer(controller) } else { content }
   }
 }
 
@@ -415,6 +461,8 @@ private struct EnigmaCharacterLayer: View {
                                    targets: places.targets, reduceMotion: reduceMotion)
       ZStack(alignment: .topLeading) {
         Canvas { context, _ in
+          // What covers the character hides it, as if drawn above it.
+          for cover in places.covers { context.clip(to: cover.path, options: .inverse) }
           EnigmaCharacterRenderer.draw(frame, palette: palette, in: &context)
         }
         .allowsHitTesting(false)
@@ -430,16 +478,19 @@ private struct EnigmaCharacterLayer: View {
   /// The character's hit area and its single accessibility element.
   private var handle: some View {
     let side = max(controller.model.bodyRadius * 2.5, 12)
+    let position = controller.model.position
     return Color.clear
       .frame(width: side, height: side)
-      .contentShape(Circle())
+      // Clicks where something covers the character go to it instead.
+      .contentShape(EnigmaCharacterHitShape(
+        covers: places.covers.map { $0.path.offsetBy(dx: side / 2 - position.x, dy: side / 2 - position.y) }))
       .gesture(drag, including: reduceMotion ? .none : .all)
       .pointerStyle(reduceMotion ? nil : (controller.model.isDragging ? .grabActive : .grabIdle))
       .accessibilityElement()
       .accessibilityLabel(EnigmaCharacterState.accessibilityLabel)
       .accessibilityValue(controller.state.accessibilityValue)
       .accessibilityAddTraits(.isImage)
-      .position(controller.model.position)
+      .position(position)
   }
 
   private var drag: some Gesture {
@@ -456,6 +507,16 @@ private struct EnigmaCharacterLayer: View {
         controller.moveDrag(to: value.location)
         controller.endDrag(velocity: CGVector(dx: value.velocity.width, dy: value.velocity.height))
       }
+  }
+}
+
+/// The character's hit area: a circle filling the handle, less what covers it,
+/// in the handle's coordinates.
+struct EnigmaCharacterHitShape: Shape {
+  let covers: [Path]
+
+  func path(in rect: CGRect) -> Path {
+    covers.reduce(Path(ellipseIn: rect)) { $0.subtracting($1) }
   }
 }
 

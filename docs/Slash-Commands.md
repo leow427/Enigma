@@ -182,7 +182,10 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
 - `Enigma/App/SlashCommandComposer.swift`: `SlashCommandComposer` wraps an
   AppKit `SlashCommandTextView` that colors commands with the palette's
   `accentText`, handles the keys above, and shows the list
-  (`EnigmaSlashSuggestions`, an opaque `menu` surface). `CommandCompletionModel`
+  (`EnigmaSlashSuggestions`, an opaque `menu` surface). The list opens in
+  place under the window's character, so it marks itself with
+  `.enigmaCharacterCover(cornerRadius:)`: the character isn't drawn or grabbed
+  where the list covers it, and a click there picks the row. `CommandCompletionModel`
   tracks matches and the chosen row. `SlashCommandInsertion` lets the **/**
   button and example lines insert text at the caret.
 - `Enigma/App/EnigmaComposer.swift` and `Enigma/App/EnigmaCompactPanel.swift`

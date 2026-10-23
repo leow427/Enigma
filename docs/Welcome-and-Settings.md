@@ -95,7 +95,8 @@ card beside it: chat history, the message box, slash commands (listing the
 available commands), files, the mode and model menu, and Help. Choose **Next**
 to move on; the last stop's button is **Finish setup**. **End tour** or Escape
 leaves at any point. The card stays inside the window at any size, with the
-sidebar shown or hidden.
+sidebar shown or hidden. The scrim and the card draw above the Enigma
+character, so it never covers **Next** or **End tour**.
 
 ![A tour stop](design/ui-revamp/screenshots/phase-4/tour-card-paper.png)
 
