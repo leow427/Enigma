@@ -5,6 +5,7 @@ struct CloudPreferencesStore: @unchecked Sendable {
   private enum Key {
     static let preferredProvider = "aiSpotlight.cloud.preferredProvider"
     static let didAdoptLunaDefault = "aiSpotlight.cloud.didAdoptLunaDefault"
+    static let didAdoptCodexDefault = "aiSpotlight.cloud.didAdoptCodexDefault"
     static let preferredCodexThinkingCapacity = "aiSpotlight.cloud.preferredCodexThinkingCapacity"
     static let preferredClaudeCodeEffort = "aiSpotlight.cloud.preferredClaudeCodeEffort"
     static func preferredModel(_ provider: CloudProviderID) -> String {
@@ -16,35 +17,50 @@ struct CloudPreferencesStore: @unchecked Sendable {
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
-    if !defaults.bool(forKey: Key.didAdoptLunaDefault) {
+    if !defaults.bool(forKey: Key.didAdoptCodexDefault) {
       let previousModel = defaults.string(forKey: Key.preferredModel(.chatGPT))?
         .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      // Older versions persisted the first discovered model, usually Sol.
-      // Migrate once so a later explicit selection of Sol remains respected.
-      if previousModel.isEmpty || previousModel == "gpt-5.6-sol" {
-        defaults.set(CodexSubscriptionClient.defaultModelID, forKey: Key.preferredModel(.chatGPT))
+      // A saved ChatGPT model is the person's choice; none means Codex's default. Older
+      // versions saved models nobody chose: the first discovered model (usually Sol) before
+      // the Luna migration, then the built-in Luna default whenever no choice was made.
+      // Clear those once, so a later explicit choice of either is still respected.
+      let lunaMigrationRan = defaults.bool(forKey: Key.didAdoptLunaDefault)
+      if previousModel == CodexSubscriptionClient.defaultModelID || (!lunaMigrationRan && previousModel == "gpt-5.6-sol") {
+        defaults.removeObject(forKey: Key.preferredModel(.chatGPT))
       }
       defaults.set(true, forKey: Key.didAdoptLunaDefault)
+      defaults.set(true, forKey: Key.didAdoptCodexDefault)
     }
   }
 
   func preferredProvider() -> CloudProviderID {
-    defaults.string(forKey: Key.preferredProvider)
-      .flatMap(CloudProviderID.init(rawValue:)) ?? .chatGPT
+    storedPreferredProvider() ?? .chatGPT
+  }
+
+  /// The provider saved by choosing one, or nil while the built-in default applies.
+  func storedPreferredProvider() -> CloudProviderID? {
+    defaults.string(forKey: Key.preferredProvider).flatMap(CloudProviderID.init(rawValue:))
   }
 
   func setPreferredProvider(_ provider: CloudProviderID) {
     defaults.set(provider.rawValue, forKey: Key.preferredProvider)
   }
 
+  /// The saved model, or the built-in default when none is saved. For ChatGPT, prefer
+  /// `chosenModel(for:)` with Codex's own default (`CodexSubscriptionClient.automaticModelID`).
   func preferredModel(for provider: CloudProviderID) -> String {
-    let model = defaults.string(forKey: Key.preferredModel(provider)) ?? ""
-    guard model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return model }
+    if let model = chosenModel(for: provider) { return model }
     switch provider {
     case .chatGPT: return CodexSubscriptionClient.defaultModelID
     case .claudeCode: return ClaudeCodeSubscriptionClient.defaultModelID
-    case .openAI, .anthropic, .gemini: return model
+    case .openAI, .anthropic, .gemini: return ""
     }
+  }
+
+  /// The model the person chose for `provider`, or nil when none is saved.
+  func chosenModel(for provider: CloudProviderID) -> String? {
+    let model = defaults.string(forKey: Key.preferredModel(provider)) ?? ""
+    return model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : model
   }
 
   func setPreferredModel(_ modelID: String, for provider: CloudProviderID) {
@@ -113,16 +129,23 @@ final class CloudSettingsModel: ObservableObject {
     didSet {
       guard preferredProvider != oldValue else { return }
       preferences.setPreferredProvider(preferredProvider)
-      preferredModelID = preferences.preferredModel(for: preferredProvider)
       models = []
+      if preferredProvider == .chatGPT, preferences.chosenModel(for: .chatGPT) == nil {
+        applyAutomaticChatGPTModel()
+      } else {
+        preferredModelID = preferences.preferredModel(for: preferredProvider)
+      }
       hasLoadedModelList = false
       discoveryError = nil
       Task { await loadCachedModels() }
     }
   }
 
+  /// The model requests use. Setting it saves it as the person's choice, except while
+  /// Enigma fills in Codex's default for someone who hasn't chosen a ChatGPT model.
   @Published var preferredModelID: String {
     didSet {
+      guard !isApplyingAutomaticModel else { return }
       preferences.setPreferredModel(
         preferredModelID.trimmingCharacters(in: .whitespacesAndNewlines),
         for: preferredProvider
@@ -173,6 +196,7 @@ final class CloudSettingsModel: ObservableObject {
   private var loginTask: Task<Void, Never>?
   private var claudeCodeSignInTask: Task<Void, Never>?
   private var discoveryID = UUID()
+  private var isApplyingAutomaticModel = false
 
   typealias CodexInstall = @Sendable (@escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> Void
 
@@ -221,7 +245,9 @@ final class CloudSettingsModel: ObservableObject {
     self.preferences = preferences
     let provider = preferences.preferredProvider()
     preferredProvider = provider
-    preferredModelID = preferences.preferredModel(for: provider)
+    preferredModelID = provider == .chatGPT && preferences.chosenModel(for: .chatGPT) == nil
+      ? CodexSubscriptionClient.automaticModelID(in: CodexListedModels.shared.models)
+      : preferences.preferredModel(for: provider)
     codexThinkingCapacity = preferences.preferredCodexThinkingCapacity()
     claudeCodeEffort = preferences.preferredClaudeCodeEffort()
   }
@@ -477,6 +503,9 @@ final class CloudSettingsModel: ObservableObject {
       models = cached
       hasLoadedModelList = true
       selectDefaultModelIfNeeded()
+    } else if provider == .chatGPT, provider == preferredProvider {
+      // Reading the cache shared Codex's last list even when it is too old to show.
+      selectDefaultModelIfNeeded()
     }
   }
 
@@ -504,6 +533,51 @@ final class CloudSettingsModel: ObservableObject {
     }
   }
 
+  /// The daily background refresh of a subscription route's list: no progress, no error
+  /// shown, and on failure the cached list (and the one shown) stays as it was. Returns
+  /// false when the refresh failed and is worth retrying soon; a route that isn't signed
+  /// in or installed has nothing to refresh, which is not a failure.
+  @discardableResult
+  func refreshModelsQuietly(for provider: CloudProviderID) async -> Bool {
+    let discovered: [CloudModel]
+    do {
+      discovered = try await catalog.models(for: provider, forceRefresh: true)
+    } catch let error as CodexError where error == .notSignedIn || error == .notInstalled {
+      return true
+    } catch let error as ClaudeCodeError where [.notSignedIn, .notSubscription, .notInstalled].contains(error) {
+      return true
+    } catch ClaudeCodeError.exited, ClaudeCodeError.invalidResponse {
+      // `auth status` printed something other than its JSON: an unexpected CLI, which an
+      // hourly retry won't fix.
+      return true
+    } catch {
+      return false
+    }
+    guard provider == preferredProvider else { return true }
+    models = discovered
+    hasLoadedModelList = true
+    discoveryError = nil
+    selectDefaultModelIfNeeded()
+    return true
+  }
+
+  /// A cheap, local sign that the person may use ChatGPT in Enigma, checked before the daily
+  /// refresh starts Codex: ChatGPT was chosen as the provider, a ChatGPT model was chosen,
+  /// or a ChatGPT list is cached (only a signed-in Codex lists models).
+  func mayUseChatGPT() async -> Bool {
+    await mayUse(.chatGPT)
+  }
+
+  /// The same sign for Claude Code, checked before the daily refresh runs its CLI.
+  func mayUseClaudeCode() async -> Bool {
+    await mayUse(.claudeCode)
+  }
+
+  private func mayUse(_ provider: CloudProviderID) async -> Bool {
+    if preferences.storedPreferredProvider() == provider || preferences.chosenModel(for: provider) != nil { return true }
+    return await catalog.hasCachedModels(for: provider)
+  }
+
   func testConnection(to provider: CloudProviderID) async {
     connectionStates[provider] = .testing
     do {
@@ -528,13 +602,41 @@ final class CloudSettingsModel: ObservableObject {
   var claudeCodeLookedIn: String { claudeCode.runtime.lookedIn() }
 
   private func selectDefaultModelIfNeeded() {
+    // Without a choice, ChatGPT follows Codex's current default as the list changes.
+    if preferredProvider == .chatGPT, preferences.chosenModel(for: .chatGPT) == nil {
+      applyAutomaticChatGPTModel()
+      return
+    }
     guard preferredModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-    if preferredProvider == .chatGPT {
-      preferredModelID = CodexSubscriptionClient.defaultModelID
-    } else if preferredProvider == .claudeCode {
+    if preferredProvider == .claudeCode {
       preferredModelID = ClaudeCodeSubscriptionClient.defaultModelID
     } else if let defaultModel = CloudModelCapabilities.chatModels(models, for: preferredProvider).first {
       preferredModelID = defaultModel.id
+    }
+  }
+
+  /// Shows Codex's default (from the loaded list, else the last cached one) without
+  /// saving it, so it never becomes a choice the person didn't make.
+  private func applyAutomaticChatGPTModel() {
+    showWithoutSaving(CodexSubscriptionClient.automaticModelID(in: models.isEmpty ? CodexListedModels.shared.models : models))
+  }
+
+  private func showWithoutSaving(_ modelID: String) {
+    guard modelID != preferredModelID else { return }
+    isApplyingAutomaticModel = true
+    defer { isApplyingAutomaticModel = false }
+    preferredModelID = modelID
+  }
+
+  /// Uses the ChatGPT model File Mode checked when it hands a draft to Cloud mode. That
+  /// check uses the chosen model when Codex lists it and otherwise Codex's default, so the
+  /// model is saved only when it is the person's choice; a fallback is shown, not saved.
+  func useChatGPTModelFromFileMode(_ modelID: String) {
+    preferredProvider = .chatGPT
+    if preferences.chosenModel(for: .chatGPT) == modelID {
+      preferredModelID = modelID
+    } else {
+      showWithoutSaving(modelID)
     }
   }
 }

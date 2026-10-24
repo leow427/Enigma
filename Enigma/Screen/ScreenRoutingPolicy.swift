@@ -58,7 +58,12 @@ extension LocalModelDescriptor {
 
 extension CloudModel {
   var supportsText: Bool { CloudModelCapabilities.compatibility(provider: provider, modelID: id).allowsSending }
-  var supportsVision: Bool { CloudModelCapabilities.visionModelIDs(for: provider).contains(id) }
+  /// Codex reports each model's input types; a model built from an ID alone falls back
+  /// to the list Codex last returned. Other providers use reviewed IDs.
+  var supportsVision: Bool {
+    if provider == .chatGPT, let inputModalities { return inputModalities.contains("image") }
+    return CloudModelCapabilities.visionModelIDs(for: provider).contains(id)
+  }
   var isLocal: Bool { false }
   var visionProjectorPath: String? { nil }
   var screenModel: ScreenModel {
@@ -68,7 +73,8 @@ extension CloudModel {
 }
 
 extension CloudModelCapabilities {
-  /// Exact reviewed IDs. Unknown/manual IDs never acquire vision from their names.
+  /// Exact reviewed IDs, or for Codex the IDs its model list marks as taking images.
+  /// Unknown/manual IDs never acquire vision from their names.
   static func visionModelIDs(for provider: CloudProviderID) -> [String] {
     switch provider {
     case .openAI:
@@ -81,8 +87,13 @@ extension CloudModelCapabilities {
        "claude-opus-4-20250514", "claude-3-7-sonnet-20250219", "claude-3-5-haiku-20241022"]
     case .gemini:
       ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
-    case .chatGPT, .claudeCode:
-      [] // The subscription adapters currently accept text only.
+    case .chatGPT:
+      // Codex's own list says which models take images; caches written before it was
+      // recorded count as text-only until the next refresh.
+      CodexListedModels.shared.models.filter { $0.inputModalities?.contains("image") == true }.map(\.id)
+    case .claudeCode:
+      // Each alias resolves to the plan's newest model of its tier, all of which take images.
+      ClaudeCodeSubscriptionClient.models.map(\.id)
     }
   }
 }

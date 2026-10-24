@@ -117,6 +117,104 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertTrue(input.contains("Latest question"))
   }
 
+  func testScreenshotIsSentAsOneStreamJSONUserMessage() async throws {
+    let root = try temporaryDirectory()
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      /usr/bin/printf '%s\\n' "$@" > '\(root.path)/arguments'
+      /bin/cat > '\(root.path)/input'
+      /usr/bin/printf '%s\\n' '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"A chart"}}}'
+      /usr/bin/printf '%s\\n' '{"type":"result","subtype":"success","is_error":false,"result":"A chart"}'
+      """)
+    let image = PreparedScreenImage(data: Data([0xFF, 0xD8, 0xFF]), mimeType: "image/jpeg", pixelWidth: 2, pixelHeight: 2)
+    var send = ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "What is in this picture?")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: "opus", usesNetwork: true),
+      image: image)
+    send.allowsCloudImages = false
+    await assertThrowsScreenError(.cloudUploadNotAllowed) { _ = try await self.events(client.stream(send)) }
+    XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "input").path), "Nothing ran")
+
+    send.allowsCloudImages = true
+    let received = try await events(client.stream(send))
+    XCTAssertEqual(received, [.token("A chart"), .completed])
+    let arguments = try String(contentsOf: root.appending(path: "arguments"), encoding: .utf8)
+      .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    XCTAssertEqual(Array(arguments.prefix(3)), ["-p", "--input-format", "stream-json"])
+    XCTAssertEqual(value(after: "--output-format", in: arguments), "stream-json")
+    XCTAssertEqual(value(after: "--tools", in: arguments), "")
+    XCTAssertEqual(value(after: "--model", in: arguments), "opus")
+    let input = try String(contentsOf: root.appending(path: "input"), encoding: .utf8)
+    XCTAssertEqual(input, #"{"message":{"content":[{"source":{"data":"/9j/","media_type":"image/jpeg","type":"base64"},"type":"image"},{"text":"What is in this picture?","type":"text"}],"role":"user"},"parent_tool_use_id":null,"session_id":"","type":"user"}"# + "\n")
+    XCTAssertEqual(try ClaudeCodeSubscriptionClient.standardInput(prompt: "Hi", image: nil), Data("Hi".utf8),
+                   "Text-only requests keep plain text")
+    XCTAssertFalse(ClaudeCodeRuntime.chatArguments(model: "opus", effort: .automatic).contains("--input-format"))
+    XCTAssertFalse(ClaudeCodeRuntime.systemPrompt.contains("text-only"))
+  }
+
+  func testALargeScreenshotSurvivesACLIThatExitsWithoutReadingIt() async throws {
+    let root = try temporaryDirectory()
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      echo 'error: unknown option' >&2
+      exit 2
+      """)
+    await assertThrows(.exited(2, "error: unknown option")) {
+      _ = try await self.events(client.stream(self.largeScreenshotRequest()))
+    }
+  }
+
+  func testToolModeWriteToAnExitedCLIReportsItsExit() async throws {
+    let root = try temporaryDirectory()
+    let process = try ClaudeCodeProcess(executableURL: URL(fileURLWithPath: "/bin/sh"),
+      arguments: ["-c", "echo 'bad flag' >&2; exit 3"], environment: [:], currentDirectory: root,
+      input: nil, interactive: true)
+    for await _ in process.output {}
+    try await process.waitForExit()
+    XCTAssertThrowsError(try process.send(.object(["type": .string("user")]))) {
+      XCTAssertEqual($0 as? ClaudeCodeError, .exited(3, "bad flag"), "Not a file-saving error: \($0)")
+    }
+  }
+
+  func testClosedInputReportsTheCLIsExitWhenItFollows() async throws {
+    let root = try temporaryDirectory()
+    let process = try ClaudeCodeProcess(executableURL: URL(fileURLWithPath: "/bin/sh"),
+      arguments: ["-c", "exec 0<&-; /bin/sleep 0.3; echo 'stopped early' >&2; exit 4"], environment: [:],
+      currentDirectory: root, input: nil, interactive: true)
+    var sendError: ClaudeCodeError?
+    for _ in 0..<50 where sendError == nil {
+      do { try process.send(.object(["type": .string("user")])) } catch { sendError = error as? ClaudeCodeError }
+      if sendError == nil { try await Task.sleep(for: .milliseconds(10)) }
+    }
+    XCTAssertEqual(sendError, .inputClosed, "Still running when the write fails")
+    let reported = await process.errorAfterClosedInput()
+    XCTAssertEqual(reported, .exited(4, "stopped early"), "The reason the CLI gave")
+  }
+
+  func testStoppingWhileTheCLIStartsWithALargeScreenshotIsSafe() async throws {
+    let root = try temporaryDirectory()
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      exec /bin/sleep 5
+      """)
+    let stream = client.stream(largeScreenshotRequest())
+    let task = Task {
+      var received: [ChatEvent] = []
+      for try await event in stream { received.append(event) }
+      return received
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    task.cancel()
+    // A cancelled stream ends (or throws CancellationError) without completing.
+    do {
+      let received = try await task.value
+      XCTAssertFalse(received.contains(.completed))
+    } catch {
+      XCTAssertTrue(error is CancellationError, "\(error)")
+    }
+    // Give the blocked writer time to see the closed pipe; a SIGPIPE would end the test host here.
+    try await Task.sleep(for: .milliseconds(300))
+  }
+
   func testCompletedResultWithoutDeltasIsStillShown() async throws {
     let client = try client(root: try temporaryDirectory(), script: """
       #!/bin/sh
@@ -527,7 +625,9 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     let manual = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "claude-future-model")
     XCTAssertLessThan(manual.contextWindow, 128_000)
     XCTAssertEqual(manual.availableInputTokens, 32_768)
-    XCTAssertTrue(CloudModelCapabilities.visionModelIDs(for: .claudeCode).isEmpty)
+    XCTAssertEqual(CloudModelCapabilities.visionModelIDs(for: .claudeCode), ["sonnet", "opus", "fable", "haiku"])
+    XCTAssertFalse(CloudModel(id: "claude-future-model", displayName: "x", provider: .claudeCode).supportsVision,
+                   "Full model names typed in stay text-only")
   }
 
   // MARK: - Helpers
@@ -550,6 +650,16 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     ], route: Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: modelID, usesNetwork: true))
   }
 
+  /// A screenshot payload far larger than a pipe buffer, so the write to the CLI blocks.
+  private func largeScreenshotRequest() -> ChatRequest {
+    var bytes = Data([0xFF, 0xD8, 0xFF])
+    bytes.append(Data(repeating: 0x42, count: 400_000))
+    return ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "What is this?")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: "opus", usesNetwork: true),
+      image: PreparedScreenImage(data: bytes, mimeType: "image/jpeg", pixelWidth: 800, pixelHeight: 600),
+      allowsCloudImages: true)
+  }
+
   @MainActor
   private func waitUntil(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
     let deadline = ContinuousClock.now.advanced(by: .seconds(10))
@@ -563,6 +673,18 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     var events: [ChatEvent] = []
     for try await event in stream { events.append(event) }
     return events
+  }
+
+  private func assertThrowsScreenError(
+    _ expected: ScreenRequestError, file: StaticString = #filePath, line: UInt = #line,
+    _ body: () async throws -> Void
+  ) async {
+    do {
+      try await body()
+      XCTFail("Expected \(expected)", file: file, line: line)
+    } catch {
+      XCTAssertEqual(error as? ScreenRequestError, expected, file: file, line: line)
+    }
   }
 
   private func assertThrows(

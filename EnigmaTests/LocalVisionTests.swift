@@ -659,7 +659,8 @@ final class LocalVisionTests: XCTestCase {
   private func localModelsPage(advisor: LocalModelAdvisor, chat: LocalChatViewModel, height: CGFloat) -> some View {
     let credentials = ScreenTestCredentialStore()
     let cloud = CloudSettingsModel(credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(),
+                                 cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "ModelCache-\(UUID())")),
       codexAvailable: { false })
     return SettingsView(settings: cloud, initialDestination: .local, advisor: advisor, chat: chat,
                         size: CGSize(width: 680, height: height)).enigmaTheme(.paper)

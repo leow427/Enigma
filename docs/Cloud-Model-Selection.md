@@ -51,7 +51,7 @@ Screenshots follow the same decision, with extra rules for sending images; see
 
 | Provider | How it connects | Model list | Default model |
 |---|---|---|---|
-| **ChatGPT via Codex** | Your ChatGPT plan through the Codex CLI. See [ChatGPT-Setup.md](ChatGPT-Setup.md). | Codex's own model list, in Codex's order | `gpt-5.6-luna` |
+| **ChatGPT via Codex** | Your ChatGPT plan through the Codex CLI. See [ChatGPT-Setup.md](ChatGPT-Setup.md). | Codex's own model list, in Codex's order | The model Codex marks as its default, else the first listed, else `gpt-5.6-luna` |
 | **Claude via Claude Code** | Your Claude plan through Claude Code. See [Claude-Code-Setup.md](Claude-Code-Setup.md). | Sonnet, Opus, Fable and Haiku (latest), which Claude Code resolves to the newest model your plan offers | `sonnet` |
 | **OpenAI** | Your OpenAI API key | The account's models, filtered to the reviewed list below, in fallback order | First reviewed model in the account's list |
 | **Anthropic** | Your Anthropic API key | The account's models, in Anthropic's order | First model listed |
@@ -59,6 +59,10 @@ Screenshots follow the same decision, with extra rules for sending images; see
 
 ChatGPT via Codex is the preferred provider until you choose another. Signing in
 to ChatGPT or Claude makes that provider preferred and refreshes its models.
+
+While Enigma runs, it refreshes the ChatGPT and Claude model lists about two
+minutes after launch and then once a day, in the background; see
+[Daily refresh](#daily-refresh).
 
 ## Choosing a cloud model
 
@@ -90,7 +94,11 @@ is billed separately; a ChatGPT plan doesn't include it.
 
 Your choice is saved per provider. Enigma fills in a default only when the
 preference is empty; a saved or typed choice survives refreshes, provider
-switches, connection tests and a later list that omits it.
+switches, connection tests and a later list that omits it. For ChatGPT the
+default isn't saved: until you choose a model, Enigma uses Codex's current
+default, so it follows Codex when the list changes. Earlier versions saved
+`gpt-5.6-luna` (or, before that, the first listed model `gpt-5.6-sol`) when
+nobody had chosen; that saved value is cleared once, so it follows Codex too.
 
 ### Compatibility
 
@@ -98,7 +106,9 @@ The status under **Manual model ID** is one of:
 
 - **Compatible with text chat. Account access and billing are checked when you
   send.** A reviewed model ID, or (for every provider except the OpenAI API) one
-  the provider listed.
+  the provider listed. Codex lists only the models your plan can use through
+  Codex, so every model in its list is compatible, with conservative limits
+  unless it is reviewed (see [Context budgets](#context-budgets)).
 - **Unverified model. You can try this ID, but text-chat support and account
   access are not confirmed.** Sending is allowed; the provider may reject it,
   and Enigma uses a conservative context budget.
@@ -118,8 +128,8 @@ the preferred model is compatible or unverified.
 ### Images
 
 Cloud models receive screenshots only when you allow it (see
-[Screen-Skill.md](Screen-Skill.md)) and only if the model is on the reviewed
-image list:
+[Screen-Skill.md](Screen-Skill.md)) and only if the model takes images. For the
+API providers that means the reviewed image list:
 
 - OpenAI: `gpt-5.4-mini`, `gpt-5-mini`, `gpt-4.1-mini`, `gpt-4.1`,
   `gpt-4o-mini`, `gpt-4o` and their listed snapshots.
@@ -129,8 +139,21 @@ image list:
   snapshots.
 - Gemini: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`.
 
-ChatGPT via Codex and Claude via Claude Code are text-only in Enigma. A model's
-name never grants image support.
+For the subscription routes:
+
+- **ChatGPT via Codex**: the models whose entry in Codex's `model/list` has
+  `"image"` in `inputModalities` (the app server treats a missing field as text
+  and image). A list cached by an earlier Enigma, which didn't record this,
+  counts as text-only until the next refresh. The screenshot goes in the
+  `turn/start` input as an `image` item with a `data:` URL, before the text;
+  Enigma never writes it to disk.
+- **Claude via Claude Code**: all four aliases, since each resolves to the
+  plan's newest model of its tier and those take images. A request with a
+  screenshot runs `claude -p --input-format stream-json` and writes one user
+  message to standard input: an Anthropic base64 `image` block, then the text.
+  Text-only requests still send plain text.
+
+A model's name never grants image support.
 
 ## Privacy
 
@@ -144,8 +167,13 @@ name never grants image support.
   approvals and an instruction not to use tools. Claude requests run in a fresh
   Claude Code process with tools, MCP servers, hooks, plugins and CLAUDE.md
   turned off and no saved session. Neither inherits API keys from Enigma.
+- Screenshots go to ChatGPT via Codex and Claude via Claude Code under the same
+  permission as to the API providers, and only to models that take images.
 - The cached model lists (`cloud-models.json` in Application Support) hold model
-  IDs and names only.
+  IDs, names, and for Codex each model's input types and default flag.
+- The daily refresh only checks sign-in and lists models; it never sends a
+  prompt or reads Enigma's Keychain items, and does nothing for a route whose
+  command-line tool isn't on this Mac.
 
 ## How it works
 
@@ -153,8 +181,9 @@ name never grants image support.
 |---|---|---|
 | Providers, models, errors | `CloudProviderID`, `CloudModel`, `CloudProviderError` | `Enigma/Cloud/CloudDomain.swift` |
 | Compatibility and limits | `CloudModelCapabilities`, `CloudModelCompatibility` | `Enigma/Cloud/CloudModelCapabilities.swift` |
-| Image support | `CloudModelCapabilities.visionModelIDs` | `Enigma/Screen/ScreenRoutingPolicy.swift` |
-| Model lists and cache | `CloudModelCatalog` | `Enigma/Cloud/CloudModelCatalog.swift` |
+| Image support | `CloudModelCapabilities.visionModelIDs`, `CloudModel.supportsVision` | `Enigma/Screen/ScreenRoutingPolicy.swift` |
+| Model lists and cache | `CloudModelCatalog`, `CodexListedModels` | `Enigma/Cloud/CloudModelCatalog.swift`, `Enigma/Cloud/CloudDomain.swift` |
+| Daily refresh | `DailySchedule`, `SubscriptionModelRefresh`, `CodexRuntime.maintainDaily` | `Enigma/Cloud/SubscriptionModelRefresh.swift`, `Enigma/Cloud/CodexRuntimeInstaller.swift`, `Enigma/App/ApplicationDelegate.swift` |
 | Preferences and connection state | `CloudSettingsModel`, `CloudPreferencesStore` | `Enigma/Cloud/CloudSettingsModel.swift` |
 | Settings UI | `CloudSettingsPage`, `AdvancedCloudSettings`, `APIKeyRow`, `CloudSettingsForm` | `Enigma/Cloud/CloudSettingsPage.swift`, `Enigma/Cloud/CloudSettingsForm.swift`, `Enigma/Cloud/CloudConnectionControls.swift` |
 | API clients | `OpenAIResponsesClient`, `AnthropicMessagesClient`, `GeminiContentClient`, `CloudProviderRegistry` | `Enigma/Cloud/CloudProviderClients.swift`, `Enigma/Cloud/GeminiContentClient.swift` |
@@ -173,6 +202,45 @@ excluded) and Claude Code's sign-in status (the four aliases are fixed).
 reapplies the current compatibility rules and drops empty, duplicate and
 wrong-provider entries, so a rules change takes effect without a refresh.
 `CloudContext.prepare` rejects an unsupported model before any request is built.
+A fetch saves its list only if nothing changed that provider's cache since it
+began, so a refresh finishing after sign-out, or after a newer refresh, can't
+bring back an old list. Whenever the catalog reads or writes the cache, it hands the ChatGPT list (even
+a stale one) to `CodexListedModels`, which checks that know only a model ID
+(screen routing, the request guard, context budgets) use; signing out clears it.
+At launch Enigma reads the cache once so this (and Codex's default) is known
+before any refresh.
+
+### Daily refresh
+
+`DailySchedule` runs `SubscriptionModelRefresh` about two minutes after launch
+and then 24 hours after each run finishes, or one hour after a run whose
+refresh failed (for example offline at login). It checks the wall clock every
+ten minutes, so a run that fell due while the Mac slept happens once soon after
+wake, not once per missed day. A route that isn't signed in has nothing to
+refresh, which doesn't count as a failure. Each run:
+
+1. If a Codex is found and there is a local sign that you may use ChatGPT
+   (ChatGPT is your chosen provider, you chose a ChatGPT model, or a ChatGPT
+   list is cached), asks Codex whether ChatGPT is signed in (`account/read`).
+   Without such a sign Codex isn't started, so no app server stays running.
+   `CodexRuntime.maintainDaily` then upgrades Enigma's Codex like the launch
+   upgrade, or, for someone signed in whose Codex is an older, OpenAI-signed
+   system install, installs Enigma's pinned Codex (see
+   [ChatGPT-Setup.md](ChatGPT-Setup.md)).
+   A running Codex app server restarts on its next request once nothing is in
+   flight and the lookup finds a different Codex than the one it started from
+   (after any install), so a streaming reply is never cut off. If signed in, the
+   run then force-refreshes the ChatGPT list (`model/list`), unless an old Codex
+   is still running a reply; then it skips the list and the run is retried in an
+   hour.
+2. If Claude Code is found and there is a local sign that you use it (Claude
+   Code is your chosen provider, you chose a Claude Code model, or its list is
+   cached): force-refreshes its list, which first checks `claude auth status`.
+   Status output that isn't the expected JSON (an unexpected CLI) counts as
+   nothing to refresh, not as a failure to retry hourly.
+
+Nothing is shown. A failed refresh keeps the cached list and the one on screen.
+The refresh updates the menu's list when that provider is preferred.
 
 ### Context budgets
 
@@ -184,7 +252,7 @@ fit; see [Chat.md](Chat.md).
 | Route | Reviewed model | Unknown model |
 |---|---|---|
 | OpenAI, Anthropic, Gemini APIs | Published context; reply up to 4,096 tokens; 512 reserved | 8,192-token context; 4,096 reply; 512 reserved |
-| ChatGPT via Codex | Published context and maximum output; 8,192 reserved | 32,768 context; 16,384 reply; 8,192 reserved |
+| ChatGPT via Codex | Published context and maximum output; 8,192 reserved. A Codex-listed model without a reviewed entry: 128,000 context; 32,000 output; 8,192 reserved | 32,768 context; 16,384 reply; 8,192 reserved |
 | Claude via Claude Code | 200,000 context; 32,000 output; 16,384 reserved | 65,536 context; 8,192 reply; 16,384 reserved |
 
 Anthropic models on the image list use a 200,000-token context; Gemini models on
@@ -237,9 +305,11 @@ documentation, then update `CloudModelCapabilities`, this page and
 - The OpenAI allowlist is a reviewed subset and needs manual updates as OpenAI
   releases models.
 - Unknown models get a small context budget even if the provider supports more.
+  Codex-listed models without a reviewed entry get conservative limits.
 - Auto's routing uses keyword rules, so it can misjudge a prompt. Choose Local or
   Cloud to override it.
-- The subscription routes don't accept images.
+- Claude Code's aliases are assumed to take images; Claude Code doesn't report
+  input types.
 
 ## Tests
 
@@ -253,7 +323,16 @@ or paid request:
   the 24-hour cache, streaming, cancellation and partial output.
 - `AutoRouterTests`: Auto's routing rules.
 - `CodexSubscriptionTests` and `ClaudeCodeSubscriptionTests`: the subscription
-  routes, sign-in and default models.
+  routes, sign-in, default models, `inputModalities` parsing and old caches, and
+  the exact Codex `turn/start` input and Claude Code standard input with and
+  without a screenshot.
+- `ScreenRoutingTests`: screenshots reach image-capable subscription models and
+  still need permission.
+- `SubscriptionModelRefreshTests`: the daily schedule (first run, 24 hours,
+  once after wake, an hour after a failure), skipped routes and the local
+  ChatGPT and Claude Code gates, kept caches and lists, the quiet Codex install
+  over an older, OpenAI-signed system Codex, the app server switching to a new
+  Codex only when idle, and surviving a Codex that exits mid-write.
 - `EnigmaSettingsTests`: the Cloud and search page.
 
 Run one suite with

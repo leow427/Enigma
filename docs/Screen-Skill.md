@@ -81,8 +81,8 @@ requests; an image request with it stops with a message and keeps your screensho
 and draft. See [Local model selection](Local-Model-Selection.md).
 
 Cloud image support is limited to reviewed model IDs from OpenAI, Anthropic and
-Gemini. The ChatGPT and Claude Code subscriptions take text only. See
-[Cloud model selection](Cloud-Model-Selection.md).
+Gemini, the ChatGPT models Codex lists as taking images, and Claude Code's four
+aliases. See [Cloud model selection](Cloud-Model-Selection.md#images).
 
 In Auto, if a cloud image request fails because the Mac is offline before any
 reply arrives, Enigma retries with the selected local model when it supports images.

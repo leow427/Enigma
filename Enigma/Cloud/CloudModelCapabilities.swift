@@ -25,7 +25,8 @@ enum CloudModelCompatibility: Equatable, Sendable {
 }
 
 /// Endpoint compatibility and provider limits share exact, reviewed model IDs.
-/// Model-list membership alone does not establish Responses API compatibility.
+/// Model-list membership alone does not establish Responses API compatibility; Codex is
+/// the exception, because it lists only the models the account can run through Codex.
 /// Sources, review date, and fallback ordering: docs/Cloud-Model-Selection.md.
 enum CloudModelCapabilities {
   struct Metadata: Sendable {
@@ -34,6 +35,10 @@ enum CloudModelCapabilities {
     let maximumOutputTokens: Int
     var supportsCodex: Bool = false
   }
+
+  /// Limits for a model Codex lists that has no reviewed entry below.
+  static let codexListedContextWindow = 128_000
+  static let codexListedOutputTokens = 32_000
 
   // Prefer Luna, then smaller general-purpose models, before larger alternatives.
   // Aliases precede reviewed snapshots. Never infer support from a "gpt-" prefix.
@@ -66,7 +71,12 @@ enum CloudModelCapabilities {
       return openAITextModels.first { $0.ids.contains(id) }
     case .chatGPT:
       // The API alias is not a verified Codex model identifier.
-      return openAITextModels.first { $0.supportsCodex && $0.ids.first == id }
+      if let reviewed = openAITextModels.first(where: { $0.supportsCodex && $0.ids.first == id }) { return reviewed }
+      // Codex lists only the models this account can use, so a listed model is compatible.
+      // Its limits are unreviewed, so they stay conservative.
+      return CodexListedModels.shared.model(id: id) != nil
+        ? Metadata(ids: [id], contextWindow: codexListedContextWindow, maximumOutputTokens: codexListedOutputTokens)
+        : nil
     case .claudeCode:
       // Aliases resolve to the plan's newest model; full model names stay unverified.
       return ClaudeCodeSubscriptionClient.models.contains { $0.id == id }

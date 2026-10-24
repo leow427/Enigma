@@ -494,6 +494,10 @@ extension ClaudeCodeSubscriptionClient: ToolCallingChatProvider {
           continuation.yield(.completed)
           continuation.finish()
         } catch {
+          var error = error
+          if let running = process, error as? ClaudeCodeError == .inputClosed, !Task.isCancelled {
+            error = await running.errorAfterClosedInput()
+          }
           continuation.finish(throwing: Task.isCancelled ? CancellationError() : error)
         }
         process?.closeInput()

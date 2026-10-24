@@ -188,7 +188,7 @@ actor CodexAppServer: CodexRPCTransport {
   private let requestTimeout: Duration
   private let sleep: @Sendable (Duration) async throws -> Void
   private var process: Process?
-  private var input: FileHandle?
+  private var input: CodexPipeWriter?
   private var readerTask: Task<Void, Never>?
   private var startupTask: Task<Void, Error>?
   private var startupID: UUID?
@@ -197,7 +197,13 @@ actor CodexAppServer: CodexRPCTransport {
   private var nextID = 0
   private var fileHandlers: [String: CodexServerRequestHandler] = [:]
   private var fileCalls: [String: Task<CodexValue, Never>] = [:]
-  private var fileModeVerified = false
+  /// The binary whose schema File Mode last checked; another binary is checked again.
+  private var fileModeVerifiedExecutable: URL?
+  private var restartsWhenIdle = false
+  /// The binary the running process was started from.
+  private var launchedExecutable: URL?
+  /// A startup task exists but hasn't finished; a restart then waits for a later request.
+  private var isStarting = false
   private var pending: [Int: CheckedContinuation<CodexValue, Error>] = [:]
   private var timeouts: [Int: Task<Void, Never>] = [:]
   private var observers: [UUID: AsyncThrowingStream<CodexNotification, Error>.Continuation] = [:]
@@ -215,11 +221,13 @@ actor CodexAppServer: CodexRPCTransport {
   }
 
   func request(_ method: String, params: CodexValue) async throws -> CodexValue {
+    restartIfRequestedAndIdle()
     try await start()
     return try await sendRequest(method, params: params)
   }
 
   func notifications() async throws -> CodexNotificationSubscription {
+    restartIfRequestedAndIdle()
     try await start()
     let id = UUID()
     let stream = AsyncThrowingStream<CodexNotification, Error> { continuation in
@@ -234,8 +242,8 @@ actor CodexAppServer: CodexRPCTransport {
   }
 
   func prepareFileMode() async throws {
-    if fileModeVerified { return }
     guard let executableURL = executable() else { throw CodexError.notInstalled }
+    if fileModeVerifiedExecutable == executableURL { return }
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("enigma-schema-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -260,7 +268,7 @@ actor CodexAppServer: CodexRPCTransport {
       }
       guard process.terminationStatus == 0 else { throw CodexError.fileModePreparationFailed(process.terminationStatus) }
       try CodexFileModeSupport.validateSchema(at: directory)
-      fileModeVerified = true
+      fileModeVerifiedExecutable = executableURL
     } catch {
       if process.isRunning { process.terminate() }
       throw error
@@ -305,6 +313,42 @@ actor CodexAppServer: CodexRPCTransport {
     close(with: CodexError.disconnected)
   }
 
+  /// After a new Codex is installed: the running process keeps its binary, so the next
+  /// request starts a new one, but only once nothing is in flight (no startup, request,
+  /// reply streaming or sign-in waiting), so the switch never cuts off a response. The
+  /// sign-in is a Keychain item tied to the code identity of the binary that created it;
+  /// Enigma installs over a system Codex only when both are signed by OpenAI's Developer
+  /// ID, so the new process reads it without asking.
+  func restartWhenIdle() {
+    restartsWhenIdle = true
+    restartIfRequestedAndIdle()
+  }
+
+  /// Restarts when asked to, or when the lookup now finds a different Codex than the one
+  /// running (any install path: the launch upgrade, the daily check, another build), but
+  /// only while idle.
+  private func restartIfRequestedAndIdle() {
+    // `isStarting` covers the moments with nothing pending yet mid-startup: before the
+    // startup task sends `initialize`, and after its reply until the task finishes.
+    guard !isStarting, pending.isEmpty, observers.isEmpty, fileHandlers.isEmpty else { return }
+    guard restartsWhenIdle || isRunningOutdatedExecutable else { return }
+    restartsWhenIdle = false
+    fileModeVerifiedExecutable = nil
+    if process != nil || startupTask != nil { close(with: CodexError.disconnected) }
+  }
+
+  private var isRunningOutdatedExecutable: Bool {
+    guard process != nil, let launchedExecutable else { return false }
+    return executable() != launchedExecutable
+  }
+
+  /// Whether the next request reaches the Codex the lookup finds now: true unless a
+  /// process started from another binary must stay because something is in flight.
+  func usesCurrentExecutable() -> Bool {
+    restartIfRequestedAndIdle()
+    return process == nil || (!restartsWhenIdle && !isRunningOutdatedExecutable)
+  }
+
   private func start() async throws {
     if let startupTask { return try await startupTask.value }
     let id = UUID()
@@ -320,9 +364,12 @@ actor CodexAppServer: CodexRPCTransport {
       try write(.object(["method": .string("initialized")]))
     }
     startupTask = task
-    do { try await task.value }
-    catch {
-      if startupID == id { close(with: error) }
+    isStarting = true
+    do {
+      try await task.value
+      if startupID == id { isStarting = false }
+    } catch {
+      if startupID == id { isStarting = false; close(with: error) }
       throw error
     }
   }
@@ -346,10 +393,17 @@ actor CodexAppServer: CodexRPCTransport {
     // The parent must not keep the child's pipe ends alive, or EOF is never delivered.
     try? inputPipe.fileHandleForReading.close()
     try? outputPipe.fileHandleForWriting.close()
+    // A write after the server exits must fail with EPIPE rather than signal Enigma.
+    _ = fcntl(inputPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
     self.process = process
-    input = inputPipe.fileHandleForWriting
+    launchedExecutable = executableURL
     let currentGeneration = UUID()
     generation = currentGeneration
+    // Writes happen off the actor, so a Codex that stops reading can't block timeouts,
+    // Stop or disconnect; a failed write closes this connection, failing its requests.
+    input = CodexPipeWriter(handle: inputPipe.fileHandleForWriting) { [weak self] in
+      Task { await self?.writeFailed(generation: currentGeneration) }
+    }
     let chunks = AsyncStream<Data> { continuation in
       outputPipe.fileHandleForReading.readabilityHandler = { handle in
         let data = handle.availableData
@@ -392,13 +446,21 @@ actor CodexAppServer: CodexRPCTransport {
     }
   }
 
+  /// Queues one message. Messages are written in order on the writer's queue; if a write
+  /// fails (the server exited or closed its input), the connection closes and every
+  /// pending request fails as `.disconnected`.
   private func write(_ value: CodexValue) throws {
     guard let input, process?.isRunning == true else { throw CodexError.disconnected }
     let encoder = JSONEncoder()
     encoder.outputFormatting = .withoutEscapingSlashes
     var data = try encoder.encode(value)
     data.append(0x0a)
-    try input.write(contentsOf: data)
+    input.send(data)
+  }
+
+  private func writeFailed(generation: UUID) {
+    guard generation == self.generation else { return }
+    close(with: CodexError.disconnected)
   }
 
   private func receive(_ data: Data, generation: UUID) {
@@ -449,12 +511,14 @@ actor CodexAppServer: CodexRPCTransport {
     generation = UUID()
     readerTask?.cancel()
     readerTask = nil
-    try? input?.close()
+    input?.close()
     input = nil
     if process?.isRunning == true { process?.terminate() }
     process = nil
     startupTask = nil
     startupID = nil
+    isStarting = false
+    launchedExecutable = nil
     buffer.removeAll()
     for id in Array(pending.keys) { finish(id, result: .failure(error)) }
     for observer in observers.values { observer.finish(throwing: error) }
@@ -462,5 +526,41 @@ actor CodexAppServer: CodexRPCTransport {
     fileHandlers.removeAll()
     for task in fileCalls.values { task.cancel() }
     fileCalls.removeAll()
+  }
+}
+
+/// Writes to the app server's standard input on a serial queue, in order. After a failed
+/// write or `close`, later messages are dropped; the handle is closed on the queue, after
+/// any write in progress, so its descriptor is never reused under a pending write.
+final class CodexPipeWriter: @unchecked Sendable {
+  private let handle: FileHandle
+  private let queue = DispatchQueue(label: "Enigma.CodexAppServer.input")
+  private let onFailure: @Sendable () -> Void
+  private var isClosed = false  // Only touched on `queue`.
+
+  init(handle: FileHandle, onFailure: @escaping @Sendable () -> Void) {
+    self.handle = handle
+    self.onFailure = onFailure
+  }
+
+  func send(_ data: Data) {
+    queue.async { [self] in
+      guard !isClosed else { return }
+      do {
+        try handle.write(contentsOf: data)
+      } catch {
+        isClosed = true
+        try? handle.close()
+        onFailure()
+      }
+    }
+  }
+
+  func close() {
+    queue.async { [self] in
+      guard !isClosed else { return }
+      isClosed = true
+      try? handle.close()
+    }
   }
 }

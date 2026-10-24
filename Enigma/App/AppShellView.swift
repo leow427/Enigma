@@ -368,7 +368,7 @@ struct AppShellView: View {
         cloudSettings.preferredProvider = .chatGPT
         shell.selectedMode = .cloud
         if let handoff = files.prepareProtectedCloudDraft() {
-          cloudSettings.preferredModelID = handoff.modelID
+          cloudSettings.useChatGPTModelFromFileMode(handoff.modelID)
           if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draft = handoff.prompt }
         }
       }))

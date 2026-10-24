@@ -71,6 +71,13 @@ the newest model of that family your plan offers. You can type a full model
 name in **Manual model ID** under **Advanced cloud settings**; it is shown as
 unverified.
 
+The four aliases take screenshots, under the same permission as the API
+providers (see [Screen-Skill.md](Screen-Skill.md)). Enigma also refreshes the
+list (after checking `claude auth status`) about two minutes after launch and
+then once a day while it runs, if Claude Code is your chosen provider, you chose
+a Claude Code model, or Enigma has its list cached; see
+[Cloud-Model-Selection.md](Cloud-Model-Selection.md#daily-refresh).
+
 **Effort** (Model Default, Low, Medium, High, Extra High, or Max) is passed to
 Claude Code as `--effort`; Model Default leaves the choice to Claude Code.
 `/think` raises effort to at least High for that message.
@@ -102,6 +109,11 @@ out of both Enigma and the CLI.
 - Enigma sends the conversation on standard input as a bounded JSON transcript,
   up to 32,768 input tokens, and reads streamed text deltas. **Stop**
   terminates the process. Anthropic's data policies apply.
+- With a screenshot, the process also gets `--input-format stream-json`, and
+  standard input is one stream-json user message (`{"type":"user",…}`) whose
+  content is an Anthropic base64 `image` block followed by the transcript as a
+  text block; standard input then closes. Enigma never writes the screenshot to
+  disk. Text-only requests send plain text as before.
 
 With `/messages`, the process instead gets an in-process MCP server that Enigma
 answers over Claude Code's stream-json control protocol, so no helper process
@@ -127,9 +139,10 @@ Messages tools are allowed. See [Messages.md](Messages.md).
   claude.ai login or rate limits in their products; the API-key route is the
   supported one.
 - Plan usage limits apply.
-- Responses are text only: no images are sent. For how screenshots are handled,
-  see [Screen-Skill.md](Screen-Skill.md). Cloud File Mode uses ChatGPT via
-  Codex, not Claude; see [File-Mode.md](File-Mode.md).
+- Claude Code doesn't say which inputs a model takes; Enigma treats all four
+  aliases as taking images because each resolves to the plan's newest model of
+  its tier. Cloud File Mode uses ChatGPT via Codex, not Claude; see
+  [File-Mode.md](File-Mode.md).
 - Install and sign-in happen in Terminal and the browser and need your
   participation.
 
@@ -138,8 +151,10 @@ Messages tools are allowed. See [Messages.md](Messages.md).
 `EnigmaTests/ClaudeCodeSubscriptionTests.swift` replaces the CLI with shell
 scripts. It covers the process environment and flags, `/think` raising effort,
 stream parsing across chunk boundaries, error results and invalid output,
-account states, a missing CLI, the conversation sent on standard input,
-results without deltas, signed-out and unexpected exits, Stop terminating the
+account states, a missing CLI, the conversation sent on standard input
+(plain text, or the exact stream-json message and arguments with a screenshot),
+results without deltas, signed-out and unexpected exits, a large screenshot
+when the CLI exits early or Stop is pressed (no SIGPIPE), Stop terminating the
 process, settings and the default model, the Terminal sign-in flow, the install script
 and the install-then-sign-in wait, cancelling it, choosing a Claude Code file,
 and the context budget. `EnigmaTests/CloudToolInstallTests.swift` covers the

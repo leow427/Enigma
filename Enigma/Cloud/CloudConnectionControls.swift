@@ -147,7 +147,7 @@ struct ClaudeCodeConnectionControls: View {
         } else if settings.isWaitingForClaudeCodeSignIn {
           EnigmaConnectionNote("Finish signing in from Terminal and your browser…")
         }
-        EnigmaConnectionNote("Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Responses are text-only: Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved.")
+        EnigmaConnectionNote("Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved.")
         if isMissing && !settings.isWaitingForClaudeCodeSignIn {
           EnigmaConnectionNote("Install Claude Code runs Anthropic's installer in Terminal, then signs in.")
           if showsAPIKeyNote { EnigmaConnectionNote(Self.apiKeyNote).enigmaTestMarker("Anthropic API key note") }

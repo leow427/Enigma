@@ -100,6 +100,57 @@ final class ScreenRoutingTests: XCTestCase {
     XCTAssertFalse(CloudModel(id: "gpt-future-vision", displayName: "test", provider: .openAI).supportsVision)
   }
 
+  func testSubscriptionModelsTakeScreenshotsOnlyWhenAllowedAndImageCapable() throws {
+    CodexListedModels.shared.replace(with: [
+      CloudModel(id: "gpt-6-sol", displayName: "GPT-6 Sol", provider: .chatGPT, inputModalities: ["text", "image"]),
+      CloudModel(id: "gpt-6-text", displayName: "Text", provider: .chatGPT, inputModalities: ["text"]),
+    ])
+    addTeardownBlock { CodexListedModels.shared.replace(with: []) }
+    // Routing builds models from the saved ID alone, so Codex's last list answers for ChatGPT.
+    let claude = CloudModel(id: "opus", displayName: "opus", provider: .claudeCode).screenModel
+    let codex = CloudModel(id: "gpt-6-sol", displayName: "gpt-6-sol", provider: .chatGPT).screenModel
+    let codexText = CloudModel(id: "gpt-6-text", displayName: "gpt-6-text", provider: .chatGPT).screenModel
+    XCTAssertTrue(claude.supportsVision)
+    XCTAssertTrue(codex.supportsVision)
+    XCTAssertFalse(codexText.supportsVision)
+    XCTAssertFalse(CloudModel(id: "gpt-unlisted", displayName: "x", provider: .chatGPT).supportsVision)
+    XCTAssertFalse(CloudModel(id: "gpt-6-sol", displayName: "x", provider: .chatGPT, inputModalities: ["text"]).supportsVision,
+                   "A model's own list entry wins")
+
+    for model in [claude, codex] {
+      var input = request("describe the diagram", mode: .cloud)
+      input.cloudText = model
+      input.hasExplainedCloudPermission = true
+      XCTAssertEqual(ScreenRoutingPolicy.decide(input), .blocked(ScreenRoutingPolicy.screenshotUploadDisabledMessage),
+                     "Cloud screenshots stay off until allowed")
+      input.allowCloudScreenshots = true
+      XCTAssertEqual(ScreenRoutingPolicy.decide(input), .vision(model))
+    }
+    var textOnly = request("describe the diagram", mode: .cloud)
+    textOnly.cloudText = codexText
+    textOnly.allowCloudScreenshots = true
+    textOnly.hasExplainedCloudPermission = true
+    XCTAssertNil(ScreenRoutingPolicy.decide(textOnly).model)
+
+    // The request guard applies the same rules just before sending.
+    let image = PreparedScreenImage(data: Data([0xFF, 0xD8, 0xFF]), mimeType: "image/jpeg", pixelWidth: 2, pixelHeight: 2)
+    for (provider, modelID) in [(CloudProviderID.claudeCode, "sonnet"), (.chatGPT, "gpt-6-sol")] {
+      var send = ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "What is this?")],
+        route: Route(mode: .cloud, providerID: provider.rawValue, modelID: modelID, usesNetwork: true), image: image)
+      XCTAssertThrowsError(try ScreenRequestGuard.validateCloud(send)) {
+        XCTAssertEqual($0 as? ScreenRequestError, .cloudUploadNotAllowed)
+      }
+      send.allowsCloudImages = true
+      XCTAssertNoThrow(try ScreenRequestGuard.validateCloud(send))
+    }
+    let textOnlySend = ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "What is this?")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: "gpt-6-text", usesNetwork: true),
+      image: image, allowsCloudImages: true)
+    XCTAssertThrowsError(try ScreenRequestGuard.validateCloud(textOnlySend)) {
+      XCTAssertEqual($0 as? ScreenRequestError, .textOnlyModel)
+    }
+  }
+
   @MainActor
   func testCloudScreenshotPermissionDefaultsOffAndPersistsExplicitAnswer() {
     let suite = "ScreenPermissionTests.\(UUID())"

@@ -4,6 +4,8 @@ struct MessageImagePart: Sendable, Equatable {
   let mimeType: String
   /// Raw base64, never a provider-specific URL. Created only at serialization time.
   let base64Data: String
+
+  var dataURL: String { "data:\(mimeType);base64,\(base64Data)" }
 }
 
 enum MessageContentPart: Sendable, Equatable {
@@ -69,9 +71,9 @@ enum MultimodalSerialization {
       case .image(let image):
         switch format {
         case .openAIChat:
-          return ["type": "image_url", "image_url": ["url": "data:\(image.mimeType);base64,\(image.base64Data)"]]
+          return ["type": "image_url", "image_url": ["url": image.dataURL]]
         case .openAIResponses:
-          return ["type": "input_image", "image_url": "data:\(image.mimeType);base64,\(image.base64Data)"]
+          return ["type": "input_image", "image_url": image.dataURL]
         case .anthropic:
           return ["type": "image", "source": ["type": "base64", "media_type": image.mimeType, "data": image.base64Data]]
         case .gemini:

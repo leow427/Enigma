@@ -189,6 +189,13 @@ final class FileAgentTests: XCTestCase {
     XCTAssertEqual(Set(methods), ["account/read", "model/list"])
   }
 
+  func testAnEmptyCodexModelListIsReportedAsNoCompatibleModel() async {
+    let availability = await CodexSubscriptionClient(transport: FileAvailabilityTransport(models: []))
+      .fileEditingAvailability(preferredModelID: nil)
+    XCTAssertEqual(availability, .unavailable(reason: "No compatible Codex model is available."),
+                   "Never the built-in fallback model when Codex lists none")
+  }
+
   func testLocalFallbackRetainsTheUnderlyingCodexError() async {
     let transport = FileAvailabilityTransport(supportsFiles: false)
     let availability = await CodexSubscriptionClient(transport: transport).fileEditingAvailability(preferredModelID: "codex")

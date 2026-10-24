@@ -9,6 +9,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var selectionShortcut: SelectionShortcutMonitor?
   private var accessibilityWarmer: SelectionAccessibilityWarmer?
   private var settingsWindowController: SettingsWindowController?
+  private var subscriptionRefreshTask: Task<Void, Never>?
 
   override init() {
     super.init()
@@ -72,6 +73,14 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
       await LoginShellToolLookup.shared.resolve("codex")
       await LoginShellToolLookup.shared.resolve("claude")
     }
+    // The cached lists say which Codex models take images before anything refreshes them.
+    Task { await CloudSettingsModel.shared.loadCachedModels() }
+    // Shortly after launch and then daily: refresh the subscription routes' model lists
+    // and keep Enigma's Codex current for people who use ChatGPT.
+    let subscriptionRefresh = SubscriptionModelRefresh.live()
+    subscriptionRefreshTask = Task.detached(priority: .utility) {
+      await DailySchedule().run { await subscriptionRefresh.run() }
+    }
     NotificationCenter.default.addObserver(self, selector: #selector(replayWelcomeSetup),
       name: .welcomeSetupRequested, object: nil)
     NotificationCenter.default.addObserver(
@@ -119,6 +128,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 
   func applicationWillTerminate(_ notification: Notification) {
     NotificationCenter.default.removeObserver(self)
+    subscriptionRefreshTask?.cancel()
     panelShortcut?.stop()
     selectionShortcut?.stop()
     accessibilityWarmer?.stop()

@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 enum CodexRuntimeError: LocalizedError, Equatable {
   case invalidArchive
@@ -30,7 +31,7 @@ struct CodexRuntime: Sendable {
   // `gh release view rust-v<version> --repo openai/codex --json assets`, then
   // check that the archive layout and `codex-package.json` still match `install`.
   // docs/ChatGPT-Setup.md also names the version, folder and sizes; update it too.
-  static let version = "0.163.0"
+  static let version = "0.164.0"
   static let topLevelEntries: Set<String> = ["bin", "codex-package.json", "codex-path", "codex-resources"]
 
   let archive: VerifiedModelArtifact
@@ -45,11 +46,11 @@ struct CodexRuntime: Sendable {
 
   static var pinned: CodexRuntime {
     #if arch(arm64)
-    let size: Int64 = 133412281
-    let checksum = "b0344fc2e41f15e0071147e5869008047b8ff4bf2c4a8897975d3bae3f103b34"
+    let size: Int64 = 136007998
+    let checksum = "dd99e9092270691a67bdde7be04ac283dea9da8e86cbde356c2cc851a79205fa"
     #else
-    let size: Int64 = 144982749
-    let checksum = "0c182d6194da7003943678dc87866b54b3dee719edaf8d092f304affbc6b57d1"
+    let size: Int64 = 147158682
+    let checksum = "cfb2a9988d7ea448511166a35789af07a0065d1117db54350b17d46cf03d0294"
     #endif
     return CodexRuntime(archive: VerifiedModelArtifact(
       url: URL(string: "https://github.com/openai/codex/releases/download/rust-v\(version)/codex-package-\(target).tar.gz")!,
@@ -145,8 +146,12 @@ struct CodexRuntime: Sendable {
 
   static let upgradeRetryInterval: TimeInterval = 24 * 60 * 60
 
+  /// One quiet install at a time in this process: the launch upgrade may still be
+  /// downloading when the first daily check runs, and that check then skips.
+  static let quietInstall = QuietInstallFlag()
+
   /// A quiet upgrade of the same version that failed less than a day ago waits,
-  /// so a persistent failure doesn't download 133 MB on every launch.
+  /// so a persistent failure doesn't download the package (about 136 MB) every time.
   static func shouldRetryUpgrade(lastFailedVersion: String?, lastFailedAt: Date?, now: Date) -> Bool {
     guard lastFailedVersion == version, let lastFailedAt else { return true }
     // A failure "in the future" means the clock moved; don't let it block retries.
@@ -175,7 +180,9 @@ struct CodexRuntime: Sendable {
       for folder in folders { FileManager.default.removeItemIfPresent(at: directory.appending(path: folder)) }
     case .upgrade:
       guard shouldRetryUpgrade(lastFailedVersion: defaults.string(forKey: FailureKey.version),
-                               lastFailedAt: defaults.object(forKey: FailureKey.date) as? Date, now: now) else { break }
+                               lastFailedAt: defaults.object(forKey: FailureKey.date) as? Date, now: now),
+            quietInstall.begin() else { break }
+      defer { quietInstall.end() }
       do {
         try await upgrade(directory)
         defaults.removeObject(forKey: FailureKey.version)
@@ -186,6 +193,162 @@ struct CodexRuntime: Sendable {
       }
     }
     return step
+  }
+
+  enum DailyStep: Equatable {
+    case nothing
+    /// Only another built-in Codex is installed: the launch upgrade, retried daily.
+    case upgrade
+    /// The Codex in use is an older system install (such as Homebrew's) and the person
+    /// uses the ChatGPT route: install the pinned one, which is then preferred.
+    case replaceOlderSystemCodex
+  }
+
+  /// What the daily check does. It never cleans up: a running app server may still use
+  /// an older folder, so cleanup stays at launch. A system Codex is replaced only for
+  /// people who use the ChatGPT route, so nobody else gets the download; only when it
+  /// reports a version older than the pin, since OpenAI serves Codex's model list per
+  /// client version, so an old Codex shows old models; and only when it is signed with
+  /// OpenAI's Developer ID like the pinned package. Codex keeps the sign-in in the Keychain,
+  /// where access follows the code identity of the binary that created the item, so only
+  /// a switch between OpenAI-signed binaries stays silent.
+  static func dailyStep(pinnedInstalled: Bool, hasUsableOther: Bool, hasUsableNewer: Bool,
+                        usesChatGPT: Bool, systemVersion: [Int]?, systemSignedByOpenAI: Bool) -> DailyStep {
+    if pinnedInstalled { return .nothing }
+    if hasUsableOther { return hasUsableNewer ? .nothing : .upgrade }
+    guard usesChatGPT, systemSignedByOpenAI, let systemVersion, let pinnedNumbers = versionNumbers(ofFolder: folderName),
+          isOlder(systemVersion, than: pinnedNumbers) else { return .nothing }
+    return .replaceOlderSystemCodex
+  }
+
+  /// OpenAI's Apple Developer team, which signs the Codex packages and npm binaries.
+  static let openAITeamIdentifier = "2DC432GLL2"
+
+  /// The Codex Enigma would run when it is a system install: not the developer override
+  /// and not one of Enigma's built-in copies.
+  static func systemExecutable(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    runtimeDirectory: URL = directory,
+    resolved: URL? = CodexRuntimeConfiguration.executableURL()
+  ) -> URL? {
+    guard let resolved else { return nil }
+    if let override = environment["AI_SPOTLIGHT_CODEX_PATH"], resolved.path == override { return nil }
+    let builtIn = runtimeDirectory.standardizedFileURL.path + "/"
+    return resolved.standardizedFileURL.path.hasPrefix(builtIn) ? nil : resolved
+  }
+
+  /// The native binary behind a system `codex`. npm (and Homebrew's npm-based install)
+  /// links `codex` to a Node script that runs the binary from the platform package; that
+  /// binary is what creates the Keychain sign-in. Anything else is used as found.
+  static func nativeExecutable(for executable: URL) -> URL {
+    let resolved = executable.resolvingSymlinksInPath()
+    guard resolved.pathExtension == "js", resolved.deletingLastPathComponent().lastPathComponent == "bin" else {
+      return resolved
+    }
+    let package = resolved.deletingLastPathComponent().deletingLastPathComponent()
+    #if arch(arm64)
+    let platformPackage = "codex-darwin-arm64"
+    #else
+    let platformPackage = "codex-darwin-x64"
+    #endif
+    let binary = "vendor/\(target)/bin/codex"
+    let candidates = [
+      package.appending(path: "node_modules/@openai/\(platformPackage)/\(binary)"),
+      package.deletingLastPathComponent().appending(path: "\(platformPackage)/\(binary)"),
+      package.appending(path: binary),
+    ]
+    return candidates.first { CommandLineToolSearch.isExecutableFile($0.path) } ?? resolved
+  }
+
+  /// What another Codex must satisfy to read the Keychain sign-in silently: the `codex`
+  /// identifier signed by OpenAI's Developer ID, as in the package's designated requirement.
+  static let keychainRequirement =
+    "identifier \"codex\" and anchor apple generic and certificate leaf[subject.OU] = \"\(openAITeamIdentifier)\""
+
+  /// Whether `executable` has a valid code signature matching `keychainRequirement`.
+  static func isSignedByOpenAI(_ executable: URL) -> Bool {
+    var code: SecStaticCode?
+    var requirement: SecRequirement?
+    let text = keychainRequirement
+    guard SecStaticCodeCreateWithPath(executable as CFURL, [], &code) == errSecSuccess, let code,
+          SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement else {
+      return false
+    }
+    return SecStaticCodeCheckValidity(code, [], requirement) == errSecSuccess
+  }
+
+  /// The version in `codex --version` output: the token after `codex-cli` on the first
+  /// line that has one, such as `codex-cli 0.153.4`. Other output (warnings on standard
+  /// error) is ignored. A pre-release suffix (`0.164.0-alpha.1`) is dropped, so it counts
+  /// as that release.
+  static func versionNumbers(fromVersionOutput output: String) -> [Int]? {
+    for line in output.split(whereSeparator: \.isNewline) {
+      let tokens = line.split(whereSeparator: \.isWhitespace)
+      guard let index = tokens.firstIndex(of: "codex-cli"), tokens.indices.contains(index + 1) else { continue }
+      let release = tokens[index + 1].split(separator: "-", maxSplits: 1).first.map(String.init) ?? ""
+      let parts = release.split(separator: ".", omittingEmptySubsequences: false)
+      let numbers = parts.compactMap { Int($0) }
+      return parts.count >= 2 && numbers.count == parts.count ? numbers : nil
+    }
+    return nil
+  }
+
+  /// Asks a Codex for its version (`codex --version`) in the same isolated environment
+  /// the app server uses. Nil when it fails to run or prints something unexpected.
+  static func reportedVersion(of executable: URL) async -> [Int]? {
+    let directory = FileManager.default.temporaryDirectory
+    let environment = CodexRuntimeConfiguration.live.environment(for: executable)
+    guard let result = try? await run(executable, ["--version"], in: directory, environment: environment),
+          result.status == 0 else { return nil }
+    return versionNumbers(fromVersionOutput: result.output)
+  }
+
+  /// Runs daily in the background, the first time shortly after launch: installs the
+  /// pinned Codex quietly when `dailyStep` says so, with the launch upgrade's retry rule
+  /// (a failed install of this version waits a day). Never signs anyone in or out. Returns
+  /// the step taken, and whether the install succeeded, so running app servers can switch.
+  @discardableResult
+  static func maintainDaily(
+    in directory: URL = directory, defaults: UserDefaults = .standard, now: Date = Date(),
+    usesChatGPT: Bool, systemExecutable: URL?,
+    systemVersion: @Sendable (URL) async -> [Int]? = { await reportedVersion(of: nativeExecutable(for: $0)) },
+    systemSignedByOpenAI: @Sendable (URL) -> Bool = { isSignedByOpenAI(nativeExecutable(for: $0)) },
+    upgrade: @Sendable (URL) async throws -> Void = {
+      _ = try await install(into: $0, activity: .background, progress: { _ in })
+    }
+  ) async -> (step: DailyStep, installed: Bool) {
+    let pinnedInstalled = installedExecutable(in: directory) != nil
+    let hasUsableOther = !fallbackExecutables(in: directory).isEmpty
+    // Only ask the system Codex when the answer matters; the signature only when it is older.
+    var systemNumbers: [Int]?
+    var signed = false
+    if !pinnedInstalled, !hasUsableOther, usesChatGPT, let systemExecutable {
+      systemNumbers = await systemVersion(systemExecutable)
+      if let systemNumbers, let pinnedNumbers = versionNumbers(ofFolder: folderName),
+         isOlder(systemNumbers, than: pinnedNumbers) {
+        signed = systemSignedByOpenAI(systemExecutable)
+      }
+    }
+    let step = dailyStep(pinnedInstalled: pinnedInstalled, hasUsableOther: hasUsableOther,
+                         hasUsableNewer: hasUsableNewerVersion(in: directory),
+                         usesChatGPT: usesChatGPT, systemVersion: systemNumbers, systemSignedByOpenAI: signed)
+    guard step != .nothing,
+          shouldRetryUpgrade(lastFailedVersion: defaults.string(forKey: FailureKey.version),
+                             lastFailedAt: defaults.object(forKey: FailureKey.date) as? Date, now: now),
+          quietInstall.begin() else {
+      return (step, false)
+    }
+    defer { quietInstall.end() }
+    do {
+      try await upgrade(directory)
+      defaults.removeObject(forKey: FailureKey.version)
+      defaults.removeObject(forKey: FailureKey.date)
+      return (step, true)
+    } catch {
+      defaults.set(version, forKey: FailureKey.version)
+      defaults.set(now, forKey: FailureKey.date)
+      return (step, false)
+    }
   }
 
   static let stagingMaximumAge: TimeInterval = 24 * 60 * 60
@@ -335,6 +498,22 @@ struct CodexRuntime: Sendable {
     if timedOut.isSet { throw CodexRuntimeError.timedOut }
     return (process.terminationStatus, String(decoding: try Data(contentsOf: output), as: UTF8.self))
   }
+}
+
+final class QuietInstallFlag: @unchecked Sendable {
+  private let lock = NSLock()
+  private var running = false
+
+  /// False when an install is already running.
+  func begin() -> Bool {
+    lock.withLock {
+      guard !running else { return false }
+      running = true
+      return true
+    }
+  }
+
+  func end() { lock.withLock { running = false } }
 }
 
 private final class TimeoutFlag: @unchecked Sendable {

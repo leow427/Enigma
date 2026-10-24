@@ -57,6 +57,54 @@ struct CloudModel: Codable, Equatable, Identifiable, Sendable {
   let id: String
   let displayName: String
   let provider: CloudProviderID
+  /// What the model accepts ("text", "image", "audio"), when the provider's own list says.
+  /// Only Codex reports this; nil means unknown, which never counts as image support.
+  var inputModalities: [String]? = nil
+  /// Whether the provider marks this as its default model. Only Codex reports this.
+  var isDefault = false
+
+  init(id: String, displayName: String, provider: CloudProviderID,
+       inputModalities: [String]? = nil, isDefault: Bool = false) {
+    self.id = id
+    self.displayName = displayName
+    self.provider = provider
+    self.inputModalities = inputModalities
+    self.isDefault = isDefault
+  }
+
+  private enum CodingKeys: String, CodingKey { case id, displayName, provider, inputModalities, isDefault }
+
+  /// Caches written before these fields existed decode as unknown modalities and not default.
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(String.self, forKey: .id)
+    displayName = try container.decode(String.self, forKey: .displayName)
+    provider = try container.decode(CloudProviderID.self, forKey: .provider)
+    inputModalities = try container.decodeIfPresent([String].self, forKey: .inputModalities)
+    isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+  }
+}
+
+/// The models Codex last listed for this account, kept so checks that know only a model ID
+/// (screen routing, the request guard, context limits) can use Codex's own answers about
+/// compatibility and image input. `CloudModelCatalog` replaces it whenever it reads or
+/// writes the ChatGPT list; signing out clears it.
+final class CodexListedModels: @unchecked Sendable {
+  static let shared = CodexListedModels()
+
+  private let lock = NSLock()
+  private var listed: [CloudModel] = []
+
+  var models: [CloudModel] { lock.withLock { listed } }
+
+  func model(id: String) -> CloudModel? {
+    lock.withLock { listed.first { $0.id == id } }
+  }
+
+  func replace(with models: [CloudModel]) {
+    let models = models.filter { $0.provider == .chatGPT }
+    lock.withLock { listed = models }
+  }
 }
 
 enum CloudProviderError: LocalizedError, Equatable, Sendable {

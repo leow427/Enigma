@@ -83,7 +83,8 @@ final class ScreenViewTests: XCTestCase {
   func testSettingsPagesRender() throws {
     let credentials = ScreenTestCredentialStore()
     let settings = CloudSettingsModel(credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(),
+                                 cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "ModelCache-\(UUID())")),
       codexAvailable: { false })
     // A test advisor: the shared one runs the real Metal test and writes the real hardware report.
     let root = FileManager.default.temporaryDirectory.appending(path: "ScreenViewSettings-\(UUID())")
@@ -348,7 +349,8 @@ final class ScreenViewTests: XCTestCase {
   func testCloudAvailabilityDoesNotReadTheSecretDuringScreenRouting() throws {
     let credentials = PresenceOnlyCredentials()
     let settings = CloudSettingsModel(credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport()),
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(),
+                                 cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "ModelCache-\(UUID())")),
       codexAvailable: { false })
     XCTAssertTrue(settings.hasCloudAccess(for: .openAI))
   }

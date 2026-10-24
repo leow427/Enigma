@@ -275,6 +275,196 @@ final class CodexSubscriptionTests: XCTestCase {
     XCTAssertEqual(models.map(\.provider), [.chatGPT, .chatGPT])
   }
 
+  func testModelListRecordsInputTypesAndTheDefault() async throws {
+    let transport = MockCodexTransport(modelEntries: [
+      modelEntry("gpt-6-sol", modalities: ["text", "image"]),
+      modelEntry("gpt-6-luna", isDefault: true),
+      modelEntry("gpt-6-text", modalities: ["text"]),
+    ])
+    let models = try await CodexSubscriptionClient(transport: transport).models()
+    XCTAssertEqual(models, [
+      CloudModel(id: "gpt-6-sol", displayName: "gpt-6-sol", provider: .chatGPT, inputModalities: ["text", "image"]),
+      CloudModel(id: "gpt-6-luna", displayName: "gpt-6-luna", provider: .chatGPT, inputModalities: ["text", "image"],
+                 isDefault: true),
+      CloudModel(id: "gpt-6-text", displayName: "gpt-6-text", provider: .chatGPT, inputModalities: ["text"]),
+    ], "A missing inputModalities is text and image, as the app-server schema says")
+    XCTAssertEqual(models.map(\.supportsVision), [true, true, false])
+    XCTAssertEqual(CodexSubscriptionClient.automaticModelID(in: models), "gpt-6-luna")
+    XCTAssertEqual(CodexSubscriptionClient.automaticModelID(in: [models[0], models[2]]), "gpt-6-sol", "Else the first listed")
+    XCTAssertEqual(CodexSubscriptionClient.automaticModelID(in: []), CodexSubscriptionClient.defaultModelID)
+  }
+
+  func testOldCachesWithoutInputTypesCountAsTextOnlyUntilRefreshed() async throws {
+    let root = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fetchedAt = ISO8601DateFormatter().string(from: Date())
+    try Data("""
+      {"providers":{"chatgpt-codex":{"fetchedAt":"\(fetchedAt)","models":[
+        {"id":"gpt-5.6-luna","displayName":"GPT-5.6 Luna","provider":"chatgpt-codex"}]}}}
+      """.utf8).write(to: root.appending(path: "cloud-models.json"))
+    let listed = CodexListedModels()
+    let transport = MockCodexTransport(modelEntries: [modelEntry("gpt-5.6-luna", isDefault: true)])
+    let catalog = CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(),
+      cacheDirectory: root, codex: CodexSubscriptionClient(transport: transport), codexListedModels: listed)
+    let maybeCached = await catalog.cachedModels(for: .chatGPT)
+    let cached = try XCTUnwrap(maybeCached)
+    XCTAssertEqual(cached, [CloudModel(id: "gpt-5.6-luna", displayName: "GPT-5.6 Luna", provider: .chatGPT)])
+    XCTAssertNil(cached[0].inputModalities)
+    XCTAssertFalse(cached[0].isDefault)
+    XCTAssertFalse(cached[0].supportsVision)
+    XCTAssertEqual(listed.models, cached, "Reading the cache shares Codex's last list")
+
+    let refreshed = try await catalog.models(for: .chatGPT, forceRefresh: true)
+    XCTAssertEqual(refreshed.first?.inputModalities, ["text", "image"])
+    XCTAssertEqual(listed.models.first?.isDefault, true)
+    let maybeReread = await CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(),
+      cacheDirectory: root, codexListedModels: CodexListedModels()).cachedModels(for: .chatGPT)
+    let reread = try XCTUnwrap(maybeReread)
+    XCTAssertEqual(reread, refreshed, "The new fields are cached")
+
+    try await catalog.clearCache(for: .chatGPT)
+    XCTAssertEqual(listed.models, [], "Signing out forgets the list")
+  }
+
+  func testCodexListedModelsAreCompatibleWithConservativeLimits() {
+    CodexListedModels.shared.replace(with: [CloudModel(id: "gpt-6-sol", displayName: "GPT-6 Sol", provider: .chatGPT),
+                                            CloudModel(id: "gpt-5.6-luna", displayName: "Luna", provider: .chatGPT)])
+    addTeardownBlock { CodexListedModels.shared.replace(with: []) }
+    XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .chatGPT, modelID: "gpt-6-sol"), .compatible)
+    let listed = ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-6-sol")
+    XCTAssertEqual(listed.contextWindow, CloudModelCapabilities.codexListedContextWindow)
+    XCTAssertEqual(listed.outputTokens, CloudModelCapabilities.codexListedOutputTokens)
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-5.6-luna").contextWindow, 1_050_000,
+                   "Reviewed limits are kept")
+    XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .chatGPT, modelID: "gpt-7-unlisted"), .unverified)
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-7-unlisted").contextWindow, 32_768)
+    XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .openAI, modelID: "gpt-6-sol"), .unverified,
+                   "Codex's list says nothing about the API")
+  }
+
+  func testTurnInputIsTextOrAScreenshotThenTextExactly() throws {
+    CodexListedModels.shared.replace(with: [
+      CloudModel(id: "model-one", displayName: "One", provider: .chatGPT, inputModalities: ["text", "image"])])
+    addTeardownBlock { CodexListedModels.shared.replace(with: []) }
+    // One message, so the expected text is a literal rather than a second encoding.
+    var send = ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "Describe the chart")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: "model-one", usesNetwork: true))
+    let text = "Describe the chart"
+    XCTAssertEqual(try CodexSubscriptionClient.turnParameters(threadID: "thread-one", request: send)["input"],
+                   .array([.object(["type": .string("text"), "text": .string(text)])]))
+
+    send.image = screenshot
+    send.allowsCloudImages = true
+    XCTAssertEqual(try CodexSubscriptionClient.turnParameters(threadID: "thread-one", request: send)["input"], .array([
+      .object(["type": .string("image"), "url": .string("data:image/jpeg;base64,/9j/"), "detail": .null]),
+      .object(["type": .string("text"), "text": .string(text)]),
+    ]))
+
+    var denied = send
+    denied.allowsCloudImages = false
+    XCTAssertThrowsError(try CodexSubscriptionClient.turnParameters(threadID: "thread-one", request: denied)) {
+      XCTAssertEqual($0 as? ScreenRequestError, .cloudUploadNotAllowed)
+    }
+    CodexListedModels.shared.replace(with: [
+      CloudModel(id: "model-one", displayName: "One", provider: .chatGPT, inputModalities: ["text"])])
+    XCTAssertThrowsError(try CodexSubscriptionClient.turnParameters(threadID: "thread-one", request: send)) {
+      XCTAssertEqual($0 as? ScreenRequestError, .textOnlyModel)
+    }
+  }
+
+  func testStreamSendsTheScreenshotInTheTurn() async throws {
+    CodexListedModels.shared.replace(with: [
+      CloudModel(id: "model-one", displayName: "One", provider: .chatGPT, inputModalities: ["text", "image"])])
+    addTeardownBlock { CodexListedModels.shared.replace(with: []) }
+    let transport = MockCodexTransport(turnNotifications: [delta("A chart"), completion("completed")])
+    var send = request()
+    send.image = screenshot
+    send.allowsCloudImages = true
+    let events = try await collect(CodexSubscriptionClient(transport: transport).stream(send))
+    XCTAssertEqual(events, [.token("A chart"), .completed])
+    let requests = await transport.recordedRequests
+    let thread = try XCTUnwrap(requests.first { $0.method == "thread/start" })
+    let instructions = try XCTUnwrap(thread.params["developerInstructions"].string)
+    XCTAssertFalse(instructions.contains("text-only"))
+    XCTAssertTrue(instructions.contains("Do not use tools, read local files, browse, or take external actions."))
+    let input = try XCTUnwrap(requests.first { $0.method == "turn/start" }?.params["input"].array)
+    XCTAssertEqual(input.map { $0["type"].string }, ["image", "text"])
+    XCTAssertEqual(input[0]["url"].string, "data:image/jpeg;base64,/9j/")
+  }
+
+  func testCodexDefaultPreferenceMigrationKeepsOnlyRealChoices() {
+    func preferences(saved: String?, lunaMigrationRan: Bool) -> CloudPreferencesStore {
+      let suite = "CodexSettings.\(UUID().uuidString)"
+      let defaults = UserDefaults(suiteName: suite)!
+      addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+      if let saved { defaults.set(saved, forKey: "aiSpotlight.cloud.preferredModel.chatgpt-codex") }
+      if lunaMigrationRan { defaults.set(true, forKey: "aiSpotlight.cloud.didAdoptLunaDefault") }
+      return CloudPreferencesStore(defaults: defaults)
+    }
+    XCTAssertNil(preferences(saved: nil, lunaMigrationRan: false).chosenModel(for: .chatGPT))
+    XCTAssertNil(preferences(saved: "gpt-5.6-luna", lunaMigrationRan: true).chosenModel(for: .chatGPT),
+                 "The saved built-in default was never chosen")
+    XCTAssertNil(preferences(saved: "gpt-5.6-sol", lunaMigrationRan: false).chosenModel(for: .chatGPT),
+                 "Nor was the first-discovered Sol before the Luna migration")
+    XCTAssertEqual(preferences(saved: "gpt-5.6-sol", lunaMigrationRan: true).chosenModel(for: .chatGPT), "gpt-5.6-sol",
+                   "Sol chosen after the Luna migration is a real choice")
+    XCTAssertEqual(preferences(saved: "gpt-6-sol", lunaMigrationRan: true).chosenModel(for: .chatGPT), "gpt-6-sol")
+
+    let suite = "CodexSettings.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    CloudPreferencesStore(defaults: defaults).setPreferredModel("gpt-5.6-luna", for: .chatGPT)
+    XCTAssertEqual(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT), "gpt-5.6-luna",
+                   "The migration runs once, so a later explicit Luna stays")
+  }
+
+  @MainActor
+  func testChatGPTFollowsCodexDefaultUntilThePersonChooses() async throws {
+    let root = try temporaryDirectory()
+    addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+    let transport = MockCodexTransport(modelEntries: [modelEntry("gpt-6-sol"), modelEntry("gpt-6-luna", isDefault: true)])
+    let client = CodexSubscriptionClient(transport: transport)
+    let suite = "CodexSettings.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let settings = CloudSettingsModel(
+      credentialStore: CodexTestCredentials(),
+      catalog: CloudModelCatalog(credentialStore: CodexTestCredentials(), transport: NoNetworkTransport(),
+                                 cacheDirectory: root, codex: client),
+      preferences: CloudPreferencesStore(defaults: defaults), codex: client, codexAvailable: { true })
+    await settings.refreshChatGPTAccount()
+    await settings.discoverModels(forceRefresh: true)
+    XCTAssertEqual(settings.preferredModelID, "gpt-6-luna")
+    XCTAssertTrue(settings.isConfigured)
+    XCTAssertNil(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT), "Codex's default isn't saved")
+
+    settings.preferredProvider = .openAI
+    settings.preferredProvider = .chatGPT
+    XCTAssertNil(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT),
+                 "Switching providers and back doesn't save the default either")
+    XCTAssertNotEqual(settings.preferredModelID, "", "Codex's default is still shown")
+
+    await settings.discoverModels(forceRefresh: true)
+    settings.useChatGPTModelFromFileMode("gpt-6-luna")
+    XCTAssertEqual(settings.preferredModelID, "gpt-6-luna")
+    XCTAssertNil(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT),
+                 "File Mode's handoff of Codex's default isn't saved as a choice")
+
+    settings.preferredModelID = "gpt-6-sol"
+    await settings.discoverModels(forceRefresh: true)
+    XCTAssertEqual(settings.preferredModelID, "gpt-6-sol", "A choice is never replaced by Codex's default")
+    XCTAssertEqual(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT), "gpt-6-sol")
+    settings.useChatGPTModelFromFileMode("gpt-6-sol")
+    XCTAssertEqual(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT), "gpt-6-sol")
+
+    // A chosen model Codex no longer lists makes File Mode fall back to Codex's default.
+    settings.preferredModelID = "gpt-5.6-terra"
+    settings.useChatGPTModelFromFileMode("gpt-6-luna")
+    XCTAssertEqual(settings.preferredModelID, "gpt-6-luna", "The fallback is used for this draft")
+    XCTAssertEqual(CloudPreferencesStore(defaults: defaults).chosenModel(for: .chatGPT), "gpt-5.6-terra",
+                   "but never replaces the person's choice")
+  }
+
   func testNewCloudPreferencesDefaultToLunaWithoutChangingAPIDefaults() {
     let suite = "CodexSettings.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
@@ -415,14 +605,15 @@ final class CodexSubscriptionTests: XCTestCase {
     )
     XCTAssertEqual(settings.preferredProvider, .chatGPT)
     XCTAssertFalse(settings.isConfigured)
+    XCTAssertEqual(settings.preferredModelID, "gpt-5.6-luna", "Before any list, the built-in fallback")
     await settings.refreshChatGPTAccount()
     await settings.discoverModels()
     XCTAssertTrue(settings.isConfigured)
-    XCTAssertEqual(settings.preferredModelID, "gpt-5.6-luna")
     XCTAssertEqual(settings.models.map(\.id), ["model-one", "model-two"])
+    XCTAssertEqual(settings.preferredModelID, "model-one", "Without a choice or a marked default, the first listed")
     settings.preferredModelID = ""
     await settings.loadCachedModels()
-    XCTAssertEqual(settings.preferredModelID, "gpt-5.6-luna", "Catalog order must not replace the lighter default")
+    XCTAssertEqual(settings.preferredModelID, "model-one", "A cleared choice follows Codex's list again")
     settings.preferredModelID = "model-two"
     await settings.discoverModels(forceRefresh: true)
     XCTAssertEqual(settings.preferredModelID, "model-two", "Refresh must preserve an explicit model selection")
@@ -699,6 +890,18 @@ final class CodexSubscriptionTests: XCTestCase {
     ], route: Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: modelID, usesNetwork: true))
   }
 
+  private let screenshot = PreparedScreenImage(data: Data([0xFF, 0xD8, 0xFF]), mimeType: "image/jpeg",
+                                               pixelWidth: 2, pixelHeight: 2)
+
+  private func modelEntry(_ model: String, modalities: [String]? = nil, isDefault: Bool = false) -> CodexValue {
+    var entry: [String: CodexValue] = [
+      "id": .string(model), "model": .string(model), "displayName": .string(model),
+      "hidden": .bool(false), "isDefault": .bool(isDefault),
+    ]
+    if let modalities { entry["inputModalities"] = .array(modalities.map(CodexValue.string)) }
+    return .object(entry)
+  }
+
   private func delta(_ text: String, thread: String = "thread-one") -> CodexNotification {
     CodexNotification(method: "item/agentMessage/delta", params: .object([
       "threadId": .string(thread), "turnId": .string("turn-one"), "itemId": .string("message-one"), "delta": .string(text),
@@ -765,6 +968,7 @@ private actor MockCodexTransport: CodexRPCTransport {
   private let turnNotifications: [CodexNotification]
   private let onRequest: @Sendable (String) -> Void
   private let delayTurnStart: Bool
+  private let modelEntries: [CodexValue]?
   private var turnStartWaiter: CheckedContinuation<Void, Never>?
   private var observers: [UUID: AsyncThrowingStream<CodexNotification, Error>.Continuation] = [:]
   private(set) var recordedRequests: [Request] = []
@@ -775,9 +979,11 @@ private actor MockCodexTransport: CodexRPCTransport {
     loginURL: String = "https://auth.openai.com/oauth/authorize?example=1",
     turnNotifications: [CodexNotification] = [],
     delayTurnStart: Bool = false,
+    modelEntries: [CodexValue]? = nil,
     onRequest: @escaping @Sendable (String) -> Void = { _ in }
   ) {
     accountValue = account
+    self.modelEntries = modelEntries
     self.loginSuccess = loginSuccess
     self.loginURL = loginURL
     self.turnNotifications = turnNotifications
@@ -799,6 +1005,7 @@ private actor MockCodexTransport: CodexRPCTransport {
       }
       return .object(["type": .string("chatgpt"), "loginId": .string("login-one"), "authUrl": .string(loginURL)])
     case "model/list":
+      if let modelEntries { return .object(["data": .array(modelEntries), "nextCursor": .null]) }
       let secondPage = params["cursor"].string != nil
       return .object([
         "data": .array([.object([

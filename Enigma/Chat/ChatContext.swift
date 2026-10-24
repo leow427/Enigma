@@ -163,8 +163,11 @@ enum CloudContext {
     let content: String
   }
 
+  /// Sorted keys make the transcript identical for identical messages.
   static func encodedMessages(_ messages: [ChatMessage]) throws -> Data {
-    try JSONEncoder().encode(messages.map { Message(role: $0.role.rawValue, content: $0.content) })
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
+    return try encoder.encode(messages.map { Message(role: $0.role.rawValue, content: $0.content) })
   }
 
   static func codexPrompt(_ messages: [ChatMessage]) throws -> String {

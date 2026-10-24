@@ -192,9 +192,11 @@
 		F10000000000000000000008 /* CloudModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* CloudModeTests.swift */; };
 		F10000000000000000000009 /* CodexAppServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* CodexAppServer.swift */; };
 		B10000000000000000000B22 /* CodexRuntimeInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B22 /* CodexRuntimeInstaller.swift */; };
+		B10000000000000000000B24 /* SubscriptionModelRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B24 /* SubscriptionModelRefresh.swift */; };
 		B10000000000000000000B21 /* CommandLineToolLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B21 /* CommandLineToolLocator.swift */; };
 		F1000000000000000000000A /* CodexSubscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* CodexSubscriptionClient.swift */; };
 		F1000000000000000000000B /* CodexSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* CodexSubscriptionTests.swift */; };
+		B10000000000000000000B25 /* SubscriptionModelRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B25 /* SubscriptionModelRefreshTests.swift */; };
 		B10000000000000000000B23 /* CloudToolInstallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000B23 /* CloudToolInstallTests.swift */; };
 		F1000000000000000000000C /* ClaudeCodeSubscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* ClaudeCodeSubscriptionClient.swift */; };
 		F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */; };
@@ -400,9 +402,11 @@
 		F20000000000000000000008 /* CloudModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudModeTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000009 /* CodexAppServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAppServer.swift; sourceTree = "<group>"; };
 		B20000000000000000000B22 /* CodexRuntimeInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRuntimeInstaller.swift; sourceTree = "<group>"; };
+		B20000000000000000000B24 /* SubscriptionModelRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionModelRefresh.swift; sourceTree = "<group>"; };
 		B20000000000000000000B21 /* CommandLineToolLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineToolLocator.swift; sourceTree = "<group>"; };
 		F2000000000000000000000A /* CodexSubscriptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSubscriptionClient.swift; sourceTree = "<group>"; };
 		F2000000000000000000000B /* CodexSubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSubscriptionTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000B25 /* SubscriptionModelRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionModelRefreshTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000B23 /* CloudToolInstallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudToolInstallTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000000C /* ClaudeCodeSubscriptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSubscriptionClient.swift; sourceTree = "<group>"; };
 		F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSubscriptionTests.swift; sourceTree = "<group>"; };
@@ -627,6 +631,7 @@
 				E20000000000000000000006 /* AutoRouterTests.swift */,
 				F20000000000000000000008 /* CloudModeTests.swift */,
 				F2000000000000000000000B /* CodexSubscriptionTests.swift */,
+				B20000000000000000000B25 /* SubscriptionModelRefreshTests.swift */,
 				B20000000000000000000B23 /* CloudToolInstallTests.swift */,
 				F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */,
 			);
@@ -701,6 +706,7 @@
 				F20000000000000000000006 /* CloudModelCatalog.swift */,
 				C50000000000000000000003 /* CloudModelCapabilities.swift */,
 				F20000000000000000000007 /* CloudSettingsModel.swift */,
+				B20000000000000000000B24 /* SubscriptionModelRefresh.swift */,
 			);
 			path = Cloud;
 			sourceTree = "<group>";
@@ -941,6 +947,7 @@
 				F10000000000000000000007 /* CloudSettingsModel.swift in Sources */,
 				F10000000000000000000009 /* CodexAppServer.swift in Sources */,
 				B10000000000000000000B22 /* CodexRuntimeInstaller.swift in Sources */,
+				B10000000000000000000B24 /* SubscriptionModelRefresh.swift in Sources */,
 				B10000000000000000000B21 /* CommandLineToolLocator.swift in Sources */,
 				F1000000000000000000000A /* CodexSubscriptionClient.swift in Sources */,
 				F1000000000000000000000C /* ClaudeCodeSubscriptionClient.swift in Sources */,
@@ -1004,6 +1011,7 @@
 				E10000000000000000000006 /* AutoRouterTests.swift in Sources */,
 				F10000000000000000000008 /* CloudModeTests.swift in Sources */,
 				F1000000000000000000000B /* CodexSubscriptionTests.swift in Sources */,
+				B10000000000000000000B25 /* SubscriptionModelRefreshTests.swift in Sources */,
 				B10000000000000000000B23 /* CloudToolInstallTests.swift in Sources */,
 				F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */,
 			);
