@@ -232,6 +232,7 @@ final class CloudModelSelectionTests: XCTestCase {
       cloudProviders: CloudProviderRegistry(credentialStore: SelectionCredentials(), transport: transport),
       sessionStore: store
     )
+    viewModel.selectSession(id: baseline[0].id)
     let original = "  Keep my exact draft.\n"
     var draft = original
     viewModel.submitCloud(draft, provider: .openAI, modelID: "dall-e-3", onAccepted: { draft = "" })

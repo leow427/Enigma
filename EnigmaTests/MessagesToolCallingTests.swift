@@ -625,9 +625,12 @@ final class MessagesRequestTests: XCTestCase {
   }
 
   func testNewChatOrAnotherChatClearsTheSettingsCard() async throws {
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    let other = ChatSession(messages: [ChatMessage(role: .user, content: "Another chat")])
+    try store.save([other])
     let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in StoppingToolbox() },
       messagesAccess: {}, localToolRuntime: { _ in true }, fileInference: RepeatingToolInference(),
-      sessionStore: .init(applicationSupportDirectory: root))
+      sessionStore: store)
     await chat.refreshInstalledModel()
     chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
     await waitForTheRequestToFinish(chat)
@@ -635,7 +638,8 @@ final class MessagesRequestTests: XCTestCase {
     XCTAssertEqual(chat.appleMessages.issue?.pane, .automation)
     chat.newChat()
     XCTAssertNil(chat.appleMessages.issue, "A new chat starts without the card")
-    let freshChat = try XCTUnwrap(chat.selectedSessionID)
+    XCTAssertNil(chat.selectedSessionID)
+    let freshChat = other.id
 
     chat.selectSession(id: deniedChat)
     chat.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")

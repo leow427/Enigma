@@ -328,6 +328,7 @@ final class CloudModeTests: XCTestCase {
         engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
         cloudProviders: registry, sessionStore: store
       )
+      viewModel.selectSession(id: store.load()[0].id)
       var draft = "current"
       viewModel.submitCloud(draft, provider: provider, modelID: "manual", onAccepted: { draft = "" })
       XCTAssertEqual(draft, "")

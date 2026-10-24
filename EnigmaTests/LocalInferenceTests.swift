@@ -346,6 +346,7 @@ final class LocalInferenceTests: XCTestCase {
     let persistedOriginal = store.load()[0].messages
     let engine = MockLocalModelEngine(installedModel: fixtureModel())
     let viewModel = LocalChatViewModel(engine: engine, sessionStore: store)
+    viewModel.selectSession(id: store.load()[0].id)
     viewModel.submit("current")
     await waitUntil { viewModel.state == .idle && engine.requests.count == 1 }
     XCTAssertEqual(engine.requests[0].messages.map(\.content), ["recent", "recent reply", "current"])
@@ -391,6 +392,177 @@ final class LocalInferenceTests: XCTestCase {
     XCTAssertEqual(draft, "Hello")
     await waitUntil { viewModel.state == .idle && engine.requests.count == 1 }
     XCTAssertEqual(draft, "")
+  }
+
+  @MainActor
+  func testLaunchOpensANewChatWithoutWritingOne() async throws {
+    let store = makeSessionStore()
+    let saved = ChatSession(messages: [ChatMessage(role: .user, content: "Earlier"), ChatMessage(role: .assistant, content: "Reply")])
+    try store.save([saved])
+    let probe = ChatArchiveWriteProbe(store: store)
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store,
+      sessionWriter: ChatSessionWriter(write: probe.write))
+    XCTAssertNil(viewModel.selectedSessionID, "No chat is open at launch")
+    XCTAssertTrue(viewModel.messages.isEmpty)
+    XCTAssertNil(viewModel.files.conversationID)
+    XCTAssertEqual(viewModel.historySessions.map(\.id), [saved.id], "Saved chats stay in Recents")
+
+    viewModel.newChat()
+    XCTAssertNil(viewModel.selectedSessionID, "A new chat with none open makes nothing yet")
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(probe.snapshots.isEmpty, "Nothing is written")
+    XCTAssertEqual(store.load().map(\.id), [saved.id])
+  }
+
+  /// Launch, ask, come back to a new chat, three times: only the asked chats are saved.
+  @MainActor
+  func testRepeatedNewChatsAfterAskingSaveNoEmptyChat() async throws {
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in
+      AsyncThrowingStream { $0.yield("response"); $0.finish() }
+    })
+    let store = makeSessionStore()
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: store)
+    for index in 1...3 {
+      viewModel.submit("Question \(index)")
+      await waitUntil { viewModel.state == .idle && viewModel.messages.count == 2 }
+      viewModel.newChat()
+      XCTAssertNil(viewModel.selectedSessionID, "A new chat is no chat selected, as at launch")
+      XCTAssertNil(viewModel.files.conversationID)
+      XCTAssertTrue(viewModel.messages.isEmpty)
+    }
+    XCTAssertEqual(viewModel.historySessions.count, 3)
+    await viewModel.sessionWriter.waitForPendingWrites()
+    let saved = store.load()
+    XCTAssertEqual(saved.count, 3)
+    XCTAssertFalse(saved.contains { $0.messages.isEmpty }, "No empty chat is saved")
+  }
+
+  /// With Recents full, leaving a chat for a new one, with nothing typed, costs no saved chat.
+  @MainActor
+  func testANewChatWithRecentsFullKeepsEverySavedChat() async throws {
+    let store = makeSessionStore()
+    let saved = (0..<ChatSessionStore.maximumRetainedSessions).map { index in
+      ChatSession(messages: [ChatMessage(role: .user, content: "Chat \(index)")],
+                  lastActivityAt: Date(timeIntervalSinceNow: -Double(1_000 - index)))
+    }
+    try store.save(saved)
+    let before = store.load().map(\.id)
+    let probe = ChatArchiveWriteProbe(store: store)
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store,
+      sessionWriter: ChatSessionWriter(write: probe.write))
+    viewModel.newChat()
+    viewModel.selectSession(id: before[0])
+    viewModel.newChat()
+    viewModel.newChat()
+    XCTAssertEqual(viewModel.historySessions.map(\.id), before)
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(probe.snapshots.isEmpty, "Nothing is written")
+    XCTAssertEqual(store.load().map(\.id), before)
+  }
+
+  /// New chat, open an older chat, then New chat again and again: no empty chats.
+  @MainActor
+  func testNewChatsAroundAnOlderChatMakeNoEmptyChats() async throws {
+    let store = makeSessionStore()
+    let older = ChatSession(messages: [ChatMessage(role: .user, content: "Earlier"), ChatMessage(role: .assistant, content: "Reply")])
+    try store.save([older])
+    let probe = ChatArchiveWriteProbe(store: store)
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store,
+      sessionWriter: ChatSessionWriter(write: probe.write))
+    viewModel.newChat()
+    viewModel.selectSession(id: older.id)
+    XCTAssertEqual(viewModel.messages.count, 2)
+    XCTAssertEqual(viewModel.files.conversationID, older.id)
+    viewModel.newChat()
+    XCTAssertNil(viewModel.files.conversationID, "The new chat has no File Mode conversation yet")
+    for _ in 0..<2 { viewModel.newChat() }
+    XCTAssertNil(viewModel.selectedSessionID)
+    XCTAssertEqual(viewModel.historySessions.map(\.id), [older.id])
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(probe.snapshots.isEmpty)
+    XCTAssertEqual(store.load().map(\.id), [older.id])
+  }
+
+  /// A selection chat abandoned before its question, then New chat: nothing is written.
+  @MainActor
+  func testNewChatDiscardsATemporaryChatWithoutWriting() async throws {
+    let store = makeSessionStore()
+    let probe = ChatArchiveWriteProbe(store: store)
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store,
+      sessionWriter: ChatSessionWriter(write: probe.write))
+    viewModel.startTemporaryChat(context: nil)
+    let temporary = try XCTUnwrap(viewModel.selectedSessionID)
+    XCTAssertTrue(viewModel.isTemporaryChat)
+
+    viewModel.newChat()
+    XCTAssertNil(viewModel.selectedSessionID)
+    XCTAssertFalse(viewModel.isTemporaryChat)
+    XCTAssertFalse(viewModel.sessions.contains { $0.id == temporary }, "The temporary chat is gone")
+    XCTAssertTrue(viewModel.historySessions.isEmpty)
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(probe.snapshots.isEmpty, "Nothing is written")
+    XCTAssertTrue(store.load().isEmpty)
+  }
+
+  /// New chat while a reply streams stops it and keeps the chat it was in.
+  @MainActor
+  func testNewChatDuringAReplyStopsItAndKeepsItsChat() async throws {
+    let stream = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in stream.stream })
+    let store = makeSessionStore()
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: store)
+    viewModel.submit("Question")
+    stream.continuation.yield("Partial")
+    await waitUntil { viewModel.messages.last?.content == "Partial" }
+    let asked = try XCTUnwrap(viewModel.selectedSessionID)
+    XCTAssertTrue(ChatReturnState(chat: viewModel, screen: nil).isBusy, "A streaming reply holds the chat")
+    viewModel.newChat()
+    XCTAssertFalse(ChatReturnState(chat: viewModel, screen: nil).isBusy)
+    XCTAssertFalse(viewModel.isBusy)
+    XCTAssertNil(viewModel.selectedSessionID)
+    stream.continuation.yield("Too late")
+    stream.continuation.finish()
+    await viewModel.sessionWriter.waitForPendingWrites()
+    let saved = try XCTUnwrap(store.load().first { $0.id == asked })
+    XCTAssertEqual(saved.messages.map(\.content), ["Question", "Partial"], "The reply stops where it was")
+  }
+
+  @MainActor
+  func testLegacyEmptyChatsAreDroppedAtLoad() async throws {
+    let store = makeSessionStore()
+    let used = ChatSession(messages: [ChatMessage(role: .user, content: "Kept")])
+    try store.save([ChatSession(), used, ChatSession(title: "New Chat")])
+    XCTAssertEqual(store.load().count, 3)
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store)
+    XCTAssertEqual(viewModel.sessions.map(\.id), [used.id])
+    XCTAssertEqual(viewModel.historySessions.map(\.id), [used.id])
+    viewModel.selectSession(id: used.id)
+    viewModel.submit("Again")
+    await waitUntil { viewModel.state == .idle && viewModel.messages.count == 3 }
+    await viewModel.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(store.load().map(\.id), [used.id], "The next save cleans the file")
+  }
+
+  /// A request that ends while Enigma is hidden counts as use, even when it
+  /// fails, without moving its chat in Recents.
+  @MainActor
+  func testAFailedRequestCountsAsUseWithoutReorderingRecents() async throws {
+    let store = makeSessionStore()
+    let old = Date(timeIntervalSinceNow: -3_600)
+    let saved = ChatSession(messages: [ChatMessage(role: .user, content: "Earlier")], lastActivityAt: old)
+    try store.save([saved])
+    let viewModel = LocalChatViewModel(engine: MockLocalModelEngine(installedModel: fixtureModel()), sessionStore: store)
+    viewModel.selectSession(id: saved.id)
+    // As saved: the archive rounds the time.
+    let stamp = try XCTUnwrap(viewModel.selectedSession?.lastActivityAt)
+    XCTAssertEqual(stamp.timeIntervalSince(old), 0, accuracy: 1)
+    XCTAssertEqual(ChatReturnState(chat: viewModel, screen: nil).lastUsedAt, stamp)
+    // Too long for the context: it fails before it's accepted.
+    viewModel.submit(String(repeating: "x", count: 40_000))
+    await waitUntil { if case .failed = viewModel.state { return true }; return false }
+    XCTAssertEqual(viewModel.selectedSession?.lastActivityAt, stamp, "Its place in Recents is unchanged")
+    let lastUsed = try XCTUnwrap(ChatReturnState(chat: viewModel, screen: nil).lastUsedAt)
+    XCTAssertGreaterThan(lastUsed, Date(timeIntervalSinceNow: -60), "The failure counts as use")
   }
 
   @MainActor

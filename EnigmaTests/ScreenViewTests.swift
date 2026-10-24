@@ -371,6 +371,36 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
+  /// What the 5-minute return reads from the chat and the composer.
+  @MainActor
+  func testChatReturnStateCountsTheDraftScreenshotAndFiles() async throws {
+    let used = Date(timeIntervalSince1970: 1_800_000_000)
+    let directory = FileManager.default.temporaryDirectory.appending(path: "ChatReturnState-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ChatSessionStore(applicationSupportDirectory: directory)
+    let saved = ChatSession(messages: [ChatMessage(role: .user, content: "Earlier")], lastActivityAt: used)
+    try store.save([saved])
+    let chat = LocalChatViewModel(engine: RepeatedPanelEngine(model: LocalModel(id: "text", displayName: "Text", fileURL: directory.appending(path: "text.gguf"))), sessionStore: store)
+    let screen = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
+    XCTAssertEqual(ChatReturnState(chat: chat, screen: screen), ChatReturnState(lastUsedAt: nil), "No chat open")
+    chat.startTemporaryChat(context: ConversationContext(sourceName: "Editor", text: "Selected"))
+    XCTAssertNotNil(chat.selectedSessionID)
+    XCTAssertNil(ChatReturnState(chat: chat, screen: screen).lastUsedAt, "An empty selection chat: nothing to leave")
+    chat.selectSession(id: saved.id)
+    XCTAssertEqual(ChatReturnState(chat: chat, screen: screen), ChatReturnState(lastUsedAt: used))
+    screen.draft = "  "
+    XCTAssertFalse(ChatReturnState(chat: chat, screen: screen).hasUnsentWork, "Only spaces")
+    screen.draft = "Half a question"
+    XCTAssertTrue(ChatReturnState(chat: chat, screen: screen).hasUnsentWork)
+    screen.draft = ""
+    _ = await screen.capture()
+    XCTAssertNotNil(screen.attachment)
+    XCTAssertTrue(ChatReturnState(chat: chat, screen: screen).hasUnsentWork, "A screenshot")
+    screen.removeAttachment()
+    chat.files.restoreSelection(WorkspaceSelection(attachments: [try .select(directory)]))
+    XCTAssertTrue(ChatReturnState(chat: chat, screen: screen).hasUnsentWork, "Attached files")
+  }
+
   func testLongScreenSearchConversationSettlesAtBottom() async throws {
     try await verifyFullPanelScreenSubmission(searchEnabled: true, historyCount: 40)
   }
@@ -401,6 +431,8 @@ final class ScreenViewTests: XCTestCase {
     }
     let chat = LocalChatViewModel(engine: engine, webSearch: search,
                                  sessionStore: store)
+    // Launch opens a new chat; continue the saved one.
+    if let saved = store.load().first { chat.selectSession(id: saved.id) }
     await chat.refreshInstalledModel()
     let screen = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
     let credentials = ScreenTestCredentialStore()
@@ -529,8 +561,8 @@ final class ScreenViewTests: XCTestCase {
     let store = ChatSessionStore(applicationSupportDirectory: directory)
     let chat = LocalChatViewModel(engine: engine, sessionStore: store)
     await chat.refreshInstalledModel()
-    chat.newChat()
-    let session = chat.selectedSessionID
+    // Launch opens no chat: the first request makes one, and the next stays in it.
+    var session: UUID?
     let screen = ScreenComposerCoordinator(captureService: PreviewCapture(), ocrService: PreviewOCR())
     let credentials = ScreenTestCredentialStore()
     let cloud = CloudSettingsModel(credentialStore: credentials,
@@ -642,6 +674,7 @@ final class ScreenViewTests: XCTestCase {
     try await assertPanelControls(view, phase: "first blocked request")
     XCTAssertNotNil(screen.error)
     XCTAssertTrue(chat.messages.isEmpty)
+    XCTAssertNil(chat.selectedSessionID, "A blocked request makes no chat")
     XCTAssertTrue(engine.requests.isEmpty)
     screen.removeAttachment()
 
@@ -663,6 +696,7 @@ final class ScreenViewTests: XCTestCase {
       await fulfillment(of: [completed], timeout: 5)
       token.cancel()
       try await assertPanelControls(view, phase: "submission \(cycle)")
+      if cycle == 1 { session = try XCTUnwrap(chat.selectedSessionID) }
       XCTAssertEqual(chat.selectedSessionID, session)
       XCTAssertEqual(chat.messages.filter { $0.role == .user }.count, cycle)
       XCTAssertEqual(engine.requests.count, cycle)

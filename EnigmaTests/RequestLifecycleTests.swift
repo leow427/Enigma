@@ -497,17 +497,28 @@ final class RequestLifecycleTests: XCTestCase {
     }
   }
 
-  func testTemporaryChatAndRetentionSurvivePendingArchiveWrites() async {
+  func testTemporaryChatAndRetentionSurvivePendingArchiveWrites() async throws {
     let probe = ChatArchiveWriteProbe(store: makeStore(), blockFirst: true)
     defer { probe.release() }
+    // Recents is full of chats with messages, so a new chat that's used evicts the oldest.
+    let limit = ChatSessionStore.maximumRetainedSessions
+    let earlier = (0..<limit).map { index in
+      ChatSession(messages: [ChatMessage(role: .user, content: "Earlier")],
+                  lastActivityAt: Date(timeIntervalSinceNow: -Double(1_000 - index)))
+    }
+    try probe.store.save(earlier)
     let writer = ChatSessionWriter(write: probe.write)
+    let kept = ControlledStream<String>()
     let stream = ControlledStream<String>()
-    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(streams: [stream]),
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(streams: [kept, stream]),
       sessionStore: probe.store, sessionWriter: writer)
-    viewModel.newChat()
-    let evicted = viewModel.selectedSessionID
+    viewModel.submit("Kept question")
+    await fulfillment(of: [kept.started], timeout: 2)
+    let evicted = earlier[0].id
+    // The question landing is the first write, which is held while more queue behind it.
     await fulfillment(of: [probe.started], timeout: 2)
-    for _ in 0...ChatSessionStore.maximumRetainedSessions { viewModel.newChat() }
+    await receive("Kept answer", from: kept, in: viewModel, expecting: "Kept answer")
+    await viewModel.stopStreaming()?.value
     viewModel.startTemporaryChat(context: nil)
     let temporary = viewModel.selectedSessionID
     viewModel.submit("Never archive this")
@@ -518,9 +529,11 @@ final class RequestLifecycleTests: XCTestCase {
     await writer.waitForPendingWrites()
     XCTAssertEqual(probe.snapshots.count, 2)
     let saved = probe.store.load()
-    XCTAssertEqual(saved.count, ChatSessionStore.maximumRetainedSessions)
+    XCTAssertEqual(saved.count, limit)
     XCTAssertFalse(saved.contains { $0.id == temporary || $0.id == evicted })
-    XCTAssertTrue(saved.flatMap(\.messages).isEmpty)
+    XCTAssertEqual(saved.flatMap(\.messages).map(\.content).sorted(),
+                   (["Kept question", "Kept answer"] + Array(repeating: "Earlier", count: limit - 1)).sorted(),
+                   "None of the temporary chat's messages")
     viewModel.newChat()
     await writer.waitForPendingWrites()
     XCTAssertEqual(probe.store.load().map(\.id), viewModel.sessions.map(\.id))

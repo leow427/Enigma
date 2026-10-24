@@ -114,7 +114,27 @@ listed source means its excerpt was sent, not that the full page was read.
 - **Recents** lists your chats, newest activity first. A chat is titled with the
   first 48 characters of its first message ("New Chat" until then).
 - Enigma keeps the **10 most recently active chats**. Older chats are dropped
-  for good, and an empty new chat counts toward the ten.
+  for good. A chat with no messages is never saved or counted.
+- **New chats.** Launch and **New chat** both open the empty chat page with no
+  chat selected in Recents. A chat with no messages, as when you've only
+  attached files, exists in memory only: it isn't written, listed in Recents
+  or counted toward the ten, and leaving it (a new chat, another chat,
+  cycling, or the selection shortcut) removes it. Its first message saves it,
+  at the top of Recents. The one exception to the listing: a selection chat
+  that just moved to the window shows in Recents while its first question is
+  on its way, though it's written only once that question lands.
+- **Coming back.** Summoning Enigma after more than **5 minutes** away opens a
+  new chat; within 5 minutes it comes back to the chat you left. Away means
+  hidden (Escape, the show/hide shortcut, or the menu bar's **Privacy Hide**)
+  and not used: a request that ended while the window was hidden, finished or
+  failed, counts as use, and the 5 minutes run from then. A window left open
+  behind other apps is not away, and keeps its chat however long it stays
+  there. You always come back to the same
+  chat when there's nothing to leave (no chat, or one with no messages), when
+  something is unsent (text, a screenshot or files in the composer, a selection
+  revision not yet applied or dismissed, or a File Mode edit waiting on **Use
+  Codex**), or while the chat is busy: a reply, file work, or a model install,
+  delete or performance check holds it. A model download alone doesn't.
 - You can't switch chats while a request is running; **New chat** stops it
   first.
 - **Temporary chats.** A chat started from selected text in the compact panel is
@@ -222,9 +242,40 @@ sorted by last activity and capped at `maximumRetainedSessions` (10).
 `ChatSessionWriter` keeps saves off the main thread: one write at a time on a
 utility queue, and one replaceable pending snapshot so an older save can never
 overwrite a newer one. Streamed fragments are coalesced into a save every 500 ms.
-New chats, accepted messages and attachment changes save right away; Stop,
-completion, failure and the app becoming inactive flush pending changes. A
-temporary chat is filtered out of every snapshot.
+A chat's first message, later accepted messages, and attachment changes on a
+chat with messages save right away; Stop, completion, failure and the app
+becoming inactive flush pending changes. A temporary chat is filtered out of
+every snapshot.
+
+`LocalChatViewModel` starts with no selected chat; `ensureSelectedSession()`
+creates one, at the top, when sending or a file attachment needs it, without
+writing it. `isUnsaved` covers every chat with no messages as well as the
+temporary chat, so such a chat stays out of the saved file and of retention, and
+`historySessions` leaves it out of Recents, apart from the selection's chat
+that just moved to the window. Empty chats in the file from older versions are
+dropped at load. `newChat()` stops any reply, discards a temporary chat, and
+returns to no selected chat. Leaving a chat with no messages, through
+`newChat()`, `selectSession`, `cycleRecentChat` or `startTemporaryChat`, removes
+it (`leaveEmptyChat`). `lastRequestActivityAt` records in memory when a request
+last started, streamed or ended, failed or not, without moving its chat.
+
+The return rule is `ChatReturnPolicy` in
+`Enigma/App/SpotlightPanelController.swift`, given plain values: when the panel
+was hidden, the time, and a `ChatReturnState` (the later of the open chat's
+last activity and `lastRequestActivityAt`, whether anything is unsent, and
+`isBusy`), which the
+controller reads through an injected closure from the shared chat and the
+window's own `ScreenComposerCoordinator`. `SpotlightPanelController.hide()`
+records when the panel was hidden (keeping the first time if it's hidden
+again); every way the panel is shown clears it. `show()` asks the policy before
+ordering the panel front. A new chat goes out as `.newChatRequested`, the same
+path as **⌘N**, so the main window resets and a compact selection panel returns
+to its normal frame; the content is laid out before the panel is ordered front.
+Screen capture and a
+running text replacement order the panel out without `hide()`, so they don't
+count as away; an automatic paste that leaves the window hidden ends with
+`hide()`, as Escape does. A selection summon starts its own temporary chat as
+before, and the rule applies again once that panel is hidden.
 
 ### Context budgets
 
@@ -315,13 +366,20 @@ evidence fits. See [Web-Search.md](Web-Search.md).
   message staying in view, with Reduce Motion on and off), sent images and
   activity.
 - `EnigmaTests/ScreenViewTests.swift`: the scroll observer while streaming and
-  while reading, and typing after Stop with a blocked save.
+  while reading, typing after Stop with a blocked save, and the composer draft
+  and screenshot in `ChatReturnState`.
 - `EnigmaTests/AppShellStateTests.swift`: `ShellPresentation`,
-  `ComposerSubmission` and `ChatHistoryList`.
+  `ComposerSubmission`, `ChatHistoryList`, and (`ChatReturnTests`) the
+  5-minute return rule and the panel controller that applies it.
 - `EnigmaTests/EnigmaMainWindowTests.swift`: the main page, composer and sidebar.
 - `EnigmaTests/WebSearchTests.swift`: activity events, source selection and
   evidence packing.
 - `EnigmaTests/LocalInferenceTests.swift`: streaming partial Markdown, failures
-  and Stop on the local route.
+  and Stop on the local route, launch and New chat opening no chat, empty chats
+  never saved or listed, and request activity counting as use.
+- `EnigmaTests/FileModeUITests.swift`: files on a chat with no messages held in
+  memory and removed when you leave it.
 - `EnigmaTests/EnigmaCompactPanelTests.swift`: temporary and private selection
-  chats.
+  chats, and the 5-minute return through the hosted window.
+- `EnigmaTests/SelectionContextTests.swift`: selection revisions, including
+  which count as unsent work in `ChatReturnState`.

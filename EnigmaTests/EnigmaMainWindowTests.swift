@@ -353,15 +353,12 @@ final class EnigmaMainWindowTests: XCTestCase {
   func testFrameFitsTheMinimumAndDefaultPanelWithAndWithoutTheSidebar() async throws {
     let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
     let host = Host(fixture, size: CGSize(width: 1200, height: 780), test: self)
-    let start = fixture.chat.selectedSessionID
     for size in [CGSize(width: 640, height: 420), CGSize(width: 1200, height: 780)] {
       for sidebar in [true, false] {
         for docked in [false, true] {
           let label = "\(Int(size.width))×\(Int(size.height)), sidebar \(sidebar), docked \(docked)"
           host.window.setContentSize(size)
-          if docked { fixture.chat.selectSession(id: fixture.earlierSessionID!) } else if let start {
-            fixture.chat.selectSession(id: start)
-          }
+          if docked { fixture.chat.selectSession(id: fixture.earlierSessionID!) } else { fixture.chat.newChat() }
           if host.shows("Hide chat history") != sidebar {
             try await clickTestControl(sidebar ? "Show chat history" : "Hide chat history", in: host.view)
           }
@@ -1261,8 +1258,6 @@ extension EnigmaMainWindowTests {
         files: files, messagesAccess: messagesAccess, visionEngine: engine, sessionStore: store)
       self.chat = chat
       await chat.refreshInstalledModel()
-      // Saved chats load with the newest selected; start from a fresh, empty one.
-      if !sessions.isEmpty { chat.newChat() }
       let credentials = ScreenTestCredentialStore()
       cloud = CloudSettingsModel(credentialStore: credentials,
         catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(), cacheDirectory: root),

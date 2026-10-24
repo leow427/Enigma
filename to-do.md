@@ -567,7 +567,21 @@ and is the natural place to convert. Reuse
 tests for both toggle states, for both sending and ⌘O: off saves the chat to the
 top of Recents, on saves nothing to Recents or disk.
 
-### B8. Enigma reopens the last chat instead of a new one
+### B8. ✅ Done: Enigma reopens the last chat instead of a new one
+
+> **Solved:** Launch and `newChat()` select no chat. A chat with no messages,
+> such as one with only files attached, is held in memory: never written,
+> listed in Recents (apart from a selection chat that just moved to the window,
+> while its first question is on its way) or counted toward the ten, removed
+> when left, and saved at the top once its first message lands; empty chats
+> from older versions are dropped at load. `SpotlightPanelController.hide()` records when the panel was
+> hidden, and `show()` asks `ChatReturnPolicy` before ordering it front: after
+> more than 5 minutes hidden and unused (a request ending while hidden, even
+> failing, counts as use), it posts `.newChatRequested`, the ⌘N path, unless
+> there's nothing to leave, something unsent (draft, screenshot, files,
+> selection revision, Use Codex card), or a busy chat. A window left open behind
+> other apps isn't away. Tests in `ChatReturnTests`, `LocalInferenceTests`,
+> `FileModeUITests` and the hosted `EnigmaCompactPanelTests`.
 
 **Problem:** After quitting and reopening Enigma, the window shows the most
 recent chat. It does the same when summoned again after a long break, so

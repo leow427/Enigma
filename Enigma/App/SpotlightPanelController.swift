@@ -116,6 +116,50 @@ struct SelectionComposerHeight: PreferenceKey {
   }
 }
 
+/// What summoning Enigma could leave behind: the open chat, as plain values.
+struct ChatReturnState: Equatable {
+  /// The open chat's last use: its last activity, or a request starting,
+  /// streaming or ending, failed or not. Nil when no chat with messages is
+  /// open: then there's nothing to leave.
+  var lastUsedAt: Date?
+  /// Unsent text, a screenshot, or files in the composer, a selection
+  /// revision not yet applied or dismissed, or a File Mode edit waiting on
+  /// "Use Codex".
+  var hasUnsentWork = false
+  /// A reply, file work, or a model operation holding the chat.
+  var isBusy = false
+}
+
+extension ChatReturnState {
+  @MainActor init(chat: LocalChatViewModel, screen: ScreenComposerCoordinator?) {
+    if let session = chat.selectedSession, !session.messages.isEmpty {
+      lastUsedAt = max(session.lastActivityAt, chat.lastRequestActivityAt ?? .distantPast)
+    }
+    let hasDraft = screen.map { !$0.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.attachment != nil } ?? false
+    var awaitsCodex = false
+    if case .cloudRequired = chat.files.protectedWrite { awaitsCodex = true }
+    hasUnsentWork = hasDraft || chat.files.selection != nil || chat.hasPendingSelectionRevision || awaitsCodex
+    isBusy = chat.isBusy
+  }
+}
+
+/// When summoning Enigma opens a new chat instead of the one the user left:
+/// once it has been neither shown nor used for more than `awayLimit`. Only
+/// time hidden counts, so a window left open behind other apps comes back to
+/// the same chat. A chat with nothing in it, unsent work, or a running reply
+/// is never left.
+enum ChatReturnPolicy {
+  static let awayLimit: TimeInterval = 5 * 60
+
+  /// `chat` is read only once the panel has been hidden long enough.
+  static func startsNewChat(hiddenAt: Date?, now: Date, chat: @autoclosure () -> ChatReturnState) -> Bool {
+    guard let hiddenAt, now.timeIntervalSince(hiddenAt) > awayLimit else { return false }
+    let chat = chat()
+    guard let lastUsedAt = chat.lastUsedAt, !chat.hasUnsentWork, !chat.isBusy else { return false }
+    return now.timeIntervalSince(max(hiddenAt, lastUsedAt)) > awayLimit
+  }
+}
+
 @MainActor
 final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private let panel: SpotlightPanel
@@ -139,6 +183,10 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   private(set) var isCapturingScreen = false
   private var captureHiddenWindows: [NSWindow] = []
+  private let now: @MainActor () -> Date
+  private let chatState: @MainActor () -> ChatReturnState
+  /// When the user last hid the panel, for `ChatReturnPolicy`; nil while it's shown.
+  private(set) var hiddenAt: Date?
   var isVisible: Bool { panel.isVisible && !isCapturingScreen }
 
   init(
@@ -146,9 +194,16 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     contentView: NSView? = nil,
     welcomeSetup: WelcomeSetup? = nil,
     reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
-    visibleFrame: @escaping @MainActor (NSWindow) -> NSRect? = { $0.screen?.visibleFrame }
+    visibleFrame: @escaping @MainActor (NSWindow) -> NSRect? = { $0.screen?.visibleFrame },
+    now: @escaping @MainActor () -> Date = { .now },
+    chatState: (@MainActor () -> ChatReturnState)? = nil
   ) {
     self.sizeStore = sizeStore
+    self.now = now
+    // The window's own composer, so its unsent draft counts. Content given
+    // by a test brings its own state.
+    let screen = contentView == nil ? ScreenComposerCoordinator() : nil
+    self.chatState = chatState ?? { ChatReturnState(chat: .shared, screen: screen) }
     self.reduceMotion = reduceMotion
     self.visibleFrame = visibleFrame
     panel = SpotlightPanel(
@@ -175,7 +230,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     panel.isMovableByWindowBackground = true
     panel.minSize = PanelSizeStore.minimumSize
     panel.contentView = contentView ?? NSHostingView(
-      rootView: AppShellView()
+      rootView: AppShellView(screen: screen ?? ScreenComposerCoordinator())
     )
 
     NotificationCenter.default.addObserver(self, selector: #selector(beginScreenCapture), name: .screenCaptureBegan, object: nil)
@@ -221,6 +276,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       if !panel.isVisible { hide() }
       return
     }
+    hiddenAt = nil
     panel.orderFrontRegardless()
     panel.makeKey()
     NotificationCenter.default.post(name: .panelPresented, object: nil)
@@ -255,6 +311,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     selectionAppliedFrame = panel.frame
     NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
     NotificationCenter.default.post(name: .selectionContextRequested, object: context)
+    hiddenAt = nil
     panel.orderFrontRegardless()
     panel.makeKey()
     NotificationCenter.default.post(name: .panelPresented, object: nil)
@@ -379,6 +436,14 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   func show() {
     guard !isCapturingScreen else { return }
+    // Back after more than five minutes away: a new chat, through the same
+    // path as ⌘N, so a compact panel returns to the window too. Applied and
+    // laid out before the panel is ordered front, so it opens on the new chat.
+    if !panel.isVisible, ChatReturnPolicy.startsNewChat(hiddenAt: hiddenAt, now: now(), chat: chatState()) {
+      NotificationCenter.default.post(name: .newChatRequested, object: nil)
+      panel.contentView?.layoutSubtreeIfNeeded()
+    }
+    hiddenAt = nil
     centerOnActiveDisplay()
     panel.orderFrontRegardless()
     panel.makeKey()
@@ -403,6 +468,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     captureHiddenWindows.forEach { $0.orderFrontRegardless() }
     captureHiddenWindows = []
     isCapturingScreen = false
+    hiddenAt = nil
     panel.orderFrontRegardless()
     panel.makeKey()
     panel.contentView?.needsLayout = true
@@ -412,6 +478,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   func hide() {
     finishMove()
+    // Hiding an already hidden panel keeps the time it was first hidden.
+    hiddenAt = hiddenAt ?? now()
     panel.orderOut(nil)
     NotificationCenter.default.post(name: .panelHidden, object: nil)
   }

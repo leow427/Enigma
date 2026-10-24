@@ -515,11 +515,10 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertFalse(fixture.chat.sessions.contains { $0.id == temporary }, "The temporary chat is gone")
   }
 
-  /// Nine saved chats, oldest first, plus the fixture's own new chat: Recents
-  /// is full.
+  /// Ten saved chats, oldest first: Recents is full.
   @MainActor
   private static func fullRecents() -> [ChatSession] {
-    (0..<9).map { index in
+    (0..<10).map { index in
       var session = Fixture.savedSession("Chat \(index)")
       session.lastActivityAt = Date(timeIntervalSinceNow: -Double(1_000 - index))
       return session
@@ -770,8 +769,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
     fixture.chat.applicationBecameInactive()
     await fixture.chat.sessionWriter.waitForPendingWrites()
     let saved = ChatSessionStore(applicationSupportDirectory: fixture.root).load()
-    XCTAssertEqual(saved.filter { $0.id != fixture.chat.selectedSessionID }.map(\.id), before,
-                   "Only the saved chat, and the new chat just opened: \(saved.map { "\($0.title)/\($0.messages.count)" })")
+    XCTAssertNil(fixture.chat.selectedSessionID)
+    XCTAssertEqual(saved.map(\.id), before,
+                   "Only the saved chat; the new chat isn't written: \(saved.map { "\($0.title)/\($0.messages.count)" })")
     XCTAssertFalse(String(decoding: try Data(contentsOf: fixture.root.appending(path: "chats.json")), as: UTF8.self)
       .contains("Explain this passage"))
   }
@@ -1049,8 +1049,47 @@ final class EnigmaCompactPanelTests: XCTestCase {
     await fixture.chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before, "Still never written")
     NotificationCenter.default.post(name: .newChatRequested, object: nil)
-    try await waitForUI("a new chat", in: host.view) { fixture.chat.selectedSessionID != id }
+    try await waitForUI("a new chat", in: host.view) { fixture.chat.selectedSessionID == nil }
     XCTAssertFalse(fixture.chat.sessions.contains { $0.id == id }, "Discarded with the next chat")
+    await fixture.chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(try Data(contentsOf: fixture.root.appending(path: "chats.json")), before, "The new chat writes nothing")
+  }
+
+  /// Summoned after more than five minutes hidden, the window opens on a
+  /// new chat through the real shell; under the welcome it keeps its chat.
+  @MainActor
+  func testComingBackAfterFiveMinutesOpensANewChat() async throws {
+    final class Clock { var now = Date.now }
+    let clock = Clock()
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen, now: { clock.now })
+    let earlier = try XCTUnwrap(fixture.earlierSessionID)
+    fixture.chat.selectSession(id: earlier)
+    host.controller.hide()
+    clock.now += 240
+    host.controller.show()
+    XCTAssertEqual(fixture.chat.selectedSessionID, earlier, "Back within five minutes: the same chat")
+
+    try await waitForUI("the earlier chat's reply", in: host.view) { host.shows("Reply") }
+    host.controller.hide()
+    clock.now += 301
+    final class Presented: @unchecked Sendable { var showedReply: Bool? }
+    let presented = Presented()
+    let token = NotificationCenter.default.addObserver(forName: .panelPresented, object: nil, queue: nil) { _ in
+      MainActor.assumeIsolated { presented.showedReply = host.shows("Reply") }
+    }
+    host.controller.show()
+    NotificationCenter.default.removeObserver(token)
+    XCTAssertNil(fixture.chat.selectedSessionID, "Applied before the window is shown")
+    XCTAssertEqual(presented.showedReply, false, "The old chat's reply is gone from the window as it's shown")
+
+    fixture.chat.selectSession(id: earlier)
+    fixture.setup.replay()
+    try await waitForUI("the welcome", in: host.view) { fixture.setup.isPresented }
+    host.controller.hide()
+    clock.now += 3_600
+    host.controller.show()
+    XCTAssertEqual(fixture.chat.selectedSessionID, earlier, "The welcome keeps the chat, as for ⌘N")
   }
 
   /// The panel moves when dragged by its background, while its controls keep
@@ -1356,13 +1395,15 @@ final class CompactPanelHost {
   let normalFrame: NSRect
 
   /// `visible` sets the screen the panel is on, instead of the Mac's own.
+  /// `now` is the controller's clock, for the 5-minute return.
   init(_ fixture: EnigmaMainWindowTests.Fixture, test: XCTestCase, reduceMotion: Bool = true,
-       visible screen: NSRect? = nil) async throws {
+       visible screen: NSRect? = nil, now: @escaping @MainActor () -> Date = { .now }) async throws {
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
     sizes.save(NSSize(width: 900, height: 600))
     let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { reduceMotion },
-      visibleFrame: { window in screen ?? window.screen?.visibleFrame })
+      visibleFrame: { window in screen ?? window.screen?.visibleFrame }, now: now,
+      chatState: { ChatReturnState(chat: fixture.chat, screen: fixture.screen) })
     controller.show()
     test.addTeardownBlock { @MainActor in
       controller.hide()

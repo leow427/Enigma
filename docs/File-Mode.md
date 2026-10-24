@@ -24,7 +24,10 @@ notes.md" or "Summarize what this project does".
   name, and the next draft starts without them; attach again to continue with the
   same files.
 - Attachments you haven't sent yet stay with their chat, and a new chat starts
-  without any. Returning to a chat doesn't open its files until you send.
+  without any. On a chat with no messages yet, attachments are held in memory
+  only: that chat isn't saved or listed in Recents, and leaving it (a new chat,
+  another chat, or cycling) removes it with its attachments. Its first message
+  saves it with them. Returning to a chat doesn't open its files until you send.
 - File Mode can't be combined with **/screen**, **/snapshot**, **/search** or
   **/messages**. Attaching files removes **/search** from the draft and any
   attached screenshot. **/think** works as usual, and **/translate** makes the

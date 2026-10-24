@@ -62,10 +62,18 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var contextNotice: String?
   @Published private(set) var activity: AssistantActivity?
   private var activityMessageID: UUID?
-  @Published private(set) var activeRequest: ActiveRequest?
+  @Published private(set) var activeRequest: ActiveRequest? {
+    didSet { lastRequestActivityAt = .now }
+  }
   @Published private(set) var autoRouteDecision: AutoRouter.Decision?
   @Published private(set) var screenRouteDecision: ScreenRoutingPolicy.Decision?
-  @Published private(set) var state: State = .idle
+  @Published private(set) var state: State = .idle {
+    didSet { lastRequestActivityAt = .now }
+  }
+  /// When a request last started, streamed, or ended, failed or not. In
+  /// memory only: a failure doesn't move its chat in Recents, but it still
+  /// counts as use for the 5-minute return.
+  private(set) var lastRequestActivityAt: Date?
   @Published private(set) var modelOperation: ModelOperation?
   /// The last install, delete or model switch failure, apart from the chat's
   /// own `state`. Cleared when the next model operation starts.
@@ -100,8 +108,11 @@ final class LocalChatViewModel: ObservableObject {
     let isPrivate: Bool
   }
   @Published private(set) var openedSelectionChat: OpenedSelectionChat?
-  /// The chats Recents lists: every chat but a temporary one.
-  var historySessions: [ChatSession] { sessions.filter { $0.id != temporarySessionID } }
+  /// The chats Recents lists: every chat but a temporary one and one with no
+  /// messages, apart from the selection's chat that just moved to the window.
+  var historySessions: [ChatSession] {
+    sessions.filter { $0.id != temporarySessionID && (!$0.messages.isEmpty || $0.id == selectionSessionID) }
+  }
   var messages: [ChatMessage] { selectedSession?.messages ?? [] }
 
   private var requestMessages: [ChatMessage] { messages.map { message in
@@ -147,6 +158,16 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   private var latestSelectionDraft: String? { latestSelectionRevision?.revision.text }
+
+  /// A revision card still waiting to be applied or dismissed, ready or
+  /// failed. An automatic revision shows no card, so it never waits.
+  var hasPendingSelectionRevision: Bool {
+    messages.contains { message in
+      guard let revision = selectionRevisions[message.id], !revision.automatic else { return false }
+      return (revision.status == .ready || revision.status == .failed)
+        && attachedContexts.contains { $0.id == revision.contextID }
+    }
+  }
 
   /// The latest draft, when the user changed it by hand: the model hasn't seen
   /// those changes, while its own revision is already in the conversation.
@@ -199,6 +220,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func startTemporaryChat(context: ConversationContext?) {
     stopStreaming()
+    leaveEmptyChat(for: nil)
     discardTemporaryChat()
     files.restoreSelection(nil)
     contextNotice = nil
@@ -367,17 +389,18 @@ final class LocalChatViewModel: ObservableObject {
     self.sessionWriter = sessionWriter ?? ChatSessionWriter { try sessionStore.save($0) }
     self.idleUnloadDelay = idleUnloadDelay
     self.sleep = sleep
-    sessions = sessionStore.load()
-    selectedSessionID = sessions.first?.id
-    self.files.restoreSelection(selectedSession?.workspace)
-    self.files.conversationID = selectedSessionID
+    // Launch opens a new chat: saved chats stay in Recents, and the new one
+    // is made, and written, only once something needs it.
+    // A chat with no messages is never saved; one left by an older version goes.
+    sessions = sessionStore.load().filter { !$0.messages.isEmpty }
     self.files.onSelectionChange = { [weak self] selection in
       guard let self else { return }
       let sessionID = self.ensureSelectedSession()
       self.files.conversationID = sessionID
       guard let index = self.sessions.firstIndex(where: { $0.id == sessionID }) else { return }
       self.sessions[index].workspace = selection
-      self.persistSessions()
+      // Files on a chat with no messages are held in memory only.
+      if !self.isUnsaved(self.sessions[index]) { self.persistSessions() }
     }
     selectionSettingsObservation = selectionEditingSettings.$automaticallyReplace.dropFirst().sink { [weak self] enabled in
       guard !enabled, let self else { return }
@@ -1213,8 +1236,13 @@ final class LocalChatViewModel: ObservableObject {
     return task
   }
 
+  /// Opens a fresh chat: no chat selected, as at launch. Nothing is written
+  /// for it; `ensureSelectedSession()` makes it once it's used.
   func newChat() {
+    // Stopping first: a question still being prepared never reached its
+    // chat, so a chat it was the first of is left empty and goes.
     stopStreaming()
+    leaveEmptyChat(for: nil)
     discardTemporaryChat()
     SelectionContextService.shared.discardTarget()
     files.restoreSelection(nil)
@@ -1222,17 +1250,24 @@ final class LocalChatViewModel: ObservableObject {
     appleMessages.issue = nil
     autoRouteDecision = nil
     screenRouteDecision = nil
-    let session = ChatSession()
-    sessions.append(session)
-    selectedSessionID = session.id
     messagesFollowUpSessionID = nil
-    files.conversationID = session.id
-    sortAndPersistSessions()
     if case .failed = state { state = .idle }
+    selectedSessionID = nil
+    files.conversationID = nil
+  }
+
+  /// Leaving the open chat for `next`, or for a new chat: a chat that never
+  /// got a message, as one that only had files attached, goes. It was never
+  /// written. Temporary and selection chats go through `discardTemporaryChat()`.
+  private func leaveEmptyChat(for next: UUID?) {
+    guard let id = selectedSessionID, id != next, id != temporarySessionID, id != selectionSessionID,
+          let index = sessions.firstIndex(where: { $0.id == id }), sessions[index].messages.isEmpty else { return }
+    sessions.remove(at: index)
   }
 
   func selectSession(id: UUID) {
     guard sessions.contains(where: { $0.id == id }), !isBusy else { return }
+    leaveEmptyChat(for: id)
     if id != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
     if id != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
     selectedSessionID = id
@@ -1244,11 +1279,13 @@ final class LocalChatViewModel: ObservableObject {
   /// Returns whether another chat is open now.
   @discardableResult
   func cycleRecentChat() -> Bool {
-    guard !isBusy, !sessions.isEmpty else { return false }
+    let order = historySessions
+    guard !isBusy, !order.isEmpty else { return false }
     contextNotice = nil
-    let selectedIndex = selectedSessionID.flatMap { id in sessions.firstIndex(where: { $0.id == id }) }
-    let nextID = sessions[selectedIndex.map { ($0 + 1) % sessions.count } ?? 0].id
+    let selectedIndex = selectedSessionID.flatMap { id in order.firstIndex(where: { $0.id == id }) }
+    let nextID = order[selectedIndex.map { ($0 + 1) % order.count } ?? 0].id
     let changes = nextID != selectedSessionID
+    leaveEmptyChat(for: nextID)
     if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
     if nextID != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
     selectedSessionID = nextID
@@ -1298,10 +1335,12 @@ final class LocalChatViewModel: ObservableObject {
 
   private func ensureSelectedSession() -> UUID {
     if let selectedSessionID { return selectedSessionID }
+    // Not written until its first message lands; it goes to the top of
+    // Recents then, by its activity.
     let session = ChatSession()
-    sessions.append(session)
+    sessions.insert(session, at: 0)
     selectedSessionID = session.id
-    persistSessions()
+    files.conversationID = session.id
     return session.id
   }
 
@@ -1333,11 +1372,12 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   /// A chat kept out of retention and of the saved file: the temporary chat,
-  /// and the selection's chat while it's still empty after moving to the
-  /// window. That one is in Recents straight away but written only once its
-  /// question lands, so an abandoned send never costs an older saved chat.
+  /// and any chat with no messages yet, such as a new one with files
+  /// attached, or the selection's chat after moving to the window, which is
+  /// in Recents straight away. It's written once its first question lands,
+  /// so an empty or abandoned chat never costs an older saved chat.
   private func isUnsaved(_ session: ChatSession) -> Bool {
-    session.id == temporarySessionID || (session.id == selectionSessionID && session.messages.isEmpty)
+    session.id == temporarySessionID || session.messages.isEmpty
   }
 
   private func sortAndPersistSessions() {

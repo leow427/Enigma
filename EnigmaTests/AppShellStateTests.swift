@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Enigma
 
@@ -355,5 +356,221 @@ final class ChatHistoryListTests: XCTestCase {
     XCTAssertEqual(rows[0].date, activity)
     XCTAssertNil(rows[1].date)
     XCTAssertFalse(rows.contains(where: \.isSelected))
+  }
+}
+
+@MainActor
+final class ChatReturnTests: XCTestCase {
+  private let hidden = Date(timeIntervalSince1970: 1_800_000_000)
+  private var used: ChatReturnState { ChatReturnState(lastUsedAt: hidden.addingTimeInterval(-60)) }
+
+  func testPolicyStartsANewChatOnlyAfterMoreThanFiveMinutesAway() {
+    XCTAssertEqual(ChatReturnPolicy.awayLimit, 300)
+    func starts(after seconds: TimeInterval, hiddenAt: Date? = hidden, _ chat: ChatReturnState? = nil) -> Bool {
+      ChatReturnPolicy.startsNewChat(hiddenAt: hiddenAt, now: hidden.addingTimeInterval(seconds), chat: chat ?? used)
+    }
+    XCTAssertFalse(starts(after: 3_600, hiddenAt: nil), "Never hidden")
+    XCTAssertFalse(starts(after: 60))
+    XCTAssertFalse(starts(after: 300), "Exactly five minutes comes back to the same chat")
+    XCTAssertTrue(starts(after: 301))
+    var busy = used
+    busy.isBusy = true
+    XCTAssertFalse(starts(after: 3_600, busy), "A running reply is never interrupted")
+    XCTAssertFalse(starts(after: 3_600, ChatReturnState(lastUsedAt: nil)), "No chat with messages: nothing to leave")
+    var unsent = used
+    unsent.hasUnsentWork = true
+    XCTAssertFalse(starts(after: 3_600, unsent), "Unsent work stays")
+    // A reply that finished two minutes after the window was hidden.
+    let finished = ChatReturnState(lastUsedAt: hidden.addingTimeInterval(120))
+    XCTAssertFalse(starts(after: 360, finished), "Used four minutes ago")
+    XCTAssertFalse(starts(after: 420, finished))
+    XCTAssertTrue(starts(after: 421, finished))
+  }
+
+  func testComingBackWithinFiveMinutesKeepsTheChat() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 300
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+    XCTAssertNil(controller.hiddenAt)
+  }
+
+  func testComingBackAfterFiveMinutesStartsANewChatBeforeTheWindowShows() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 301
+    let counter = Counter()
+    let token = NotificationCenter.default.addObserver(forName: .newChatRequested, object: nil, queue: nil) { _ in
+      MainActor.assumeIsolated {
+        counter.count += 1
+        XCTAssertFalse(controller.isVisible, "The new chat is asked for before the window is ordered front")
+      }
+    }
+    controller.show()
+    NotificationCenter.default.removeObserver(token)
+    XCTAssertEqual(counter.count, 1)
+    XCTAssertTrue(controller.isVisible)
+    // Shown again, the time away starts over.
+    controller.hide()
+    clock.now += 60
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+  }
+
+  func testHidingAgainKeepsTheFirstHiddenTime() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 240
+    controller.hide()
+    clock.now += 120
+    XCTAssertEqual(newChatRequests { controller.show() }, 1)
+  }
+
+  func testAVisibleWindowIsNeverAway() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    clock.now += 3_600
+    XCTAssertEqual(newChatRequests { controller.show() }, 0, "Left open behind other apps, it keeps its chat")
+  }
+
+  func testAReplyThatFinishedWhileHiddenCountsAsUse() {
+    let clock = TestClock(hidden)
+    let chat = TestChat(used)
+    let controller = makeController(clock: clock, chat: chat)
+    controller.show()
+    controller.hide()
+    chat.state.lastUsedAt = hidden.addingTimeInterval(120)
+    clock.now += 360
+    XCTAssertEqual(newChatRequests { controller.show() }, 0, "Four minutes after the reply landed")
+  }
+
+  func testNothingToLeaveOrUnsentWorkKeepsTheChat() {
+    let clock = TestClock(hidden)
+    let chat = TestChat(ChatReturnState(lastUsedAt: nil))
+    let controller = makeController(clock: clock, chat: chat)
+    controller.hide()
+    clock.now += 3_600
+    XCTAssertEqual(newChatRequests { controller.show() }, 0, "No chat, or an empty one")
+    chat.state = used
+    chat.state.hasUnsentWork = true
+    controller.hide()
+    clock.now += 3_600
+    XCTAssertEqual(newChatRequests { controller.show() }, 0, "A draft, screenshot or files")
+  }
+
+  func testABusyChatKeepsItsChatAndItsPanel() {
+    let clock = TestClock(hidden)
+    var busy = used
+    busy.isBusy = true
+    let controller = makeController(clock: clock, chat: TestChat(busy))
+    presentSelectionPanel(controller)
+    controller.hide()
+    clock.now += 3_600
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+    XCTAssertTrue(controller.isSelectionComposer, "The compact panel isn't reset either")
+  }
+
+  func testANewChatAfterTimeAwayReturnsACompactPanelToTheWindow() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    presentSelectionPanel(controller)
+    controller.hide()
+    clock.now += 301
+    XCTAssertEqual(newChatRequests { controller.show() }, 1)
+    XCTAssertFalse(controller.isSelectionComposer)
+  }
+
+  func testASelectionSummonIsUnaffectedAndTheRuleAppliesAfterIt() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 3_600
+    XCTAssertEqual(newChatRequests { presentSelectionPanel(controller) }, 0, "The selection starts its own chat")
+    XCTAssertNil(controller.hiddenAt)
+    controller.hide()
+    clock.now += 60
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+    controller.hide()
+    clock.now += 301
+    XCTAssertEqual(newChatRequests { controller.show() }, 1)
+  }
+
+  func testAManualReplacementBringingTheWindowBackEndsTheTimeAway() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 3_600
+    NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
+    NotificationCenter.default.post(name: .selectionReplacementEnded,
+                                    object: SelectionReplacementEnd(automatic: false, sent: true))
+    XCTAssertTrue(controller.isVisible)
+    XCTAssertNil(controller.hiddenAt)
+    controller.hide()
+    clock.now += 60
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+  }
+
+  func testTheEndOfAScreenCaptureEndsTheTimeAway() {
+    let clock = TestClock(hidden)
+    let controller = makeController(clock: clock)
+    controller.show()
+    controller.hide()
+    clock.now += 3_600
+    NotificationCenter.default.post(name: .screenCaptureBegan, object: nil)
+    NotificationCenter.default.post(name: .screenCaptureEnded, object: nil)
+    XCTAssertTrue(controller.isVisible)
+    XCTAssertNil(controller.hiddenAt)
+    controller.hide()
+    clock.now += 60
+    XCTAssertEqual(newChatRequests { controller.show() }, 0)
+  }
+
+  private final class TestClock {
+    var now: Date
+    init(_ now: Date) { self.now = now }
+  }
+
+  private final class TestChat {
+    var state: ChatReturnState
+    init(_ state: ChatReturnState) { self.state = state }
+  }
+
+  private final class Counter: @unchecked Sendable {
+    var count = 0
+  }
+
+  private func makeController(clock: TestClock, chat: TestChat? = nil) -> SpotlightPanelController {
+    let defaults = UserDefaults(suiteName: "ChatReturnTests-\(UUID().uuidString)")!
+    let chat = chat ?? TestChat(used)
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: defaults), contentView: NSView(),
+      reduceMotion: { true }, visibleFrame: { _ in NSRect(x: 0, y: 0, width: 1440, height: 900) },
+      now: { clock.now }, chatState: { chat.state })
+    addTeardownBlock { @MainActor in controller.hide() }
+    return controller
+  }
+
+  private func presentSelectionPanel(_ controller: SpotlightPanelController) {
+    controller.presentSelectionContext(nil, cursor: NSPoint(x: 400, y: 400), selection: nil,
+                                       visible: NSRect(x: 0, y: 0, width: 1440, height: 900))
+    XCTAssertTrue(controller.isSelectionComposer)
+  }
+
+  /// How many new chats `body` asks for.
+  private func newChatRequests(_ body: () -> Void) -> Int {
+    let counter = Counter()
+    let token = NotificationCenter.default.addObserver(forName: .newChatRequested, object: nil, queue: nil) { _ in
+      counter.count += 1
+    }
+    defer { NotificationCenter.default.removeObserver(token) }
+    body()
+    return counter.count
   }
 }

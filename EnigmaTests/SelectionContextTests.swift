@@ -92,6 +92,27 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(provider.requests.count, 3, "Read-only follow-ups do not run recovery")
   }
 
+  /// A revision whose paste failed still shows its card, so it keeps the
+  /// chat on return; an automatic one shows none, so it doesn't.
+  func testAFailedRevisionIsPendingOnlyWhenItsCardShows() async throws {
+    for automatic in [false, true] {
+      let provider = SelectionTestCloud(output: revisionOutput)
+      let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(automatic: automatic),
+        replaceSelection: { _, _, _ in false },
+        cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
+        sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
+      chat.startTemporaryChat(context: ConversationContext(sourceName: "Editor", text: "original"))
+      await completeRevisionRequest(chat, cloud: true)
+      let revisionID = try XCTUnwrap(chat.messages.last?.id)
+      if !automatic { await chat.applySelectionRevision(messageID: revisionID) }
+      for _ in 0..<1_000 where chat.selectionRevisions[revisionID]?.status != .failed { await Task.yield() }
+      XCTAssertEqual(chat.selectionRevisions[revisionID]?.status, .failed, "automatic \(automatic)")
+      XCTAssertEqual(chat.selectionRevisions[revisionID]?.automatic, automatic)
+      XCTAssertEqual(chat.hasPendingSelectionRevision, !automatic, "automatic \(automatic)")
+      XCTAssertEqual(ChatReturnState(chat: chat, screen: nil).hasUnsentWork, !automatic, "automatic \(automatic)")
+    }
+  }
+
   func testRemovingSelectionExcludesManualDraftFromLaterTranslation() async throws {
     let provider = SelectionTestCloud(output: revisionOutput)
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(),
@@ -102,7 +123,11 @@ final class SelectionContextTests: XCTestCase {
     chat.startTemporaryChat(context: context)
     await completeRevisionRequest(chat, cloud: true)
     chat.updateSelectionRevision(messageID: try XCTUnwrap(chat.messages.last?.id), text: "Private manual draft")
+    XCTAssertTrue(chat.hasPendingSelectionRevision)
+    XCTAssertTrue(ChatReturnState(chat: chat, screen: nil).hasUnsentWork, "An unapplied revision keeps the chat on return")
     chat.removeContext(id: context.id)
+    XCTAssertFalse(chat.hasPendingSelectionRevision, "Dismissed with its selection")
+    XCTAssertFalse(ChatReturnState(chat: chat, screen: nil).hasUnsentWork)
     await completeRevisionRequest(chat, prompt: "/translate Bonjour", cloud: true)
     let request = try XCTUnwrap(provider.requests.last)
     XCTAssertFalse(request.messages.contains { $0.content.contains("Private captured source") })

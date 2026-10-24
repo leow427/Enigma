@@ -145,10 +145,15 @@ final class FileModeUITests: XCTestCase {
     let picker = FileTestPicker([project])
     let files = FileModeCoordinator(picker: picker, journalDirectory: root.appendingPathComponent("Recovery"))
     let store = ChatSessionStore(applicationSupportDirectory: root)
+    // A chat with messages: one with none goes, files and all, with a new chat.
+    let saved = ChatSession(messages: [ChatMessage(role: .user, content: "Earlier"), ChatMessage(role: .assistant, content: "Reply")])
+    try store.save([saved])
     let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, sessionStore: store)
     sessionWriters.append(chat.sessionWriter)
+    chat.selectSession(id: saved.id)
     await files.activate(from: .menu)
     let sessionID = try XCTUnwrap(chat.selectedSessionID)
+    XCTAssertEqual(sessionID, saved.id)
     await chat.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(store.load().first?.workspace, files.selection)
     chat.newChat()
@@ -157,6 +162,107 @@ final class FileModeUITests: XCTestCase {
     chat.selectSession(id: sessionID)
     XCTAssertNotNil(files.selection)
     XCTAssertEqual(picker.count, 1, "Returning to a chat must not silently prompt or access its files")
+  }
+
+  /// Files attached on the new-chat page make a chat held in memory only:
+  /// not written, not in Recents, and gone with a new chat.
+  func testFilesOnANewChatAreHeldInMemoryUntilItsFirstMessage() async throws {
+    let (chat, files, store) = makeChat()
+    await files.activate(from: .menu)
+    let sessionID = try XCTUnwrap(chat.selectedSessionID, "Attaching files makes the chat")
+    XCTAssertEqual(files.conversationID, sessionID)
+    XCTAssertNotNil(chat.selectedSession?.workspace)
+    XCTAssertTrue(chat.historySessions.isEmpty, "Not listed in Recents")
+    let state = ChatReturnState(chat: chat, screen: nil)
+    XCTAssertNil(state.lastUsedAt, "Nothing to leave yet")
+    XCTAssertTrue(state.hasUnsentWork)
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "chats.json").path), "Nothing written")
+    chat.newChat()
+    XCTAssertNil(chat.selectedSessionID)
+    XCTAssertNil(files.selection)
+    XCTAssertTrue(chat.sessions.isEmpty, "The chat with no messages goes")
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(store.load().isEmpty)
+  }
+
+  func testASelectionChatLeavesAChatWithOnlyFiles() async throws {
+    let (chat, files, _) = makeChat()
+    await files.activate(from: .menu)
+    let attached = try XCTUnwrap(chat.selectedSessionID)
+    chat.startTemporaryChat(context: nil)
+    XCTAssertTrue(chat.isTemporaryChat)
+    XCTAssertFalse(chat.sessions.contains { $0.id == attached }, "The chat with only files goes")
+  }
+
+  func testAttachingWithRecentsFullEvictsNothing() async throws {
+    let saved = Self.fullRecents()
+    let (chat, files, store) = makeChat(saved: saved)
+    let before = store.load().map(\.id)
+    await files.activate(from: .menu)
+    XCTAssertNotNil(chat.selectedSessionID)
+    XCTAssertEqual(chat.historySessions.map(\.id), before)
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(store.load().map(\.id), before, "Every saved chat is kept")
+  }
+
+  func testLeavingAChatWithOnlyFilesThroughRecentsRemovesIt() async throws {
+    let saved = Self.fullRecents()
+    let (chat, files, store) = makeChat(saved: saved)
+    let before = store.load().map(\.id)
+    await files.activate(from: .menu)
+    let attached = try XCTUnwrap(chat.selectedSessionID)
+    chat.selectSession(id: before[1])
+    XCTAssertFalse(chat.sessions.contains { $0.id == attached }, "Picking another chat removes it")
+    XCTAssertNil(files.selection, "Its files go with it")
+
+    chat.newChat()
+    await files.activate(from: .menu)
+    let cycled = try XCTUnwrap(chat.selectedSessionID)
+    XCTAssertTrue(chat.cycleRecentChat())
+    XCTAssertEqual(chat.selectedSessionID, before[0], "Cycling goes to the newest saved chat")
+    XCTAssertFalse(chat.sessions.contains { $0.id == cycled }, "Cycling away removes it")
+    XCTAssertEqual(chat.historySessions.map(\.id), before)
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(store.load().map(\.id), before)
+  }
+
+  func testSendingInAChatWithFilesSavesItAtTheTopWithItsFiles() async throws {
+    let saved = Self.fullRecents()
+    let (chat, files, store) = makeChat(saved: saved)
+    let before = store.load().map(\.id)
+    await chat.refreshInstalledModel()
+    await files.activate(from: .menu)
+    let sessionID = try XCTUnwrap(chat.selectedSessionID)
+    let finished = expectation(description: "Ordinary chat completed")
+    let token = chat.$state.dropFirst().filter { $0 == .idle }.prefix(1).sink { _ in finished.fulfill() }
+    chat.submit("Hello there")
+    await fulfillment(of: [finished], timeout: 3)
+    token.cancel()
+    XCTAssertEqual(chat.historySessions.first?.id, sessionID, "At the top of Recents")
+    await chat.sessionWriter.waitForPendingWrites()
+    let stored = store.load()
+    XCTAssertEqual(stored.map(\.id), [sessionID] + before.dropLast(), "Written; the oldest chat goes, as for any new chat")
+    XCTAssertEqual(stored.first?.title, "Hello there")
+    XCTAssertEqual(stored.first?.workspace, files.selection)
+    XCTAssertNotNil(stored.first?.workspace)
+  }
+
+  private func makeChat(saved: [ChatSession] = []) -> (LocalChatViewModel, FileModeCoordinator, ChatSessionStore) {
+    let files = FileModeCoordinator(picker: FileTestPicker([project]), journalDirectory: root.appendingPathComponent("Recovery"))
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    if !saved.isEmpty { try? store.save(saved) }
+    let chat = LocalChatViewModel(engine: FileTestEngine(), files: files, sessionStore: store)
+    sessionWriters.append(chat.sessionWriter)
+    return (chat, files, store)
+  }
+
+  /// Ten saved chats, newest first: Recents is full.
+  private static func fullRecents() -> [ChatSession] {
+    (0..<ChatSessionStore.maximumRetainedSessions).map { index in
+      ChatSession(messages: [ChatMessage(role: .user, content: "Chat \(index)")],
+                  lastActivityAt: Date(timeIntervalSinceNow: -Double(100 + index * 10)))
+    }
   }
 
   func testFileModeAutoUsesLocalAndOrdinaryChatDoesNotEnterAgentLoop() async throws {
@@ -253,6 +359,8 @@ final class FileModeUITests: XCTestCase {
     await fulfillment(of: [finished], timeout: 3)
     token.cancel()
     XCTAssertEqual(files.protectedWrite, .cloudRequired(paths: ["code.swift"], modelID: "configured-codex"))
+    XCTAssertNil(files.selection)
+    XCTAssertTrue(ChatReturnState(chat: chat, screen: nil).hasUnsentWork, "A Use Codex card keeps the chat on return")
     XCTAssertTrue(files.visibleChanges.isEmpty)
     XCTAssertEqual(try String(contentsOf: project.appendingPathComponent("code.swift"), encoding: .utf8), "source before")
     let calls = await inference.count

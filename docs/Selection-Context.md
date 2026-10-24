@@ -273,7 +273,9 @@ disk and it doesn't count toward saved chats. It's discarded when you invoke the
 selection shortcut again, start a new chat, switch to another chat, or quit.
 Closing the panel before sending saves nothing. Once the chat moves to the
 window it's listed at the top of Recents and written once its first question
-lands, unless **Keep selection chats private** is on.
+lands, unless **Keep selection chats private** is on. A private chat kept in the
+window is also discarded when you summon Enigma after more than 5 minutes away
+from it (see [Chat.md](Chat.md)).
 
 The selected text itself is never written to disk, even in a saved chat: the
 saved chat keeps your messages and the replies. Replies can still quote parts of
