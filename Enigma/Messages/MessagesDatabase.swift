@@ -246,19 +246,28 @@ struct MessagesDatabase: Sendable {
     }
   }
 
-  /// The newest message from this Mac's owner in a chat that Messages hasn't marked as failed,
-  /// used to confirm a send reached Messages. `isSent` is false while it is still being sent.
-  func latestOutgoing(chatGUID: String) throws -> (message: MessagesMessageRecord, isSent: Bool)? {
+  /// The newest message row, read before a send so the check only looks at rows added after it.
+  func latestMessageID() throws -> Int64 {
+    try withConnection { db in
+      try db.query("SELECT IFNULL(MAX(ROWID), 0) FROM message", []) { $0.integer(0) }.first ?? 0
+    }
+  }
+
+  /// Messages from this Mac's owner in a chat added after `messageID`, used to confirm a send.
+  /// `isSent` is false while one is still being sent; Messages marks a failure with a non-zero `error`.
+  func outgoing(chatGUID: String, after messageID: Int64) throws
+    -> [(message: MessagesMessageRecord, isSent: Bool, isFailed: Bool)] {
     try withConnection { db in
       try db.query("""
-        SELECT \(Self.messageColumns), m.is_sent
+        SELECT \(Self.messageColumns), m.is_sent, m.error
         FROM chat c JOIN chat_message_join j ON j.chat_id = c.ROWID JOIN message m ON m.ROWID = j.message_id
         LEFT JOIN handle h ON h.ROWID = m.handle_id
-        WHERE c.guid = ?1 AND m.is_from_me = 1 AND m.associated_message_type = 0 AND IFNULL(m.error, 0) = 0
-        ORDER BY m.date DESC, m.ROWID DESC LIMIT 1
-        """, [.text(chatGUID)]) {
-        (Self.message($0, from: 0, chatGUID: chatGUID), $0.integer(Self.messageColumnCount) != 0)
-      }.first
+        WHERE c.guid = ?1 AND j.message_id > ?2 AND m.is_from_me = 1 AND m.associated_message_type = 0
+        ORDER BY m.ROWID LIMIT 50
+        """, [.text(chatGUID), .integer(messageID)]) {
+        (Self.message($0, from: 0, chatGUID: chatGUID), $0.integer(Self.messageColumnCount) != 0,
+         $0.integer(Self.messageColumnCount + 1) != 0)
+      }
     }
   }
 

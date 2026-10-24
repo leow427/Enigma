@@ -146,7 +146,12 @@ accepted it.
 For a handle with no conversation yet, it looks for the one-to-one
 conversation Messages creates, matching phone numbers on their last ten digits
 and emails in any case. A message that Messages marked as failed, or that is
-still being sent when the time runs out, is reported only as accepted.
+still being sent when the time runs out, is reported only as accepted. Only
+messages that appear in the history after Enigma starts the send, and are dated
+from then on, count, so an earlier copy of the same text can't confirm it. If
+any of them with the same text failed, the send is reported only as accepted.
+Messages can still mark a message as failed after Enigma has reported it as
+sent; Messages itself shows that.
 
 ## Setup
 

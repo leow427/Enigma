@@ -235,24 +235,23 @@ final class MessagesDatabaseTests: XCTestCase {
     XCTAssertEqual(try database.chats().count, 3)
   }
 
-  func testLatestOutgoingLeavesOutFailedMessages() throws {
-    XCTAssertEqual(try database.latestOutgoing(chatGUID: MessagesFixture.aliceChat)?.message.rowID, 2)
-    let failed = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(600))
+  func testOutgoingListsOnlyMessagesAddedAfterTheGivenRow() throws {
+    let last = try database.latestMessageID()
+    XCTAssertEqual(last, 8)
+    XCTAssertEqual(try database.outgoing(chatGUID: MessagesFixture.aliceChat, after: last).count, 0,
+      "Earlier messages, such as row 2, are not part of a new send")
+    let date = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(600))
     MessagesFixture.execute("""
-      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me, error) VALUES (20, 'g20', 'Failed', 1, \(failed), 1, 22);
-      INSERT INTO chat_message_join VALUES (1, 20, \(failed));
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me, is_sent, error) VALUES
+        (20, 'g20', 'Failed', 1, \(date), 1, 1, 22), (21, 'g21', 'Sending', 1, \(date), 1, 0, 0),
+        (22, 'g22', 'Sent', 1, \(date), 1, 1, 0), (23, 'g23', 'Reply', 1, \(date), 0, 0, 0);
+      INSERT INTO chat_message_join VALUES (1, 20, \(date)), (1, 21, \(date)), (1, 22, \(date)), (1, 23, \(date));
       """, at: database.url)
-    let latest = try XCTUnwrap(database.latestOutgoing(chatGUID: MessagesFixture.aliceChat))
-    XCTAssertEqual(latest.message.rowID, 2, "A newer failed message is left out")
-    XCTAssertTrue(latest.isSent)
-    let pending = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(700))
-    MessagesFixture.execute("""
-      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me) VALUES (21, 'g21', 'Sending', 1, \(pending), 1);
-      INSERT INTO chat_message_join VALUES (1, 21, \(pending));
-      """, at: database.url)
-    let sending = try XCTUnwrap(database.latestOutgoing(chatGUID: MessagesFixture.aliceChat))
-    XCTAssertEqual(sending.message.rowID, 21)
-    XCTAssertFalse(sending.isSent, "A message still being sent is returned but not as sent")
+    let rows = try database.outgoing(chatGUID: MessagesFixture.aliceChat, after: last)
+    XCTAssertEqual(rows.map(\.message.rowID), [20, 21, 22], "Only this Mac's messages, oldest first")
+    XCTAssertEqual(rows.map(\.isFailed), [true, false, false])
+    XCTAssertEqual(rows.map(\.isSent), [true, false, true])
+    XCTAssertEqual(try database.outgoing(chatGUID: MessagesFixture.aliceChat, after: 21).map(\.message.rowID), [22])
   }
 
   func testMissingAndPrivacyProtectedDatabasesGiveActionableErrors() throws {
@@ -735,11 +734,55 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(output["status"].string, "handed_to_messages", "Alice's conversation is not the new handle's")
   }
 
-  func testFailedSendIsNotConfirmedByAnOlderIdenticalMessage() async throws {
-    MessagesFixture.execute(Self.outgoing("Running late", id: 20, secondsAgo: 60), at: database.url)
+  func testIdenticalMessageSentJustBeforeDoesNotConfirmAFailedSend() async throws {
+    // The same text went out a moment ago, inside any time window, and this send fails.
+    MessagesFixture.execute(Self.outgoing("Running late", id: 20), at: database.url)
     let output = try json(await tools(sender: sender { Self.outgoing($0, id: 21, error: 22) })
       .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
-    XCTAssertEqual(output["status"].string, "handed_to_messages", "The earlier message is not this send")
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "Only messages added by this send count")
+  }
+
+  func testEarlierIdenticalMessageDoesNotConfirmASendThatNeverAppears() async throws {
+    MessagesFixture.execute(Self.outgoing("Running late", id: 20), at: database.url)
+    let output = try json(await tools().execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "The earlier copy was there before the send")
+  }
+
+  func testEveryNewCopyMustBeSent() async throws {
+    // One copy went out and one is still sending; the one still sending may be this send.
+    let output = try json(await tools(sender: sender { Self.outgoing($0, id: 20) + Self.outgoing($0, id: 21, isSent: false) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages")
+  }
+
+  func testAnyFailedCopyMeansNotSentWithoutWaiting() async throws {
+    // Another request sent the same text at the same moment; one of the two failed.
+    var tools = tools(sender: sender { Self.outgoing($0, id: 20) + Self.outgoing($0, id: 21, error: 22) })
+    tools.sendConfirmationTimeout = .seconds(60)
+    tools.sendConfirmationPause = { XCTFail("A failure is final, so there is nothing to wait for"); throw CancellationError() }
+    let output = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages")
+  }
+
+  func testOlderIdenticalMessageSyncedInDuringTheCheckIsNotConfirmation() async throws {
+    // Messages in iCloud brings in an hour-old copy as a new row; this send's own row then fails.
+    let url = database.url
+    var tools = tools(sender: sender { Self.outgoing($0, id: 20, secondsAgo: 3600) })
+    tools.sendConfirmationTimeout = .seconds(60)
+    tools.sendConfirmationPause = { MessagesFixture.execute(Self.outgoing("Running late", id: 21, error: 22), at: url) }
+    let output = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "The synced copy is not this send")
+  }
+
+  func testSendWithoutAStartingPointIsNotConfirmed() async throws {
+    // Resolving by chat_id reads only chats and handles, so the send goes ahead without one.
+    MessagesFixture.execute("ALTER TABLE message RENAME TO message_moved", at: database.url)
+    let output = try json(await tools().execute(name: "send_message",
+      arguments: .object(["recipient": .string(MessagesFixture.aliceChat), "text": .string("Hi")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages")
   }
 
   func testDifferentTextInHistoryIsNotConfirmation() async throws {

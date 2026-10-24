@@ -240,10 +240,13 @@ struct MessagesTools: AgentToolbox {
     guard await !ledger.contains(approval) else { throw MessagesError.duplicateSend }
     guard await confirmSend(approval) else { throw MessagesError.sendDeclined }
     try Task.checkCancellation()
-    let started = Date()
+    // Without a starting point the history can't tell this send from earlier ones.
+    let started = Date(), lastMessageID = try? database.latestMessageID()
     try await sender.send(text, to: approval.target)
     await ledger.record(approval)
-    let confirmed = await waitForOutgoing(text, to: approval.target, after: started)
+    let confirmed = if let lastMessageID {
+      await waitForOutgoing(text, to: approval.target, after: lastMessageID, since: started)
+    } else { false }
     return .object([
       "status": .string(confirmed ? "sent" : "handed_to_messages"),
       "recipients": .array(approval.recipients.map { .string($0.name.map { "\($0) (\(approval.service))" } ?? $0.handle) }),
@@ -339,22 +342,29 @@ struct MessagesTools: AgentToolbox {
       service: chat.service ?? "Messages", text: text, target: .chat(chat.guid))
   }
 
-  /// Checks at least once, then until `sendConfirmationTimeout`, for the message sent and not failed.
-  private func waitForOutgoing(_ text: String, to target: MessagesSender.Target, after start: Date) async -> Bool {
+  /// Checks at least once, then until `sendConfirmationTimeout`, for the message among those added
+  /// after `lastMessageID`. Any failed copy of it means not sent, even if another copy went out.
+  private func waitForOutgoing(_ text: String, to target: MessagesSender.Target, after lastMessageID: Int64,
+                               since start: Date) async -> Bool {
     let expected = text.trimmingCharacters(in: .whitespacesAndNewlines)
     let deadline = ContinuousClock.now.advanced(by: sendConfirmationTimeout)
     while true {
       // Messages may create a new handle's conversation only after osascript returns, so look each time.
-      let chatGUIDs: [String]
-      switch target {
-      case .chat(let guid): chatGUIDs = [guid]
-      case .iMessage(let handle): chatGUIDs = (try? database.directChatGUIDs(handle: handle)) ?? []
-      }
-      for guid in chatGUIDs {
-        if let latest = try? database.latestOutgoing(chatGUID: guid), latest.isSent, latest.message.text == expected,
-           (latest.message.date ?? .distantPast) >= start.addingTimeInterval(-5) { return true }
+      let copies = try? chatGUIDs(for: target).flatMap { try database.outgoing(chatGUID: $0, after: lastMessageID) }
+        // Messages in iCloud adds older messages as new rows, so the date counts too.
+        .filter { $0.message.text == expected && ($0.message.date ?? .distantPast) >= start.addingTimeInterval(-5) }
+      if let copies {
+        if copies.contains(where: \.isFailed) { return false }
+        if !copies.isEmpty, copies.allSatisfy(\.isSent) { return true }
       }
       guard ContinuousClock.now < deadline, (try? await sendConfirmationPause()) != nil else { return false }
+    }
+  }
+
+  private func chatGUIDs(for target: MessagesSender.Target) throws -> [String] {
+    switch target {
+    case .chat(let guid): [guid]
+    case .iMessage(let handle): try database.directChatGUIDs(handle: handle)
     }
   }
 
