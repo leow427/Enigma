@@ -429,9 +429,9 @@ click-outside-to-close layer.
 > screen-reader mode. With the first pre-warm build a freshly launched Slack was
 > still slow, probably because Electron ignores the request until it has
 > finished starting, so the request is now repeated at about 1 s, 3 s and 8 s
-> while the app stays in front. Pre-warming, with or without the retry, hasn't
-> been verified in a real app yet; a `selection` diagnostic log (timings only,
-> no text) helps check it.
+> while the app stays in front. With that, the owner confirmed the first capture
+> in Slack and Discord is fast. A `selection` diagnostic log (timings only, no
+> text) helps check it in other apps.
 > Left: OpenAI's Codex/ChatGPT app (no focused element at all) and Pages are
 > unresolved, and the apps that weren't installed are untested.
 

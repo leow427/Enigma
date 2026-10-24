@@ -407,8 +407,7 @@ written. Only your own question decides whether automatic search runs. See
   Discord) if you invoke Enigma within about 2 s of the moment the app accepted
   the request to turn on accessibility, for example right after it launched (the
   retries ask again at about 1 s, 3 s and 8 s); a key press, click or scroll during
-  that wait cancels the capture. Pre-warming hasn't been checked in a real app
-  yet. VS Code-family editors aren't pre-warmed, so the first capture there after
+  that wait cancels the capture. VS Code-family editors aren't pre-warmed, so the first capture there after
   their accessibility was off still takes about 2 s.
 - An app that has nothing focused, or never reports a focused element (such as
   OpenAI's Codex app, below), delays the panel by the full 2.5 s wait once, then by
@@ -435,10 +434,10 @@ written. Only your own question decides whether automatic search runs. See
 On 2026-10-23 a signed build with the capture fixes, before pre-warming was
 added, attached the selection in Claude (the message box and a reply), Slack
 (freshly relaunched, double Option), Discord (⇧⌥Space) and Safari (page text),
-with the first capture in a cold app still taking about 2 s. Pre-warming hasn't
-been verified in a real app: with its first version a freshly launched Slack was
-still slow, and the retries were added after that. The rest of the table comes
-from the probe.
+with the first capture in a cold app still taking about 2 s. With pre-warming
+and its retries, the first capture in Slack and Discord was fast as well (its
+first version, without retries, was still slow in a freshly launched Slack). The
+rest of the table comes from the probe.
 
 Results from `scripts/selection-probe.swift` on macOS 27 (October 2026), with read-only
 text (for example a reply or a web page) and text in an input. "Cold" means the
