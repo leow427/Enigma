@@ -7,6 +7,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var globalHotKeyMonitors: [GlobalHotKeyMonitor] = []
   private var panelShortcut: PanelShortcutMonitor?
   private var selectionShortcut: SelectionShortcutMonitor?
+  private var accessibilityWarmer: SelectionAccessibilityWarmer?
   private var settingsWindowController: SettingsWindowController?
 
   override init() {
@@ -91,7 +92,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     panelShortcut.start()
     self.panelShortcut = panelShortcut
 
-    let selectionShortcut = SelectionShortcutMonitor { panelController.summonSelectionContext() }
+    let accessibilityWarmer = SelectionAccessibilityWarmer()
+    accessibilityWarmer.start()
+    self.accessibilityWarmer = accessibilityWarmer
+    let selectionShortcut = SelectionShortcutMonitor(firstTap: { accessibilityWarmer.warmFrontmost() }) {
+      panelController.summonSelectionContext()
+    }
     selectionShortcut.start()
     self.selectionShortcut = selectionShortcut
     let selectionBackup = GlobalHotKeyMonitor(hotKey: .selectionContext) { [weak self] in
@@ -115,6 +121,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     NotificationCenter.default.removeObserver(self)
     panelShortcut?.stop()
     selectionShortcut?.stop()
+    accessibilityWarmer?.stop()
     globalHotKeyMonitors.forEach { $0.stop() }
     globalHotKeyMonitors.removeAll()
   }

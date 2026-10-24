@@ -194,8 +194,10 @@ environment variable, and they never run in CI.
   app-server check outside XCTest. See [File-Mode.md](File-Mode.md).
 - **Selection:** `SelectionContextTests/testInstalledGemmaHandlesSelectionCommands`
   runs an installed local model on synthetic text when
-  `TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1` is set. See
-  [Selection-Context.md](Selection-Context.md).
+  `TEST_RUNNER_ENIGMA_SELECTION_MODEL_SMOKE=1` is set. To see what a real app
+  exposes about its selection, run `swift scripts/selection-probe.swift` from a
+  terminal that has Accessibility permission; it prints character counts unless
+  given `--text`. See [Selection-Context.md](Selection-Context.md#the-selection-probe).
 - **Memory bandwidth:** the real Metal copy test runs only when asked, on a Mac
   with a GPU:
   `TEST_RUNNER_ENIGMA_BANDWIDTH_PROBE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalBandwidthProbeTests/testMetalProbeOnThisMac`.

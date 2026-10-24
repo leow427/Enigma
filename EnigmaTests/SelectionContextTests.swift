@@ -431,12 +431,16 @@ final class SelectionContextTests: XCTestCase {
   }
 
   func testSelectionFallsBackFromEmptyAXTextWithoutReplacingValidText() {
-    XCTAssertEqual(SelectionCapturePolicy.preferredText("", rangeText: { "selected range" }), "selected range")
-    XCTAssertEqual(SelectionCapturePolicy.preferredText(" \n", rangeText: { "range" }), "range")
-    XCTAssertEqual(SelectionCapturePolicy.preferredText("Selected text", rangeText: {
+    func read(_ selected: String?, range: @escaping () -> String?) -> String? {
+      SelectionCapturePolicy.selectionText(selectedText: { selected }, rangeText: range, focusedMarkers: { nil },
+        webAreaSelectedText: { nil }, webAreaMarkers: { nil })?.text
+    }
+    XCTAssertEqual(read("", range: { "selected range" }), "selected range")
+    XCTAssertEqual(read(" \n", range: { "range" }), "range")
+    XCTAssertEqual(read("Selected text", range: {
       XCTFail("A valid AX selection must not be replaced by another source"); return nil
     }), "Selected text")
-    XCTAssertNil(SelectionCapturePolicy.preferredText(nil, rangeText: { nil }))
+    XCTAssertNil(read(nil, range: { nil }))
   }
 
   func testValueFallbackUsesOnlyTheSelectedUTF16Range() {
@@ -449,34 +453,529 @@ final class SelectionContextTests: XCTestCase {
 
   func testLazyAccessibilityReadinessHasABoundedLongerRetryWindow() async {
     var reads = 0
-    let result = await SelectionCaptureRetry.first(attempts: 10, mayContinue: { true }, read: {
+    var clock = Duration.zero
+    let result = await SelectionCaptureRetry.first(within: .milliseconds(300), mayContinue: { true }, read: {
       reads += 1
       return reads == 6 ? "focused editor" : nil
-    }, wait: {})
+    }, now: { clock }, wait: { clock += $0 })
     XCTAssertEqual(result, "focused editor")
     XCTAssertEqual(reads, 6)
+    XCTAssertEqual(clock, .milliseconds(150))
   }
 
   func testCaptureRetriesReadinessButStopsOnSourceChange() async {
     var reads = 0
     var waits = 0
-    let value: String? = await SelectionCaptureRetry.first(mayContinue: { true }, read: {
+    var clock = Duration.zero
+    let value: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { true }, read: {
       reads += 1; return reads == 2 ? "selected text" : nil
-    }, wait: { waits += 1 })
+    }, now: { clock }, wait: { waits += 1; clock += $0 })
     XCTAssertEqual(value, "selected text")
     XCTAssertEqual(reads, 2)
     XCTAssertEqual(waits, 1)
     var unchanged = true
     reads = 0
-    let missing: String? = await SelectionCaptureRetry.first(mayContinue: { unchanged }, read: {
-      reads += 1; return nil
-    }, wait: { unchanged = false })
+    let missing: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { unchanged },
+      read: { reads += 1; return nil }, now: { clock }, wait: { clock += $0; unchanged = false })
     XCTAssertNil(missing)
     XCTAssertEqual(reads, 1)
     reads = 0
-    let absent: String? = await SelectionCaptureRetry.first(mayContinue: { true }, read: { reads += 1; return nil }, wait: {})
+    clock = .zero
+    let absent: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { true },
+      read: { reads += 1; return nil }, now: { clock }, wait: { clock += $0 })
     XCTAssertNil(absent)
-    XCTAssertEqual(reads, 3)
+    XCTAssertEqual(reads, 3, "the quick retry is about three reads, 30 ms apart")
+  }
+
+  // MARK: - B16: deep trees, cold trees, text markers and named notices
+
+  /// A chain where node `i`'s parent is `i + 1` and `application` is the application.
+  private func chainIsSafe(application: Int?, secureAt: Int? = nil, protectedAt: Int? = nil,
+                           missingParentAt: Int? = nil, parent: ((Int) -> Int?)? = nil) -> Bool {
+    SelectionAncestry.isSafe(from: 0, info: { node in
+      let role = node == application ? kAXApplicationRole as String : node == secureAt ? "AXSecureTextField" : "AXGroup"
+      return SelectionAncestry.NodeInfo(role: role, subrole: nil, isProtected: { node == protectedAt })
+    }, parent: parent ?? { $0 == missingParentAt ? nil : $0 + 1 })
+  }
+
+  func testAncestorWalkReachesTheApplicationInDeepWebTrees() {
+    // Claude's message box is 36 parents below its application.
+    XCTAssertTrue(chainIsSafe(application: 36))
+    XCTAssertTrue(chainIsSafe(application: 0))
+    XCTAssertTrue(chainIsSafe(application: SelectionAncestry.maximumHops))
+    XCTAssertFalse(chainIsSafe(application: SelectionAncestry.maximumHops + 1))
+  }
+
+  func testAncestorWalkFailsClosedOnSecureNodesMissingParentsAndCycles() {
+    XCTAssertFalse(chainIsSafe(application: 60, secureAt: 40))
+    XCTAssertFalse(chainIsSafe(application: 60, secureAt: 0))
+    XCTAssertFalse(chainIsSafe(application: 60, protectedAt: 40))
+    XCTAssertFalse(chainIsSafe(application: 60, missingParentAt: 30))
+    XCTAssertFalse(chainIsSafe(application: nil))
+    var parentReads = 0
+    XCTAssertFalse(chainIsSafe(application: nil, parent: { parentReads += 1; return ($0 + 1) % 5 }))
+    XCTAssertEqual(parentReads, SelectionAncestry.maximumHops, "a cycle ends at the hop limit")
+    let secureSubrole = SelectionAncestry.isSafe(from: 0, info: { node in
+      SelectionAncestry.NodeInfo(role: node == 3 ? kAXApplicationRole as String : "AXTextField",
+        subrole: node == 1 ? "AXSecureTextField" : nil, isProtected: { false })
+    }, parent: { $0 + 1 })
+    XCTAssertFalse(secureSubrole)
+    XCTAssertFalse(SelectionAncestry.isSafe(from: 0, info: { _ in nil }, parent: { $0 + 1 }))
+  }
+
+  func testWebAreaIsTheNearestStrictAncestorBelowTheApplication() {
+    func roles(_ table: [Int: String]) -> (Int) -> String? { { table[$0] ?? "AXGroup" } }
+    // The search starts above the node; a focused web area is handled by the capture flow.
+    let deep = [0: "AXTextArea", 21: "AXWebArea", 27: "AXWebArea", 40: kAXApplicationRole as String]
+    XCTAssertEqual(SelectionAncestry.nearestAncestor(of: 0, role: "AXWebArea", roleOf: roles(deep), parent: { $0 + 1 }), 21)
+    let none = [0: "AXGroup", 5: kAXApplicationRole as String, 9: "AXWebArea"]
+    XCTAssertNil(SelectionAncestry.nearestAncestor(of: 0, role: "AXWebArea", roleOf: roles(none), parent: { $0 + 1 }))
+    XCTAssertNil(SelectionAncestry.nearestAncestor(of: 0, role: "AXWebArea", roleOf: roles([:]), parent: { $0 < 3 ? $0 + 1 : nil }))
+    var reads = 0
+    XCTAssertNil(SelectionAncestry.nearestAncestor(of: 0, role: "AXWebArea", roleOf: roles([:]),
+      parent: { reads += 1; return ($0 + 1) % 4 }))
+    XCTAssertEqual(reads, SelectionAncestry.maximumHops)
+  }
+
+  func testSelectionTextSourcesAreTriedInOrderAndStopAtTheFirstText() {
+    var calls: [SelectionTextSource] = []
+    func source(_ name: SelectionTextSource, _ value: String?) -> () -> String? { { calls.append(name); return value } }
+    func read(_ values: [String?]) -> (source: SelectionTextSource, text: String)? {
+      calls = []
+      return SelectionCapturePolicy.selectionText(selectedText: source(.selectedText, values[0]),
+        rangeText: source(.rangeText, values[1]), focusedMarkers: source(.focusedMarkers, values[2]),
+        webAreaSelectedText: source(.webAreaSelectedText, values[3]), webAreaMarkers: source(.webAreaMarkers, values[4]))
+    }
+    let all: [SelectionTextSource] = [.selectedText, .rangeText, .focusedMarkers, .webAreaSelectedText, .webAreaMarkers]
+    for (index, expected) in all.enumerated() {
+      var values: [String?] = [nil, " \n", "", "\t", nil]
+      values[index] = "text \(index)"
+      values = values.enumerated().map { $0.offset > index ? "later \($0.offset)" : $0.element }
+      let found = read(values)
+      XCTAssertEqual(found?.source, expected)
+      XCTAssertEqual(found?.text, "text \(index)")
+      XCTAssertEqual(calls, Array(all.prefix(index + 1)), "later sources must not be read")
+    }
+    XCTAssertNil(read([nil, " ", "\n", nil, "  "]))
+    XCTAssertEqual(calls, all)
+  }
+
+  func testFocusReadinessWaitsForAColdTreeWithinItsBudget() async {
+    var clock = Duration.zero
+    var reads = 0
+    // Slack, VS Code and Discord reported focus about 2.06 s after AXManualAccessibility.
+    let cold: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
+      read: { reads += 1; return clock >= .milliseconds(2_060) ? "focused" : nil },
+      now: { clock }, wait: { clock += $0 })
+    XCTAssertEqual(cold, "focused")
+    XCTAssertGreaterThan(reads, 60)
+    clock = .zero
+    let late: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
+      read: { clock >= .milliseconds(2_600) ? "too late" : nil }, now: { clock }, wait: { clock += $0 })
+    XCTAssertNil(late)
+    XCTAssertEqual(clock, SelectionCaptureFlow.focusBudget, "the last wait is trimmed to the budget")
+  }
+
+  func testFocusReadinessStopsAtOnceWhenCaptureMayNotContinue() async {
+    var clock = Duration.zero
+    var reads = 0
+    var waits = 0
+    var mayContinue = true
+    let interrupted: String? = await SelectionCaptureRetry.first(within: .seconds(3), mayContinue: { mayContinue },
+      read: { reads += 1; return nil }, now: { clock },
+      wait: { waits += 1; clock += $0; if waits == 4 { mayContinue = false } })
+    XCTAssertNil(interrupted)
+    XCTAssertEqual(reads, 4)
+    XCTAssertEqual(clock, .milliseconds(120))
+    reads = 0
+    let refused: String? = await SelectionCaptureRetry.first(within: .seconds(3), mayContinue: { false },
+      read: { reads += 1; return "never" }, now: { clock }, wait: { _ in XCTFail("no wait when refused") })
+    XCTAssertNil(refused)
+    XCTAssertEqual(reads, 0)
+  }
+
+  func testFocusReadinessFastPathReadsOnceWithoutWaiting() async {
+    var reads = 0
+    let value: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
+      read: { reads += 1; return "focused" }, now: { .zero }, wait: { _ in XCTFail("a ready tree must not wait") })
+    XCTAssertEqual(value, "focused")
+    XCTAssertEqual(reads, 1)
+    XCTAssertLessThan(SelectionCaptureFlow.coldSelectionBudget, SelectionCaptureFlow.focusBudget)
+  }
+
+  func testCaptureNoticeNamesTheAppAndFallsBackWithoutOne() {
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .nothingRead, appName: "Claude"),
+      "No selected text could be read from Claude. If text is selected there, copy it and paste it into this chat.")
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .notReady, appName: "Claude"),
+      "Claude didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .nothingRead, appName: nil),
+      "No selected text could be read from the app. If text is selected there, copy it and paste it into this chat.")
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .notReady, appName: "  "),
+      "The app didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .noSource, appName: "Claude"),
+      "No selected text could be read. Highlight text in the source app and try again. If it still fails, copy the text and paste it into this chat.")
+  }
+
+  /// A fake accessibility tree on a simulated clock. Nodes are Ints; `wait` advances the clock.
+  @MainActor
+  private final class FakeCaptureTree {
+    var clock = Duration.zero
+    var focusAppearsAt = Duration.zero
+    var focusedNode: Int? = 1
+    var unsafe: Set<Int> = []
+    /// Roles default to AXGroup; node 100 is the application.
+    var roles: [Int: String] = [100: kAXApplicationRole as String]
+    var parents: [Int: Int] = [:]
+    var selectedText: [Int: String] = [:]
+    var rangeText: [Int: String] = [:]
+    var markerText: [Int: String] = [:]
+    /// The selection only becomes readable at this time.
+    var textAppearsAt = Duration.zero
+    var mayCapture = true
+    var calls: [String] = []
+    var selectionReads = 0
+
+    /// Puts `node` inside web area `area`, which sits under the application.
+    func place(_ node: Int, inWebArea area: Int) {
+      parents[node] = area
+      parents[area] = 100
+      roles[area] = SelectionCaptureFlow.webAreaRole
+    }
+
+    func text(_ table: [Int: String], _ name: String, _ node: Int) -> String? {
+      calls.append("\(name)(\(node))")
+      return clock >= textAppearsAt ? table[node] : nil
+    }
+
+    var tree: SelectionCaptureFlow.Tree<Int> {
+      SelectionCaptureFlow.Tree(
+        focused: { self.clock >= self.focusAppearsAt ? self.focusedNode : nil },
+        isSafe: { !self.unsafe.contains($0) },
+        sameFocus: { $0 == self.focusedNode },
+        role: { self.roles[$0] ?? "AXGroup" },
+        parent: { self.calls.append("parent(\($0))"); return self.parents[$0] },
+        selectedText: { self.selectionReads += 1; return self.text(self.selectedText, "selectedText", $0) },
+        rangeText: { self.text(self.rangeText, "rangeText", $0) },
+        markerText: { self.text(self.markerText, "markerText", $0) })
+    }
+
+    func run(budget: Duration = SelectionCaptureFlow.focusBudget, appName: String? = "Slack",
+             onWait: (@MainActor () -> Void)? = nil) async -> SelectionCaptureFlow.Outcome<Int> {
+      await SelectionCaptureFlow.run(tree: tree, focusBudget: budget, appName: appName,
+        mayCapture: { self.mayCapture }, now: { self.clock }, wait: { self.clock += $0; onWait?() })
+    }
+  }
+
+  func testCaptureFlowReadsAColdTreeWithTheLongerSelectionRetry() async {
+    let fake = FakeCaptureTree()
+    // Slack's cold tree reported focus after about 2.06 s; its text then took a little longer.
+    fake.focusAppearsAt = .milliseconds(2_060)
+    fake.textAppearsAt = .milliseconds(2_500)
+    fake.selectedText[1] = "cold text"
+    let outcome = await fake.run()
+    XCTAssertEqual(outcome.element, 1)
+    XCTAssertEqual(outcome.selection?.text, "cold text")
+    XCTAssertEqual(outcome.selection?.source, .selectedText)
+    XCTAssertTrue(outcome.foundFocus)
+    XCTAssertFalse(outcome.focusTimedOut)
+    XCTAssertNil(outcome.notice)
+    // Reads at 0, 30, … 2070 ms: the 70th wait finds the focus, then text at 2520 ms.
+    XCTAssertEqual(outcome.timing.focusReads, 70)
+    XCTAssertTrue(outcome.timing.wasCold)
+    XCTAssertEqual(outcome.timing.focusWait, .milliseconds(2_070))
+    XCTAssertEqual(outcome.timing.selectionTime, .milliseconds(450))
+  }
+
+  func testCaptureFlowTakesTheWarmSnapshotBeforeWaitingAndTimesTheTimeout() async {
+    let fake = FakeCaptureTree()
+    fake.focusAppearsAt = .milliseconds(90)
+    var snapshotAt: Duration?
+    var focusReadsBeforeSnapshot = -1
+    let snapshot = SelectionWarmSnapshot(sinceWarm: .seconds(4), trigger: .retry, sinceFirstTap: nil)
+    let outcome = await SelectionCaptureFlow.run(tree: fake.tree, focusBudget: SelectionCaptureFlow.focusBudget,
+      appName: "Slack", mayCapture: { true }, lastWarm: {
+        snapshotAt = fake.clock
+        focusReadsBeforeSnapshot = fake.calls.count
+        return snapshot
+      }, now: { fake.clock }, wait: { fake.clock += $0 })
+    XCTAssertEqual(snapshotAt, .zero, "taken before any waiting")
+    XCTAssertEqual(focusReadsBeforeSnapshot, 0)
+    XCTAssertEqual(outcome.timing.lastWarm, snapshot)
+    // A focus timeout still reports how cold the tree was.
+    let none = FakeCaptureTree()
+    none.focusedNode = nil
+    let timedOut = await none.run()
+    XCTAssertTrue(timedOut.timing.wasCold)
+    XCTAssertEqual(timedOut.timing.focusWait, SelectionCaptureFlow.focusBudget)
+    XCTAssertGreaterThan(timedOut.timing.focusReads, 80)
+  }
+
+  func testCaptureFlowFastPathReadsOnceWithoutWaiting() async {
+    let fake = FakeCaptureTree()
+    fake.selectedText[1] = "ready"
+    let outcome = await fake.run(onWait: { XCTFail("a ready tree must not wait") })
+    XCTAssertEqual(outcome.selection?.text, "ready")
+    XCTAssertEqual(fake.clock, .zero)
+    // A warm tree with no text yet gets only the quick retry, not the cold one.
+    let warm = FakeCaptureTree()
+    warm.selectedText[1] = "late"
+    warm.textAppearsAt = .milliseconds(200)
+    let missed = await warm.run()
+    XCTAssertNil(missed.selection)
+    XCTAssertEqual(warm.clock, SelectionCaptureFlow.quickBudget)
+    XCTAssertEqual(missed.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
+  }
+
+  func testCaptureFlowReportsNotReadyOnlyWhenTheWholeFocusWaitPassed() async {
+    let fake = FakeCaptureTree()
+    fake.focusedNode = nil
+    let outcome = await fake.run(appName: "Claude")
+    XCTAssertNil(outcome.element)
+    XCTAssertFalse(outcome.foundFocus)
+    XCTAssertTrue(outcome.focusTimedOut)
+    XCTAssertEqual(fake.clock, SelectionCaptureFlow.focusBudget)
+    XCTAssertEqual(outcome.notice,
+      "Claude didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
+    let interrupted = FakeCaptureTree()
+    interrupted.focusedNode = nil
+    let stopped = await interrupted.run(appName: "Claude", onWait: {
+      if interrupted.clock >= .milliseconds(300) { interrupted.mayCapture = false }
+    })
+    XCTAssertFalse(stopped.focusTimedOut)
+    XCTAssertEqual(interrupted.clock, .milliseconds(300))
+    XCTAssertEqual(stopped.notice,
+      "No selected text could be read from Claude. If text is selected there, copy it and paste it into this chat.")
+  }
+
+  func testCaptureFlowStopsReadingWhenTheFocusBecomesUnsafe() async {
+    let fake = FakeCaptureTree()
+    var waitsAfterFocus = 0
+    let outcome = await fake.run(onWait: {
+      guard fake.selectionReads > 0 else { return }
+      waitsAfterFocus += 1
+      fake.unsafe.insert(1) // e.g. the field turned into a password field
+      fake.selectedText[1] = "secret"
+    })
+    XCTAssertEqual(outcome.element, 1)
+    XCTAssertNil(outcome.selection)
+    XCTAssertEqual(fake.selectionReads, 1, "no read after the focus became unsafe")
+    XCTAssertEqual(waitsAfterFocus, 1)
+    // On a cold tree too: the unsafe element is never read again, and nothing safe replaces it.
+    let cold = FakeCaptureTree()
+    cold.focusAppearsAt = .milliseconds(100)
+    let coldOutcome = await cold.run(onWait: {
+      guard cold.selectionReads > 0 else { return }
+      cold.unsafe.insert(1)
+      cold.selectedText[1] = "secret"
+    })
+    XCTAssertNil(coldOutcome.selection)
+    XCTAssertEqual(cold.selectionReads, 1)
+    // Unsafe from the start: never read at all.
+    let secure = FakeCaptureTree()
+    secure.unsafe = [1]
+    secure.selectedText[1] = "secret"
+    let refused = await secure.run()
+    XCTAssertNil(refused.element)
+    XCTAssertTrue(refused.foundFocus)
+    XCTAssertEqual(secure.selectionReads, 0)
+    XCTAssertEqual(secure.clock, SelectionCaptureFlow.quickBudget)
+    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
+  }
+
+  func testCaptureFlowRetriesAnUnsafeColdFocusForTheRestOfTheBudget() async {
+    let fake = FakeCaptureTree()
+    // The focus appears at 1 s but doesn't reach the app until the tree fills in at 2 s.
+    fake.focusAppearsAt = .seconds(1)
+    fake.unsafe = [1]
+    fake.selectedText[1] = "filled in"
+    let outcome = await fake.run(onWait: { if fake.clock >= .seconds(2) { fake.unsafe = [] } })
+    XCTAssertEqual(outcome.element, 1)
+    XCTAssertEqual(outcome.selection?.text, "filled in")
+    // With 10 ms of the budget left, the retry still gets the 60 ms floor.
+    let late = FakeCaptureTree()
+    late.focusAppearsAt = .milliseconds(2_490)
+    late.unsafe = [1]
+    late.selectedText[1] = "just in time"
+    let floor = await late.run(onWait: { if late.clock >= .milliseconds(2_520) { late.unsafe = [] } })
+    XCTAssertEqual(floor.selection?.text, "just in time")
+    // A focus that never becomes safe says nothing could be read.
+    let never = FakeCaptureTree()
+    never.focusAppearsAt = .seconds(1)
+    never.unsafe = [1]
+    let refused = await never.run()
+    XCTAssertNil(refused.element)
+    XCTAssertEqual(never.clock, SelectionCaptureFlow.focusBudget)
+    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
+  }
+
+  func testCaptureFlowGivesAFocusFoundOnTheSecondReadTheColdSelectionBudget() async {
+    let fake = FakeCaptureTree()
+    fake.focusAppearsAt = SelectionCaptureFlow.interval
+    fake.textAppearsAt = SelectionCaptureFlow.interval + .milliseconds(720)
+    fake.selectedText[1] = "second read"
+    let outcome = await fake.run()
+    XCTAssertEqual(outcome.selection?.text, "second read")
+    let first = FakeCaptureTree()
+    first.textAppearsAt = .milliseconds(720)
+    first.selectedText[1] = "too late for a warm tree"
+    let warm = await first.run()
+    XCTAssertNil(warm.selection)
+  }
+
+  func testCaptureFlowFollowsAFocusThatMovesOnlyWhileTheTreeIsCold() async {
+    // Cold VS Code first reports its web area as focused, then the editor.
+    let cold = FakeCaptureTree()
+    cold.focusAppearsAt = .milliseconds(60)
+    cold.selectedText[2] = "editor text"
+    let moved = await cold.run(onWait: { if cold.selectionReads > 0 { cold.focusedNode = 2 } })
+    XCTAssertEqual(moved.element, 2, "the element returned is the one the text came from")
+    XCTAssertEqual(moved.selection?.text, "editor text")
+    // The web area is looked up again for the new focus.
+    let pages = FakeCaptureTree()
+    pages.focusAppearsAt = .milliseconds(60)
+    pages.place(1, inWebArea: 7)
+    pages.place(2, inWebArea: 8)
+    pages.selectedText[8] = "new page"
+    var callsBeforeMove = 0
+    let newPage = await pages.run(onWait: {
+      guard pages.selectionReads > 0, pages.focusedNode == 1 else { return }
+      callsBeforeMove = pages.calls.count
+      pages.focusedNode = 2
+    })
+    XCTAssertEqual(newPage.element, 2)
+    XCTAssertEqual(newPage.selection?.text, "new page")
+    XCTAssertEqual(newPage.webArea, 8)
+    XCTAssertFalse(pages.calls.dropFirst(callsBeforeMove).contains { $0.hasSuffix("(7)") }, "\(pages.calls)")
+    // The new focus must be safe too.
+    let unsafe = FakeCaptureTree()
+    unsafe.focusAppearsAt = .milliseconds(60)
+    unsafe.unsafe = [2]
+    unsafe.selectedText[2] = "secret"
+    let refused = await unsafe.run(onWait: { if unsafe.selectionReads > 0 { unsafe.focusedNode = 2 } })
+    XCTAssertNil(refused.selection)
+    XCTAssertFalse(unsafe.calls.contains { $0.hasSuffix("(2)") })
+    // A warm tree whose focus moves stops reading: the user moved on.
+    let warm = FakeCaptureTree()
+    warm.selectedText[2] = "elsewhere"
+    let stopped = await warm.run(onWait: { warm.focusedNode = 2 })
+    XCTAssertEqual(stopped.element, 1)
+    XCTAssertNil(stopped.selection)
+    XCTAssertEqual(warm.selectionReads, 1, "the retry checks the focus is unchanged")
+  }
+
+  func testCaptureFlowReadsTheWebAreaAboveTheFocusAndNotPastAFocusedWebArea() async {
+    let fake = FakeCaptureTree()
+    fake.place(1, inWebArea: 7)
+    fake.markerText[7] = "page selection"
+    let outcome = await fake.run()
+    XCTAssertEqual(outcome.selection?.source, .webAreaMarkers)
+    XCTAssertEqual(outcome.selection?.text, "page selection")
+    XCTAssertEqual(outcome.webArea, 7)
+    XCTAssertEqual(fake.calls, ["selectedText(1)", "rangeText(1)", "markerText(1)", "parent(1)",
+      "selectedText(7)", "markerText(7)"])
+    // Deeper: the nearest web area wins, and the walk stops at the application.
+    let nested = FakeCaptureTree()
+    nested.parents = [1: 2, 2: 3, 3: 9, 9: 100]
+    nested.roles[3] = SelectionCaptureFlow.webAreaRole
+    nested.roles[9] = SelectionCaptureFlow.webAreaRole
+    nested.selectedText[3] = "inner page"
+    nested.selectedText[9] = "outer page"
+    let inner = await nested.run()
+    XCTAssertEqual(inner.selection?.text, "inner page")
+    XCTAssertEqual(inner.webArea, 3)
+    let area = FakeCaptureTree()
+    area.place(1, inWebArea: 7)
+    area.selectedText[7] = "page text"
+    area.markerText[1] = "own markers"
+    let own = await area.run()
+    XCTAssertEqual(own.selection?.source, .focusedMarkers)
+    XCTAssertNil(own.webArea)
+    // A focused web area (a frame or web view) is its own document.
+    let frame = FakeCaptureTree()
+    frame.place(1, inWebArea: 7)
+    frame.roles[1] = SelectionCaptureFlow.webAreaRole
+    frame.selectedText[7] = "enclosing page"
+    let framed = await frame.run()
+    XCTAssertNil(framed.selection)
+    XCTAssertFalse(frame.calls.contains { $0.contains("(7)") || $0.hasPrefix("parent") }, "\(frame.calls)")
+    // No web area at all: nothing beyond the focused element is read.
+    let plain = FakeCaptureTree()
+    plain.parents = [1: 100]
+    let none = await plain.run()
+    XCTAssertNil(none.selection)
+    XCTAssertEqual(plain.calls, ["selectedText(1)", "rangeText(1)", "markerText(1)", "parent(1)",
+      "selectedText(1)", "rangeText(1)", "markerText(1)", "selectedText(1)", "rangeText(1)", "markerText(1)"])
+  }
+
+  func testTextReadTimeoutOutlastsTheColdSelectionRetry() {
+    // A string read that times out then ends the retry rather than being repeated in it.
+    XCTAssertGreaterThan(Duration.milliseconds(Int(SelectionContextService.textTimeout * 1000)),
+      SelectionCaptureFlow.coldSelectionBudget)
+  }
+
+  func testCaptureFlowAllowsTheCopyFallbackOnlyWhileCaptureMayContinue() async {
+    let quiet = FakeCaptureTree()
+    let allowed = await quiet.run()
+    XCTAssertNil(allowed.selection)
+    XCTAssertTrue(allowed.mayCopy)
+    // The user typed or clicked during the selection retry: no ⌘C afterwards.
+    let typed = FakeCaptureTree()
+    typed.focusAppearsAt = .milliseconds(60)
+    let interrupted = await typed.run(onWait: { if typed.selectionReads > 0 { typed.mayCapture = false } })
+    XCTAssertNil(interrupted.selection)
+    XCTAssertEqual(interrupted.element, 1)
+    XCTAssertFalse(interrupted.mayCopy)
+    let read = FakeCaptureTree()
+    read.selectedText[1] = "text"
+    let found = await read.run()
+    XCTAssertFalse(found.mayCopy, "no fallback once text was read")
+  }
+
+  func testFocusMemoryShortensTheWaitOnlyAfterAFullTimeout() {
+    var memory = SelectionFocusMemory<Int>()
+    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
+    memory.record(42, foundFocus: false, timedOut: false) // interrupted: no evidence
+    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
+    memory.record(42, foundFocus: false, timedOut: true)
+    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.shortFocusBudget)
+    XCTAssertEqual(memory.focusBudget(for: 7), SelectionCaptureFlow.focusBudget)
+    memory.record(42, foundFocus: false, timedOut: true)
+    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.shortFocusBudget)
+    memory.record(42, foundFocus: true, timedOut: false)
+    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
+  }
+
+  func testModifierTrackerIgnoresReleasesButNotAPressAfterThem() {
+    var tracker = SelectionModifierTracker(previous: [.shift, .option])
+    XCTAssertFalse(tracker.interrupts(type: .flagsChanged, flags: [.option], isOwnEvent: false))
+    XCTAssertFalse(tracker.interrupts(type: .flagsChanged, flags: [], isOwnEvent: false))
+    XCTAssertEqual(tracker.previous, [])
+    XCTAssertTrue(tracker.interrupts(type: .flagsChanged, flags: [.option], isOwnEvent: false),
+      "pressing ⌥ again after letting go is a new press")
+    var plain = SelectionModifierTracker(previous: [.option])
+    XCTAssertFalse(plain.interrupts(type: .flagsChanged, flags: [], isOwnEvent: false))
+    XCTAssertFalse(plain.interrupts(type: .keyDown, flags: [], isOwnEvent: true))
+    XCTAssertTrue(plain.interrupts(type: .keyDown, flags: [], isOwnEvent: false))
+  }
+
+  func testReleasingModifiersDoesNotInterruptACaptureButPressingDoes() {
+    func interrupts(_ type: NSEvent.EventType, _ flags: NSEvent.ModifierFlags, after previous: NSEvent.ModifierFlags,
+                    own: Bool = false) -> Bool {
+      SelectionInteractionPolicy.interrupts(type: type, flags: flags, previousFlags: previous, isOwnEvent: own)
+    }
+    // Letting go of ⇧⌥ after ⇧⌥Space, one key at a time.
+    XCTAssertFalse(interrupts(.flagsChanged, [.option], after: [.shift, .option]))
+    XCTAssertFalse(interrupts(.flagsChanged, [], after: [.option]))
+    XCTAssertFalse(interrupts(.flagsChanged, NSEvent.ModifierFlags(rawValue: 0x100), after: [.option]),
+      "device-dependent bits are ignored")
+    XCTAssertTrue(interrupts(.flagsChanged, [.command], after: []))
+    XCTAssertTrue(interrupts(.flagsChanged, [.option, .command], after: [.option]))
+    XCTAssertTrue(interrupts(.flagsChanged, [.command], after: [.option]), "a swap presses a new modifier")
+    XCTAssertTrue(interrupts(.keyDown, [], after: []))
+    XCTAssertTrue(interrupts(.leftMouseDown, [.option], after: [.option]))
+    XCTAssertTrue(interrupts(.scrollWheel, [], after: []))
+    XCTAssertFalse(interrupts(.keyDown, [.command], after: [], own: true))
+    XCTAssertFalse(interrupts(.flagsChanged, [.command], after: [], own: true))
   }
 
   func testRevisionCardRendersAcknowledgementSeparateFromEditableDraft() throws {
@@ -724,14 +1223,15 @@ final class SelectionContextTests: XCTestCase {
       let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
       view.cacheDisplay(in: view.bounds, to: bitmap)
       let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-      try png.write(to: URL(fileURLWithPath: "/tmp/Enigma-selection-\(name).png"))
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      try png.write(to: directory.appendingPathComponent("Enigma-selection-\(name).png"))
       let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
       attachment.name = "Selection \(name)"
       attachment.lifetime = .keepAlways
       add(attachment)
     }
     try render("composer")
-    let previewData = try Data(contentsOf: URL(fileURLWithPath: "/tmp/Enigma-selection-composer.png"))
+    let previewData = try Data(contentsOf: directory.appendingPathComponent("Enigma-selection-composer.png"))
     let previewImage = try XCTUnwrap(NSBitmapImageRep(data: previewData)?.cgImage)
     let previewText = try await ScreenOCRService().recognize(previewImage).text.lowercased()
     XCTAssertTrue(previewText.contains("please send the report today"), "The selected text must be visible before sending: \(previewText)")
@@ -740,7 +1240,7 @@ final class SelectionContextTests: XCTestCase {
       modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
       characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)))
     XCTAssertTrue(controller.isSelectionComposer)
-    XCTAssertNil(chat.activeRequest)
+    XCTAssertNil(chat.activeRequest, "Unexpected request: \(engine.lastRequest?.prompt ?? "none") (draft: \(screen.draft.debugDescription), editor: \(editor.string.debugDescription))")
     screen.draft = "Explain this passage"
     try await waitForUI("draft to reach the native editor", in: view) { editor.string == screen.draft }
     let expandedFrame = SelectionPanelExpansion.frame(from: window.frame, visible: visible)
@@ -815,6 +1315,257 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: .option, timestamp: 1.2))
     XCTAssertTrue(detector.flagsChanged(keyCode: 58, modifiers: [], timestamp: 1.3))
     XCTAssertFalse(detector.flagsChanged(keyCode: 58, modifiers: [], timestamp: 1.31))
+  }
+
+  func testFirstCompleteTapIsReportedBeforeTheDoubleTap() {
+    var detector = OptionDoubleTap()
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: .option, timestamp: 1), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 1.1), .first)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: .option, timestamp: 1.2), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 1.3), .double)
+    // A held press isn't a tap, and a late second tap starts over as a first tap.
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: .option, timestamp: 2), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 2.5), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: .option, timestamp: 3), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 3.1), .first)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: .option, timestamp: 4), .none)
+    XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 4.1), .first)
+  }
+
+  /// A warmer with a fake frontmost app, scheduler and AX set.
+  @MainActor
+  private final class FakeWarmer {
+    var trusted = true
+    var frontmost: pid_t? = 500
+    var bundleIDs: [pid_t: String] = [:]
+    /// Pids whose bundle can't be identified.
+    var unknown: Set<pid_t> = []
+    /// Bundles that contain VS Code's product.json.
+    var forks: Set<pid_t> = []
+    var enabled: [(pid: pid_t, trigger: SelectionAccessibilityWarmer.Trigger)] = []
+    var scheduled: [(delay: Duration, action: @MainActor () -> Void)] = []
+    let center = NotificationCenter()
+    var clock = Duration.zero
+    lazy var history = SelectionWarmHistory(now: { [unowned self] in self.clock })
+    lazy var warmer = SelectionAccessibilityWarmer(isTrusted: { [unowned self] in self.trusted }, ownPID: 42,
+      frontmostPID: { [unowned self] in self.frontmost }, appInfo: { [unowned self] pid in
+        self.unknown.contains(pid) ? nil : SelectionWarmedApp(key: SelectionAppKey(pid: pid, launchDate: nil),
+          bundleID: self.bundleIDs[pid] ?? "com.example.app\(pid)", bundleURL: URL(fileURLWithPath: "/Applications/\(pid).app"))
+      }, fileExists: { [unowned self] url in
+        self.forks.contains { url.path == "/Applications/\($0).app/Contents/Resources/app/product.json" }
+      }, enable: { [unowned self] in self.enabled.append(($0, $1)) },
+      schedule: { [unowned self] in self.scheduled.append(($0, $1)) }, center: center, history: history)
+
+    var pids: [pid_t] { enabled.map(\.pid) }
+
+    /// Runs every scheduled retry, in order of delay.
+    func runRetries() {
+      let due = scheduled.sorted { $0.delay < $1.delay }
+      scheduled.removeAll()
+      due.forEach { $0.action() }
+    }
+  }
+
+  func testAccessibilityWarmerSetsOnlyForOtherAppsWhenTrusted() throws {
+    let fake = FakeWarmer()
+    fake.warmer.start()
+    XCTAssertEqual(fake.pids, [500], "the frontmost app is warmed at startup")
+    XCTAssertEqual(fake.enabled.last?.trigger, .startup)
+    let other = try XCTUnwrap(NSWorkspace.shared.runningApplications.first {
+      $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })
+    fake.frontmost = other.processIdentifier
+    fake.center.post(name: NSWorkspace.didActivateApplicationNotification, object: nil,
+      userInfo: [NSWorkspace.applicationUserInfoKey: other])
+    XCTAssertEqual(fake.enabled.last?.pid, other.processIdentifier, "an activated app is warmed")
+    XCTAssertEqual(fake.enabled.last?.trigger, .activation)
+    let count = fake.enabled.count
+    fake.warmer.warm(pid: 42, trigger: .firstTap)
+    fake.warmer.warm(pid: 0, trigger: .firstTap)
+    fake.warmer.appeared(pid: 42, trigger: .activation)
+    fake.trusted = false
+    fake.warmer.warm(pid: 600, trigger: .firstTap)
+    fake.frontmost = 700
+    fake.warmer.warmFrontmost()
+    XCTAssertEqual(fake.enabled.count, count, "skipped: own pid, invalid pid, not trusted")
+    fake.trusted = true
+    fake.warmer.warmFrontmost() // the first tap of the shortcut
+    XCTAssertEqual(fake.enabled.last?.pid, 700)
+    XCTAssertEqual(fake.enabled.last?.trigger, .firstTap)
+    fake.warmer.stop()
+    fake.runRetries()
+    let afterStop = fake.enabled.count
+    fake.center.post(name: NSWorkspace.didActivateApplicationNotification, object: nil,
+      userInfo: [NSWorkspace.applicationUserInfoKey: other])
+    XCTAssertEqual(fake.enabled.count, afterStop)
+  }
+
+  func testAccessibilityWarmerNeverWarmsVSCodeFamilyEditors() {
+    for editor in SelectionCapturePolicy.codeEditors {
+      let fake = FakeWarmer()
+      fake.bundleIDs[500] = editor
+      fake.warmer.start() // startup
+      fake.warmer.appeared(pid: 500, trigger: .activation)
+      fake.warmer.appeared(pid: 500, trigger: .launch)
+      fake.warmer.warmFrontmost() // first tap
+      fake.runRetries()
+      XCTAssertTrue(fake.enabled.isEmpty, editor)
+      XCTAssertTrue(fake.scheduled.isEmpty, editor)
+      fake.warmer.stop()
+    }
+    let other = FakeWarmer()
+    other.bundleIDs[500] = "com.tinyspeck.slackmacgap"
+    other.warmer.warmFrontmost()
+    XCTAssertEqual(other.pids, [500])
+    // A fork that isn't on the list, found by VS Code's product.json in its bundle.
+    let fork = FakeWarmer()
+    fork.forks = [500]
+    fork.warmer.appeared(pid: 500, trigger: .activation)
+    fork.warmer.warmFrontmost()
+    XCTAssertTrue(fork.enabled.isEmpty)
+    XCTAssertTrue(fork.scheduled.isEmpty)
+    // An app whose bundle can't be identified is left alone too.
+    let unknown = FakeWarmer()
+    unknown.unknown = [500]
+    unknown.warmer.appeared(pid: 500, trigger: .activation)
+    unknown.warmer.warmFrontmost()
+    XCTAssertTrue(unknown.enabled.isEmpty)
+    let noURL = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: "com.tinyspeck.slackmacgap",
+                                   bundleURL: nil)
+    XCTAssertFalse(SelectionAccessibilityWarmer.isWarmable(noURL, fileExists: { _ in false }))
+    let noID = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: nil,
+                                  bundleURL: URL(fileURLWithPath: "/Applications/Slack.app"))
+    XCTAssertFalse(SelectionAccessibilityWarmer.isWarmable(noID, fileExists: { _ in false }))
+    let slack = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: "com.tinyspeck.slackmacgap",
+                                   bundleURL: URL(fileURLWithPath: "/Applications/Slack.app"))
+    var checked: [String] = []
+    XCTAssertTrue(SelectionAccessibilityWarmer.isWarmable(slack, fileExists: { checked.append($0.path); return false }))
+    XCTAssertEqual(checked, ["/Applications/Slack.app/Contents/Resources/app/product.json"])
+  }
+
+  func testAccessibilityWarmerSupersedesRetriesAndObservesLaunches() throws {
+    // Activation then launch for the same app: only the launch's retries run.
+    let fake = FakeWarmer()
+    fake.warmer.appeared(pid: 500, trigger: .activation)
+    fake.warmer.appeared(pid: 500, trigger: .launch)
+    fake.runRetries()
+    XCTAssertEqual(fake.enabled.map(\.trigger), [.activation, .launch, .retry, .retry, .retry])
+    // The launch observer, through the notification center.
+    let observed = FakeWarmer()
+    let other = try XCTUnwrap(NSWorkspace.shared.runningApplications.first {
+      $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })
+    observed.frontmost = other.processIdentifier
+    observed.warmer.start()
+    observed.center.post(name: NSWorkspace.didLaunchApplicationNotification, object: nil,
+      userInfo: [NSWorkspace.applicationUserInfoKey: other])
+    XCTAssertEqual(observed.enabled.map(\.trigger), [.startup, .launch])
+    XCTAssertEqual(observed.scheduled.count, SelectionAccessibilityWarmer.retryDelays.count)
+    observed.warmer.stop()
+  }
+
+  func testOnlyACompleteSoloTapCountsAsAFirstTap() {
+    // Another modifier with Option, and the chord's release.
+    var chord = OptionDoubleTap()
+    XCTAssertEqual(chord.tap(keyCode: 58, modifiers: .option, timestamp: 1), .none)
+    XCTAssertEqual(chord.tap(keyCode: 58, modifiers: [.option, .command], timestamp: 1.05), .none)
+    XCTAssertEqual(chord.tap(keyCode: 58, modifiers: [], timestamp: 1.1), .none)
+    // A modifier other than the chosen one.
+    var shift = OptionDoubleTap()
+    XCTAssertEqual(shift.tap(keyCode: 56, modifiers: .shift, timestamp: 1), .none)
+    XCTAssertEqual(shift.tap(keyCode: 56, modifiers: [], timestamp: 1.1), .none)
+    // A release after reset (a key, click or scroll in between).
+    var reset = OptionDoubleTap()
+    XCTAssertEqual(reset.tap(keyCode: 58, modifiers: .option, timestamp: 1), .none)
+    reset.reset()
+    XCTAssertEqual(reset.tap(keyCode: 58, modifiers: [], timestamp: 1.1), .none)
+    // Pressing one Option key and releasing the other.
+    var keys = OptionDoubleTap()
+    XCTAssertEqual(keys.tap(keyCode: 58, modifiers: .option, timestamp: 1), .none)
+    XCTAssertEqual(keys.tap(keyCode: 61, modifiers: [], timestamp: 1.1), .none)
+    // The right Option key on its own is a tap like the left one.
+    var right = OptionDoubleTap()
+    XCTAssertEqual(right.tap(keyCode: 61, modifiers: .option, timestamp: 1), .none)
+    XCTAssertEqual(right.tap(keyCode: 61, modifiers: [], timestamp: 1.1), .first)
+  }
+
+  func testAccessibilityWarmerRetriesWhileTheSameAppStaysInFront() {
+    let fake = FakeWarmer()
+    fake.frontmost = 500
+    fake.warmer.appeared(pid: 500, trigger: .activation)
+    XCTAssertEqual(fake.scheduled.map(\.delay), SelectionAccessibilityWarmer.retryDelays)
+    fake.runRetries()
+    XCTAssertEqual(fake.pids, [500, 500, 500, 500])
+    XCTAssertEqual(fake.enabled.map(\.trigger), [.activation, .retry, .retry, .retry])
+    // Another app comes to the front: the first app's pending retries do nothing.
+    let switched = FakeWarmer()
+    switched.warmer.appeared(pid: 500, trigger: .activation)
+    switched.frontmost = 600
+    switched.warmer.appeared(pid: 600, trigger: .activation)
+    switched.runRetries()
+    XCTAssertEqual(switched.pids, [500, 600, 600, 600, 600])
+    // Leaving without a new activation (for example to Enigma itself) also stops them.
+    let left = FakeWarmer()
+    left.warmer.appeared(pid: 500, trigger: .activation)
+    left.frontmost = 42
+    left.runRetries()
+    XCTAssertEqual(left.pids, [500])
+    // Trust revoked: retries stop.
+    let revoked = FakeWarmer()
+    revoked.warmer.appeared(pid: 500, trigger: .activation)
+    revoked.trusted = false
+    revoked.runRetries()
+    XCTAssertEqual(revoked.pids, [500])
+    // Own pid and untrusted never schedule anything.
+    let own = FakeWarmer()
+    own.warmer.appeared(pid: 42, trigger: .activation)
+    own.trusted = false
+    own.warmer.appeared(pid: 500, trigger: .activation)
+    XCTAssertTrue(own.scheduled.isEmpty)
+    XCTAssertTrue(own.enabled.isEmpty)
+    // After stop(), nothing scheduled earlier fires.
+    let stopped = FakeWarmer()
+    stopped.warmer.start()
+    stopped.warmer.appeared(pid: 500, trigger: .activation)
+    stopped.warmer.stop()
+    let beforeRetries = stopped.enabled.count
+    stopped.runRetries()
+    XCTAssertEqual(stopped.enabled.count, beforeRetries)
+  }
+
+  func testAccessibilityWarmerRetriesAFrontmostLaunchButNotABackgroundOne() {
+    let fake = FakeWarmer()
+    fake.frontmost = 500
+    fake.warmer.appeared(pid: 600, trigger: .launch)
+    XCTAssertTrue(fake.enabled.isEmpty, "a background launch waits for its own activation")
+    XCTAssertTrue(fake.scheduled.isEmpty)
+    fake.warmer.appeared(pid: 500, trigger: .launch)
+    fake.runRetries()
+    XCTAssertEqual(fake.enabled.map(\.trigger), [.launch, .retry, .retry, .retry])
+  }
+
+  func testWarmHistoryKeepsFirstTapsApartAndIsKeyedByLaunch() {
+    let fake = FakeWarmer()
+    let key = SelectionAppKey(pid: 500, launchDate: nil)
+    XCTAssertEqual(fake.history.snapshot(key), SelectionWarmSnapshot())
+    fake.warmer.warm(pid: 500, trigger: .activation)
+    fake.clock = .milliseconds(1_000)
+    fake.warmer.warmFrontmost() // the first tap must not hide the activation warm
+    fake.clock = .milliseconds(2_400)
+    XCTAssertEqual(fake.history.snapshot(key),
+      SelectionWarmSnapshot(sinceWarm: .milliseconds(2_400), trigger: .activation, sinceFirstTap: .milliseconds(1_400)))
+    fake.warmer.warm(pid: 500, trigger: .retry)
+    XCTAssertEqual(fake.history.snapshot(key).trigger, .retry)
+    XCTAssertEqual(fake.history.snapshot(key).sinceWarm, .zero)
+    // A new app that reuses the pid has no history.
+    XCTAssertEqual(fake.history.snapshot(SelectionAppKey(pid: 500, launchDate: Date(timeIntervalSince1970: 1))),
+                   SelectionWarmSnapshot())
+    fake.trusted = false
+    fake.warmer.warm(pid: 600, trigger: .activation)
+    XCTAssertEqual(fake.history.snapshot(SelectionAppKey(pid: 600, launchDate: nil)), SelectionWarmSnapshot(),
+                   "a skipped warm isn't recorded")
+    XCTAssertEqual(SelectionLog.milliseconds(.milliseconds(2_059)), 2_059)
+    XCTAssertEqual(SelectionLog.milliseconds(.seconds(2) + .microseconds(500)), 2_000)
+    XCTAssertEqual(SelectionLog.seconds(.milliseconds(2_400)), "2.4")
+    XCTAssertEqual(SelectionLog.seconds(nil), "never")
   }
 
   func testDoubleOptionWorksWithCapsLockOn() {

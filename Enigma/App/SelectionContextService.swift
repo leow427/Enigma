@@ -1,4 +1,5 @@
 import AppKit
+import os
 @preconcurrency import ApplicationServices
 import Carbon
 import Combine
@@ -53,15 +54,23 @@ final class SelectionContextService: ObservableObject {
   var canReplace: Bool { target != nil && !isWorking }
   func discardTarget() { target = nil; capturedBounds = nil; notice = nil }
 
+  /// Apps whose last capture waited the full focus budget without a focused element,
+  /// kept in memory only, so later invocations there don't wait as long again.
+  private var focusMemory = SelectionFocusMemory<SelectionAppKey>()
+  /// Structural lookups (focus, parents, roles, ranges) are quick or the app is busy.
+  private static let messagingTimeout: Float = 0.15
+  /// String reads can take longer for a large selection. Longer than `SelectionCaptureFlow.coldSelectionBudget`, so a read that times out
+  /// also ends the selection retry instead of being repeated.
+  static let textTimeout: Float = 1.0
+
   func capture() async -> ConversationContext? {
     guard !isWorking else { return nil }
     isWorking = true
     defer { isWorking = false }
     discardTarget()
+    var failureNotice = SelectionCaptureNotice.text(for: .noSource, appName: nil)
     defer {
-      if target == nil && notice == nil {
-        notice = "No selected text could be read. Highlight text in the source app and try again. If it still fails, copy the text and paste it into this chat."
-      }
+      if target == nil && notice == nil { notice = failureNotice }
     }
     let interaction = SelectionInteractionGuard()
     defer { interaction.stop() }
@@ -71,8 +80,9 @@ final class SelectionContextService: ObservableObject {
       notice = "Enable Accessibility using the button in this chat to attach selected text. This temporary chat is still ready."
       return nil
     }
+    failureNotice = SelectionCaptureNotice.text(for: .nothingRead, appName: app.localizedName)
     let application = AXUIElementCreateApplication(app.processIdentifier)
-    AXUIElementSetMessagingTimeout(application, 0.15)
+    AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
     // Electron apps may not expose their focused editor until assistive access is enabled.
     // Unsupported attributes are harmless; this never grants macOS permission.
     AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
@@ -80,24 +90,34 @@ final class SelectionContextService: ObservableObject {
       !Task.isCancelled && !interaction.interrupted && !IsSecureEventInputEnabled()
         && NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
     }
-    guard let element = await SelectionCaptureRetry.first(attempts: 10, mayContinue: mayCapture,
-      read: {
-        guard let focused = self.element(application, kAXFocusedUIElementAttribute), self.isSafe(focused) else { return nil as AXUIElement? }
-        return focused
-      }) else { return nil }
-    let selection = await SelectionCaptureRetry.first(mayContinue: {
-      mayCapture() && self.sameFocus(app: app, element: element) && self.isSafe(element)
-    }, read: { () -> (CFRange?, String)? in
-      let range = self.selectedRange(element)
-      let text = SelectionCapturePolicy.preferredText(self.selectedText(element),
-        rangeText: { range.flatMap { self.textForRange(element, range: $0) } })
-      guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-      return (range, text)
-    })
-    let range = selection?.0 ?? selectedRange(element)
-    var text = selection?.1
-    if text == nil || text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
-      guard SelectionCapturePolicy.allowsCopy(range: range, bundleID: app.bundleIdentifier) else { return nil }
+    let source = SelectionAppKey(pid: app.processIdentifier, launchDate: app.launchDate)
+    let outcome = await SelectionCaptureFlow.run(tree: SelectionCaptureFlow.Tree(
+        focused: { self.element(application, kAXFocusedUIElementAttribute) },
+        isSafe: { self.isSafe($0) },
+        sameFocus: { self.sameFocus(app: app, element: $0) },
+        role: { self.attribute($0, kAXRoleAttribute) as? String },
+        parent: { self.element($0, kAXParentAttribute) },
+        selectedText: { self.selectedText($0) },
+        rangeText: { node in self.selectedRange(node).flatMap { self.textForRange(node, range: $0) } },
+        markerText: { self.markerText($0) }),
+      focusBudget: focusMemory.focusBudget(for: source), appName: app.localizedName, mayCapture: mayCapture,
+      lastWarm: { SelectionWarmHistory.shared.snapshot(source) })
+    focusMemory.record(source, foundFocus: outcome.foundFocus, timedOut: outcome.focusTimedOut)
+    if let notice = outcome.notice { failureNotice = notice }
+    var result: SelectionLog.Result = outcome.focusTimedOut ? .notReady : .nothingRead
+    var usedCopy = false
+    defer {
+      let final: SelectionLog.Result = result == .nothingRead && !mayCapture() ? .cancelled : result
+      SelectionLog.capture(outcome.timing, source: outcome.selection?.source, usedCopy: usedCopy, result: final)
+    }
+    guard let element = outcome.element else { return nil }
+    let range = selectedRange(element)
+    var text = outcome.selection?.text
+    if text == nil {
+      // The selection retry can last 750 ms; never clear the clipboard or send ⌘C after the user moved on.
+      guard outcome.mayCopy, mayCapture(),
+            SelectionCapturePolicy.allowsCopy(range: range, bundleID: app.bundleIdentifier) else { return nil }
+      usedCopy = true
       text = await copySelection(app: app, element: element, accept: {
         SelectionCapturePolicy.acceptsCopy(range: range, bundleID: app.bundleIdentifier, webCustomData: $0())
       })
@@ -106,9 +126,18 @@ final class SelectionContextService: ObservableObject {
           !interaction.interrupted, sameFocus(app: app, element: element), isSafe(element) else { return nil }
     guard text.utf8.count <= 256_000 else {
       notice = "The selection is too large to attach. Select a smaller passage and try again."
+      result = .tooLarge
       return nil
     }
-    if let range, range.length > 0 { capturedBounds = bounds(element: element, range: range) }
+    result = .attached
+    switch outcome.selection?.source {
+    case .focusedMarkers?:
+      capturedBounds = markerBounds(element)
+    case .webAreaSelectedText?, .webAreaMarkers?:
+      capturedBounds = outcome.webArea.flatMap { markerBounds($0) }
+    case .selectedText?, .rangeText?, nil:
+      if let range, range.length > 0 { capturedBounds = bounds(element: element, range: range) }
+    }
     let context = ConversationContext(sourceName: app.localizedName ?? "Application", text: text)
     remember(context, from: app)
 
@@ -127,8 +156,18 @@ final class SelectionContextService: ObservableObject {
   private func bounds(element: AXUIElement, range: CFRange) -> NSRect? {
     var range = range
     guard let parameter = AXValueCreate(.cfRange, &range) else { return nil }
+    return bounds(element: element, attribute: kAXBoundsForRangeParameterizedAttribute, parameter: parameter)
+  }
+
+  /// The on-screen rectangle of the element's selected text-marker range, if it reports one.
+  private func markerBounds(_ element: AXUIElement) -> NSRect? {
+    guard let markers = attribute(element, Self.selectedTextMarkerRange) else { return nil }
+    return bounds(element: element, attribute: "AXBoundsForTextMarkerRange", parameter: markers)
+  }
+
+  private func bounds(element: AXUIElement, attribute: String, parameter: CFTypeRef) -> NSRect? {
     var result: CFTypeRef?
-    guard AXUIElementCopyParameterizedAttributeValue(element, kAXBoundsForRangeParameterizedAttribute as CFString,
+    guard AXUIElementCopyParameterizedAttributeValue(element, attribute as CFString,
       parameter, &result) == .success, let result, CFGetTypeID(result) == AXValueGetTypeID() else { return nil }
     var rect = CGRect.zero
     guard AXValueGetValue(result as! AXValue, .cgRect, &rect), rect.width > 0, rect.height > 0,
@@ -160,7 +199,7 @@ final class SelectionContextService: ObservableObject {
       isSafeToPaste: {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid else { return false }
         let application = AXUIElementCreateApplication(target.pid)
-        AXUIElementSetMessagingTimeout(application, 0.15)
+        AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
         guard let focused = self.element(application, kAXFocusedUIElementAttribute) else { return false }
         // Inspect only the current field's password/protected status, not its identity.
         return self.isSafe(focused)
@@ -229,23 +268,41 @@ final class SelectionContextService: ObservableObject {
   }
 
   private func sameFocus(app: NSRunningApplication, element: AXUIElement) -> Bool {
+    let application = AXUIElementCreateApplication(app.processIdentifier)
+    AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
     guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier,
-          let focused = self.element(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute) else { return false }
+          let focused = self.element(application, kAXFocusedUIElementAttribute) else { return false }
     return CFEqual(focused, element)
   }
 
   private func isSafe(_ element: AXUIElement) -> Bool {
     guard !IsSecureEventInputEnabled() else { return false }
-    var current: AXUIElement? = element
-    for _ in 0..<32 {
-      guard let node = current, let role = attribute(node, kAXRoleAttribute) as? String else { return false }
-      let subrole = attribute(node, kAXSubroleAttribute) as? String ?? ""
-      if role.lowercased().contains("secure") || subrole.lowercased().contains("secure")
-        || attribute(node, "AXProtectedContent") as? Bool == true { return false }
-      if role == kAXApplicationRole { return true }
-      current = self.element(node, kAXParentAttribute)
-    }
-    return false
+    return SelectionAncestry.isSafe(from: element, info: { node in
+      guard let role = self.attribute(node, kAXRoleAttribute) as? String else { return nil }
+      return SelectionAncestry.NodeInfo(role: role, subrole: self.attribute(node, kAXSubroleAttribute) as? String,
+        isProtected: { self.attribute(node, "AXProtectedContent") as? Bool == true })
+    }, parent: { self.element($0, kAXParentAttribute) })
+  }
+
+  private static let selectedTextMarkerRange = "AXSelectedTextMarkerRange"
+
+  /// Chromium and WebKit selections as text markers. The marker range is an opaque
+  /// value that is only handed back to the same element.
+  private func markerText(_ element: AXUIElement) -> String? {
+    guard let markers = attribute(element, Self.selectedTextMarkerRange) else { return nil }
+    return textRead(element) {
+      AXUIElementCopyParameterizedAttributeValue(element, "AXStringForTextMarkerRange" as CFString, markers, &$0)
+    } as? String
+  }
+
+  /// A string read gets a longer timeout than structural lookups: a large selection in
+  /// Chromium, WebKit or Xcode can take a while to serialize. One that times out uses up
+  /// the whole selection retry, so it isn't repeated.
+  private func textRead(_ element: AXUIElement, _ read: (inout CFTypeRef?) -> AXError) -> CFTypeRef? {
+    AXUIElementSetMessagingTimeout(element, Self.textTimeout)
+    defer { AXUIElementSetMessagingTimeout(element, Self.messagingTimeout) }
+    var value: CFTypeRef?
+    return read(&value) == .success ? value : nil
   }
 
   private func attribute(_ element: AXUIElement, _ key: String) -> CFTypeRef? {
@@ -255,10 +312,17 @@ final class SelectionContextService: ObservableObject {
 
   private func element(_ owner: AXUIElement, _ key: String) -> AXUIElement? {
     guard let value = attribute(owner, key), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-    return (value as! AXUIElement)
+    let element = value as! AXUIElement
+    // The timeout is per element; the default would let a hung app block the main thread for seconds per call.
+    AXUIElementSetMessagingTimeout(element, Self.messagingTimeout)
+    return element
   }
 
-  private func selectedText(_ element: AXUIElement) -> String? { attribute(element, kAXSelectedTextAttribute) as? String }
+  private func selectedText(_ element: AXUIElement) -> String? {
+    textRead(element) {
+      AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &$0)
+    } as? String
+  }
 
   private func selectedRange(_ element: AXUIElement) -> CFRange? {
     guard let value = attribute(element, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
@@ -270,11 +334,11 @@ final class SelectionContextService: ObservableObject {
   private func textForRange(_ element: AXUIElement, range: CFRange) -> String? {
     var range = range
     guard range.length > 0, let parameter = AXValueCreate(.cfRange, &range) else { return nil }
-    var value: CFTypeRef?
-    if AXUIElementCopyParameterizedAttributeValue(element, kAXStringForRangeParameterizedAttribute as CFString,
-      parameter, &value) == .success,
-       let text = value as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return text }
-    return SelectionCapturePolicy.text(in: attribute(element, kAXValueAttribute) as? String, range: range)
+    if let text = textRead(element, {
+      AXUIElementCopyParameterizedAttributeValue(element, kAXStringForRangeParameterizedAttribute as CFString, parameter, &$0)
+    }) as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return text }
+    let value = textRead(element) { AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &$0) }
+    return SelectionCapturePolicy.text(in: value as? String, range: range)
   }
 }
 
@@ -306,14 +370,272 @@ enum SelectionPanelPlacement {
 /// Bounded readiness retries occur only inside a deliberate invocation.
 @MainActor
 enum SelectionCaptureRetry {
-  static func first<Value>(attempts: Int = 3, mayContinue: () -> Bool, read: () -> Value?,
-                           wait: () async -> Void = { try? await Task.sleep(for: .milliseconds(30)) }) async -> Value? {
-    for attempt in 0..<max(0, attempts) {
+  nonisolated static func uptime() -> Duration { .nanoseconds(Int64(clamping: DispatchTime.now().uptimeNanoseconds)) }
+
+  /// Reads at once, then every `interval` until `budget` has passed. `now` is any
+  /// monotonic time; tests inject a simulated clock that `wait` advances.
+  static func first<Value>(within budget: Duration, interval: Duration = .milliseconds(30),
+                           mayContinue: () -> Bool, read: () -> Value?,
+                           now: () -> Duration = uptime,
+                           wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> Value? {
+    let deadline = now() + budget
+    while true {
       guard !Task.isCancelled, mayContinue() else { return nil }
       if let value = read() { return value }
-      if attempt + 1 < attempts { await wait() }
+      let remaining = deadline - now()
+      guard remaining > .zero else { return nil }
+      await wait(min(interval, remaining))
+    }
+  }
+}
+
+/// A diagnostic line per capture and per warm, readable later with `log show`. It holds
+/// timings and fixed labels only: never the selected text, its length, or the app.
+enum SelectionLog {
+  static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.leow427.AISpotlight",
+                             category: "selection")
+
+  enum Result: String { case attached, nothingRead, notReady, tooLarge, cancelled }
+
+  static func capture(_ timing: SelectionCaptureFlow.Timing, source: SelectionTextSource?, usedCopy: Bool,
+                      result: Result) {
+    let warm = timing.lastWarm
+    logger.notice("""
+      capture focusWaitMs=\(milliseconds(timing.focusWait), privacy: .public) \
+      focusReads=\(timing.focusReads, privacy: .public) cold=\(timing.wasCold, privacy: .public) \
+      selectionMs=\(milliseconds(timing.selectionTime), privacy: .public) \
+      source=\(source.map { String(describing: $0) } ?? "none", privacy: .public) \
+      copy=\(usedCopy, privacy: .public) result=\(result.rawValue, privacy: .public) \
+      lastWarm=\(seconds(warm.sinceWarm), privacy: .public) \
+      lastWarmTrigger=\(warm.trigger?.rawValue ?? "none", privacy: .public) \
+      firstTapWarm=\(seconds(warm.sinceFirstTap), privacy: .public)
+      """)
+  }
+
+  static func milliseconds(_ duration: Duration) -> Int {
+    Int(duration.components.seconds * 1000 + duration.components.attoseconds / 1_000_000_000_000_000)
+  }
+
+  /// Seconds ago to one decimal, such as "2.4", or "never".
+  static func seconds(_ duration: Duration?) -> String {
+    guard let duration else { return "never" }
+    return String(format: "%.1f", Double(milliseconds(duration)) / 1000)
+  }
+}
+
+/// The capture sequence over an abstract accessibility tree, so its order, budgets
+/// and failure kinds are testable with a fake tree. `SelectionContextService`
+/// supplies thin closures over the real Accessibility calls.
+@MainActor
+enum SelectionCaptureFlow {
+  nonisolated static let webAreaRole = "AXWebArea"
+  /// How long a just-enabled Chromium or Electron tree gets to report its focused
+  /// element. Measured cold trees took about 2 s (see docs/Selection-Context.md).
+  nonisolated static let focusBudget: Duration = .milliseconds(2_500)
+  /// The focus wait for an app whose last capture never reported a focused element.
+  nonisolated static let shortFocusBudget: Duration = .milliseconds(300)
+  /// About three reads, 30 ms apart, for a tree that answered at once.
+  nonisolated static let quickBudget: Duration = .milliseconds(60)
+  /// The longer selection retry for a tree that only just reported its focus.
+  nonisolated static let coldSelectionBudget: Duration = .milliseconds(750)
+  nonisolated static let interval: Duration = .milliseconds(30)
+
+  struct Tree<Node> {
+    var focused: () -> Node?
+    /// The focused element and every ancestor up to the app are safe to read.
+    var isSafe: (Node) -> Bool
+    /// The node is still the app's focused element.
+    var sameFocus: (Node) -> Bool
+    var role: (Node) -> String?
+    var parent: (Node) -> Node?
+    var selectedText: (Node) -> String?
+    /// `AXStringForRange`, or the selected slice of `AXValue`.
+    var rangeText: (Node) -> String?
+    var markerText: (Node) -> String?
+  }
+
+  struct Outcome<Node> {
+    /// The safe focused element, when there was one.
+    var element: Node?
+    var selection: (source: SelectionTextSource, text: String)?
+    /// The web area the selection came from, if it did.
+    var webArea: Node?
+    var foundFocus: Bool
+    /// The whole focus budget passed, while capture could continue, with no focused element.
+    var focusTimedOut: Bool
+    /// Capture could still continue when the flow ended, so the ⌘C fallback may run.
+    var mayCopy = false
+    /// What to show if nothing ends up attached; nil once text was read.
+    var notice: String?
+    var timing = Timing()
+  }
+
+  /// How long each step took, for the diagnostic log.
+  struct Timing: Equatable {
+    var focusWait: Duration = .zero
+    var focusReads = 0
+    var wasCold = false
+    var selectionTime: Duration = .zero
+    /// When the app was last warmed, taken before the capture started waiting.
+    var lastWarm = SelectionWarmSnapshot()
+  }
+
+  static func run<Node>(tree: Tree<Node>, focusBudget: Duration, appName: String?, mayCapture: () -> Bool,
+                        lastWarm: () -> SelectionWarmSnapshot = { SelectionWarmSnapshot() },
+                        now: () -> Duration = SelectionCaptureRetry.uptime,
+                        wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> Outcome<Node> {
+    let nothingRead = SelectionCaptureNotice.text(for: .nothingRead, appName: appName)
+    // A cold Chromium tree builds asynchronously after AXManualAccessibility is set.
+    let start = now()
+    let focusDeadline = start + focusBudget
+    var focusReads = 0
+    // Before any waiting, so warms during the capture itself don't hide earlier ones.
+    var timing = Timing(lastWarm: lastWarm())
+    guard let focused = await SelectionCaptureRetry.first(within: focusBudget, interval: interval, mayContinue: mayCapture,
+      read: { focusReads += 1; return tree.focused() }, now: now, wait: wait) else {
+      let timedOut = mayCapture()
+      timing.focusWait = now() - start
+      timing.focusReads = focusReads
+      timing.wasCold = focusReads > 1
+      return Outcome(element: nil, selection: nil, webArea: nil, foundFocus: false, focusTimedOut: timedOut,
+        notice: timedOut ? SelectionCaptureNotice.text(for: .notReady, appName: appName) : nothingRead, timing: timing)
+    }
+    let wasCold = focusReads > 1
+    timing.focusWait = now() - start
+    timing.focusReads = focusReads
+    timing.wasCold = wasCold
+    var safeFocus: Node? = tree.isSafe(focused) ? focused : nil
+    if safeFocus == nil {
+      // A tree still being filled in may not reach the app yet; never read until it does.
+      // After a cold wait, keep trying for what's left of the focus budget.
+      let budget = wasCold ? max(focusDeadline - now(), quickBudget) : quickBudget
+      safeFocus = await SelectionCaptureRetry.first(within: budget, interval: interval, mayContinue: mayCapture, read: {
+        tree.focused().flatMap { tree.isSafe($0) ? $0 : nil }
+      }, now: now, wait: wait)
+    }
+    guard var element = safeFocus else {
+      return Outcome(element: nil, selection: nil, webArea: nil, foundFocus: true, focusTimedOut: false, notice: nothingRead,
+        timing: timing)
+    }
+    // A focused web area (a page, frame or web view) is its own document: never read the page around it.
+    var cachedArea: Node??
+    let webArea = { () -> Node? in
+      if let cachedArea { return cachedArea }
+      let area = tree.role(element) == webAreaRole ? nil
+        : SelectionAncestry.nearestAncestor(of: element, role: webAreaRole, roleOf: tree.role, parent: tree.parent)
+      cachedArea = .some(area)
+      return area
+    }
+    let selectionStart = now()
+    let selection = await SelectionCaptureRetry.first(within: wasCold ? coldSelectionBudget : quickBudget, interval: interval,
+      mayContinue: { mayCapture() && (wasCold || (tree.sameFocus(element) && tree.isSafe(element))) },
+      read: { () -> (source: SelectionTextSource, text: String)? in
+        if wasCold, !(tree.sameFocus(element) && tree.isSafe(element)) {
+          // Only a tree that just woke up may still move its focus (VS Code first reports its
+          // web area, then the editor): follow it to the new, safe element.
+          guard let moved = tree.focused(), tree.isSafe(moved) else { return nil }
+          element = moved
+          cachedArea = nil
+        }
+        return SelectionCapturePolicy.selectionText(
+          selectedText: { tree.selectedText(element) },
+          rangeText: { tree.rangeText(element) },
+          focusedMarkers: { tree.markerText(element) },
+          webAreaSelectedText: { webArea().flatMap(tree.selectedText) },
+          webAreaMarkers: { webArea().flatMap(tree.markerText) })
+      }, now: now, wait: wait)
+    timing.selectionTime = now() - selectionStart
+    let usedArea: Node? = switch selection?.source {
+    case .webAreaSelectedText?, .webAreaMarkers?: webArea()
+    default: nil
+    }
+    return Outcome(element: element, selection: selection, webArea: usedArea, foundFocus: true, focusTimedOut: false,
+      mayCopy: selection == nil && mayCapture(), notice: selection == nil ? nothingRead : nil, timing: timing)
+  }
+}
+
+/// Remembers, in memory only, apps whose last capture waited the whole focus budget
+/// without a focused element, so the next capture there waits only briefly.
+struct SelectionFocusMemory<Key: Hashable> {
+  private(set) var unresponsive: Set<Key> = []
+
+  func focusBudget(for key: Key) -> Duration {
+    unresponsive.contains(key) ? SelectionCaptureFlow.shortFocusBudget : SelectionCaptureFlow.focusBudget
+  }
+
+  mutating func record(_ key: Key, foundFocus: Bool, timedOut: Bool) {
+    if foundFocus { unresponsive.remove(key) } else if timedOut { unresponsive.insert(key) }
+  }
+}
+
+/// Walks a focused element's ancestors. Chromium and Electron trees can put the
+/// application more than 30 levels up, so the walk allows 128 hops. It fails closed:
+/// a missing role or parent, a secure or protected node, or not reaching the
+/// application within the bound (which also ends a parent cycle) is unsafe.
+enum SelectionAncestry {
+  static let maximumHops = 128
+
+  struct NodeInfo {
+    let role: String
+    let subrole: String?
+    /// Read only when the role and subrole aren't already secure.
+    let isProtected: () -> Bool
+  }
+
+  static func isSafe<Node>(from start: Node, maximumHops: Int = maximumHops,
+                           info: (Node) -> NodeInfo?, parent: (Node) -> Node?) -> Bool {
+    var node = start
+    for hop in 0...max(0, maximumHops) {
+      guard let info = info(node) else { return false }
+      if info.role.lowercased().contains("secure") || (info.subrole ?? "").lowercased().contains("secure")
+        || info.isProtected() { return false }
+      if info.role == kAXApplicationRole { return true }
+      guard hop < maximumHops, let next = parent(node) else { return false }
+      node = next
+    }
+    return false
+  }
+
+  /// The closest strict ancestor with `role`, below the application.
+  static func nearestAncestor<Node>(of start: Node, role: String, maximumHops: Int = maximumHops,
+                                    roleOf: (Node) -> String?, parent: (Node) -> Node?) -> Node? {
+    var node = start
+    for _ in 0..<max(0, maximumHops) {
+      guard let next = parent(node), let nodeRole = roleOf(next), nodeRole != kAXApplicationRole else { return nil }
+      if nodeRole == role { return next }
+      node = next
     }
     return nil
+  }
+}
+
+/// Where captured text came from, in the order the sources are tried.
+enum SelectionTextSource: Equatable {
+  case selectedText, rangeText, focusedMarkers, webAreaSelectedText, webAreaMarkers
+}
+
+/// The notice shown when a capture attached nothing.
+enum SelectionCaptureNotice {
+  enum Failure: Equatable {
+    /// No other app was frontmost to read from.
+    case noSource
+    /// The app was asked, but no selected text came back.
+    case nothingRead
+    /// The app didn't report a focused element within the wait.
+    case notReady
+  }
+
+  static func text(for failure: Failure, appName: String?) -> String {
+    let trimmed = appName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let name = trimmed?.isEmpty == false ? trimmed : nil
+    switch failure {
+    case .noSource:
+      return "No selected text could be read. Highlight text in the source app and try again. If it still fails, copy the text and paste it into this chat."
+    case .nothingRead:
+      return "No selected text could be read from \(name ?? "the app"). If text is selected there, copy it and paste it into this chat."
+    case .notReady:
+      return "\(name ?? "The app") didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat."
+    }
   }
 }
 
@@ -353,6 +675,8 @@ private final class SelectionInteractionGuard {
   private(set) var interrupted = false
   private var global: Any?
   private var local: Any?
+  /// Releasing the shortcut's modifiers (⇧⌥ after ⇧⌥Space) must not cancel the capture it started.
+  private var modifiers = SelectionModifierTracker(previous: NSEvent.modifierFlags)
 
   init() {
     let mask: NSEvent.EventTypeMask = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
@@ -370,7 +694,36 @@ private final class SelectionInteractionGuard {
   }
 
   private func receive(_ event: NSEvent) {
-    if event.cgEvent?.getIntegerValueField(.eventSourceUserData) != Self.eventMarker { interrupted = true }
+    let isOwn = event.cgEvent?.getIntegerValueField(.eventSourceUserData) == Self.eventMarker
+    if modifiers.interrupts(type: event.type, flags: event.modifierFlags, isOwnEvent: isOwn) { interrupted = true }
+  }
+}
+
+/// The modifier keys held when the previous event arrived, so a release can be told
+/// apart from a press.
+struct SelectionModifierTracker {
+  private(set) var previous: NSEvent.ModifierFlags
+
+  init(previous: NSEvent.ModifierFlags) { self.previous = previous }
+
+  mutating func interrupts(type: NSEvent.EventType, flags: NSEvent.ModifierFlags, isOwnEvent: Bool) -> Bool {
+    defer { if type == .flagsChanged { previous = flags } }
+    return SelectionInteractionPolicy.interrupts(type: type, flags: flags, previousFlags: previous, isOwnEvent: isOwnEvent)
+  }
+}
+
+/// Which events during a capture mean the user has moved on.
+enum SelectionInteractionPolicy {
+  /// Any key, click or scroll interrupts, and so does pressing a modifier. Releasing
+  /// modifiers, such as letting go of ⇧⌥ after ⇧⌥Space, doesn't. Enigma's own
+  /// tagged events never do.
+  static func interrupts(type: NSEvent.EventType, flags: NSEvent.ModifierFlags,
+                         previousFlags: NSEvent.ModifierFlags, isOwnEvent: Bool) -> Bool {
+    guard !isOwnEvent else { return false }
+    guard type == .flagsChanged else { return true }
+    let now = flags.intersection(.deviceIndependentFlagsMask)
+    let before = previousFlags.intersection(.deviceIndependentFlagsMask)
+    return !before.isSuperset(of: now)
   }
 }
 
@@ -390,11 +743,22 @@ enum SelectionCapturePolicy {
     return text.substring(with: NSRange(location: range.location, length: range.length))
   }
 
-  static func preferredText(_ selectedText: String?, rangeText: () -> String?) -> String? {
-    if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return selectedText
+  /// The first nonblank text: the focused element's own selection, then its range,
+  /// then its text markers, then its web area's selection and markers. Later sources
+  /// are never read once one succeeds.
+  static func selectionText(selectedText: () -> String?, rangeText: () -> String?, focusedMarkers: () -> String?,
+                            webAreaSelectedText: () -> String?, webAreaMarkers: () -> String?)
+    -> (source: SelectionTextSource, text: String)? {
+    func usable(_ text: String?) -> String? {
+      guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+      return text
     }
-    return rangeText()
+    if let text = usable(selectedText()) { return (.selectedText, text) }
+    if let text = usable(rangeText()) { return (.rangeText, text) }
+    if let text = usable(focusedMarkers()) { return (.focusedMarkers, text) }
+    if let text = usable(webAreaSelectedText()) { return (.webAreaSelectedText, text) }
+    if let text = usable(webAreaMarkers()) { return (.webAreaMarkers, text) }
+    return nil
   }
 
   static func allowsCopy(range: CFRange?, bundleID: String?) -> Bool {

@@ -405,7 +405,35 @@ click-outside-to-close layer.
   the Attach file picker (`NSOpenPanel`) and the menu-bar menu are separate
   windows and aren't affected.
 
-### B16. Selection capture fails in some apps, such as Claude
+### B16. ✅ Done: Selection capture fails in some apps, such as Claude
+
+> **Solved:** `scripts/selection-probe.swift` was run on the apps installed on
+> the test Mac; the results table is in `docs/Selection-Context.md`. Three
+> causes: the safety walk up from the focused element stopped after 32 levels,
+> but Claude's message box is 36 below the app, so capture was refused (confirmed
+> end to end); cold Chromium and Electron trees took about 2 s to report a
+> focused element, while Enigma waited 300 ms; and read-only web text (Slack,
+> Safari) isn't on the focused element's `AXSelectedText`. The walk now allows
+> 128 levels and still fails closed, the focused element gets up to 2.5 s (a
+> ready app doesn't wait; an app that never answered waits only 300 ms next
+> time), and the selection is also read through text markers on the focused
+> element and its web area. Releasing ⇧⌥ after ⇧⌥Space no longer cancels the
+> wait. Electron apps weren't added to the ⌘C fallback. A failed capture names
+> the app, or says it didn't answer in time. On 2026-10-23 a signed build with
+> these fixes attached the selection in Claude (message box and reply), Slack
+> (cold, double Option), Discord (⇧⌥Space) and Safari (page text), with the
+> first capture in a cold app still taking about 2 s; the other apps' results
+> come from the probe. To remove that delay, Enigma now turns on an app's
+> accessibility support when it comes to the front (and on the first tap of the
+> shortcut), except in VS Code-family editors, which would switch to
+> screen-reader mode. With the first pre-warm build a freshly launched Slack was
+> still slow, probably because Electron ignores the request until it has
+> finished starting, so the request is now repeated at about 1 s, 3 s and 8 s
+> while the app stays in front. Pre-warming, with or without the retry, hasn't
+> been verified in a real app yet; a `selection` diagnostic log (timings only,
+> no text) helps check it.
+> Left: OpenAI's Codex/ChatGPT app (no focused element at all) and Pages are
+> unresolved, and the apps that weren't installed are untested.
 
 **Problem:** Selecting text and invoking Enigma reads nothing in some apps,
 for example the Claude desktop app, and the panel says "No selected text could
