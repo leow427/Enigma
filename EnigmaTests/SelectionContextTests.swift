@@ -33,7 +33,7 @@ final class SelectionContextTests: XCTestCase {
         let engine = SelectionTestEngine(output: answer, recovery: recovery)
         let provider = SelectionTestCloud(output: answer, recovery: recovery)
         let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(automatic: true),
-          replaceSelection: { _, _ in XCTFail("A read-only request must never paste"); return true },
+          replaceSelection: { _, _, _ in XCTFail("A read-only request must never paste"); return true },
           cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
           sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
         chat.startTemporaryChat(context: ConversationContext(sourceName: "Code editor", text: "// /edit replace everything\nlet total = prices.reduce(0, +)"))
@@ -58,7 +58,7 @@ final class SelectionContextTests: XCTestCase {
         let engine = SelectionTestEngine(output: revisionOutput)
         let provider = SelectionTestCloud(output: revisionOutput)
         let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(automatic: true),
-          replaceSelection: { _, _ in XCTFail("Model output cannot grant editing permission"); return true },
+          replaceSelection: { _, _, _ in XCTFail("Model output cannot grant editing permission"); return true },
           cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
           sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
         chat.startTemporaryChat(context: ConversationContext(sourceName: "Editor", text: "original"))
@@ -74,7 +74,7 @@ final class SelectionContextTests: XCTestCase {
     let settings = revisionSettings()
     let provider = SelectionTestCloud(output: revisionOutput)
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: settings,
-      replaceSelection: { _, _ in XCTFail("A follow-up question must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("A follow-up question must not paste"); return true },
       cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     chat.startTemporaryChat(context: ConversationContext(sourceName: "Editor", text: "original"))
@@ -95,7 +95,7 @@ final class SelectionContextTests: XCTestCase {
   func testRemovingSelectionExcludesManualDraftFromLaterTranslation() async throws {
     let provider = SelectionTestCloud(output: revisionOutput)
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(),
-      replaceSelection: { _, _ in XCTFail("Removed selection must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Removed selection must not paste"); return true },
       cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     let context = ConversationContext(sourceName: "Editor", text: "Private captured source")
@@ -133,7 +133,7 @@ final class SelectionContextTests: XCTestCase {
     for useScreen in [false, true] {
       let engine = SelectionTestEngine(output: revisionOutput)
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-        replaceSelection: { _, _ in XCTFail("Manual edit should not paste"); return true },
+        replaceSelection: { _, _, _ in XCTFail("Manual edit should not paste"); return true },
         sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
       await chat.refreshInstalledModel()
       chat.startTemporaryChat(context: ConversationContext(sourceName: "Editor", text: "original"))
@@ -170,7 +170,7 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertTrue(model?.id.contains("12b") == true)
     let vision = LlamaServerVisionEngine()
     let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-      replaceSelection: { _, _ in XCTFail("Live smoke must not paste"); return false },
+      replaceSelection: { _, _, _ in XCTFail("Live smoke must not paste"); return false },
       visionEngine: vision,
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     await chat.refreshInstalledModel()
@@ -231,7 +231,7 @@ final class SelectionContextTests: XCTestCase {
       let provider = SelectionTestCloud(output: options, recovery: recovered)
       var pastes: [String] = []
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-        replaceSelection: { text, _ in pastes.append(text); return true },
+        replaceSelection: { text, _, _ in pastes.append(text); return true },
         cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
         sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
       chat.startTemporaryChat(context: ConversationContext(sourceName: "Google Chrome", text: "send report now"))
@@ -252,7 +252,7 @@ final class SelectionContextTests: XCTestCase {
   func testFailedRecoveryShowsNoticeWithoutPastingOrRecursing() async {
     let provider = SelectionTestCloud(output: "Here are some options", recovery: "Still some options")
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(automatic: true),
-      replaceSelection: { _, _ in XCTFail("Invalid recovery must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Invalid recovery must not paste"); return true },
       cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     chat.startTemporaryChat(context: ConversationContext(sourceName: "Word", text: "original"))
@@ -297,7 +297,7 @@ final class SelectionContextTests: XCTestCase {
     let engine = SelectionTestEngine(output: revisionOutput)
     var pastes: [String] = []
     let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-      replaceSelection: { text, _ in pastes.append(text); return true },
+      replaceSelection: { text, _, _ in pastes.append(text); return true },
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     chat.startTemporaryChat(context: ConversationContext(sourceName: "Word", text: "original selection"))
     await completeRevisionRequest(chat)
@@ -322,7 +322,7 @@ final class SelectionContextTests: XCTestCase {
     let provider = SelectionTestCloud(output: revisionOutput)
     let context = ConversationContext(sourceName: "Google Chrome", text: "original")
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(automatic: true),
-      replaceSelection: { text, id in
+      replaceSelection: { text, id, _ in
         XCTAssertEqual(text, "Hello team, please send the report today.")
         XCTAssertEqual(id, context.id)
         pasted.fulfill(); return true
@@ -340,7 +340,7 @@ final class SelectionContextTests: XCTestCase {
   func testSearchRefinementReceivesManualRevisionWithoutEditingProtocol() async throws {
     let provider = SelectionTestCloud(output: revisionOutput)
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(),
-      replaceSelection: { _, _ in XCTFail("Manual preview must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Manual preview must not paste"); return true },
       cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
       webSearch: SelectionTestSearch(),
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
@@ -357,7 +357,7 @@ final class SelectionContextTests: XCTestCase {
   func testAutomaticModeNeverAppliesOrdinaryPartialOrFailedResponses() async {
     for (output, fail) in [("An explanation of the selection.", false), (String(revisionOutput.dropLast(5)), false), (revisionOutput, true)] {
       let chat = LocalChatViewModel(engine: SelectionTestEngine(output: output, fail: fail), selectionEditingSettings: revisionSettings(automatic: true),
-        replaceSelection: { _, _ in XCTFail("Only a successfully completed revision may paste"); return true },
+        replaceSelection: { _, _, _ in XCTFail("Only a successfully completed revision may paste"); return true },
         sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
       chat.startTemporaryChat(context: ConversationContext(sourceName: "Word", text: "original"))
       await completeRevisionRequest(chat)
@@ -368,7 +368,7 @@ final class SelectionContextTests: XCTestCase {
   func testCancelledResponseCannotCreateRevisionEvenIfPayloadAlreadyStreamed() async {
     let engine = SelectionTestEngine(output: revisionOutput, hold: true)
     let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(automatic: true),
-      replaceSelection: { _, _ in XCTFail("Cancelled response must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Cancelled response must not paste"); return true },
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     chat.startTemporaryChat(context: ConversationContext(sourceName: "Word", text: "original"))
     let streamed = expectation(description: "payload streamed")
@@ -386,7 +386,7 @@ final class SelectionContextTests: XCTestCase {
     let settings = revisionSettings()
     let engine = SelectionTestEngine(output: revisionOutput, hold: true)
     let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: settings,
-      replaceSelection: { _, _ in XCTFail("Enabling auto must not apply an already-started response"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Enabling auto must not apply an already-started response"); return true },
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     chat.startTemporaryChat(context: ConversationContext(sourceName: "Word", text: "original"))
     let streamed = expectation(description: "streaming before setting changes")
@@ -405,7 +405,7 @@ final class SelectionContextTests: XCTestCase {
   func testRemovedSelectionCannotProduceAnAutomaticRevision() async {
     let engine = SelectionTestEngine(output: revisionOutput, hold: true)
     let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(automatic: true),
-      replaceSelection: { _, _ in XCTFail("Removed context must not paste"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Removed context must not paste"); return true },
       sessionStore: ChatSessionStore(applicationSupportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
     let context = ConversationContext(sourceName: "Word", text: "original")
     chat.startTemporaryChat(context: context)
@@ -1109,67 +1109,97 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(board.string(forType: .string), "keep")
   }
 
-  func testSelectionExpansionAnchorsToComposerAndFitsDisplays() {
-    let visible = NSRect(x: -1440, y: 40, width: 1440, height: 860)
-    // The panel keeps its input at the top and grows downward.
-    let composer = NSRect(x: -1200, y: 700, width: 720, height: 80)
-    let expanded = SelectionPanelExpansion.frame(from: composer, visible: visible)
-    XCTAssertEqual(expanded.maxY, composer.maxY)
-    XCTAssertEqual(expanded.minX, composer.minX)
-    XCTAssertEqual(expanded.width, composer.width)
-    XCTAssertTrue(visible.contains(expanded))
-    let low = SelectionPanelExpansion.frame(from: NSRect(x: -1200, y: 100, width: 720, height: 80), visible: visible)
-    XCTAssertEqual(low.minY, visible.minY, "Low on the screen it moves up to fit")
-    XCTAssertTrue(visible.contains(low))
-    let edge = SelectionPanelExpansion.frame(from: NSRect(x: -730, y: 820, width: 720, height: 80), visible: visible)
-    XCTAssertEqual(edge.maxY, visible.maxY)
-    XCTAssertTrue(visible.contains(edge))
-    let small = NSRect(x: 0, y: 0, width: 700, height: 500)
-    XCTAssertTrue(small.contains(SelectionPanelExpansion.frame(from: composer, visible: small)))
-    // It grows on the panel-answer spring: from rest, past halfway early, to its end.
-    XCTAssertEqual(SelectionPanelExpansion.springProgress(at: 0), 0)
-    XCTAssertGreaterThan(SelectionPanelExpansion.springProgress(at: 0.15), 0.5)
-    XCTAssertEqual(SelectionPanelExpansion.springProgress(at: SelectionPanelExpansion.settlingDuration()), 1,
-                   accuracy: 0.002)
+  /// Opened in the window, the panel takes the window's normal size,
+  /// centered on its screen, and fits a small screen.
+  func testSelectionPanelOpensInTheWindowAtItsNormalSizeOnItsScreen() throws {
+    let small = NSRect(x: -700, y: 40, width: 700, height: 500)
+    for screen in [EnigmaCompactPanelTests.testScreen, small] {
+      let field = NSTextField(string: "Draft")
+      let controller = SpotlightPanelController(contentView: field, reduceMotion: { true }, visibleFrame: { _ in screen })
+      controller.show()
+      defer { controller.hide() }
+      let window = try XCTUnwrap(field.window)
+      let normal = window.frame
+      controller.presentSelectionContext(nil, cursor: NSPoint(x: screen.midX, y: screen.minY + 100), selection: nil,
+                                         visible: screen)
+      XCTAssertTrue(controller.isSelectionComposer)
+      controller.openSelectionChatInWindow()
+      XCTAssertFalse(controller.isSelectionComposer)
+      XCTAssertTrue(Self.isClose(window.frame, PanelSizeStore.centeredFrame(size: normal.size, in: screen)),
+                    "\(window.frame) on \(screen)")
+      XCTAssertTrue(screen.insetBy(dx: -1, dy: -1).contains(window.frame))
+    }
   }
 
-  func testSelectionPanelHideSettlesExpansionAndNewChatRestoresNormalSize() throws {
+  /// Within a point: AppKit puts a window on whole points.
+  private static func isClose(_ frame: NSRect, _ expected: NSRect) -> Bool {
+    abs(frame.minX - expected.minX) <= 1 && abs(frame.minY - expected.minY) <= 1
+      && abs(frame.width - expected.width) <= 1 && abs(frame.height - expected.height) <= 1
+  }
+
+  func testSelectionPanelHideSettlesTheMoveAndNewChatRestoresNormalSize() throws {
     let field = NSTextField(string: "Draft")
-    let controller = SpotlightPanelController(contentView: field)
+    let controller = SpotlightPanelController(contentView: field, reduceMotion: { false })
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
     let original = window.frame
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
+    // Closed with the composer up, a new chat brings the window's own frame back.
     controller.presentSelectionContext(nil, cursor: NSPoint(x: visible.midX, y: visible.minY + 100), selection: nil, visible: visible)
-    XCTAssertTrue(controller.isSelectionComposer)
     XCTAssertLessThan(window.frame.height, 150)
-    controller.expandSelectionPanel()
-    controller.hide()
-    XCTAssertFalse(controller.isSelectionComposer)
-    XCTAssertEqual(window.frame.height, min(600, visible.height))
     NotificationCenter.default.post(name: .newChatRequested, object: nil)
     XCTAssertEqual(window.frame, original)
+    XCTAssertFalse(controller.isSelectionComposer)
+
+    // Hidden partway into the window, the panel settles at the window's frame.
+    controller.presentSelectionContext(nil, cursor: NSPoint(x: visible.midX, y: visible.minY + 100), selection: nil, visible: visible)
+    controller.openSelectionChatInWindow()
+    XCTAssertLessThan(window.frame.height, 150, "It moves on the spring, from where the panel is")
+    controller.hide()
+    XCTAssertFalse(controller.isSelectionComposer)
+    let settled = window.frame
+    XCTAssertTrue(Self.isClose(settled, PanelSizeStore.centeredFrame(size: original.size, in: visible)))
+    // Its chat is the window's now: a new chat leaves the frame where it is.
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    XCTAssertEqual(window.frame, settled)
+
+    // A live resize started partway settles the move first, as a drag does.
+    controller.show()
+    controller.presentSelectionContext(nil, cursor: NSPoint(x: visible.midX, y: visible.minY + 100), selection: nil, visible: visible)
+    controller.openSelectionChatInWindow()
+    XCTAssertLessThan(window.frame.height, 150)
+    NotificationCenter.default.post(name: NSWindow.willStartLiveResizeNotification, object: window)
+    XCTAssertTrue(Self.isClose(window.frame, PanelSizeStore.centeredFrame(size: settled.size, in: visible)))
   }
 
-  func testReducedMotionExpandsImmediatelyAndRepeatedSendDoesNotResizeAgain() throws {
+  func testReducedMotionOpensInTheWindowImmediatelyAndOnlyOnce() throws {
     let field = NSTextField(string: "Draft")
     let controller = SpotlightPanelController(contentView: field, reduceMotion: { true })
     controller.show()
     defer { controller.hide() }
     let window = try XCTUnwrap(field.window)
+    let normal = window.frame
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
     controller.presentSelectionContext(nil, cursor: NSPoint(x: visible.midX, y: visible.minY + 100), selection: nil, visible: visible)
-    let expected = SelectionPanelExpansion.frame(from: window.frame, visible: visible)
-    controller.expandSelectionPanel()
-    XCTAssertEqual(window.frame, expected)
+    var openings = 0
+    let observer = NotificationCenter.default.addObserver(forName: .selectionChatOpenedInWindow, object: nil, queue: nil) { _ in
+      openings += 1
+    }
+    defer { NotificationCenter.default.removeObserver(observer) }
+    controller.openSelectionChatInWindow()
+    let opened = window.frame
+    XCTAssertTrue(Self.isClose(opened, PanelSizeStore.centeredFrame(size: normal.size, in: visible)))
     XCTAssertFalse(controller.isSelectionComposer)
-    controller.expandSelectionPanel()
-    XCTAssertEqual(window.frame, expected)
+    XCTAssertEqual(openings, 1)
+    // A second send, or ⌘O, finds no panel left to open.
+    NotificationCenter.default.post(name: .selectionChatOpenInWindowRequested, object: nil)
+    XCTAssertEqual(window.frame, opened)
+    XCTAssertEqual(openings, 1)
     XCTAssertTrue(window.isVisible)
   }
 
-  func testSelectionComposerExpandsOnlyAfterAcceptedPromptAndRenders() async throws {
+  func testSelectionComposerOpensInTheWindowOnceTheRequestStartsAndRenders() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let suite = UUID().uuidString
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -1181,7 +1211,8 @@ final class SelectionContextTests: XCTestCase {
       defaults.removePersistentDomain(forName: suite)
     }
     let engine = SelectionTestEngine(output: "The highlighted passage asks the team to send a report today.", hold: true)
-    let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
+    let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: SelectionEditingSettings(defaults: defaults),
+                                  sessionStore: ChatSessionStore(applicationSupportDirectory: directory))
     addTeardownBlock { @MainActor in
       await chat.stopStreaming()?.value
       engine.finishHeldStream()
@@ -1204,6 +1235,7 @@ final class SelectionContextTests: XCTestCase {
     }
     let window = try XCTUnwrap(view.window)
     let visible = try XCTUnwrap(window.screen?.visibleFrame)
+    let windowFrame = PanelSizeStore.centeredFrame(size: window.frame.size, in: visible)
     controller.presentSelectionContext(ConversationContext(sourceName: "Test editor", text: "Please send the report today."),
       cursor: NSPoint(x: visible.midX, y: visible.minY + 120), selection: nil, visible: visible)
     try await waitForUI("compact selected passage and clickable editor", in: view) {
@@ -1235,7 +1267,7 @@ final class SelectionContextTests: XCTestCase {
     let previewImage = try XCTUnwrap(NSBitmapImageRep(data: previewData)?.cgImage)
     let previewText = try await ScreenOCRService().recognize(previewImage).text.lowercased()
     XCTAssertTrue(previewText.contains("please send the report today"), "The selected text must be visible before sending: \(previewText)")
-    // Empty input must not expand or create a request.
+    // Empty input must not open the window or create a request.
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
       modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
       characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)))
@@ -1243,15 +1275,15 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertNil(chat.activeRequest, "Unexpected request: \(engine.lastRequest?.prompt ?? "none") (draft: \(screen.draft.debugDescription), editor: \(editor.string.debugDescription))")
     screen.draft = "Explain this passage"
     try await waitForUI("draft to reach the native editor", in: view) { editor.string == screen.draft }
-    let expandedFrame = SelectionPanelExpansion.frame(from: window.frame, visible: visible)
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
       modifierFlags: [], timestamp: 1, windowNumber: window.windowNumber, context: nil,
       characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)))
-    try await waitForUI("accepted prompt and completed panel expansion (compact: \(controller.isSelectionComposer), frame: \(window.frame), requests: \(engine.requestCount), draft: \(screen.draft))", in: view) {
-      !controller.isSelectionComposer && window.frame == expandedFrame && engine.lastRequest != nil && screen.draft.isEmpty
+    try await waitForUI("accepted prompt and the chat in the window (compact: \(controller.isSelectionComposer), frame: \(window.frame), expected: \(windowFrame), requests: \(engine.requestCount), draft: \(screen.draft))", in: view) {
+      !controller.isSelectionComposer && Self.isClose(window.frame, windowFrame) && engine.lastRequest != nil
+        && screen.draft.isEmpty
     }
     XCTAssertFalse(controller.isSelectionComposer)
-    XCTAssertEqual(window.frame, expandedFrame)
+    XCTAssertTrue(Self.isClose(window.frame, windowFrame), "The window's normal size, centered on the panel's screen")
     XCTAssertGreaterThan(window.frame.height, 420)
     XCTAssertTrue(visible.contains(window.frame))
     XCTAssertEqual(screen.draft, "")
@@ -1282,6 +1314,76 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertTrue(field.window === window)
     XCTAssertEqual(window.frame, frame)
     XCTAssertEqual(field.stringValue, "Keep this draft")
+  }
+
+  /// A sent automatic paste leaves Enigma hidden, the way Escape hides it, so
+  /// the person stays in their app looking at the edited text; summoning
+  /// Enigma again shows the same window. A manual paste, or an automatic one
+  /// that failed, brings the window back.
+  func testAutomaticReplacementLeavesTheWindowHiddenUnlessItFails() throws {
+    XCTAssertTrue(SelectionReplacementEnd(automatic: true, sent: true).keepsWindowHidden)
+    XCTAssertFalse(SelectionReplacementEnd(automatic: true, sent: false).keepsWindowHidden)
+    XCTAssertFalse(SelectionReplacementEnd(automatic: false, sent: true).keepsWindowHidden)
+    XCTAssertFalse(SelectionReplacementEnd(automatic: false, sent: false).keepsWindowHidden)
+
+    let field = NSTextField(string: "Keep this draft")
+    let controller = SpotlightPanelController(contentView: field)
+    controller.show()
+    defer { controller.hide() }
+    let window = try XCTUnwrap(field.window)
+    let frame = window.frame
+    var hidden = 0
+    let observer = NotificationCenter.default.addObserver(forName: .panelHidden, object: nil, queue: nil) { _ in
+      hidden += 1
+    }
+    defer { NotificationCenter.default.removeObserver(observer) }
+
+    NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
+    NotificationCenter.default.post(name: .selectionReplacementEnded,
+                                    object: SelectionReplacementEnd(automatic: true, sent: true))
+    XCTAssertFalse(window.isVisible, "It stays hidden after an automatic paste")
+    XCTAssertEqual(hidden, 1, "Hidden as a normal hide is")
+    controller.show()
+    XCTAssertTrue(window.isVisible)
+    XCTAssertTrue(field.window === window, "The same window, and chat, when summoned again")
+    XCTAssertEqual(window.frame, frame)
+    XCTAssertEqual(field.stringValue, "Keep this draft")
+
+    // Summoned again during an automatic paste, the window stays when it ends.
+    NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
+    XCTAssertFalse(window.isVisible)
+    controller.show()
+    NotificationCenter.default.post(name: .selectionReplacementEnded,
+                                    object: SelectionReplacementEnd(automatic: true, sent: true))
+    XCTAssertTrue(window.isVisible, "What the person just summoned isn't hidden")
+    XCTAssertEqual(hidden, 1)
+
+    for end in [SelectionReplacementEnd(automatic: false, sent: true), SelectionReplacementEnd(automatic: true, sent: false)] {
+      NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
+      XCTAssertFalse(window.isVisible)
+      NotificationCenter.default.post(name: .selectionReplacementEnded, object: end)
+      XCTAssertTrue(window.isVisible, "Back in front after \(end)")
+      XCTAssertEqual(hidden, 1)
+    }
+  }
+
+  /// The end of a replacement says whether it was sent: an automatic paste
+  /// that couldn't be sent reports so, and the window comes back to show why.
+  /// Empty text is refused before any Accessibility check.
+  func testAFailedAutomaticReplacementReportsItWasNotSent() async {
+    let service = SelectionContextService()
+    let context = ConversationContext(sourceName: "Test editor", text: "send report now")
+    service.remember(context, from: .current)
+    var ends: [SelectionReplacementEnd] = []
+    let observer = NotificationCenter.default.addObserver(forName: .selectionReplacementEnded, object: nil,
+                                                          queue: nil) { notification in
+      let end = notification.object as? SelectionReplacementEnd
+      MainActor.assumeIsolated { if let end { ends.append(end) } }
+    }
+    defer { NotificationCenter.default.removeObserver(observer) }
+    let sent = await service.replace(with: "", contextID: context.id, automatic: true)
+    XCTAssertFalse(sent)
+    XCTAssertEqual(ends, [SelectionReplacementEnd(automatic: true, sent: false)])
   }
 
   func testAccessibilityRequestOpensSettingsEvenWhenSystemPromptDoesNotGrantAccess() {
@@ -1915,7 +2017,7 @@ final class SelectionContextTests: XCTestCase {
       let engine = SelectionTestEngine(output: "An answer.")
       let provider = SelectionTestCloud(output: "An answer.")
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-        replaceSelection: { _, _ in XCTFail("Questions never paste"); return true },
+        replaceSelection: { _, _, _ in XCTFail("Questions never paste"); return true },
         cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
         sessionStore: temporaryStore())
       await chat.refreshInstalledModel()
@@ -1966,7 +2068,7 @@ final class SelectionContextTests: XCTestCase {
       let provider = SelectionTestCloud(output: revisionOutput)
       var pastes: [(String, UUID)] = []
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: revisionSettings(),
-        replaceSelection: { text, id in pastes.append((text, id)); return true },
+        replaceSelection: { text, id, _ in pastes.append((text, id)); return true },
         cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
         sessionStore: temporaryStore())
       let context = ConversationContext(sourceName: "Mail", text: "send report now")
@@ -2047,7 +2149,7 @@ final class SelectionContextTests: XCTestCase {
   func testStandaloneTranslateOnALaterTurnUsesTheSelectionAgain() async throws {
     let provider = SelectionTestCloud(output: "Translated.")
     let chat = LocalChatViewModel(engine: SelectionTestEngine(), selectionEditingSettings: revisionSettings(),
-      replaceSelection: { _, _ in XCTFail("Translation never pastes"); return true },
+      replaceSelection: { _, _, _ in XCTFail("Translation never pastes"); return true },
       cloudProviders: CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider),
       sessionStore: temporaryStore())
     let context = ConversationContext(sourceName: "Notes", text: "Le rapport est dû vendredi.")
@@ -2101,6 +2203,9 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(SelectionEditingSettings.privateChatsTitle, "Keep selection chats private")
     XCTAssertNotEqual(SelectionEditingSettings.privateChatsSubtitle(isOn: true),
                       SelectionEditingSettings.privateChatsSubtitle(isOn: false))
+    // Off, the subtitle says when the chat is saved: once it moves to the window.
+    XCTAssertTrue(SelectionEditingSettings.privateChatsSubtitle(isOn: false).contains("send a question"))
+    XCTAssertTrue(SelectionEditingSettings.privateChatsSubtitle(isOn: false).contains("⌘O"))
   }
 
   /// Off, the panel's chat is written only once it opens in the window, and

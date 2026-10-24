@@ -101,8 +101,9 @@ glyph is Stop, on the solid Send button.
 - **Cards.** Notices, consent, approvals, attachments, and errors in a chat
   are opaque `surface` cards with a `border` edge and one accent button each.
 - **Compact panel.** An optional `› selected "…"` line, the input row with
-  the character on the left, an answer area that grows downward, and a
-  monospace hint row whose every hint is a real shortcut.
+  the character on the left, and a monospace hint row whose every hint is a
+  real shortcut. Sending the first question moves the chat into the window,
+  which travels from the panel to its normal frame.
 - **Settings.** Plain-text navigation with a dot on the selected page, a
   semibold heading, hairline-divided rows, switches, and opaque menus.
   Appearance is a System / Paper / Ink text control, never pill segments.
@@ -129,12 +130,11 @@ it can be interrupted. The values are in `EnigmaMotion`.
 
 | Motion | `EnigmaMotion` | Response | Damping |
 | --- | --- | --- | --- |
-| Screen changes: welcome out, empty state to chat | `screenChange` | 0.5 | 1.0 |
+| Screen changes: welcome out, empty state to chat, compact panel into the window | `screenChange` | 0.5 | 1.0 |
 | Menus opening from their trigger | `menu` | 0.28 | 1.0 |
 | Settings page change | `pageChange` | 0.3 | 1.0 |
 | Composer moving to the bottom | `composerDock` | 0.5 | 0.86 |
 | New rows and messages arriving | `rowEnter` | 0.42 | 0.9 |
-| Compact panel's answer area opening | `panelAnswer` | 0.45 | 0.9 |
 | Switch knob | `switchKnob` | 0.32 | 0.62 |
 | Character following its slot | `characterFollow` | 0.5 | 0.8 |
 | Character squash and stretch | `characterSquash` | 0.34 | 0.32 |

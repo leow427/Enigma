@@ -675,9 +675,9 @@ final class EnigmaMainWindowTests: XCTestCase {
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
       windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
       isARepeat: false, keyCode: 36)))
-    try await waitForUI("the panel growing into its answer", in: view) {
+    try await waitForUI("the chat moving to the window's layout", in: view) {
       !controller.isSelectionComposer && fixture.engine.requestCount == 1
-        && Host.marker("Compact panel answer", in: view) != nil
+        && Host.marker("Compact panel", in: view) == nil && Host.marker("Your message", in: view) != nil
         && (Host.marker("Send message", in: view) != nil || Host.marker("Stop response", in: view) != nil)
     }
     XCTAssertTrue(view.bounds.contains(view.convert(try XCTUnwrap(composerEditor(in: view)).bounds,
@@ -1233,7 +1233,7 @@ extension EnigmaMainWindowTests {
 
     init(test: XCTestCase, model: LocalModel? = LocalModel(id: "fixture", displayName: "Fixture 8B",
                                                            fileURL: URL(fileURLWithPath: "/tmp/enigma-main-fixture.gguf")),
-         sessions: [ChatSession] = []) async throws {
+         sessions: [ChatSession] = [], messagesAccess: (@Sendable () throws -> Void)? = nil) async throws {
       let name = "EnigmaMainWindowTests-\(UUID())"
       defaults = try XCTUnwrap(UserDefaults(suiteName: name))
       root = FileManager.default.temporaryDirectory.appending(path: name)
@@ -1253,8 +1253,12 @@ extension EnigmaMainWindowTests {
       files = FileModeCoordinator(picker: picker, journalDirectory: root.appending(path: "Recovery"))
       selectionEditing = SelectionEditingSettings(defaults: defaults)
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
-        replaceSelection: { [pastes] text, _ in pastes.texts.append(text); return true },
-        files: files, sessionStore: store)
+        replaceSelection: { [pastes] text, _, automatic in
+          pastes.texts.append(text)
+          pastes.automatic.append(automatic)
+          return true
+        },
+        files: files, messagesAccess: messagesAccess, visionEngine: engine, sessionStore: store)
       self.chat = chat
       await chat.refreshInstalledModel()
       // Saved chats load with the newest selected; start from a fresh, empty one.
@@ -1355,32 +1359,54 @@ private final class MainWindowKeyableWindow: NSPanel {
 @MainActor
 final class MainWindowTestPastes {
   var texts: [String] = []
+  /// Whether each paste was an automatic /edit replacement.
+  var automatic: [Bool] = []
 }
 
 final class MainWindowTestPicker: WorkspacePicking, @unchecked Sendable {
   var urls: [URL]?
   var count = 0
+  private let lock = NSLock()
+  private var holding = false
+  /// The picker stays open, as a person choosing a folder keeps it, until cleared.
+  var holds: Bool {
+    get { lock.withLock { holding } }
+    set { lock.withLock { holding = newValue } }
+  }
   init(_ urls: [URL]?) { self.urls = urls }
-  func pick() async -> [URL]? { count += 1; return urls }
+  func pick() async -> [URL]? {
+    count += 1
+    while holds { try? await Task.sleep(for: .milliseconds(10)) }
+    return urls
+  }
 }
 
 /// A local model whose replies wait until the request is stopped, unless a
 /// test streams words into them with `send(_:)` and ends them with `finish`.
-final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
+/// It also answers for a vision model's projector, the same way.
+final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @unchecked Sendable {
   private let model: LocalModel?
   private let lock = NSLock()
   private var requests = 0
   private var latest: LocalModelRequest?
   private var replies: [AsyncThrowingStream<String, Error>.Continuation] = []
 
+  private var withholds = false
+
   init(model: LocalModel?) { self.model = model }
 
   var requestCount: Int { lock.withLock { requests } }
+  /// The engine reports no model, as when it's removed after the chat last
+  /// looked: a question then fails while it's prepared, before it's accepted.
+  var withholdsModel: Bool {
+    get { lock.withLock { withholds } }
+    set { lock.withLock { withholds = newValue } }
+  }
   /// The latest request's messages, as the model received them.
   var lastRequest: LocalModelRequest? { lock.withLock { latest } }
 
   func install(_ model: LocalModel) async throws {}
-  func installedModel() async -> LocalModel? { model }
+  func installedModel() async -> LocalModel? { withholdsModel ? nil : model }
   func installedModels() async -> [LocalModel] { model.map { [$0] } ?? [] }
   func selectModel(id: String) async throws {}
   func download(_ model: LocalModelDescriptor,
@@ -1390,6 +1416,13 @@ final class MainWindowTestEngine: LocalModelEngine, @unchecked Sendable {
   func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
     lock.withLock { requests += 1; latest = request }
     return AsyncThrowingStream { continuation in self.lock.withLock { self.replies.append(continuation) } }
+  }
+
+  func prepare(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) async throws -> PreparedConversation {
+    try await prepare(LocalModelRequest(messages: messages))
+  }
+  func stream(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) -> AsyncThrowingStream<String, Error> {
+    stream(LocalModelRequest(messages: messages))
   }
 
   /// Streams `text` into the latest reply.

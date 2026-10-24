@@ -202,7 +202,6 @@ enum EnigmaMotion {
   static let menu = EnigmaSpring(response: 0.28, dampingFraction: 1)
   static let pageChange = EnigmaSpring(response: 0.3, dampingFraction: 1)
   static let rowEnter = EnigmaSpring(response: 0.42, dampingFraction: 0.9)
-  static let panelAnswer = EnigmaSpring(response: 0.45, dampingFraction: 0.9)
   static let switchKnob = EnigmaSpring(response: 0.32, dampingFraction: 0.62)
   static let characterFollow = EnigmaSpring(response: 0.5, dampingFraction: 0.8)
   static let characterSquash = EnigmaSpring(response: 0.34, dampingFraction: 0.32)

@@ -119,9 +119,10 @@ listed source means its excerpt was sent, not that the full page was read.
   first.
 - **Temporary chats.** A chat started from selected text in the compact panel is
   temporary: it's marked **temporary · not saved** and nothing of it is written
-  to disk. Opening it in the window saves it to history, unless **Keep selection
-  chats private** is on in **Settings → Selection**. A private chat stays
-  temporary, stays out of Recents, and is gone when you start another chat.
+  to disk. Sending its first question, or ⌘O, moves it to the main window and
+  lists it at the top of Recents, written once its first question lands, unless
+  **Keep selection chats private** is on in **Settings → Selection**. A private chat stays temporary, stays out of
+  Recents, and is gone when you start another chat.
 
 ## Privacy
 

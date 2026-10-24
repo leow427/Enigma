@@ -181,6 +181,7 @@ struct EnigmaMainPageHeader: View {
         EnigmaStatusLine(status.lineStatus, status.text, tintsGlyphOnly: true)
           .lineLimit(2)
           .multilineTextAlignment(.center)
+          .enigmaTestMarker("Page status \(status.text)")
         if let action = status.action, let title = status.actionTitle {
           Button(title) { performStatusAction(action) }
             .enigmaButtonStyle(.secondary)
@@ -207,6 +208,7 @@ struct EnigmaRouteStatusLine: View {
       Spacer(minLength: 0)
       EnigmaStatusLine(status.lineStatus, status.text, tintsGlyphOnly: true)
         .lineLimit(2)
+        .enigmaTestMarker("Route status \(status.text)")
       if let action = status.action, let title = status.actionTitle {
         Button(title) { performAction(action) }
           .enigmaButtonStyle(.text)

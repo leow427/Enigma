@@ -13,8 +13,6 @@ enum CompactPanelLayout {
   static let inputSlotSize: CGFloat = 40
   /// The panel's corners, as in the mockup.
   static let cornerRadius: CGFloat = 16
-  /// The answer area's cards and notes, before they scroll.
-  static let accessoriesMaximumHeight: CGFloat = 260
   /// The details surface's content, before it scrolls.
   static let detailsMaximumHeight: CGFloat = 300
 
@@ -35,10 +33,7 @@ enum CompactPanelLayout {
 /// to it, and `/edit` and a standalone `/translate` still use it, but new
 /// questions don't carry it.
 enum CompactSelectionStatus {
-  /// The `› selected "…"` line's label: what the selection is for now.
-  static func label(isSent: Bool) -> String { isSent ? "for /edit" : "selected" }
-
-  /// The line's tooltip and the card's note, once the selection has been sent.
+  /// The selected-text card's note, once the selection has been sent.
   static let sentNote = "Sent with your first message. New questions don't attach it; /edit and /translate still use it."
 }
 
@@ -60,7 +55,9 @@ enum CompactRouteChip {
 
 /// The monospace hints under the panel. Each names a shortcut that works in
 /// the panel today: `/` opens the commands, `⌘O` opens the panel's chat in
-/// the full window, `⌘.` stops a reply, and Escape hides the panel.
+/// the full window, and Escape hides the panel. A request moves the chat to
+/// the window as soon as it starts, so the panel doesn't show `⌘.` stop in
+/// practice; the responding hints stay for a request the panel still holds.
 enum CompactPanelHints {
   struct Hint: Equatable, Identifiable {
     let keys: String
@@ -104,11 +101,11 @@ enum CompactPanelCharacter {
   /// The selection couldn't be read, or Accessibility, which reading and
   /// replacing it need, isn't allowed. A notice after a selection was
   /// attached, like "Replacement sent", is news rather than a problem.
-  static func hasSelectionProblem(isPanel: Bool, isComposing: Bool, hasSelection: Bool, notice: String?,
+  static func hasSelectionProblem(isPanel: Bool, hasSelection: Bool, notice: String?,
                                   isAccessibilityGranted: Bool, isTemporaryChat: Bool) -> Bool {
     guard isPanel, isTemporaryChat else { return false }
     if !isAccessibilityGranted { return true }
-    return isComposing && !hasSelection && notice != nil
+    return !hasSelection && notice != nil
   }
 
   /// The status button shows a problem glyph whenever there's a notice or

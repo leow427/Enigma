@@ -3,21 +3,19 @@ import SwiftUI
 // The compact selection panel: the panel that opens over another app when you
 // select text and use the selection shortcut (double-tap ⌥ by default). From
 // top to bottom: the `› selected "…"` line, the input row with the character
-// in its 40 pt slot, the answer area once a question is sent, and a monospace
-// hint row. It's one opaque `surface` with a `border` edge. AppShellView owns
-// every action and all the state; these views only lay them out, reusing the
-// main window's composer pieces and the conversation's replies and cards.
+// in its 40 pt slot, and a monospace hint row. It's one opaque `surface`
+// with a `border` edge. AppShellView owns every action and all the state;
+// these views only lay them out, reusing the main window's composer pieces
+// and cards. Once a question is sent, the chat moves to the window's own
+// layout, so the panel never shows an answer.
 
-/// The panel. While composing, it's as tall as its content, which it reports
-/// so the window fits it, with room for the command list or the mode and model
-/// menu while one is open: under the input, or above it when the panel sits
-/// too low on the screen for them to open downward. The report also gives the
-/// height at rest, without that room or the details, so the panel reopens at
-/// its resting size. Once a question is accepted the window grows downward on
-/// `EnigmaMotion.panelAnswer` and the answer area fills it.
-struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Details: View, Answer: View>: View {
-  /// The panel is still the composer; false once it has grown into the answer.
-  let isComposing: Bool
+/// The panel. It's as tall as its content, which it reports so the window
+/// fits it, with room for the command list or the mode and model menu while
+/// one is open: under the input, or above it when the panel sits too low on
+/// the screen for them to open downward. The report also gives the height at
+/// rest, without that room or the details, so the panel reopens at its
+/// resting size.
+struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Details: View>: View {
   /// Lists and menus open above the input, because there's no room under the panel.
   var opensOverlaysAbove = false
   let hints: [CompactPanelHints.Hint]
@@ -29,10 +27,8 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
   @ViewBuilder let attachment: () -> Attachment
   /// The selection's details while they're open.
   @ViewBuilder let details: () -> Details
-  @ViewBuilder let answer: () -> Answer
 
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   /// The open command list's frame, the input row's, and the details' height,
   /// in the panel's space.
   @State private var suggestions: CGRect = .zero
@@ -52,9 +48,8 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
   }
 
   /// Room for whichever overlay needs more, the command list or the mode and
-  /// model menu, on the side it opens on. The window grows by it while composing.
+  /// model menu, on the side it opens on. The window grows by it.
   private func rooms(menuRoom: CGFloat) -> Rooms {
-    guard isComposing else { return Rooms() }
     var rooms = Rooms()
     if opensOverlaysAbove {
       // Measured from the input, so the room doesn't depend on itself: what
@@ -72,7 +67,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
     let shape = RoundedRectangle(cornerRadius: CompactPanelLayout.cornerRadius, style: .continuous)
     let room = rooms(menuRoom: menuRoom)
     return VStack(spacing: 0) {
-      if isComposing { Color.clear.frame(height: room.above) }
+      Color.clear.frame(height: room.above)
       selection()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { selectionHeight = $0 }
       composer()
@@ -81,27 +76,18 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
         } action: { input = $0 }
         // The command list opens over what's around the input.
         .zIndex(1)
-      if isComposing {
-        attachment()
-        details()
-          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailsHeight = $0 }
-        Color.clear.frame(height: room.below)
-      } else {
-        EnigmaHairline()
-        answer()
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .transition(.opacity)
-      }
+      attachment()
+      details()
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailsHeight = $0 }
+      Color.clear.frame(height: room.below)
       EnigmaCompactHints(hints: hints, tag: isTemporary ? CompactPanelHints.temporaryTag : nil)
     }
-    .fixedSize(horizontal: false, vertical: isComposing)
+    .fixedSize(horizontal: false, vertical: true)
     .background {
-      if isComposing {
-        GeometryReader { proxy in
-          Color.clear.preference(key: SelectionComposerHeight.self, value: SelectionComposerReport(
-            height: proxy.size.height,
-            restingHeight: proxy.size.height - room.above - room.below - detailsHeight, roomAbove: room.above))
-        }
+      GeometryReader { proxy in
+        Color.clear.preference(key: SelectionComposerHeight.self, value: SelectionComposerReport(
+          height: proxy.size.height,
+          restingHeight: proxy.size.height - room.above - room.below - detailsHeight, roomAbove: room.above))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -112,11 +98,9 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
     .background(palette.surface.color)
     .clipShape(shape)
     .enigmaEdge(shape)
-    // The answer area springs open as the window grows; Reduce Motion fades.
-    .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.panelAnswer.animation, value: isComposing)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Ask Enigma")
-    .enigmaTestMarker(isComposing ? "Compact panel" : "Compact panel answer")
+    .enigmaTestMarker("Compact panel")
   }
 }
 
@@ -125,16 +109,11 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
 /// `› selected "…"`, with the selection's status and a button to remove it,
 /// or its own plain line when no text was selected. The status button opens
 /// the details, and shows a problem glyph when there's a notice or
-/// Accessibility is missing. Once the selection has gone with the first
-/// message, the line reads `› for /edit "…"` in a quieter color: it's still
-/// what /edit revises and Replace text replaces, but new questions don't carry it.
+/// Accessibility is missing. The panel only ever holds a chat before its
+/// first question, so the selection here is always still to be sent.
 struct EnigmaCompactSelectionLine: View {
   let contexts: [ConversationContext]
-  /// The selections an earlier message already carried.
-  var sentContextIDs: Set<UUID> = []
   var isBusy = false
-  /// The status button and the no-selection line show only while composing.
-  var isComposing: Bool
   var statusNeedsAttention = false
   var isStatusPresented = false
   var toggleStatus: () -> Void = {}
@@ -147,27 +126,18 @@ struct EnigmaCompactSelectionLine: View {
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
-    if !contexts.isEmpty || isComposing || openInWindow != nil {
-      VStack(alignment: .leading, spacing: 2) {
-        if !contexts.isEmpty {
-          ForEach(Array(contexts.enumerated()), id: \.element.id) { index, context in
-            line(context, showsStatus: index == 0, isFirst: index == 0)
-          }
-        } else if isComposing {
-          line(nil, showsStatus: true, isFirst: true)
-        } else {
-          // Grown with no selection: the row holds only Open in window.
-          HStack(spacing: 8) {
-            Spacer(minLength: 0)
-            openInWindowButton
-          }
-          .frame(minHeight: 22)
+    VStack(alignment: .leading, spacing: 2) {
+      if contexts.isEmpty {
+        line(nil, showsStatus: true, isFirst: true)
+      } else {
+        ForEach(Array(contexts.enumerated()), id: \.element.id) { index, context in
+          line(context, showsStatus: index == 0, isFirst: index == 0)
         }
       }
-      .padding(.top, 9)
-      .padding(.leading, 16)
-      .padding(.trailing, 10)
     }
+    .padding(.top, 9)
+    .padding(.leading, 16)
+    .padding(.trailing, 10)
   }
 
   @ViewBuilder private var openInWindowButton: some View {
@@ -190,23 +160,20 @@ struct EnigmaCompactSelectionLine: View {
         .foregroundStyle(palette.textTertiary.color)
         .accessibilityHidden(true)
       if let context {
-        let isSent = sentContextIDs.contains(context.id)
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text(CompactSelectionStatus.label(isSent: isSent))
+          Text("selected")
             .fontWeight(.medium)
-            .foregroundStyle(isSent ? palette.textTertiary.color : palette.accentText.color)
+            .foregroundStyle(palette.accentText.color)
           Text("“\(context.preview)”")
-            .foregroundStyle(isSent ? palette.textTertiary.color : palette.textSecondary.color)
+            .foregroundStyle(palette.textSecondary.color)
             .lineLimit(1)
             .truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .help(isSent ? context.title + ". " + CompactSelectionStatus.sentNote : context.title)
+        .help(context.title)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(context.title): \(context.preview)")
-        .accessibilityHint(isSent ? CompactSelectionStatus.sentNote : "")
         .enigmaTestMarker("Selected text")
-        .enigmaTestMarker(isSent ? "Selected text for /edit" : "Selected text to send")
       } else {
         Text("no text selected")
           .foregroundStyle(palette.textTertiary.color)
@@ -214,7 +181,7 @@ struct EnigmaCompactSelectionLine: View {
           .accessibilityLabel("No text selected")
           .enigmaTestMarker("No text selected")
       }
-      if showsStatus && isComposing {
+      if showsStatus {
         Button(action: toggleStatus) {
           Image(systemName: statusNeedsAttention ? "exclamationmark.circle" : "info.circle")
             .font(EnigmaTypography.smallIconButtonSymbol)
@@ -376,35 +343,6 @@ struct EnigmaCompactDetails<Content: View>: View {
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Selection context and status")
     .enigmaTestMarker("Selection details panel")
-  }
-}
-
-// MARK: Answer
-
-/// The opened answer: the conversation, then the notes and cards that sit
-/// over the main window's composer, which scroll once they're tall, keeping
-/// the newest, at the bottom, in view.
-struct EnigmaCompactAnswer<Conversation: View, Accessories: View>: View {
-  @ViewBuilder let conversation: () -> Conversation
-  @ViewBuilder let accessories: () -> Accessories
-  @State private var accessoriesHeight: CGFloat = 0
-
-  var body: some View {
-    VStack(spacing: 0) {
-      conversation()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-      ScrollView {
-        accessories()
-          .frame(maxWidth: .infinity, alignment: .trailing)
-          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { accessoriesHeight = $0 }
-      }
-      .scrollBounceBehavior(.basedOnSize)
-      // The newest card, like a Messages approval, comes last: keep it in view.
-      .defaultScrollAnchor(.bottom)
-      .frame(height: min(accessoriesHeight, CompactPanelLayout.accessoriesMaximumHeight))
-      .padding(.horizontal, 16)
-      .padding(.bottom, accessoriesHeight > 0 ? 10 : 0)
-    }
   }
 }
 

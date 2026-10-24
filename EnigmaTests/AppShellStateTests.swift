@@ -19,7 +19,6 @@ final class ShellPresentationTests: XCTestCase {
     shell.beginSelectionComposer(mode: .local, showsSidebar: true)
 
     XCTAssertTrue(shell.isSelectionComposer)
-    XCTAssertTrue(shell.isSelectionPresentation)
     XCTAssertFalse(shell.isSelectionDetailsPresented)
     XCTAssertFalse(shell.isModePalettePresented)
     XCTAssertFalse(shell.isHelpPresented)
@@ -39,7 +38,6 @@ final class ShellPresentationTests: XCTestCase {
 
     XCTAssertTrue(shell.isSelectionDetailsPresented, "New chat leaves the details popover alone")
     XCTAssertFalse(shell.isSelectionComposer)
-    XCTAssertFalse(shell.isSelectionPresentation)
     XCTAssertFalse(shell.isModePalettePresented)
     XCTAssertTrue(shell.isHelpPresented, "New chat doesn't close Help")
     XCTAssertEqual(shell.selectedMode, .cloud)
@@ -47,16 +45,18 @@ final class ShellPresentationTests: XCTestCase {
     XCTAssertTrue(shell.isComposerFocused)
   }
 
-  func testExpandingTheSelectionPanelKeepsItsWindowSizing() {
+  /// The panel went back to the window's normal frame without opening its
+  /// chat there: the window's own layout, with the details closed.
+  func testRestoringTheNormalPanelLeavesTheSelectionPanel() {
     var shell = ShellPresentation(mode: .auto, showsSidebar: false)
     shell.beginSelectionComposer(mode: .auto, showsSidebar: false)
     shell.isSelectionDetailsPresented = true
 
-    shell.leaveSelectionComposer()
+    shell.leaveSelectionPanel()
 
     XCTAssertFalse(shell.isSelectionComposer)
     XCTAssertFalse(shell.isSelectionDetailsPresented)
-    XCTAssertTrue(shell.isSelectionPresentation)
+    XCTAssertFalse(shell.sessionChanged(isTemporaryChat: false), "Nothing left to reset")
   }
 
   func testCyclingRecentChatsLeavesTheSelectionPanel() {
@@ -68,7 +68,6 @@ final class ShellPresentationTests: XCTestCase {
     shell.cycleRecentChat()
 
     XCTAssertFalse(shell.isSelectionComposer)
-    XCTAssertFalse(shell.isSelectionPresentation)
     XCTAssertTrue(shell.isSelectionDetailsPresented)
     XCTAssertEqual(shell.selectedMode, before.selectedMode)
     XCTAssertEqual(shell.isComposerFocused, before.isComposerFocused)
@@ -84,18 +83,6 @@ final class ShellPresentationTests: XCTestCase {
 
     XCTAssertTrue(shell.sessionChanged(isTemporaryChat: false))
     XCTAssertFalse(shell.isSelectionComposer)
-    XCTAssertFalse(shell.isSelectionPresentation)
-  }
-
-  func testExpandedSelectionPanelStillResetsWhenASavedChatOpens() {
-    var shell = ShellPresentation(mode: .auto, showsSidebar: false)
-    shell.beginSelectionComposer(mode: .auto, showsSidebar: false)
-    shell.leaveSelectionComposer()
-
-    XCTAssertFalse(shell.sessionChanged(isTemporaryChat: true))
-    XCTAssertTrue(shell.isSelectionPresentation)
-    XCTAssertTrue(shell.sessionChanged(isTemporaryChat: false))
-    XCTAssertFalse(shell.isSelectionPresentation)
     XCTAssertFalse(shell.sessionChanged(isTemporaryChat: false), "Only resets once")
   }
 
@@ -107,11 +94,10 @@ final class ShellPresentationTests: XCTestCase {
       shell.beginSelectionComposer(mode: .auto, showsSidebar: showsSidebar)
       shell.isSelectionDetailsPresented = true
       shell.isModePalettePresented = true
-      XCTAssertTrue(shell.showsCompactPanel)
+      XCTAssertTrue(shell.isSelectionComposer)
       shell.openSelectionChatInWindow(showsSidebar: showsSidebar)
-      XCTAssertFalse(shell.showsCompactPanel)
       XCTAssertFalse(shell.isSelectionComposer)
-      XCTAssertFalse(shell.isSelectionPresentation)
+      XCTAssertTrue(shell.isSettlingIntoWindow, "Until the window reaches its normal frame")
       XCTAssertFalse(shell.isSelectionDetailsPresented)
       XCTAssertFalse(shell.isModePalettePresented)
       XCTAssertEqual(shell.isSidebarVisible, showsSidebar)

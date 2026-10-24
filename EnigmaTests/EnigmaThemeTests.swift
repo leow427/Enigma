@@ -94,7 +94,7 @@ final class EnigmaThemeTests: XCTestCase {
 
   func testSpringsMatchTheirRoleInTheSpec() {
     let calm = [EnigmaMotion.screenChange, EnigmaMotion.menu, EnigmaMotion.pageChange]
-    let settling = [EnigmaMotion.composerDock, EnigmaMotion.rowEnter, EnigmaMotion.panelAnswer]
+    let settling = [EnigmaMotion.composerDock, EnigmaMotion.rowEnter]
     let physical = [EnigmaMotion.switchKnob, EnigmaMotion.characterFollow, EnigmaMotion.characterSquash]
     for spring in calm + settling + physical {
       XCTAssertGreaterThan(spring.response, 0)

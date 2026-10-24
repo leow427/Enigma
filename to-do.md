@@ -497,7 +497,29 @@ back to ⌘C. Likely causes, to confirm:
   not real apps. Interactive checks need the signed app from Xcode (see
   AGENTS.md), not the unsigned build from `scripts/verify-xcode.sh`.
 
-### B5. Selection chats stay in the compact panel and never reach Recents
+### B5. ✅ Done: Selection chats stay in the compact panel and never reach Recents
+
+> **Solved:** Sending the first question from the panel now goes through the
+> same conversion as ⌘O: `finishSendFromPanel()` in
+> `AppShellView` posts `.selectionChatOpenInWindowRequested` as soon as the
+> question's request starts, before model load or the first token, so the chat
+> switches to the normal chat layout. With "Keep selection chats private" off
+> it goes to the top of Recents as "New Chat", and is written and titled from
+> the question once that lands, like any new chat; until then it isn't written
+> or counted toward the ten saved chats, and it's removed if left empty, so an
+> abandoned send never costs an older chat. With the setting on, it stays
+> temporary and nothing is written. Selected text is never written, and the
+> question only once it's in the chat. After an automatic /edit paste the
+> window stays hidden (a normal hide); a manual or failed paste brings it
+> back. The panel springs to the
+> window's normal frame on `screenChange` (at once with Reduce Motion), with
+> the window layout's minimum height held off until it arrives. The one-time
+> saved/private line now shows under the first exchange, also after ⌘O. ⌃Tab
+> leaves the panel only when it actually switches chats, and a send that starts
+> no request opens the panel's details on its problem every time. The old grown-panel
+> answer (`expandSelectionPanel`, `EnigmaCompactAnswer`, `panelAnswer`) is
+> gone. Hosted tests cover sending and ⌘O with the setting off and on, and a
+> vision model's question; the default stays off.
 
 **Problem:** A chat started from a selection stays in the compact panel UI
 (`EnigmaCompactPanel`). It only becomes a normal window chat when the user
@@ -1067,7 +1089,9 @@ Builds on F1's code block header.
   `selectionSessionID`, which turns on selection behaviour such as the
   Accessibility card. Add a variant for ghost mode, and reset the shell and
   panel the way `.newChatRequested` does.
-- Private selection chats (B5) open in this same mode.
+- Private selection chats (B5, done) already move to the window as temporary
+  chats once their first question is sent, or on ⌘O; they open in this same
+  mode and pick up its look.
 
 ### F11. Sources as a small expandable icon, not typed out in the reply
 

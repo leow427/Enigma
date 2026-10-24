@@ -77,7 +77,8 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var selectionRevisions: [UUID: SelectionRevision] = [:]
   @Published private(set) var isApplyingSelection = false
   let selectionEditingSettings: SelectionEditingSettings
-  private let replaceSelection: @MainActor (String, UUID) async -> Bool
+  /// Pastes a revision: its text, its selection, and whether it's automatic.
+  private let replaceSelection: @MainActor (String, UUID, Bool) async -> Bool
   private var selectionEditRequest: (id: UUID, contextID: UUID, automatic: Bool)?
   /// The source material the active request carries, for refining its search query.
   private var requestSource: (contexts: [ConversationContext], draft: String?) = ([], nil)
@@ -86,7 +87,8 @@ final class LocalChatViewModel: ObservableObject {
   /// The panel's chat while it's still temporary: kept in memory, never saved.
   private var temporarySessionID: UUID?
   /// The chat the attached selection belongs to: the panel's temporary chat,
-  /// and the same chat once it opens in the full window and is saved.
+  /// and the same chat once it opens in the full window, where it's written
+  /// once its first question lands, unless it's kept private.
   private var selectionSessionID: UUID?
   var isTemporaryChat: Bool { selectedSessionID != nil && selectedSessionID == temporarySessionID }
   /// The open chat is the one the selection was captured for.
@@ -215,24 +217,34 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   /// Leaving the selection's chat: the selection and its drafts go, and so
-  /// does the chat itself while it's still temporary.
+  /// does the chat itself while it's still temporary. A chat that moved to
+  /// the window goes too while it's still empty, as when its first question
+  /// was stopped or failed before reaching it, so abandoned sends don't fill
+  /// Recents with empty chats. An empty one was never written, so the saved
+  /// file needs no change.
   private func discardTemporaryChat() {
     replacementTask?.cancel(); replacementTask = nil
     selectionEditRequest = nil
     selectionRevisions = [:]
     if let temporarySessionID { sessions.removeAll { $0.id == temporarySessionID } }
+    if let selectionSessionID, selectionSessionID != temporarySessionID,
+       sessions.first(where: { $0.id == selectionSessionID })?.messages.isEmpty == true {
+      sessions.removeAll { $0.id == selectionSessionID }
+    }
     temporarySessionID = nil
     selectionSessionID = nil
     openedSelectionChat = nil
     attachedContexts = []
   }
 
-  /// The panel's chat opened in the full window. By default it becomes an
-  /// ordinary chat, saved to history from now on; until now nothing of it was
-  /// written. With "Keep selection chats private" on, read now, it stays
-  /// temporary: never saved, out of Recents, and gone with the next chat. The
-  /// selection stays attached for /edit and Replace text, in memory only:
-  /// selected text is never written to disk.
+  /// The panel's chat opened in the full window: a request for its first
+  /// question started, or ⌘O or Open in window was used before that. By
+  /// default it becomes an ordinary chat at the top of Recents, written and
+  /// titled from its first question once that lands; until now nothing of it
+  /// was written. With "Keep selection chats private" on, read now, it stays
+  /// temporary: never saved, out of Recents, and gone with the next chat. The selection stays
+  /// attached for /edit and Replace text, in memory only: selected text is
+  /// never written to disk.
   func openTemporaryChatInWindow() {
     guard let id = temporarySessionID, let index = sessions.firstIndex(where: { $0.id == id }) else { return }
     guard !selectionEditingSettings.keepsChatsPrivate else {
@@ -240,8 +252,9 @@ final class LocalChatViewModel: ObservableObject {
       return
     }
     temporarySessionID = nil
+    // Titled like any new chat: from its first question once that's in it. A
+    // question still being prepared isn't, and may never be, if it fails.
     let question = sessions[index].messages.first { $0.role == .user }?.content
-      ?? pendingUserMessage.map(\.content)
     sessions[index].title = question.map(ChatSession.title(for:)) ?? "New Chat"
     // It goes to the top of Recents, selected.
     sessions[index].lastActivityAt = .now
@@ -308,7 +321,9 @@ final class LocalChatViewModel: ObservableObject {
   init(
     engine: any LocalModelEngine,
     selectionEditingSettings: SelectionEditingSettings = .shared,
-    replaceSelection: @escaping @MainActor (String, UUID) async -> Bool = { await SelectionContextService.shared.replace(with: $0, contextID: $1) },
+    replaceSelection: @escaping @MainActor (String, UUID, Bool) async -> Bool = {
+      await SelectionContextService.shared.replace(with: $0, contextID: $1, automatic: $2)
+    },
     files: FileModeCoordinator? = nil,
     appleMessages: MessagesCoordinator? = nil,
     messagesToolbox: MessagesToolboxFactory? = nil,
@@ -1226,16 +1241,20 @@ final class LocalChatViewModel: ObservableObject {
     contextNotice = nil
   }
 
-  func cycleRecentChat() {
-    guard !isBusy, !sessions.isEmpty else { return }
+  /// Returns whether another chat is open now.
+  @discardableResult
+  func cycleRecentChat() -> Bool {
+    guard !isBusy, !sessions.isEmpty else { return false }
     contextNotice = nil
     let selectedIndex = selectedSessionID.flatMap { id in sessions.firstIndex(where: { $0.id == id }) }
     let nextID = sessions[selectedIndex.map { ($0 + 1) % sessions.count } ?? 0].id
+    let changes = nextID != selectedSessionID
     if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
     if nextID != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
     selectedSessionID = nextID
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
+    return changes
   }
 
   func applicationBecameActive() {
@@ -1313,11 +1332,19 @@ final class LocalChatViewModel: ObservableObject {
     persistSessions(immediately: false)
   }
 
+  /// A chat kept out of retention and of the saved file: the temporary chat,
+  /// and the selection's chat while it's still empty after moving to the
+  /// window. That one is in Recents straight away but written only once its
+  /// question lands, so an abandoned send never costs an older saved chat.
+  private func isUnsaved(_ session: ChatSession) -> Bool {
+    session.id == temporarySessionID || (session.id == selectionSessionID && session.messages.isEmpty)
+  }
+
   private func sortAndPersistSessions() {
     sessions.sort { $0.lastActivityAt > $1.lastActivityAt }
-    let retained = Set(sessions.filter { $0.id != temporarySessionID }
+    let retained = Set(sessions.filter { !isUnsaved($0) }
       .prefix(ChatSessionStore.maximumRetainedSessions).map(\.id))
-    sessions.removeAll { $0.id != temporarySessionID && !retained.contains($0.id) }
+    sessions.removeAll { !isUnsaved($0) && !retained.contains($0.id) }
     persistSessions()
   }
 
@@ -1325,7 +1352,7 @@ final class LocalChatViewModel: ObservableObject {
     guard !isTemporaryChat else { return }
     sessionWriter.schedule(immediately: immediately) { [weak self] in
       guard let self else { return nil }
-      return self.sessions.filter { $0.id != self.temporarySessionID }
+      return self.sessions.filter { !self.isUnsaved($0) }
     }
   }
 
@@ -1460,8 +1487,9 @@ final class LocalChatViewModel: ObservableObject {
     hasReceivedResponse = false
     activeRequest = request
     requestSource = (userMessage.contexts ?? [], userMessage.selectionDraft)
-    // The note that a chat opened in the window is saved, or private, is said once.
-    openedSelectionChat = nil
+    // The note that a chat opened in the window is saved, or private, is said
+    // once, under its first exchange: the next message ends it.
+    if messages.contains(where: { $0.role == .user }) { openedSelectionChat = nil }
     selectionEditRequest = nil
     if userMessage.selectionResponseMode == .edit,
        let context = userMessage.contexts?.first(where: { $0.kind == .selectedText }) {
@@ -1503,7 +1531,7 @@ final class LocalChatViewModel: ObservableObject {
     isApplyingSelection = true
     selectionRevisions[messageID]?.status = .applying
     defer { isApplyingSelection = false }
-    let sent = await replaceSelection(revision.text, revision.contextID)
+    let sent = await replaceSelection(revision.text, revision.contextID, revision.automatic)
     guard selectionRevisions[messageID]?.contextID == revision.contextID else { return }
     selectionRevisions[messageID]?.status = sent ? .sent : .failed
     if !sent && revision.automatic { contextNotice = "Automatic replacement was not sent. Select the source text again and retry." }

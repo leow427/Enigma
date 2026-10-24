@@ -177,7 +177,9 @@ final class SelectionContextService: ObservableObject {
 
   /// Paste once into the remembered app's current selection, without restoring
   /// or inspecting the originally captured field, document, text, or range.
-  func replace(with text: String, contextID: UUID) async -> Bool {
+  /// `automatic` is an /edit revision pasted without Replace text: once it's
+  /// sent, Enigma stays out of the way rather than coming back to the front.
+  func replace(with text: String, contextID: UUID, automatic: Bool = false) async -> Bool {
     guard !isWorking, let target, target.contextID == contextID else {
       notice = "Replacement is unavailable. Select text and invoke Enigma again."
       return false
@@ -185,7 +187,11 @@ final class SelectionContextService: ObservableObject {
     isWorking = true
     defer { isWorking = false }
     NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
-    defer { NotificationCenter.default.post(name: .selectionReplacementEnded, object: nil) }
+    var sent = false
+    defer {
+      NotificationCenter.default.post(name: .selectionReplacementEnded,
+                                      object: SelectionReplacementEnd(automatic: automatic, sent: sent))
+    }
     let outcome = await SelectionPasteTransaction.perform(text: text, pid: target.pid, board: .general,
       isAvailable: { AXIsProcessTrusted() && !target.app.isTerminated && !IsSecureEventInputEnabled() },
       activate: {
@@ -208,6 +214,7 @@ final class SelectionContextService: ObservableObject {
       settle: { try? await Task.sleep(for: .milliseconds(600)) })
     switch outcome {
     case .sent:
+      sent = true
       self.target = nil // No automatic or accidental second attempt at an ambiguous paste.
       notice = "Replacement sent to \(target.app.localizedName ?? "the source app")."
       return true
@@ -862,4 +869,14 @@ final class SelectionAccessibilityAccess: ObservableObject {
     openSettings(Self.settingsURL)
     refresh()
   }
+}
+
+/// How a replacement ended, for the window that stepped aside for it.
+struct SelectionReplacementEnd: Equatable, Sendable {
+  let automatic: Bool
+  let sent: Bool
+
+  /// A sent automatic paste leaves the person in their app, looking at the
+  /// edited text. A manual one, or any paste that failed, brings Enigma back.
+  var keepsWindowHidden: Bool { automatic && sent }
 }

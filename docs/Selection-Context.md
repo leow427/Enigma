@@ -44,9 +44,10 @@ From top to bottom:
 - **The input row**: the Enigma character, the message field (placeholder
   "Ask about the selection"), **+** to attach files (see [File Mode](File-Mode.md)),
   a route chip such as `auto · local` or `cloud · <model>` that opens the mode and
-  model menu, and **↵** to send (**stop** while a reply is running).
-- **The hint row**: `/ commands` (or `⌘. stop` while responding), `⌘O open in window`,
-  `esc close`, and on the right `temporary · not saved`.
+  model menu, and **↵** to send.
+- **The hint row**: `/ commands`, `⌘O open in window`, `esc close`, and on the
+  right `temporary · not saved`. A reply never runs in the panel: the chat moves
+  to the window as soon as its request starts.
 
 The status button opens a details area under the input with the selected-text
 card, notices, and any permission or routing cards. It shows a warning icon, and
@@ -55,11 +56,18 @@ selection couldn't be read. Details open on their own when a request or capture
 fails. When the panel sits low on the screen, the command list and the mode menu
 open above the input.
 
-Sending the first question grows the panel downward into a conversation: the
-input stays where it is and the answer appears under it. Follow-up questions stay
-in the same panel. With **Reduce Motion** on, it grows without animating.
-
-![The panel grown into its answer, with the selection line reading "for /edit"](design/ui-revamp/screenshots/phase-10/compact-panel-answer-paper.png)
+Sending the first question moves the chat into the main window's normal chat
+layout as soon as its request starts, before any reply, as **⌘O** does (see
+[Opening the chat in the main window](#opening-the-chat-in-the-main-window)):
+the panel travels to the window's normal size, centered on its screen, and the
+model loads and the answer streams in there. With **Reduce Motion** on, it gets
+there at once. If the question then fails, or you stop it before it reaches the
+chat, the problem shows in the window and the selection stays attached; with a
+local model the question also stays in the composer to send again. A send that
+doesn't start a request leaves the panel where it is: one Auto can't route, or
+one that fails before it starts, opens the details with the problem, every time
+you send it; one waiting for you to allow a screenshot upload waits for your
+answer.
 
 **Escape** closes, in order, the command list, an open menu, the details, and then
 the panel. Hiding the panel keeps its chat until you start another one.
@@ -69,17 +77,18 @@ the panel. Hiding the panel keeps its chat until you start another one.
 Drag the panel by any empty part of it, such as the padding around the input or
 the middle of the hint row. It stays on the visible part of the screen under the
 pointer, below the menu bar. Once moved, it grows and shrinks from where you put
-it. The next invocation places it beside the new selection again. This drag
-doesn't move the panel between Spaces or offer window tiling.
+it, for the command list, the mode menu or the details. The next invocation
+places it beside the new selection again. This drag doesn't move the panel
+between Spaces or offer window tiling.
 
 ### Asking about the selection
 
 The selection goes with your **first message only**. After a reply arrives, the
-line changes to `› for /edit "…"` in a quieter color, the placeholder becomes
-"Ask anything", and new questions are ordinary turns: the model can still refer
-back to the selection in the conversation, but it isn't attached again. If the
-first reply fails, or is stopped before any text arrives, the next message carries
-the selection again.
+selected-text card over the window's composer says it was sent with your first
+message, and new questions are ordinary turns: the model can still refer back to
+the selection in the conversation, but it isn't attached again. If the first
+reply fails, or is stopped before any text arrives, the next message carries the
+selection again.
 
 Highlighting text never authorizes an edit. A plain question gets a read-only
 answer, and asking for a rewrite without **/edit** gets a hint to use **/edit**.
@@ -139,28 +148,46 @@ answers, translations, failed, stopped or incomplete replies, or a reply whose
 selection was removed. Turning it off cancels any pending automatic paste and
 shows the card instead.
 
+After an automatic paste, Enigma stays hidden, as if you had pressed Escape, so
+you stay in your app looking at the edited text. Summon Enigma again to see the
+same chat. If the automatic paste fails, Enigma comes back to show why. After
+you click **Replace text** yourself, Enigma comes back once the paste is sent.
+
 ### Opening the chat in the main window
 
-Press **⌘O** while the panel is focused, or click the
-**Open in window** button, at any point, even before the first answer. The chat
-moves into the main window at its normal size, with the sidebar as
-**Settings → General → Show sidebar** sets it, and keeps the selection for **/edit**
-and **Replace text**.
+The chat moves into the main window once you **send your first question**. You
+can also move it before sending: press **⌘O** while the panel is focused, or
+click the **Open in window** button. Either way the panel travels to the window's
+normal size, centered on its screen, with the sidebar as
+**Settings → General → Show sidebar** sets it, and the chat keeps the selection
+for **/edit** and **Replace text**.
 
 What happens to the chat depends on
 **Settings → Selection → Keep selection chats private** (off by default):
 
-- **Off**: the chat is saved like any other. It goes to the top of Recents,
-  titled from your first question, and a line under the messages says
-  "Saved to history · Enigma keeps your last 10 chats" until your next message.
-  The button's tooltip reads "Open in window · saves to history".
+- **Off**: the chat is an ordinary chat once it's in the window. It goes to the
+  top of Recents as "New Chat", and is saved and titled from your first question
+  once that question reaches the chat, as any new chat is. A line under the first
+  exchange says "Saved to history · Enigma keeps your last 10 chats" until your
+  next message. The button's tooltip reads "Open in window · saves to history".
 - **On**: the chat stays temporary in the window. It isn't saved and doesn't
-  appear in Recents. A line says "Private chat · not saved to history" until your
-  next message, and `temporary · not saved` stays over the composer. The tooltip
-  reads "Open in window · stays private".
+  appear in Recents. A line under the first exchange says "Private chat · not
+  saved to history" until your next message, and `temporary · not saved` stays
+  over the composer. The tooltip reads "Open in window · stays private".
 
-The setting is read when you open a chat in the window; changing it later doesn't
+The setting is read when the chat moves to the window; changing it later doesn't
 save or delete a chat that's already open.
+
+The question reaches the chat once its request is under way: with a text-only
+local model after the model has prepared it, with a vision-capable local model
+(every bundled one) when the reply's first words arrive, and with a cloud model
+as soon as it's sent, or after the web search when it searches. Until then the
+chat is in Recents as an empty "New Chat" but isn't written to disk, and it
+doesn't count toward the ten saved chats. If the question fails or is stopped
+before it arrives, the chat stays open empty; leave it, or an empty chat you
+opened with ⌘O without sending, and it's removed, so abandoned questions never
+fill Recents or push out an older chat. The selected text is never written on
+any route; the question is written only once it's in the chat.
 
 
 ## Privacy and permissions
@@ -244,7 +271,9 @@ and add the app you're running.
 While the chat is in the panel it lives only in memory: nothing is written to
 disk and it doesn't count toward saved chats. It's discarded when you invoke the
 selection shortcut again, start a new chat, switch to another chat, or quit.
-Closing the panel without opening the chat in the window saves nothing.
+Closing the panel before sending saves nothing. Once the chat moves to the
+window it's listed at the top of Recents and written once its first question
+lands, unless **Keep selection chats private** is on.
 
 The selected text itself is never written to disk, even in a saved chat: the
 saved chat keeps your messages and the replies. Replies can still quote parts of
@@ -363,16 +392,22 @@ written. Only your own question decides whether automatic search runs. See
   no focused element appeared within the wait.
 - **Placement and panel geometry.** `SpotlightPanelController.summonSelectionContext()`
   (`Enigma/App/SpotlightPanelController.swift`) places the panel with
-  `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, grows it with
-  `SelectionPanelExpansion` (720 pt wide, up to 600 pt tall, on
-  `EnigmaMotion.panelAnswer`), and handles **⌘O** and the **Open in window**
-  button (`.selectionChatOpenInWindowRequested`) through
-  `openSelectionChatInWindow()`. Dragging uses `enigmaWindowDragArea`
+  `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, and moves
+  its chat into the window through `openSelectionChatInWindow()`: a question
+  whose request has started (`finishSendFromPanel()` after
+  `AppShellView`'s submit paths), **⌘O** and the **Open in window** button all
+  post `.selectionChatOpenInWindowRequested`. The controller posts
+  `.selectionChatOpenedInWindow`, which switches the shell to the window layout
+  and calls `LocalChatViewModel.openTemporaryChatInWindow()`, then moves the
+  panel to the window's normal frame with `SelectionPanelMotion` on
+  `EnigmaMotion.screenChange`. `.selectionPanelSettled` restores the window
+  layout's minimum height once it arrives; a drag or a live resize settles the
+  move first. Dragging uses `enigmaWindowDragArea`
   (`Enigma/App/EnigmaControls.swift`).
 - **Panel views.** `EnigmaCompactPanel`, `EnigmaCompactSelectionLine`,
-  `EnigmaCompactComposer`, `EnigmaCompactDetails`, `EnigmaCompactAnswer` and
-  `EnigmaCompactHints` are in `Enigma/App/EnigmaCompactPanel.swift`; their labels and
-  rules (`CompactPanelLayout`, `CompactSelectionStatus`, `CompactRouteChip`,
+  `EnigmaCompactComposer`, `EnigmaCompactDetails` and `EnigmaCompactHints` are
+  in `Enigma/App/EnigmaCompactPanel.swift`; their labels and rules
+  (`CompactPanelLayout`, `CompactSelectionStatus`, `CompactRouteChip`,
   `CompactPanelHints`, `CompactPanelCharacter`) are in
   `Enigma/App/EnigmaCompactPanelLogic.swift`. `AppShellView` (`Enigma/App/AppShellView.swift`)
   owns the state and actions; `ShellPresentation` (`Enigma/App/ShellPresentation.swift`)
@@ -389,10 +424,15 @@ written. Only your own question decides whether automatic search runs. See
   selection attached can produce a card. Messages store contexts in memory only;
   they aren't part of the saved chat format. `SelectionEditingSettings` holds the
   two Selection settings.
-- **Replacement.** `SelectionContextService.replace(with:contextID:)` runs
+- **Replacement.** `SelectionContextService.replace(with:contextID:automatic:)` runs
   `SelectionPasteTransaction`: check permission and the source app, activate it,
   check the focused field, snapshot the clipboard, write the text with transient
   and auto-generated markers, post ⌘V to the source process, wait 600 ms, restore.
+  It posts `.selectionReplacementBegan`, which orders the window out, and
+  `.selectionReplacementEnded` with a `SelectionReplacementEnd`: after a sent
+  automatic paste `SpotlightPanelController` hides the window as a normal hide
+  does (unless it was summoned again during the paste); otherwise it brings the
+  window back.
 - **Permission.** `SelectionAccessibilityAccess` (same file) tracks trust and opens
   System Settings; `MacPermissionRows` (`Enigma/Screen/MacPermissionRows.swift`)
   shows it in Settings and the welcome setup.
@@ -500,11 +540,18 @@ documents.
   capture notices, clipboard preservation, paste transactions
   and their failure paths, which turns carry the selection, **/edit** and
   **/translate** handling, revision recovery, automatic replacement, temporary and
-  private chats, and panel expansion.
+  private chats, and moving the panel into the window.
 - `EnigmaTests/EnigmaCompactPanelTests.swift`: the panel's chip, placeholder, hints
-  and character state; growing, resizing, dragging, the details, Escape, opening in
-  the window (saved and private), and rendered screenshots.
-- `EnigmaTests/ScreenViewTests.swift` covers screenshots captured from the panel.
+  and character state; resizing, dragging, the details, Escape, moving into the
+  window by sending, ⌘O or Open in window (saved and private), a vision model's
+  question moving before its first token, a first question that fails, a send
+  that starts no request, abandoned sends (with Recents full too), a send that
+  lands with Recents full, ⌃Tab while the panel is busy, an empty window chat's
+  problem shown only on the page, and rendered screenshots.
+- `EnigmaTests/SelectionContextTests.swift` also covers the window staying
+  hidden after an automatic paste and coming back after a manual or failed one.
+- `EnigmaTests/ScreenViewTests.swift` covers screenshots captured from the panel,
+  and an Auto limitation opening the panel's details on every send.
 
 Run one class with
 `scripts/verify-xcode.sh test -only-testing:EnigmaTests/SelectionContextTests`.

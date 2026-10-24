@@ -12,14 +12,19 @@ enum AppCommand: String, CaseIterable {
 
 extension Notification.Name {
   static let selectionReplacementBegan = Notification.Name("enigma.selectionReplacementBegan")
+  /// The object is a `SelectionReplacementEnd`: whether the paste was
+  /// automatic and whether it was sent.
   static let selectionReplacementEnded = Notification.Name("enigma.selectionReplacementEnded")
-  static let selectionPanelExpandRequested = Notification.Name("enigma.selectionPanelExpandRequested")
   static let selectionPanelResetRequested = Notification.Name("enigma.selectionPanelResetRequested")
-  static let selectionPanelExpanded = Notification.Name("enigma.selectionPanelExpanded")
-  /// Command-O or the panel's Open in window button: open the panel's chat in the main window.
+  /// The panel went back to the window's normal frame without opening its chat there.
+  static let selectionPanelRestored = Notification.Name("enigma.selectionPanelRestored")
+  /// A question sent from the panel, Command-O, or the panel's Open in window
+  /// button: open the panel's chat in the main window.
   static let selectionChatOpenInWindowRequested = Notification.Name("enigma.selectionChatOpenInWindowRequested")
-  /// The panel's chat is now the main window's, at the window's normal size.
+  /// The panel's chat is now the main window's, which moves to its normal size.
   static let selectionChatOpenedInWindow = Notification.Name("enigma.selectionChatOpenedInWindow")
+  /// The window finished moving from the panel to its normal frame.
+  static let selectionPanelSettled = Notification.Name("enigma.selectionPanelSettled")
   static let selectionComposerHeightChanged = Notification.Name("enigma.selectionComposerHeightChanged")
   /// The compact panel was placed; the object is the room under it on screen.
   static let selectionPanelPlaced = Notification.Name("enigma.selectionPanelPlaced")

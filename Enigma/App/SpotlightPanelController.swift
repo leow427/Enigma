@@ -49,25 +49,16 @@ struct PanelSizeStore {
   }
 }
 
-/// How the compact panel grows into the full conversation. It keeps its
-/// input at the top and opens the answer under it, so the panel grows
-/// downward, on the `EnigmaMotion.panelAnswer` spring.
-enum SelectionPanelExpansion {
+/// How the compact panel moves into the window once its chat opens there:
+/// from wherever the panel is to the window's normal frame, on the
+/// `EnigmaMotion.screenChange` spring.
+enum SelectionPanelMotion {
   /// The panel's size when it opens, before its content reports its height.
   static let composerSize = NSSize(width: 720, height: 92)
 
-  /// The expanded panel's frame: its top edge stays where the composer's was.
-  static func frame(from composer: NSRect, visible: NSRect) -> NSRect {
-    let size = NSSize(width: min(composer.width, visible.width), height: min(600, visible.height))
-    let y = composer.maxY - size.height
-    return NSRect(x: min(max(composer.minX, visible.minX), visible.maxX - size.width),
-      y: min(max(y, visible.minY), visible.maxY - size.height),
-      width: size.width, height: size.height)
-  }
-
   /// A spring's progress from 0 to 1 after `time` seconds, starting at rest,
   /// in the response and damping terms SwiftUI uses.
-  static func springProgress(at time: Double, spring: EnigmaSpring = EnigmaMotion.panelAnswer) -> Double {
+  static func springProgress(at time: Double, spring: EnigmaSpring = EnigmaMotion.screenChange) -> Double {
     guard time > 0 else { return 0 }
     let stiffness = 2 * Double.pi / spring.response
     let damping = min(spring.dampingFraction, 0.999)
@@ -76,17 +67,26 @@ enum SelectionPanelExpansion {
     return 1 - exp(-decay * time) * (cos(frequency * time) + decay / frequency * sin(frequency * time))
   }
 
-  /// How long the spring takes to come within a thousandth of its target.
-  static func settlingDuration(_ spring: EnigmaSpring = EnigmaMotion.panelAnswer) -> Double {
-    log(1000) / (min(spring.dampingFraction, 0.999) * 2 * Double.pi / spring.response)
+  /// How long the spring takes to come, and stay, within a thousandth of
+  /// its target, so the jump to the target at the end can't be seen.
+  static func settlingDuration(_ spring: EnigmaSpring = EnigmaMotion.screenChange) -> Double {
+    let step = 0.001
+    var time = 0.0
+    var settled = 0.0
+    // Past 5 seconds no spring Enigma uses is still moving.
+    while time < 5 {
+      time += step
+      if abs(1 - springProgress(at: time, spring: spring)) >= 0.001 { settled = time }
+    }
+    return settled + step
   }
 
-  /// The panel's frame part of the way, `progress`, from `start` to `target`,
-  /// keeping its top edge in place.
-  static func frame(at progress: Double, from start: NSRect, to target: NSRect, visible: NSRect) -> NSRect {
-    let height = min(visible.height, start.height + (target.height - start.height) * progress)
-    let y = start.maxY + (target.maxY - start.maxY) * min(1, progress) - height
-    return NSRect(x: target.minX, y: min(visible.maxY - height, max(visible.minY, y)), width: target.width, height: height)
+  /// The panel's frame part of the way, `progress`, from `start` to `target`:
+  /// its position and size move together.
+  static func frame(at progress: Double, from start: NSRect, to target: NSRect) -> NSRect {
+    func mix(_ from: CGFloat, _ to: CGFloat) -> CGFloat { from + (to - from) * progress }
+    return NSRect(x: mix(start.minX, target.minX), y: mix(start.minY, target.minY),
+                  width: mix(start.width, target.width), height: mix(start.height, target.height))
   }
 }
 
@@ -134,8 +134,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private var selectionRestingTop: CGFloat?
   /// The frame the latest report set, to tell when someone has moved the panel.
   private var selectionAppliedFrame: NSRect?
-  private var expansionTask: Task<Void, Never>?
-  private var expansionTarget: NSRect?
+  private var moveTask: Task<Void, Never>?
+  private var moveTarget: NSRect?
 
   private(set) var isCapturingScreen = false
   private var captureHiddenWindows: [NSWindow] = []
@@ -182,14 +182,12 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(endScreenCapture), name: .screenCaptureEnded, object: nil)
 
     NotificationCenter.default.addObserver(self, selector: #selector(beginSelectionReplacement), name: .selectionReplacementBegan, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(endSelectionReplacement), name: .selectionReplacementEnded, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(expandSelectionPanel), name: .selectionPanelExpandRequested, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(endSelectionReplacement(_:)), name: .selectionReplacementEnded, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(openSelectionChatInWindow), name: .selectionChatOpenInWindowRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(userDragBegan(_:)), name: .enigmaWindowDragBegan, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(userDragEnded(_:)), name: .enigmaWindowDragEnded, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .recentChatCycleRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
     if let welcomeSetup {
       welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour)
@@ -208,13 +206,21 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   @objc private func beginSelectionReplacement() {
-    finishExpansion()
+    finishMove()
     // A nonactivating panel can own keyboard focus while the source is already
     // frontmost. Activating that app alone does not release the panel's focus.
     panel.orderOut(nil)
   }
 
-  @objc private func endSelectionReplacement() {
+  @objc private func endSelectionReplacement(_ notification: Notification) {
+    // After an automatic paste the window stays hidden, the same as Escape
+    // hides it: summoning Enigma again shows the same chat. The start of the
+    // paste ordered it out, so a visible window here was summoned again
+    // during the paste, and stays.
+    if (notification.object as? SelectionReplacementEnd)?.keepsWindowHidden == true {
+      if !panel.isVisible { hide() }
+      return
+    }
     panel.orderFrontRegardless()
     panel.makeKey()
     NotificationCenter.default.post(name: .panelPresented, object: nil)
@@ -238,7 +244,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   func presentSelectionContext(_ context: ConversationContext?, cursor: NSPoint, selection: NSRect?, visible: NSRect?) {
     guard normalSize == nil else { return }
-    finishExpansion()
+    finishMove()
     if selectionNormalFrame == nil { selectionNormalFrame = panel.frame }
     isSelectionComposer = true
     panel.minSize = NSSize(width: 640, height: 72)
@@ -258,9 +264,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// on arrival, or at its first size before anything has been reported.
   private var composerSize: NSSize {
     guard let report = selectionComposer, report.height > 0 else {
-      return SelectionPanelExpansion.composerSize
+      return SelectionPanelMotion.composerSize
     }
-    return NSSize(width: SelectionPanelExpansion.composerSize.width, height: max(72, report.restingHeight))
+    return NSSize(width: SelectionPanelMotion.composerSize.width, height: max(72, report.restingHeight))
   }
 
   /// The content reports its composer's height.
@@ -290,67 +296,64 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     selectionAppliedFrame = panel.frame
   }
 
-  @objc func expandSelectionPanel() {
-    guard isSelectionComposer else { return }
-    isSelectionComposer = false
-    let start = panel.frame
-    let visible = visibleFrame(panel) ?? start
-    let target = SelectionPanelExpansion.frame(from: start, visible: visible)
-    NotificationCenter.default.post(name: .selectionPanelExpanded, object: nil)
+  /// Moves the panel to `target`: on the spring while it's on screen, or at
+  /// once with Reduce Motion. The window's minimum size applies once it's
+  /// there, and the content hears that it has settled.
+  private func move(to target: NSRect) {
     guard !reduceMotion(), panel.isVisible else {
       panel.setFrame(target, display: true)
       panel.minSize = PanelSizeStore.minimumSize
+      NotificationCenter.default.post(name: .selectionPanelSettled, object: nil)
       return
     }
-    expansionTarget = target
-    let duration = SelectionPanelExpansion.settlingDuration()
-    expansionTask = Task { [weak self] in
+    let start = panel.frame
+    moveTarget = target
+    let duration = SelectionPanelMotion.settlingDuration()
+    moveTask = Task { [weak self] in
       let began = ContinuousClock.now
       while !Task.isCancelled {
         guard let self else { return }
         let elapsed = began.duration(to: .now)
         let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        let fraction = min(1, seconds / duration)
-        let progress = fraction >= 1 ? 1 : SelectionPanelExpansion.springProgress(at: seconds)
-        self.panel.setFrame(SelectionPanelExpansion.frame(at: progress, from: start, to: target, visible: visible),
-                            display: true)
-        if fraction >= 1 { self.finishExpansion(); return }
+        guard seconds < duration else { self.finishMove(); return }
+        let progress = SelectionPanelMotion.springProgress(at: seconds)
+        self.panel.setFrame(SelectionPanelMotion.frame(at: progress, from: start, to: target), display: true)
         try? await Task.sleep(for: .milliseconds(16))
       }
     }
   }
 
-  private func finishExpansion() {
-    expansionTask?.cancel()
-    expansionTask = nil
-    if let target = expansionTarget {
-      panel.setFrame(target, display: true)
-      panel.minSize = PanelSizeStore.minimumSize
-    }
-    expansionTarget = nil
+  /// A running move jumps to its end.
+  private func finishMove() {
+    moveTask?.cancel()
+    moveTask = nil
+    guard let target = moveTarget else { return }
+    moveTarget = nil
+    panel.setFrame(target, display: true)
+    panel.minSize = PanelSizeStore.minimumSize
+    NotificationCenter.default.post(name: .selectionPanelSettled, object: nil)
   }
 
-  /// ⌘O or the Open in window button, at any point in the
-  /// panel: its chat becomes the main window's, at the window's normal size,
-  /// centered on the screen the panel is on, as the window opens.
+  /// Sending a question, ⌘O, or the Open in window button, at any point in
+  /// the panel: its chat becomes the main window's, which moves to the
+  /// window's normal size, centered on the screen the panel is on.
   @objc func openSelectionChatInWindow() {
-    finishExpansion()
+    finishMove()
     guard let normal = selectionNormalFrame else { return }
     selectionNormalFrame = nil
     isSelectionComposer = false
     selectionRestingTop = nil
     selectionAppliedFrame = nil
-    panel.minSize = PanelSizeStore.minimumSize
     let frame = visibleFrame(panel).map { PanelSizeStore.centeredFrame(size: normal.size, in: $0) } ?? normal
-    panel.setFrame(frame, display: true)
     NotificationCenter.default.post(name: .selectionChatOpenedInWindow, object: nil)
+    move(to: frame)
   }
 
-  /// The user started dragging the panel: a running expansion jumps to its
-  /// end, so the drag moves the panel at its final size.
+  /// The user started dragging the panel: a running move into the window
+  /// jumps to its end, so the drag moves the window at its final size.
   @objc private func userDragBegan(_ notification: Notification) {
     guard notification.object as? NSWindow === panel else { return }
-    finishExpansion()
+    finishMove()
   }
 
   /// The user moved the panel. Where it is now is its new resting place, so
@@ -365,13 +368,13 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   @objc private func restoreNormalPanel() {
-    finishExpansion()
+    finishMove()
     guard let frame = selectionNormalFrame else { return }
     selectionNormalFrame = nil
     isSelectionComposer = false
     panel.minSize = PanelSizeStore.minimumSize
     panel.setFrame(frame, display: true)
-    NotificationCenter.default.post(name: .selectionPanelExpanded, object: nil)
+    NotificationCenter.default.post(name: .selectionPanelRestored, object: nil)
   }
 
   func show() {
@@ -384,7 +387,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   @objc private func beginScreenCapture() {
     guard !isCapturingScreen else { return }
-    finishExpansion()
+    finishMove()
     isCapturingScreen = true
     captureHiddenWindows = NSApp.windows.filter { $0 !== panel && $0.isVisible }
     captureHiddenWindows.forEach { $0.orderOut(nil) }
@@ -408,7 +411,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   func hide() {
-    finishExpansion()
+    finishMove()
     panel.orderOut(nil)
     NotificationCenter.default.post(name: .panelHidden, object: nil)
   }
@@ -416,6 +419,12 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   func toggle() {
     guard !isCapturingScreen else { return }
     panel.isVisible ? hide() : show()
+  }
+
+  /// A resize started while the panel moves into the window starts from the
+  /// window's final frame, as a drag does.
+  func windowWillStartLiveResize(_ notification: Notification) {
+    finishMove()
   }
 
   func windowDidEndLiveResize(_ notification: Notification) {

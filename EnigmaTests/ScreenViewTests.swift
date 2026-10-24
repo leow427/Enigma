@@ -1143,6 +1143,60 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertNotNil(fixture.screen.attachment)
   }
 
+  /// An Auto question in the panel that Auto can't route starts no request:
+  /// the chat stays in the panel, and its details open with the limitation.
+  func testAutoLimitationInThePanelOpensTheDetailsWithTheProblem() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true, mode: .auto)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    try await editScreenshotComposer("What is the latest news on this?", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForUI("the limitation in the panel's details", in: fixture.view) {
+      guard let limitation = fixture.chat.autoRouteDecision?.limitation else { return false }
+      return EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) != nil
+        && EnigmaMainWindowTests.Host.marker("Route status \(limitation.message)", in: fixture.view) != nil
+    }
+    XCTAssertTrue(fixture.controller.isSelectionComposer, "No request started, so the chat stays in the panel")
+    XCTAssertNotNil(EnigmaMainWindowTests.Host.marker("Compact panel", in: fixture.view))
+    XCTAssertNil(fixture.chat.activeRequest)
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertTrue(fixture.engine.requests.isEmpty)
+    XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
+
+    // Closed, the details open again with the same limitation on the next send.
+    try await clickTestControl("Selection details", in: fixture.view)
+    try await waitForUI("the details closed", in: fixture.view) {
+      EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) == nil
+    }
+    XCTAssertEqual(fixture.screen.draft, "What is the latest news on this?", "The question waits in the field")
+    try submitComposer(in: fixture.view)
+    try await waitForUI("the details open again", in: fixture.view) {
+      EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) != nil
+    }
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+  }
+
+  /// A typed /screen in the panel captures first: an earlier problem, closed,
+  /// doesn't reopen the details as the capture begins.
+  func testScreenCommandInThePanelDoesNotReopenAnEarlierProblem() async throws {
+    let fixture = try await makeScreenshotComposer(compact: true)
+    defer { fixture.controller.hide(); fixture.window.contentView = nil }
+    fixture.screen.error = "An earlier problem"
+    try await waitForUI("the details with the earlier problem", in: fixture.view) {
+      EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) != nil
+    }
+    try await clickTestControl("Selection details", in: fixture.view)
+    try await waitForUI("the details closed", in: fixture.view) {
+      EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view) == nil
+    }
+    try await editScreenshotComposer("/screen", in: fixture)
+    try submitComposer(in: fixture.view)
+    try await waitForScreenshotState { fixture.screen.attachment != nil && !fixture.screen.isBusy }
+    await settleScreenshotView(fixture.view)
+    XCTAssertNil(EnigmaMainWindowTests.Host.marker("Selection details panel", in: fixture.view),
+                 "Not reopened by the capture")
+    XCTAssertTrue(fixture.controller.isSelectionComposer)
+  }
+
   func testRealComposerScreenRecordingDenialKeepsCompactDraft() async throws {
     let fixture = try await makeScreenshotComposer(compact: true)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
@@ -1176,7 +1230,7 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertTrue(fixture.cloudProvider.requests.isEmpty)
       XCTAssertNil(fixture.window.attachedSheet)
       let originalID = try XCTUnwrap(fixture.screen.attachment?.id)
-      try await waitForUI("the screenshot card inside the grown panel", in: fixture.view) {
+      try await waitForUI("the screenshot card inside the panel", in: fixture.view) {
         ["Retake", "Remove"].allSatisfy { name in
           guard let marker = EnigmaMainWindowTests.Host.marker(name, in: fixture.view) else { return false }
           return fixture.view.bounds.contains(fixture.view.convert(marker.bounds, from: marker))
@@ -1207,7 +1261,7 @@ final class ScreenViewTests: XCTestCase {
       XCTAssertTrue(request.messages.last?.content.contains("Selected passage fixture") == true)
       XCTAssertFalse(request.messages.contains { $0.content.contains("values.count") || $0.imagePreview != nil })
       XCTAssertFalse(fixture.settings.allowCloudScreenshots)
-      XCTAssertFalse(fixture.controller.isSelectionComposer, "The accepted question grows the panel")
+      XCTAssertFalse(fixture.controller.isSelectionComposer, "The started request moves the chat to the window")
     }
   }
 

@@ -77,14 +77,15 @@ struct AppShellView: View {
     self.selectionEditing = chat.selectionEditingSettings
   }
 
-  /// Notices and cards over the composer, as opaque cards. The compact panel
-  /// leaves out what it shows itself: the selected text in its own line once
-  /// it has grown, and, in its details, the screenshot that sits under its
-  /// input, so the screenshot's consent sheet has one home.
-  private func composerAccessories(showsSelectedText: Bool = true, showsScreenshot: Bool = true) -> some View {
+  /// Notices and cards over the composer, as opaque cards. The compact panel's
+  /// details leave out the screenshot that sits under its input, so the
+  /// screenshot's consent sheet has one home.
+  private func composerAccessories(showsScreenshot: Bool = true) -> some View {
     VStack(alignment: .trailing, spacing: 8) {
-      // The empty page shows the status under its greeting instead.
-      if !isChatEmpty {
+      // The empty page shows the status under its greeting instead. The
+      // panel has no page, so its details show a problem that kept a question
+      // from starting.
+      if !isChatEmpty || (shell.isSelectionComposer && routeStatusSummary.kind == .problem) {
         EnigmaRouteStatusLine(status: routeStatusSummary, isActionEnabled: !localChat.isBusy,
                               performAction: performRouteAction)
       }
@@ -96,7 +97,7 @@ struct AppShellView: View {
       }
       // A private selection chat in the window says it's temporary for as long
       // as it's open, where the panel's chat says it: in the panel, its hint row.
-      if localChat.isTemporaryChat && !shell.showsCompactPanel {
+      if localChat.isTemporaryChat && !shell.isSelectionComposer {
         EnigmaChatNote(CompactPanelHints.temporaryTag, monospaced: true)
           .enigmaTestMarker("Window tag \(CompactPanelHints.temporaryTag)")
       }
@@ -105,12 +106,10 @@ struct AppShellView: View {
       if !selectionAccess.isGranted && localChat.isSelectionChat {
         AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
       }
-      if showsSelectedText {
-        ForEach(localChat.attachedContexts) { context in
-          SelectionContextCard(context: context, isSent: localChat.sentContextIDs.contains(context.id),
-                               isBusy: localChat.isBusy || selectionContext.isWorking) {
-            localChat.removeContext(id: context.id)
-          }
+      ForEach(localChat.attachedContexts) { context in
+        SelectionContextCard(context: context, isSent: localChat.sentContextIDs.contains(context.id),
+                             isBusy: localChat.isBusy || selectionContext.isWorking) {
+          localChat.removeContext(id: context.id)
         }
       }
       if let notice = selectionContext.notice, localChat.isSelectionChat {
@@ -157,7 +156,7 @@ struct AppShellView: View {
   // Keep these modifier groups separate so Swift can type-check each expression.
   /// The compact selection panel, or the window frame with the sidebar and main page.
   @ViewBuilder private var windowFrame: some View {
-    if shell.showsCompactPanel {
+    if shell.isSelectionComposer {
       compactPanel
     } else {
       shellLayout
@@ -166,7 +165,7 @@ struct AppShellView: View {
 
   /// The window's corners. The compact panel draws its own.
   private var windowShape: AnyShape {
-    shell.showsCompactPanel ? AnyShape(Rectangle())
+    shell.isSelectionComposer ? AnyShape(Rectangle())
       : AnyShape(RoundedRectangle(cornerRadius: EnigmaWindowChrome.cornerRadius, style: .continuous))
   }
 
@@ -223,12 +222,16 @@ struct AppShellView: View {
       guard shell.isSelectionComposer, report.height > 0 else { return }
       NotificationCenter.default.post(name: .selectionComposerHeightChanged, object: report)
     }
-    .onReceive(NotificationCenter.default.publisher(for: .selectionPanelExpanded)) { _ in
-      shell.leaveSelectionComposer()
+    .onReceive(NotificationCenter.default.publisher(for: .selectionPanelRestored)) { _ in
+      shell.leaveSelectionPanel()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .selectionPanelSettled)) { _ in
+      shell.isSettlingIntoWindow = false
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionChatOpenedInWindow)) { _ in
       // The panel's chat is now the window's: the normal layout with the
-      // sidebar as a new chat has it, and saved to history from here on.
+      // sidebar as a new chat has it, in Recents and written once its first
+      // question lands, unless "Keep selection chats private" is on.
       shell.openSelectionChatInWindow(showsSidebar: startPreferences.showsSidebar)
       localChat.openTemporaryChatInWindow()
     }
@@ -291,8 +294,12 @@ struct AppShellView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .recentChatCycleRequested)) { _ in
       guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      // The panel stays while the chat can't switch, as when a request or the
+      // file picker is running: its chat isn't left half in the window.
+      let leavesPanel = shell.isSelectionComposer
+      guard localChat.cycleRecentChat() else { return }
       shell.cycleRecentChat()
-      localChat.cycleRecentChat()
+      if leavesPanel { NotificationCenter.default.post(name: .selectionPanelResetRequested, object: nil) }
     }
   }
 
@@ -446,7 +453,9 @@ struct AppShellView: View {
                  value: shell.isSidebarVisible)
     }
     .modifier(EnigmaWindowChrome())
-    .frame(minWidth: 640, minHeight: shell.isSelectionPresentation ? 0 : 420)
+    // The window's minimum height, except while it's the panel or on its way
+    // from the panel, which starts smaller.
+    .frame(minWidth: 640, minHeight: shell.isSelectionComposer || shell.isSettlingIntoWindow ? 0 : 420)
   }
 
   private var sidebar: some View {
@@ -589,17 +598,14 @@ struct AppShellView: View {
   /// The compact selection panel, with the same actions, notices, cards, and
   /// consent steps as the window.
   private var compactPanel: some View {
-    let composing = shell.isSelectionComposer
-    return EnigmaCompactPanel(
-      isComposing: composing,
+    EnigmaCompactPanel(
       opensOverlaysAbove: compactOpensOverlaysAbove,
       hints: CompactPanelHints.hints(isResponding: localChat.activeRequest != nil),
       isTemporary: localChat.isTemporaryChat,
       selection: {
         EnigmaCompactSelectionLine(
-          contexts: localChat.attachedContexts, sentContextIDs: localChat.sentContextIDs,
+          contexts: localChat.attachedContexts,
           isBusy: localChat.isBusy || selectionContext.isWorking,
-          isComposing: composing,
           statusNeedsAttention: CompactPanelCharacter.statusNeedsAttention(
             notice: selectionContext.notice, isAccessibilityGranted: selectionAccess.isGranted),
           isStatusPresented: shell.isSelectionDetailsPresented,
@@ -623,10 +629,6 @@ struct AppShellView: View {
             .enigmaDismissesOnEscape { shell.isSelectionDetailsPresented = false }
             .transition(.opacity)
         }
-      },
-      answer: {
-        EnigmaCompactAnswer(conversation: { compactMessageList },
-                            accessories: { composerAccessories(showsSelectedText: false) })
       })
     .animation(reduceMotion ? .easeOut(duration: 0.12) : EnigmaMotion.menu.animation,
                value: shell.isSelectionDetailsPresented)
@@ -637,10 +639,7 @@ struct AppShellView: View {
     EnigmaCompactComposer(
       text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
       availableCommands: availableCommands,
-      // Once the selection has gone with the first message, new questions don't carry it.
-      placeholder: CompactPanelLayout.placeholder(hasSelection: localChat.attachedContexts.contains {
-        !localChat.sentContextIDs.contains($0.id)
-      }),
+      placeholder: CompactPanelLayout.placeholder(hasSelection: !localChat.attachedContexts.isEmpty),
       opensSuggestionsAbove: compactOpensOverlaysAbove,
       insertion: composerInsertion, submit: { submitDraft() },
       files: files, isAttachDisabled: localChat.isBusy || files.isPicking || files.isWorking,
@@ -662,17 +661,6 @@ struct AppShellView: View {
     case .cloud: cloudSettings.preferredModelID.isEmpty ? nil : cloudSettings.preferredModelID
     case .auto: nil
     }
-  }
-
-  /// The chat under the compact panel's input: the same list, revision cards,
-  /// and per-chat identity as the main window's, gathered at the top.
-  private var compactMessageList: some View {
-    EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
-                      sendRevision: conversationSendRevision,
-                      activityExpansion: activityExpansion, gathersAtBottom: false, horizontalPadding: 16) {
-      revisionCard($0)
-    }
-    .id(localChat.selectedSessionID)
   }
 
   // MARK: Character
@@ -698,7 +686,7 @@ struct AppShellView: View {
   /// In the compact panel, the selection couldn't be read or Accessibility is missing.
   private var hasSelectionProblem: Bool {
     CompactPanelCharacter.hasSelectionProblem(
-      isPanel: shell.isSelectionPresentation, isComposing: shell.isSelectionComposer,
+      isPanel: shell.isSelectionComposer,
       hasSelection: !localChat.attachedContexts.isEmpty, notice: selectionContext.notice,
       isAccessibilityGranted: selectionAccess.isGranted, isTemporaryChat: localChat.isTemporaryChat)
   }
@@ -713,7 +701,7 @@ struct AppShellView: View {
   /// Where the character sits outside the welcome: beside the latest reply
   /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
-    let home = shell.showsCompactPanel ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
+    let home = shell.isSelectionComposer ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
     guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
                                                   activity: localChat.activity) ?? home
@@ -838,10 +826,25 @@ struct AppShellView: View {
     }
   }
 
-  private func expandSelectionConversation() {
+  /// After a send from the selection panel. A question whose request started
+  /// moves its chat to the window's own layout before any reply, as ⌘O does:
+  /// into Recents, or kept temporary when "Keep selection chats private" is
+  /// on. A send that started none stays in the panel, and opens its details
+  /// on whatever stopped it, every time, so a repeated send never looks like
+  /// it did nothing. One waiting on a consent dialog leaves them to it.
+  private func finishSendFromPanel() {
     guard shell.isSelectionComposer else { return }
-    NotificationCenter.default.post(name: .selectionPanelExpandRequested, object: nil)
-    shell.leaveSelectionComposer()
+    if localChat.activeRequest != nil {
+      NotificationCenter.default.post(name: .selectionChatOpenInWindowRequested, object: nil)
+      return
+    }
+    guard screenUploadConsent == nil, messages.cloudDisclosure == nil else { return }
+    var failed = false
+    if case .failed = localChat.state { failed = true }
+    if failed || localChat.autoRouteDecision?.limitation != nil || screen.error != nil || files.error != nil
+        || messages.issue != nil {
+      shell.revealSelectionProblem()
+    }
   }
 
   /// What the composer's chips and Send both resolve, so they agree.
@@ -874,6 +877,10 @@ struct AppShellView: View {
   private func submitDraft(recognizesCommands: Bool = true) {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
+    // A typed /screen captures first; the send that follows the capture
+    // finishes it, so an earlier problem doesn't reopen the details meanwhile.
+    var finishesSend = true
+    defer { if finishesSend { finishSendFromPanel() } }
     let originalDraft = draft
     let submission = ComposerSubmission.plan(composerIntent(recognizesCommands: recognizesCommands), hasFileSelection: files.selection != nil,
                                              hasScreenshot: screen.isEnabled, canSubmit: canSubmit)
@@ -885,7 +892,6 @@ struct AppShellView: View {
     case .files(let prompt):
       localChat.submitFiles(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
         cloudModelID: cloudSettings.preferredModelID) {
-          expandSelectionConversation()
           draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
         }
     case .messagesConflict:
@@ -893,6 +899,7 @@ struct AppShellView: View {
     case .messages(let prompt):
       submitMessages(prompt)
     case .captureScreen:
+      finishesSend = false
       Task {
         let automaticPrompt = await screen.capture(submittedCommand: true)
         shell.isComposerFocused = true
@@ -902,7 +909,6 @@ struct AppShellView: View {
       if let attachment = screen.attachment { submitScreenAttachment(attachment, recognizesCommands: recognizesCommands) }
     case .chat(let prompt, let searchEnabled):
       let accepted: @MainActor () -> Void = {
-        expandSelectionConversation()
         draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
       }
       // The resolved draft already decided search, including a dismissed search chip.
@@ -926,6 +932,7 @@ struct AppShellView: View {
   }
 
   private func submitMessages(_ prompt: String) {
+    defer { finishSendFromPanel() }
     if shell.selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
       messages.requestDisclosure(for: cloudSettings.preferredProvider, prompt: prompt)
       return
@@ -933,7 +940,6 @@ struct AppShellView: View {
     let originalDraft = draft
     localChat.submitMessages(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
       cloudModelID: cloudSettings.preferredModelID) {
-        expandSelectionConversation()
         draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
       }
   }
@@ -977,7 +983,6 @@ struct AppShellView: View {
       localChat.submitScreen(prompt, attachment: attachment, decision: decision, selectedMode: shell.selectedMode,
         searchEnabled: searchEnabled, allowsAutomaticSearch: false,
         cloudUploadAllowed: { screenSettings.allowCloudScreenshots && screenSettings.hasExplainedCloudPermission }) {
-          expandSelectionConversation()
           draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
           if screen.attachment?.id == attachment.id { screen.removeAttachment() }
           shell.isComposerFocused = true

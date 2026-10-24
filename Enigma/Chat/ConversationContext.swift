@@ -220,8 +220,9 @@ final class SelectionEditingSettings: ObservableObject {
     didSet { defaults.set(automaticallyReplace, forKey: Self.automaticKey) }
   }
   /// Off by default: a selection chat is temporary in the panel and saved once
-  /// it's opened in the window. On, it stays temporary in the window too. Read
-  /// when a chat is opened in the window, so a change applies from the next one.
+  /// it moves to the window, by sending a question or by ⌘O. On, it stays
+  /// temporary in the window too. Read when a chat moves to the window, so a
+  /// change applies from the next one.
   @Published var keepsChatsPrivate: Bool {
     didSet { defaults.set(keepsChatsPrivate, forKey: Self.privateChatsKey) }
   }
@@ -233,7 +234,7 @@ final class SelectionEditingSettings: ObservableObject {
 
   static let privateChatsTitle = "Keep selection chats private"
   static func privateChatsSubtitle(isOn: Bool) -> String {
-    isOn ? "Chats you start from a selection are never saved, even after you open them in the window."
-      : "A selection chat is saved to history when you open it in the window."
+    isOn ? "Chats you start from a selection are never saved, even after they move to the window."
+      : "A selection chat is saved to history once it moves to the window, when you send a question or press ⌘O."
   }
 }

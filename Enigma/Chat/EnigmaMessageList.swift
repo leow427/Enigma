@@ -17,11 +17,6 @@ struct EnigmaMessageList<Revision: View>: View {
   /// Changes when the person sends a message, which brings the end back into view.
   var sendRevision = ""
   let activityExpansion: (UUID) -> Binding<Bool>
-  /// Messages gather at the bottom, by a composer under the list, or at the
-  /// top, under the compact panel's input.
-  var gathersAtBottom = true
-  /// The compact panel's narrower margins line the replies up with its input.
-  var horizontalPadding: CGFloat = 24
   /// A quiet monospace line under the messages, in the replies' meta style,
   /// like the note that a chat kept from the panel is now saved. It's never
   /// part of the transcript.
@@ -53,11 +48,11 @@ struct EnigmaMessageList<Revision: View>: View {
           }
         }
         .frame(maxWidth: MainPageLayout.columnMaximumWidth)
-        .padding(.horizontal, horizontalPadding)
-        .padding(.top, gathersAtBottom ? 20 : 14)
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
         .padding(.bottom, 14)
         // Messages gather by the composer, as in the mockups.
-        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: gathersAtBottom ? .bottom : .top)
+        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .bottom)
         .background(ConversationScrollObserver(contentRevision: scrollRevision, sendRevision: sendRevision).allowsHitTesting(false))
         .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.rowEnter.animation,
                    value: transcript.rows.map(\.id))
