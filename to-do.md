@@ -641,7 +641,18 @@ say "the selection shortcut"). Also fix the comments that still say
 `testDoubleControlOpensThePanelsChatInTheWindowBeforeTheFirstAnswer` (opening
 a selection chat in the window is ⌘O).
 
-### B15. Messages can report a send as checked when it wasn't
+### B15. ✅ Done: Messages can report a send as checked when it wasn't
+
+> **Solved:** The check ran only for sends to an existing conversation, and
+> `latestOutgoing` took the newest outgoing message whatever its state. Now a
+> send to a new handle looks, on each check, for the one-to-one conversation
+> Messages creates for it, matching phone numbers on their last ten digits
+> (`+15551230001` or `5551230001`) and emails in any case; groups don't count.
+> Messages marks a failed message with a non-zero `error`, so those are left
+> out, and "sent" needs `is_sent` too: a message still being sent when the time
+> runs out is reported as handed to Messages. A zero timeout still checks once.
+> Tests cover new handles, handle formats, groups, failed and still-sending
+> messages, older identical messages, polling, and stopping.
 
 **Problem:** `docs/Messages.md` says each send is checked against Messages'
 history for three seconds. A send to someone you haven't messaged from this Mac

@@ -141,7 +141,12 @@ ask you which, with phone numbers listed first. The card shows the exact handle
 before you approve.
 
 After a send, Enigma checks the Messages history for up to three seconds and
-reports either that the message appears there or that Messages accepted it.
+reports either that the history shows the message as sent or that Messages
+accepted it.
+For a handle with no conversation yet, it looks for the one-to-one
+conversation Messages creates, matching phone numbers on their last ten digits
+and emails in any case. A message that Messages marked as failed, or that is
+still being sent when the time runs out, is reported only as accepted.
 
 ## Setup
 

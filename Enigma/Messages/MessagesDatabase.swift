@@ -246,16 +246,38 @@ struct MessagesDatabase: Sendable {
     }
   }
 
-  /// The newest message from this Mac's owner in a chat, used to confirm a send reached Messages.
-  func latestOutgoing(chatGUID: String) throws -> MessagesMessageRecord? {
+  /// The newest message from this Mac's owner in a chat that Messages hasn't marked as failed,
+  /// used to confirm a send reached Messages. `isSent` is false while it is still being sent.
+  func latestOutgoing(chatGUID: String) throws -> (message: MessagesMessageRecord, isSent: Bool)? {
     try withConnection { db in
       try db.query("""
-        SELECT \(Self.messageColumns)
+        SELECT \(Self.messageColumns), m.is_sent
         FROM chat c JOIN chat_message_join j ON j.chat_id = c.ROWID JOIN message m ON m.ROWID = j.message_id
         LEFT JOIN handle h ON h.ROWID = m.handle_id
-        WHERE c.guid = ?1 AND m.is_from_me = 1 AND m.associated_message_type = 0
+        WHERE c.guid = ?1 AND m.is_from_me = 1 AND m.associated_message_type = 0 AND IFNULL(m.error, 0) = 0
         ORDER BY m.date DESC, m.ROWID DESC LIMIT 1
-        """, [.text(chatGUID)]) { Self.message($0, from: 0, chatGUID: chatGUID) }.first
+        """, [.text(chatGUID)]) {
+        (Self.message($0, from: 0, chatGUID: chatGUID), $0.integer(Self.messageColumnCount) != 0)
+      }.first
+    }
+  }
+
+  /// One-to-one chats with `handle`, in any format of it, such as the one Messages creates
+  /// when sending to a new handle.
+  func directChatGUIDs(handle: String) throws -> [String] {
+    let key = MessagesHandle.key(handle)
+    return try withConnection { db in
+      var guids: [String] = []
+      try db.each("""
+        SELECT c.guid, c.chat_identifier, h.id FROM chat c
+        LEFT JOIN chat_handle_join j ON j.chat_id = c.ROWID LEFT JOIN handle h ON h.ROWID = j.handle_id
+        WHERE c.style IS NOT 43
+        """, []) { row in
+        if let guid = row.text(0), !guids.contains(guid),
+           [row.text(1), row.text(2)].contains(where: { $0.map(MessagesHandle.key) == key }) { guids.append(guid) }
+        return true
+      }
+      return guids
     }
   }
 

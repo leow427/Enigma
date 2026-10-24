@@ -27,7 +27,7 @@ struct MessagesFixture {
       CREATE TABLE chat_handle_join (chat_id INTEGER, handle_id INTEGER);
       CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT, text TEXT, attributedBody BLOB, handle_id INTEGER,
         date INTEGER, is_from_me INTEGER, cache_has_attachments INTEGER DEFAULT 0,
-        associated_message_type INTEGER DEFAULT 0, item_type INTEGER DEFAULT 0);
+        associated_message_type INTEGER DEFAULT 0, item_type INTEGER DEFAULT 0, error INTEGER DEFAULT 0, is_sent INTEGER DEFAULT 0);
       CREATE TABLE chat_message_join (chat_id INTEGER, message_id INTEGER, message_date INTEGER);
       INSERT INTO handle VALUES (1, '\(Self.alice)', 'iMessage'), (2, '\(Self.bob)', 'iMessage'), (3, '\(Self.carol)', 'SMS');
       INSERT INTO chat VALUES (1, '\(Self.aliceChat)', '\(Self.alice)', '', 'iMessage', 45),
@@ -48,7 +48,10 @@ struct MessagesFixture {
     ]
     for row in rows {
       var statement: OpaquePointer?
-      sqlite3_prepare_v2(db, "INSERT INTO message VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, &statement, nil)
+      sqlite3_prepare_v2(db, """
+        INSERT INTO message (ROWID, guid, text, attributedBody, handle_id, date, is_from_me, cache_has_attachments,
+          associated_message_type, item_type, is_sent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, -1, &statement, nil)
       let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
       let date = AppleMessageDate.nanoseconds(Self.start.addingTimeInterval(row.offset))
       sqlite3_bind_int64(statement, 1, Int64(row.id))
@@ -64,10 +67,19 @@ struct MessagesFixture {
       sqlite3_bind_int64(statement, 8, row.attachment ? 1 : 0)
       sqlite3_bind_int64(statement, 9, Int64(row.type))
       sqlite3_bind_int64(statement, 10, Int64(row.item))
+      sqlite3_bind_int64(statement, 11, row.fromMe ? 1 : 0)
       guard sqlite3_step(statement) == SQLITE_DONE else { throw MessagesError.databaseUnreadable("insert") }
       sqlite3_finalize(statement)
       try run("INSERT INTO chat_message_join VALUES (\(row.chat), \(row.id), \(date))")
     }
+  }
+
+  /// Writes to a fixture database the way Messages would.
+  static func execute(_ sql: String, at url: URL) {
+    var db: OpaquePointer?
+    sqlite3_open(url.path, &db)
+    defer { sqlite3_close(db) }
+    XCTAssertEqual(sqlite3_exec(db, sql, nil, nil, nil), SQLITE_OK, String(cString: sqlite3_errmsg(db)))
   }
 
   /// The archive Messages writes: an NSAttributedString in typedstream format.
@@ -223,6 +235,26 @@ final class MessagesDatabaseTests: XCTestCase {
     XCTAssertEqual(try database.chats().count, 3)
   }
 
+  func testLatestOutgoingLeavesOutFailedMessages() throws {
+    XCTAssertEqual(try database.latestOutgoing(chatGUID: MessagesFixture.aliceChat)?.message.rowID, 2)
+    let failed = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(600))
+    MessagesFixture.execute("""
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me, error) VALUES (20, 'g20', 'Failed', 1, \(failed), 1, 22);
+      INSERT INTO chat_message_join VALUES (1, 20, \(failed));
+      """, at: database.url)
+    let latest = try XCTUnwrap(database.latestOutgoing(chatGUID: MessagesFixture.aliceChat))
+    XCTAssertEqual(latest.message.rowID, 2, "A newer failed message is left out")
+    XCTAssertTrue(latest.isSent)
+    let pending = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(700))
+    MessagesFixture.execute("""
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me) VALUES (21, 'g21', 'Sending', 1, \(pending), 1);
+      INSERT INTO chat_message_join VALUES (1, 21, \(pending));
+      """, at: database.url)
+    let sending = try XCTUnwrap(database.latestOutgoing(chatGUID: MessagesFixture.aliceChat))
+    XCTAssertEqual(sending.message.rowID, 21)
+    XCTAssertFalse(sending.isSent, "A message still being sent is returned but not as sent")
+  }
+
   func testMissingAndPrivacyProtectedDatabasesGiveActionableErrors() throws {
     XCTAssertThrowsError(try MessagesDatabase(url: root.appendingPathComponent("absent.db")).conversations(limit: 1)) {
       XCTAssertEqual($0 as? MessagesError, .databaseMissing)
@@ -293,10 +325,12 @@ final class MessagesToolsTests: XCTestCase {
   override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
 
   private func tools(contacts: FixtureContacts = FixtureContacts(), runner: RecordingRunner = RecordingRunner(),
+                     sender: MessagesSender? = nil,
                      approve: @escaping @Sendable (MessagesSendApproval) async -> Bool = { _ in true }) -> MessagesTools {
-    var tools = MessagesTools(database: database, contacts: contacts, sender: MessagesSender(run: runner.run),
+    var tools = MessagesTools(database: database, contacts: contacts, sender: sender ?? MessagesSender(run: runner.run),
       timeZone: utc, confirmSend: approve)
     tools.sendConfirmationTimeout = .zero
+    tools.sendConfirmationPause = { XCTFail("A zero timeout checks once without pausing"); throw CancellationError() }
     return tools
   }
 
@@ -376,7 +410,7 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(approval.service, "iMessage")
     XCTAssertEqual(approval.target, .chat(MessagesFixture.aliceChat))
     XCTAssertEqual(runner.invocations.map(\.arguments), [["-", "chat", MessagesFixture.aliceChat, text]])
-    XCTAssertEqual(output["status"].string, "handed_to_messages")
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "The fake runner records nothing in Messages history")
     let repeated = await tools.execute(name: "send_message",
       arguments: .object(["recipient": .string("Alice"), "text": .string(text)]))
     XCTAssertFalse(repeated.success)
@@ -647,21 +681,159 @@ final class MessagesToolsTests: XCTestCase {
 
   func testConfirmedSendIsReportedFromMessagesHistory() async throws {
     // Simulate Messages recording the outgoing message after osascript returns.
-    let url = database.url
-    let runner = RecordingRunner()
-    let recording = MessagesSender { _, arguments, _ in
-      var db: OpaquePointer?
-      sqlite3_open(url.path, &db)
-      let date = AppleMessageDate.nanoseconds(.now)
-      sqlite3_exec(db, "INSERT INTO message VALUES (20, 'g20', '\(arguments[3])', NULL, 0, \(date), 1, 0, 0, 0); INSERT INTO chat_message_join VALUES (1, 20, \(date));", nil, nil, nil)
-      sqlite3_close(db)
-      return try await runner.run(MessagesSender.osascript, arguments, "")
-    }
+    let recording = sender { Self.outgoing($0, id: 20) }
     let tools = MessagesTools(database: database, contacts: FixtureContacts(), sender: recording, confirmSend: { _ in true })
     let output = try json(await tools.execute(name: "send_message",
       arguments: .object(["recipient": .string("Alice Smith"), "text": .string("See you soon")])))
     XCTAssertEqual(output["status"].string, "sent")
   }
+
+  func testFailedOrUnsentMessageInAnExistingChatIsNotReportedAsSent() async throws {
+    let failed = try json(await tools(sender: sender { Self.outgoing($0, id: 20, error: 22) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(failed["status"].string, "handed_to_messages", "Messages marked the message as failed")
+    XCTAssertTrue(failed["note"].string?.contains("may have failed") == true)
+    let pending = try json(await tools(sender: sender { Self.outgoing($0, id: 21, isSent: false) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("On my way")])))
+    XCTAssertEqual(pending["status"].string, "handed_to_messages", "Messages is still sending it")
+  }
+
+  func testSendToANewHandleIsConfirmedInTheConversationMessagesCreates() async throws {
+    let seen = ApprovalRecorder()
+    let tools = tools(sender: sender { Self.newChat("+15559990000", id: 10, text: $0) }) { await seen.record($0); return true }
+    let output = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("+1 (555) 999-0000"), "text": .string("Hello there")])))
+    let approvals = await seen.approvals
+    XCTAssertEqual(approvals.first?.target, .iMessage("+15559990000"))
+    XCTAssertEqual(output["status"].string, "sent")
+    XCTAssertEqual(output["note"].string, "Messages history shows the message as sent.")
+  }
+
+  func testSendToANewHandleWithoutItsConversationIsOnlyHandedToMessages() async throws {
+    let runner = RecordingRunner()
+    let nothing = try json(await tools(runner: runner).execute(name: "send_message",
+      arguments: .object(["recipient": .string("+1 (555) 999-0000"), "text": .string("Hello there")])))
+    XCTAssertEqual(runner.invocations.map(\.arguments), [["-", "imessage", "+15559990000", "Hello there"]])
+    XCTAssertEqual(nothing["status"].string, "handed_to_messages", "No conversation appeared")
+    let group = try json(await tools(sender: sender { Self.newChat("+15559990000", id: 10, style: 43, text: $0) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("+15559990000"), "text": .string("Hello group")])))
+    XCTAssertEqual(group["status"].string, "handed_to_messages", "A group with the handle is not its conversation")
+  }
+
+  func testNewHandleConversationMatchesAnyFormatOfTheHandle() async throws {
+    let phone = try json(await tools(sender: sender { Self.newChat("5559990000", id: 10, text: $0) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("+15559990000"), "text": .string("Hi")])))
+    XCTAssertEqual(phone["status"].string, "sent")
+    let email = try json(await tools(sender: sender { Self.newChat("Dana@Example.com", id: 11, text: $0) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("dana@example.com"), "text": .string("Hi")])))
+    XCTAssertEqual(email["status"].string, "sent")
+  }
+
+  func testNewHandleIsNotConfirmedBySameTextInAnotherConversation() async throws {
+    let output = try json(await tools(sender: sender { Self.outgoing($0, id: 20) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("+15559990000"), "text": .string("On my way")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "Alice's conversation is not the new handle's")
+  }
+
+  func testFailedSendIsNotConfirmedByAnOlderIdenticalMessage() async throws {
+    MessagesFixture.execute(Self.outgoing("Running late", id: 20, secondsAgo: 60), at: database.url)
+    let output = try json(await tools(sender: sender { Self.outgoing($0, id: 21, error: 22) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages", "The earlier message is not this send")
+  }
+
+  func testDifferentTextInHistoryIsNotConfirmation() async throws {
+    let output = try json(await tools(sender: sender { _ in Self.outgoing("Something else", id: 20) })
+      .execute(name: "send_message", arguments: .object(["recipient": .string("Alice Smith"), "text": .string("Running late")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages")
+  }
+
+  func testChecksAgainAfterEachPauseUntilMessagesRecordsTheSend() async throws {
+    let url = database.url
+    let pauses = PauseCounter()
+    var newHandle = tools()
+    newHandle.sendConfirmationTimeout = .seconds(60)
+    newHandle.sendConfirmationPause = {
+      let pause = pauses.next()
+      if pause == 1 { MessagesFixture.execute(Self.newChat("+15559990000", id: 10, text: "Hello there"), at: url) }
+      // A broken check fails here instead of spinning until the timeout.
+      if pause > 3 { throw CancellationError() }
+    }
+    let created = try json(await newHandle.execute(name: "send_message",
+      arguments: .object(["recipient": .string("+15559990000"), "text": .string("Hello there")])))
+    XCTAssertEqual(created["status"].string, "sent", "The conversation is looked up again after the pause")
+    XCTAssertEqual(pauses.count, 1)
+
+    let existingPauses = PauseCounter()
+    var existing = tools()
+    existing.sendConfirmationTimeout = .seconds(60)
+    existing.sendConfirmationPause = {
+      let pause = existingPauses.next()
+      if pause == 1 { MessagesFixture.execute(Self.outgoing("On my way", id: 20), at: url) }
+      if pause > 3 { throw CancellationError() }
+    }
+    let recorded = try json(await existing.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice Smith"), "text": .string("On my way")])))
+    XCTAssertEqual(recorded["status"].string, "sent")
+    XCTAssertEqual(existingPauses.count, 1)
+  }
+
+  func testStoppingDuringThePauseEndsTheCheck() async throws {
+    let url = database.url
+    let pauses = PauseCounter()
+    var tools = tools()
+    tools.sendConfirmationTimeout = .seconds(60)
+    tools.sendConfirmationPause = {
+      // Were the check to go on, it would find this and report the send as confirmed.
+      if pauses.next() == 2 { MessagesFixture.execute(Self.outgoing("On my way", id: 20), at: url) }
+      throw CancellationError()
+    }
+    let output = try json(await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice Smith"), "text": .string("On my way")])))
+    XCTAssertEqual(output["status"].string, "handed_to_messages")
+    XCTAssertEqual(pauses.count, 1, "No check after the pause was stopped")
+  }
+
+  /// A sender that, like Messages, records the send in the fixture database before returning.
+  private func sender(recording sql: @escaping @Sendable (_ text: String) -> String) -> MessagesSender {
+    let url = database.url, runner = RecordingRunner()
+    return MessagesSender { _, arguments, _ in
+      MessagesFixture.execute(sql(arguments[3]), at: url)
+      return try await runner.run(MessagesSender.osascript, arguments, "")
+    }
+  }
+
+  /// An outgoing message in Alice's conversation, dated now unless `secondsAgo` says otherwise.
+  private static func outgoing(_ text: String, id: Int, isSent: Bool = true, error: Int = 0,
+                               secondsAgo: TimeInterval = 0) -> String {
+    let date = AppleMessageDate.nanoseconds(.now.addingTimeInterval(-secondsAgo))
+    return """
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me, is_sent, error)
+        VALUES (\(id), 'g\(id)', '\(text)', 1, \(date), 1, \(isSent ? 1 : 0), \(error));
+      INSERT INTO chat_message_join VALUES (1, \(id), \(date));
+      """
+  }
+
+  /// The conversation Messages creates for a new handle, holding the sent message.
+  private static func newChat(_ handle: String, id: Int, style: Int = 45, text: String) -> String {
+    let date = AppleMessageDate.nanoseconds(.now)
+    return """
+      INSERT INTO handle VALUES (\(id), '\(handle)', 'iMessage');
+      INSERT INTO chat VALUES (\(id), 'iMessage;\(style == 43 ? "+;chat\(id)" : "-;\(handle)")', '\(handle)', NULL, 'iMessage', \(style));
+      INSERT INTO chat_handle_join VALUES (\(id), \(id));
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me, is_sent)
+        VALUES (\(id), 'g\(id)', '\(text)', \(id), \(date), 1, 1);
+      INSERT INTO chat_message_join VALUES (\(id), \(id), \(date));
+      """
+  }
+}
+
+/// Counts calls from a `@Sendable` closure.
+private final class PauseCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var calls = 0
+  var count: Int { lock.withLock { calls } }
+  func next() -> Int { lock.withLock { calls += 1; return calls } }
 }
 
 actor ApprovalRecorder {

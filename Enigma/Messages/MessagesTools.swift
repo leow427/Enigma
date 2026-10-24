@@ -41,6 +41,7 @@ struct MessagesTools: AgentToolbox {
   let confirmSend: @Sendable (MessagesSendApproval) async -> Bool
   var timeZone: TimeZone = .current
   var sendConfirmationTimeout: Duration = .seconds(3)
+  var sendConfirmationPause: @Sendable () async throws -> Void = { try await Task.sleep(for: .milliseconds(250)) }
   private let ledger = MessagesSendLedger()
 
   static let maximumTextLength = 4_000
@@ -242,14 +243,12 @@ struct MessagesTools: AgentToolbox {
     let started = Date()
     try await sender.send(text, to: approval.target)
     await ledger.record(approval)
-    var confirmed = false
-    if case .chat(let guid) = approval.target {
-      confirmed = await waitForOutgoing(text, chatGUID: guid, after: started)
-    }
+    let confirmed = await waitForOutgoing(text, to: approval.target, after: started)
     return .object([
       "status": .string(confirmed ? "sent" : "handed_to_messages"),
       "recipients": .array(approval.recipients.map { .string($0.name.map { "\($0) (\(approval.service))" } ?? $0.handle) }),
-      "note": .string(confirmed ? "The message appears in Messages history." : "Messages accepted the message; delivery is shown in Messages."),
+      "note": .string(confirmed ? "Messages history shows the message as sent."
+        : "Messages accepted the message, but its history hasn't confirmed it as sent; it may still be sending or may have failed. Check Messages."),
     ])
   }
 
@@ -340,14 +339,23 @@ struct MessagesTools: AgentToolbox {
       service: chat.service ?? "Messages", text: text, target: .chat(chat.guid))
   }
 
-  private func waitForOutgoing(_ text: String, chatGUID: String, after start: Date) async -> Bool {
+  /// Checks at least once, then until `sendConfirmationTimeout`, for the message sent and not failed.
+  private func waitForOutgoing(_ text: String, to target: MessagesSender.Target, after start: Date) async -> Bool {
+    let expected = text.trimmingCharacters(in: .whitespacesAndNewlines)
     let deadline = ContinuousClock.now.advanced(by: sendConfirmationTimeout)
-    while ContinuousClock.now < deadline {
-      if let latest = try? database.latestOutgoing(chatGUID: chatGUID), latest.text == text.trimmingCharacters(in: .whitespacesAndNewlines),
-         (latest.date ?? .distantPast) >= start.addingTimeInterval(-5) { return true }
-      try? await Task.sleep(for: .milliseconds(250))
+    while true {
+      // Messages may create a new handle's conversation only after osascript returns, so look each time.
+      let chatGUIDs: [String]
+      switch target {
+      case .chat(let guid): chatGUIDs = [guid]
+      case .iMessage(let handle): chatGUIDs = (try? database.directChatGUIDs(handle: handle)) ?? []
+      }
+      for guid in chatGUIDs {
+        if let latest = try? database.latestOutgoing(chatGUID: guid), latest.isSent, latest.message.text == expected,
+           (latest.message.date ?? .distantPast) >= start.addingTimeInterval(-5) { return true }
+      }
+      guard ContinuousClock.now < deadline, (try? await sendConfirmationPause()) != nil else { return false }
     }
-    return false
   }
 
   // MARK: Formatting
