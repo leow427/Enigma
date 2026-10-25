@@ -28,6 +28,7 @@ works in the code, its limitations, and which tests cover it.
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
 | [Updates](Updates.md) | Automatic updates through Sparkle, moving the app into Applications, the update signing key, and publishing a release with `scripts/release.sh` |
+| [Reviewer](reviewer.md) | The instructions for the read-only reviewer agent that audits a feature diff |
 
 ## Design and history
 
