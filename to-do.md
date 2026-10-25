@@ -806,40 +806,129 @@ selected and copied in one go.
 
 ### F2. Keep typing while a reply streams
 
-- Today the composer is read-only while `localChat.isBusy`
-  (`composerIsEnabled` in `AppShellView.swift` sets the `SlashCommandTextView`'s
-  `isEditable`), and the `/` button, suggestions and Attach turn off with it.
-  `isBusy` also covers model operations, File Mode runs and applying a
-  selection revision. Let people type their next message while a reply runs.
-- Typing works during a reply, and so does queueing: pressing Send (or Return)
-  while a reply runs queues the message instead of doing nothing (today Return
-  does nothing while busy). Stop still works.
-- Queued messages show under the running reply, each drawn with a dashed
-  outline. The outline turns solid when the message is sent, so dashed means
-  queued. Each has a "Send now" button beneath it, with a small queued icon
-  (for example a clock) to the left of "Send now" so it reads as waiting, not
-  sent. An x icon next to the message cancels it.
-- Up to 5 messages can be queued; at the cap, Send is disabled until one sends
-  or is cancelled. They send one at a time, in order, each when the previous
-  reply ends. "Send now" stops the running reply and sends that message
-  straight away, ahead of the others.
-- Queued messages are not editable for now; editing comes later (cancel and
-  retype instead).
-- When a reply fails or is stopped, the queue just stops: the remaining
-  messages stay in the chat, still dashed and queued, and none is sent. A
-  failed reply shows its error code. "Send now" on a held message sends it
-  and resumes the queue; the x still cancels it.
-- Starting a new chat (⌘N) erases any queued messages.
-- Besides `isEditable`: `shell.requestBusyChanged` takes focus away while busy
-  (`ShellPresentation.swift`), and `composerText` shows an empty field while
-  `pendingUserMessage` is set, so text typed just after Send would be lost.
-  Build on `draftAfterAcceptance` (`ComposerSubmission.swift`), which already
-  keeps a draft edited after Send.
-- Decide whether ⌘N and the selection shortcut, which clear the draft today,
-  should discard text typed during a reply.
-- Keep Attach disabled during a File Mode run (Stop revokes the live
-  workspace). Make sure slash-command completion and the selection panel
-  behave the same while a reply runs.
+**Today:** the composer is read-only while `localChat.isBusy`.
+`composerIsEnabled` (`AppShellView.swift`) sets the `SlashCommandTextView`'s
+`isEditable`, and slash completion needs `isEditable`, so the `/` button,
+suggestions and Attach (`isAttachDisabled`) turn off with it. `isBusy` covers
+a running request, File Mode runs, the file picker (`files.isPicking`),
+applying a selection revision and blocking model operations (installing,
+deleting, the performance check, but not downloads; `blocksChat` in
+`LocalChatViewModel.swift`). While a reply runs:
+
+- The Send button is Stop (`EnigmaComposer.sendButton`, `isResponding`); ⌘.
+  also stops (`.stopStreamingRequested`).
+- `submitDraft()` returns early, so Return does nothing, and `canSendDraft`
+  goes through `ComposerSubmission.canSubmit(isBusy:)`.
+- `shell.requestBusyChanged` (`ShellPresentation.swift`) takes focus away.
+- `composerText` shows "" while `pendingUserMessage` is set, and
+  `updateNSView` writes that into the editor, so text typed between Send and
+  acceptance is lost. `pendingUserMessage` is set for local, screen and
+  cloud-with-search sends; a local send is accepted only after `prepare`.
+  `draftAfterAcceptance` (`ComposerSubmission.swift`) already keeps a draft
+  edited after Send.
+- ⌘N (`.newChatRequested`) and the selection shortcut
+  (`.selectionContextRequested`) call `screen.clearDraft()` and stop the
+  reply. `selectSession` and `cycleRecentChat` refuse while busy.
+- A failure sets `state = .failed(error.localizedDescription)`, shown in the
+  route status line, and the reply's activity reads "Request failed". There is
+  no error code; only HTTP failures include a status number.
+
+**Wanted:**
+
+- Typing works during a reply, and so do the `/` button and slash completion.
+  Attach and screen capture stay off while busy; in particular during a File
+  Mode run, because Stop revokes the live workspace.
+- Stop stays where it is. Once the field has text, a separate Send button
+  appears beside it that queues the message; Return queues too. ⌘. still
+  stops.
+- Queued messages show under the running reply, each with a dashed outline.
+  The outline turns solid once the message is sent, so dashed means queued.
+  Under each: "Send now", with a small queued icon (for example a clock) to
+  its left so it reads as waiting, not sent. An x next to the message cancels
+  it.
+- Up to 5 messages can be queued. At the cap, Send and Return are off until
+  one sends or is cancelled.
+- They send one at a time, in order, each when the previous reply ends. "Send
+  now" stops the running reply and sends that message at once, ahead of the
+  others.
+- Queued messages can't be edited for now: cancel and retype instead.
+- When a reply fails or is stopped, the queue holds: the rest stay dashed and
+  queued, and none is sent. A failed reply shows its error. "Send now" on a
+  held message sends it and resumes the queue; the x still cancels it.
+- A queued message that fails before it reaches the chat (for example
+  preparation fails) goes back to the head of the held queue, not lost.
+- Text only: attachments can't be queued. Slash commands can, resolved when
+  the message sends, except `/screen` and `/snapshot`, which stay in the field
+  (a capture at a moment the person doesn't see is a privacy risk).
+- A queued message runs on the route and model selected when it sends, not
+  when it was queued (the mode menu already says "Next request" during a
+  reply).
+- The queue lives in memory only and is never saved; a message is saved only
+  once it is sent, by the usual path.
+- ⌘N, the selection shortcut and switching chats erase the queue. ⌘N and the
+  selection shortcut keep clearing the draft too.
+- A held queue counts as unsent work in `ChatReturnState`, so the 5-minute
+  return to a new chat doesn't erase it.
+- Text typed between Send and acceptance stays in the field: fix the
+  `composerText` / `pendingUserMessage` blanking.
+- No queue in the compact panel: a panel send moves to the window as soon as
+  its request starts (`finishSendFromPanel`), so a reply never runs there.
+
+**Files:**
+
+- Change `Enigma/App/AppShellView.swift`: split `composerIsEnabled` into "can
+  type" and "can send"; queue in `submitDraft()` while busy; fix
+  `composerText`; wire Send now and cancel.
+- Change `Enigma/App/ShellPresentation.swift`: `requestBusyChanged` keeps
+  focus during a reply.
+- Change `Enigma/App/EnigmaComposer.swift`: a queue Send button beside Stop,
+  off at the cap.
+- Change `Enigma/App/SlashCommandComposer.swift`: completion and Return while
+  a reply runs.
+- Change `Enigma/LocalInference/LocalChatViewModel.swift`: owns the selected
+  chat's queue; drains it after `finishGeneration`, holds it on failure or
+  Stop, clears it in `newChat`, `startTemporaryChat`, `selectSession` and
+  `cycleRecentChat`.
+- Change `Enigma/Chat/EnigmaMessageList.swift`: a `queued` parameter drawn
+  after the `ForEach` over `transcript.rows` and before the footnote. Keep the
+  queue out of `ConversationTranscript`, which is built from
+  `presentationMessages`; check B13's `sendRevision` scrolling still lands on
+  the sent message.
+- Change `Enigma/App/SpotlightPanelController.swift`: `ChatReturnState`
+  counts a held queue as unsent work.
+- New `Enigma/Chat/MessageQueue.swift`: a pure value type for order, the cap
+  of 5, held or draining, send now and cancel.
+- Change `docs/design/UI-Style.md`: no view uses a dashed stroke yet (strokes
+  are solid hairline `strokeBorder`s); add the queued outline there.
+- Don't touch: Stop's File Mode revoke (`files.revoke()`), the screenshot
+  consent flow, the persistence rules (`isUnsaved`, `persistSessions`) or B5's
+  panel-to-window move.
+
+**Tests:**
+
+- Pure tests for `MessageQueue`: cap, order, send now, cancel, hold, resume,
+  clear.
+- `RequestLifecycleTests` (beside
+  `testLocalReplacementIgnoresQueuedTokensFailuresAndCompletion`), with fake
+  engines: drains in order; holds on failure and on Stop; a preparation
+  failure returns to the head; Send now stops and jumps the queue; ⌘N and
+  switching chats clear it; nothing queued is persisted.
+- `AppShellStateTests`: a held queue keeps the chat
+  (`testNothingToLeaveOrUnsentWorkKeepsTheChat`); focus stays during a reply
+  (`testComposerFocusReturnsWhenARequestEnds`); Send off at the cap
+  (`testCanSubmitNeedsAReadyModelForTheMode`).
+- Hosted UI tests: typing during a reply; text typed just after Send is kept;
+  dashed then solid outline; Send now and x; `/screen` isn't queued.
+
+**Docs:** `docs/Chat.md` → "The composer", "Streaming, scrolling and
+thinking", "Request lifecycle" and "Limitations"; `docs/design/UI-Style.md`
+for the dashed outline.
+
+**Depends on / blocks:** F3 is off while anything is queued. F9 may later make
+queued messages editable.
+
+**Out of scope:** editing queued messages, queueing attachments or captures,
+and a queue in the compact panel.
 
 ### F3. Regenerate the latest reply
 
