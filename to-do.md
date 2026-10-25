@@ -818,7 +818,7 @@ selected and copied in one go.
   messages stay in the chat, still dashed and queued, and none is sent. A
   failed reply shows its error code. "Send now" on a held message sends it
   and resumes the queue; the x still cancels it.
-- Decide what happens to queued messages when the user starts a new chat (⌘N).
+- Starting a new chat (⌘N) erases any queued messages.
 - Besides `isEditable`: `shell.requestBusyChanged` takes focus away while busy
   (`ShellPresentation.swift`), and `composerText` shows an empty field while
   `pendingUserMessage` is set, so text typed just after Send would be lost.
