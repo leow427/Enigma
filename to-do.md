@@ -1045,23 +1045,112 @@ shortcut.
 
 ### F4. Drag and drop files, and paste images
 
-- Drop files or folders onto the window or composer to attach them, as the
-  Attach button (⇧⌘A) does today, within File Mode's limits (16 items, 2 MiB
-  per file; access comes from the route, not a choice). Split the URL handling
-  out of the picker in `FileModeCoordinator.activate` so drops can use it.
-- Drop or paste (⌘V) images to attach them like a screenshot: a new
-  `ScreenAttachment` source next to `screenRegion` and `fullDesktop`, with the
-  same OCR, vision-model and cloud upload consent rules. Add an
-  `attach(image:)` that reuses `capture()`'s OCR step, and update the labels
-  that assume two sources (`ScreenSettings.swift` would call a pasted image a
-  "selected region").
-- Rules: image files go to the image attachment, other files to File Mode.
-  File Mode and a screenshot can't be combined, so decide what a mixed drop
-  does. There is one image attachment at a time.
-- Today there is no `onDrop`/`dropDestination` or paste handling anywhere. The
-  composer is an AppKit text view (`SlashCommandTextView`), which can insert a
-  dropped file's path as text; handle drops and `paste(_:)` there, since a
-  SwiftUI `.onDrop` won't get drops over the field.
+**Today:** there is no drop or paste handling anywhere (no `onDrop`,
+`dropDestination`, `registerForDraggedTypes`, `performDragOperation` or
+`paste(` overrides). Files arrive only through Attach (⇧⌘A):
+`activateFileMode` (`AppShellView.swift`) calls
+`FileModeCoordinator.activate(from:)`, which takes `picker.pick()`'s URLs,
+runs `WorkspaceAttachment.select(_:)` on each (file URL check, realpath,
+regular file or folder, security-scoped bookmark), dedupes them, applies
+`WorkspaceSelection.normalized` and checks the 16-item
+`WorkspaceSelection.attachmentLimit`. The 2 MiB limit
+(`WorkspaceAccess.fileLimit`) isn't checked when attaching; it applies when a
+file is read. Access (Read Only or Read & Edit) comes from the route
+(`AppShellView.fileAccess`).
+
+Attaching files removes a screenshot (`screen.removeAttachment()`), but
+capturing while files are attached doesn't remove them; that conflict only
+shows at Send (`.fileConflict` in `ComposerSubmission`). Images come only from
+capture: `ScreenComposerCoordinator.capture()` builds a
+`ScreenAttachment(image:source:)` with `.screenRegion` or `.fullDesktop`, then
+runs OCR through `recognize(_:)` (3 s cap). `ScreenImagePreprocessor.prepare`
+already caps the longest edge at 1,568 px. The composer field is
+`SlashCommandTextView`, a plain-text `NSTextView` (`isRichText = false`) with
+no drag or paste overrides, so AppKit's defaults apply (a Finder drop likely
+inserts the path as text; confirm). The app isn't sandboxed but runs with the
+hardened runtime.
+
+**Wanted:**
+
+- Drop files or folders on the main window, the compact panel or the
+  composer field to attach them, as Attach does: the same 16-item cap, dedupe
+  and normalizing, access from the route, and the 2 MiB limit still applied
+  at read time. Dropped URLs go through `WorkspaceAttachment.select`, so
+  grants and bookmarks match the picker's.
+- Drop an image file, or paste image data (⌘V), to attach it like a
+  screenshot, with the same OCR (run locally first), vision-model and cloud
+  upload consent rules.
+- Rules for what goes where:
+  - Image files go to the image attachment, other files to File Mode.
+  - A drop of images mixed with other files sends everything to File Mode,
+    with a short note that the images went there as files (attaching files
+    already clears a screenshot).
+  - One image at a time: a new one replaces the old, as Retake does.
+  - A Finder file URL follows the drop rules; pasted image data (PNG, TIFF)
+    attaches as an image; plain text, including text that is a path, pastes
+    as text. Typed text never grants file access.
+  - Accept what `NSImage` or ImageIO decodes (HEIC; a GIF uses its first
+    frame). PDFs go to File Mode. Refuse images over about 50 MB before
+    decoding.
+- Drops and image paste are refused while `localChat.isBusy`, `screen.isBusy`,
+  `files.isWorking` or `files.isPicking`, matching `isAttachDisabled`. F2 can
+  revisit this.
+- A drop highlight from existing styles: the composer box's accent border
+  (the focus border in `EnigmaComposer.swift`), nothing new.
+- Labels that assume two sources say the right thing for an attached image,
+  and the card hides **Retake** for it.
+
+**Files:**
+
+- Change `Enigma/Files/FileModeCoordinator.swift`: pull the URL handling out
+  of `activate(from:)` into `attach(_ urls: [URL]) throws`; the picker and
+  drops both call it.
+- Change `Enigma/App/SlashCommandComposer.swift`: `SlashCommandTextView`
+  overrides for drag types, `performDragOperation`, `readablePasteboardTypes`
+  and `paste(_:)`, reporting files and images through callbacks. A SwiftUI
+  `.onDrop` won't get drops over the field, so handle them here.
+- Change `Enigma/Screen/ScreenAttachment.swift`: a new `Source` case
+  (`.attachedImage`) with its `label` and `captureScope`; `mimeType` is
+  hard-coded `"image/png"` today.
+- Change `Enigma/Screen/ScreenComposerCoordinator.swift`: `attach(image:)`,
+  sharing `capture()`'s OCR step.
+- Change `Enigma/Screen/ScreenCards.swift`: the "Captured …" accessibility
+  label, the source label, the consent preview label and Retake.
+- Change `Enigma/Screen/ScreenSettings.swift`: `savedPermissionExplanation`
+  says "region and full-desktop screenshots"; it would call a pasted image a
+  "selected region".
+- Change `Enigma/App/AppShellView.swift`, `EnigmaComposer.swift` and
+  `EnigmaCompactPanel.swift`: wire both composers, and add `.onDrop` on the
+  window and panel surfaces outside the field. The compact panel stays up
+  while dragging from Finder (`hidesOnDeactivate = false`).
+- Don't touch: bookmark and realpath validation, `ScreenRoutingPolicy.decide`,
+  the consent sheet, or session-only previews (`makeMessagePreview`).
+
+**Tests:**
+
+- `WorkspaceTests` and `FileModeUITests` (beside
+  `testMoreThanSixteenAttachmentsShowTheLimitAndKeepTheSelection`):
+  `attach(_:)` keeps the cap, dedupe, a folder covering a file, and rejects
+  non-file URLs; the picker still works through it.
+- Pure tests for the drop split: images only, files only, mixed, two images.
+- `ScreenCaptureTests` (beside
+  `testRemovingAttachmentDuringOCRDiscardsLateResultAndAutomaticSubmission`):
+  `attach(image:)` OCR status with a fake `ScreenOCRReading`; replace;
+  oversized image refused.
+- `ScreenViewTests` (beside
+  `testRealComposerConsentNamesCaptureAndProviderAndDenialKeepsDraft`): the
+  attached-image labels, no Retake, consent naming it correctly.
+- A hosted test pasting image data and a path string into
+  `SlashCommandTextView`.
+
+**Docs:** `docs/File-Mode.md` → "Attach files or a folder" and "Limitations";
+`docs/Screen-Skill.md` → "Using it", "Text or image" and "Limitations".
+
+**Depends on / blocks:** interacts with F2 (drops are refused while busy for
+now).
+
+**Out of scope:** more than one image, rendering PDFs as images, and drag out
+of the chat.
 
 ### F5. One shared system prompt: Enigma, a friendly personal assistant
 
