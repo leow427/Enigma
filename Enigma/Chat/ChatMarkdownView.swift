@@ -3,7 +3,7 @@ import SwiftUI
 // The styling layer for replies. Parsing stays in `ChatMarkdown`;
 // this file only decides how each parsed block looks: serif text with roomy
 // lines, links in `accentText`, and code in monospace on an opaque `surface`
-// with a `border` edge.
+// with a `border` edge, under a header with its language and a Copy button.
 
 /// How a parsed block's inline text is styled.
 enum ChatMarkdownStyle {
@@ -46,6 +46,22 @@ enum ChatMarkdownStyle {
     block.components.contains { if case .codeBlock = $0.kind { return true }; return false }
   }
 
+  /// A code block's text as drawn and copied: without the newlines around it.
+  static func displayedCode(_ block: ChatMarkdownBlock) -> String {
+    String(block.text.characters).trimmingCharacters(in: .newlines)
+  }
+
+  /// The language after a code fence, such as `swift`: the first word of the
+  /// info string, or nil if there is none.
+  static func languageHint(_ block: ChatMarkdownBlock) -> String? {
+    for component in block.components {
+      if case .codeBlock(let hint) = component.kind {
+        return hint?.split(whereSeparator: \.isWhitespace).first.map(String.init)
+      }
+    }
+    return nil
+  }
+
   static func isTable(_ group: [ChatMarkdownBlock]) -> Bool {
     group.first?.components.contains { if case .table = $0.kind { return true }; return false } == true
   }
@@ -61,10 +77,14 @@ enum ChatMarkdownStyle {
     return nil
   }
 
+  /// The innermost list item a block is in, if any.
+  static func listItem(_ block: ChatMarkdownBlock) -> PresentationIntent.IntentType? {
+    block.components.first { if case .listItem = $0.kind { return true }; return false }
+  }
+
   /// The list marker for a block inside a list item: `•`, or `3.` in an ordered list.
   static func listMarker(_ block: ChatMarkdownBlock) -> String? {
-    guard let item = block.components.first(where: { if case .listItem = $0.kind { return true }; return false }),
-          case .listItem(let ordinal) = item.kind else { return nil }
+    guard let item = listItem(block), case .listItem(let ordinal) = item.kind else { return nil }
     let ordered = block.components.drop(while: { $0.identity != item.identity }).dropFirst().first?.kind == .orderedList
     return ordered ? "\(ordinal)." : "•"
   }
@@ -126,20 +146,38 @@ private struct ChatMarkdownBlockView: View {
   @ViewBuilder private func content(quote: Bool) -> some View {
     if ChatMarkdownStyle.isCode(block) {
       let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
-      ScrollView(.horizontal) {
-        Text(verbatim: String(block.text.characters).trimmingCharacters(in: .newlines))
-          .font(ChatMarkdownStyle.codeFont)
-          .lineSpacing(3)
-          .foregroundStyle(palette.textPrimary.color)
-          .fixedSize(horizontal: true, vertical: true)
-          .padding(12)
+      let code = ChatMarkdownStyle.displayedCode(block)
+      let language = ChatMarkdownStyle.languageHint(block)
+      VStack(spacing: 0) {
+        HStack(spacing: 8) {
+          Text(verbatim: language ?? "")
+            .font(EnigmaTypography.mono(11))
+            .foregroundStyle(palette.textSecondary.color)
+            .lineLimit(1)
+          Spacer(minLength: 0)
+          ChatCopyButton(label: "Copy code") {
+            ChatCopyPayload(plain: ChatCopy.copyableCode(code, language: language))
+          }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .padding(.vertical, 3)
+        EnigmaHairline()
+        ScrollView(.horizontal) {
+          Text(verbatim: code)
+            .font(ChatMarkdownStyle.codeFont)
+            .lineSpacing(3)
+            .foregroundStyle(palette.textPrimary.color)
+            .fixedSize(horizontal: true, vertical: true)
+            .padding(12)
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .accessibilityLabel("Code")
+        .accessibilityValue(String(block.text.characters))
       }
-      .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(palette.surface.color, in: shape)
       .enigmaEdge(shape)
-      .accessibilityLabel("Code")
-      .accessibilityValue(String(block.text.characters))
     } else if ChatMarkdownStyle.isThematicBreak(block) {
       EnigmaHairline().padding(.vertical, 4)
     } else {

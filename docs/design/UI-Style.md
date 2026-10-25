@@ -95,7 +95,9 @@ glyph is Stop, on the solid Send button.
   model menu.
 - **Chat.** The person's messages are right-aligned `userBubble` bubbles.
   Replies are serif text with the character in a 30 pt slot to their left and
-  a monospace meta line under them: `model · where it ran · time`. Earlier
+  a monospace meta line under them: `model · where it ran · time`, with a
+  dimmed copy icon at its right that brightens when the pointer is over the
+  reply. A code block has a header with its language and a Copy icon. Earlier
   replies keep the outline mark where the character stood. Request activity
   is a monospace line that opens to show the steps and sources.
 - **Cards.** Notices, consent, approvals, attachments, and errors in a chat
