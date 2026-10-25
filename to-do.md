@@ -6,6 +6,15 @@
 > use F1, F2, …. Keep that split, the ranking and the IDs when you add,
 > reorder or finish items. Remove an item, or tick it off, once it is done and
 > on `main`, and update any cross-references to it.
+>
+> Features next in line are written out in full: **Today** (current
+> behaviour, with the files and symbols involved), **Wanted** (behaviour as
+> checkable outcomes, including the owner's decisions), **Files** (what to
+> change, add and leave alone), **Tests**, **Docs**, **Depends on / blocks**
+> and **Out of scope**. Later features stay brief until they are next; expand
+> them the same way, checking every file and symbol against `main`. The
+> step-by-step implementation plan goes in `docs/superpowers/plans/` when an
+> item is picked up, not here.
 
 ## Bug fixes
 
