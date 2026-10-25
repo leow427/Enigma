@@ -800,9 +800,16 @@ selected and copied in one go.
   `isEditable`), and the `/` button, suggestions and Attach turn off with it.
   `isBusy` also covers model operations, File Mode runs and applying a
   selection revision. Let people type their next message while a reply runs.
-- Simplest version: typing works, Send stays disabled until the reply ends
-  (Stop still works; Return already does nothing while busy). Queueing the
-  next message can come later.
+- Typing works during a reply, and so does queueing: pressing Send (or Return)
+  while a reply runs queues the message instead of doing nothing (today Return
+  does nothing while busy). Stop still works.
+- The queued message shows under the running reply with a "Send now" button
+  beneath it, and a small queued icon (for example a clock) to the left of
+  "Send now" so it reads as waiting, not sent. It sends automatically when the
+  reply ends. "Send now" stops the running reply and sends it straight away.
+- Decide the details: one queued message or several (one is simplest), how to
+  cancel or edit a queued message, and what happens to a queued message when
+  the reply fails or is stopped, or when the user starts a new chat (⌘N).
 - Besides `isEditable`: `shell.requestBusyChanged` takes focus away while busy
   (`ShellPresentation.swift`), and `composerText` shows an empty field while
   `pendingUserMessage` is set, so text typed just after Send would be lost.
