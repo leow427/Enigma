@@ -803,13 +803,22 @@ selected and copied in one go.
 - Typing works during a reply, and so does queueing: pressing Send (or Return)
   while a reply runs queues the message instead of doing nothing (today Return
   does nothing while busy). Stop still works.
-- The queued message shows under the running reply with a "Send now" button
-  beneath it, and a small queued icon (for example a clock) to the left of
-  "Send now" so it reads as waiting, not sent. It sends automatically when the
-  reply ends. "Send now" stops the running reply and sends it straight away.
-- Decide the details: one queued message or several (one is simplest), how to
-  cancel or edit a queued message, and what happens to a queued message when
-  the reply fails or is stopped, or when the user starts a new chat (⌘N).
+- Queued messages show under the running reply, each drawn with a dashed
+  outline. The outline turns solid when the message is sent, so dashed means
+  queued. Each has a "Send now" button beneath it, with a small queued icon
+  (for example a clock) to the left of "Send now" so it reads as waiting, not
+  sent. An x icon next to the message cancels it.
+- Up to 5 messages can be queued; at the cap, Send is disabled until one sends
+  or is cancelled. They send one at a time, in order, each when the previous
+  reply ends. "Send now" stops the running reply and sends that message
+  straight away, ahead of the others.
+- Queued messages are not editable for now; editing comes later (cancel and
+  retype instead).
+- When a reply fails or is stopped, the queue just stops: the remaining
+  messages stay in the chat, still dashed and queued, and none is sent. A
+  failed reply shows its error code. "Send now" on a held message sends it
+  and resumes the queue; the x still cancels it.
+- Decide what happens to queued messages when the user starts a new chat (⌘N).
 - Besides `isEditable`: `shell.requestBusyChanged` takes focus away while busy
   (`ShellPresentation.swift`), and `composerText` shows an empty field while
   `pendingUserMessage` is set, so text typed just after Send would be lost.
