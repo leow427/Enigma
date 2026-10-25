@@ -174,6 +174,8 @@ struct EnigmaReplyView<Revision: View>: View {
   var expandedActivity: Binding<Bool>?
   @ViewBuilder var revision: () -> Revision
   @Environment(\.enigmaPalette) private var palette
+  /// Whether the pointer is over the reply, which brightens its copy button.
+  @State private var isHovered = false
 
   init(reply: ConversationTranscript.Reply, expandedActivity: Binding<Bool>? = nil,
        @ViewBuilder revision: @escaping () -> Revision) {
@@ -198,16 +200,26 @@ struct EnigmaReplyView<Revision: View>: View {
         }
         revision()
         if !reply.isInProgress, let message = reply.message {
-          Text(ReplyMetaLine.text(origin: message.origin, searched: reply.searched, date: message.createdAt))
-            .font(EnigmaTypography.mono(11))
-            .foregroundStyle(palette.textTertiary.color)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .padding(.top, 2)
-            .enigmaTestMarker("Reply meta")
+          HStack(spacing: 8) {
+            Text(ReplyMetaLine.text(origin: message.origin, searched: reply.searched, date: message.createdAt))
+              .font(EnigmaTypography.mono(11))
+              .foregroundStyle(palette.textTertiary.color)
+              .lineLimit(1)
+              .truncationMode(.middle)
+              .enigmaTestMarker("Reply meta")
+            Spacer(minLength: 0)
+            if !reply.content.allSatisfy(\.isWhitespace) {
+              ChatCopyButton(label: "Copy reply", isEmphasized: isHovered, size: CGSize(width: 24, height: 18)) {
+                .reply(reply.content)
+              }
+            }
+          }
+          .padding(.top, 2)
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+      .onHover { isHovered = $0 }
     }
     .overlay(alignment: .topLeading) {
       EnigmaReplySlot(reply: reply)

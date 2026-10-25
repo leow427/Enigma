@@ -760,7 +760,18 @@ performance" in Settings still runs one by hand.
 
 ## Features
 
-### F1. Copy buttons on code blocks and replies, like ChatGPT
+### F1. ✅ Done: Copy buttons on code blocks and replies, like ChatGPT
+
+> **Solved:** Code blocks have a header with the language and a **Copy code**
+> icon that turns into a check mark; terminal blocks with `$ ` or `% ` prompts
+> copy only their commands. A finished reply has a **Copy reply** icon in its
+> meta line that writes plain text and RTF built from the parsed blocks, with
+> no colours. See `docs/Chat.md` and `ChatCopy.swift`. Block quotes copy as
+> plain paragraphs. The reply icon rests dimmed and brightens on hover rather
+> than appearing only on hover: a view at zero opacity can't be clicked and
+> leaves the accessibility tree, which would lock out VoiceOver and Tab. The
+> hover itself isn't covered by a hosted test, because synthetic mouse moves
+> don't reliably reach SwiftUI's hover.
 
 **Today:** code blocks (`ChatMarkdownView.swift`) are plain monospaced text in
 a scrolling box: no copy button, no language label, no colours. There is no

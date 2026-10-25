@@ -68,6 +68,27 @@ closes an open menu or, with none open, hides the window.
 - Replies render Markdown: headings, lists, emphasis, inline and fenced code,
   links, block quotes and tables. Code and tables scroll sideways when they're
   wide. Reply and message text can be selected and copied.
+- **Copy buttons.** Each code block has a header with its language on the left
+  and a **Copy code** icon on the right that turns into a check mark for a
+  moment. In a terminal block (`bash`, `sh`, `zsh`, `shell` or `console`) where
+  some lines start with a `$ ` or `% ` prompt, Copy keeps only those commands,
+  without the prompt, and the lines their trailing `\` continues; the rest is
+  output and is left out. Only prompt lines and their `\` continuations are
+  kept, so a here-document's body (`$ cat <<EOF`, then its lines) is dropped
+  with the output. Without a prompt line, Copy writes the block as shown, and
+  `# ` is never a prompt because it is also a comment.
+  A finished reply has a **Copy reply** icon at the right of its meta line. It
+  rests dimmed and brightens when you point at the reply; it stays clickable
+  and visible to VoiceOver and Tab (like any button, Tab reaches it with
+  Keyboard navigation on). It writes the reply as plain text, without
+  Markdown marks, and as rich text that pastes cleanly into Mail or Pages.
+  Plain text keeps list markers, writes block quotes as plain paragraphs and
+  writes tables as tab-separated rows, empty cells included. Rich text has
+  fonts, paragraph breaks, list markers, links and monospace code (Menlo) but
+  no colours, so Ink's light text never pastes invisibly onto a white page.
+  Copy reply copies the reply's own text only: after `/edit`, the revised
+  text in the revision card under it isn't included, and a reply with only
+  whitespace has no Copy reply icon.
 - The chat opens at its end and follows new text while you're at the bottom.
   Sending a message always brings it and its reply to the bottom of the view,
   even if you had scrolled up, and the chat follows the reply again; a reply
@@ -212,6 +233,14 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   a long reply doesn't get slower to stream. Its blocks are the same as parsing
   the whole reply; link reference definitions and HTML blocks that span empty
   lines fall back to parsing everything.
+- `ChatCopy` (`Enigma/Chat/ChatCopy.swift`) decides what the copy buttons
+  write: `copyableCode(_:language:)` for the terminal rule, and
+  `plainText(_:)` and `richText(_:)` for a reply, both built from the parsed
+  `ChatMarkdownBlock`s so they match what is shown. `ChatCopyButton` is the
+  icon button; it writes to the `enigmaPasteboard` environment value (the
+  general pasteboard unless a test sets another). A reply's button rests
+  dimmed and brightens on hover, rather than being hidden, because a view at
+  zero opacity can't be clicked and leaves the accessibility tree.
 - `EnigmaMainColumn` and `EnigmaMainPageHeader` (`Enigma/App/EnigmaMainPage.swift`)
   switch between the empty page and the docked conversation. `EnigmaComposer`
   (`Enigma/App/EnigmaComposer.swift`), `EnigmaSidebar`
@@ -357,6 +386,11 @@ evidence fits. See [Web-Search.md](Web-Search.md).
   byte counting, the native and server tokenizer paths, and (`ChatMarkdownTests`)
   Markdown normalization and parsing, including streamed parsing matching a
   whole-reply parse at every prefix.
+- `EnigmaTests/ChatCopyTests.swift`: the terminal prompt rule and its edge
+  cases, a reply's plain and rich text (lists, code inside list items, empty
+  table cells), RTF fonts, the pasteboard write, the hosted Copy code button
+  with its check mark, and the hosted Copy reply button (clickable while dimmed,
+  absent while the reply streams or has no text).
 - `EnigmaTests/ChatPersistenceTests.swift`: retention, archive loading, excluded
   fields, and `ChatSessionWriter` coalescing and write ordering.
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,
