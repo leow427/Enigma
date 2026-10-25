@@ -932,27 +932,116 @@ and a queue in the compact panel.
 
 ### F3. Regenerate the latest reply
 
-**Today:** replies have no actions, only a meta line (`EnigmaMessageList.swift`);
-there's no way to retry one.
+**Today:** a finished reply's meta line (`ReplyMetaLine.text` in
+`EnigmaConversationLogic.swift`, drawn by `EnigmaReplyView` in
+`EnigmaMessageList.swift`) has only F1's **Copy reply** icon
+(`ChatCopyButton`, dimmed until hover). Nothing can be retried. There is no
+single send path to replay: `submitDraft` (`AppShellView.swift`) asks
+`ComposerSubmission.plan` for `.files`, `.messages`, `.captureScreen`,
+`.screenAttachment` or `.chat`, and a `.chat` goes to `submit` (local),
+`submitCloud`, `submitCloudWithSearch` or `submitAuto` by
+`shell.selectedMode`. A local vision model's turn goes through
+`submitScreen(attachment: nil)`. Each path builds its history as
+`requestMessages + [contextualMessage(prompt)]`, and `ChatContextPreparer.prepare`
+leaves out turns whose reply is empty.
 
-**Wanted (like ChatGPT and Claude):**
+A turn "takes" at different points per route: plain cloud (`submitCloud`)
+adds the user message and an empty reply before any network call; local text
+and cloud with search add them after preparing and searching; vision adds them
+at the first token. `finishGeneration` leaves a failed reply empty.
 
-- A retry icon on the latest reply to get a new answer, with an optional
-  choice of route or model. Especially useful with small local models, whose
-  first answer is often weak.
-- Disabled while a reply is streaming. Works with history saving and
-  temporary chats. Keep the old reply until the new request is accepted, so a
-  failed retry doesn't lose it.
-- Start with plain chat turns. There is no single send path to replay:
-  `submitDraft` in `AppShellView.swift` picks Files, Messages, Screen, local or
-  cloud from the composer's state, and a saved `ChatMessage` keeps only its
-  text, sources and attachment names, not its screenshot, selection context or
-  kind of turn. Re-running those turns after a relaunch needs more stored.
-- Actions the reply already took (File Mode edits, sent iMessages) aren't
-  undone by regenerating, so say so instead of implying they were reversed.
-  For file edits, point to File Mode's existing Review and Undo.
-- Regenerating is editing the last message without changing it (F9): build
-  one truncate-and-resend path for both.
+A saved `ChatMessage` keeps only `id`, `role`, `content`, `searchSources`,
+`createdAt` and `attachments` (its `CodingKeys`). `activity`, `origin`,
+`extendedThinking` (/think), `contexts`, `selectionResponseMode`,
+`selectionDraft` and `imagePreview` are in memory only. `/edit` and
+`/translate` prefixes stay in the saved text; `/search` and `/messages` are
+stripped. Whether a turn searched shows only in its reply's `searchSources`.
+
+**Wanted:**
+
+- A retry icon ("Regenerate reply") beside **Copy reply** on the latest reply
+  only, in the same style: dimmed at rest, brighter on hover, reachable with
+  Tab and VoiceOver. It gets a new answer to the same question.
+- Plain retry only for now. Choosing another route or model comes later.
+- Off while `localChat.isBusy` or while F2's queue has messages, and when the
+  current route can't send (`canSubmit`).
+- Eligible turns: a plain `.chat` turn in Local, Cloud or Auto, with or
+  without `/search` or `/think`. Hidden for Files turns (the user message has
+  `attachments`), `/messages`, Screen turns (`imagePreview` or a screen
+  decision) and selection `/edit` or `/translate` turns (`contexts` or a
+  selection revision). Mark each user message with an in-memory turn kind.
+  After a relaunch, show it only for turns with no attachments and no `/edit`
+  or `/translate` prefix; `/think` isn't saved, so it can't be repeated then.
+- It replays the same text and the same `/think` choice (`extendedThinking`).
+  It runs search again only if the original turn searched (its reply has
+  `searchSources`), so sources are fresh, and never adds a search the original
+  didn't have. It runs on the current route; Auto routes again.
+- The old reply stays, in the chat and on disk, until the new reply's first
+  token, on every route. A failure, or Stop before that token, puts the old
+  reply back unchanged and shows the error in the status line as today. After
+  the first token it behaves like any reply.
+- On success the old reply is discarded. Keeping versions ("2 / 3") is F9's
+  optional later step.
+- Works with history saving and temporary chats; a temporary chat still
+  writes nothing (`persistSessions` skips it).
+- No keyboard shortcut, and nothing in the compact panel (its chats are
+  selection turns).
+- One truncate-and-resend path for F3 and F9:
+  `LocalChatViewModel.resend(fromUserMessage:text:)`. It marks a pending
+  truncation at that user message and hides the later messages in
+  `presentationMessages` (like `pendingUserMessage`), builds the history from
+  the messages before it, and runs the normal route. At the first token it
+  removes the old messages; on failure or Stop before then it clears the
+  mark. `text: nil` regenerates; new text is F9's edit. Truncating also drops
+  the removed messages' `selectionRevisions` entries and their
+  `shell.expandedActivities` ids.
+- Actions a reply took (File Mode edits, sent iMessages) aren't undone. Those
+  turns aren't eligible yet, so that copy waits until they are.
+
+**Files:**
+
+- Change `Enigma/LocalInference/LocalChatViewModel.swift`: `resend`, the
+  pending-truncation state, and a history parameter for `submit`,
+  `submitCloud`, `submitCloudWithSearch`, `submitAuto` and `submitScreen`;
+  each first-token point commits the truncation.
+- Change `Enigma/Chat/ChatDomain.swift`: an in-memory turn kind on
+  `ChatMessage`, kept out of `CodingKeys`.
+- Change `Enigma/Chat/EnigmaConversationLogic.swift`: `Reply.canRegenerate`;
+  the eligibility rule lives here as plain logic.
+- Change `Enigma/Chat/EnigmaMessageList.swift`: the retry icon beside
+  `ChatCopyButton`, passed in as a closure.
+- Change `Enigma/App/AppShellView.swift`: own the action; drop the removed
+  `expandedActivities` ids and `selectionRevisions`.
+- Don't touch: `ChatSessionStore`'s on-disk format, or File Mode and Messages
+  execution.
+
+**Tests:**
+
+- `EnigmaConversationTests` (beside
+  `testMetaLineSaysWhichModelWhereItRanAndWhen`): eligibility per turn kind;
+  the icon is on the latest reply only, and off while responding or queued.
+- `RequestLifecycleTests` (beside
+  `testCurrentCloudFailureKeepsPartialOutputAndReleasesOwnership`), with fake
+  engines and providers: the old reply is kept on failure, on Stop before the
+  first token, and on a plain-cloud offline error; it is replaced after the
+  first token; search reruns only when the original searched; `/think` is
+  kept; `selectionRevisions` are dropped.
+- `ChatPersistenceTests` (beside
+  `testImagePreviewIsExcludedFromEncodedMessages`): the turn kind isn't
+  encoded; a temporary chat writes nothing; the saved file only changes after
+  the first token.
+- One hosted UI test: the icon shows on the latest reply only.
+
+**Docs:** `docs/Chat.md` → a new "Regenerating a reply" section after
+"Streaming, scrolling and thinking", plus "Request lifecycle" and "History";
+`docs/Web-Search.md` → one line on search rerunning.
+
+**Depends on / blocks:** builds on F1's meta-line icon. Blocks F9, which
+reuses `resend`. Off while F2's queue has messages.
+
+**Out of scope:** regenerating Files, Messages, Screen or selection turns;
+earlier replies; versions or branches; choosing a route or model; a keyboard
+shortcut.
 
 ### F4. Drag and drop files, and paste images
 
