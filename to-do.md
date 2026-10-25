@@ -1272,57 +1272,163 @@ and context size (F15).
 
 ### F27. Keep file edits and message sending off on small local models
 
-**Today:** every local model gets the same skills. Local File Mode can create,
-edit, move and delete files with any model (`LocalFileCapabilities.access(for:)`
-takes the model but returns read & edit for all of them), and `/messages` gives
-any model `send_message`. Small models make mistakes with tools (the wrong
-file, a bad patch, the wrong recipient or text), and people tend to approve
-what they're shown.
+**Today:** every local model gets the same skills. Small models make mistakes
+with tools (the wrong file, a bad patch, the wrong recipient or text), and
+people tend to approve what they're shown.
+
+- Files: `LocalFileCapabilities.access(for:)` (`WorkspaceAccess.swift`)
+  ignores the model and returns `.readWrite` (`.production`); its comment says
+  the grant "is independent of model size or catalog metadata". Callers:
+  `AppShellView.fileAccess` (the card; Cloud is `.readWrite` only when the
+  preferred provider is ChatGPT) and `submitFiles` in `LocalChatViewModel`
+  (`/translate` forces `.readOnly`). `AgentFileTools.definitions(access:)`
+  already drops write tools for `.readOnly` and refuses their calls.
+- Read-only copy in `FileCards.swift` blames a missing local model ("Choose a
+  local model to work with these files.", or "Choose Codex…" in Cloud) with a
+  **Use Codex** button. Use Codex (`AppShellView`) goes through the consent
+  sheet, then sets `cloudSettings.preferredProvider = .chatGPT` and
+  `shell.selectedMode = .cloud`; it is the only switch-to-cloud path.
+  `ChatRouteStatus.Action` has only `.chooseModel` and `.openSettings`.
+- Messages: `MessagesTools.definitions` is a fixed list ending in
+  `send_message`, with no access parameter; `instructions` tells the model
+  about `send_message`; `execute` sends for any name it doesn't know, so it
+  needs a guard too. The toolbox is built by `makeMessagesToolbox` and used in
+  `submitMessages`, where `local = mode != .cloud`.
+- The model the next request runs on is `localChat.installedModel` whenever
+  the mode isn't Cloud; Auto treats File Mode and Messages as local.
+- Catalogue: `LocalModelFamily` exists only in Swift (`BundledLocalModels.swift`),
+  with `qualityScore` and a profile giving `parameters` and
+  `activeParameters`. The signed catalogue is a `LocalModelManifest` of
+  per-package `LocalModelDescriptor`s; the signature covers the raw payload
+  and unknown keys are ignored, so new fields must be optional descriptor
+  fields (the pattern in `LocalModelManifest.swift`). An imported GGUF is a
+  `LocalModel` with `catalogDescriptor == nil`.
+- Notices: `localChat.contextNotice` is drawn with `EnigmaChatNote` in
+  `composerAccessories`; the compact panel shows it only inside its details.
+  VoiceOver announcements use `AccessibilityNotification.Announcement(...).post()`
+  (`CloudConnectionControls.swift`).
 
 **Wanted:**
 
-- **Which models:** sensitive skills need a local model of about 9B parameters
-  or more, counted in total parameters so mixture-of-experts models qualify,
-  that also scores at least 13.5 on the catalogue's quality index. In today's
-  catalogue that allows Qwen3.5 9B, Gemma 4 12B, 26B-A4B and 31B, Qwen3.6
-  35B-A3B and Qwen3.8 27B. It blocks Qwen3.5 2B and 4B, Gemma 4 E4B (a 4B
-  model in effect, though 7.5B in total), and both Ministral 3 sizes, which
-  score below Qwen3.5 4B. Imported GGUFs are blocked, since their size and
-  quality are unknown. Store the result as a field on each catalogue family,
-  so it is reviewed per model (for example with `scripts/evaluate-file-mode.py`
-  at the family's smallest quantization) rather than worked out at run time.
-- **Sensitive skills:** changing files (create, edit, move, delete) and sending
-  messages. With a blocked model, File Mode stays read-only (return
-  `.readOnly` from `LocalFileCapabilities.access(for:)`), and `/messages` can
-  still read and search but isn't given `send_message`. Everything else stays
-  on: chat, `/think`, `/search`, `/screen`, `/snapshot`, `/translate`, and
-  `/edit` (nothing changes until the person clicks Replace text). New skills
-  that act, such as F26's search before acting or F24's Maps, follow the same
-  rule.
+- **Which models:** sensitive skills need a local model of about 9B total
+  parameters or more (so mixture-of-experts models qualify) that also scores
+  at least 13.5 `qualityScore`. Checked against today's catalogue:
+
+  | Family | Total B | Score | Allowed |
+  | --- | --- | --- | --- |
+  | Qwen3.5 2B | 2.27 | 8 | no |
+  | Qwen3.5 4B | 4.66 | 13 | no |
+  | Gemma 4 E4B | 7.5 | 9 | no |
+  | Ministral 3 8B | 8.5 | 5 | no |
+  | Qwen3.5 9B | 9.65 | 13.5 | yes |
+  | Gemma 4 12B | 12 | 14 | yes |
+  | Ministral 3 14B | 13.5 | 6 | no |
+  | Gemma 4 26B-A4B | 25.2 | 17 | yes |
+  | Gemma 4 31B | 31 | 15 | yes |
+  | Qwen3.6 35B-A3B | 36 | 18 | yes |
+  | Qwen3.8 27B | 27.8 | 28 | yes |
+
+  Qwen3.5 9B's 13.5 was raised by hand from the index's 11 so it ranks above
+  the 4B; it stays allowed. The numbers are review guidance only, not
+  computed at run time or shown to users: each family sets the result, and
+  it is reviewed per model (for example with `scripts/evaluate-file-mode.py`
+  at the family's smallest quantization).
+- **Stored as:** an optional `allowsSensitiveTools: Bool?` on
+  `LocalModelDescriptor`, filled from the family; missing means blocked, so
+  older catalogues stay safe and the signature still verifies. Imported GGUFs
+  (`catalogDescriptor == nil`) are always blocked, with no override.
+- **Sensitive skills:** changing files (create, edit, move, delete) and
+  sending messages. With a blocked model, File Mode stays read-only
+  (`.readOnly` from `access(for:)`), and `/messages` can still read and search
+  but isn't given `send_message`: change the tool list, the instructions and
+  the `execute` guard. Everything else stays on: chat, `/think`, `/search`,
+  `/screen`, `/snapshot`, `/translate` and `/edit` (nothing changes until the
+  person clicks Replace text). New skills that act, such as F26's search
+  before acting or F24's Maps, follow the same rule.
 - **The model decides, not the Mac:** the check uses the model the next
   request runs on, so a capable Mac that switches to Qwen3.5 4B loses these
   skills too.
-- **Cloud is never blocked:** Cloud mode keeps every skill it has today,
-  whatever the local model (in Cloud, only the ChatGPT route edits files
-  today). Auto keeps File Mode and Messages on this Mac by design, so with a
-  blocked model it doesn't move them to the cloud on its own: it explains and
-  offers **Switch to Cloud**.
+- **Mid-chat changes:** edits already made keep their Review and Undo; only
+  later requests become read-only. A Messages approval card already showing
+  stays; the check applies from the next request.
+- **Cloud is never blocked:** Cloud keeps every skill it has today (only the
+  ChatGPT route edits files there). Auto keeps File Mode and Messages on this
+  Mac by design, so with a blocked model it doesn't move them to the cloud on
+  its own: it explains and offers **Switch to Cloud**, which sets
+  `shell.selectedMode = .cloud` (for files, through the existing Codex
+  consent path). With no cloud provider connected it offers **Open Settings →
+  Cloud** instead.
 - **A notice when it changes:** when the selected model changes which skills
   are on (choosing another local model, switching between Local and Cloud, or
-  a model install finishing), show a short notice in the main window and the
-  compact panel, such as "File edits and sending messages are off with
-  Qwen3.5 4B. Use Cloud or a larger model to turn them on." and "File edits
-  and sending messages are back on." Show it only on a change, not at launch;
-  announce it to VoiceOver; respect Reduce Motion.
+  a model install finishing), show a short note through `contextNotice`
+  (`EnigmaChatNote`), cleared on the next send, such as "File edits and
+  sending messages are off with Qwen3.5 4B. Use Cloud or a larger model to
+  turn them on." and "File edits and sending messages are back on." In the
+  compact panel, show it in the hint row, since the details are hidden. Only
+  on a change, not at launch; announce it to VoiceOver; fade it, or no
+  animation with Reduce Motion. Keep the "file edits and sending messages are
+  off" copy in one constant that F6 shares.
 - **At the point of use:** attaching files with a blocked model shows **Read
-  only** with the reason, and asking to send a message explains why, with
-  **Switch to Cloud**, instead of failing later.
+  only** with the real reason (not "Choose a local model"), and asking to send
+  a message explains why, with **Switch to Cloud**, instead of failing later.
 - Settings → Local models says on each model whether it can change files and
   send messages (see F18).
-- Tests: the rule for every catalogue family and for imported models;
-  read-only File Mode and no `send_message` with a blocked model; Cloud
-  unchanged; the notice when switching each way. Update `docs/File-Mode.md`,
-  `docs/Messages.md` and `docs/Local-Model-Selection.md`.
+
+**Files:**
+
+- Change `Enigma/LocalInference/LocalModelManifest.swift`: the optional
+  descriptor field.
+- Change `Enigma/LocalInference/BundledLocalModels.swift`: the per-family
+  value, passed into `descriptors`.
+- Change `Enigma/Files/WorkspaceAccess.swift`: `access(for:)` reads it; update
+  the comment.
+- Change `Enigma/Messages/MessagesTools.swift`: an `allowsSending` flag that
+  shapes `definitions`, `instructions` and `execute`.
+- Change `Enigma/LocalInference/LocalChatViewModel.swift`: `submitFiles` and
+  `makeMessagesToolbox` pass the model's allowance.
+- Change `Enigma/Files/FileCards.swift`: the read-only reason and Switch to
+  Cloud.
+- Change `Enigma/App/AppShellView.swift` and
+  `Enigma/App/EnigmaMainWindowLogic.swift`: post the notice on change; a
+  switch-to-cloud route action if needed.
+- Change `Enigma/LocalInference/LocalModelManagerSection.swift` and
+  `LocalModelViews.swift`: the per-model line in Settings → Local models.
+- Don't touch: `Packages/LlamaBridge` or the Cloud paths.
+
+**Tests:**
+
+- `LocalModelCatalogueTests` (beside `testFamilyMetadataIsConsistent`): the
+  table above for every family.
+- `LocalModelSelectionTests`: an old descriptor without the field decodes as
+  blocked (beside
+  `testOldInstalledDescriptorDecodesWithoutDescriptionsOrProfilesAndKeepsPackageIdentity`);
+  a signed catalogue with and without it verifies (beside
+  `testRemoteRefreshCachesOnlyVerifiedUpdatesAndRetainsCacheAfterFailure`).
+- `FileAgentTests`: `testProductionLocalAccessIncludesAllFileToolsForImportedModels`
+  asserts the opposite of this item; rewrite it to expect `.readOnly` for an
+  imported model, don't delete it. Add allowed and blocked catalogue models.
+- `FileModeRuntimeTests`: the real-model tests (`:96`, `:224`) use a
+  descriptor-less `LocalModel`; give them an allowed model or a test seam so
+  they still edit.
+- `MessagesToolCallingTests` (beside
+  `testLocalAgentRunsOneCallPerStepWithMessagesTools`): no `send_message` in
+  the list or instructions with a blocked model, and a forged call is
+  refused.
+- `EnigmaConversationTests` (beside `testFileCardsRemoveReviewUndoAndOfferCodex`):
+  the Read only reason and Switch to Cloud.
+- Cloud unchanged; the notice on each kind of change, not at launch.
+
+**Docs:** `docs/File-Mode.md` → "Local, Auto and Cloud" and "Safe and
+protected edits"; `docs/Messages.md` → "Choosing a model" and "Tools";
+`docs/Local-Model-Selection.md` → "The catalogue" and "Signed catalogue
+updates"; `docs/Updating-the-Model-Catalogue.md` → the new field as a review
+step.
+
+**Depends on / blocks:** blocks F6 (its "small" rule and copy) and F18's
+per-model line; F26 and F24 follow its rule.
+
+**Out of scope:** an override for imported models, user-visible thresholds,
+and limiting other tools.
 
 ### F6. Warn slow Macs that small local models handle tools poorly
 
