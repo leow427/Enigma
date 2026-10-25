@@ -1432,21 +1432,101 @@ and limiting other tools.
 
 ### F6. Warn slow Macs that small local models handle tools poorly
 
-- When this Mac's recommendation or the model in use is small (F27's rule),
-  the performance check says the model underperformed
-  (`LocalModelBenchmark.underperformed`), or no model fits, show a short note:
-  file edits and sending messages are off with small local models (F27), other
-  tools may work poorly too, and connecting a cloud provider is strongly
-  suggested. (Local web search fetches results before the model answers, so it
-  isn't tool calling.)
-- Show it in setup's model step, pointing to the Connections step that comes
-  next, and in Settings → Local models, with a link to Cloud and search. Do not
-  nag again once any cloud provider is connected
-  (`CloudSettingsModel.isConfigured` checks only the preferred one).
-- Use the advisor's existing hardware profile, recommendation roles and
-  benchmark results (`LocalModelAdvisor`) to decide, not a new heuristic, and
-  keep it consistent with the existing "ran slower than expected" note
-  (`LocalModelViews.swift`).
+**Today:** nothing tells a person that a small local model is weak at tools.
+The only slow-Mac copy is about speed or fit:
+
+- "No supported model fits…" with a Cloud hint, when
+  `LocalModelRecommendations.roles` is empty and hardware is known
+  (`WelcomeSetupView.models`, and "For this Mac" in
+  `LocalModelManagerSection.swift`).
+- "This model ran slower than expected…" in `LocalModelOperationView`
+  (`LocalModelViews.swift`), shown in setup's model step and in Settings →
+  Local models. It appears only when `LocalModelBenchmark.underperformed` is
+  true (speed under 0.6 of the prediction, or a first token slower than
+  `max(5, 1.75 × predicted)` seconds) and
+  `recommendations.fasterAlternative(to:)` finds a smaller, faster model.
+- The advisor (`LocalModelAdvisor`) has `hardware`, `recommendations(installedModels:)`
+  (roles, assessments) and `latestBenchmark(for:)`, which counts only results
+  on the same hardware, power mode and llama build, under 90 days old.
+- Setup's steps are welcome, models, connections and walkthrough
+  (`WelcomeSetup`). The model step has `choices`, `selected` and
+  `skipLocal`; its footer says "next: cloud and search, optional". The
+  Connections step shows Claude Code, ChatGPT, the Brave key and Mac
+  permissions; API keys are only in "More connection settings".
+- No code asks "is any cloud provider connected?". `CloudSettingsModel.isConfigured`
+  checks only the preferred provider and also needs a compatible chosen
+  model. `hasCloudAccess(for:)` reads `chatGPTAccount` and `claudeCodeAccount`
+  (both `nil` until refreshed; launch refreshes only the preferred one, only
+  in Cloud or Auto) and `hasAPIKey` (Keychain) for OpenAI, Anthropic and
+  Gemini.
+- `LocalModelManagerSection` has no `CloudSettingsModel` and no way to open
+  another Settings page; `.settingsDestinationRequested` with a
+  `SettingsDestination` is the existing way to open one.
+
+**Wanted:**
+
+- One short note, for example: "File edits and sending messages are off with
+  small local models, and other tools may work poorly. Connecting a cloud
+  provider is strongly suggested." It reuses F27's shared copy for the first
+  part. Local web search fetches results before the model answers, so it
+  isn't tool calling and the note doesn't mention it.
+- Show it when the model in question is small by F27's rule (imported models
+  count as small), or its latest applicable benchmark says `underperformed`
+  (whether or not a faster alternative exists; the speed note stays as it
+  is), or no model fits this Mac. Decide from the advisor's existing data; no
+  new heuristic.
+- The model in question is the installed model in use; if none, the row
+  selected in setup, or the recommended one.
+- **Setup's model step:** show it under the list as soon as a small row is
+  selected, before download, and say the Connections step comes next. Hide it
+  when **Skip local models** is chosen. Extend the existing "no model fits"
+  copy rather than adding a second message.
+- **Settings → Local models:** show it in "For this Mac", with a **Cloud and
+  search** button that posts `.settingsDestinationRequested` with `.cloud`.
+  When the note would show, refresh the ChatGPT and Claude Code accounts on
+  appear so a connected person isn't nagged.
+- Never show it once any cloud provider is connected: a ChatGPT or Claude
+  account, or an OpenAI, Anthropic or Gemini key. Add
+  `CloudSettingsModel.hasAnyCloudProvider` (any `CloudProviderID.allCases`
+  with `hasCloudAccess`), not `isConfigured`.
+- No dismiss button and nothing stored: it's a quiet note that goes away once
+  a provider is connected.
+
+**Files:**
+
+- Change `Enigma/Cloud/CloudSettingsModel.swift`: `hasAnyCloudProvider`.
+- Change `Enigma/LocalInference/LocalModelSettingsLogic.swift`: a pure
+  function returning the note's text, or nil.
+- Change `Enigma/LocalInference/LocalModelViews.swift`: a shared view for the
+  note, next to `LocalModelOperationView`.
+- Change `Enigma/LocalInference/LocalModelManagerSection.swift`: take the
+  `CloudSettingsModel`, show the note and button, refresh accounts.
+- Change `Enigma/App/SettingsView.swift`: pass the settings model to the
+  section.
+- Change `Enigma/App/WelcomeSetupView.swift`: show the note in `models`.
+- Don't touch: `LocalModelBenchmark.underperformed` and its thresholds, role
+  selection, `isConfigured`, the Connections step layout, or the Cloud send
+  paths.
+
+**Tests:**
+
+- `LocalModelSelectionTests` and `CloudModelSelectionTests`: the pure
+  function for a small model, a large one, an imported one, `underperformed`
+  with and without a faster alternative, nothing fits, no hardware yet,
+  Skip local models, and each of the five providers connected.
+- `EnigmaWelcomeTests`: the note under a small selected row, hidden with Skip
+  local models.
+- `EnigmaSettingsTests`: the note and its **Cloud and search** button.
+
+**Docs:** `docs/Welcome-and-Settings.md` → "Welcome setup" (the model step)
+and "Local models"; `docs/Local-Model-Selection.md` → "Settings → Local
+models" and "Checking performance".
+
+**Depends on / blocks:** needs F27's rule and shared copy. F18 adds the
+per-model line.
+
+**Out of scope:** F27's chat notice and Read only cards, changing benchmark or
+role thresholds, and opening Connections automatically.
 
 ### F26. Commands that work together: think with search, and search before acting
 
