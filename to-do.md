@@ -1154,26 +1154,121 @@ of the chat.
 
 ### F5. One shared system prompt: Enigma, a friendly personal assistant
 
-- Every route should know it is **Enigma: a friendly, general personal
-  assistant that is concise, yet always useful.**
-- Today the identity is inconsistent. Local models (`LlamaCPPModelEngine`,
-  `LocalMultimodalClient`, agent runs, local File Mode in `AgentFileTools.swift`),
-  the OpenAI and Anthropic API clients (`CloudProviderClients.swift`), Gemini
-  (`GeminiContentClient.swift`) and API-key tool calling (`CloudToolLoop`) get
-  only `ChatResponseStyle.instructions`, with no name at all. Claude Code,
-  Codex, and their tool-calling prompts each hard-code their own "You are
-  Enigma, a helpful general-purpose assistant…" line, and Codex File Mode says
-  "a helpful assistant for file analysis and editing".
-- Every route already includes `ChatResponseStyle.instructions`, so put one
-  identity line at its top and remove the per-client copies so it lives in one
-  place. Keep route-specific additions (text-only, file tools) after it. Make
-  it a function rather than a constant: F13 adds the user's own text at run
-  time.
-- Keep it short: catalogue models run with an 8,192-token context, imported
-  ones with 4,096. Check that small local models still follow the existing
-  length and Markdown guidance. Existing tests compare prompts against
-  `ChatResponseStyle.instructions` itself, so add one that checks the identity
-  reaches every route.
+**Today:** `ChatResponseStyle.instructions` (`ChatContext.swift`) is a
+`static let` with three paragraphs (length, location and weather, Markdown)
+and no name. The transport layer adds it, so every request through a client
+gets it:
+
+- Local text: `LocalChatBridge.withMessages` (`LlamaCPPModelEngine.swift`)
+  puts it in front of the first message's content, since some templates have
+  no system role.
+- Local vision and llama-server: `LocalMultimodalClient.makeRequest` sends it
+  as a `system` message.
+- Local agent and File Mode runs: `LocalToolAgent.run` (`AgentToolLoop.swift`)
+  and `LocalFileAgent.run` (`AgentFileTools.swift`) send it plus the tool
+  rules; with `/think`, `ThinkCommand.guidance` goes in front of it.
+- API clients: OpenAI `instructions` and Anthropic `system`
+  (`CloudProviderClients.swift`), Gemini `systemInstruction`
+  (`GeminiContentClient.swift`), and `CloudToolLoop.systemPrompt(_:)`
+  (`CloudToolCalling.swift`).
+
+Four places hard-code their own identity instead:
+
+- `ClaudeCodeRuntime.systemPrompt` (`ClaudeCodeSubscriptionClient.swift`), a
+  `static let` passed with `--system-prompt`, which replaces Claude Code's own
+  prompt: "You are Enigma, a helpful general-purpose assistant. Answer clearly
+  and concisely."
+- `ClaudeCodeToolMode.systemPrompt(_:)` and `CodexToolMode`'s
+  `baseInstructions` (`CloudToolCalling.swift`): "You are Enigma, a helpful
+  general-purpose assistant."
+- `CodexSubscriptionClient.threadParameters(model:)`: the same line in
+  `baseInstructions`, with chat rules in `developerInstructions`.
+- `CodexFileMode.threadParameters`: "You are Enigma, a helpful assistant for
+  file analysis and editing."
+
+The same clients also carry helper prompts, which get the style text too: the
+web-search query writer (`ScreenPromptContext.queryPrompt`), the `/edit`
+recovery (`SelectionRevisionResponse.recoveryInstructions`) and both
+performance benchmarks (`LlamaCPPModelEngine.benchmark`,
+`LlamaServerVisionEngine.benchmark`). Chat titles use no model (the first 48
+characters, `ChatDomain.swift`). `MessagesTools.instructions` has no identity
+line and stays as it is.
+
+**Wanted:**
+
+- Every chat route introduces itself the same way: "You are Enigma, a
+  friendly, general personal assistant: concise, yet always useful." (about
+  20 tokens, under 0.5% of a 4,096-token context; local token counts already
+  include the system text, so trimming stays correct).
+- One function builds the chat prompt, for example
+  `ChatResponseStyle.systemPrompt(additions: String? = nil) -> String`, in
+  this order: identity, response style, route additions (text-only chat, tool
+  or file rules), then F13's user text later. A function, not a constant, so
+  F13 can add text at run time.
+- `/think` guidance comes after the identity line, not before it.
+- Claude Code (`--system-prompt`) and Codex (`baseInstructions`) both use the
+  function; Codex keeps its route rules in `developerInstructions`. The four
+  hard-coded lines go, and `ClaudeCodeRuntime.systemPrompt` becomes a
+  function.
+- The prompt doesn't mention the date, the Mac, local versus cloud, or which
+  model is answering (location is already added per request when needed).
+- It calls itself Enigma. Asked "are you ChatGPT?", it answers honestly that
+  Enigma is answering with that provider's model, rather than denying it.
+- Helper prompts don't get the identity line or F13's text: the query writer,
+  the `/edit` recovery and both benchmarks keep exactly what they send today,
+  so their output stays exact and benchmark results stay comparable. Since the
+  prompt is added in the transport today, let the request say which it is
+  (for example by carrying its system text) rather than adding it blindly.
+- Small local models still follow the length and Markdown guidance: check by
+  hand with one small catalogue model.
+
+**Files:**
+
+- Change `Enigma/Chat/ChatContext.swift`: the identity line and
+  `systemPrompt(additions:)`.
+- Change `Enigma/LocalInference/LlamaCPPModelEngine.swift`,
+  `LocalMultimodalClient.swift` and `LlamaServerVisionEngine.swift`: chat uses
+  the function; benchmarks unchanged.
+- Change `Enigma/LocalInference/AgentToolLoop.swift` and
+  `Enigma/Files/AgentFileTools.swift`: use the function, `/think` after the
+  identity.
+- Change `Enigma/Cloud/CloudProviderClients.swift`, `GeminiContentClient.swift`
+  and `CloudToolCalling.swift`: use the function; drop the tool modes'
+  identity lines.
+- Change `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift`,
+  `CodexSubscriptionClient.swift` and `CodexFileMode.swift`: drop the
+  hard-coded lines.
+- Don't touch: per-message context text (`ConversationContextPrompt`,
+  translation and selection instructions, `ScreenPromptContext`, web
+  excerpts), `MessagesTools.instructions`, or `LocalModelBenchmark.version`.
+
+**Tests:**
+
+- Existing tests compare against `ChatResponseStyle.instructions` and follow
+  the change: `ChatContextTests`
+  (`testNativeFormatterUsesAllMessagesAndAssistantGenerationPrefix`),
+  `LocalVisionTests`
+  (`testServerPreparationUsesRealTokenCountsAndReusesPreparedContextForGeneration`),
+  `CodexSubscriptionTests` (`testCodexStreamSendsTheSelectedThinkingCapacity`),
+  `CloudModeTests` (`testOpenAIStreamsResponsesStatelesslyWithStorageDisabled`,
+  `testAnthropicStreamsMessagesWithRequiredHeaders`) and
+  `ClaudeCodeSubscriptionTests`
+  (`testRuntimeUsesSubscriptionLoginAndDisablesCustomizationsAndTools`). No
+  test checks the hard-coded "You are Enigma" lines.
+- New: the identity line reaches every route builder (local text, vision,
+  agent, File Mode, OpenAI, Anthropic, Gemini, cloud tools, Claude Code,
+  Codex, Codex File Mode); `/think` comes after it; no "You are Enigma" text
+  exists outside `ChatResponseStyle`; the query writer, `/edit` recovery and
+  benchmarks don't carry it.
+
+**Docs:** `docs/Chat.md` → "Presentation" (where `ChatResponseStyle` is
+described); `docs/ChatGPT-Setup.md` and `docs/Claude-Code-Setup.md` → "How it
+works", which describe the replaced prompts.
+
+**Depends on / blocks:** blocks F13.
+
+**Out of scope:** the Personalization tab (F13), the occupation picker (F20)
+and context size (F15).
 
 ### F27. Keep file edits and message sending off on small local models
 
