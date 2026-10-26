@@ -1439,7 +1439,18 @@ final class EnigmaMainWindowTests: XCTestCase {
 
     fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
     try await snapshot("conversation-docked", host, fixture) { !host.shows("Example /screen") && host.shows("Send message") }
+
+    // A reply running, with two messages queued under it and the next one typed.
+    fixture.chat.submit("And how small can it get before quality drops?")
+    try await waitForUI("the reply running", in: host.view) { fixture.chat.activeRequest != nil }
+    XCTAssertTrue(fixture.chat.queueMessage("Which quantization should I pick for 16 GB?"))
+    XCTAssertTrue(fixture.chat.queueMessage("Compare Q4_K_M and Q5_K_M."))
+    fixture.screen.draft = "And for 8 GB?"
+    try await snapshot("conversation-queued", host, fixture) {
+      host.shows("Queued message") && host.shows("Queue message") && editor.string == "And for 8 GB?"
+    }
     fixture.chat.newChat()
+    fixture.screen.draft = ""
 
     host.window.setContentSize(PanelSizeStore.minimumSize)
     try await snapshot("minimum-size", host, fixture) { host.shows("Send message") }

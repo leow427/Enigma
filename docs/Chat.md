@@ -56,6 +56,9 @@ any commands recognized from your wording, the **Mode and model** menu
   each. They send one at a time, in order, each when the previous reply ends,
   and become ordinary messages once sent. **Send now** stops the running reply
   and sends that message at once, ahead of the others.
+
+    ![Two queued messages under a running reply, and the next one typed](images/conversation-queued-paper.png)
+
   - A queued message can't be edited: cancel it and type it again.
   - Only text is queued. Slash commands resolve when the message sends, on the
     mode and model selected then, but a draft with **/screen** or
