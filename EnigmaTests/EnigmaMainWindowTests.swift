@@ -736,12 +736,14 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the first request running", in: host.view) { fixture.chat.activeRequest != nil }
     XCTAssertTrue(fixture.chat.queueMessage("Cancel me"))
     try await waitForUI("one queued message", in: host.view) { host.shows("Cancel queued message") }
+    try await waitForSettledLayout(in: host, "the queued row", markers: ["Cancel queued message"])
     try await clickTestControl("Cancel queued message", in: host.view)
     try await waitForUI("the x cancels it", in: host.view) {
       fixture.chat.messageQueue.isEmpty && !host.shows("Queued message")
     }
     XCTAssertTrue(fixture.chat.queueMessage("Right now"))
     try await waitForUI("Send now", in: host.view) { host.shows("Send queued message now") }
+    try await waitForSettledLayout(in: host, "the queued row", markers: ["Send queued message now"])
     try await clickTestControl("Send queued message now", in: host.view)
     try await waitForUI("the reply stopped and the message sent", in: host.view) {
       fixture.engine.requestCount == 2 && fixture.chat.messageQueue.isEmpty && !host.shows("Queued message")
