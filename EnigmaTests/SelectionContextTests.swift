@@ -659,6 +659,9 @@ final class SelectionContextTests: XCTestCase {
     var mayCapture = true
     var calls: [String] = []
     var selectionReads = 0
+    /// A PDF viewer in the focused window, found only when nothing is focused (Safari's PDF view).
+    var viewer: Int?
+    var viewerLookups = 0
 
     /// Puts `node` inside web area `area`, which sits under the application.
     func place(_ node: Int, inWebArea area: Int) {
@@ -681,7 +684,8 @@ final class SelectionContextTests: XCTestCase {
         parent: { self.calls.append("parent(\($0))"); return self.parents[$0] },
         selectedText: { self.selectionReads += 1; return self.text(self.selectedText, "selectedText", $0) },
         rangeText: { self.text(self.rangeText, "rangeText", $0) },
-        markerText: { self.text(self.markerText, "markerText", $0) })
+        markerText: { self.text(self.markerText, "markerText", $0) },
+        pdfViewer: { self.viewerLookups += 1; return self.viewer })
     }
 
     func run(budget: Duration = SelectionCaptureFlow.focusBudget, appName: String? = "Slack",
@@ -954,6 +958,154 @@ final class SelectionContextTests: XCTestCase {
     read.selectedText[1] = "text"
     let found = await read.run()
     XCTAssertFalse(found.mayCopy, "no fallback once text was read")
+  }
+
+  func testCaptureFlowUsesAPDFViewerAtOnceWhenNothingIsFocused() async {
+    // Safari's PDF view never reports a focused element or its selection to Accessibility.
+    let fake = FakeCaptureTree()
+    fake.focusedNode = nil
+    fake.viewer = 5
+    let outcome = await fake.run(appName: "Safari")
+    XCTAssertEqual(outcome.element, 5)
+    XCTAssertTrue(outcome.isPDFViewer)
+    XCTAssertNil(outcome.selection)
+    XCTAssertTrue(outcome.mayCopy, "the copy is the only way to read the PDF's selection")
+    XCTAssertTrue(outcome.foundFocus, "Safari answered, so later captures there keep the normal wait")
+    XCTAssertFalse(outcome.focusTimedOut)
+    XCTAssertEqual(outcome.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Safari"))
+    XCTAssertEqual(fake.clock, SelectionCaptureFlow.interval, "no focus wait, one yield before ⌘C")
+    XCTAssertEqual(outcome.timing.focusReads, 1)
+    XCTAssertFalse(outcome.timing.wasCold)
+    XCTAssertEqual(fake.selectionReads, 0, "the viewer exposes no selection, so it isn't read")
+    XCTAssertEqual(fake.viewerLookups, 1)
+  }
+
+  func testCaptureFlowRefusesAnUnsafeOrInterruptedPDFViewer() async {
+    let unsafe = FakeCaptureTree()
+    unsafe.focusedNode = nil
+    unsafe.viewer = 5
+    unsafe.unsafe = [5]
+    let refused = await unsafe.run(appName: "Safari")
+    XCTAssertNil(refused.element)
+    XCTAssertFalse(refused.foundFocus, "an unsafe viewer leaves the focus memory as it was")
+    XCTAssertFalse(refused.mayCopy)
+    XCTAssertFalse(refused.focusTimedOut)
+    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Safari"))
+    XCTAssertEqual(unsafe.clock, .zero, "an unsafe viewer isn't waited on")
+    // The user moved on before the flow started: neither focus nor the viewer is read.
+    let moved = FakeCaptureTree()
+    moved.focusedNode = nil
+    moved.viewer = 5
+    moved.mayCapture = false
+    let cancelled = await moved.run(appName: "Safari")
+    XCTAssertNil(cancelled.element)
+    XCTAssertFalse(cancelled.mayCopy)
+    XCTAssertEqual(moved.viewerLookups, 0)
+    // Input during the lookup is seen at the yield before ⌘C, which then never follows.
+    let typed = FakeCaptureTree()
+    typed.focusedNode = nil
+    typed.viewer = 5
+    let late = await typed.run(appName: "Safari", onWait: { typed.mayCapture = false })
+    XCTAssertEqual(late.element, 5)
+    XCTAssertFalse(late.mayCopy)
+  }
+
+  func testCaptureFlowLooksForAPDFViewerOnlyOnceAndNeverWithFocus() async {
+    // A cold Chromium tree has no viewer: one lookup, then the usual wait.
+    let cold = FakeCaptureTree()
+    cold.focusAppearsAt = .milliseconds(600)
+    cold.selectedText[1] = "cold"
+    let outcome = await cold.run()
+    XCTAssertEqual(outcome.element, 1)
+    XCTAssertFalse(outcome.isPDFViewer)
+    XCTAssertEqual(cold.viewerLookups, 1)
+    let none = FakeCaptureTree()
+    none.focusedNode = nil
+    let timedOut = await none.run()
+    XCTAssertTrue(timedOut.focusTimedOut)
+    XCTAssertEqual(none.viewerLookups, 1)
+    // A focused element always wins over a viewer.
+    let focused = FakeCaptureTree()
+    focused.viewer = 5
+    focused.selectedText[1] = "focused"
+    let read = await focused.run()
+    XCTAssertEqual(read.element, 1)
+    XCTAssertFalse(read.isPDFViewer)
+    XCTAssertEqual(focused.viewerLookups, 0)
+  }
+
+  func testPDFViewerSearchFindsSafarisViewerWithinItsBounds() {
+    // Safari 26: AXWindow > AXSplitGroup > AXTabGroup > AXGroup > AXGroup > AXGroup/AXPDFPluginSubrole.
+    var children: [Int: [Int]] = [0: [1, 9, 10], 1: [2, 3], 3: [4], 4: [5], 5: [6], 6: [7]]
+    var roles: [Int: String] = [0: "AXWindow", 1: "AXSplitGroup", 3: "AXTabGroup", 9: "AXToolbar", 10: "AXButton",
+                                7: "AXPage"]
+    var subroles: [Int: String] = [6: SelectionPDFViewer.subrole]
+    var expanded: [Int] = []
+    func find(maximumDepth: Int = SelectionPDFViewer.maximumDepth, maximumNodes: Int = SelectionPDFViewer.maximumNodes,
+              mayContinue: () -> Bool = { true }) -> Int? {
+      expanded = []
+      return SelectionPDFViewer.find(in: 0, maximumDepth: maximumDepth, maximumNodes: maximumNodes,
+        mayContinue: mayContinue, role: { roles[$0] ?? "AXGroup" }, subrole: { subroles[$0] },
+        children: { expanded.append($0); return children[$0] ?? [] })
+    }
+    XCTAssertEqual(find(), 6)
+    XCTAssertEqual(expanded, [0, 1, 2, 3, 4, 5], "never expands a toolbar, a control or the PDF itself")
+    XCTAssertNil(find(maximumDepth: 4), "the viewer is 5 levels down")
+    XCTAssertEqual(find(maximumDepth: 5), 6)
+    // Every element whose role is read counts: the window, 1, 9, 10, 2, 3, 4, 5 and the viewer are 9.
+    XCTAssertNil(find(maximumNodes: 8))
+    XCTAssertEqual(expanded, [0, 1, 2, 3, 4], "no children are read once the budget is spent")
+    XCTAssertEqual(find(maximumNodes: 9), 6)
+    var checks = 0
+    XCTAssertNil(find(mayContinue: { checks += 1; return checks <= 3 }), "stops when its time is up")
+    XCTAssertEqual(expanded, [0], "checked again before each child")
+    // A web page's tree is never searched: a PDF there sits in a page that reports focus.
+    roles[4] = SelectionCaptureFlow.webAreaRole
+    XCTAssertNil(find())
+    XCTAssertFalse(expanded.contains(4))
+    roles[4] = nil
+    // No viewer anywhere, including a window that is itself unreadable.
+    subroles[6] = nil
+    XCTAssertNil(find())
+    children = [:]
+    XCTAssertNil(find())
+    // A container with a thousand controls is read only up to the bounds.
+    children[0] = Array(1_000..<2_000) + [1]
+    var roleReads = 0
+    func countedFind(mayContinue: () -> Bool = { true }) -> Int? {
+      roleReads = 0
+      return SelectionPDFViewer.find(in: 0, mayContinue: mayContinue,
+        role: { roleReads += 1; return roles[$0] ?? ($0 >= 1_000 ? "AXButton" : "AXGroup") },
+        subrole: { subroles[$0] }, children: { children[$0] ?? [] })
+    }
+    XCTAssertNil(countedFind())
+    XCTAssertEqual(roleReads, SelectionPDFViewer.maximumNodes - 1, "the window plus 199 children")
+    checks = 0
+    XCTAssertNil(countedFind(mayContinue: { checks += 1; return checks <= 10 }))
+    XCTAssertEqual(roleReads, 9, "the deadline is checked before each child")
+    XCTAssertEqual(SelectionPDFViewer.bundleIDs, ["com.apple.Safari", "com.apple.SafariTechnologyPreview"])
+    XCTAssertEqual(SelectionPDFViewer.maximumDepth, 8)
+    XCTAssertEqual(SelectionPDFViewer.maximumNodes, 200)
+    XCTAssertEqual(SelectionPDFViewer.budget, .milliseconds(100))
+    for bundleID in SelectionPDFViewer.bundleIDs {
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: bundleID))
+    }
+  }
+
+  func testPDFViewerStaysCurrentOnlyWhileEveryConditionHolds() {
+    XCTAssertTrue(SelectionPDFViewer.isCurrent(isFrontmost: { true }, nothingFocused: { true }, isViewer: { true },
+      inFocusedWindow: { true }, isSafe: { true }))
+    // Another app in front, something taking focus (or an unreadable focus), a different
+    // element, another window or tab, or an unsafe ancestor each stop the copy.
+    for failing in 0..<5 {
+      let holds = { (condition: Int) in { condition != failing } }
+      XCTAssertFalse(SelectionPDFViewer.isCurrent(isFrontmost: holds(0), nothingFocused: holds(1), isViewer: holds(2),
+        inFocusedWindow: holds(3), isSafe: holds(4)), "condition \(failing)")
+    }
+    XCTAssertTrue(SelectionPDFViewer.reportsNothingFocused(.noValue))
+    for error in [AXError.success, .cannotComplete, .attributeUnsupported, .invalidUIElement, .apiDisabled] {
+      XCTAssertFalse(SelectionPDFViewer.reportsNothingFocused(error), "\(error.rawValue)")
+    }
   }
 
   func testFocusMemoryShortensTheWaitOnlyAfterAFullTimeout() {

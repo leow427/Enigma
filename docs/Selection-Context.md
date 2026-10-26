@@ -240,11 +240,18 @@ and add the app you're running.
   element above it, up to the app itself. If Enigma can't tell whether a field is
   safe, for example because it can't reach the app within 128 levels, it doesn't
   read it.
-- Only the focused element and the web page that contains it are read. For a
+- Apart from Safari's PDF view (below), only the focused element and the web
+  page that contains it are read. For a
   web page, Enigma asks for the page's own selection (its text markers); it
   never reads other pages, windows or the rest of the document. When the
   focused element is itself a web page (a frame or an embedded web view),
   Enigma reads only that page, never the page around it.
+- A PDF that Safari shows as a page has no focused element and shares no
+  selection. So whenever Safari reports no focused element, Enigma looks through
+  the layout of Safari's front window for a PDF viewer, reading only element
+  roles and their children (at most 200 elements, never their text). If it finds
+  one, it checks the viewer and every element above it as above, and copies the
+  selection with ⌘C.
 - Typing, clicking, scrolling, pressing a modifier key or switching apps during a
   capture cancels it. Letting go of the shortcut's keys (for example ⇧⌥ after
   ⇧⌥Space) doesn't.
@@ -392,6 +399,23 @@ written. Only your own question decides whether automatic search runs. See
   `SelectionCaptureNotice` words the notice: it names the app ("No selected text
   could be read from Claude…"), or says the app didn't share its text in time when
   no focused element appeared within the wait.
+- **Safari's PDF view.** Safari shows a PDF opened as a page through a viewer
+  (subrole `AXPDFPluginSubrole`) that never reports a focused element or its
+  selection. So in Safari and Safari Technology Preview only, when the first focus
+  read finds nothing, `SelectionCaptureFlow` looks once in the focused window for
+  that viewer (`SelectionPDFViewer`): breadth-first, queueing only split groups,
+  tab groups, groups and scroll areas (never a web area, a toolbar or the viewer's
+  pages), within 8 levels and 200 elements (the window and each child whose role
+  is read), stopping at the first check after 100 ms, and reading roles,
+  subroles and children only. A viewer that passes the same
+  `SelectionAncestry.isSafe` walk takes the focused element's place: the flow
+  skips the focus wait and the selection reads, yields once (30 ms) so input
+  during the lookup can cancel the capture, and goes to the ⌘C fallback. Finding
+  a safe one also clears Safari from `SelectionFocusMemory`. Before, during and
+  after the copy, `SelectionPDFViewer.isCurrent` replaces the same-focus check: Safari
+  must still be frontmost and report no focused element (exactly
+  `kAXErrorNoValue`; any other error fails), the element must still be a PDF
+  viewer in Safari's focused window, and it must still pass the safety walk.
 - **Placement and panel geometry.** `SpotlightPanelController.summonSelectionContext()`
   (`Enigma/App/SpotlightPanelController.swift`) places the panel with
   `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, and moves
@@ -451,8 +475,14 @@ written. Only your own question decides whether automatic search runs. See
   retries ask again at about 1 s, 3 s and 8 s); a key press, click or scroll during
   that wait cancels the capture. VS Code-family editors aren't pre-warmed, so the first capture there after
   their accessibility was off still takes about 2 s.
-- An app that has nothing focused, or never reports a focused element (such as
-  OpenAI's Codex app, below), delays the panel by the full 2.5 s wait once, then by
+- Text selected in a PDF that Safari shows as a page is read only by copying it,
+  so it attaches only when Safari's ⌘C copies it, and the panel opens beside the
+  pointer rather than the selection. **Replace text** can't paste into it (there's
+  no focused field) and says the replacement couldn't be sent. Other WebKit apps
+  that show the same viewer aren't searched, and Chrome's PDF viewer hasn't been
+  tested.
+- An app other than Safari's PDF view that has nothing focused, or never reports
+  a focused element (such as OpenAI's Codex app, below), delays the panel by the full 2.5 s wait once, then by
   300 ms on later invocations in that app until it reports a focused element.
 - An app that is busy or stops responding can still hold up the panel: each
   lookup gives up after 0.15 s and each text read after 1 s, and a text read that
@@ -494,7 +524,7 @@ used if the Accessibility reads came up empty.
 | Slack | `com.tinyspeck.slackmacgap` | `AXGroup`: `AXSelectedText` empty, range length 0; text markers on the focused element return it, and so does the `AXWebArea` ancestor's `AXSelectedText` | not tested | 2059 ms (cold) | Not used (range length 0, not a browser) | Failed before; verified on 2026-10-23 after a fresh relaunch (double Option), with the cold delay. |
 | Discord | `com.hnc.Discord` | `AXWebArea` focused with `AXSelectedTextMarkerRange` (no selection tested) | not tested | 2077 ms (cold); once none within 2 s | Not used | Verified on 2026-10-23 (⇧⌥Space). |
 | VS Code | `com.microsoft.VSCode` | — | `AXTextArea` (editor): `AXSelectedText` | 2033 ms (cold) | Only when VS Code's metadata confirms a selection | |
-| Safari | `com.apple.Safari` | `AXWebArea`: `AXSelectedText` and range empty; text markers return it | `AXTextField`: `AXSelectedText` | 2 ms | Allowed (browser), now rarely needed | `AXManualAccessibility` unsupported. Page text verified on 2026-10-23. |
+| Safari | `com.apple.Safari` | `AXWebArea`: `AXSelectedText` and range empty; text markers return it | `AXTextField`: `AXSelectedText` | 2 ms | Allowed (browser); the only way to read a PDF | `AXManualAccessibility` unsupported. Page text verified on 2026-10-23. A PDF opened as a page (`AXGroup`, subrole `AXPDFPluginSubrole`, five levels below the window) reports no focused element and no selection: `AXSelectedText` is listed on its text but stays empty (checked on 2026-10-26), so Enigma copies it. |
 | Chrome | `com.google.Chrome` | `AXGroup` (subrole `AXTabPanel`): `AXSelectedText`; sometimes the `AXWebArea` is focused with range length 0 and no markers | `AXTextField`: `AXSelectedText` | 322 ms | Allowed (browser) | |
 | Messages | `com.apple.MobileSMS` | `AXTextArea`: `AXSelectedText` | `AXTextField`: `AXSelectedText` | 1287 ms (cold) | Not needed | |
 | Notes | `com.apple.Notes` | `AXTextArea`: `AXSelectedText` | `AXTextArea`: `AXSelectedText` | 0 ms | Not needed | |
@@ -537,7 +567,8 @@ documents.
   first-tap signal, the accessibility warmer, placement,
   AX fallbacks and their order, the ancestor walk, the capture flow over a fake
   tree on a simulated clock (cold trees, timeouts, interruptions, unsafe focus,
-  a focus that moves, web areas, when ⌘C may follow), the per-app focus memory,
+  a focus that moves, web areas, a PDF viewer standing in for focus, when ⌘C may
+  follow), the PDF viewer search, the per-app focus memory,
   which events cancel a capture, the
   capture notices, clipboard preservation, paste transactions
   and their failure paths, which turns carry the selection, **/edit** and
