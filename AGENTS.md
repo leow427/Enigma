@@ -27,6 +27,11 @@ the `EnigmaTests` XCTest target. The app currently targets macOS 26.0.
   the visual-design reference, `docs/design/ui-revamp/` is the design record,
   and `docs/history/` keeps point-in-time reports. Update the feature doc when
   you change that feature's behavior.
+- `to-do.md` lists the open bug fixes and features. Before working on an item,
+  read its entry in full and check `docs/superpowers/specs/` and
+  `docs/superpowers/plans/` for a spec or plan that names its ID (for example
+  `F2`). A plan there records decisions and checked facts; follow it, and say
+  so if the code no longer matches it.
 
 Do not commit `DerivedData`, `xcuserdata`, `.DS_Store`, credentials, generated
 artifacts, or local model/runtime caches. Preserve the existing `.gitignore`

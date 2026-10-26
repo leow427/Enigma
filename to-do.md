@@ -14,7 +14,11 @@
 > and **Out of scope**. Later features stay brief until they are next; expand
 > them the same way, checking every file and symbol against `main`. The
 > step-by-step implementation plan goes in `docs/superpowers/plans/` when an
-> item is picked up, not here.
+> item is picked up, not here. Name the plan after the item
+> (`<date>-f2-message-queue.md`), say which item it drives in its first
+> line, and add a **Plan:** line linking it under the item's heading. Before
+> starting an item, look for that line and for any plan or spec that names
+> the item.
 
 ## Bug fixes
 
