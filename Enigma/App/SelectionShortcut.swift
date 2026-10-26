@@ -157,17 +157,17 @@ struct SelectionWarmedApp: Equatable, Sendable {
   }
 }
 
-/// Asks the frontmost app to turn on its full accessibility tree (`AXManualAccessibility`)
+/// Asks the frontmost app to turn on its full accessibility tree (`attributes(for:)`)
 /// before a capture needs it. Chromium and Electron apps build that tree only on
 /// request and take about 2 s to report a focused element afterwards, so doing this
 /// when an app comes to the front (and on the first tap of the shortcut) keeps the
 /// first capture there from waiting. A freshly launched Electron app ignores the
 /// request until it is ready, so after a launch or activation the set is repeated a few
-/// times while the same app stays in front. It sets that one attribute and reads nothing.
+/// times while the same app stays in front. It sets those attributes and reads nothing.
 ///
 /// VS Code-family editors are never warmed: they treat Electron's accessibility support
 /// as a screen reader, switch to screen-reader rendering and show a lasting prompt.
-/// A capture there still sets the attribute when the user actually invokes Enigma.
+/// A capture there still sets the attributes when the user actually invokes Enigma.
 @MainActor
 final class SelectionAccessibilityWarmer {
   enum Trigger: String, Sendable { case startup, activation, launch, retry, firstTap }
@@ -175,12 +175,29 @@ final class SelectionAccessibilityWarmer {
   /// After an app launches or comes to the front, the set is repeated at these delays.
   static let retryDelays: [Duration] = [.seconds(1), .seconds(3), .seconds(8)]
 
+  /// The attributes that turn on an app's full accessibility tree. Each is set to true and Enigma
+  /// never clears it; an unsupported one is harmless.
+  nonisolated static func attributes(for bundleID: String?) -> [String] {
+    SelectionCapturePolicy.chromiumBrowsers.contains(bundleID ?? "")
+      ? ["AXManualAccessibility", "AXEnhancedUserInterface"] : ["AXManualAccessibility"]
+  }
+
+  /// Sets each attribute to true and returns its result. Chrome answers `AXEnhancedUserInterface`
+  /// with notImplemented (-25208) yet builds its tree about 2 s later.
+  @discardableResult
+  nonisolated static func turnOnAccessibility(
+    _ application: AXUIElement, attributes: [String],
+    set: (AXUIElement, CFString, CFTypeRef) -> AXError = AXUIElementSetAttributeValue
+  ) -> [AXError] {
+    attributes.map { set(application, $0 as CFString, kCFBooleanTrue) }
+  }
+
   private let isTrusted: () -> Bool
   private let ownPID: pid_t
   private let frontmostPID: () -> pid_t?
   private let appInfo: (pid_t) -> SelectionWarmedApp?
   private let fileExists: (URL) -> Bool
-  private let enable: (pid_t, Trigger) -> Void
+  private let enable: (pid_t, [String], Trigger) -> Void
   private let schedule: (Duration, @escaping @MainActor () -> Void) -> Void
   private let center: NotificationCenter
   private let history: SelectionWarmHistory
@@ -195,7 +212,7 @@ final class SelectionAccessibilityWarmer {
          NSRunningApplication(processIdentifier: $0).map(SelectionWarmedApp.init)
        },
        fileExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
-       enable: @escaping (pid_t, Trigger) -> Void = SelectionAccessibilityWarmer.enableManualAccessibility,
+       enable: @escaping (pid_t, [String], Trigger) -> Void = SelectionAccessibilityWarmer.enableAccessibility,
        schedule: @escaping (Duration, @escaping @MainActor () -> Void) -> Void = SelectionAccessibilityWarmer.afterDelay,
        center: NotificationCenter = NSWorkspace.shared.notificationCenter,
        history: SelectionWarmHistory = .shared) {
@@ -249,7 +266,7 @@ final class SelectionAccessibilityWarmer {
   func warm(pid: pid_t?, trigger: Trigger) {
     guard let pid, let app = eligibleApp(pid) else { return }
     history.record(app.key, trigger: trigger)
-    enable(pid, trigger)
+    enable(pid, Self.attributes(for: app.bundleID), trigger)
   }
 
   private func eligibleApp(_ pid: pid_t) -> SelectionWarmedApp? {
@@ -276,14 +293,15 @@ final class SelectionAccessibilityWarmer {
 
   /// Runs off the main thread, so an app that is slow or hung can't delay Enigma's
   /// shortcut handling; a serial queue keeps repeated activations from piling up threads.
-  nonisolated static func enableManualAccessibility(_ pid: pid_t, trigger: Trigger) {
+  nonisolated static func enableAccessibility(_ pid: pid_t, attributes: [String], trigger: Trigger) {
     queue.async {
       let application = AXUIElementCreateApplication(pid)
       AXUIElementSetMessagingTimeout(application, 0.25)
       // Unsupported in native apps and some browsers; the error is harmless.
-      let result = AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+      let result = turnOnAccessibility(application, attributes: attributes)
+        .map { String($0.rawValue) }.joined(separator: ",")
       // Debug level: not kept in the persistent log; watch it with `log stream --level debug`.
-      SelectionLog.logger.debug("warm trigger=\(trigger.rawValue, privacy: .public) result=\(result.rawValue, privacy: .public)")
+      SelectionLog.logger.debug("warm trigger=\(trigger.rawValue, privacy: .public) result=\(result, privacy: .public)")
     }
   }
 }

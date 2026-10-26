@@ -1621,7 +1621,7 @@ final class SelectionContextTests: XCTestCase {
     var unknown: Set<pid_t> = []
     /// Bundles that contain VS Code's product.json.
     var forks: Set<pid_t> = []
-    var enabled: [(pid: pid_t, trigger: SelectionAccessibilityWarmer.Trigger)] = []
+    var enabled: [(pid: pid_t, attributes: [String], trigger: SelectionAccessibilityWarmer.Trigger)] = []
     var scheduled: [(delay: Duration, action: @MainActor () -> Void)] = []
     let center = NotificationCenter()
     var clock = Duration.zero
@@ -1632,7 +1632,7 @@ final class SelectionContextTests: XCTestCase {
           bundleID: self.bundleIDs[pid] ?? "com.example.app\(pid)", bundleURL: URL(fileURLWithPath: "/Applications/\(pid).app"))
       }, fileExists: { [unowned self] url in
         self.forks.contains { url.path == "/Applications/\($0).app/Contents/Resources/app/product.json" }
-      }, enable: { [unowned self] in self.enabled.append(($0, $1)) },
+      }, enable: { [unowned self] in self.enabled.append(($0, $1, $2)) },
       schedule: { [unowned self] in self.scheduled.append(($0, $1)) }, center: center, history: history)
 
     var pids: [pid_t] { enabled.map(\.pid) }
@@ -1719,6 +1719,44 @@ final class SelectionContextTests: XCTestCase {
     var checked: [String] = []
     XCTAssertTrue(SelectionAccessibilityWarmer.isWarmable(slack, fileExists: { checked.append($0.path); return false }))
     XCTAssertEqual(checked, ["/Applications/Slack.app/Contents/Resources/app/product.json"])
+  }
+
+  func testAccessibilityWarmerAlsoSetsEnhancedUserInterfaceForChromiumBrowsers() {
+    // Chrome 156 rejects AXManualAccessibility (-25205); only AXEnhancedUserInterface built its tree.
+    let both = ["AXManualAccessibility", "AXEnhancedUserInterface"]
+    let fake = FakeWarmer()
+    fake.bundleIDs = [500: "com.google.Chrome", 600: "com.tinyspeck.slackmacgap", 700: "com.apple.Safari"]
+    fake.warmer.appeared(pid: 500, trigger: .activation)
+    fake.runRetries()
+    XCTAssertEqual(fake.enabled.map(\.attributes), Array(repeating: both, count: 4), "the activation and every retry")
+    for pid: pid_t in [600, 700] {
+      fake.frontmost = pid
+      fake.warmer.warmFrontmost()
+      XCTAssertEqual(fake.enabled.last?.pid, pid)
+      XCTAssertEqual(fake.enabled.last?.attributes, ["AXManualAccessibility"], "Electron and native apps")
+    }
+    for browser in ["com.google.Chrome", "com.google.Chrome.canary", "com.microsoft.edgemac", "com.brave.Browser",
+                    "company.thebrowser.Browser"] {
+      XCTAssertEqual(SelectionAccessibilityWarmer.attributes(for: browser), both, browser)
+    }
+    for app in ["com.apple.Safari", "org.mozilla.firefox", "com.tinyspeck.slackmacgap", "com.google.Chrome.helper", nil]
+      as [String?] {
+      XCTAssertEqual(SelectionAccessibilityWarmer.attributes(for: app), ["AXManualAccessibility"], app ?? "nil")
+    }
+    // One set to true per attribute, in order, with each result returned.
+    var sets: [(String, Bool)] = []
+    let results = SelectionAccessibilityWarmer.turnOnAccessibility(AXUIElementCreateApplication(-1), attributes: both) {
+      sets.append(($1 as String, ($2 as? Bool) == true))
+      return sets.count == 1 ? .attributeUnsupported : .notImplemented
+    }
+    XCTAssertEqual(sets.map(\.0), both)
+    XCTAssertEqual(sets.map(\.1), [true, true])
+    XCTAssertEqual(results, [.attributeUnsupported, .notImplemented])
+    // Every Chromium browser may also copy with an empty range, as Chrome and Firefox do.
+    XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: "org.mozilla.firefox"))
+    for browser in SelectionCapturePolicy.chromiumBrowsers {
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: browser), browser)
+    }
   }
 
   func testAccessibilityWarmerSupersedesRetriesAndObservesLaunches() throws {

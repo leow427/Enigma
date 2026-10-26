@@ -12,10 +12,10 @@
 // another.
 //
 // The process running the probe (for example Terminal) needs Accessibility
-// permission. The probe only reads, apart from setting AXManualAccessibility as
-// Enigma does, and it never touches the clipboard. Text is reported as a
-// character count unless `--text` is given, so probing a private document
-// doesn't print it.
+// permission. The probe only reads, apart from setting AXManualAccessibility (and
+// AXEnhancedUserInterface in Chromium browsers) as Enigma does, and it never
+// touches the clipboard. Text is reported as a character count unless `--text`
+// is given, so probing a private document doesn't print it.
 import AppKit
 import ApplicationServices
 import Carbon
@@ -98,9 +98,18 @@ func describe(_ node: AXUIElement, label: String) -> [String] {
   return lines
 }
 
-/// Apps whose `AXManualAccessibility` the probe has already set, with how long the
+/// Apps whose accessibility attributes the probe has already set, with how long the
 /// focused element took to appear afterwards.
 var prepared: [pid_t: String] = [:]
+
+/// Keep in step with `SelectionCapturePolicy.chromiumBrowsers`.
+let chromiumBrowsers: Set<String> = [
+  "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+  "org.chromium.Chromium", "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev",
+  "com.microsoft.edgemac.Canary", "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
+  "company.thebrowser.Browser", "company.thebrowser.dia", "com.vivaldi.Vivaldi", "com.vivaldi.Vivaldi.snapshot",
+  "com.operasoftware.Opera", "com.operasoftware.OperaNext", "com.operasoftware.OperaDeveloper",
+  "com.operasoftware.OperaGX", "com.operasoftware.OperaAir"]
 
 @MainActor
 func report(_ app: NSRunningApplication) -> [String] {
@@ -109,14 +118,18 @@ func report(_ app: NSRunningApplication) -> [String] {
   var lines = ["app: \(app.localizedName ?? "?") bundle=\(app.bundleIdentifier ?? "?") secureInput=\(IsSecureEventInputEnabled())"]
   if prepared[app.processIdentifier] == nil {
     let manual = AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    // Chrome answers notImplemented (-25208) here, yet builds its tree.
+    let enhanced = chromiumBrowsers.contains(app.bundleIdentifier ?? "")
+      ? AXUIElementSetAttributeValue(application, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) : nil
     let start = Date()
     var found = false
-    for _ in 0..<40 {
+    for _ in 0..<60 {
       if element(application, kAXFocusedUIElementAttribute) != nil { found = true; break }
       Thread.sleep(forTimeInterval: 0.05)
     }
     prepared[app.processIdentifier] = "AXManualAccessibility \(manual == .success ? "ok" : "error \(manual.rawValue)"); "
-      + (found ? String(format: "focused element after %.0f ms", Date().timeIntervalSince(start) * 1000) : "no focused element within 2 s")
+      + (enhanced.map { "AXEnhancedUserInterface \($0 == .success ? "ok" : "error \($0.rawValue)"); " } ?? "")
+      + (found ? String(format: "focused element after %.0f ms", Date().timeIntervalSince(start) * 1000) : "no focused element within 3 s")
   }
   lines.append(prepared[app.processIdentifier]!)
   guard let focused = element(application, kAXFocusedUIElementAttribute) else {

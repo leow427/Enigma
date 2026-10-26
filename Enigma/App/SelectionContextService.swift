@@ -83,9 +83,10 @@ final class SelectionContextService: ObservableObject {
     failureNotice = SelectionCaptureNotice.text(for: .nothingRead, appName: app.localizedName)
     let application = AXUIElementCreateApplication(app.processIdentifier)
     AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
-    // Electron apps may not expose their focused editor until assistive access is enabled.
-    // Unsupported attributes are harmless; this never grants macOS permission.
-    AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    // Electron apps and Chromium browsers may not expose their focused editor until assistive
+    // access is enabled. Unsupported attributes are harmless; this never grants macOS permission.
+    SelectionAccessibilityWarmer.turnOnAccessibility(
+      application, attributes: SelectionAccessibilityWarmer.attributes(for: app.bundleIdentifier))
     let mayCapture = {
       !Task.isCancelled && !interaction.interrupted && !IsSecureEventInputEnabled()
         && NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
@@ -536,7 +537,7 @@ enum SelectionCaptureFlow {
                         now: () -> Duration = SelectionCaptureRetry.uptime,
                         wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> Outcome<Node> {
     let nothingRead = SelectionCaptureNotice.text(for: .nothingRead, appName: appName)
-    // A cold Chromium tree builds asynchronously after AXManualAccessibility is set.
+    // A cold Chromium tree builds asynchronously after its accessibility attributes are set.
     let start = now()
     let focusDeadline = start + focusBudget
     var focusReads = 0
@@ -849,6 +850,18 @@ enum SelectionCapturePolicy {
   static let webCustomDataType = NSPasteboard.PasteboardType("org.chromium.web-custom-data")
   static let codeEditors: Set<String> = ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
     "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"]
+  /// Chromium-based browsers. Chrome 156 rejects `AXManualAccessibility` and builds its web
+  /// content tree only for `AXEnhancedUserInterface`, which a screen reader sets (checked on
+  /// 2026-10-26; reported from Chrome 155). The others are assumed to match. Electron apps still honour
+  /// `AXManualAccessibility`, and native apps can animate oddly with the other one, so it
+  /// is kept to these.
+  static let chromiumBrowsers: Set<String> = [
+    "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+    "org.chromium.Chromium", "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev",
+    "com.microsoft.edgemac.Canary", "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
+    "company.thebrowser.Browser", "company.thebrowser.dia", "com.vivaldi.Vivaldi", "com.vivaldi.Vivaldi.snapshot",
+    "com.operasoftware.Opera", "com.operasoftware.OperaNext", "com.operasoftware.OperaDeveloper",
+    "com.operasoftware.OperaGX", "com.operasoftware.OperaAir"]
 
   static func text(in value: String?, range: CFRange) -> String? {
     guard let value, range.location >= 0, range.length > 0 else { return nil }
@@ -878,9 +891,8 @@ enum SelectionCapturePolicy {
   static func allowsCopy(range: CFRange?, bundleID: String?) -> Bool {
     let bundleID = bundleID ?? ""
     if codeEditors.contains(bundleID) { return true }
-    let browsers: Set<String> = ["com.google.Chrome", "com.google.Chrome.canary", "com.apple.Safari",
-      "com.microsoft.edgemac", "com.brave.Browser", "company.thebrowser.Browser", "org.mozilla.firefox",
-      "com.apple.SafariTechnologyPreview"]
+    let browsers = chromiumBrowsers
+      .union(["com.apple.Safari", "com.apple.SafariTechnologyPreview", "org.mozilla.firefox"])
     if let range { return range.length > 0 || browsers.contains(bundleID) }
     let lineEditors = ["com.microsoft.VSCode", "com.jetbrains.", "com.sublimetext."]
     return !lineEditors.contains { bundleID.hasPrefix($0) }

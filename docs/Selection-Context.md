@@ -231,6 +231,20 @@ and add the app you're running.
   bundle (it checks that the file exists and reads nothing from it), and leaves
   alone any app whose bundle it can't identify. They are asked only when you
   actually invoke Enigma there, as capture always does.
+- Chromium browsers (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera and Chromium)
+  are also asked with `AXEnhancedUserInterface`, the switch a screen reader such
+  as VoiceOver sets, because Chrome 156 ignores `AXManualAccessibility` and keeps
+  its web pages hidden from Accessibility without it (another project reported the
+  same from Chrome 155). Enigma never switches either one off; Chrome kept its
+  full accessibility tree on for at least 15 minutes idle. If VoiceOver turns
+  `AXEnhancedUserInterface` off when it quits, the tree stays off until Enigma asks
+  again on the next activation or first tap. Window managers such as Rectangle
+  switch it off for each window move and back on afterwards, so Chrome may rebuild
+  its tree after a move (not measured). On
+  Chrome 156 the tree cost about 23 MB with a few tabs open, and resizing its
+  window through Accessibility still worked exactly and at once (checked on
+  2026-10-26). Other apps aren't asked this way, because native apps can animate
+  oddly with it.
 - Enigma writes one diagnostic line per capture to the system log, with timings
   and fixed labels only: no text, app name or bundle ID (see
   [How it works](#how-it-works)).
@@ -319,7 +333,10 @@ written. Only your own question decides whether automatic search runs. See
   is called there, and on
   `NSWorkspace.didActivateApplicationNotification`,
   `didLaunchApplicationNotification` (for an app that launches in front) and
-  startup, to set `AXManualAccessibility` on the frontmost app other than Enigma
+  startup, to set `attributes(for:)` on the frontmost app other than Enigma:
+  `AXManualAccessibility`, plus `AXEnhancedUserInterface` for the bundle IDs in
+  `SelectionCapturePolicy.chromiumBrowsers` (`turnOnAccessibility` sets each to
+  true). This happens
   when Accessibility is granted, skipping the VS Code family
   (`SelectionCapturePolicy.codeEditors`, or a bundle containing
   `Contents/Resources/app/product.json`; `isWarmable`) and any app whose bundle ID
@@ -327,8 +344,8 @@ written. Only your own question decides whether automatic search runs. See
   and launch date, for the log. After an activation or launch it repeats the set
   at `retryDelays` (1 s, 3 s, 8 s) while that app is still frontmost and
   Accessibility is still granted; a newer activation or `stop()` makes earlier
-  retries do nothing. The set runs on a background serial queue with a 0.25 s
-  timeout, so a slow or hung app can't hold up Enigma's main thread.
+  retries do nothing. The sets run on a background serial queue with a 0.25 s
+  timeout each, so a slow or hung app can't hold up Enigma's main thread.
   Help's rows and strings are in `KeyboardShortcutsHelp`
   (`Enigma/App/EnigmaMainWindowLogic.swift`) and
   `Enigma/App/KeyboardShortcutsHelpView.swift`.
@@ -340,7 +357,8 @@ written. Only your own question decides whether automatic search runs. See
   before the capture starts waiting, how many seconds earlier the app was last
   warmed and by what (`lastWarm`, `lastWarmTrigger`) and when its last first-tap
   warm was (`firstTapWarm`). Each warm writes a `.debug` line with its trigger and
-  `AXError` code, which macOS doesn't keep. Nothing logged contains the selected
+  the `AXError` code of each attribute it set, comma-separated (Chrome:
+  `-25205,-25208`), which macOS doesn't keep. Nothing logged contains the selected
   text, its length, or the app's name or bundle ID. Read the capture lines with:
 
   ```sh
@@ -353,7 +371,7 @@ written. Only your own question decides whether automatic search runs. See
   log stream --level debug --predicate 'subsystem == "com.leow427.AISpotlight" AND category == "selection"'
   ```
 - **Capture.** `SelectionContextService.capture()` (`Enigma/App/SelectionContextService.swift`)
-  sets `AXManualAccessibility` on the frontmost app and runs
+  sets the same attributes on the frontmost app (`turnOnAccessibility`) and runs
   `SelectionCaptureFlow.run`, a generic sequence over the tree that the service
   feeds with thin closures over the Accessibility calls. Structural lookups (the
   focused element, parents, roles, ranges, marker ranges) use a 0.15 s messaging
@@ -362,7 +380,9 @@ written. Only your own question decides whether automatic search runs. See
   retry. The flow waits up to 2.5 s
   (`focusBudget`, polling every 30 ms with `SelectionCaptureRetry.first(within:)`)
   for a focused element: a Chromium or Electron tree that was off takes about 2 s
-  to appear, and Chromium turns it off again after a while. A ready app answers on
+  to appear, and an Electron app may turn it off again after a while (Chrome,
+  asked with `AXEnhancedUserInterface`, kept it on for at least 15 minutes). A
+  ready app answers on
   the first read, so it doesn't wait. If an app's whole wait passes with no
   focused element, `SelectionFocusMemory` remembers that app (in memory, until it
   quits or reports a focused element) and later captures there wait only 300 ms.
@@ -479,8 +499,12 @@ written. Only your own question decides whether automatic search runs. See
   so it attaches only when Safari's ⌘C copies it, and the panel opens beside the
   pointer rather than the selection. **Replace text** can't paste into it (there's
   no focused field) and says the replacement couldn't be sent. Other WebKit apps
-  that show the same viewer aren't searched, and Chrome's PDF viewer hasn't been
-  tested.
+  that show the same viewer aren't searched.
+- Of the Chromium browsers, only Chrome has been checked; the others are assumed
+  to behave the same, and like Chrome they may fall back to ⌘C when the focused
+  element reports an empty selection range. Installed web apps (which run under
+  their own bundle IDs, such as `com.google.Chrome.app.…`) aren't on the list and
+  haven't been tested; they get only `AXManualAccessibility`.
 - An app other than Safari's PDF view that has nothing focused, or never reports
   a focused element (such as OpenAI's Codex app, below), delays the panel by the full 2.5 s wait once, then by
   300 ms on later invocations in that app until it reports a focused element.
@@ -515,7 +539,7 @@ Results from `scripts/selection-probe.swift` on macOS 27 (October 2026), with re
 text (for example a reply or a web page) and text in an input. "Cold" means the
 first query after the app started or its accessibility tree had been turned off;
 the time is how long the focused element took to appear after
-`AXManualAccessibility` was set. The ⌘C column says whether the fallback would be
+`AXManualAccessibility` (and in Chrome `AXEnhancedUserInterface`) was set. The ⌘C column says whether the fallback would be
 used if the Accessibility reads came up empty.
 
 | App | Bundle ID | Read-only text | Text in an input | Focus after enabling | ⌘C fallback | Notes |
@@ -525,7 +549,7 @@ used if the Accessibility reads came up empty.
 | Discord | `com.hnc.Discord` | `AXWebArea` focused with `AXSelectedTextMarkerRange` (no selection tested) | not tested | 2077 ms (cold); once none within 2 s | Not used | Verified on 2026-10-23 (⇧⌥Space). |
 | VS Code | `com.microsoft.VSCode` | — | `AXTextArea` (editor): `AXSelectedText` | 2033 ms (cold) | Only when VS Code's metadata confirms a selection | |
 | Safari | `com.apple.Safari` | `AXWebArea`: `AXSelectedText` and range empty; text markers return it | `AXTextField`: `AXSelectedText` | 2 ms | Allowed (browser); the only way to read a PDF | `AXManualAccessibility` unsupported. Page text verified on 2026-10-23. A PDF opened as a page (`AXGroup`, subrole `AXPDFPluginSubrole`, five levels below the window) reports no focused element and no selection: `AXSelectedText` is listed on its text but stays empty (checked on 2026-10-26), so Enigma copies it. |
-| Chrome | `com.google.Chrome` | `AXGroup` (subrole `AXTabPanel`): `AXSelectedText`; sometimes the `AXWebArea` is focused with range length 0 and no markers | `AXTextField`: `AXSelectedText` | 322 ms | Allowed (browser) | |
+| Chrome | `com.google.Chrome` | `AXGroup` (subrole `AXTabPanel`): `AXSelectedText`; sometimes the `AXWebArea` is focused with range length 0 and no markers | `AXTextField`: `AXSelectedText` | 2088 ms (cold) | Allowed (browser, as in every Chromium browser) | Chrome 156 rejects `AXManualAccessibility` (-25205) and showed no focused element for 6 s on any page; `AXEnhancedUserInterface` answers -25208 but builds the tree (checked on 2026-10-26). Its PDF viewer then gives the selection through `AXSelectedText` (verified on 2026-10-26). The 322 ms measured on 2026-10-23 (Chrome version not recorded; not a cold tree) no longer reproduces. |
 | Messages | `com.apple.MobileSMS` | `AXTextArea`: `AXSelectedText` | `AXTextField`: `AXSelectedText` | 1287 ms (cold) | Not needed | |
 | Notes | `com.apple.Notes` | `AXTextArea`: `AXSelectedText` | `AXTextArea`: `AXSelectedText` | 0 ms | Not needed | |
 | Xcode | `com.apple.dt.Xcode` | — | `AXTextArea` (source editor): `AXSelectedText` | 1617 ms (cold) | Not needed | |
@@ -543,11 +567,12 @@ WhatsApp and Mail.
 
 `scripts/selection-probe.swift` prints what an app exposes to Accessibility about
 its current selection: the frontmost app and bundle ID, whether
-`AXManualAccessibility` was accepted and how long the focused element took to
-appear, the focused element's role and subrole, `AXSelectedText`,
+`AXManualAccessibility` (and in a Chromium browser `AXEnhancedUserInterface`)
+was accepted and how long the focused element took to appear (it waits up to
+3 s), the focused element's role and subrole, `AXSelectedText`,
 `AXSelectedTextRange`, `AXStringForRange`, `AXValue`'s length, text markers, its
 text attribute names, and the same for any `AXWebArea` ancestor and how many
-levels up the app is. It only reads, apart from setting `AXManualAccessibility` as
+levels up the app is. It only reads, apart from setting those attributes as
 Enigma does; it never touches the clipboard.
 
 ```sh
@@ -564,7 +589,7 @@ documents.
 ## Tests
 
 - `EnigmaTests/SelectionContextTests.swift`: the double-tap detector and its
-  first-tap signal, the accessibility warmer, placement,
+  first-tap signal, the accessibility warmer and which attributes it sets, placement,
   AX fallbacks and their order, the ancestor walk, the capture flow over a fake
   tree on a simulated clock (cold trees, timeouts, interruptions, unsafe focus,
   a focus that moves, web areas, a PDF viewer standing in for focus, when ⌘C may
