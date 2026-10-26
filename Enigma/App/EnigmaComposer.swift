@@ -3,7 +3,8 @@ import SwiftUI
 /// The composer: one rounded, opaque `surface` box holding
 /// the message field, Attach and `/` on the left, the `● local` or `○ cloud`
 /// indicator, chips for commands recognized from the draft, the mode and model menu, and the `accent` Send button, which
-/// becomes Stop while a reply runs. `AppShellView` owns every action.
+/// becomes Stop while a reply runs. Then, once the field has text, a second Send beside Stop queues it.
+/// `AppShellView` owns every action.
 struct EnigmaComposer: View {
   @Binding var text: String
   @Binding var isFocused: Bool
@@ -30,6 +31,10 @@ struct EnigmaComposer: View {
   var canSend: Bool
   var send: () -> Void
   var stop: () -> Void
+  /// While a reply runs: the field has text, so Send appears beside Stop to queue it.
+  var showsQueueButton = false
+  /// Off at the queue's cap, and for a draft that can't be queued.
+  var canQueue = false
 
   /// Commands recognized from the draft's wording, shown as chips after the route.
   var inferredCommands: [SlashCommand] = []
@@ -133,8 +138,23 @@ struct EnigmaComposer: View {
       }
       .welcomeTourTarget(.model)
 
+      if isResponding && showsQueueButton {
+        queueButton.padding(.leading, 6)
+      }
       sendButton.padding(.leading, 6)
     }
+  }
+
+  private var queueButton: some View {
+    Button(action: send) {
+      Image(systemName: "arrow.up").font(EnigmaTypography.iconButtonSymbol)
+    }
+    // Outlined: Stop stays the composer's one `accent` control.
+    .enigmaIconButtonStyle()
+    .disabled(!canQueue)
+    .accessibilityLabel("Queue message")
+    .help("Queue this message · Return")
+    .enigmaTestMarker("Queue message")
   }
 
   private var sendButton: some View {

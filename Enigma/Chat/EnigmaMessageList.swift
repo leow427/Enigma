@@ -17,6 +17,11 @@ struct EnigmaMessageList<Revision: View>: View {
   /// Changes when the person sends a message, which brings the end back into view.
   var sendRevision = ""
   let activityExpansion: (UUID) -> Binding<Bool>
+  /// Messages typed while a reply ran, drawn after the chat with a dashed
+  /// outline. They're never part of the transcript.
+  var queued: [QueuedMessage] = []
+  var sendQueuedNow: (UUID) -> Void = { _ in }
+  var cancelQueued: (UUID) -> Void = { _ in }
   /// A quiet monospace line under the messages, in the replies' meta style,
   /// like the note that a chat kept from the panel is now saved. It's never
   /// part of the transcript.
@@ -42,9 +47,15 @@ struct EnigmaMessageList<Revision: View>: View {
             rowView(row)
               .padding(.top, index == 0 ? 0 : spacing(before: row))
           }
+          ForEach(Array(queued.enumerated()), id: \.element.id) { index, message in
+            EnigmaQueuedMessage(message: message, sendNow: { sendQueuedNow(message.id) },
+                                cancel: { cancelQueued(message.id) })
+              .padding(.top, index == 0 && transcript.rows.isEmpty ? 0 : Self.replySpacing)
+              .transition(.opacity)
+          }
           if let footnote {
             EnigmaFootnote(text: footnote)
-              .padding(.top, transcript.rows.isEmpty ? 0 : Self.replySpacing)
+              .padding(.top, transcript.rows.isEmpty && queued.isEmpty ? 0 : Self.replySpacing)
           }
         }
         .frame(maxWidth: MainPageLayout.columnMaximumWidth)
@@ -56,6 +67,7 @@ struct EnigmaMessageList<Revision: View>: View {
         .background(ConversationScrollObserver(contentRevision: scrollRevision, sendRevision: sendRevision).allowsHitTesting(false))
         .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.rowEnter.animation,
                    value: transcript.rows.map(\.id))
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.rowEnter.animation, value: queued.map(\.id))
       }
       .defaultScrollAnchor(.bottom, for: .initialOffset)
       .defaultScrollAnchor(.top, for: .alignment)
@@ -142,6 +154,60 @@ struct EnigmaUserMessage: View {
       }
     }
     .frame(maxWidth: Self.maximumWidth, alignment: .trailing)
+    .padding(.leading, 48)
+    .frame(maxWidth: .infinity, alignment: .trailing)
+  }
+}
+
+/// A message waiting to send: the person's bubble with a dashed outline in
+/// place of its fill, an x that cancels it, and under it "Send now" with a
+/// clock, so it reads as waiting rather than sent. It turns into an ordinary,
+/// solid bubble once it's sent.
+struct EnigmaQueuedMessage: View {
+  let message: QueuedMessage
+  let sendNow: () -> Void
+  let cancel: () -> Void
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+    VStack(alignment: .trailing, spacing: 4) {
+      Text(verbatim: message.text)
+        .font(EnigmaTypography.ui(14))
+        .lineSpacing(3)
+        .foregroundStyle(palette.textSecondary.color)
+        // Selectable, as a sent message is: editing one means copying it before cancelling.
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 8)
+        .overlay { EnigmaEdgeStroke(shape: shape, isDashed: true) }
+        .accessibilityLabel("Queued: " + message.text)
+        .enigmaTestMarker("Queued message")
+        // In the bubble's left margin, so the bubble is as wide as it will be once sent.
+        .overlay(alignment: .leading) {
+          Button(action: cancel) {
+            Image(systemName: "xmark").font(EnigmaTypography.symbol(10))
+          }
+          .enigmaIconButtonStyle(size: CGSize(width: 22, height: 22))
+          .accessibilityLabel("Cancel queued message: " + message.text)
+          .help("Cancel this message")
+          .enigmaTestMarker("Cancel queued message")
+          .offset(x: -26)
+        }
+      Button(action: sendNow) {
+        HStack(spacing: 4) {
+          Image(systemName: "clock").font(EnigmaTypography.symbol(10)).accessibilityHidden(true)
+          Text("Send now")
+        }
+        .font(EnigmaTypography.mono(11))
+      }
+      .enigmaButtonStyle(.text)
+      .accessibilityLabel("Send now: " + message.text)
+      .help("Send this message now, stopping any reply")
+      .enigmaTestMarker("Send queued message now")
+    }
+    .frame(maxWidth: EnigmaUserMessage.maximumWidth, alignment: .trailing)
     .padding(.leading, 48)
     .frame(maxWidth: .infinity, alignment: .trailing)
   }

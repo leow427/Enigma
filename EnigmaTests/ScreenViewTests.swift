@@ -1381,11 +1381,12 @@ final class ScreenViewTests: XCTestCase {
       if lengths.insert(count).inserted && count == 500 { visible.fulfill() }
     }
     defer { observation.cancel() }
-    // Let the first response create the transcript and native busy composer
-    // before testing the burst. Cold view creation is a separate readiness step.
+    // Let the first response create the transcript and the composer as it is
+    // during a reply before testing the burst. Cold view creation is a separate
+    // readiness step.
     stream.continuation.yield("x")
-    try await waitForUI("first fragment and disabled busy composer", in: fixture.view) {
-      fixture.chat.messages.last?.content == "x" && composerEditor(in: fixture.view)?.isEditable == false
+    try await waitForUI("first fragment, with the composer still taking typing", in: fixture.view) {
+      fixture.chat.messages.last?.content == "x" && composerEditor(in: fixture.view)?.isEditable == true
     }
     for _ in 1..<500 { stream.continuation.yield("x") }
     // The first archive write stays blocked until `probe.release()` below, so
@@ -1398,15 +1399,16 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertFalse(probe.firstWriteFinished, "The burst finished while the first archive write was still blocked")
     XCTAssertEqual(lengths, Set(0...500), "Every fragment must still publish while the archive is blocked")
     await settleScreenshotView(fixture.view)
-    XCTAssertFalse(try composerField(in: fixture.view).isEditable, "Preserve the existing busy-composer policy")
+    let field = try composerField(in: fixture.view)
+    XCTAssertTrue(field.isEditable, "The field takes typing during a reply, so the next message can be queued")
+    field.insertText("Typed during the reply", replacementRange: NSRange(location: 0, length: (field.string as NSString).length))
+    XCTAssertEqual(fixture.screen.draft, "Typed during the reply", "Typing works while the archive is blocked")
 
     // Exercise the actual shell's Stop command and native editor binding. No
     // archive release or wall-clock latency threshold is needed to prove progress.
     NotificationCenter.default.post(name: .stopStreamingRequested, object: nil)
     await fulfillment(of: [cancelled], timeout: 2)
-    try await waitForUI("Stop to restore the native editor", in: fixture.view) {
-      composerEditor(in: fixture.view)?.isEditable == true
-    }
+    try await waitForUI("Stop to end the request", in: fixture.view) { !fixture.chat.isBusy }
     try await editScreenshotComposer("Typing works before the archive finishes", in: fixture)
     XCTAssertFalse(fixture.chat.isBusy)
     XCTAssertEqual(probe.snapshots.count, 1)

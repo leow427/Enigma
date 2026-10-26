@@ -150,6 +150,21 @@ final class ShellPresentationTests: XCTestCase {
     XCTAssertTrue(shell.isComposerFocused)
   }
 
+  func testComposerKeepsFocusDuringAReplyItCanQueueFrom() {
+    var shell = ShellPresentation(mode: .auto, showsSidebar: true)
+    shell.isComposerFocused = true
+    shell.requestBusyChanged(true, composerStaysEditable: true)
+    XCTAssertTrue(shell.isComposerFocused, "Typing goes on while the reply runs")
+    shell.isComposerFocused = false
+    shell.requestBusyChanged(true, composerStaysEditable: true)
+    XCTAssertTrue(shell.isComposerFocused, "Focus returns to the field after clicking Send")
+    shell.isComposerFocused = false
+    shell.requestBusyChanged(false, composerStaysEditable: true)
+    XCTAssertTrue(shell.isComposerFocused, "It returns once the reply ends")
+    shell.requestBusyChanged(true, composerStaysEditable: false)
+    XCTAssertFalse(shell.isComposerFocused, "Work that disables the field still takes focus")
+  }
+
   func testWelcomeSetupClosesOverlaysAndResetsToAuto() {
     var shell = ShellPresentation(mode: .cloud, showsSidebar: true)
     shell.isModePalettePresented = true

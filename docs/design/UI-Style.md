@@ -91,6 +91,8 @@ glyph is Stop, on the solid Send button.
   Attach and `/` on the left, a monospace `● local` or `○ cloud` indicator,
   chips for any commands recognized from the wording, the mode and model
   menu, and the `accent` Send button, which becomes Stop while a reply runs.
+  Typing goes on during a reply; once the field has text, an outlined icon
+  Send beside Stop queues the message, so Stop stays the one `accent` control.
   After the first send it springs to the bottom. `⌘K` opens the mode and
   model menu.
 - **Chat.** The person's messages are right-aligned `userBubble` bubbles.
@@ -99,7 +101,12 @@ glyph is Stop, on the solid Send button.
   dimmed copy icon at its right that brightens when the pointer is over the
   reply. A code block has a header with its language and a Copy icon. Earlier
   replies keep the outline mark where the character stood. Request activity
-  is a monospace line that opens to show the steps and sources.
+  is a monospace line that opens to show the steps and sources. Queued
+  messages wait under the reply as unfilled bubbles with a dashed `border`
+  outline (1 pt, 4 on 3 off, `EnigmaEdgeStroke(isDashed:)`), an x icon button
+  to their left and a monospace "Send now" text button with a clock under
+  them. Dashed means not sent yet: it's the only dashed line in the app, and
+  a sent message is the usual solid `userBubble`.
 - **Cards.** Notices, consent, approvals, attachments, and errors in a chat
   are opaque `surface` cards with a `border` edge and one accent button each.
 - **Compact panel.** An optional `› selected "…"` line, the input row with

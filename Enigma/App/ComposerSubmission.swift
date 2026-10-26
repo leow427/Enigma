@@ -20,6 +20,8 @@ enum ComposerSubmission: Equatable {
   static let fileConflictMessage = "Turn off Screen, Web Search, and Messages to work with your attached files."
   static let messagesConflictMessage =
     "/messages can't be combined with Screen or Web Search. Remove /screen, /snapshot, /search, or the screenshot, then send again."
+  static let queuedMessagesDisclosureMessage =
+    "Using Messages with your cloud model needs your OK first. Send a /messages request from the message field to review it, then choose Send now."
 
   struct Context: Equatable {
     var draft: String
@@ -63,6 +65,15 @@ enum ComposerSubmission: Equatable {
   /// prompt, which can carry recognized commands the draft doesn't show.
   static func draftAfterAcceptance(current: String, sent: String) -> String {
     current == sent ? "" : current
+  }
+
+  /// Whether a draft typed during a reply can join the queue: text with
+  /// something to ask, below the cap. A draft with a screenshot or files, or
+  /// with `/screen` or `/snapshot`, stays in the field, so a capture is never
+  /// taken at a moment the person doesn't see.
+  static func canQueue(_ draft: String, in queue: MessageQueue, hasAttachments: Bool = false) -> Bool {
+    let commands = ComposerCommands(draft)
+    return !queue.isFull && !hasAttachments && commands.hasPrompt && !commands.screen
   }
 
   /// Whether the selected mode has a model ready and no request is running. The cloud

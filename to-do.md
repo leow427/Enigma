@@ -817,7 +817,20 @@ selected and copied in one go.
 - Syntax highlighting is F8; standalone draft blocks and editing them in place
   are F22 (draft blocks aren't drawn as code blocks).
 
-### F2. Keep typing while a reply streams
+### F2. ✅ Done: Keep typing while a reply streams
+
+> **Solved:** The window's field takes typing during a reply, `/` and slash
+> completion included; Attach and capture stay off. Return, or a Send beside
+> Stop, queues up to 5 messages, shown dashed under the reply with Send now
+> and an x. They send in order on the route selected then; a failed or
+> stopped reply holds them, and a message that never reached the chat goes
+> back in front. Text only: `/screen`, `/snapshot` and drafts with files or a
+> screenshot stay in the field. Memory only; ⌘N, the selection shortcut and
+> switching chats erase the queue, and a held queue keeps the chat on return.
+> Text typed between Send and acceptance is kept. See `docs/Chat.md` and
+> `MessageQueue.swift`.
+
+**Plan:** [docs/superpowers/plans/2026-10-25-f2-message-queue.md](docs/superpowers/plans/2026-10-25-f2-message-queue.md)
 
 **Today:** the composer is read-only while `localChat.isBusy`.
 `composerIsEnabled` (`AppShellView.swift`) sets the `SlashCommandTextView`'s
