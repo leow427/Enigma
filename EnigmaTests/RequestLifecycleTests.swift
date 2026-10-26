@@ -540,6 +540,276 @@ final class RequestLifecycleTests: XCTestCase {
     XCTAssertFalse(viewModel.sessions.contains { $0.id == temporary })
   }
 
+  // MARK: Message queue (F2)
+
+  /// A chat whose queued messages send as local questions, as AppShellView sends them in Local mode.
+  private func queueingChat(_ engine: LifecycleLocalEngine, store: ChatSessionStore? = nil) async -> LocalChatViewModel {
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: store ?? makeStore())
+    await viewModel.refreshInstalledModel()
+    viewModel.queuedMessageSender = { [unowned viewModel] message, accepted in
+      viewModel.submit(message.text, onAccepted: accepted)
+    }
+    return viewModel
+  }
+
+  private func waitUntil(_ description: String, _ condition: () -> Bool) async {
+    let deadline = Date().addingTimeInterval(2)
+    while !condition(), Date() < deadline { try? await Task.sleep(for: .milliseconds(5)) }
+    XCTAssertTrue(condition(), description)
+  }
+
+  func testQueuedMessagesSendOneAtATimeInOrder() async throws {
+    let streams = (0..<3).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B", "C"])
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A"], "Nothing sends while a reply runs")
+    XCTAssertEqual(viewModel.presentationMessages.filter { $0.role == .user }.map(\.content), ["A"],
+                   "Queued messages aren't part of the chat")
+
+    streams[0].continuation.finish()
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["C"])
+    streams[1].continuation.finish()
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    XCTAssertTrue(viewModel.messageQueue.isEmpty)
+    streams[2].continuation.finish()
+    await waitUntil("the last reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A", "B", "C"])
+    XCTAssertEqual(viewModel.messages.filter { $0.role == .user }.map(\.content), ["A", "B", "C"])
+  }
+
+  func testAFailedReplyHoldsTheQueueUntilSendNow() async throws {
+    let streams = (0..<3).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    streams[0].continuation.finish(throwing: LifecycleError.failed)
+    await waitUntil("the failure lands") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.state, .failed("Controlled failure"), "The failed reply shows its error")
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B", "C"])
+    viewModel.drainQueue()
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A"], "A held queue sends nothing by itself")
+
+    let c = try XCTUnwrap(viewModel.messageQueue.messages.last)
+    viewModel.sendQueuedMessageNow(id: c.id)
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertFalse(viewModel.messageQueue.isHeld, "Send now resumes the queue")
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B"])
+    streams[1].continuation.finish()
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A", "C", "B"])
+  }
+
+  func testAQueuedReplyThatFailsAfterReachingTheChatStaysSentAndHoldsTheRest() async throws {
+    let streams = (0..<2).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    streams[0].continuation.finish()
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    streams[1].continuation.finish(throwing: LifecycleError.failed)
+    await waitUntil("B's failure lands") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.messages.filter { $0.role == .user }.map(\.content), ["A", "B"])
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["C"], "B isn't queued twice")
+  }
+
+  func testStopHoldsTheQueue() async throws {
+    let streams = [ControlledStream<String>()]
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    let task = try XCTUnwrap(viewModel.stopStreaming())
+    await task.value
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B"])
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A"])
+  }
+
+  func testAQueuedMessageThatFailsBeforeReachingTheChatReturnsToTheHead() async throws {
+    let streams = [ControlledStream<String>()]
+    let engine = LifecycleLocalEngine(streams: streams, prepare: { request in
+      if request.messages.last?.content == "B" { throw LifecycleError.failed }
+      return try LifecycleLocalEngine.prepareContext(request)
+    })
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    streams[0].continuation.finish()
+    await waitUntil("B's preparation fails") { viewModel.state == .failed("Controlled failure") }
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B", "C"], "B goes back in front, not lost")
+    XCTAssertEqual(viewModel.messages.filter { $0.role == .user }.map(\.content), ["A"])
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A"])
+  }
+
+  func testStoppingAQueuedMessageBeforeItReachesTheChatReturnsItToTheHead() async throws {
+    let streams = [ControlledStream<String>()]
+    let preparing = XCTestExpectation(description: "B preparing")
+    let engine = LifecycleLocalEngine(streams: streams, prepare: { request in
+      if request.messages.last?.content == "B" {
+        preparing.fulfill()
+        try await Task.sleep(for: .seconds(30))
+      }
+      return try LifecycleLocalEngine.prepareContext(request)
+    })
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    streams[0].continuation.finish()
+    await fulfillment(of: [preparing], timeout: 2)
+    let task = try XCTUnwrap(viewModel.stopStreaming())
+    await task.value
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B", "C"])
+    XCTAssertEqual(viewModel.messages.filter { $0.role == .user }.map(\.content), ["A"])
+  }
+
+  func testAQueuedMessageThatStartsNothingWaitsInFront() async throws {
+    let engine = LifecycleLocalEngine()
+    let viewModel = await queueingChat(engine)
+    // As when no model is ready for the selected mode: the send starts no request.
+    viewModel.queuedMessageSender = { _, _ in }
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B"])
+    XCTAssertFalse(viewModel.isBusy)
+  }
+
+  func testSendNowStopsTheReplyAndJumpsTheQueue() async throws {
+    let streams = (0..<3).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    await receive("A partial", from: streams[0], in: viewModel, expecting: "A partial")
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    let c = try XCTUnwrap(viewModel.messageQueue.messages.last)
+    viewModel.sendQueuedMessageNow(id: c.id)
+    await fulfillment(of: [streams[0].cancelled, streams[1].started], timeout: 2)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B"])
+    XCTAssertFalse(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(viewModel.messages.filter { $0.role == .user }.map(\.content), ["A", "C"])
+    XCTAssertEqual(viewModel.messages.first { $0.role == .assistant }?.content, "A partial", "The stopped reply keeps its text")
+    streams[1].continuation.finish()
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A", "C", "B"])
+  }
+
+  func testNewChatAndSwitchingChatsEraseTheQueue() async throws {
+    let streams = (0..<4).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    viewModel.newChat()
+    XCTAssertTrue(viewModel.messageQueue.isEmpty)
+    XCTAssertFalse(viewModel.messageQueue.isHeld)
+    let first = try XCTUnwrap(viewModel.sessions.first?.id)
+
+    viewModel.submit("X")
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("Y"))
+    viewModel.stopStreaming()
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    viewModel.selectSession(id: viewModel.selectedSessionID!)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["Y"], "Reselecting the open chat keeps it")
+    viewModel.selectSession(id: first)
+    XCTAssertTrue(viewModel.messageQueue.isEmpty)
+
+    viewModel.submit("Z")
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("W"))
+    viewModel.stopStreaming()
+    XCTAssertTrue(viewModel.cycleRecentChat())
+    XCTAssertTrue(viewModel.messageQueue.isEmpty)
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A", "X", "Z"], "Nothing erased was sent")
+
+    viewModel.submit("V")
+    await fulfillment(of: [streams[3].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("U"))
+    viewModel.startTemporaryChat(context: nil)
+    XCTAssertTrue(viewModel.messageQueue.isEmpty, "The selection shortcut's chat starts with no queue")
+    XCTAssertFalse(viewModel.messageQueue.isHeld)
+  }
+
+  func testSendNowWhileSomethingElseHoldsTheChatSendsItOnceThatEnds() async throws {
+    let streams = (0..<2).map { _ in ControlledStream<String>() }
+    let engine = LifecycleLocalEngine(streams: streams)
+    let viewModel = await queueingChat(engine)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    XCTAssertTrue(viewModel.queueMessage("C"))
+    viewModel.stopStreaming()
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    // A performance check holds the chat, as File Mode does while it closes its workspace after Stop.
+    viewModel.runModelBenchmark()
+    XCTAssertTrue(viewModel.isBusy)
+    let c = try XCTUnwrap(viewModel.messageQueue.messages.last)
+    viewModel.sendQueuedMessageNow(id: c.id)
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["C", "B"], "It waits in front, not lost")
+    XCTAssertFalse(viewModel.messageQueue.isHeld)
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A"])
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertEqual(engine.requests.map(\.prompt), ["A", "C"], "Sent once the check ends, by the chat itself")
+    XCTAssertEqual(viewModel.messageQueue.messages.map(\.text), ["B"])
+  }
+
+  func testQueuedMessagesAreNeverSaved() async throws {
+    let streams = [ControlledStream<String>()]
+    let engine = LifecycleLocalEngine(streams: streams)
+    let store = makeStore()
+    let viewModel = await queueingChat(engine, store: store)
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("Queued secret"))
+    let task = try XCTUnwrap(viewModel.stopStreaming())
+    await task.value
+    XCTAssertTrue(viewModel.messageQueue.isHeld)
+    await waitUntil("the sent message is saved by the usual path") {
+      store.load().flatMap(\.messages).contains { $0.content == "A" }
+    }
+    let saved = store.load().flatMap(\.messages).map(\.content)
+    XCTAssertFalse(saved.contains { $0.contains("Queued secret") })
+    XCTAssertFalse(viewModel.sessions.flatMap(\.messages).contains { $0.content.contains("Queued secret") })
+  }
+
+  func testAHeldQueueKeepsTheChatOnReturn() async throws {
+    let streams = [ControlledStream<String>()]
+    let viewModel = await queueingChat(LifecycleLocalEngine(streams: streams))
+    viewModel.submit("A")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    XCTAssertTrue(viewModel.queueMessage("B"))
+    viewModel.stopStreaming()
+    XCTAssertTrue(ChatReturnState(chat: viewModel, screen: nil).hasUnsentWork, "A held queue is unsent work")
+    viewModel.cancelQueuedMessage(id: try XCTUnwrap(viewModel.messageQueue.messages.first?.id))
+    XCTAssertFalse(ChatReturnState(chat: viewModel, screen: nil).hasUnsentWork)
+  }
+
   private func queue<Element>(_ ending: QueuedEnding, on stream: ControlledStream<Element>, token: Element) {
     switch ending {
     case .token: stream.continuation.yield(token)

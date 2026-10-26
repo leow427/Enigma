@@ -220,6 +220,7 @@ final class LocalChatViewModel: ObservableObject {
 
   func startTemporaryChat(context: ConversationContext?) {
     stopStreaming()
+    clearQueue()
     leaveEmptyChat(for: nil)
     discardTemporaryChat()
     files.restoreSelection(nil)
@@ -292,6 +293,15 @@ final class LocalChatViewModel: ObservableObject {
     return messages + [pendingUserMessage]
   }
   var isWaitingForResponse: Bool { activeRequest != nil && !hasReceivedResponse }
+
+  /// Messages typed while a reply ran, for the open chat. Memory only: a
+  /// message is saved once it's sent, by the usual path.
+  @Published private(set) var messageQueue = MessageQueue()
+  /// Sends a queued message on the route selected now, calling the closure
+  /// once its request is accepted. AppShellView owns routing and commands.
+  var queuedMessageSender: (@MainActor (QueuedMessage, _ onAccepted: @escaping @MainActor () -> Void) -> Void)?
+  /// The queued message whose request is running, and whether it reached the chat.
+  private var queuedInFlight: (message: QueuedMessage, accepted: Bool)?
 
   var selectedSession: ChatSession? {
     guard let selectedSessionID else { return nil }
@@ -1217,11 +1227,13 @@ final class LocalChatViewModel: ObservableObject {
     autoRouteDecision = nil
   }
 
-  /// The returned consumer task can be awaited to observe its shutdown.
+  /// Stops the running request and holds the message queue. The returned
+  /// consumer task can be awaited to observe its shutdown.
   @discardableResult
   func stopStreaming() -> Task<Void, Never>? {
     guard let task = generationTask else { return nil }
     files.revoke()
+    holdQueue()
     if let id = activeRequest?.id { receiveActivity(.phase(.cancelled), requestID: id) }
     // Revoke ownership before cancellation can release any queued events or cleanup.
     activeRequest = nil
@@ -1242,6 +1254,7 @@ final class LocalChatViewModel: ObservableObject {
     // Stopping first: a question still being prepared never reached its
     // chat, so a chat it was the first of is left empty and goes.
     stopStreaming()
+    clearQueue()
     leaveEmptyChat(for: nil)
     discardTemporaryChat()
     SelectionContextService.shared.discardTarget()
@@ -1269,7 +1282,7 @@ final class LocalChatViewModel: ObservableObject {
     guard sessions.contains(where: { $0.id == id }), !isBusy else { return }
     leaveEmptyChat(for: id)
     if id != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
-    if id != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
+    if id != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil; clearQueue() }
     selectedSessionID = id
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1287,7 +1300,7 @@ final class LocalChatViewModel: ObservableObject {
     let changes = nextID != selectedSessionID
     leaveEmptyChat(for: nextID)
     if nextID != selectionSessionID { discardTemporaryChat(); SelectionContextService.shared.discardTarget() }
-    if nextID != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil }
+    if nextID != selectedSessionID { messagesFollowUpSessionID = nil; appleMessages.issue = nil; clearQueue() }
     selectedSessionID = nextID
     files.restoreSelection(selectedSession?.workspace)
     files.conversationID = selectedSessionID
@@ -1400,6 +1413,7 @@ final class LocalChatViewModel: ObservableObject {
     modelOperation = nil
     installationTask = nil
     scheduleIdleUnload()
+    drainQueueSoon()
   }
 
   private func updateDownloadProgress(_ progress: ModelDownloadProgress) {
@@ -1430,6 +1444,7 @@ final class LocalChatViewModel: ObservableObject {
     modelOperation = nil
     installationTask = nil
     scheduleIdleUnload()
+    drainQueueSoon()
   }
 
   private func clearModelFailure() {
@@ -1570,7 +1585,7 @@ final class LocalChatViewModel: ObservableObject {
     if revision.automatic && !selectionEditingSettings.automaticallyReplace { return }
     isApplyingSelection = true
     selectionRevisions[messageID]?.status = .applying
-    defer { isApplyingSelection = false }
+    defer { isApplyingSelection = false; drainQueueSoon() }
     let sent = await replaceSelection(revision.text, revision.contextID, revision.automatic)
     guard selectionRevisions[messageID]?.contextID == revision.contextID else { return }
     selectionRevisions[messageID]?.status = sent ? .sent : .failed
@@ -1610,6 +1625,9 @@ final class LocalChatViewModel: ObservableObject {
 
   /// `showsProblem` is false when a card already explains the error.
   private func finishGeneration(id: UUID, error: Error? = nil, showsProblem: Bool = true) async {
+    // Also after Stop, which returns early below: File Mode's workspace and
+    // the replaced request's cleanup have let go only now.
+    defer { drainQueueSoon() }
     if error == nil, !Task.isCancelled, let active = activeRequest, active.id == id,
        let editing = selectionEditRequest, editing.id == id,
        attachedContexts.contains(where: { $0.id == editing.contextID }),
@@ -1660,5 +1678,82 @@ final class LocalChatViewModel: ObservableObject {
     state = showsProblem ? (error.map { .failed($0.localizedDescription) } ?? .idle) : .idle
     sessionWriter.flush()
     scheduleIdleUnload()
+    if error == nil, !Task.isCancelled { queuedInFlight = nil } else { holdQueue() }
+  }
+
+  // MARK: Message queue
+
+  /// Adds a message to the end of the queue. It sends at once if nothing
+  /// holds the chat and the queue isn't held. Returns false for blank text or
+  /// at the cap.
+  @discardableResult
+  func queueMessage(_ text: String, dismissed: Set<SlashCommand> = []) -> Bool {
+    guard messageQueue.enqueue(text, dismissed: dismissed) != nil else { return false }
+    drainQueue()
+    return true
+  }
+
+  func cancelQueuedMessage(id: UUID) {
+    messageQueue.cancel(id: id)
+  }
+
+  /// Stops the running reply, if any, and sends this message at once, ahead
+  /// of the others, which then drain after it.
+  func sendQueuedMessageNow(id: UUID) {
+    guard let message = messageQueue.take(id: id) else { return }
+    stopStreaming()
+    messageQueue.resume()
+    guard !isBusy else {
+      // Something else still holds the chat, such as File Mode closing its
+      // workspace after Stop or a performance check: it goes first once
+      // that ends, which drains the queue.
+      messageQueue.returnToHead(message)
+      return
+    }
+    send(message)
+  }
+
+  /// Sends the next queued message if nothing holds the chat. Safe to call any time.
+  func drainQueue() {
+    guard !isBusy, queuedMessageSender != nil, let message = messageQueue.popNext() else { return }
+    send(message)
+  }
+
+  /// Drains on a fresh turn, once whatever just ended has let go of the chat.
+  private func drainQueueSoon() {
+    guard !messageQueue.isEmpty else { return }
+    Task { @MainActor [weak self] in self?.drainQueue() }
+  }
+
+  private func send(_ message: QueuedMessage) {
+    guard let sender = queuedMessageSender else {
+      messageQueue.returnToHead(message)
+      return
+    }
+    queuedInFlight = (message, false)
+    sender(message) { [weak self] in
+      guard let self, self.queuedInFlight?.message.id == message.id else { return }
+      self.queuedInFlight?.accepted = true
+    }
+    // Nothing started, as when no model is ready or a check failed at once:
+    // it goes back in front, and the queue waits.
+    if !isChatActive, queuedInFlight?.message.id == message.id {
+      queuedInFlight = nil
+      messageQueue.returnToHead(message)
+      messageQueue.hold()
+    }
+  }
+
+  /// A reply failed or was stopped. A queued message that never reached the
+  /// chat goes back in front; nothing else sends until Send now.
+  private func holdQueue() {
+    if let inFlight = queuedInFlight, !inFlight.accepted { messageQueue.returnToHead(inFlight.message) }
+    queuedInFlight = nil
+    messageQueue.hold()
+  }
+
+  private func clearQueue() {
+    messageQueue.clear()
+    queuedInFlight = nil
   }
 }

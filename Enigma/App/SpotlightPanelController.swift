@@ -122,9 +122,9 @@ struct ChatReturnState: Equatable {
   /// streaming or ending, failed or not. Nil when no chat with messages is
   /// open: then there's nothing to leave.
   var lastUsedAt: Date?
-  /// Unsent text, a screenshot, or files in the composer, a selection
-  /// revision not yet applied or dismissed, or a File Mode edit waiting on
-  /// "Use Codex".
+  /// Unsent text, a screenshot, or files in the composer, queued messages,
+  /// a selection revision not yet applied or dismissed, or a File Mode edit
+  /// waiting on "Use Codex".
   var hasUnsentWork = false
   /// A reply, file work, or a model operation holding the chat.
   var isBusy = false
@@ -138,7 +138,8 @@ extension ChatReturnState {
     let hasDraft = screen.map { !$0.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.attachment != nil } ?? false
     var awaitsCodex = false
     if case .cloudRequired = chat.files.protectedWrite { awaitsCodex = true }
-    hasUnsentWork = hasDraft || chat.files.selection != nil || chat.hasPendingSelectionRevision || awaitsCodex
+    hasUnsentWork = hasDraft || !chat.messageQueue.isEmpty || chat.files.selection != nil
+      || chat.hasPendingSelectionRevision || awaitsCodex
     isBusy = chat.isBusy
   }
 }

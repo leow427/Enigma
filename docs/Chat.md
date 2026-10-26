@@ -44,8 +44,46 @@ any commands recognized from your wording, the **Mode and model** menu
 
 - **Return** sends; **⇧Return** inserts a new line. Send is available only when
   the draft isn't empty and the selected mode has a usable model.
-- While a reply runs, **Send** becomes **Stop** (also **⌘.**) and the composer is
-  disabled until the request ends.
+- While a reply runs, **Send** becomes **Stop** (also **⌘.**). The field keeps
+  focus, even after you click Send, and you can keep typing, including slash
+  commands and the **/** button; **Attach files** and screen capture stay off
+  until the reply ends.
+- **Queued messages.** Once the field has text during a reply, a second **Send**
+  appears beside Stop; it and **Return** queue the message instead of sending
+  it. Up to 5 messages can wait; at 5, Send and Return do nothing until one
+  sends or is cancelled. Queued messages show under the reply with a dashed
+  outline, an **x** that cancels them, and **Send now** with a clock under
+  each. They send one at a time, in order, each when the previous reply ends,
+  and become ordinary messages once sent. **Send now** stops the running reply
+  and sends that message at once, ahead of the others.
+
+    ![Two queued messages under a running reply, and the next one typed](images/conversation-queued-paper.png)
+
+  - A queued message can't be edited: cancel it and type it again.
+  - Only text is queued. Slash commands resolve when the message sends, on the
+    mode and model selected then, but a draft with **/screen** or
+    **/snapshot**, or with a screenshot or files attached, stays in the field,
+    so a capture is never taken at a moment you don't see. A queued message
+    never takes a screenshot or files attached later for the field's draft. A
+    draft of commands alone, with nothing to ask, isn't queued. A queued
+    **/messages** for a cloud model that hasn't been approved for Messages
+    holds the queue: approve Messages by sending a **/messages** request from
+    the field, then choose **Send now** on it.
+  - With **Recognize commands from your wording** on, a queued message's
+    commands are recognized again when it sends, so a follow-up to a queued
+    **/messages** request can use Messages without having shown its chip.
+    Chips you dismissed before queueing stay off.
+  - If a reply fails or is stopped, the queue holds: nothing more sends until
+    you choose **Send now** on one of the messages, which sends it and
+    resumes the rest. A queued message that fails before it reaches the chat
+    (for example while being prepared) goes back to the front of the held
+    queue. Sending from the field while the queue is held sends that message
+    directly and leaves the queue held.
+  - The queue lives in memory only and is never saved. **⌘N**, the selection
+    shortcut and opening another chat erase it; a held queue keeps the chat
+    open when you return after 5 minutes, like a draft.
+  - The compact panel has no queue: its question moves to the window as soon
+    as its request starts.
 - Slash commands such as **/search**, **/think**, **/screen** and **/snapshot**
   apply to one message. See [Slash-Commands.md](Slash-Commands.md).
 - Choosing a mode or model while a request runs applies to the next request; the
@@ -59,7 +97,15 @@ closes an open menu or, with none open, hides the window.
 - Your message appears as soon as you send. The draft stays recoverable until the
   request is accepted: if preparation fails, for example because the message is
   too large for the model, the error appears in the status line and your draft is
-  still in the composer.
+  still in the composer. The field shows blank meanwhile; anything you type
+  there starts a new draft, with its own recognized commands, and stays once
+  the message is accepted. If that
+  send then fails, what you typed stays and the sent text is gone; typing
+  exactly the sent text again shows blank, as the sent draft does.
+- Queued messages sit under the running reply, after the chat, and a new one
+  keeps a reader at the bottom following. When one sends, the chat brings it
+  to the bottom as for any sent message. A chat whose only question was
+  stopped stays open while it has queued messages, so they stay in view.
 - Before the first words arrive, the reply row shows the request's status line
   (see below) and the character thinks. Once text arrives it streams into the
   reply and the character answers. Model reasoning is never shown, only the
@@ -152,12 +198,13 @@ listed source means its excerpt was sent, not that the full page was read.
   behind other apps is not away, and keeps its chat however long it stays
   there. You always come back to the same
   chat when there's nothing to leave (no chat, or one with no messages), when
-  something is unsent (text, a screenshot or files in the composer, a selection
-  revision not yet applied or dismissed, or a File Mode edit waiting on **Use
-  Codex**), or while the chat is busy: a reply, file work, or a model install,
-  delete or performance check holds it. A model download alone doesn't.
+  something is unsent (text, a screenshot or files in the composer, queued
+  messages, a selection revision not yet applied or dismissed, or a File Mode
+  edit waiting on **Use Codex**), or while the chat is busy: a reply, file
+  work, or a model install, delete or performance check holds it. A model
+  download alone doesn't.
 - You can't switch chats while a request is running; **New chat** stops it
-  first.
+  first. Opening another chat erases any held queued messages.
 - **Temporary chats.** A chat started from selected text in the compact panel is
   temporary: it's marked **temporary · not saved** and nothing of it is written
   to disk. Sending its first question, or ⌘O, moves it to the main window and
@@ -199,8 +246,24 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   tokens or errors from a stopped or replaced request are ignored.
 - For local and searched requests, the user message is shown at once as
   `pendingUserMessage`. It's written to the session only after preparation
-  succeeds; then `onAccepted` clears the draft. The composer hides the retained
-  draft while the pending bubble is visible.
+  succeeds; then `onAccepted` clears the draft. The composer shows the field
+  blank while that send's pending bubble is visible and the draft is still the
+  one sent (`sentDraft`, keyed by the pending message's id); a keystroke
+  replaces it, and `draftAfterAcceptance` keeps it. Send and Return read that
+  visible draft, so a second Return never queues the message already sent.
+- `LocalChatViewModel.messageQueue` holds the open chat's queued messages, a
+  `MessageQueue` (`Enigma/Chat/MessageQueue.swift`): order, the cap of 5, and
+  whether it's held. AppShellView installs `queuedMessageSender`, which plans
+  a queued message like a typed draft with no screenshot or files on the
+  current route. The view model remembers the message in flight and whether
+  its `onAccepted` ran. It drains the next message on a fresh turn whenever
+  something that held the chat ends (`finishGeneration`, a model operation,
+  a selection replacement); AppShellView also drains when `isBusy` ends, for
+  the rest, such as the file picker. A failed
+  `finishGeneration`, `stopStreaming()`, or a send that starts no request holds
+  the queue, returning an unaccepted message to its head. `newChat`,
+  `startTemporaryChat`, and switching chats clear it. Nothing in it reaches
+  `sessions` or the session writer.
 - Fragments append to the assistant message; `stopStreaming()` revokes ownership,
   cancels the task, and flushes history.
 
@@ -368,8 +431,13 @@ evidence fits. See [Web-Search.md](Web-Search.md).
   `chats.json` can't be read, the app starts with an empty history.
 - Only the 10 most recently active chats are kept. Chats can't be renamed,
   deleted individually, or searched.
-- The composer is disabled while a reply runs; you can't type the next message
-  until it finishes or you press **Stop**.
+- Queued messages can't be edited, can't carry attachments or captures, and
+  aren't available in the compact panel. A held queue stays held after a
+  message sent directly from the field succeeds; choose **Send now** to resume
+  it.
+- A queued message that can't start when its turn comes, for example because
+  the selected mode has no usable model, holds the queue with no message of
+  its own; the route status line says what's missing.
 - Cloud history trimming uses a conservative byte count, so it can keep less
   history than the provider would actually accept. Unreviewed or manually entered
   models get small default windows.
@@ -394,7 +462,12 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - `EnigmaTests/ChatPersistenceTests.swift`: retention, archive loading, excluded
   fields, and `ChatSessionWriter` coalescing and write ordering.
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,
-  replacement, draft preservation, partial output, and saves during streaming.
+  replacement, draft preservation, partial output, and saves during streaming;
+  the message queue draining in order, holding on failure and Stop, returning
+  an unaccepted message to its head, Send now, clearing on a new or other chat,
+  never being saved, and counting as unsent work.
+- `EnigmaTests/MessageQueueTests.swift`: the queue's order, cap, hold, resume,
+  Send now, cancel and clear, and which drafts can be queued.
 - `EnigmaTests/EnigmaConversationTests.swift`: transcript rows, the character's
   slot, meta lines, list layout and scrolling (including the second and third
   message staying in view, with Reduce Motion on and off), sent images and
@@ -402,10 +475,14 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - `EnigmaTests/ScreenViewTests.swift`: the scroll observer while streaming and
   while reading, typing after Stop with a blocked save, and the composer draft
   and screenshot in `ChatReturnState`.
-- `EnigmaTests/AppShellStateTests.swift`: `ShellPresentation`,
+- `EnigmaTests/AppShellStateTests.swift`: `ShellPresentation` (including focus
+  staying in the field during a reply),
   `ComposerSubmission`, `ChatHistoryList`, and (`ChatReturnTests`) the
   5-minute return rule and the panel controller that applies it.
-- `EnigmaTests/EnigmaMainWindowTests.swift`: the main page, composer and sidebar.
+- `EnigmaTests/EnigmaMainWindowTests.swift`: the main page, composer and sidebar,
+  including typing during a reply, text typed just after Send, queueing with
+  Return and the Send beside Stop, `/screen` staying in the field, and the
+  queued rows' Send now and x.
 - `EnigmaTests/WebSearchTests.swift`: activity events, source selection and
   evidence packing.
 - `EnigmaTests/LocalInferenceTests.swift`: streaming partial Markdown, failures

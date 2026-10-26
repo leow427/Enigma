@@ -102,8 +102,10 @@ struct ShellPresentation: Equatable {
   }
 
   /// A disabled editor can't take focus, so focus returns only once the request ends.
-  mutating func requestBusyChanged(_ isBusy: Bool) {
-    isComposerFocused = !isBusy
+  /// One that stays editable while the chat is busy, as during a reply, takes it
+  /// at once, so the next message can be typed even after clicking Send.
+  mutating func requestBusyChanged(_ isBusy: Bool, composerStaysEditable: Bool = false) {
+    isComposerFocused = !isBusy || composerStaysEditable
   }
 
   mutating func welcomeChanged(isPresented: Bool, isTourActive: Bool) {

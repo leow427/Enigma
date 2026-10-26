@@ -1906,13 +1906,18 @@ private struct EnigmaCardModifier: ViewModifier {
 struct EnigmaEdgeStroke<S: InsettableShape>: View {
   let shape: S
   var edge: EnigmaEdge = .border
+  /// Dashed, for something not yet done, like a queued message. A full point
+  /// wide, since dashes at a hairline's width would barely show.
+  var isDashed = false
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
 
+  static var dash: [CGFloat] { [4, 3] }
+
   var body: some View {
     shape.strokeBorder(edge.color(in: palette, increasedContrast: contrast == .increased).color,
-                       lineWidth: 1 / displayScale)
+                       style: isDashed ? StrokeStyle(lineWidth: 1, dash: Self.dash) : StrokeStyle(lineWidth: 1 / displayScale))
       .allowsHitTesting(false)
   }
 }

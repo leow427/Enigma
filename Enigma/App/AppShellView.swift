@@ -41,6 +41,10 @@ struct AppShellView: View {
   @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = ComposerIntent.infersCommandsByDefault
   /// Recognized commands turned off for the current draft. Cleared when the draft empties.
   @State private var dismissedInferences: Set<SlashCommand> = []
+  /// The draft as it was sent, and the pending message it became: while that
+  /// message waits to be accepted, the field shows blank for the draft, but
+  /// keeps anything typed meanwhile.
+  @State private var sentDraft: (text: String, messageID: UUID)?
 
   init(
     localEngine: (any LocalModelEngine)? = nil,
@@ -374,9 +378,18 @@ struct AppShellView: View {
       }))
     .onChange(of: localChat.isBusy) { _, busy in
       // A disabled TextField cannot take focus at first-token acceptance.
-      // Restore its editor only after the owning request has finished.
-      shell.requestBusyChanged(busy)
+      // Restore its editor only after the owning request has finished. The
+      // window's editor stays editable during a reply, and keeps focus.
+      shell.requestBusyChanged(busy, composerStaysEditable: !shell.isSelectionComposer && composerCanType)
+      // Whatever held the chat has let go, such as the file picker: the
+      // next queued message can go.
+      if !busy { localChat.drainQueue() }
     }
+    .onAppear {
+      localChat.queuedMessageSender = { message, accepted in sendQueuedMessage(message, onAccepted: accepted) }
+    }
+    // The sender holds this view, which holds the chat: let go with the view.
+    .onDisappear { localChat.queuedMessageSender = nil }
     .onChange(of: localChat.selectedSessionID) { _, _ in
       if shell.sessionChanged(isTemporaryChat: localChat.isTemporaryChat) {
         NotificationCenter.default.post(name: .selectionPanelResetRequested, object: nil)
@@ -503,7 +516,7 @@ struct AppShellView: View {
       accessories: { composerAccessories() },
       composer: { docked in composer(docked: docked) },
       examples: { count in
-        EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerIsEnabled) { command in
+        EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerCanType) { command in
           shell.isComposerFocused = true
           composerInsertion = SlashCommandInsertion(text: command.token + " ")
         }
@@ -512,7 +525,7 @@ struct AppShellView: View {
 
   private func composer(docked: Bool) -> some View {
     EnigmaComposer(
-      text: composerText, isFocused: composerFocus, isEnabled: composerIsEnabled,
+      text: composerText, isFocused: composerFocus, isEnabled: composerCanType,
       availableCommands: availableCommands, insertion: composerInsertion, opensSuggestionsBelow: !docked,
       submit: { submitDraft() },
       files: files, isAttachDisabled: localChat.isBusy || files.isPicking || files.isWorking,
@@ -527,6 +540,7 @@ struct AppShellView: View {
       menuClosed: { shell.isComposerFocused = true },
       isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
       send: { submitDraft() }, stop: { localChat.stopStreaming() },
+      showsQueueButton: !visibleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, canQueue: canQueueDraft,
       inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand)
   }
 
@@ -666,7 +680,7 @@ struct AppShellView: View {
   // MARK: Character
 
   private var isTypingInComposer: Bool {
-    shell.isComposerFocused && composerIsEnabled && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    shell.isComposerFocused && composerCanType && !visibleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   private var mainCharacterState: EnigmaCharacterState {
@@ -723,7 +737,26 @@ struct AppShellView: View {
   // MARK: Composer state, shared by the window and the compact panel
 
   private var composerText: Binding<String> {
-    Binding(get: { localChat.pendingUserMessage == nil ? screen.draft : "" }, set: { screen.draft = $0 })
+    Binding(get: { visibleDraft }, set: {
+      // Typing over a sent draft starts a new one: the sent draft's dismissed chips stay with it.
+      if isDraftSent { dismissedInferences = [] }
+      screen.draft = $0
+    })
+  }
+
+  /// The field's draft was just sent and its message waits to be accepted.
+  /// Anything typed since replaces it, and stays once the message is accepted.
+  private var isDraftSent: Bool {
+    guard let sentDraft, let pending = localChat.pendingUserMessage else { return false }
+    return pending.id == sentDraft.messageID && sentDraft.text == screen.draft
+  }
+
+  /// The draft the field shows: blank for one already sent.
+  private var visibleDraft: String { isDraftSent ? "" : draft }
+
+  /// Remembers a draft just sent while its message waits to be accepted.
+  private func rememberSentDraft(_ text: String) {
+    sentDraft = localChat.pendingUserMessage.map { (text, $0.id) }
   }
 
   private var composerFocus: Binding<Bool> {
@@ -731,9 +764,33 @@ struct AppShellView: View {
             set: { shell.isComposerFocused = $0 })
   }
 
+  /// Whether the compact panel's field takes input. A panel send moves to the
+  /// window as soon as its request starts, so there's no queue there.
   private var composerIsEnabled: Bool {
     !(localChat.isBusy || screen.isBusy || files.isWorking || files.isPicking)
       && !welcomeSetup.isPresented && welcomeSetup.tour == nil
+  }
+
+  /// Whether the window's field takes typing: during a reply too, including
+  /// a File Mode run, so the next message can be queued. A capture, the file
+  /// picker, and a model install, delete or performance check still block it.
+  private var composerCanType: Bool {
+    !(screen.isBusy || files.isPicking || localChat.modelOperation?.blocksChat == true)
+      && !welcomeSetup.isPresented && welcomeSetup.tour == nil
+  }
+
+  /// Send and Return queue the draft instead of sending it: a reply is
+  /// running, or queued messages are on their way. Never in the compact panel.
+  private var queuesDraft: Bool {
+    !shell.isSelectionComposer
+      && (localChat.activeRequest != nil || (!localChat.messageQueue.isEmpty && !localChat.messageQueue.isHeld))
+  }
+
+  /// A draft with a screenshot or files stays in the field with them: only text is queued.
+  private var canQueueDraft: Bool {
+    queuesDraft && composerCanType
+      && ComposerSubmission.canQueue(visibleDraft, in: localChat.messageQueue,
+                                     hasAttachments: screen.attachment != nil || files.selection != nil)
   }
 
   private var availableCommands: [SlashCommand] { SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey) }
@@ -744,13 +801,17 @@ struct AppShellView: View {
       || screen.isBusy || files.isWorking || files.isPicking)
   }
 
-  /// Nothing has been sent in this chat, and nothing is on its way.
-  private var isChatEmpty: Bool { localChat.presentationMessages.isEmpty && localChat.activeRequest == nil }
+  /// Nothing has been sent in this chat, and nothing is on its way or
+  /// queued: a held queue keeps the chat, and its rows, in view.
+  private var isChatEmpty: Bool {
+    localChat.presentationMessages.isEmpty && localChat.activeRequest == nil && localChat.messageQueue.isEmpty
+  }
 
   /// What keeps a reader at the bottom following the chat, for both lists.
   private var conversationScrollRevision: String {
     (localChat.presentationMessages.last?.content ?? "") + String(localChat.presentationMessages.count)
       + (localChat.activity?.status ?? "") + String(shell.expandedActivities.count)
+      + String(localChat.messageQueue.messages.count)
   }
 
   /// The latest message the person sent, for both lists: a new one brings the end into view.
@@ -763,6 +824,9 @@ struct AppShellView: View {
     EnigmaMessageList(transcript: conversationTranscript, scrollRevision: conversationScrollRevision,
                       sendRevision: conversationSendRevision,
                       activityExpansion: activityExpansion,
+                      queued: localChat.messageQueue.messages,
+                      sendQueuedNow: { localChat.sendQueuedMessageNow(id: $0) },
+                      cancelQueued: { localChat.cancelQueuedMessage(id: $0) },
                       footnote: openedSelectionChatNote) {
       revisionCard($0)
     }
@@ -849,11 +913,17 @@ struct AppShellView: View {
 
   /// What the composer's chips and Send both resolve, so they agree.
   private var composerIntentContext: ComposerIntent.Context {
+    intentContext(draft: draft, hasFileSelection: files.selection != nil, hasScreenshot: screen.isEnabled,
+                  dismissed: dismissedInferences)
+  }
+
+  private func intentContext(draft: String, hasFileSelection: Bool, hasScreenshot: Bool,
+                             dismissed: Set<SlashCommand>) -> ComposerIntent.Context {
     ComposerIntent.Context(
       draft: draft, hasSelection: localChat.attachedContexts.contains { $0.kind == .selectedText },
-      hasFileSelection: files.selection != nil, hasScreenshot: screen.isEnabled,
+      hasFileSelection: hasFileSelection, hasScreenshot: hasScreenshot,
       previousTurnUsedMessages: localChat.previousTurnUsedMessages, infersCommands: infersCommands,
-      searchesAutomatically: searchSettings.canSearchAutomatically, dismissed: dismissedInferences)
+      searchesAutomatically: searchSettings.canSearchAutomatically, dismissed: dismissed)
   }
 
   private var composerIntent: ComposerIntent { composerIntent(recognizesCommands: true) }
@@ -864,9 +934,9 @@ struct AppShellView: View {
     ComposerIntent.resolve(composerIntentContext.recognizingCommands(recognizesCommands))
   }
 
-  /// The chips for the draft the field shows; none while a sent message is pending.
+  /// The chips for the draft the field shows; none while it shows blank for a sent message.
   private var recognizedCommands: [SlashCommand] {
-    localChat.pendingUserMessage == nil ? composerIntent.inferred : []
+    isDraftSent ? [] : composerIntent.inferred
   }
 
   private func dismissRecognizedCommand(_ command: SlashCommand) {
@@ -876,6 +946,11 @@ struct AppShellView: View {
 
   private func submitDraft(recognizesCommands: Bool = true) {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+    if queuesDraft {
+      guard canQueueDraft, localChat.queueMessage(visibleDraft, dismissed: dismissedInferences) else { return }
+      draft = ""
+      return
+    }
     guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking else { return }
     // A typed /screen captures first; the send that follows the capture
     // finishes it, so an earlier problem doesn't reopen the details meanwhile.
@@ -908,26 +983,58 @@ struct AppShellView: View {
     case .screenAttachment:
       if let attachment = screen.attachment { submitScreenAttachment(attachment, recognizesCommands: recognizesCommands) }
     case .chat(let prompt, let searchEnabled):
-      let accepted: @MainActor () -> Void = {
+      submitChat(prompt, searchEnabled: searchEnabled) {
         draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
       }
-      // The resolved draft already decided search, including a dismissed search chip.
-      switch shell.selectedMode {
-      case .local:
-        localChat.submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: accepted)
-      case .cloud:
-        localChat.submitCloud(
-          prompt,
-          provider: cloudSettings.preferredProvider,
-          modelID: cloudSettings.preferredModelID,
-          searchEnabled: searchEnabled,
-          allowsAutomaticSearch: false,
-          onAccepted: accepted
-        )
-      case .auto:
-        localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: searchEnabled,
-                             allowsAutomaticSearch: false, onAccepted: accepted)
+      rememberSentDraft(originalDraft)
+    }
+  }
+
+  /// Sends a chat message on the selected route. The resolved draft already
+  /// decided search, including a dismissed search chip.
+  private func submitChat(_ prompt: String, searchEnabled: Bool, onAccepted accepted: @escaping @MainActor () -> Void) {
+    switch shell.selectedMode {
+    case .local:
+      localChat.submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: accepted)
+    case .cloud:
+      localChat.submitCloud(
+        prompt,
+        provider: cloudSettings.preferredProvider,
+        modelID: cloudSettings.preferredModelID,
+        searchEnabled: searchEnabled,
+        allowsAutomaticSearch: false,
+        onAccepted: accepted
+      )
+    case .auto:
+      localChat.submitAuto(prompt, cloud: autoCloudConfiguration, searchEnabled: searchEnabled,
+                           allowsAutomaticSearch: false, onAccepted: accepted)
+    }
+  }
+
+  /// Sends a queued message as Send would have sent it as a draft, on the
+  /// route selected now: its commands resolve now, and it never takes a
+  /// screenshot or files, which belong to the field's draft. Anything that
+  /// starts no request leaves it to the queue, which puts it back in front
+  /// and waits.
+  private func sendQueuedMessage(_ message: QueuedMessage, onAccepted: @escaping @MainActor () -> Void) {
+    guard !welcomeSetup.isPresented, welcomeSetup.tour == nil, !screen.isBusy, !files.isPicking else { return }
+    let intent = ComposerIntent.resolve(intentContext(draft: message.text, hasFileSelection: false, hasScreenshot: false,
+                                                      dismissed: message.dismissed))
+    switch ComposerSubmission.plan(intent, hasFileSelection: false, hasScreenshot: false, canSubmit: canSubmit) {
+    case .none, .captureScreen, .screenAttachment, .fileConflict, .files:
+      return
+    case .messagesConflict:
+      messages.report(ComposerSubmission.messagesConflictMessage)
+    case .messages(let prompt):
+      // The one-time cloud disclosure is answered from the field, never for a message sent unseen.
+      if shell.selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
+        messages.report(ComposerSubmission.queuedMessagesDisclosureMessage)
+        return
       }
+      localChat.submitMessages(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
+                               cloudModelID: cloudSettings.preferredModelID, onAccepted: onAccepted)
+    case .chat(let prompt, let searchEnabled):
+      submitChat(prompt, searchEnabled: searchEnabled, onAccepted: onAccepted)
     }
   }
 
@@ -987,6 +1094,7 @@ struct AppShellView: View {
           if screen.attachment?.id == attachment.id { screen.removeAttachment() }
           shell.isComposerFocused = true
         }
+      rememberSentDraft(originalDraft)
     }
   }
 

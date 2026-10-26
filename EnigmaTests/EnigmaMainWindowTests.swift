@@ -634,6 +634,353 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
+  func testTypingDuringAReplyQueuesMessagesThatSendInTurn() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    func type(_ text: String) async throws {
+      editor.insertText(text, replacementRange: NSRange(location: (editor.string as NSString).length, length: 0))
+      try await waitForUI("the draft \(fixture.screen.draft)", in: host.view) { fixture.screen.draft.hasSuffix(text) }
+    }
+    func pressReturn() throws {
+      editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+        windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+        isARepeat: false, keyCode: 36)))
+    }
+    try await type("First question")
+    addTeardownBlock { @MainActor in fixture.engine.releasePreparation() }
+    fixture.engine.holdPreparation()
+    try await clickTestControl("Send message", in: host.view)
+    try await waitForUI("the sent message pending, the field blank", in: host.view) {
+      fixture.engine.isHoldingPreparation && fixture.chat.pendingUserMessage != nil && editor.string.isEmpty
+    }
+    try pressReturn()
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(fixture.chat.messageQueue.isEmpty, "A second Return doesn't queue the message already sent")
+    XCTAssertFalse(host.shows("Queue message"), "No queue Send over a field that shows blank")
+    // Typed between Send and acceptance: kept, not blanked by the pending message.
+    try await type("Sec")
+    try await type("ond")
+    XCTAssertEqual(editor.string, "Second", "Each keystroke stays while the message is pending")
+    fixture.engine.releasePreparation()
+    try await waitForUI("the first request running", in: host.view) {
+      fixture.engine.requestCount == 1 && fixture.chat.pendingUserMessage == nil && host.shows("Stop response")
+    }
+    try await waitForUI("the composer docked under the conversation", in: host.view) {
+      !host.shows("Example /screen") && !host.shows("Routing mode: Auto")
+    }
+    XCTAssertEqual(fixture.screen.draft, "Second", "Text typed right after Send stays in the field")
+    XCTAssertEqual(editor.string, "Second")
+    XCTAssertTrue(editor.isEditable, "The field takes typing during the reply")
+    try await waitForUI("the field focused during the reply", in: host.view) { host.window.firstResponder === editor }
+    fixture.screen.draft = ""
+    try await waitForUI("an empty field", in: host.view) { editor.string.isEmpty }
+    try await clickTestControl("Commands", in: host.view)
+    try await waitForUI("/ and the command list during the reply", in: host.view) {
+      editor.string == "/" && editor.completion?.commands.isEmpty == false
+    }
+    try await clickTestControl("Attach files", in: host.view)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(fixture.picker.count, 0, "Attach stays off during a reply")
+    fixture.screen.draft = "Second"
+    try await waitForUI("the draft back, the command list closed", in: host.view) {
+      editor.string == "Second" && editor.completion?.commands.isEmpty != false
+    }
+    XCTAssertTrue(host.shows("Queue message"), "Send appears beside Stop once the field has text")
+
+    try pressReturn()
+    try await waitForUI("Return queues the message", in: host.view) {
+      fixture.chat.messageQueue.messages.map(\.text) == ["Second"]
+    }
+    try await waitForUI("the queued row with a dashed outline", in: host.view) {
+      host.shows("Queued message")
+        && host.shows("Send queued message now") && host.shows("Cancel queued message")
+    }
+    XCTAssertEqual(fixture.screen.draft, "")
+    XCTAssertEqual(fixture.engine.requestCount, 1)
+
+    try await type("/screen what is this?")
+    try pressReturn()
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(fixture.chat.messageQueue.messages.count, 1, "/screen isn't queued")
+    XCTAssertEqual(fixture.screen.draft, "/screen what is this?", "It stays in the field")
+    fixture.screen.draft = ""
+    try await waitForUI("the field cleared", in: host.view) { editor.string.isEmpty }
+    try await type("Third")
+    try await clickTestControl("Queue message", in: host.view)
+    try await waitForUI("the Send beside Stop queues too", in: host.view) {
+      fixture.chat.messageQueue.messages.map(\.text) == ["Second", "Third"] && fixture.screen.draft.isEmpty
+    }
+
+    let third = try XCTUnwrap(fixture.chat.messageQueue.messages.last)
+    fixture.chat.cancelQueuedMessage(id: third.id)
+    fixture.engine.finish()
+    try await waitForUI("the queued message sending as a solid bubble", in: host.view) {
+      fixture.engine.requestCount == 2 && fixture.chat.messageQueue.isEmpty && !host.shows("Queued message")
+        && fixture.chat.presentationMessages.filter { $0.role == .user }.map(\.content) == ["First question", "Second"]
+    }
+    fixture.engine.finish()
+    try await waitForUI("the queue drained", in: host.view) { fixture.chat.activeRequest == nil }
+    XCTAssertEqual(fixture.engine.requestCount, 2, "The cancelled message never sent")
+  }
+
+  @MainActor
+  func testSendNowAndCancelOnQueuedMessages() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    fixture.screen.draft = "First question"
+    try await waitForUI("the draft", in: host.view) { composerEditor(in: host.view)?.string == "First question" }
+    try await clickTestControl("Send message", in: host.view)
+    try await waitForUI("the first request running", in: host.view) { fixture.chat.activeRequest != nil }
+    XCTAssertTrue(fixture.chat.queueMessage("Cancel me"))
+    try await waitForUI("one queued message", in: host.view) { host.shows("Cancel queued message") }
+    try await waitForSettledLayout(in: host, "the queued row", markers: ["Cancel queued message"])
+    try await clickTestControl("Cancel queued message", in: host.view)
+    try await waitForUI("the x cancels it", in: host.view) {
+      fixture.chat.messageQueue.isEmpty && !host.shows("Queued message")
+    }
+    XCTAssertTrue(fixture.chat.queueMessage("Right now"))
+    try await waitForUI("Send now", in: host.view) { host.shows("Send queued message now") }
+    try await waitForSettledLayout(in: host, "the queued row", markers: ["Send queued message now"])
+    try await clickTestControl("Send queued message now", in: host.view)
+    try await waitForUI("the reply stopped and the message sent", in: host.view) {
+      fixture.engine.requestCount == 2 && fixture.chat.messageQueue.isEmpty && !host.shows("Queued message")
+        && fixture.chat.presentationMessages.filter { $0.role == .user }.map(\.content) == ["First question", "Right now"]
+    }
+  }
+
+  @MainActor
+  func testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.screen.draft = "First question"
+    try await waitForUI("the draft", in: host.view) { editor.string == "First question" }
+    try await clickTestControl("Send message", in: host.view)
+    try await waitForUI("the first request running", in: host.view) {
+      fixture.chat.activeRequest != nil && fixture.chat.pendingUserMessage == nil
+    }
+    XCTAssertTrue(fixture.chat.queueMessage("Held"))
+    fixture.chat.stopStreaming()
+    try await waitForUI("a held queue", in: host.view) {
+      fixture.chat.messageQueue.isHeld && fixture.chat.activeRequest == nil && host.shows("Send queued message now")
+    }
+
+    // A direct send from the field, stopped by Send now before it's accepted, leaves its draft in the field.
+    fixture.screen.draft = "Hello"
+    try await waitForUI("the new draft", in: host.view) { editor.string == "Hello" }
+    addTeardownBlock { @MainActor in fixture.engine.releasePreparation() }
+    fixture.engine.holdPreparation()
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the direct send pending", in: host.view) {
+      fixture.engine.isHoldingPreparation && fixture.chat.pendingUserMessage?.content == "Hello" && editor.string.isEmpty
+    }
+    try await clickTestControl("Send queued message now", in: host.view)
+    try await waitForUI("the held message pending, the stopped draft back in the field", in: host.view) {
+      fixture.chat.pendingUserMessage?.content == "Held" && editor.string == "Hello"
+    }
+    XCTAssertEqual(fixture.screen.draft, "Hello")
+    fixture.engine.releasePreparation()
+    try await waitForUI("the held message sent", in: host.view) {
+      fixture.engine.requestCount == 2 && fixture.chat.pendingUserMessage == nil
+    }
+    XCTAssertEqual(editor.string, "Hello")
+    fixture.engine.finish()
+    try await waitForUI("the reply ends", in: host.view) { fixture.chat.activeRequest == nil }
+
+    // Files attached for the field's draft never go with a queued message.
+    XCTAssertTrue(fixture.chat.queueMessage("Queued with no files"))
+    try await waitForUI("the queued message sending at once, nothing running", in: host.view) {
+      fixture.engine.requestCount == 3 && fixture.chat.activeRequest != nil
+    }
+    XCTAssertTrue(fixture.chat.queueMessage("Plain question"))
+    fixture.chat.stopStreaming()
+    try await waitForUI("held again", in: host.view) {
+      fixture.chat.messageQueue.isHeld && fixture.chat.activeRequest == nil
+    }
+    // ⇧⌘A
+    NotificationCenter.default.post(name: .fileModeRequested, object: nil)
+    try await waitForUI("files attached for the draft", in: host.view) { fixture.files.selection != nil }
+    try await waitForSettledLayout(in: host, "the files card above the composer", markers: ["Send queued message now"])
+    try await clickTestControl("Send queued message now", in: host.view)
+    try await waitForUI("the queued message sent as a plain question", in: host.view) {
+      fixture.engine.requestCount == 4 && fixture.engine.lastRequest?.prompt == "Plain question"
+    }
+    XCTAssertNotNil(fixture.files.selection, "The files stay with the field's draft")
+
+    // A draft with files attached stays in the field with them; it isn't queued without them.
+    try await waitForUI("the reply running with files attached", in: host.view) {
+      fixture.chat.activeRequest != nil && fixture.files.selection != nil
+    }
+    fixture.screen.draft = "Summarize these"
+    try await waitForUI("the draft", in: host.view) { editor.string == "Summarize these" }
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(fixture.chat.messageQueue.isEmpty)
+    XCTAssertEqual(fixture.screen.draft, "Summarize these", "It stays in the field with its files")
+  }
+
+  @MainActor
+  func testAHeldQueueStaysInViewWhenTheChatsFirstQuestionStops() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.screen.draft = "First question"
+    try await waitForUI("the draft", in: host.view) { editor.string == "First question" }
+    addTeardownBlock { @MainActor in fixture.engine.releasePreparation() }
+    fixture.engine.holdPreparation()
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the first question pending", in: host.view) {
+      fixture.engine.isHoldingPreparation && fixture.chat.pendingUserMessage != nil && editor.string.isEmpty
+    }
+    editor.insertText("Follow-up", replacementRange: NSRange(location: 0, length: 0))
+    try await waitForUI("the typed follow-up", in: host.view) { fixture.screen.draft == "Follow-up" }
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the follow-up queued", in: host.view) {
+      fixture.chat.messageQueue.messages.map(\.text) == ["Follow-up"] && host.shows("Queued message")
+    }
+    NotificationCenter.default.post(name: .stopStreamingRequested, object: nil)
+    try await waitForUI("the stopped question, its follow-up held", in: host.view) {
+      fixture.chat.activeRequest == nil && fixture.chat.messageQueue.isHeld && fixture.chat.messages.isEmpty
+    }
+    try await waitForSettledLayout(in: host, "the chat after Stop", markers: ["Send queued message now"])
+    XCTAssertTrue(host.shows("Queued message"), "The held message stays in view, not lost")
+    XCTAssertTrue(host.shows("Cancel queued message"))
+    XCTAssertFalse(host.shows("Example /screen"), "The chat stays open over its queue")
+  }
+
+  @MainActor
+  func testTheQueueIsFullAtFive() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.chat.submit("First question")
+    try await waitForUI("the reply running", in: host.view) { fixture.chat.activeRequest != nil }
+    for index in 1...5 { XCTAssertTrue(fixture.chat.queueMessage("Queued \(index)")) }
+    try await waitForSettledLayout(in: host, "five queued rows", markers: ["Stop response"])
+    fixture.screen.draft = "Sixth"
+    try await waitForUI("the sixth draft and the queue Send", in: host.view) {
+      editor.string == "Sixth" && host.shows("Queue message")
+    }
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await clickTestControl("Queue message", in: host.view)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(fixture.chat.messageQueue.messages.count, 5, "Send and Return are off at the cap")
+    XCTAssertEqual(fixture.screen.draft, "Sixth", "The draft waits in the field")
+    let first = try XCTUnwrap(fixture.chat.messageQueue.messages.first)
+    fixture.chat.cancelQueuedMessage(id: first.id)
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("one cancelled, the draft queues", in: host.view) {
+      fixture.chat.messageQueue.messages.last?.text == "Sixth" && fixture.screen.draft.isEmpty
+    }
+  }
+
+  @MainActor
+  func testTypingOverASentDraftBringsBackItsRecognizedCommands() async throws {
+    let fixture = try await Fixture(test: self, messagesAccess: {})
+    fixture.defaults.set(true, forKey: ComposerIntent.inferCommandsKey)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
+                    root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the messages chip", in: host.view) { host.shows("Recognized messages") }
+    try await clickTestControl("Recognized messages", in: host.view)
+    try await waitForUI("the dismissed chip", in: host.view) { !host.shows("Recognized messages") }
+    addTeardownBlock { @MainActor in fixture.engine.releasePreparation() }
+    fixture.engine.holdPreparation()
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the question pending, the field blank", in: host.view) {
+      fixture.engine.isHoldingPreparation && fixture.chat.pendingUserMessage != nil && editor.string.isEmpty
+    }
+    editor.insertText("what did Alex text me", replacementRange: NSRange(location: 0, length: 0))
+    try await waitForUI("the chip for the new draft", in: host.view) {
+      fixture.screen.draft == "what did Alex text me" && host.shows("Recognized messages")
+    }
+  }
+
+  @MainActor
+  func testAQueuedMessagesRequestNeverSkipsTheCloudDisclosure() async throws {
+    let accessed = MainWindowTestFlag()
+    let fixture = try await Fixture(test: self, messagesAccess: { accessed.set() })
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    try await waitForUI("the local route", in: host.view) { host.shows("Route ● local") }
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Cloud") }
+    try await clickTestControl("Menu item Cloud", in: host.view)
+    try await waitForUI("the cloud route", in: host.view) { host.shows("Route ○ cloud") && !host.shows("Menu item Cloud") }
+
+    // A reply runs (on this Mac, started directly); the next request is Cloud.
+    fixture.chat.submit("First question")
+    try await waitForUI("the reply running", in: host.view) { fixture.engine.requestCount == 1 }
+    XCTAssertTrue(fixture.chat.queueMessage("/messages what did Sam text me"))
+    fixture.engine.finish()
+    try await waitForUI("the queued /messages held, unsent", in: host.view) {
+      fixture.chat.activeRequest == nil && fixture.chat.messageQueue.isHeld
+        && fixture.chat.messageQueue.messages.map(\.text) == ["/messages what did Sam text me"]
+    }
+    XCTAssertEqual(fixture.chat.appleMessages.issue?.message, ComposerSubmission.queuedMessagesDisclosureMessage)
+    XCTAssertNil(fixture.chat.appleMessages.cloudDisclosure, "No disclosure opens for a message sent unseen")
+    XCTAssertFalse(accessed.isSet, "Messages was never read")
+    XCTAssertEqual(fixture.engine.requestCount, 1)
+    XCTAssertEqual(fixture.chat.messages.filter { $0.role == .user }.map(\.content), ["First question"])
+  }
+
+  @MainActor
+  func testADismissedRecognizedCommandStaysOffForTheQueuedMessage() async throws {
+    let accessed = MainWindowTestFlag()
+    let fixture = try await Fixture(test: self, messagesAccess: { accessed.set() })
+    fixture.defaults.set(true, forKey: ComposerIntent.inferCommandsKey)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self,
+                    root: AnyView(fixture.shell().defaultAppStorage(fixture.defaults)))
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.chat.submit("First question")
+    try await waitForUI("the reply running", in: host.view) {
+      fixture.engine.requestCount == 1 && host.shows("Stop response")
+    }
+    try await waitForUI("the composer docked under the conversation", in: host.view) {
+      !host.shows("Example /screen") && !host.shows("Routing mode: Auto")
+    }
+    fixture.screen.draft = "what did Sam text me"
+    try await waitForUI("the messages chip", in: host.view) { host.shows("Recognized messages") }
+    try await clickTestControl("Recognized messages", in: host.view)
+    try await waitForUI("the dismissed chip", in: host.view) { !host.shows("Recognized messages") }
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the message queued with its dismissal", in: host.view) {
+      fixture.chat.messageQueue.messages.first?.dismissed == [.messages] && fixture.screen.draft.isEmpty
+    }
+    fixture.engine.finish()
+    try await waitForUI("the queued message sent as a plain question", in: host.view) {
+      fixture.engine.requestCount == 2 && fixture.engine.lastRequest?.prompt == "what did Sam text me"
+    }
+    XCTAssertFalse(accessed.isSet, "Messages stays off after the person turned it off")
+    XCTAssertNil(fixture.chat.appleMessages.issue)
+  }
+
+  @MainActor
   func testEditorTakesFocusWhenThePanelIsPresented() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
@@ -1094,7 +1441,18 @@ final class EnigmaMainWindowTests: XCTestCase {
 
     fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
     try await snapshot("conversation-docked", host, fixture) { !host.shows("Example /screen") && host.shows("Send message") }
+
+    // A reply running, with two messages queued under it and the next one typed.
+    fixture.chat.submit("And how small can it get before quality drops?")
+    try await waitForUI("the reply running", in: host.view) { fixture.chat.activeRequest != nil }
+    XCTAssertTrue(fixture.chat.queueMessage("Which quantization should I pick for 16 GB?"))
+    XCTAssertTrue(fixture.chat.queueMessage("Compare Q4_K_M and Q5_K_M."))
+    fixture.screen.draft = "And for 8 GB?"
+    try await snapshot("conversation-queued", host, fixture) {
+      host.shows("Queued message") && host.shows("Queue message") && editor.string == "And for 8 GB?"
+    }
     fixture.chat.newChat()
+    fixture.screen.draft = ""
 
     host.window.setContentSize(PanelSizeStore.minimumSize)
     try await snapshot("minimum-size", host, fixture) { host.shows("Send message") }
@@ -1376,6 +1734,14 @@ final class MainWindowTestPicker: WorkspacePicking, @unchecked Sendable {
   }
 }
 
+/// Set once from any thread, as by a `@Sendable` test hook.
+final class MainWindowTestFlag: @unchecked Sendable {
+  private let lock = NSLock()
+  private var value = false
+  var isSet: Bool { lock.withLock { value } }
+  func set() { lock.withLock { value = true } }
+}
+
 /// A local model whose replies wait until the request is stopped, unless a
 /// test streams words into them with `send(_:)` and ends them with `finish`.
 /// It also answers for a vision model's projector, the same way.
@@ -1387,6 +1753,8 @@ final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @uncheck
   private var replies: [AsyncThrowingStream<String, Error>.Continuation] = []
 
   private var withholds = false
+  private var preparationGates: [UUID: CheckedContinuation<Void, Never>] = [:]
+  private var holdsPreparation = false
 
   init(model: LocalModel?) { self.model = model }
 
@@ -1397,6 +1765,40 @@ final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @uncheck
     get { lock.withLock { withholds } }
     set { lock.withLock { withholds = newValue } }
   }
+  /// Preparation waits until `releasePreparation()`, so a sent message stays pending.
+  func holdPreparation() { lock.withLock { holdsPreparation = true } }
+  func releasePreparation() {
+    let gates = lock.withLock {
+      holdsPreparation = false
+      defer { preparationGates = [:] }
+      return Array(preparationGates.values)
+    }
+    gates.forEach { $0.resume() }
+  }
+  var isHoldingPreparation: Bool { lock.withLock { !preparationGates.isEmpty } }
+
+  func prepare(_ request: LocalModelRequest) async throws -> PreparedConversation {
+    // Each held preparation has its own gate, and Stop releases it, so a
+    // failing test can't leave a request suspended for teardown to wait on.
+    let id = UUID()
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        let waits = lock.withLock {
+          guard holdsPreparation, !Task.isCancelled else { return false }
+          preparationGates[id] = continuation
+          return true
+        }
+        if !waits { continuation.resume() }
+      }
+    } onCancel: {
+      lock.withLock { preparationGates.removeValue(forKey: id) }?.resume()
+    }
+    try Task.checkCancellation()
+    return try ChatContextPreparer.prepare(
+      request.messages, budget: ContextBudget(contextWindow: 4_096, outputTokens: request.maximumTokenCount, overheadTokens: 256),
+      countTokens: { $0.reduce(0) { $0 + $1.content.utf8.count + 32 } })
+  }
+
   /// The latest request's messages, as the model received them.
   var lastRequest: LocalModelRequest? { lock.withLock { latest } }
 
