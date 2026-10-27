@@ -956,7 +956,29 @@ queued messages editable.
 **Out of scope:** editing queued messages, queueing attachments or captures,
 and a queue in the compact panel.
 
+### F31. Trained models for recognizing commands and routing
+
+**Spec:** [docs/superpowers/specs/2026-10-27-f31-intent-models-design.md](docs/superpowers/specs/2026-10-27-f31-intent-models-design.md)
+
+**Plan:** to be written once the spec is approved.
+
+**Today:** automatic search, the `messages`, `think`, `edit` and `translate`
+chips, and Auto's coding and reasoning checks are guessed from the draft's
+wording by hand-written English rules. They have grown into long exception
+lists and still misfire ("who is Taylor Swift dating" counts as coding).
+
+**Wanted (owner, 2026-10-27):** small Create ML classifiers, one per skill,
+bundled and run on the Mac, inside today's privacy rules. A skill switches
+only if its model beats the rules on an independently written test set and
+gets every must-pass example right. Built first, before the rest of F29.
+
+**Depends on / blocks:** blocks F29's remaining checkpoints.
+
 ### F29. On-device web search, replacing Brave
+
+**Status:** paused after CP1 (2026-10-27) until F31 is merged. On resuming:
+CP1's unfinished review, merge `main` into the branch, and the
+weather/places/web model built with F31's tools before CP5.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
