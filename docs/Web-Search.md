@@ -180,14 +180,26 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
   and Auto's chosen route pass, it keeps the decision it was given, so a
   dismissed chip stays off. The Local, Cloud, Auto and Screen submission paths
   call the private `search` method, which removes slash commands, refines the
-  query when text is attached and adds location. The Screen path writes its
-  refined query first.
+  query when text is attached, and builds a `WebSearchRequest`. Its route,
+  recency hint and location come from the typed question only, never from a
+  refined query. The Screen path writes its refined query first.
+- `Enigma/Search/WebSearch.swift`: the shared types: `WebSearchProvider`,
+  `WebSearchRequest` (query, route, city, rounded coordinate, named place,
+  recency and evidence budget), `WebSearchResult`, `WebSearchSource`,
+  `WebSearchError` and `WebSearchLimits` (at most 8 sources, 2,048 tokens each,
+  8,192 evidence tokens).
+- `Enigma/Search/SearchRouting.swift`: `SearchRouting.decide` chooses weather,
+  places or web from the typed question, and `webQuery` turns "near me" into
+  "near <city>" for search sites. Only Brave serves searches for now, so every
+  route still reaches Brave. `WebSearchPolicy.recency` gives the day, week,
+  month or year hint.
 - `Enigma/Search/BraveSearchClient.swift`: `BraveSearchClient` sends
   `POST https://api.search.brave.com/res/v1/llm/context` with the
   `X-Subscription-Token` header, a 30-second timeout and an ephemeral session.
   It asks for up to 10 URLs and 8,192 evidence tokens, at most 2,048 per URL,
   keeps generic, point-of-interest and map results with safe HTTP(S) links, and
-  never shows raw error bodies.
+  never shows raw error bodies. For a nearby question it appends the
+  approximate area and coordinates to the query.
 - `Enigma/Search/WebSearchContext.swift`: `WebSearchContext.prepare` fits
   evidence into the selected model's context. After reserving output, system
   instructions, any image and the full question, about half the remaining input

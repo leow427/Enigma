@@ -1572,9 +1572,10 @@ private struct PanelSearchCredentials: WebSearchCredentialStore {
 
 private actor PanelSearch: WebSearchProvider {
   static let source = WebSearchSource(title: "Code reference", url: URL(string: "https://example.com/code")!)
-  private(set) var queries: [String] = []
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
+  private(set) var requests: [WebSearchRequest] = []
+  var queries: [String] { requests.map(\.query) }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
     return [WebSearchResult(source: Self.source, snippets: ["The count property returns the number of elements."])]
   }
 }

@@ -1,58 +1,5 @@
 import Foundation
 
-struct WebSearchSource: Codable, Equatable, Sendable, Identifiable {
-  let title: String
-  let url: URL
-  var id: URL { url }
-}
-
-struct WebSearchResult: Equatable, Sendable {
-  let source: WebSearchSource
-  let snippets: [String]
-}
-
-typealias AssistantActivitySink = @Sendable (AssistantActivityEvent) async -> Void
-
-protocol WebSearchProvider: Sendable {
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult]
-  func search(_ query: String, maximumTokens: Int,
-              onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult]
-}
-
-extension WebSearchProvider {
-  /// Batch providers publish once on arrival; incremental providers override this overload.
-  func search(_ query: String, maximumTokens: Int,
-              onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
-    let results = try await search(query, maximumTokens: maximumTokens)
-    try Task.checkCancellation()
-    await onActivity(.sourcesDiscovered(results.map(\.source)))
-    return results
-  }
-}
-
-enum WebSearchError: LocalizedError, Equatable {
-  case missingAPIKey, invalidAPIKey, rateLimited, unavailable, invalidResponse, noResults, contextTooSmall
-  /// The message had only slash commands and nothing was attached to write a query from.
-  case emptyQuery
-  case requestFailed(Int)
-
-  var errorDescription: String? {
-    let detail: String
-    switch self {
-    case .missingAPIKey: detail = "Add your Brave Search API key in Settings → Cloud and search → Web search · Brave."
-    case .invalidAPIKey: detail = "Brave rejected the API key. Check its LLM Context access in Settings → Cloud and search → Web search · Brave."
-    case .rateLimited: detail = "Brave Search is rate limiting this account. Try again shortly."
-    case .unavailable: detail = "Brave Search could not be reached. Check your connection and try again."
-    case .invalidResponse: detail = "Brave Search returned an invalid response. Try again."
-    case .noResults: detail = "Brave Search found no relevant sources. Try a more specific question."
-    case .emptyQuery: detail = "There's nothing to search for: the message has only commands. Add a question and send again."
-    case .contextTooSmall: detail = "There isn’t enough room for web sources. Shorten your question or choose a larger model."
-    case .requestFailed(let status): detail = "Brave Search failed (\(status)). Try again."
-    }
-    return detail + " Your draft has been kept."
-  }
-}
-
 struct BraveSearchClient: WebSearchProvider {
   static let maximumSources = 10
   static let evidenceTokens = 8_192
@@ -76,6 +23,16 @@ struct BraveSearchClient: WebSearchProvider {
 
   static func query(from prompt: String) -> String {
     String(prompt.split(whereSeparator: \.isWhitespace).prefix(50).joined(separator: " ").prefix(400))
+  }
+
+  /// Brave reads location as a line appended to the query, as it did before `WebSearchRequest`.
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    var query = request.query
+    if let coordinate = request.coordinate {
+      query += "\n" + ApproximateLocation(latitude: coordinate.latitude, longitude: coordinate.longitude,
+        area: request.city ?? ApproximateLocation.unknownArea).searchContext
+    }
+    return try await search(query, maximumTokens: request.maximumTokens)
   }
 
   func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {

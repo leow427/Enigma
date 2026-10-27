@@ -198,7 +198,7 @@ stays in its brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 4 | Spike done; owner decisions needed on Q4 (Mojeek, Startpage, DuckDuckGo 202s and region, header set CP2 sends), Q1 (parser if Startpage stays) and Q7 (MapKit terms) |
-| CP1 | not started | | |
+| CP1 | done | 1 (round 2 stopped by the owner) | Request, shared types, limits, routing and recency in place; Brave unchanged. Owner widened spec §6 routing (weather near me, weather needs a place or location, tighter named areas, "local <place>"); see the CP1 Hand-off |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

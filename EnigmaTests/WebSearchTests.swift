@@ -55,8 +55,9 @@ final class WebSearchTests: XCTestCase {
       await finish(model)
       XCTAssertEqual(model.state, .idle)
       XCTAssertEqual(location.calls, 1)
-      let queries = await search.queries
-      XCTAssertTrue(try XCTUnwrap(queries.last).contains("Chicago (41.88, -87.63)"))
+      let requests = await search.requests
+      XCTAssertEqual(requests.last?.city, "Chicago")
+      XCTAssertEqual(requests.last?.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
       let localRequests = await engine.requests
       let context = localRequests.last?.prompt ?? cloud.requests.last?.messages.last?.content ?? ""
       XCTAssertTrue(context.contains("Approximate current location: Chicago"))
@@ -103,8 +104,169 @@ final class WebSearchTests: XCTestCase {
     await stopped.value
     let queries = await search.queries
     XCTAssertEqual(queries, ["Weather in Copenhagen"])
+    let requests = await search.requests
+    XCTAssertNil(requests.last?.city)
+    XCTAssertNil(requests.last?.coordinate)
     XCTAssertEqual(cloud.requests.count, 1)
     XCTAssertFalse(cloud.requests[0].messages.last?.content.contains("Chicago") == true)
+  }
+
+  func testWebSearchResultDefaultsToArticleKind() {
+    let result = WebSearchResult(source: WebSearchSource(title: "A", url: URL(string: "https://example.com")!), snippets: ["x"])
+    XCTAssertEqual(result.kind, .article)
+    XCTAssertNil(result.site)
+    XCTAssertNil(result.published)
+  }
+
+  func testBraveAppendsLocationFromRequest() async throws {
+    let transport = SearchTransport(data: Data(#"{"grounding":{"generic":[{"url":"https://example.com/a","snippets":["Fact"]}]}}"#.utf8))
+    let client = BraveSearchClient(credentials: SearchCredentials("fixture"), transport: transport)
+    _ = try await client.search(WebSearchRequest(query: "What are some good restaurants around me?", city: "Chicago",
+      coordinate: SearchCoordinate(latitude: 41.88, longitude: -87.63), maximumTokens: 8_192))
+    let requests = await transport.requests
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: Any])
+    // `query(from:)` collapses whitespace, so the appended line arrives joined by a space, as it always has.
+    XCTAssertEqual(json["q"] as? String,
+      "What are some good restaurants around me? Approximate current location: Chicago (41.88, -87.63)")
+  }
+
+  func testBraveUsesUnknownAreaWithoutCity() async throws {
+    let transport = SearchTransport(data: Data(#"{"grounding":{"generic":[{"url":"https://example.com/a","snippets":["Fact"]}]}}"#.utf8))
+    let client = BraveSearchClient(credentials: SearchCredentials("fixture"), transport: transport)
+    _ = try await client.search(WebSearchRequest(query: "cafes near me",
+      coordinate: SearchCoordinate(latitude: 41.88, longitude: -87.63), maximumTokens: 8_192))
+    let requests = await transport.requests
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: Any])
+    XCTAssertTrue(try XCTUnwrap(json["q"] as? String).contains("Approximate current location: current area (41.88, -87.63)"))
+  }
+
+  func testWebSearchContextCapsAtEightSources() async throws {
+    let results = (0..<10).map { index in
+      WebSearchResult(source: WebSearchSource(title: "Source \(index)", url: URL(string: "https://example.com/\(index)")!),
+        snippets: ["Evidence \(index)."])
+    }
+    let grounded = try await WebSearchContext.prepare(messages: [ChatMessage(role: .user, content: "Question")], results: results) {
+      try ChatContextPreparer.prepare($0, budget: ContextBudget(contextWindow: 32_768, outputTokens: 512, overheadTokens: 256)) {
+        $0.reduce(0) { $0 + ($1.content.utf8.count + 3) / 4 + 16 }
+      }
+    }
+    XCTAssertLessThanOrEqual(grounded.sources.count, 8)
+    XCTAssertEqual(grounded.sources.count, WebSearchLimits.maximumSources)
+  }
+
+  func testApproximateLocationKeepsRoundedCoordinates() {
+    let location = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")
+    XCTAssertEqual(location.latitude, 41.88)
+    XCTAssertEqual(location.longitude, -87.63)
+    XCTAssertEqual(location.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
+    XCTAssertEqual(location.city, "Chicago")
+    XCTAssertEqual(location.coordinates, "41.88, -87.63")
+  }
+
+  func testUnknownAreaHasNoCity() {
+    let location = ApproximateLocation(latitude: 41.88, longitude: -87.63)
+    XCTAssertNil(location.city)
+    XCTAssertEqual(location.area, ApproximateLocation.unknownArea)
+    XCTAssertEqual(location.searchContext, "Approximate current location: current area (41.88, -87.63)")
+  }
+
+  func testRecencyHints() throws {
+    let now = try XCTUnwrap(Calendar(identifier: .gregorian).date(from: DateComponents(
+      timeZone: TimeZone(identifier: "UTC"), year: 2026, month: 10, day: 27, hour: 12)))
+    let cases: [(String, SearchRecency?)] = [
+      ("what happened today", .day),
+      ("live scores premier league", .day),
+      ("where do penguins live", nil),
+      ("latest swift release", .week),
+      ("breaking news", .week),
+      ("what did the fed say yesterday", .week),
+      ("latest news today", .day),
+      ("best laptops this month", .month),
+      ("oscars 2026", .year),
+      ("oscars 2024", nil),
+      ("how do magnets work", nil),
+      (ScreenSearchContext.question("/search latest swift release"), .week)
+    ]
+    for (question, hint) in cases {
+      XCTAssertEqual(WebSearchPolicy.recency(question, now: now), hint, question)
+    }
+  }
+
+  func testSearchCommandNearbyQuestionUsesPlacesRoute() async throws {
+    let location = SearchLocation()
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/search cafe near me", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.route, .places)
+    XCTAssertEqual(request.city, "Chicago")
+    XCTAssertEqual(request.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
+    XCTAssertEqual(request.query, "cafe near me")
+    XCTAssertNil(request.namedPlace)
+    XCTAssertEqual(location.calls, 1)
+  }
+
+  func testLocationWithoutCitySendsNoCity() async throws {
+    let location = SearchLocation(location: ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982))
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/search cafe near me", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertNil(request.city)
+    XCTAssertEqual(request.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
+    XCTAssertFalse(request.query.contains(ApproximateLocation.unknownArea))
+    XCTAssertEqual(location.calls, 1)
+  }
+
+  func testNamedPlaceWeatherNeedsNoLocation() async throws {
+    let location = SearchLocation()
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/search weather in Paris this weekend", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.route, .weather)
+    XCTAssertEqual(request.namedPlace, "paris")
+    XCTAssertNil(request.city)
+    XCTAssertNil(request.coordinate)
+    XCTAssertEqual(location.calls, 0)
+  }
+
+  func testWrittenQueryCannotChooseRoute() async throws {
+    let location = SearchLocation()
+    let search = SearchSpy(results: fixtureResults)
+    let cloud = SearchCloudProvider(output: "cafes near me")
+    let model = makeModel(search: search, cloud: cloud, location: location)
+    model.startTemporaryChat(context: ConversationContext(sourceName: "Selection", text: "cafes near me"))
+    model.submitCloud("/search what is this?", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.query, "cafes near me", "The query was written from the selection")
+    XCTAssertEqual(request.route, .web)
+    XCTAssertNil(request.city)
+    XCTAssertNil(request.coordinate)
+    XCTAssertEqual(location.calls, 0)
+  }
+
+  func testRecencyHintReachesRequest() async throws {
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search)
+    await model.refreshInstalledModel()
+    model.submit("/search latest swift release", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.recency, .week)
+    XCTAssertEqual(request.route, .web)
   }
 
   func testAutomaticSearchRecognizesFreshFactsWithoutACommand() {
@@ -1117,7 +1279,7 @@ final class WebSearchTests: XCTestCase {
       let counts = excerpts.compactMap { $0["text"]?.utf8.count }
       XCTAssertGreaterThan(counts.reduce(0, +), previousTextCount)
       previousTextCount = counts.reduce(0, +)
-      if window >= 4_096 { XCTAssertEqual(grounded.sources.count, 10) }
+      if window >= 4_096 { XCTAssertEqual(grounded.sources.count, 8) }
       XCTAssertLessThanOrEqual(counts.max() ?? 0, 2_048 * 4)
       if counts.count >= 3 {
         XCTAssertLessThan(Double(counts.max() ?? 0) / Double(counts.reduce(0, +)), 0.4)
@@ -1338,17 +1500,17 @@ private actor SearchTransport: CloudNetworkTransport {
 }
 
 private actor SearchSpy: WebSearchProvider {
-  var queries: [String] = []
-  var budgets: [Int] = []
+  var requests: [WebSearchRequest] = []
+  var queries: [String] { requests.map(\.query) }
+  var budgets: [Int] { requests.map(\.maximumTokens) }
   let results: [WebSearchResult]
   let error: WebSearchError?
   let gate: SearchGate?
   init(results: [WebSearchResult] = [], error: WebSearchError? = nil, gate: SearchGate? = nil) {
     self.results = results; self.error = error; self.gate = gate
   }
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
-    budgets.append(maximumTokens)
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
     if let gate {
       await withTaskCancellationHandler {
         await gate.wait()
@@ -1419,9 +1581,9 @@ private struct ProgressiveSearch: WebSearchProvider {
     WebSearchResult(source: WebSearchSource(title: "Second", url: URL(string: "https://swift.org/two")!), snippets: ["Second excerpt"])
   ]
 
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] { results }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] { results }
 
-  func search(_ query: String, maximumTokens: Int,
+  func search(_ request: WebSearchRequest,
               onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
     await onActivity(.sourcesDiscovered([results[0].source]))
     await first.wait()
@@ -1456,13 +1618,17 @@ private final class SearchLocation: LocationProviding {
   var calls = 0
   let error: Error?
   let gate: SearchGate?
-  init(error: Error? = nil, gate: SearchGate? = nil) { self.error = error; self.gate = gate }
+  let location: ApproximateLocation
+  init(error: Error? = nil, gate: SearchGate? = nil,
+       location: ApproximateLocation = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")) {
+    self.error = error; self.gate = gate; self.location = location
+  }
   func currentLocation() async throws -> ApproximateLocation {
     calls += 1
     if let error { throw error }
     if let gate {
       await withTaskCancellationHandler { await gate.wait() } onCancel: { gate.cancelled.fulfill() }
     }
-    return ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")
+    return location
   }
 }

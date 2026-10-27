@@ -22,27 +22,70 @@ enum LocationIntent {
     return matches(asksAboutNow, text)
   }
 
-  private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
+  /// "near me", "nearby", "around me", "in my area", "locally", or "local" before a place word.
+  static func hasNearbyCue(normalized text: String) -> Bool {
+    matches(SearchRouting.nearbyPhrase, text) || matches(SearchRouting.localPlace, text)
+  }
+
+  /// A weather question about now, the coming days or right here, not about climate, records or the news.
+  static func asksAboutWeatherNow(normalized text: String) -> Bool {
+    guard !WebSearchPolicy.isOfflineOrTransformation(text), matches(weatherTopic, text),
+          !matches(conceptualWeather, text), !matches(weatherBackground, text) else { return false }
+    if matches(asksAboutNow, text) { return true }
+    // "weather near me", "local weather". Snow and umbrellas near me are places, not forecasts.
+    if matches(forecastWord, text) && matches(nearbyCue, text) { return true }
+    // A forecast for a named place can be days away: "weather in Paris this weekend".
+    return weatherPlace(normalized: text) != nil && matches(comingDays, text)
+  }
+
+  /// "paris" in "weather in paris this weekend": the words after in, at, for or near, up to a time word.
+  /// A time is never a place: "in 2 hours", "in the morning", "in december".
+  static func weatherPlace(normalized text: String) -> String? {
+    guard let match = weatherPlacePattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+          let range = Range(match.range(at: 1), in: text) else { return nil }
+    let place = text[range].trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
+    guard !place.isEmpty, place != "the", !matches(timePhrase, place) else { return nil }
+    return place
+  }
+
+  static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
     pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
 
   // Compiled once. All patterns are fixed, tested source literals, never user-provided regexes.
   private static let optOutLocation = try! NSRegularExpression(pattern: #"\b(?:(?:do not|don't|dont|never) (?:use|access|share|detect) (?:my |the )?location|without (?:my )?location)\b"#)
-  private static let namedPlace = try! NSRegularExpression(pattern: #"\b(?:in|at|near)\s+(?!(?:me|my|this|the|here)\b)[a-z]"#)
+  static let namedPlace = try! NSRegularExpression(pattern: #"\b(?:in|at|near)\s+(?!(?:me|my|this|the|here)\b)[a-z]"#)
   private static let nearbyCue = try! NSRegularExpression(pattern: #"\b(?:near me|around me|nearby|my (?:current )?location|where am i|in my area|locally|local (?:weather|restaurants?|cafes?|events|places))\b"#)
   private static let weatherTopic = try! NSRegularExpression(pattern: #"\b(?:weather|forecast|temperature|rain|snow|umbrella)\b"#)
   private static let namedDestination = try! NSRegularExpression(pattern: #"\b(?:in|at|for|near)\s+(?!(?:today|tonight|tomorrow|this|the next)\b)[a-z]"#)
   private static let conceptualWeather = try! NSRegularExpression(pattern: #"^(?:what is|what's|define|explain|how does) (?:the |a )?(?:weather|rain|snow|temperature)(?: work| mean)?[?.!]*$"#)
   private static let asksAboutNow = try! NSRegularExpression(pattern: #"\b(?:today|tonight|tomorrow|this week|forecast|will it|is it|what's|what is|what are|do i need)\b"#)
+  private static let weatherBackground = try! NSRegularExpression(pattern: #"\b(?:news|latest|record|average|historical|history|climate)\b"#)
+  private static let comingDays = try! NSRegularExpression(pattern: #"\b(?:this weekend|next week)\b"#)
+  private static let forecastWord = try! NSRegularExpression(pattern: #"\b(?:weather|forecast)\b"#)
+  // Starts with a letter, like `namedDestination`, so the two agree on what a place is.
+  private static let weatherPlacePattern = try! NSRegularExpression(pattern: #"\b(?:in|at|for|near)\s+(?!(?:me|my|this|here|today|tonight|tomorrow|next|on|a|an)\b)([a-z].*?)(?=\s+(?:today|tonight|tomorrow|this|next|on)\b|$)"#)
+  private static let timePhrase = try! NSRegularExpression(pattern: #"^(?:the )?(?:morning|afternoon|evening|night|weekend|week|month|year|hours?|minutes?|days?|january|february|march|april|may|june|july|august|september|october|november|december|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"#)
 }
 
 struct ApproximateLocation: Equatable, Sendable {
+  /// The area when reverse geocoding found no city.
+  static let unknownArea = "current area"
   let area: String
   let coordinates: String
+  /// Rounded to 2 decimals, about 1 km.
+  let latitude: Double
+  let longitude: Double
+  var coordinate: SearchCoordinate { SearchCoordinate(latitude: latitude, longitude: longitude) }
+  var city: String? { area == Self.unknownArea ? nil : area }
   var searchContext: String { "Approximate current location: \(area) (\(coordinates))" }
 
-  init(latitude: Double, longitude: Double, area: String = "current area") {
+  init(latitude: Double, longitude: Double, area: String = ApproximateLocation.unknownArea) {
     self.area = area
+    let latitude = (latitude * 100).rounded() / 100
+    let longitude = (longitude * 100).rounded() / 100
+    self.latitude = latitude
+    self.longitude = longitude
     coordinates = String(format: "%.2f, %.2f", locale: Locale(identifier: "en_US_POSIX"), latitude, longitude)
   }
 }

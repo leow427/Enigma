@@ -210,12 +210,13 @@ final class ScreenSearchNativeSmokeTests: XCTestCase {
 private actor NativeSmokeSearch: WebSearchProvider {
   nonisolated let result: WebSearchResult
   private let live: Bool
-  private(set) var queries: [String] = []
+  private(set) var requests: [WebSearchRequest] = []
+  var queries: [String] { requests.map(\.query) }
   private(set) var sources: [WebSearchSource] = []
   init(result: WebSearchResult, live: Bool) { self.result = result; self.live = live }
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
-    let results = live ? try await BraveSearchClient().search(query, maximumTokens: maximumTokens) : [result]
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
+    let results = live ? try await BraveSearchClient().search(request) : [result]
     sources = results.map(\.source)
     return results
   }

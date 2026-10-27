@@ -891,7 +891,8 @@ private final class PipelineConsent {
 private actor PipelineSearch: WebSearchProvider {
   struct Query { let prompt: String; let maximumTokens: Int }
   static let source = WebSearchSource(title: "Memory reference", url: URL(string: "https://example.com/memory")!)
-  private(set) var queries: [Query] = []
+  private(set) var requests: [WebSearchRequest] = []
+  var queries: [Query] { requests.map { Query(prompt: $0.query, maximumTokens: $0.maximumTokens) } }
   let results: [WebSearchResult]
   let error: WebSearchError?
   let gate: PipelineSearchGate?
@@ -901,9 +902,9 @@ private actor PipelineSearch: WebSearchProvider {
     self.results = results; self.error = error; self.gate = gate
     self.onSearch = onSearch
   }
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(Query(prompt: query, maximumTokens: maximumTokens))
-    onSearch?(query)
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
+    onSearch?(request.query)
     if let gate {
       await withTaskCancellationHandler {
         await gate.wait()

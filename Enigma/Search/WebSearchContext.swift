@@ -25,7 +25,7 @@ enum WebSearchContext {
     let candidates = results.filter {
       $0.source.isSafeWebLink && !$0.snippets.joined().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && seen.insert($0.source.id).inserted
-    }.prefix(BraveSearchClient.maximumSources)
+    }.prefix(WebSearchLimits.maximumSources)
     guard !candidates.isEmpty else { throw WebSearchError.noResults }
 
     func message(_ excerpts: [Excerpt]) throws -> ChatMessage {
@@ -56,7 +56,7 @@ enum WebSearchContext {
     let envelopeTokens = max(0, empty.inputTokenCount - question.inputTokenCount)
     let payloadBudget = evidenceBudget - envelopeTokens
     guard payloadBudget > 0 else { throw WebSearchError.contextTooSmall }
-    let sourceCap = min(BraveSearchClient.tokensPerSource, payloadBudget / min(3, candidates.count))
+    let sourceCap = min(WebSearchLimits.tokensPerSource, payloadBudget / min(3, candidates.count))
     guard sourceCap > 0 else { throw WebSearchError.contextTooSmall }
 
     var excerpts: [Excerpt] = []

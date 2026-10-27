@@ -797,7 +797,7 @@ final class LocalChatViewModel: ObservableObject {
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
           owner.state = .searching
-          let results = try await owner.search(trimmedPrompt, maximumTokens: BraveSearchClient.evidenceTokens, requestID: active.id)
+          let results = try await owner.search(trimmedPrompt, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
           owner.state = .preparing
@@ -961,7 +961,7 @@ final class LocalChatViewModel: ObservableObject {
                 owner.state = .searching
                 // Screen queries resolve the user's references with relevant observed facts.
                 // Pixels, raw OCR, and conversation history are never attached to Brave.
-                searchResults = try await owner.search(prompt, writtenQuery: searchQuery, maximumTokens: BraveSearchClient.evidenceTokens, requestID: active.id)
+                searchResults = try await owner.search(prompt, writtenQuery: searchQuery, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
               }
               try Task.checkCancellation()
               guard owner.activeRequest?.id == active.id else { return }
@@ -1147,7 +1147,7 @@ final class LocalChatViewModel: ObservableObject {
       do {
         try Task.checkCancellation()
         guard let owner = self, owner.activeRequest?.id == active.id else { return }
-        let results = try await owner.search(userMessage.content, maximumTokens: BraveSearchClient.evidenceTokens, requestID: active.id)
+        let results = try await owner.search(userMessage.content, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
         let grounded = try await WebSearchContext.prepare(messages: owner.locationGrounded(history), results: results) {
@@ -1455,8 +1455,8 @@ final class LocalChatViewModel: ObservableObject {
   private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
                       requestID: UUID) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
-    // The user's text loses its slash commands here on every route, before refining, the location
-    // check and Brave. A model-written query is used as written.
+    // The user's text loses its slash commands here on every route, before refining, routing
+    // and the provider. A model-written query is used as written.
     let question = writtenQuery ?? ScreenSearchContext.question(prompt)
     var contextualQuery = question
     // Only the source material this request carries refines its query.
@@ -1498,14 +1498,20 @@ final class LocalChatViewModel: ObservableObject {
       receiveActivity(.phase(.searching), requestID: requestID)
     }
     guard !contextualQuery.isEmpty else { throw WebSearchError.emptyQuery }
-    if LocationIntent.needsLocation(ScreenSearchContext.question(prompt)), let locationProvider {
+    // The route, location and recency come from the typed question, never from a written query.
+    let typedQuestion = ScreenSearchContext.question(prompt)
+    let decision = SearchRouting.decide(question: typedQuestion)
+    var request = WebSearchRequest(query: contextualQuery, route: decision.route, namedPlace: decision.namedPlace,
+      recency: WebSearchPolicy.recency(typedQuestion), maximumTokens: maximumTokens)
+    if decision.needsCurrentLocation, let locationProvider {
       let location = try await locationProvider.currentLocation()
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }
       requestLocationContext = location.searchContext
-      contextualQuery += "\n" + location.searchContext
+      request.city = location.city
+      request.coordinate = location.coordinate
     }
-    let results = try await webSearch.search(contextualQuery, maximumTokens: maximumTokens) { [weak self] event in
+    let results = try await webSearch.search(request) { [weak self] event in
       // Retrieval candidates are not citation sources until context fitting selects them.
       if case .sourcesDiscovered = event {
         await self?.receiveActivity(.phase(.readingSources), requestID: requestID)
