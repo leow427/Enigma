@@ -9,7 +9,7 @@ gate", §3.7), and the Hand-offs of CP2 to
 Measure on-device search against Brave on 60 fixed questions, tune it until
 the spec's gate passes, and write up the result. **Brave is removed (CP8) only
 after this gate passes.** If it can't pass after three tuning rounds, stop and
-report to the coordinator for an owner decision.
+ask the owner to decide.
 
 ## Starting point
 
@@ -60,8 +60,8 @@ counts are exactly the spec's:
   and categories.
 - [ ] **Run** `python3 -I -B -m unittest discover -s scripts/tests`. Expect
   it to pass.
-- [ ] **Get approval.** Mark the list "for owner review" in your Hand-off. The
-  coordinator gets the owner's approval before Task 7.4 runs.
+- [ ] **Get approval.** Mark the list "for owner review" in your Hand-off. Get the
+  owner's approval in the chat before Task 7.4 runs.
 
 ### Task 7.2: The ranking trace and the evaluation test
 
@@ -209,7 +209,7 @@ for the owner to judge blind.
   - Recommend adopting it only if it clearly wins and adds under 100 ms.
     Adopting it is the owner's decision. Until they decide, the switch stays
     off and isn't reachable in the app.
-- [ ] **Owner spot check.** The coordinator gives `spot-check.md` to the
+- [ ] **Owner spot check.** Give `spot-check.md` to the
   owner, and records how often the owner agrees with the judge.
 - [ ] **Write the report** to
   `docs/history/<date>-web-search-evaluation.md`. Include:
@@ -228,7 +228,7 @@ for the owner to judge blind.
 - [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass, and the
   Python tests pass.
 - [ ] The owner has approved the question set, every spec deviation, and the
-  list edits, through the coordinator.
+  list edits, in the chat.
 
 ## Reviewer checklist
 

@@ -261,7 +261,7 @@ recorded wording. It covers:
 - [ ] **Add `testAnthropicSearchesLive`,** shaped like CP2's OpenAI test:
   model `ENIGMA_ANTHROPIC_MODEL` or `claude-sonnet-4-6`, with
   `EnvironmentCredentials`.
-- [ ] **The owner runs it.** The coordinator asks the owner to run this. It
+- [ ] **The owner runs it.** Ask the owner to run this. It
   costs about 1 to 5 searches.
 
   ```sh

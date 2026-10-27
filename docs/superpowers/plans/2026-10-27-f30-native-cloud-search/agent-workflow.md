@@ -3,14 +3,17 @@
 F30 is built one checkpoint at a time, on the branch
 `feat/f30-native-cloud-search`. Each checkpoint goes through the same steps:
 
-1. A fresh worker agent builds it from its brief.
-2. A fresh reviewer agent audits it.
-3. The same worker fixes what the reviewer found. Rounds repeat, with a new
+1. The owner starts a fresh chat with a worker, using the prompt in
+   [Starting a checkpoint](#starting-a-checkpoint).
+2. The worker builds it from its brief.
+3. The worker starts a fresh reviewer agent to audit it.
+4. The worker fixes what the reviewer found. Rounds repeat, with a new
    reviewer each time, until a round finds no Blocker or Should fix.
-4. The coordinator verifies the result, commits it, and updates the progress
-   log in the [plan](../2026-10-27-f30-native-cloud-search.md).
+5. The worker verifies the result, commits it, pushes the branch, and
+   updates the progress log in the [plan](../2026-10-27-f30-native-cloud-search.md).
 
-Checkpoints never run in parallel.
+There is no coordinator: the owner talks to the worker directly. Checkpoints
+never run in parallel, and each one gets its own chat.
 
 **Before you start, read:**
 
@@ -23,41 +26,42 @@ Checkpoints never run in parallel.
 
 ## Roles
 
-**Coordinator:** the main session.
+**Owner:** starts one worker chat per checkpoint, answers the worker's
+questions, and makes every decision the brief marks for the owner.
 
-- It sets up the worktree once, before CP0: the branch
-  `feat/f30-native-cloud-search` from `main` (with F29 merged), in a folder
+**Worker:** the chat the owner starts (Opus, medium effort). It:
+
+- sets up the worktree if it doesn't exist yet, which is CP0's job: the
+  branch `feat/f30-native-cloud-search` from `main` (with F29 merged), in a folder
   outside `~/Documents`. Test hosts that run inside `~/Documents` set off
   macOS privacy prompts.
-- It starts the agents and relays any decision that belongs to the owner.
-- It gets the owner's approval for live runs, and passes owner-run commands
-  to the owner.
-- It commits each checkpoint, pushes the branch, and updates the progress
-  log.
-
-**Worker:**
-
 - builds exactly one checkpoint, test-first, in the order its brief gives;
 - runs the brief's exit checks;
 - fills in the brief's Hand-off section;
-- fixes review findings when the coordinator relays them.
+- gets the owner's approval for live runs, and hands owner-run commands to
+  the owner;
+- starts a fresh reviewer for each review round, and fixes its findings;
+- commits the checkpoint, pushes the branch, and updates the progress log.
 
-**Reviewer:** audits the worker's changes, never edits a file, and reports
-findings.
+**Reviewer:** an agent the worker starts (Opus, extra high effort). It
+audits the worker's changes, never edits a file, and reports findings to the
+worker.
 
 ## Rules for workers
 
 **Git and scope:**
 
-- **Don't touch git state.** No `git add`, `commit`, `stash`, `checkout`,
-  `reset`, `clean` or `rebase`. The coordinator commits.
+- **Commit only at the end.** Commit the checkpoint after its last review
+  round, as the [checklist](#worker-checklist-each-checkpoint) says. No
+  other commits, and no `git stash`, `checkout`, `reset`, `clean` or
+  `rebase`.
 - **Stay in scope.** Make only your brief's changes, plus whatever they
   strictly need. List anything outside the brief in your Hand-off, with the
   reason.
 - **Follow the brief and the spec.** When they disagree, or the code no
-  longer matches what the brief says exists, stop and report to the
-  coordinator. Don't improvise a different design. Never edit the spec or
-  another checkpoint's brief; propose changes in your Hand-off instead.
+  longer matches what the brief says exists, stop and ask the owner.
+  Don't improvise a different design. Never edit the spec or another
+  checkpoint's brief; propose changes in your Hand-off instead.
 - **F29 may have moved code.** Briefs give line numbers from before F29
   merged. Find code by its symbol, not its line.
 
@@ -77,10 +81,10 @@ findings.
 **Accounts and keys:**
 
 - **Never handle API keys.** A probe or test that needs one reads it from
-  an environment variable. The coordinator asks the owner to run it.
+  an environment variable. Ask the owner to run it.
 - **Don't run subscription probes on your own.** ChatGPT and Claude Code
-  probes use the Mac's sign-ins. Run them only after the coordinator confirms
-  the owner approved that batch.
+  probes use the Mac's sign-ins. Run them only after the owner approves
+  that batch in the chat.
 - **Never commit raw recordings.** Only scrubbed fixtures go in the
   repository.
 
@@ -173,10 +177,11 @@ findings.
   defaults. Never read or write `UserDefaults.standard` in a test, and keep
   new `.shared` singletons inert when `TestHost.isActive`.
 
-## Hand-off (worker to coordinator)
+## Hand-off
 
-Fill in your brief's **Hand-off** section, then end your final message with
-the same text:
+Fill in your brief's **Hand-off** section before the first review, and keep
+it current through the fixes. It goes into the commit, and the next
+checkpoint's worker reads it:
 
 1. **Summary:** what you built, in a few sentences.
 2. **Files:** every file added, changed or removed, with one line each on
@@ -233,23 +238,36 @@ Follow `docs/reviewer.md`, and these rules:
   If nothing needs fixing, say so plainly. Don't report style preferences
   that the spec and the surrounding code don't support.
 
-## Coordinator checklist (each checkpoint)
+## Starting a checkpoint
 
-1. Start the worker with: "Read
-   `docs/superpowers/plans/2026-10-27-f30-native-cloud-search/agent-workflow.md`,
-   then `cp<N>-<name>.md` in the same folder, and build checkpoint CP<N> in
-   the worktree at `<path>`."
-2. When the brief needs a live run, get the owner's approval with an
-   estimate of the searches. Hand owner-run commands to the owner.
-3. When the worker reports, start a fresh reviewer with: the workflow file,
-   the brief, `docs/reviewer.md`, and the base commit to diff against.
-4. Relay each round's findings to the same worker. Repeat with a new
-   reviewer until a round has no Blocker or Should fix.
-5. Rerun the brief's exit checks yourself. Read the diff. Check `git status`
+The owner starts a new chat (Opus, medium effort) in the repository and
+sends:
+
+> Read
+> `docs/superpowers/plans/2026-10-27-f30-native-cloud-search/agent-workflow.md`,
+> then `cp<N>-<name>.md` in the same folder, and build checkpoint CP<N> in
+> the worktree at `<path>`.
+
+## Worker checklist (each checkpoint)
+
+1. Read everything under "Before you start". For CP0, create the worktree
+   first.
+2. Build the checkpoint, run its exit checks, and fill in the Hand-off.
+   When the brief needs a live run, get the owner's approval first, with an
+   estimate of the searches. Hand owner-run commands to the owner, and wait
+   for their output.
+3. Start a fresh reviewer agent (Opus, extra high effort). Give it the
+   workflow file, the brief, `docs/reviewer.md`, and the base commit to diff
+   against. Don't add your own account of the changes; it reads the code.
+4. Fix every Blocker and Should fix. Start a new reviewer for each round,
+   until a round has neither. Ask the owner about any finding you think is
+   wrong rather than skipping it.
+5. Rerun the brief's exit checks. Read the whole diff. Check `git status`
    for strays, and check the Hand-off and the fixtures for private data.
-6. Commit `<summary> (F30 CP<N>)`, including the filled-in brief. Push the
-   branch.
-7. Update the plan's progress log: status, commit, review rounds, one-line
-   notes.
-8. Take anything marked for the owner to the owner before starting the next
-   checkpoint.
+6. Commit `<summary> (F30 CP<N>)` on
+   `feat/f30-native-cloud-search`, including the filled-in brief. No attribution
+   lines. Push the branch.
+7. Update the plan's progress log (status, commit, review rounds, one-line
+   notes), commit it as `Log F30 CP<N>`, and push.
+8. End with a short report to the owner: the commits, the review rounds, and
+   anything marked for the owner. The next checkpoint starts in a new chat.

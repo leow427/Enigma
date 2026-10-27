@@ -195,7 +195,7 @@ Every other error keeps today's mapping.
   - it skips unless `ENIGMA_NATIVE_SEARCH_LIVE == "1"` and `account()`
     isn't nil;
   - it makes the same assertions as CP2's test.
-- [ ] **Run it.** After the coordinator confirms the owner's approval,
+- [ ] **Run it.** After the owner approves it in the chat,
   which uses the ChatGPT plan, run:
 
   ```sh

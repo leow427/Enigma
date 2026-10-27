@@ -184,8 +184,8 @@ func liveEvents(_ stream: AsyncThrowingStream<ChatEvent, Error>) async throws ->
 **Steps:**
 
 - [ ] **Write the test, and run it without the variables.** Expect a skip.
-- [ ] **The owner runs it.** The coordinator asks the owner to run this from
-  the worktree. It costs about 1 to 5 searches.
+- [ ] **The owner runs it.** Ask the owner to run this from the
+  worktree. It costs about 1 to 5 searches.
 
   ```sh
   read -rs ENIGMA_KEY && TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1 TEST_RUNNER_ENIGMA_OPENAI_KEY="$ENIGMA_KEY" scripts/verify-xcode.sh test -only-testing:EnigmaTests/NativeWebSearchLiveTests/testOpenAISearchesLive; unset ENIGMA_KEY

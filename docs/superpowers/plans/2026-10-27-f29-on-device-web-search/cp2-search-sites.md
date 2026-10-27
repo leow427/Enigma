@@ -458,7 +458,7 @@ struct SearchSiteRunner: Sendable {
 
 - [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass. The live
   tests skip in a normal run.
-- [ ] The live checks pass on this Mac. The coordinator reruns them before
+- [ ] The live checks pass on this Mac. Rerun them before
   committing.
 - [ ] `plutil -lint Enigma.xcodeproj/project.pbxproj` passes.
 

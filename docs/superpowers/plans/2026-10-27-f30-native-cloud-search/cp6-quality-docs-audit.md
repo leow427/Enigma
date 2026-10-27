@@ -133,7 +133,7 @@ tests keep working unchanged.
 
 ### Task 6.3: Run, decide, report
 
-- [ ] **Get approval.** The coordinator gets the owner's approval with the
+- [ ] **Get approval.** Get the owner's approval in the chat, with the
   estimate:
   - up to 100 searches per API route (at most about $1 each, plus tokens);
   - 20 turns per subscription route;
@@ -147,7 +147,7 @@ tests keep working unchanged.
   Then `python3 -I scripts/evaluate-web-search.py <folder> --compare native,onDevice --judge-command "claude -p"`.
 - [ ] **Decide per route.**
   - **Passes:** it stays on.
-  - **Fails:** the coordinator reports the numbers to the owner. Two
+  - **Fails:** report the numbers to the owner. Two
     tuning rounds are allowed, each an owner-approved change to the
     instruction or to `maximumSearches`, with the spec updated to match.
   - **Still fails, or the owner declines:** take the provider out of
@@ -204,10 +204,10 @@ blocked-sites list, plus its snapshot test if one exists.
   unreleased version, add one line: "Cloud models now search the web with
   their provider's own search, with on-device search as the fallback."
   Otherwise put that line in the Hand-off for the owner.
-- [ ] **`to-do.md`:** F30 keeps its Spec and Plan lines until the merge. The
-  coordinator ticks it off after the merge.
+- [ ] **`to-do.md`:** F30 keeps its Spec and Plan lines until the merge. Tick it
+  off after the merge.
 
-### Task 6.6: Final audit and merge (coordinator, with the owner)
+### Task 6.6: Final audit and merge (worker, with the owner)
 
 - [ ] **Install the signed app** with `scripts/install-app.sh`. Then, in the
   running app, with the owner:

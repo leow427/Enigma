@@ -810,13 +810,14 @@ The work runs in checkpoints on the branch `feat/f29-on-device-search`, in a
 worktree outside `~/Documents`, where test hosts set off macOS privacy
 prompts. For each checkpoint:
 
-1. A fresh worker agent builds it from its brief.
-2. A fresh reviewer agent audits it, following `docs/reviewer.md` and the
-   checkpoint's checklist.
-3. The same worker fixes the findings. Review rounds repeat until nothing
+1. The owner starts a fresh chat with a worker, which builds it from its
+   brief.
+2. The worker starts a fresh reviewer agent, which audits it, following
+   `docs/reviewer.md` and the checkpoint's checklist.
+3. The worker fixes the findings. Review rounds repeat until nothing
    must be fixed.
-4. The coordinator verifies and commits, and the worker's hand-off note goes
-   into the progress log.
+4. The worker verifies and commits, and records its hand-off in the
+   progress log. There is no coordinator.
 
 The next checkpoint starts only after the commit. The implementation plan
 holds every checkpoint's self-contained brief, exit criteria and hand-off

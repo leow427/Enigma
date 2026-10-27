@@ -118,8 +118,8 @@ read any pages (CP4) or touch the UI (CP8).
   folder of at most 3 MB, and a complete `manifest.json`.
 - [ ] **Draft `authority.txt`** from spec §3.3, including the health bodies
   nhs.uk, mayoclinic.org and clevelandclinic.org. Draft `unreadable.txt`
-  from spec §3.3 too. Mark both "for owner review" in your Hand-off. The
-  coordinator gets the owner's approval before committing.
+  from spec §3.3 too. Mark both "for owner review" in your Hand-off. Get the
+  owner's approval in the chat before committing.
 
 ### Task 3.2: The Public Suffix List, the hash set and the bundle
 
@@ -365,8 +365,8 @@ The initializer gains `publicSuffixes: PublicSuffixList? = SearchDataBundle.bund
   `python3 -I -B -m unittest discover -s scripts/tests` passes.
 - [ ] `SearchData/` is at most 3 MB, and `manifest.json` lists every source
   with its licence.
-- [ ] The owner has approved `authority.txt` and `unreadable.txt`, through
-  the coordinator.
+- [ ] The owner has approved `authority.txt` and `unreadable.txt` in the
+  chat.
 
 ## Reviewer checklist
 

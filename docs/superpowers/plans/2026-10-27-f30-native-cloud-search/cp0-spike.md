@@ -72,8 +72,8 @@ out of this checkpoint.**
 
 ### Task 0.2: Codex (Q1, Q2)
 
-**Approval needed:** the coordinator confirms the owner approved about 6
-ChatGPT turns.
+**Approval needed:** the owner approves about 6 ChatGPT turns in the
+chat.
 
 - [ ] **Write the probe.** It starts the app server the way Enigma does:
   - the executable from `CodexRuntime.installedExecutable()`, which is the
@@ -115,7 +115,7 @@ ChatGPT turns.
 
 **Owner-run.** Write `probe-openai.sh`, which reads `ENIGMA_OPENAI_KEY` from
 the environment and writes raw output to a folder outside the repository.
-The coordinator asks the owner to run it: about 4 requests and up to 15
+Ask the owner to run it: about 4 requests and up to 15
 searches.
 
 - [ ] **The script's requests,** to the `/v1/responses` endpoint with

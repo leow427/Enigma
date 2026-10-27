@@ -175,7 +175,7 @@ case searchResults([WebSearchSource])  // from a user message's tool_use_result.
   - it skips unless `ENIGMA_NATIVE_SEARCH_LIVE == "1"` and `account()`
     reports a sign-in;
   - it makes the same assertions as CP2's test.
-- [ ] **Run it,** after the coordinator confirms the owner's approval:
+- [ ] **Run it,** after the owner approves it in the chat:
 
   ```sh
   TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/NativeWebSearchLiveTests/testClaudeCodeSearchesLive

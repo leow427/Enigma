@@ -366,7 +366,7 @@ enum WebSearchProviderFactory {
 ## Exit criteria
 
 - [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass.
-- [ ] **A manual check, by the coordinator with the owner:**
+- [ ] **A manual check, by the owner with the worker:**
   1. Run `defaults write com.leow427.AISpotlight webSearch.debugProvider onDevice`.
   2. Run a Debug build from Xcode, with signing.
   3. Ask five questions with `/search`: news, a software doc, a health

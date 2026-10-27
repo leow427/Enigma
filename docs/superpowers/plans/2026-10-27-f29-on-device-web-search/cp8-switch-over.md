@@ -255,7 +255,7 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
   - `BraveKeyCleanup` and its tests;
   - the `com.brave.Browser` bundle IDs and their tests;
   - the cleanup's Keychain service string.
-- [ ] **A manual check in a signed build**, by the coordinator with the owner:
+- [ ] **A manual check in a signed build**, by the owner with the worker:
   - the welcome shows "Web search · ready";
   - Settings shows the new section;
   - a search with each route works;

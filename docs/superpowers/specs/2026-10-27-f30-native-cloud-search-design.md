@@ -521,11 +521,13 @@ starts from `main` once F29 is merged.
 
 **Each checkpoint** follows F29's loop:
 
-1. A fresh worker agent builds it from its brief.
-2. A fresh reviewer agent audits it, following `docs/reviewer.md` and the
-   checkpoint's checklist.
+1. The owner starts a fresh chat with a worker, which builds it from its
+   brief.
+2. The worker starts a fresh reviewer agent, which audits it, following
+   `docs/reviewer.md` and the checkpoint's checklist.
 3. The worker fixes the findings.
-4. The coordinator verifies and commits, and records the hand-off.
+4. The worker verifies and commits, and records the hand-off. There is no
+   coordinator.
 
 The implementation plan, written after this spec is approved, holds each
 brief.

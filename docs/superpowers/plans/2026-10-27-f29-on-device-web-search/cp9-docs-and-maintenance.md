@@ -9,7 +9,7 @@ wherever the docs give numbers.
 
 The docs describe how search works now, with nothing about Brave left. The
 lists and the ddgs ports have the light maintenance loop the spec promises.
-The coordinator and the owner then audit the finished feature in the running
+The worker and the owner then audit the finished feature in the running
 app, and merge it.
 
 ## Starting point
@@ -123,7 +123,7 @@ app, and merge it.
 - [ ] **Run** `python3 -I -B -m unittest discover -s scripts/tests`. Expect
   failures.
 - [ ] **Implement** the script and the workflow. Check the workflow with
-  `actionlint` if it's installed. Otherwise, the coordinator runs it once
+  `actionlint` if it's installed. Otherwise, run it once
   through `workflow_dispatch` after the merge.
 - [ ] **Run the tests,** then the script live. With today's tag it should
   print `"changed": []`, unless ddgs changed after CP2.
@@ -171,8 +171,7 @@ app, and merge it.
 - [ ] **Draft the release-note text** in your Hand-off. Include: web search
   now runs on your Mac with no key; Apple Maps and Open-Meteo answer places
   and weather; "Never use this site"; and the saved Brave key was removed.
-  The coordinator puts it in the next version's file once the owner picks
-  the version.
+  Put it in the next version's file once the owner picks the version.
 
 ## Exit criteria
 
@@ -181,7 +180,7 @@ app, and merge it.
 - [ ] No doc describes Brave search as current.
 - [ ] The workflow and scripts are in place, and their tests pass.
 
-## Final audit and merge (coordinator, with the owner)
+## Final audit and merge (worker, with the owner)
 
 After CP9 is committed:
 
@@ -228,4 +227,4 @@ After CP9 is committed:
 3. **Decisions:**
 4. **Verification:**
 5. **Limitations:**
-6. **For the coordinator:**
+6. **For the owner:**

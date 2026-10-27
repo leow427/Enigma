@@ -2,7 +2,7 @@
 
 This plan drives **F29** in `to-do.md`.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Here, each checkpoint is one worker's job. Read [agent-workflow.md](2026-10-27-f29-on-device-web-search/agent-workflow.md), then your checkpoint's brief. They and the spec are all you need.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to build your checkpoint yourself, task by task. Steps use checkbox (`- [ ]`) syntax for tracking. Here, each checkpoint is one worker's job, in a chat the owner starts; the worker starts its own reviewers. Read [agent-workflow.md](2026-10-27-f29-on-device-web-search/agent-workflow.md), then your checkpoint's brief. They and the spec are all you need.
 
 **Goal:** Replace Brave web search with search that runs on the user's Mac.
 It needs no key, ranks for quality, and uses Apple Maps for places and
@@ -79,8 +79,9 @@ doesn't repeat its reasoning.
   shared controls in `EnigmaControls.swift`.
 - **Licences:** the checkpoint that bundles a third-party file adds its
   notice to `Enigma/Resources/ThirdPartyNotices.txt`.
-- **Git:** workers never touch git state. The coordinator commits once per
-  checkpoint on `feat/f29-on-device-search`. No attribution lines anywhere.
+- **Git:** each worker commits its checkpoint once, after the last review
+  round, on `feat/f29-on-device-search`, then logs it. No other git operations
+  and no attribution lines anywhere.
 
 ## Review Focus
 
@@ -123,17 +124,18 @@ The rules every agent follows are in
 [agent-workflow.md](2026-10-27-f29-on-device-web-search/agent-workflow.md).
 In short, for each checkpoint in order:
 
-1. **Worker.** The coordinator starts a fresh worker agent (Opus, medium
-   effort) with the checkpoint's brief. The worker builds it test-first,
+1. **Worker.** The owner starts a fresh chat with a worker (Opus, medium
+   effort) and points it at the checkpoint's brief. The worker builds it test-first,
    runs the exit checks, and fills in the brief's **Hand-off** section.
-2. **Reviewer.** The coordinator starts a fresh reviewer agent (Opus, extra
+2. **Reviewer.** The worker starts a fresh reviewer agent (Opus, extra
    high effort) with `docs/reviewer.md`, the workflow's reviewer rules and
    the brief's checklist.
 3. **Fixes.** The same worker fixes every Blocker and Should-fix. A new
    reviewer runs each round, until a round has neither.
-4. **Commit.** The coordinator reruns the exit checks, commits
+4. **Commit.** The worker reruns the exit checks, commits
    `<summary> (F29 CPn)` on `feat/f29-on-device-search`, pushes the branch,
-   and updates the progress log below.
+   and updates the progress log below. It then reports to the owner, and the
+   next checkpoint starts in a new chat.
 
 The next checkpoint starts only after that commit. A failed quality gate
 (CP7), a spec conflict, or a needed dependency stops the line until the owner
@@ -188,7 +190,7 @@ that use it.
 
 ## Progress log
 
-The coordinator updates this table after each commit. The worker's full
+Each worker updates this table after its checkpoint's commit. The worker's full
 hand-off note stays in its brief.
 
 | Checkpoint | Status | Commit | Review rounds | Notes |
