@@ -197,7 +197,7 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | not started | | |
+| CP0 | done | 4 | Spike done; owner decisions needed on Q4 (Mojeek, Startpage, DuckDuckGo 202s and region, header set CP2 sends), Q1 (parser if Startpage stays) and Q7 (MapKit terms) |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |
