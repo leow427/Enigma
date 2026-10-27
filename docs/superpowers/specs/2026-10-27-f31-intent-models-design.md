@@ -1,7 +1,7 @@
 # Trained models for recognizing commands and routing (F31) — design
 
 Status: approved design, not yet implemented. Date: 2026-10-27.
-Plan: to be written after this spec is approved.
+Plan: [2026-10-27-f31-intent-models.md](../plans/2026-10-27-f31-intent-models.md).
 Blocks: F29 (on-device web search) resumes after F31 is merged to `main`.
 
 ## Goal and users

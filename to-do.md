@@ -960,7 +960,9 @@ and a queue in the compact panel.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f31-intent-models-design.md](docs/superpowers/specs/2026-10-27-f31-intent-models-design.md)
 
-**Plan:** to be written once the spec is approved.
+**Plan:** [docs/superpowers/plans/2026-10-27-f31-intent-models.md](docs/superpowers/plans/2026-10-27-f31-intent-models.md)
+(checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
+reviewer)
 
 **Today:** automatic search, the `messages`, `think`, `edit` and `translate`
 chips, and Auto's coding and reasoning checks are guessed from the draft's
