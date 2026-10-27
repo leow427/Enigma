@@ -8,7 +8,8 @@ F30 is built one checkpoint at a time, on the branch
 2. The worker builds it from its brief.
 3. The worker starts a fresh reviewer agent to audit it.
 4. The worker fixes what the reviewer found. Rounds repeat, with a new
-   reviewer each time, until a round finds no Blocker or Should fix.
+   reviewer each time, until a round finds no Blocker or Should fix, for
+   at most four rounds.
 5. The worker verifies the result and commits it in one commit, together
    with its row in the progress log in the [plan](../2026-10-27-f30-native-cloud-search.md).
 
@@ -40,11 +41,13 @@ questions, and makes every decision the brief marks for the owner.
 - fills in the brief's Hand-off section;
 - gets the owner's approval for live runs, and hands owner-run commands to
   the owner;
-- starts a fresh reviewer for each review round, and fixes its findings;
+- starts a fresh reviewer for each review round (at most four), and fixes
+  its findings;
 - commits the checkpoint and its progress-log row in one commit, and pushes
   the branch.
 
-**Reviewer:** an agent the worker starts (Opus, extra high effort). It
+**Reviewer:** an agent the worker starts with the Agent tool, set to
+`model: "opus"` and `effort: "xhigh"`. Both settings are required. It
 audits the worker's changes, never edits a file, and reports findings to the
 worker.
 
@@ -257,12 +260,15 @@ sends:
    When the brief needs a live run, get the owner's approval first, with an
    estimate of the searches. Hand owner-run commands to the owner, and wait
    for their output.
-3. Start a fresh reviewer agent (Opus, extra high effort). Give it the
+3. Start a fresh reviewer agent with the Agent tool, passing
+   `model: "opus"` and `effort: "xhigh"`. Give it the
    workflow file, the brief, `docs/reviewer.md`, and the base commit to diff
    against. Don't add your own account of the changes; it reads the code.
 4. Fix every Blocker and Should fix. Start a new reviewer for each round,
-   until a round has neither. Ask the owner about any finding you think is
-   wrong rather than skipping it.
+   until a round has neither, for at most four rounds. If the fourth round
+   still finds one, fix what you can, then stop and ask the owner before
+   committing. Ask the owner about any finding you think is wrong rather
+   than skipping it.
 5. Rerun the brief's exit checks. Read the whole diff. Check `git status`
    for strays, and check the Hand-off and the fixtures for private data.
 6. Update your row in the plan's progress log: status, review rounds and
