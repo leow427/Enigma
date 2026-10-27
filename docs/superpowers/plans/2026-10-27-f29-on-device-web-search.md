@@ -80,8 +80,8 @@ doesn't repeat its reasoning.
 - **Licences:** the checkpoint that bundles a third-party file adds its
   notice to `Enigma/Resources/ThirdPartyNotices.txt`.
 - **Git:** each worker commits its checkpoint once, after the last review
-  round, on `feat/f29-on-device-search`, then logs it. No other git operations
-  and no attribution lines anywhere.
+  round, on `feat/f29-on-device-search`, with its progress-log row in the same commit. No other
+  commits or git operations, and no attribution lines anywhere.
 
 ## Review Focus
 
@@ -133,9 +133,9 @@ In short, for each checkpoint in order:
 3. **Fixes.** The same worker fixes every Blocker and Should-fix. A new
    reviewer runs each round, until a round has neither.
 4. **Commit.** The worker reruns the exit checks, commits
-   `<summary> (F29 CPn)` on `feat/f29-on-device-search`, pushes the branch,
-   and updates the progress log below. It then reports to the owner, and the
-   next checkpoint starts in a new chat.
+   `<summary> (F29 CPn)` on `feat/f29-on-device-search`, with the progress
+   log below updated in the same commit, and pushes the branch. It then
+   reports to the owner, and the next checkpoint starts in a new chat.
 
 The next checkpoint starts only after that commit. A failed quality gate
 (CP7), a spec conflict, or a needed dependency stops the line until the owner
@@ -190,18 +190,20 @@ that use it.
 
 ## Progress log
 
-Each worker updates this table after its checkpoint's commit. The worker's full
-hand-off note stays in its brief.
+Each worker updates its row in the checkpoint's own commit. There's no
+commit column, since a commit can't name its own hash: find a checkpoint's
+commit with `git log --grep "(F29 CP<N>)"`. The worker's full hand-off note
+stays in its brief.
 
-| Checkpoint | Status | Commit | Review rounds | Notes |
-| --- | --- | --- | --- | --- |
-| CP0 | not started | | | |
-| CP1 | not started | | | |
-| CP2 | not started | | | |
-| CP3 | not started | | | |
-| CP4 | not started | | | |
-| CP5 | not started | | | |
-| CP6 | not started | | | |
-| CP7 | not started | | | |
-| CP8 | not started | | | |
-| CP9 | not started | | | |
+| Checkpoint | Status | Review rounds | Notes |
+| --- | --- | --- | --- |
+| CP0 | not started | | |
+| CP1 | not started | | |
+| CP2 | not started | | |
+| CP3 | not started | | |
+| CP4 | not started | | |
+| CP5 | not started | | |
+| CP6 | not started | | |
+| CP7 | not started | | |
+| CP8 | not started | | |
+| CP9 | not started | | |

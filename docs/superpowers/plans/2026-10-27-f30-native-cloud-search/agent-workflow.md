@@ -9,8 +9,8 @@ F30 is built one checkpoint at a time, on the branch
 3. The worker starts a fresh reviewer agent to audit it.
 4. The worker fixes what the reviewer found. Rounds repeat, with a new
    reviewer each time, until a round finds no Blocker or Should fix.
-5. The worker verifies the result, commits it, pushes the branch, and
-   updates the progress log in the [plan](../2026-10-27-f30-native-cloud-search.md).
+5. The worker verifies the result and commits it in one commit, together
+   with its row in the progress log in the [plan](../2026-10-27-f30-native-cloud-search.md).
 
 There is no coordinator: the owner talks to the worker directly. Checkpoints
 never run in parallel, and each one gets its own chat.
@@ -41,7 +41,8 @@ questions, and makes every decision the brief marks for the owner.
 - gets the owner's approval for live runs, and hands owner-run commands to
   the owner;
 - starts a fresh reviewer for each review round, and fixes its findings;
-- commits the checkpoint, pushes the branch, and updates the progress log.
+- commits the checkpoint and its progress-log row in one commit, and pushes
+  the branch.
 
 **Reviewer:** an agent the worker starts (Opus, extra high effort). It
 audits the worker's changes, never edits a file, and reports findings to the
@@ -264,10 +265,10 @@ sends:
    wrong rather than skipping it.
 5. Rerun the brief's exit checks. Read the whole diff. Check `git status`
    for strays, and check the Hand-off and the fixtures for private data.
-6. Commit `<summary> (F30 CP<N>)` on
-   `feat/f30-native-cloud-search`, including the filled-in brief. No attribution
-   lines. Push the branch.
-7. Update the plan's progress log (status, commit, review rounds, one-line
-   notes), commit it as `Log F30 CP<N>`, and push.
-8. End with a short report to the owner: the commits, the review rounds, and
+6. Update your row in the plan's progress log: status, review rounds and
+   one-line notes.
+7. Make one commit, `<summary> (F30 CP<N>)` on `feat/f30-native-cloud-search`, with the
+   checkpoint's changes, the filled-in brief and the progress log. No
+   attribution lines. Push the branch.
+8. End with a short report to the owner: the commit hash, the review rounds, and
    anything marked for the owner. The next checkpoint starts in a new chat.
