@@ -956,6 +956,54 @@ queued messages editable.
 **Out of scope:** editing queued messages, queueing attachments or captures,
 and a queue in the compact panel.
 
+### F29. On-device web search, replacing Brave
+
+**Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
+
+**Today:** web search uses the Brave Search LLM Context API
+(`BraveSearchClient.swift`), and every user needs their own paid Brave key.
+
+**Wanted:** search that runs on the user's Mac with no key or account:
+
+- DuckDuckGo, Mojeek and Wikipedia, with Startpage as the backup;
+- ranking for quality, with bundled blocklists;
+- the top pages read in a sealed WebKit view;
+- Apple Maps for nearby places and Open-Meteo for weather;
+- "Never use this site";
+- Brave removed only after a quality gate against it passes.
+
+The spec has every decision, and the checkpoints the work runs in.
+
+**Depends on / blocks:** blocks F30.
+
+### F30. Native web search for cloud models
+
+**Today:** cloud routes use the same search pipeline as Local: Brave now,
+F29's on-device search next. Each provider's own search is turned off
+(`web_search="disabled"` in `CodexAppServer.swift`, `--tools ""` for Claude
+Code).
+
+**Wanted (owner, 2026-10-26):** cloud models use their provider's own search:
+
+- OpenAI's Responses `web_search`;
+- Anthropic's web search tool;
+- Gemini's grounding with Google Search;
+- Codex's `web_search`;
+- Claude Code's `WebSearch`.
+
+Search is turned on only for requests that would search today (the chip or
+`/search`). Each provider's citations map to the sources list, and F29's
+search is the fallback. The design follows F29's spec. Open points:
+
+- Codex reports only the pages it opened;
+- Claude Code search on a subscription login is unverified;
+- Gemini's terms require showing Google's search suggestions;
+- provider search doesn't know the user's location, so nearby and weather
+  questions may keep using Apple Maps and Open-Meteo (proposed, not
+  decided).
+
+**Depends on:** F29.
+
 ### F3. Regenerate the latest reply
 
 **Today:** a finished reply's meta line (`ReplyMetaLine.text` in
