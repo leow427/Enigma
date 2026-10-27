@@ -960,6 +960,10 @@ and a queue in the compact panel.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
+**Plan:** [docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md](docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md)
+(checkpoints CP0–CP9, each built by a fresh agent and audited by a fresh
+reviewer)
+
 **Today:** web search uses the Brave Search LLM Context API
 (`BraveSearchClient.swift`), and every user needs their own paid Brave key.
 
