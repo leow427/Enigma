@@ -982,31 +982,21 @@ The spec has every decision, and the checkpoints the work runs in.
 
 ### F30. Native web search for cloud models
 
+**Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
+(draft for owner review; a checkpoint plan follows its approval)
+
 **Today:** cloud routes use the same search pipeline as Local: Brave now,
 F29's on-device search next. Each provider's own search is turned off
 (`web_search="disabled"` in `CodexAppServer.swift`, `--tools ""` for Claude
 Code).
 
-**Wanted (owner, 2026-10-26):** cloud models use their provider's own search:
+**Wanted (owner, 2026-10-26 and 2026-10-27):** OpenAI, Anthropic, ChatGPT
+(Codex) and Claude Code models search with their provider's own search when
+a request would search today. F29's search stays the fallback, and still
+handles Gemini, places, weather, screen and selection turns. Codex searches
+the live web. The spec has the details.
 
-- OpenAI's Responses `web_search`;
-- Anthropic's web search tool;
-- Gemini's grounding with Google Search;
-- Codex's `web_search`;
-- Claude Code's `WebSearch`.
-
-Search is turned on only for requests that would search today (the chip or
-`/search`). Each provider's citations map to the sources list, and F29's
-search is the fallback. The design follows F29's spec. Open points:
-
-- Codex reports only the pages it opened;
-- Claude Code search on a subscription login is unverified;
-- Gemini's terms require showing Google's search suggestions;
-- provider search doesn't know the user's location, so nearby and weather
-  questions may keep using Apple Maps and Open-Meteo (proposed, not
-  decided).
-
-**Depends on:** F29.
+**Depends on:** F29, merged to `main`.
 
 ### F3. Regenerate the latest reply
 
