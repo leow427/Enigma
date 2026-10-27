@@ -983,7 +983,10 @@ The spec has every decision, and the checkpoints the work runs in.
 ### F30. Native web search for cloud models
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
-(draft for owner review; a checkpoint plan follows its approval)
+
+**Plan:** [docs/superpowers/plans/2026-10-27-f30-native-cloud-search.md](docs/superpowers/plans/2026-10-27-f30-native-cloud-search.md)
+(checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
+reviewer)
 
 **Today:** cloud routes use the same search pipeline as Local: Brave now,
 F29's on-device search next. Each provider's own search is turned off

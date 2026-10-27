@@ -1,6 +1,7 @@
 # Native web search for cloud models (F30) — design
 
-Status: draft for owner review. Date: 2026-10-27.
+Status: approved design, not yet implemented. Date: 2026-10-27.
+Plan: [2026-10-27-f30-native-cloud-search.md](../plans/2026-10-27-f30-native-cloud-search.md).
 Depends on: F29 (on-device web search), merged to `main`.
 
 ## Goal and users
@@ -129,7 +130,10 @@ which F30 leaves alone.
   `ClaudeCodeSubscriptionClient`, so the view model checks one error. Its
   message, "Web search isn't available for this model.", appears only in
   logs and tests, because the request falls back.
-- **`CloudProviderID`** gains `supportsNativeWebSearch`.
+- **`CloudProviderID`** gains `nativeWebSearchProviders`, the set of
+  providers turned on, and `supportsNativeWebSearch`, which reads it.
+  `LocalChatViewModel` takes the set as an initializer parameter, so tests
+  can pin on-device search.
 
 **New file `Enigma/Cloud/NativeWebSearch.swift`:**
 
@@ -141,6 +145,7 @@ which F30 leaves alone.
 | `NativeWebSearch.selectSources(cited:linked:discovered:)` | The sources rule (section 4) |
 | `NativeWebSearch.links(in:)` | Markdown links and bare `http`/`https` URLs in an answer, in order |
 | `NativeWebSearchAvailability` | A value type: `markUnavailable(_:modelID:)` and `isAvailable(_:modelID:)`. Held by `LocalChatViewModel`, never saved. |
+| `NativeWebSearchSources` | One request's bookkeeping, shared by the four clients: whether it searched, the discovered and cited sources, and the answer text. It returns the selection for `.sourcesSelected`. |
 
 **Activity.** No new phases. When the provider starts a search, it emits
 `.phase(.searching)`. Results arrive as `.sourcesDiscovered`, which moves
@@ -254,7 +259,7 @@ any keys:
 config: { "web_search": "live" }
 ```
 
-This goes in `CodexSubscriptionClient.threadParameters(model:searchesWeb:)`,
+This goes in `CodexSubscriptionClient.threadParameters(model:webSearch:searchMode:)`,
 which also swaps in the search `developerInstructions` (section 3).
 
 **If the thread setting doesn't override the launch setting** (CP0 question
@@ -301,7 +306,7 @@ search. CP0 records both.
   `tool_use_result.results[].content[]` holds `{title, url}`.
 
 **Arguments.**
-`ClaudeCodeRuntime.chatArguments(model:effort:streamsInput:searchesWeb:)`
+`ClaudeCodeRuntime.chatArguments(model:effort:streamsInput:webSearch:)`
 replaces `--tools ""` with `--tools WebSearch --allowedTools WebSearch`, and
 uses the search system prompt (section 3). These stay unchanged:
 
@@ -480,8 +485,8 @@ branch merges only if:
 - the judge prefers provider search, or calls a tie, on 80% or more of the
   questions.
 
-A route that fails is turned off again (`supportsNativeWebSearch` false) and
-keeps on-device search. The owner decides what's next.
+A route that fails is turned off again, by removing it from
+`nativeWebSearchProviders`, and keeps on-device search. The owner decides what's next.
 
 ## Docs
 
@@ -528,7 +533,7 @@ brief.
 | Checkpoint | Goal | Exit criteria |
 | --- | --- | --- |
 | CP0 Spike | Answer the open questions below with throwaway probes on the owner's accounts, and record fixtures | A written answer per question; fixtures scrubbed and saved |
-| CP1 Shared plumbing | `CloudWebSearch`, the new error, `NativeWebSearch`, availability, the view model's provider-search path with acceptance, fallback and saving. `supportsNativeWebSearch` stays false everywhere, so behavior doesn't change yet. | Tests pass; no visible change |
+| CP1 Shared plumbing | `CloudWebSearch`, the new error, `NativeWebSearch`, availability, the view model's provider-search path with acceptance, fallback and saving. `nativeWebSearchProviders` stays empty, so behavior doesn't change yet. | Tests pass; no visible change |
 | CP2 OpenAI | Request, stream, inline-citation check and error mapping; turn on `.openAI` | Tests pass; the live check passes |
 | CP3 Anthropic | Tool by model, blocked domains, stream, citations, the accumulator and continuation, error mapping, output budget; turn on `.anthropic` | Tests pass; the live check passes |
 | CP4 ChatGPT (Codex) | The thread setting (as CP0 chose), instructions, events, links, policy check, error mapping; turn on `.chatGPT` | Tests pass; the live check passes |
