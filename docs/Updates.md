@@ -28,6 +28,27 @@ a release with one script, `scripts/release.sh`. The design is in
   Another turns automatic download and install on or off; it is unavailable
   while checks are off. The **Version** row shows the version and build, when
   Enigma last checked, and a **Check Now** button.
+- **What's new?** After Enigma launches on a newer build than last time, an
+  outlined **What's new?** button sits at the top right of the main window
+  (VoiceOver: "What's new in Enigma X"). It opens the release notes, rendered
+  as Markdown, for every version since the last one seen, newest first, so a
+  skipped version's notes are there too. Once opened, the button is gone for
+  good for that version; until then it stays across launches. Enigma
+  remembers the last build and version seen (`whatsNew.lastSeenBuild.v1` and
+  `whatsNew.lastSeenVersion.v1` in `UserDefaults`). A fresh install shows
+  nothing. Someone updating from a version before this feature has no saved
+  build; a finished welcome setup marks them as an existing user, and they
+  see the running version's notes only (if they leave it unopened, the next
+  update shows both versions' notes). Starting the selection panel or
+  replaying the welcome setup closes the sheet, as it does Help. The notes
+  come from `docs/release-notes/`, which the app bundles as its
+  `release-notes` folder, so they work offline and for copies installed with
+  `scripts/install-app.sh`.
+  `WhatsNew` in `Enigma/App/WhatsNew.swift` holds the logic.
+
+![What's new? in the top bar, with the sidebar shown (top) and hidden](images/top-bar-whats-new-paper.png)
+
+![The What's new sheet with the 0.11.0 notes](images/whats-new-paper.png)
 
 Updates keep the bundle identifier and the signing identity, so Screen
 Recording, Accessibility, Full Disk Access, Automation and Keychain approvals
@@ -111,6 +132,11 @@ release.
 - The feed URL is an app-target build setting rather than an `.xcconfig` value,
   because `//` starts a comment in `.xcconfig` files. A test build can point
   elsewhere with `xcodebuild … ENIGMA_UPDATE_FEED_URL=<url>`.
+- `docs/release-notes/` is a folder reference in the app target's resources,
+  so every file there lands in `Enigma.app/Contents/Resources/release-notes/`
+  without listing each one. `WhatsNew` reads the `X.Y.Z.md` files at launch; in the XCTest
+  host, `WhatsNew.shared` is inert, because the host shares the installed
+  app's defaults.
 
 Tests: `AppBundleTests` (Info.plist keys, versions, the embedded framework),
 `AppUpdaterTests` (state, the menu items, Debug checks) and
@@ -118,7 +144,12 @@ Tests: `AppBundleTests` (Info.plist keys, versions, the embedded framework),
 fake backend and stay offline. `InstallLocationTests` (the move decision,
 version comparison and alert wording) and `ApplicationMoverTests` (install,
 replace, quarantine removal and discarding the original, in a temporary
-folder with a fake Trash) cover moving into Applications.
+folder with a fake Trash) cover moving into Applications. `WhatsNewTests`
+(which notes show, when they're remembered, loading the bundled folder),
+`EnigmaMainWindowTests.testWhatsNewSitsTopRightWithOrWithoutTheSidebarAndGoesOnceOpened`
+and `testUnderReduceMotionOpeningWhatsNewMovesTheComposerAtOnce`,
+the `.notice` cases in `EnigmaControlsTests` and the sheet's closing in
+`ShellPresentationTests` cover What's new?.
 
 ## One-time setup: the update signing key
 
@@ -145,6 +176,9 @@ do not stop at the prompt.
 ## Releasing
 
 1. Write `docs/release-notes/<version>.md` in Markdown and commit it on `main`.
+   The app bundles every file there for its What's new? sheet, which shows
+   them with the chat's Markdown renderer, so keep to headings, paragraphs
+   and lists. The first line must be `# Enigma <version>`; the script checks.
 2. Optionally rehearse: `scripts/release.sh --dry-run <version>`.
 3. Run `scripts/release.sh <version>` from a clean `main` that is level with
    `origin/main`.
@@ -153,14 +187,17 @@ The script works in `~/Library/Caches/Enigma-Release/` (its DerivedData and
 the archive copy), outside the repository. It stops at the first failure:
 
 1. **Preflight.** The version is `X.Y.Z` and newer than the current
-   `MARKETING_VERSION`, the release notes exist, the tag `v<version>` doesn't
+   `MARKETING_VERSION`, the release notes exist and start with
+   `# Enigma <version>`, the tag `v<version>` doesn't
    exist locally or on `origin`, `gh` is signed in, and Sparkle's tools resolve.
    It also checks the branch is `main`, the tree is clean, and `HEAD` equals
    `origin/main` after a fetch.
 2. **Bump.** `MARKETING_VERSION` becomes `<version>` and
    `CURRENT_PROJECT_VERSION` goes up by one, in both app configurations.
 3. **Build and verify.** It runs `xcodebuild archive` (Release,
-   `-allowProvisioningUpdates`) and checks the built version. `xcodebuild
+   `-allowProvisioningUpdates`) and checks the built version and that the app
+   bundles this version's release notes (a dry run copies them into its
+   worktree first, so they needn't be committed yet). `xcodebuild
    archive` leaves Sparkle's helpers ad-hoc signed, unlike an Organizer
    export, and a quarantined download may refuse to run them. So the script
    re-signs them with the app's own identity, read from the built app's

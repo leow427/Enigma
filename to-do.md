@@ -1608,7 +1608,13 @@ A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
 Bug reports (F12) use the same value.
 
-### F25. "What's new?" button after an update
+### F25. ✅ Done: "What's new?" button after an update
+
+> **Solved:** `WhatsNew` (`Enigma/App/WhatsNew.swift`) compares the running
+> build with the last one seen and offers the bundled release notes for every
+> version since, in a sheet opened from an outlined `accentText` button
+> (`EnigmaButtonKind.notice`) in `EnigmaTopBar`'s top-right slot, which F10's
+> ghost button can share. See `docs/Updates.md`.
 
 **Today:** after Sparkle installs a new version, nothing in the app says what
 changed. The notes exist (`docs/release-notes/<version>.md`, embedded in

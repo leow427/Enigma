@@ -16,6 +16,8 @@ struct ShellPresentation: Equatable {
   var selectedMode: ChatMode
   var isModePalettePresented = false
   var isHelpPresented = false
+  /// The release notes after an update, opened from What's new?.
+  var isWhatsNewPresented = false
   var isComposerFocused = false
   var expandedActivities: Set<UUID> = []
 
@@ -36,6 +38,7 @@ struct ShellPresentation: Equatable {
     isSelectionDetailsPresented = false
     isModePalettePresented = false
     isHelpPresented = false
+    isWhatsNewPresented = false
     applyStartPreferences(mode: mode, showsSidebar: showsSidebar)
     isSidebarVisible = false
     isComposerFocused = true
@@ -114,6 +117,7 @@ struct ShellPresentation: Equatable {
     if isPresented {
       isModePalettePresented = false
       isHelpPresented = false
+      isWhatsNewPresented = false
     }
   }
 

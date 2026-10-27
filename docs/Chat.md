@@ -17,6 +17,10 @@ character, and the conversation is saved to the sidebar's **Recents**.
   **Settings → General → New chats**. Hide or show it with the sidebar button or
   with **⌃⌘S**. While it's hidden, a slim bar at the top keeps
   show-sidebar, **New chat**, **Help** and **Settings** in reach.
+- **What's new?** After an update, an outlined **What's new?** button sits at
+  the right end of that bar, which then shows with the sidebar up too, until
+  it's opened. It shows the release notes since the last version you saw; see
+  [Updates](Updates.md).
 - **Empty page.** A new chat shows the character, a greeting, the route's status
   line (for example "Fixture 8B is ready · on this Mac"), the **Auto / Local /
   Cloud** routing control, the composer, and a few slash commands as example

@@ -212,7 +212,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     let minimum = MainPageLayout(height: 420, topBar: 0, info: 96, composer: 86, accessories: 0, availableExamples: 4)
     XCTAssertEqual(minimum.header, .full, "The character still fits the minimum window")
     XCTAssertGreaterThanOrEqual(minimum.exampleCount, 1)
-    let hiddenSidebar = MainPageLayout(height: 420, topBar: EnigmaHiddenSidebarBar.height, info: 96, composer: 86,
+    let hiddenSidebar = MainPageLayout(height: 420, topBar: EnigmaTopBar.height, info: 96, composer: 86,
                                        accessories: 0, availableExamples: 4)
     XCTAssertLessThanOrEqual(hiddenSidebar.exampleCount, minimum.exampleCount)
     let crowded = MainPageLayout(height: 420, topBar: 44, info: 96, composer: 86, accessories: 150,
@@ -499,6 +499,48 @@ final class EnigmaMainWindowTests: XCTestCase {
       try await waitForUI("the request \(label)", in: host.view) { fixture.chat.activeRequest != nil }
       host.window.orderOut(nil)
     }
+  }
+
+  @MainActor
+  func testUnderReduceMotionOpeningWhatsNewMovesTheComposerAtOnce() async throws {
+    let size = CGSize(width: 1000, height: 660)
+    let rest = try await restingComposerFrames(size: size, sidebar: true, docked: false)
+    let fixture = try await Fixture(test: self)
+    fixture.reduceMotion = true
+    fixture.animates = true
+    let note = ReleaseNote(version: "0.11.0", markdown: "# Enigma 0.11.0")
+    fixture.whatsNew = WhatsNew(version: "0.11.0", build: "4", notes: [note], defaults: fixture.defaults)
+    let host = Host(fixture, size: size, test: self)
+    try await waitForUI("What's new? in the bar beside the sidebar", in: host.view) {
+      host.shows("What's new") && composerAcceptsClicks(in: host.view)
+    }
+    try await waitForSettledLayout(in: host, "the bar shown", markers: ["Send message"])
+    func send() -> CGRect? { host.marker("Send message").map { host.view.convert($0.bounds, from: $0) } }
+    let start = try XCTUnwrap(send())
+    XCTAssertGreaterThan(abs(start.minY - rest.send.minY), 20, "The bar holds the page lower")
+    func isAt(_ target: CGRect, _ frame: CGRect) -> Bool {
+      abs(frame.minX - target.minX) < 1 && abs(frame.minY - target.minY) < 1
+    }
+    var seen: [CGRect] = []
+
+    try await clickTestControl("What's new", in: host.view)
+    try await waitForUI("the composer at rest without the bar (seen \(seen))", in: host.view) {
+      if let frame = send(), seen.last != frame { seen.append(frame) }
+      return !host.shows("What's new") && send().map { isAt(rest.send, $0) } == true
+    }
+    XCTAssertEqual(seen.filter { !isAt(start, $0) && !isAt(rest.send, $0) }, [],
+                   "The bar goes and the composer moves at once")
+
+    try await waitForUI("the notes", in: host.view) { host.window.attachedSheet?.contentView != nil }
+    let sheet = try XCTUnwrap(host.window.attachedSheet)
+    let sheetView = try XCTUnwrap(sheet.contentView)
+    try await waitForUI("the notes' Done button", in: sheetView) { Host.marker("Done", in: sheetView) != nil }
+    sheet.makeKey()
+    try await clickTestControl("Done", in: sheetView)
+    try await waitForUI("the notes to close and the composer to take clicks", in: host.view) {
+      host.window.attachedSheet == nil && composerAcceptsClicks(in: host.view)
+    }
+    XCTAssertTrue(isAt(rest.send, try XCTUnwrap(send())))
   }
 
   /// Where the composer's Send button and message field rest under Reduce
@@ -1251,6 +1293,41 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
+  func testWhatsNewSitsTopRightWithOrWithoutTheSidebarAndGoesOnceOpened() async throws {
+    let size = CGSize(width: 1000, height: 660)
+    for sidebar in [true, false] {
+      let label = sidebar ? "beside the sidebar" : "with the sidebar hidden"
+      let fixture = try await Fixture(test: self)
+      fixture.start.showsSidebar = sidebar
+      let note = ReleaseNote(version: "0.11.0", markdown: "# Enigma 0.11.0\n\n- **Something new.** It works.")
+      fixture.whatsNew = WhatsNew(version: "0.11.0", build: "4", notes: [note], defaults: fixture.defaults)
+      let host = Host(fixture, size: size, test: self)
+      try await waitForUI("What's new? \(label)", in: host.view) { host.shows("What's new") }
+      XCTAssertEqual(host.shows("Show chat history"), !sidebar, "The bar has the sidebar's actions only without it")
+      let button = try XCTUnwrap(host.marker("What's new"))
+      let frame = host.view.convert(button.bounds, from: button)
+      let top = host.view.isFlipped ? frame.minY : size.height - frame.maxY
+      XCTAssertEqual(size.width - frame.maxX, 12, accuracy: 2, "At the right edge \(label): \(frame)")
+      XCTAssertLessThan(top, EnigmaTopBar.height, "In the top bar \(label): \(frame)")
+      if !sidebar {
+        let settings = try XCTUnwrap(host.marker("Bar settings"))
+        XCTAssertGreaterThan(frame.minX, host.view.convert(settings.bounds, from: settings).maxX, "Right of Settings")
+      }
+
+      try await clickTestControl("What's new", in: host.view)
+      try await waitForUI("the notes \(label)", in: host.view) { host.window.attachedSheet?.contentView != nil }
+      let sheetView = try XCTUnwrap(host.window.attachedSheet?.contentView)
+      try await waitForUI("the 0.11.0 notes in the sheet", in: sheetView) {
+        Host.marker("Release notes 0.11.0", in: sheetView) != nil
+      }
+      try await waitForUI("Opened once, it's gone \(label)", in: host.view) { !host.shows("What's new") }
+      XCTAssertEqual(host.shows("Show chat history"), !sidebar, "The bar stays while the sidebar is hidden")
+      XCTAssertEqual(fixture.defaults.string(forKey: WhatsNew.lastSeenBuildKey), "4")
+      host.window.attachedSheet.map { host.window.endSheet($0) }
+    }
+  }
+
+  @MainActor
   func testComposerMenuOpensClearOfTheComposerBox() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
@@ -1460,6 +1537,18 @@ final class EnigmaMainWindowTests: XCTestCase {
     try EnigmaSnapshot.save("help", size: KeyboardShortcutsHelpView.size) {
       KeyboardShortcutsHelpView(searchSettings: fixture.search)
     }
+    let notes = ReleaseNote.load(from: ReleaseNote.bundledDirectory)
+      .sorted { ReleaseNote.isNewer($0.version, than: $1.version) }.prefix(2)
+    try EnigmaSnapshot.save("whats-new", size: WhatsNewView.size) {
+      WhatsNewView(version: notes.first?.version ?? "", notes: Array(notes))
+    }
+    let actions = EnigmaTopBar.SidebarActions(show: {}, openHelp: {}, openSettings: {}, newChat: {})
+    try EnigmaSnapshot.save("top-bar-whats-new", size: CGSize(width: 480, height: EnigmaTopBar.height * 2)) {
+      VStack(spacing: 0) {
+        EnigmaTopBar(sidebarActions: nil, whatsNew: (label: "What's new", open: {}))
+        EnigmaTopBar(sidebarActions: actions, whatsNew: (label: "What's new", open: {}))
+      }
+    }
   }
 
   private struct CharacterSample {
@@ -1572,6 +1661,8 @@ extension EnigmaMainWindowTests {
     /// Animations, off by default so each change lands at once. A test that
     /// watches how something moves turns them on.
     var animates = false
+    /// What's new?, never showing unless a test gives it notes.
+    var whatsNew = WhatsNew(version: "", build: "", notes: [], defaults: nil)
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
     /// Where Replace text would paste, never the Mac's real selection: none
@@ -1639,7 +1730,7 @@ extension EnigmaMainWindowTests {
     func shell() -> some View {
       AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
-        welcomeSetup: setup, appearance: appearance, character: character,
+        welcomeSetup: setup, whatsNew: whatsNew, appearance: appearance, character: character,
         selectionAccess: selectionAccess, selectionContext: selectionContext)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .enigmaTestReduceMotion(reduceMotion)

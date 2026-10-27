@@ -12,11 +12,13 @@ final class EnigmaControlsTests: XCTestCase {
     for palette in palettes {
       XCTAssertEqual(EnigmaButtonKind.primary.fill(in: palette, isHovered: false), palette.accent)
       XCTAssertEqual(EnigmaButtonKind.primary.fill(in: palette, isHovered: true), palette.accent)
-      for kind in [EnigmaButtonKind.secondary, .text] {
+      for kind in [EnigmaButtonKind.secondary, .notice, .text] {
         XCTAssertNil(kind.fill(in: palette, isHovered: false), "\(kind) is plain at rest")
         XCTAssertEqual(kind.fill(in: palette, isHovered: true), palette.hover, "\(kind) shows the hover fill")
       }
       XCTAssertEqual(EnigmaButtonKind.secondary.edge, .border)
+      XCTAssertEqual(EnigmaButtonKind.notice.edge, .border)
+      XCTAssertEqual(EnigmaButtonKind.notice.label(in: palette, isHovered: false), palette.accentText)
       XCTAssertNil(EnigmaButtonKind.primary.edge)
       XCTAssertNil(EnigmaButtonKind.text.edge)
     }
@@ -26,7 +28,7 @@ final class EnigmaControlsTests: XCTestCase {
     for palette in palettes {
       XCTAssertGreaterThanOrEqual(EnigmaButtonKind.primary.label(in: palette, isHovered: false)
         .contrastRatio(on: palette.accent), 4.5)
-      for kind in [EnigmaButtonKind.secondary, .text] {
+      for kind in [EnigmaButtonKind.secondary, .notice, .text] {
         for hovered in [false, true] {
           for surface in [palette.background, palette.surface] {
             let back = hovered ? palette.hover.composited(over: surface) : surface

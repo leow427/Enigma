@@ -119,41 +119,65 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
   }
 }
 
-/// With the sidebar hidden, a slim bar at the top of the main page keeps its
-/// actions in reach: show the sidebar, Help, Settings, and New chat.
-struct EnigmaHiddenSidebarBar: View {
-  let show: () -> Void
-  let openHelp: () -> Void
-  let openSettings: () -> Void
-  let newChat: () -> Void
+/// The slim bar at the top of the main page. With the sidebar hidden it keeps
+/// the sidebar's actions in reach: show the sidebar, New chat, Help, and
+/// Settings. Its right end is the window's top-right slot, for What's new?
+/// after an update; while the sidebar is shown, the bar is there only when
+/// that slot has something in it.
+struct EnigmaTopBar: View {
+  struct SidebarActions {
+    let show: () -> Void
+    let openHelp: () -> Void
+    let openSettings: () -> Void
+    let newChat: () -> Void
+  }
+
+  /// Nil while the sidebar is shown.
+  let sidebarActions: SidebarActions?
+  /// What's new?'s VoiceOver label and action, while an update's notes are unread.
+  let whatsNew: (label: String, open: () -> Void)?
 
   static let height: CGFloat = 44
 
+  static func isShown(isSidebarVisible: Bool, hasWhatsNew: Bool) -> Bool { !isSidebarVisible || hasWhatsNew }
+
   var body: some View {
     HStack(spacing: 4) {
-      Button(action: show) { Image(systemName: "sidebar.left") }
-        .enigmaIconButtonStyle()
-        .welcomeTourTarget(.history)
-        .accessibilityLabel("Show chat history")
-        .help("Show chat history · ⌃⌘S")
-        .enigmaTestMarker("Show chat history")
+      if let actions = sidebarActions {
+        Button(action: actions.show) { Image(systemName: "sidebar.left") }
+          .enigmaIconButtonStyle()
+          .welcomeTourTarget(.history)
+          .accessibilityLabel("Show chat history")
+          .help("Show chat history · ⌃⌘S")
+          .enigmaTestMarker("Show chat history")
+      }
       Spacer(minLength: 0)
-      Button(action: newChat) { Image(systemName: "plus") }
-        .enigmaIconButtonStyle()
-        .accessibilityLabel("New chat")
-        .help("New chat · ⌘N")
-        .enigmaTestMarker("Bar new chat")
-      Button(action: openHelp) { Image(systemName: "questionmark.circle") }
-        .enigmaIconButtonStyle()
-        .welcomeTourTarget(.help)
-        .accessibilityLabel("Help")
-        .help("Help")
-        .enigmaTestMarker("Bar help")
-      Button(action: openSettings) { Image(systemName: "gearshape") }
-        .enigmaIconButtonStyle()
-        .accessibilityLabel("Settings")
-        .help("Settings · ⌘,")
-        .enigmaTestMarker("Bar settings")
+      if let actions = sidebarActions {
+        Button(action: actions.newChat) { Image(systemName: "plus") }
+          .enigmaIconButtonStyle()
+          .accessibilityLabel("New chat")
+          .help("New chat · ⌘N")
+          .enigmaTestMarker("Bar new chat")
+        Button(action: actions.openHelp) { Image(systemName: "questionmark.circle") }
+          .enigmaIconButtonStyle()
+          .welcomeTourTarget(.help)
+          .accessibilityLabel("Help")
+          .help("Help")
+          .enigmaTestMarker("Bar help")
+        Button(action: actions.openSettings) { Image(systemName: "gearshape") }
+          .enigmaIconButtonStyle()
+          .accessibilityLabel("Settings")
+          .help("Settings · ⌘,")
+          .enigmaTestMarker("Bar settings")
+      }
+      if let whatsNew {
+        Button("What's new?", action: whatsNew.open)
+          .enigmaButtonStyle(.notice)
+          .accessibilityLabel(whatsNew.label)
+          .enigmaTestMarker("What's new")
+          .padding(.leading, sidebarActions == nil ? 0 : 4)
+          .transition(.opacity)
+      }
     }
     .padding(.horizontal, 12)
     .frame(height: Self.height)

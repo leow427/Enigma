@@ -74,7 +74,7 @@ struct EnigmaMainColumn<TopBar: View, Header: View, Conversation: View, Accessor
 
   var body: some View {
     GeometryReader { proxy in
-      let layout = MainPageLayout(height: proxy.size.height, topBar: showsTopBar ? EnigmaHiddenSidebarBar.height : 0,
+      let layout = MainPageLayout(height: proxy.size.height, topBar: showsTopBar ? EnigmaTopBar.height : 0,
                                   info: infoHeight, composer: composerHeight, accessories: accessoriesHeight,
                                   availableExamples: availableExamples)
       let columnWidth = min(MainPageLayout.columnMaximumWidth, max(0, proxy.size.width - 48))
