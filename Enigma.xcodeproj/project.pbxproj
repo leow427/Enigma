@@ -1110,7 +1110,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Enigma/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 5JXMXR2W9L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1121,7 +1121,7 @@
 					"@executable_path/../Frameworks",
 				);
 				ENIGMA_UPDATE_FEED_URL = "https://raw.githubusercontent.com/leow427/Enigma/main/appcast.xml";
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leow427.AISpotlight;
 				PRODUCT_NAME = Enigma;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1136,7 +1136,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Enigma/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 5JXMXR2W9L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1147,7 +1147,7 @@
 					"@executable_path/../Frameworks",
 				);
 				ENIGMA_UPDATE_FEED_URL = "https://raw.githubusercontent.com/leow427/Enigma/main/appcast.xml";
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leow427.AISpotlight;
 				PRODUCT_NAME = Enigma;
 				SWIFT_EMIT_LOC_STRINGS = YES;

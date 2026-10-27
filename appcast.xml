@@ -3,6 +3,45 @@
     <channel>
         <title>Enigma</title>
         <item>
+            <title>0.12.0</title>
+            <pubDate>Mon, 26 Oct 2026 23:07:32 -0500</pubDate>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.12.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# Enigma 0.12.0
+
+Queue messages while Enigma replies, copy code in one click, and sign in to ChatGPT or Claude in one step.
+
+## New
+
+- **Queue messages during a reply.** Keep typing while Enigma answers and press Return to queue up to five messages. They send in order. **Send now** sends one straight away, and **x** cancels it.
+- **Copy buttons.** Every code block has a **Copy** button; in terminal blocks it copies just the commands, without prompts or output. Finished replies have a **Copy reply** button that pastes cleanly into Mail or Pages.
+- **One-click ChatGPT and Claude sign-in.** Choosing **Sign in** now sets up what's missing for you: Enigma installs its own copy of Codex for ChatGPT, and runs Anthropic's installer for Claude Code.
+- **Screenshots with ChatGPT and Claude subscriptions.** When you're signed in to ChatGPT or Claude, **/screen** now works too. Their model lists refresh daily, so the newest ChatGPT models show up.
+- **Selected text in more apps.** Double-tap Option now picks up selections in Claude, Slack, Chrome, Safari (PDFs included) and other web-based apps.
+- **What's new?** After an update, a button at the top right of the window opens these notes.
+
+## Improved
+
+- **A fresh chat when you come back.** Enigma opens to a new chat at launch and after five minutes away. Saved chats stay in Recents, and a chat with a draft or a reply in progress is left alone. Empty chats are no longer saved.
+- **Selection chats continue in the window.** Once you send your question, the chat moves to the main window so you can carry on there. With **Keep selection chats private** off, they're saved to Recents.
+- **Texting the right person.** When several contacts share a name, Enigma asks which one you mean. With no earlier conversation, it texts a phone number, preferring mobile, rather than an email.
+- **Faster welcome setup.** Setup checks your Mac's performance once, not again for each model it installs.
+- **Clearer sign-in checks.** Check sign-in status now always shows its result under the row.
+
+## Fixed
+
+- The chat no longer scrolls into empty space after a long reply, and sending after scrolling up brings you back to the end.
+- The character no longer covers the model picker, other menus or the tour, or takes their clicks.
+- Enigma no longer says a message was sent when Messages failed to send it, and stops at once if macOS withholds a Messages permission.
+- Web searches no longer include slash commands, or personal details from screenshots and attached text.
+- Caps Lock no longer interrupts the double-Option shortcut.
+- Choosing more than 16 files or folders now says so and keeps your current attachments.
+- Fixed a crash when Codex or Claude Code quit while a large screenshot was being sent.
+]]></description>
+            <enclosure url="https://github.com/leow427/Enigma/releases/download/v0.12.0/Enigma-0.12.0.zip" length="8749068" type="application/octet-stream" sparkle:edSignature="J5zarr+BeTy+yoos2QEyXvF9U7saZdASNC9eXbbMhdkQ6aJZsQZIQgkuRaIhbJoHsLNis2XTFx9DP+wQd4o1AQ=="/>
+        </item>
+        <item>
             <title>0.11.0</title>
             <pubDate>Mon, 19 Oct 2026 18:22:41 -0500</pubDate>
             <sparkle:version>4</sparkle:version>
