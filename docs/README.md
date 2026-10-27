@@ -27,7 +27,7 @@ works in the code, its limitations, and which tests cover it.
 | [Updating the model catalogue](Updating-the-Model-Catalogue.md) | The release checklist for adding or refreshing local models |
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
-| [Updates](Updates.md) | Automatic updates through Sparkle, moving the app into Applications, the update signing key, and publishing a release with `scripts/release.sh` |
+| [Updates](Updates.md) | Automatic updates through Sparkle, the What's new? button, moving the app into Applications, the update signing key, and publishing a release with `scripts/release.sh` |
 | [Reviewer](reviewer.md) | The instructions for the read-only reviewer agent that audits a feature diff |
 
 ## Design and history
@@ -42,4 +42,5 @@ works in the code, its limitations, and which tests cover it.
   written before recent features were built. Like history, they describe the
   plan at the time.
 - [release-notes/](release-notes/) has the notes for each release, which
-  `scripts/release.sh` publishes with the update. See [Updates](Updates.md).
+  `scripts/release.sh` publishes with the update and the app bundles for its
+  What's new? sheet. See [Updates](Updates.md).

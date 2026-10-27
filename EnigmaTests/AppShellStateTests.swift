@@ -15,6 +15,7 @@ final class ShellPresentationTests: XCTestCase {
     var shell = ShellPresentation(mode: .cloud, showsSidebar: true)
     shell.isModePalettePresented = true
     shell.isHelpPresented = true
+    shell.isWhatsNewPresented = true
     shell.isSelectionDetailsPresented = true
 
     shell.beginSelectionComposer(mode: .local, showsSidebar: true)
@@ -23,6 +24,7 @@ final class ShellPresentationTests: XCTestCase {
     XCTAssertFalse(shell.isSelectionDetailsPresented)
     XCTAssertFalse(shell.isModePalettePresented)
     XCTAssertFalse(shell.isHelpPresented)
+    XCTAssertFalse(shell.isWhatsNewPresented, "The panel is too small for the release notes")
     XCTAssertFalse(shell.isSidebarVisible)
     XCTAssertEqual(shell.selectedMode, .local)
     XCTAssertTrue(shell.isComposerFocused)
@@ -169,11 +171,13 @@ final class ShellPresentationTests: XCTestCase {
     var shell = ShellPresentation(mode: .cloud, showsSidebar: true)
     shell.isModePalettePresented = true
     shell.isHelpPresented = true
+    shell.isWhatsNewPresented = true
     shell.isComposerFocused = true
 
     shell.welcomeChanged(isPresented: true, isTourActive: false)
     XCTAssertFalse(shell.isModePalettePresented)
     XCTAssertFalse(shell.isHelpPresented)
+    XCTAssertFalse(shell.isWhatsNewPresented)
     XCTAssertFalse(shell.isComposerFocused)
     XCTAssertEqual(shell.selectedMode, .cloud)
 

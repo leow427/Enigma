@@ -46,7 +46,7 @@ given opacity.
 | `hover` | `#24201A` at 5% | `#EDE6D6` at 5% | Hover fill |
 | `accent` | `#3F5A12` | `#CDEB78` | Send, primary buttons, switches |
 | `onAccent` | `#F5F8EA` | `#1A2306` | Text and icons on `accent` |
-| `accentText` | `#4A6A14` | `#CDEB78` | Command names, selection dots, links |
+| `accentText` | `#4A6A14` | `#CDEB78` | Command names, selection dots, links, the What's new? label |
 | `characterBody` | `#C3DE5E` | `#C3DE5E` | Character fill |
 | `characterInk` | `#211E19` | `#D9D1BF` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
@@ -68,7 +68,7 @@ Fonts come from `EnigmaTypography`.
 | Role | Font | Notes |
 | --- | --- | --- |
 | Chrome, labels, buttons, headings | System (SF Pro), `EnigmaTypography.ui` | Headings are semibold with slightly negative tracking. No italics. |
-| Assistant replies only | New York, `EnigmaTypography.reply` | About 15 pt with roomy line spacing. The serif marks who is speaking. |
+| Assistant replies only | New York, `EnigmaTypography.reply` | About 15 pt with roomy line spacing. The serif marks who is speaking. The one exception is the What's new? sheet, whose release notes use the reply renderer, `ChatMarkdownView`. |
 | Commands, metadata, hints, stats | SF Mono, `EnigmaTypography.mono` | 11 to 12 pt, in `textTertiary` or `accentText`. |
 
 SF Symbols use the shared symbol tokens (`EnigmaTypography.symbol` and its
@@ -83,6 +83,14 @@ glyph is Stop, on the solid Send button.
   plain rows with a dot on the open chat, then Help, Settings, and, in Debug
   builds, Developer Tools. When it's hidden, a slim bar keeps Show chat
   history, New chat, Help, and Settings in reach.
+- **Top-right slot.** The right end of that bar (`EnigmaTopBar`) is the
+  window's top-right slot, for things that come and go, like **What's new?**
+  after an update: an outlined button with an `accentText` label
+  (`EnigmaButtonKind.notice`), since the palette has no blue. While the
+  sidebar is shown, the bar appears only when the slot has something in it.
+  When it's opened, the button fades out; with the sidebar shown the whole
+  bar goes and the page moves up into its place. Under Reduce Motion both
+  happen at once.
 - **Main page.** The character centered, a time-of-day greeting, a monospace
   status line built from the real route state, the Auto / Local / Cloud text
   control, the composer, and the slash commands as monospace example lines.

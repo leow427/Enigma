@@ -21,6 +21,9 @@
 		ED44D8F390F4C668770773AD /* Enigma/Chat/ChatMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2219C1A52638C5760A08BCAB /* Enigma/Chat/ChatMarkdownView.swift */; };
 		A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */; };
 		F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */; };
+		F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */; };
+		F25A00000000000000000004 /* WhatsNewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000003 /* WhatsNewTests.swift */; };
+		F25A00000000000000000006 /* release-notes in Resources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000005 /* release-notes */; };
 		CCBCDDA5026A66956CAF2521 /* Enigma/Chat/AssistantActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */; };
 		E70853FFCC557A14D16831EA /* Enigma/Chat/EnigmaMessageList.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7F0CAF9ABED510FB4737FA /* Enigma/Chat/EnigmaMessageList.swift */; };
 		85951778BEFF4293A002C497 /* Enigma/Chat/SelectionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E31444F25F2D3405D575EC /* Enigma/Chat/SelectionCards.swift */; };
@@ -233,6 +236,8 @@
 		2219C1A52638C5760A08BCAB /* Enigma/Chat/ChatMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ChatMarkdownView.swift"; sourceTree = SOURCE_ROOT; };
 		A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ChatCopy.swift"; sourceTree = SOURCE_ROOT; };
 		F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MessageQueue.swift"; sourceTree = SOURCE_ROOT; };
+		F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/WhatsNew.swift"; sourceTree = SOURCE_ROOT; };
+		F25A00000000000000000005 /* release-notes */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "docs/release-notes"; sourceTree = SOURCE_ROOT; };
 		F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/AssistantActivityView.swift"; sourceTree = SOURCE_ROOT; };
 		BE7F0CAF9ABED510FB4737FA /* Enigma/Chat/EnigmaMessageList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/EnigmaMessageList.swift"; sourceTree = SOURCE_ROOT; };
 		65E31444F25F2D3405D575EC /* Enigma/Chat/SelectionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/SelectionCards.swift"; sourceTree = SOURCE_ROOT; };
@@ -360,6 +365,7 @@
 		AF75EE2F32B58204588607B5 /* EnigmaTests/ScreenViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ScreenViewTests.swift"; sourceTree = SOURCE_ROOT; };
 		B30000000000000000000001 /* RequestLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLifecycleTests.swift; sourceTree = "<group>"; };
 		F2A000000000000000000003 /* MessageQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageQueueTests.swift; sourceTree = "<group>"; };
+		F25A00000000000000000003 /* WhatsNewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewTests.swift; sourceTree = "<group>"; };
 		B34E3DA6304D813D00A724CF /* Enigma.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Enigma.xctestplan"; sourceTree = "<group>"; };
 		B60000000000000000000001 /* BraveSearchClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraveSearchClient.swift; sourceTree = "<group>"; };
 		B60000000000000000000002 /* WebSearchSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchSettings.swift; sourceTree = "<group>"; };
@@ -459,6 +465,7 @@
 				2219C1A52638C5760A08BCAB /* Enigma/Chat/ChatMarkdownView.swift */,
 				A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */,
 				F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */,
+				F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */,
 				F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */,
 				BE7F0CAF9ABED510FB4737FA /* Enigma/Chat/EnigmaMessageList.swift */,
 				65E31444F25F2D3405D575EC /* Enigma/Chat/SelectionCards.swift */,
@@ -613,6 +620,7 @@
 				E91000000000000000000001 /* Enigma.entitlements */,
 				D20000000000000000000006 /* ThirdPartyNotices.txt */,
 				D20000000000000000000007 /* LICENSE */,
+				F25A00000000000000000005 /* release-notes */,
 				B60000000000000000000201 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -623,6 +631,7 @@
 			children = (
 				B30000000000000000000001 /* RequestLifecycleTests.swift */,
 				F2A000000000000000000003 /* MessageQueueTests.swift */,
+				F25A00000000000000000003 /* WhatsNewTests.swift */,
 				B60000000000000000000401 /* WebSearchTests.swift */,
 				C20000000000000000000001 /* ChatContextTests.swift */,
 				A1F100000000000000000003 /* ChatCopyTests.swift */,
@@ -818,6 +827,7 @@
 			files = (
 				D10000000000000000000007 /* ThirdPartyNotices.txt in Resources */,
 				D10000000000000000000009 /* LICENSE in Resources */,
+				F25A00000000000000000006 /* release-notes in Resources */,
 				B60000000000000000000202 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -837,6 +847,7 @@
 				ED44D8F390F4C668770773AD /* Enigma/Chat/ChatMarkdownView.swift in Sources */,
 				A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */,
 				F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */,
+				F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */,
 				CCBCDDA5026A66956CAF2521 /* Enigma/Chat/AssistantActivityView.swift in Sources */,
 				E70853FFCC557A14D16831EA /* Enigma/Chat/EnigmaMessageList.swift in Sources */,
 				85951778BEFF4293A002C497 /* Enigma/Chat/SelectionCards.swift in Sources */,
@@ -1007,6 +1018,7 @@
 				3ED4FD09347F3C0EA6A0C43D /* EnigmaTests/ScreenCaptureTests.swift in Sources */,
 				B30000000000000000000002 /* RequestLifecycleTests.swift in Sources */,
 				F2A000000000000000000004 /* MessageQueueTests.swift in Sources */,
+				F25A00000000000000000004 /* WhatsNewTests.swift in Sources */,
 				B60000000000000000000402 /* WebSearchTests.swift in Sources */,
 				C20000000000000000000002 /* ChatContextTests.swift in Sources */,
 				A1F100000000000000000004 /* ChatCopyTests.swift in Sources */,

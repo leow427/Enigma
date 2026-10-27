@@ -94,6 +94,8 @@ current_build=$(setting CURRENT_PROJECT_VERSION "$repository_root/$project")
 printf '%s\n' "$current_build" | grep -Eq '^[0-9]+$' || fail "CURRENT_PROJECT_VERSION '$current_build' is not an integer"
 is_newer "$version" "$current_version" || fail "$version is not newer than the current version $current_version"
 [ -f "$notes" ] || fail "release notes are missing: docs/release-notes/$version.md"
+[ "$(head -n 1 "$notes")" = "# Enigma $version" ] \
+  || fail "docs/release-notes/$version.md must start with the line: # Enigma $version"
 if git -C "$repository_root" rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   fail "tag $tag already exists locally"
 fi
@@ -135,6 +137,8 @@ if [ "$dry_run" = true ]; then
   worktree="$temporary/source"
   git -C "$repository_root" worktree add --quiet --detach "$worktree" HEAD
   source=$worktree
+  # The app bundles the notes, which a dry run may not have committed yet.
+  cp "$notes" "$source/docs/release-notes/"
 else
   source=$repository_root
 fi
@@ -178,6 +182,8 @@ built_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "
 built_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")
 [ "$built_version" = "$version" ] && [ "$built_build" = "$new_build" ] \
   || fail "the app says $built_version ($built_build), expected $version ($new_build)"
+cmp -s "$notes" "$app/Contents/Resources/release-notes/$version.md" \
+  || fail "the app does not bundle docs/release-notes/$version.md for What's new?"
 
 # `xcodebuild archive` leaves Sparkle's helpers ad-hoc signed (an Organizer export
 # would re-sign them). Re-sign them with the app's own identity and the hardened

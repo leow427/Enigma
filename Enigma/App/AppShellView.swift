@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
+  @ObservedObject private var whatsNew: WhatsNew
   /// System, Paper, or Ink.
   @ObservedObject private var appearance: EnigmaAppearancePreference
   /// The window's character: on the welcome, then on the main page. Owned
@@ -57,6 +58,7 @@ struct AppShellView: View {
     searchSettings: WebSearchSettings = .shared,
     startPreferences: StartPreferences = .shared,
     welcomeSetup: WelcomeSetup = .shared,
+    whatsNew: WhatsNew = .shared,
     appearance: EnigmaAppearancePreference = .shared,
     character: EnigmaCharacterController? = nil,
     selectionAccess: SelectionAccessibilityAccess = .shared,
@@ -69,6 +71,7 @@ struct AppShellView: View {
     self.searchSettings = searchSettings
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
+    self.whatsNew = whatsNew
     self.appearance = appearance
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
@@ -405,6 +408,10 @@ struct AppShellView: View {
       KeyboardShortcutsHelpView(searchSettings: searchSettings)
         .enigmaTheme(appearance.appearance)
     }
+    .sheet(isPresented: $shell.isWhatsNewPresented) {
+      WhatsNewView(version: whatsNew.newestVersion, notes: whatsNew.notes)
+        .enigmaTheme(appearance.appearance)
+    }
     .fileImporter(
       isPresented: $isModelImporterPresented,
       allowedContentTypes: [UTType(filenameExtension: "gguf") ?? .data],
@@ -498,15 +505,9 @@ struct AppShellView: View {
     let examples = SlashCommandExample.examples(available: availableCommands)
     return EnigmaMainColumn(
       isEmpty: isChatEmpty,
-      showsTopBar: !shell.isSidebarVisible,
+      showsTopBar: EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton),
       availableExamples: examples.count,
-      topBar: {
-        EnigmaHiddenSidebarBar(
-          show: { shell.isSidebarVisible = true },
-          openHelp: { shell.isHelpPresented = true },
-          openSettings: openSettings,
-          newChat: { NotificationCenter.default.post(name: .newChatRequested, object: nil) })
-      },
+      topBar: { topBar },
       header: { style in
         EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
                              performStatusAction: performRouteAction, mode: $shell.selectedMode,
@@ -521,6 +522,21 @@ struct AppShellView: View {
           composerInsertion = SlashCommandInsertion(text: command.token + " ")
         }
       })
+  }
+
+  private var topBar: EnigmaTopBar {
+    let sidebarActions = EnigmaTopBar.SidebarActions(
+      show: { shell.isSidebarVisible = true },
+      openHelp: { shell.isHelpPresented = true },
+      openSettings: openSettings,
+      newChat: { NotificationCenter.default.post(name: .newChatRequested, object: nil) })
+    // The button fades out as the notes open, or goes at once under Reduce Motion.
+    let openWhatsNew: () -> Void = {
+      shell.isWhatsNewPresented = true
+      withAnimation(reduceMotion ? nil : EnigmaMotion.screenChange.animation) { whatsNew.open() }
+    }
+    return EnigmaTopBar(sidebarActions: shell.isSidebarVisible ? nil : sidebarActions,
+                        whatsNew: whatsNew.showsButton ? (label: whatsNew.accessibilityLabel, open: openWhatsNew) : nil)
   }
 
   private func composer(docked: Bool) -> some View {

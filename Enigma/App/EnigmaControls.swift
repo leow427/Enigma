@@ -69,6 +69,9 @@ enum EnigmaButtonKind: Sendable {
   case compactPrimary
   /// Outlined in `border`.
   case secondary
+  /// Outlined in `border`, with an `accentText` label: a quiet notice that
+  /// asks to be read, like What's new? after an update.
+  case notice
   /// Plain text, like Back.
   case text
   /// A small outlined key that does what it names, like `↵` beside the
@@ -78,7 +81,7 @@ enum EnigmaButtonKind: Sendable {
   func fill(in palette: EnigmaPalette, isHovered: Bool) -> EnigmaColor? {
     switch self {
     case .primary, .compactPrimary: palette.accent
-    case .secondary, .text, .keycap: isHovered ? palette.hover : nil
+    case .secondary, .notice, .text, .keycap: isHovered ? palette.hover : nil
     }
   }
 
@@ -86,16 +89,17 @@ enum EnigmaButtonKind: Sendable {
     switch self {
     case .primary, .compactPrimary: palette.onAccent
     case .secondary: palette.textPrimary
+    case .notice: palette.accentText
     case .text, .keycap: isHovered ? palette.textPrimary : palette.textSecondary
     }
   }
 
-  var edge: EnigmaEdge? { self == .secondary || self == .keycap ? .border : nil }
+  var edge: EnigmaEdge? { self == .secondary || self == .notice || self == .keycap ? .border : nil }
 
   var font: Font {
     switch self {
     case .primary: EnigmaTypography.ui(14, weight: .medium)
-    case .secondary, .compactPrimary: EnigmaTypography.ui(12.5, weight: .medium)
+    case .secondary, .notice, .compactPrimary: EnigmaTypography.ui(12.5, weight: .medium)
     case .text: EnigmaTypography.ui(13, weight: .medium)
     case .keycap: EnigmaTypography.ui(11)
     }
@@ -104,7 +108,7 @@ enum EnigmaButtonKind: Sendable {
   var padding: EdgeInsets {
     switch self {
     case .primary: EdgeInsets(top: 9, leading: 18, bottom: 9, trailing: 18)
-    case .secondary, .compactPrimary: EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
+    case .secondary, .notice, .compactPrimary: EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
     case .text: EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
     case .keycap: EdgeInsets(top: 1, leading: 5, bottom: 1, trailing: 5)
     }
