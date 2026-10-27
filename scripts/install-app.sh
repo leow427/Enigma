@@ -96,7 +96,7 @@ trap 'rm -rf "$lock_directory"' EXIT HUP INT TERM
 while :; do
   rm -f "$pending_file"
   revision=$(git -C "$repository_root" rev-parse --short HEAD)
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Building Enigma at $revision…"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Building Enigma at ${revision}…"
 
   xcodebuild build \
     -project "$repository_root/Enigma.xcodeproj" \
