@@ -20,20 +20,7 @@ enum WebSearchPolicy {
   }
 
   static func questionText(_ prompt: String) -> String {
-    let question = ThinkCommand.message(prompt).content
-    let text = literalMaterial.stringByReplacingMatches(in: question,
-      range: NSRange(question.startIndex..., in: question),
-      withTemplate: " ")
-      .replacingOccurrences(of: "’", with: "'")
-      .lowercased()
-    // "whats" typed without its apostrophe reads as "what's", so every pattern sees one spelling.
-    let spelled = whatsWithoutApostrophe.stringByReplacingMatches(in: text,
-      range: NSRange(text.startIndex..., in: text), withTemplate: "what's")
-    // Collapse whitespace runs to one space. A regex is much faster than splitting
-    // and joining, and the composer resolves every draft on each keystroke.
-    let collapsed = whitespaceRun.stringByReplacingMatches(in: spelled,
-      range: NSRange(spelled.startIndex..., in: spelled), withTemplate: " ")
-    return collapsed.trimmingCharacters(in: [" "])
+    IntentText.clean(ThinkCommand.message(prompt).content)
   }
 
   static func isOfflineOrTransformation(_ text: String) -> Bool {
@@ -84,10 +71,7 @@ enum WebSearchPolicy {
     try! NSRegularExpression(pattern: pattern)
   }
 
-  private static let whitespaceRun = expression(#"\p{White_Space}+"#)
-  private static let whatsWithoutApostrophe = expression(#"\bwhats\b"#)
   private static let fourDigitWord = expression(#"\b[0-9]{4}\b"#)
-  private static let literalMaterial = expression(#"(?s)```.*?(?:```|$)|`[^`]*(?:`|$)|"[^"\n]*(?:"|$)|“[^”]*(?:”|$)"#)
   private static let optOut = expression(#"\b(?:(?:do not|don't|dont|never) (?:\w+ ){0,3}(?:search|browse|look up|use (?:the )?(?:web|internet))|(?:without|no) (?:\w+ ){0,2}(?:web|internet|browsing|search)|(?:stay|answer|respond|keep (?:this|it)) offline|(?:use|using|from) (?:only )?(?:your (?:own |existing )?knowledge|memory only))\b"#)
   private static let explicitLookup = expression(#"^(?:(?:please|can you|could you) )?(?:search|browse|check|look up|find|verify)\b.{0,60}\b(?:web|internet|online)\b"#)
   private static let transformation = expression(#"^(?:(?:please|can you|could you|help me) )?(?:translate|rewrite|rephrase|proofread|paraphrase|(?:write|draft|compose) (?:(?:a|an|me|a short|a new) )?(?:poem|story|email|message|letter|function|script|test)|invent|imagine|roleplay|pretend|debug|refactor|implement|fix (?:this|my|the) (?:code|function|test)|summari[sz]e (?:this|the following|the attached|my))\b"#)

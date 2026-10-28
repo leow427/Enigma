@@ -1,0 +1,14 @@
+{
+  "cutoff" : 0.47,
+  "fingerprint" : "f52f7db784517bc72d32e38a708fee6fe11e96fcc3a76ab3fa93bf8a9349bfde",
+  "kind" : "bert",
+  "p95Milliseconds" : 6.398542,
+  "trainingCount" : 49,
+  "validation" : {
+    "correct" : 9,
+    "total" : 11,
+    "wrongYes" : 0,
+    "yesCount" : 3
+  },
+  "validationCount" : 11
+}

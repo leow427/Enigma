@@ -1,0 +1,14 @@
+{
+  "cutoff" : 0.66,
+  "fingerprint" : "0d10e54558d4d29a550250d418b70bb21f3817702cd2614edc4651653f29cc4c",
+  "kind" : "maxEnt",
+  "p95Milliseconds" : 0.026334,
+  "trainingCount" : 60,
+  "validation" : {
+    "correct" : 9,
+    "total" : 10,
+    "wrongYes" : 0,
+    "yesCount" : 4
+  },
+  "validationCount" : 10
+}

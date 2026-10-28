@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA90B85473C0DCFC106B4561 /* Enigma/Intent/IntentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */; };
+		BFAD38A1FF9C3D0CDA1F986E /* Enigma/Intent/IntentPins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */; };
+		232E2D4E8B56903A5287C674 /* EnigmaTests/IntentModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */; };
+		7161864BBF6E9E609942B2DC /* IntentTraining/IntentTrainingSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB840E58D12CA559AC052091 /* IntentTraining/IntentTrainingSupport.swift */; };
+		6CE027E14079CA01D5E1E1B9 /* Enigma/Intent/IntentSkill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6516FAD35FE043D0F3232740 /* Enigma/Intent/IntentSkill.swift */; };
+		D9D80E2C4D9FC839CA507A99 /* EnigmaTests/IntentTrainingSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67868469383B69E9016B5C83 /* EnigmaTests/IntentTrainingSupportTests.swift */; };
+		4E93BDE4E87ADADBAD41E17F /* Enigma/Intent/IntentText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BFBB143914C0A666C6A6776 /* Enigma/Intent/IntentText.swift */; };
+		FA86E8155965A394D71EF45E /* EnigmaTests/IntentTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A87A92BB8D84FA09F0C9C25B /* EnigmaTests/IntentTextTests.swift */; };
 		6F02BCBBE9E9E0EB5B847FA6 /* Enigma/App/ComposerIntentChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = A26D653D1F2E55AB6F02BCBB /* Enigma/App/ComposerIntentChips.swift */; };
 		6F496C6A9349C0AAA9245BBE /* Enigma/App/ComposerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B34A7AA4BFE3803F6F496C6A /* Enigma/App/ComposerIntent.swift */; };
 		9D0B5B423BC5EACBE1CA8AA4 /* Enigma/Messages/MessagesIntentPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3BBA47DCE47AED9D0B5B42 /* Enigma/Messages/MessagesIntentPolicy.swift */; };
@@ -222,6 +230,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentModels.swift"; sourceTree = SOURCE_ROOT; };
+		6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentPins.swift"; sourceTree = SOURCE_ROOT; };
+		9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/IntentModelsTests.swift"; sourceTree = SOURCE_ROOT; };
+		DB840E58D12CA559AC052091 /* IntentTraining/IntentTrainingSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IntentTraining/IntentTrainingSupport.swift"; sourceTree = SOURCE_ROOT; };
+		6516FAD35FE043D0F3232740 /* Enigma/Intent/IntentSkill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentSkill.swift"; sourceTree = SOURCE_ROOT; };
+		67868469383B69E9016B5C83 /* EnigmaTests/IntentTrainingSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/IntentTrainingSupportTests.swift"; sourceTree = SOURCE_ROOT; };
+		2BFBB143914C0A666C6A6776 /* Enigma/Intent/IntentText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentText.swift"; sourceTree = SOURCE_ROOT; };
+		A87A92BB8D84FA09F0C9C25B /* EnigmaTests/IntentTextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/IntentTextTests.swift"; sourceTree = SOURCE_ROOT; };
 		A26D653D1F2E55AB6F02BCBB /* Enigma/App/ComposerIntentChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ComposerIntentChips.swift"; sourceTree = SOURCE_ROOT; };
 		B34A7AA4BFE3803F6F496C6A /* Enigma/App/ComposerIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ComposerIntent.swift"; sourceTree = SOURCE_ROOT; };
 		6F3BBA47DCE47AED9D0B5B42 /* Enigma/Messages/MessagesIntentPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesIntentPolicy.swift"; sourceTree = SOURCE_ROOT; };
@@ -452,6 +468,14 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */,
+				6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */,
+				9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */,
+				DB840E58D12CA559AC052091 /* IntentTraining/IntentTrainingSupport.swift */,
+				6516FAD35FE043D0F3232740 /* Enigma/Intent/IntentSkill.swift */,
+				67868469383B69E9016B5C83 /* EnigmaTests/IntentTrainingSupportTests.swift */,
+				2BFBB143914C0A666C6A6776 /* Enigma/Intent/IntentText.swift */,
+				A87A92BB8D84FA09F0C9C25B /* EnigmaTests/IntentTextTests.swift */,
 				9B2EE23DD30DADC4726A2A12 /* EnigmaTests/EnigmaIconTests.swift */,
 				8847E9740883DE782193462F /* Enigma/App/EnigmaAppIcon.swift */,
 				DD7B6F1531233451C5223B89 /* EnigmaTests/EnigmaMainWindowTests.swift */,
@@ -839,6 +863,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA90B85473C0DCFC106B4561 /* Enigma/Intent/IntentModels.swift in Sources */,
+				BFAD38A1FF9C3D0CDA1F986E /* Enigma/Intent/IntentPins.swift in Sources */,
+				6CE027E14079CA01D5E1E1B9 /* Enigma/Intent/IntentSkill.swift in Sources */,
+				4E93BDE4E87ADADBAD41E17F /* Enigma/Intent/IntentText.swift in Sources */,
 				0AA8637ACCD55E970535A148 /* Enigma/App/EnigmaAppIcon.swift in Sources */,
 				3AFE814393625FF54E59745D /* Enigma/Messages/MessagesControls.swift in Sources */,
 				08EEAB606415AB9771E0E088 /* Enigma/App/EnigmaCompactPanel.swift in Sources */,
@@ -983,6 +1011,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				232E2D4E8B56903A5287C674 /* EnigmaTests/IntentModelsTests.swift in Sources */,
+				7161864BBF6E9E609942B2DC /* IntentTraining/IntentTrainingSupport.swift in Sources */,
+				D9D80E2C4D9FC839CA507A99 /* EnigmaTests/IntentTrainingSupportTests.swift in Sources */,
+				FA86E8155965A394D71EF45E /* EnigmaTests/IntentTextTests.swift in Sources */,
 				67A83E9AC0134BD4A5EF555F /* EnigmaTests/EnigmaIconTests.swift in Sources */,
 				510050E15A14FFE663775680 /* EnigmaTests/MessagesToolCallingTests.swift in Sources */,
 				A7C84667C6870F2F121788A6 /* EnigmaTests/EnigmaCompactPanelTests.swift in Sources */,
@@ -1109,6 +1141,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "Enigma/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = None;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
@@ -1135,6 +1168,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "Enigma/Resources/Enigma.entitlements";
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = None;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;

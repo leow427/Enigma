@@ -230,7 +230,7 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | not started | | |
+| CP0 | done | 3 | Q1 yes here (CI pending), Q2 BERT 6.4 ms > 5 ms chip budget so chips are maxEnt, Q3 yes, Q4 yes; owner approved type choice within speed limits and `--kind` skipping limits |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |
