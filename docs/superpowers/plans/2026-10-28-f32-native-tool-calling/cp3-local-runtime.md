@@ -267,8 +267,11 @@ CP0's `Fixtures/F32/llama/*.txt`.
    - CI: the run on `9c976d2` failed to compile three test lines (CI's Xcode
      26.6 region checker: "pattern … does not understand how to check"; local
      Xcode 27.1 accepts them). `Fix CI after F32 CP3` builds those held streams
-     inside their `Task`, as `LocalVisionTests` does. Its run is recorded by
-     the CP4 worker.
+     inside their `Task`, as `LocalVisionTests` does. That run still failed
+     on the same lines: the closures referenced `Self`. With the owner's
+     approval, a second commit, `Fix CI after F32 CP3 (round 2)`, moves those
+     helpers to file scope so the tasks capture only the engine and the model.
+     Its run is recorded by the CP4 worker.
 
 5. **Limitations:**
    - Fixtures cover Gemma 4 and Qwen3.8 only (CP0 Q3).

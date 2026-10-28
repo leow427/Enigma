@@ -19,10 +19,6 @@ final class LocalToolStreamingTests: XCTestCase {
   private let weather = AgentToolDefinition(name: "get_weather", description: "Get the current weather for a city.",
     properties: ["city": .object(["type": .string("string")])], required: ["city"])
 
-  private static let heldTool = AgentToolDefinition(name: "get_weather", description: "Get the current weather for a city.",
-    properties: ["city": .object(["type": .string("string")])], required: ["city"])
-  private static let heldMessages = [AgentInferenceMessage(role: "user", content: "What's the weather in Paris?")]
-
   private func messages(_ prompt: String = "What's the weather in Paris?") -> [AgentInferenceMessage] {
     [AgentInferenceMessage(role: "system", content: "You can look up the weather."),
      AgentInferenceMessage(role: "user", content: prompt)]
@@ -174,9 +170,8 @@ final class LocalToolStreamingTests: XCTestCase {
     let runtime = LlamaServerVisionEngine()
     addTeardownBlock { await runtime.unload() }
     try Data("hold".utf8).write(to: directory.appending(path: "mode"))
-    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
     let held = Task {
-      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+      try await collectToolEvents(runtime.streamTools(messages: heldMessages, tools: [heldTool], model: model, requiredTool: nil))
     }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "request-started").path) }
     let identifier = await runtime.runtimeProcessIdentifier()
@@ -200,9 +195,8 @@ final class LocalToolStreamingTests: XCTestCase {
     let model = try stubModel(serving: "text")
     let runtime = LlamaServerVisionEngine()
     try Data("hold-tokenizer".utf8).write(to: directory.appending(path: "mode"))
-    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
     let held = Task {
-      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+      try await collectToolEvents(runtime.streamTools(messages: heldMessages, tools: [heldTool], model: model, requiredTool: nil))
     }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "tokenizer-started").path) }
     held.cancel()
@@ -217,9 +211,8 @@ final class LocalToolStreamingTests: XCTestCase {
     let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
     addTeardownBlock { await runtime.unload(); await deadline.close() }
     try Data("hold".utf8).write(to: directory.appending(path: "mode"))
-    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
     let held = Task {
-      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+      try await collectToolEvents(runtime.streamTools(messages: heldMessages, tools: [heldTool], model: model, requiredTool: nil))
     }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "request-started").path) }
     let identifier = await runtime.runtimeProcessIdentifier()
@@ -305,10 +298,7 @@ final class LocalToolStreamingTests: XCTestCase {
   // MARK: Helpers
 
   private static func collect(_ stream: AsyncThrowingStream<LocalToolStreamEvent, Error>) async throws -> [LocalToolStreamEvent] {
-    var events: [LocalToolStreamEvent] = []
-    for try await event in stream { events.append(event) }
-    try Task.checkCancellation()
-    return events
+    try await collectToolEvents(stream)
   }
 
   private func waitFor(_ condition: () async -> Bool) async throws {
@@ -406,6 +396,19 @@ final class LocalToolStreamingTests: XCTestCase {
     return LocalModel(id: "stub", displayName: "Stub", fileURL: file,
       visionConfiguration: LocalVisionConfiguration(projectorURL: projector, serverExecutableURL: server))
   }
+}
+
+// File-level, so tasks can use them without capturing the test class (CI's Xcode 26.6
+// region checker rejects a `Self` reference inside those closures).
+private let heldTool = AgentToolDefinition(name: "get_weather", description: "Get the current weather for a city.",
+  properties: ["city": .object(["type": .string("string")])], required: ["city"])
+private let heldMessages = [AgentInferenceMessage(role: "user", content: "What's the weather in Paris?")]
+
+private func collectToolEvents(_ stream: AsyncThrowingStream<LocalToolStreamEvent, Error>) async throws -> [LocalToolStreamEvent] {
+  var events: [LocalToolStreamEvent] = []
+  for try await event in stream { events.append(event) }
+  try Task.checkCancellation()
+  return events
 }
 
 private extension Array where Element == LocalToolStreamEvent {
