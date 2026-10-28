@@ -8,6 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */; };
+		C6D0C3F5E5623D12E2DC19F9 /* Enigma/Chat/ToolPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B52C0CEF30EF1F1CDEEBE30 /* Enigma/Chat/ToolPermissions.swift */; };
+		CCBE7F544D5A9F024F925F40 /* Enigma/Chat/ToolPermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D67801C7320A271E08FD180 /* Enigma/Chat/ToolPermissionCoordinator.swift */; };
+		28152BA54661F10AC30D0208 /* Enigma/Chat/ToolPermissionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB41D1A988FFAC52F23B3BB /* Enigma/Chat/ToolPermissionCard.swift */; };
+		D9A80B52E84998C9D6625B07 /* Enigma/Messages/MessagesAccessGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDB1C4F51B37874BDC42CD2 /* Enigma/Messages/MessagesAccessGate.swift */; };
+		A6F8C46DC0A00C6956572160 /* EnigmaTests/ToolPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EC8CF958128F6CFBDB5848 /* EnigmaTests/ToolPermissionTests.swift */; };
 		48390FFD558516F480710091 /* Enigma/Chat/NativeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5EBD55B8FBA05B64E152BE /* Enigma/Chat/NativeTools.swift */; };
 		D9B1BAE3817B2310FC9685E3 /* EnigmaTests/NativeToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C3AB2BE63CC673B72A9FE7 /* EnigmaTests/NativeToolsTests.swift */; };
 		6F02BCBBE9E9E0EB5B847FA6 /* Enigma/App/ComposerIntentChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = A26D653D1F2E55AB6F02BCBB /* Enigma/App/ComposerIntentChips.swift */; };
@@ -226,6 +231,11 @@
 
 /* Begin PBXFileReference section */
 		8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolsProbeTests.swift"; sourceTree = SOURCE_ROOT; };
+		1B52C0CEF30EF1F1CDEEBE30 /* Enigma/Chat/ToolPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolPermissions.swift"; sourceTree = SOURCE_ROOT; };
+		8D67801C7320A271E08FD180 /* Enigma/Chat/ToolPermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolPermissionCoordinator.swift"; sourceTree = SOURCE_ROOT; };
+		2BB41D1A988FFAC52F23B3BB /* Enigma/Chat/ToolPermissionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolPermissionCard.swift"; sourceTree = SOURCE_ROOT; };
+		EEDB1C4F51B37874BDC42CD2 /* Enigma/Messages/MessagesAccessGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesAccessGate.swift"; sourceTree = SOURCE_ROOT; };
+		B8EC8CF958128F6CFBDB5848 /* EnigmaTests/ToolPermissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ToolPermissionTests.swift"; sourceTree = SOURCE_ROOT; };
 		1F5EBD55B8FBA05B64E152BE /* Enigma/Chat/NativeTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/NativeTools.swift"; sourceTree = SOURCE_ROOT; };
 		97C3AB2BE63CC673B72A9FE7 /* EnigmaTests/NativeToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolsTests.swift"; sourceTree = SOURCE_ROOT; };
 		A26D653D1F2E55AB6F02BCBB /* Enigma/App/ComposerIntentChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ComposerIntentChips.swift"; sourceTree = SOURCE_ROOT; };
@@ -460,6 +470,11 @@
 			children = (
 				8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */,
 				1F5EBD55B8FBA05B64E152BE /* Enigma/Chat/NativeTools.swift */,
+				B8EC8CF958128F6CFBDB5848 /* EnigmaTests/ToolPermissionTests.swift */,
+				EEDB1C4F51B37874BDC42CD2 /* Enigma/Messages/MessagesAccessGate.swift */,
+				2BB41D1A988FFAC52F23B3BB /* Enigma/Chat/ToolPermissionCard.swift */,
+				8D67801C7320A271E08FD180 /* Enigma/Chat/ToolPermissionCoordinator.swift */,
+				1B52C0CEF30EF1F1CDEEBE30 /* Enigma/Chat/ToolPermissions.swift */,
 				97C3AB2BE63CC673B72A9FE7 /* EnigmaTests/NativeToolsTests.swift */,
 				9B2EE23DD30DADC4726A2A12 /* EnigmaTests/EnigmaIconTests.swift */,
 				8847E9740883DE782193462F /* Enigma/App/EnigmaAppIcon.swift */,
@@ -849,6 +864,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				48390FFD558516F480710091 /* Enigma/Chat/NativeTools.swift in Sources */,
+				D9A80B52E84998C9D6625B07 /* Enigma/Messages/MessagesAccessGate.swift in Sources */,
+				28152BA54661F10AC30D0208 /* Enigma/Chat/ToolPermissionCard.swift in Sources */,
+				CCBE7F544D5A9F024F925F40 /* Enigma/Chat/ToolPermissionCoordinator.swift in Sources */,
+				C6D0C3F5E5623D12E2DC19F9 /* Enigma/Chat/ToolPermissions.swift in Sources */,
 				0AA8637ACCD55E970535A148 /* Enigma/App/EnigmaAppIcon.swift in Sources */,
 				3AFE814393625FF54E59745D /* Enigma/Messages/MessagesControls.swift in Sources */,
 				08EEAB606415AB9771E0E088 /* Enigma/App/EnigmaCompactPanel.swift in Sources */,
@@ -995,6 +1014,7 @@
 			files = (
 				C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */,
 				D9B1BAE3817B2310FC9685E3 /* EnigmaTests/NativeToolsTests.swift in Sources */,
+				A6F8C46DC0A00C6956572160 /* EnigmaTests/ToolPermissionTests.swift in Sources */,
 				67A83E9AC0134BD4A5EF555F /* EnigmaTests/EnigmaIconTests.swift in Sources */,
 				510050E15A14FFE663775680 /* EnigmaTests/MessagesToolCallingTests.swift in Sources */,
 				A7C84667C6870F2F121788A6 /* EnigmaTests/EnigmaCompactPanelTests.swift in Sources */,

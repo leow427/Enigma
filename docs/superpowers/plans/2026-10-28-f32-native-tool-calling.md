@@ -206,7 +206,7 @@ hand-off note stays in its brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 3 | Flags and switch (off). Cloud flag by family (owner). Catalogue models already run on warm llama-server; flagged turns need the prompt cache on (CP3); the tools-vs-no-tools gate is left to CP5 (owner). Fixtures: llama recorded; Anthropic text/call recorded via Claude Code (`Read` tool); OpenAI, Gemini and Anthropic thinking from docs (no keys) |
-| CP1 | not started | | |
+| CP1 | done | 2 | Grant store, card, gate in `MessagesTools`, Settings list; no live route builds a gate. `ToolDestination.init?(route:)` is failable; card text is one line with hidden characters shown as �. Round 2's one small fix verified by the worker (owner). For CP4: search exactly what gate 3 showed; the message-text mark doesn't survive a relaunch |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

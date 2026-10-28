@@ -837,6 +837,18 @@ final class EnigmaConversationTests: XCTestCase {
   }
 
   @MainActor
+  func testToolPermissionCardButtonsAnswerInOrder() async throws {
+    let request = ToolPermissionRequest(permission: .readChat(chatGUID: "c", name: "Mom"), destination: .anthropic,
+                                        session: UUID())
+    for (title, expected) in ToolPermissionCard.buttons {
+      var answers: [ToolPermissionAnswer] = []
+      let card = CardHost(ToolPermissionCard(request: request) { answers.append($0) }, test: self)
+      try await clickTestControl(title, in: card.view)
+      XCTAssertEqual(answers, [expected], title)
+    }
+  }
+
+  @MainActor
   func testSendApprovalInTheWindowResolvesTheToolCallAndCancellingDeclines() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
@@ -860,6 +872,44 @@ final class EnigmaConversationTests: XCTestCase {
     let afterCancel = await cancelled.value
     XCTAssertFalse(afterCancel, "Stopping the request declines, as before")
     try await waitForUI("the card to close", in: host.view) { !host.shows("Don't Send") }
+  }
+
+  @MainActor
+  func testToolPermissionInTheWindowResolvesTheToolCallAndCancellingDenies() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    let permissions = fixture.chat.toolPermissions
+    let mom = ToolPermission.readChat(chatGUID: "c", name: "Mom")
+    func ask(_ session: UUID) -> Task<Bool, Never> {
+      Task { await permissions.authorize(mom, destination: .thisMac, session: session) }
+    }
+    let conversation = UUID()
+    let allowed = ask(conversation)
+    try await clickTestControl("For this conversation", in: host.view)
+    let wasAllowed = await allowed.value
+    XCTAssertTrue(wasAllowed)
+    XCTAssertTrue(permissions.store.isGranted(mom, destination: .thisMac, session: conversation))
+    XCTAssertTrue(permissions.store.alwaysGrants.isEmpty, "The click answered exactly what it says")
+    try await waitForUI("the card to close", in: host.view) { !host.shows("Don't allow") }
+
+    let declined = ask(UUID())
+    try await clickTestControl("Don't allow", in: host.view)
+    let wasDeclined = await declined.value
+    XCTAssertFalse(wasDeclined)
+
+    let always = ask(UUID())
+    try await clickTestControl("Always", in: host.view)
+    let wasAlways = await always.value
+    XCTAssertTrue(wasAlways)
+    XCTAssertEqual(permissions.store.alwaysGrants.count, 1)
+    permissions.store.remove(try XCTUnwrap(permissions.store.alwaysGrants.first))
+
+    let cancelled = ask(UUID())
+    try await waitForUI("the card", in: host.view) { host.shows("Don't allow") }
+    cancelled.cancel()
+    let afterCancel = await cancelled.value
+    XCTAssertFalse(afterCancel, "Stopping the request answers Don't allow")
+    try await waitForUI("the card to close", in: host.view) { !host.shows("Don't allow") }
   }
 
   @MainActor
@@ -1065,6 +1115,16 @@ final class EnigmaConversationTests: XCTestCase {
     try EnigmaSnapshot.save("screen-consent", size: CGSize(width: ScreenUploadConsentView.width, height: 520)) {
       ScreenUploadConsentView(consent: ScreenUploadConsent(attachment: attachment, provider: .anthropic),
                                     allow: {}, decline: {})
+    }
+    try EnigmaSnapshot.save("card-tool-permission", size: CGSize(width: 600, height: 300)) {
+      VStack(alignment: .trailing, spacing: 12) {
+        ToolPermissionCard(request: ToolPermissionRequest(permission: .readChat(chatGUID: "c", name: "Mom"),
+                                                          destination: .anthropic, session: UUID())) { _ in }
+        ToolPermissionCard(request: ToolPermissionRequest(permission: .searchAfterMessages(query: "pizza near Union Square"),
+                                                          destination: .thisMac, session: UUID())) { _ in }
+      }
+      .padding(24)
+      .frame(width: 600, alignment: .topLeading)
     }
     let change = try XCTUnwrap(files.visibleChanges.first)
     try EnigmaSnapshot.save("file-review", size: FileChangesReview.size) {

@@ -1704,7 +1704,8 @@ extension EnigmaMainWindowTests {
           pastes.automatic.append(automatic)
           return true
         },
-        files: files, messagesAccess: messagesAccess, visionEngine: engine, sessionStore: store)
+        files: files, toolPermissions: ToolPermissionCoordinator(store: ToolGrantStore(defaults: defaults)),
+        messagesAccess: messagesAccess, visionEngine: engine, sessionStore: store)
       self.chat = chat
       await chat.refreshInstalledModel()
       let credentials = ScreenTestCredentialStore()

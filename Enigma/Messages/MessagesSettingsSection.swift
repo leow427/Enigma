@@ -5,6 +5,19 @@ import SwiftUI
 struct MessagesSettingsSection: View {
   @State private var fullDiskAccess: Bool?
   @State private var contacts = CNContactStore.authorizationStatus(for: .contacts)
+  @ObservedObject var grants: ToolGrantStore = .shared
+
+  static let alwaysAllowedHeading = "Always allowed"
+
+  /// One Always grant's row in the list.
+  static func rowText(for grant: ToolAlwaysGrant) -> String {
+    let destination = grant.destination?.displayName ?? ""
+    return switch grant.kind {
+    case .readChat: "Read your chat with \(grant.chatName ?? grant.chatGUID ?? "") · \(destination)"
+    case .searchChats: "Search all your messages · \(destination)"
+    case .searchAfterMessages: "Search the web after reading messages"
+    }
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -16,6 +29,18 @@ struct MessagesSettingsSection: View {
         settingsButton(for: .automation)
       }
       EnigmaHairline()
+      if !grants.alwaysGrants.isEmpty {
+        EnigmaSectionHeader(Self.alwaysAllowedHeading)
+        ForEach(grants.alwaysGrants) { grant in
+          let text = Self.rowText(for: grant)
+          EnigmaRow(text) {
+            Button("Remove") { grants.remove(grant) }
+              .enigmaButtonStyle(.secondary)
+              .accessibilityLabel("Remove \(text)")
+          }
+        }
+        EnigmaHairline()
+      }
       EnigmaNote(MessagesPermissionStatus.privacyNote).padding(.top, 10)
     }
     .onAppear(perform: refresh)

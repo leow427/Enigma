@@ -329,6 +329,8 @@ final class LocalChatViewModel: ObservableObject {
 
   let files: FileModeCoordinator
   let appleMessages: MessagesCoordinator
+  /// The open permission card for tools a capable model calls on its own (F32).
+  let toolPermissions: ToolPermissionCoordinator
   typealias MessagesToolboxFactory = @MainActor (@escaping @Sendable (MessagesSendApproval) async -> Bool) -> any AgentToolbox
   private let makeMessagesToolbox: MessagesToolboxFactory
   private let messagesAccess: @Sendable () throws -> Void
@@ -358,6 +360,7 @@ final class LocalChatViewModel: ObservableObject {
     },
     files: FileModeCoordinator? = nil,
     appleMessages: MessagesCoordinator? = nil,
+    toolPermissions: ToolPermissionCoordinator? = nil,
     messagesToolbox: MessagesToolboxFactory? = nil,
     messagesAccess: (@Sendable () throws -> Void)? = nil,
     localToolRuntime: (@Sendable (LocalModel) -> Bool)? = nil,
@@ -380,6 +383,7 @@ final class LocalChatViewModel: ObservableObject {
     self.engine = engine
     self.files = files ?? FileModeCoordinator()
     self.appleMessages = appleMessages ?? MessagesCoordinator()
+    self.toolPermissions = toolPermissions ?? ToolPermissionCoordinator(store: .shared)
     makeMessagesToolbox = messagesToolbox ?? { confirm in MessagesTools(confirmSend: confirm) }
     self.messagesAccess = messagesAccess ?? { try MessagesDatabase().checkAccess() }
     self.localToolRuntime = localToolRuntime ?? { LocalFileRuntime.executable(for: $0) != nil }

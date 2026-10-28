@@ -18,6 +18,7 @@ struct AppShellView: View {
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
   @ObservedObject private var files: FileModeCoordinator
   @ObservedObject private var messages: MessagesCoordinator
+  @ObservedObject private var toolPermissions: ToolPermissionCoordinator
   /// Whether a selection chat stays private when opened in the window.
   @ObservedObject private var selectionEditing: SelectionEditingSettings
   @State private var isFileCloudConsentPresented = false
@@ -81,6 +82,7 @@ struct AppShellView: View {
     _localChat = StateObject(wrappedValue: chat)
     self.files = chat.files
     self.messages = chat.appleMessages
+    self.toolPermissions = chat.toolPermissions
     self.selectionEditing = chat.selectionEditingSettings
   }
 
@@ -135,6 +137,9 @@ struct AppShellView: View {
       }
       if let approval = messages.pendingSend {
         MessagesSendApprovalCard(approval: approval) { messages.answer($0) }
+      }
+      if let request = toolPermissions.pending {
+        ToolPermissionCard(request: request) { toolPermissions.answer($0) }
       }
       if let issue = messages.issue {
         MessagesIssueCard(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
