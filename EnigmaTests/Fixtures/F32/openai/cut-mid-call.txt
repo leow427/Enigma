@@ -1,0 +1,18 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"response-0","object":"response","status":"in_progress","model":"gpt-4.1-mini-2025-04-14","output":[]},"sequence_number":0}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"response-0","object":"response","status":"in_progress","model":"gpt-4.1-mini-2025-04-14","output":[]},"sequence_number":1}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":0,"item":{"id":"fc-0","type":"function_call","status":"in_progress","arguments":"","call_id":"call-0","name":"get_weather"},"sequence_number":2}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","item_id":"fc-0","output_index":0,"delta":"{\"","sequence_number":3}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","item_id":"fc-0","output_index":0,"delta":"city","sequence_number":4}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","item_id":"fc-0","output_index":0,"delta":"\":\"","sequence_number":5}
+
