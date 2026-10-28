@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EB1EFCD23613AF689238ED53 /* Enigma/Cloud/CloudToolStreaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */; };
+		83AC6B2E447FBF3850DBC916 /* EnigmaTests/CloudToolStreamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */; };
 		C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */; };
 		C6D0C3F5E5623D12E2DC19F9 /* Enigma/Chat/ToolPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B52C0CEF30EF1F1CDEEBE30 /* Enigma/Chat/ToolPermissions.swift */; };
 		CCBE7F544D5A9F024F925F40 /* Enigma/Chat/ToolPermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D67801C7320A271E08FD180 /* Enigma/Chat/ToolPermissionCoordinator.swift */; };
@@ -230,6 +232,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/CloudToolStreaming.swift"; sourceTree = SOURCE_ROOT; };
+		EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/CloudToolStreamingTests.swift"; sourceTree = SOURCE_ROOT; };
 		8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolsProbeTests.swift"; sourceTree = SOURCE_ROOT; };
 		1B52C0CEF30EF1F1CDEEBE30 /* Enigma/Chat/ToolPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolPermissions.swift"; sourceTree = SOURCE_ROOT; };
 		8D67801C7320A271E08FD180 /* Enigma/Chat/ToolPermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolPermissionCoordinator.swift"; sourceTree = SOURCE_ROOT; };
@@ -468,6 +472,8 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */,
+				EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */,
 				8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */,
 				1F5EBD55B8FBA05B64E152BE /* Enigma/Chat/NativeTools.swift */,
 				B8EC8CF958128F6CFBDB5848 /* EnigmaTests/ToolPermissionTests.swift */,
@@ -863,6 +869,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB1EFCD23613AF689238ED53 /* Enigma/Cloud/CloudToolStreaming.swift in Sources */,
 				48390FFD558516F480710091 /* Enigma/Chat/NativeTools.swift in Sources */,
 				D9A80B52E84998C9D6625B07 /* Enigma/Messages/MessagesAccessGate.swift in Sources */,
 				28152BA54661F10AC30D0208 /* Enigma/Chat/ToolPermissionCard.swift in Sources */,
@@ -1012,6 +1019,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83AC6B2E447FBF3850DBC916 /* EnigmaTests/CloudToolStreamingTests.swift in Sources */,
 				C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */,
 				D9B1BAE3817B2310FC9685E3 /* EnigmaTests/NativeToolsTests.swift in Sources */,
 				A6F8C46DC0A00C6956572160 /* EnigmaTests/ToolPermissionTests.swift in Sources */,

@@ -298,8 +298,6 @@ card, whose button is named after the pane.
 - Search decodes message bodies in Enigma rather than using an index, so very
   large histories are searched newest first up to the scan limit.
 - Local and Auto need a local model and the `llama-server` runtime.
-- Answers from the OpenAI, Anthropic, and Gemini API routes appear as each
-  model turn finishes rather than streaming token by token.
 - Enigma doesn't watch for new messages.
 - Recognizing a Messages request without `/messages` follows English wording
   only and needs a messaging word, and a follow-up needs a cue in the new

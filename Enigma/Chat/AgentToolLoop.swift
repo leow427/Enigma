@@ -8,10 +8,18 @@ protocol AgentToolbox: Sendable {
   func execute(name: String, arguments: CodexValue) async -> AgentToolResult
   /// Reported while a call runs, for the assistant activity row.
   func phase(for name: String) -> AssistantActivity.Phase
+  /// A tool the model must call on its first step, where the provider can force one.
+  var requiredTool: String? { get }
 }
 
 extension AgentToolbox {
   func phase(for _: String) -> AssistantActivity.Phase { .thinking }
+  var requiredTool: String? { nil }
+
+  /// The required tool, if it is one of this toolbox's definitions.
+  var offeredRequiredTool: String? {
+    requiredTool.flatMap { name in definitions.contains { $0.name == name } ? name : nil }
+  }
 
   /// Decodes a provider's JSON argument string and executes the call.
   func execute(name: String, jsonArguments: String) async -> AgentToolResult {

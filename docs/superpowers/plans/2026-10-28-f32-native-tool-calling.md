@@ -207,7 +207,7 @@ hand-off note stays in its brief.
 | --- | --- | --- | --- |
 | CP0 | done | 3 | Flags and switch (off). Cloud flag by family (owner). Catalogue models already run on warm llama-server; flagged turns need the prompt cache on (CP3); the tools-vs-no-tools gate is left to CP5 (owner). Fixtures: llama recorded; Anthropic text/call recorded via Claude Code (`Read` tool); OpenAI, Gemini and Anthropic thinking from docs (no keys) |
 | CP1 | done | 2 | Grant store, card, gate in `MessagesTools`, Settings list; no live route builds a gate. `ToolDestination.init?(route:)` is failable; card text is one line with hidden characters shown as �. Round 2's one small fix verified by the worker (owner). For CP4: search exactly what gate 3 showed; the message-text mark doesn't survive a relaunch |
-| CP2 | not started | | |
+| CP2 | done | 2 | OpenAI, Anthropic and Gemini tool loops stream through per-provider assemblers that reuse the old parsers, so replay and errors match; calls run only after a complete stream. `requiredTool` forces a tool on step 1 (`offeredRequiredTool` drops one the toolbox lacks; none under Anthropic `/think`). Owner: `QueuedTransport` serves old whole-response tests as streams. Fixtures from docs still need live recording before CP5 |
 | CP3 | not started | | |
 | CP4 | not started | | |
 | CP5 | not started | | |

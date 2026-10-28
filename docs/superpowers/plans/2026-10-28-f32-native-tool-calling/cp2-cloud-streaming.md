@@ -138,9 +138,121 @@ endpoint moves to a property).
 
 *Filled in by the CP2 worker.*
 
-1. **Summary:**
+1. **Summary:** The OpenAI, Anthropic and Gemini tool loops now stream. Each
+   step posts with `"stream": true` (Gemini: `:streamGenerateContent?alt=sse`)
+   through `CloudToolLoop.streamPost`, feeds the events to its provider's
+   assembler, and shows text deltas as they arrive. Calls come only from the
+   assembler's `finish()`, after the stream ends, so a cut stream runs
+   nothing. `AgentToolbox.requiredTool` (default nil) forces that tool on
+   the first step. Nothing sets it yet, so today's toolboxes send the same
+   bodies as before plus `stream`. Codex and Claude Code are unchanged.
+
 2. **Files:**
-3. **Decisions:** include CP1's CI result.
+   - `Enigma/Cloud/CloudToolStreaming.swift` (new): `ToolStreamAssembler`
+     and the three assemblers.
+   - `Enigma/Cloud/CloudToolCalling.swift`: `run` takes
+     `step: (isFirst, onText)` and streams text through `StepText`; a
+     whole-turn `run` overload for steps that return their text at once
+     (used by an existing test); `streamPost` and `streamStep`; the three
+     providers stream and send the forced choice; `post` deleted (nothing
+     else used it).
+   - `Enigma/Chat/AgentToolLoop.swift`: `requiredTool` (default nil) and
+     `offeredRequiredTool` (the required tool only if the toolbox defines it).
+   - `EnigmaTests/CloudToolStreamingTests.swift` (new): `F32Fixture`, the
+     per-provider assembler tests, and `streamPost` tests (HTTP errors,
+     cancellation).
+   - `EnigmaTests/MessagesToolCallingTests.swift`: `QueuedTransport` also
+     serves streams (see Decisions); new loop and provider tests in an
+     extension of `CloudToolLoopTests`; the one Gemini endpoint assertion.
+   - `Enigma.xcodeproj/project.pbxproj`: the two new files.
+   - `docs/Messages.md`: removed the limitation saying API routes answer
+     each model turn whole (review round 1); they now stream.
+   - The plan's progress log, and this Hand-off.
+
+3. **Decisions:**
+   - **CP1's CI:** the run on `c92627b` passed (`build-and-test`, 9m1s).
+   - **Existing tests and the streaming switch (owner, 2026-10-28).** Six
+     existing tests served whole JSON responses, and
+     `testGeminiReturnsFunctionResponsesAndStripsUnsupportedSchema` asserted
+     the `:generateContent` endpoint, so "pass unedited" and "stream" could
+     not both hold. The owner chose to adapt the shared helper:
+     `QueuedTransport.stream(for:)` turns each queued whole response into
+     that provider's event stream (Anthropic blocks with one delta each;
+     OpenAI `output_text.delta`, `output_item.done` per item and
+     `response.<status>`; Gemini one chunk). No test body changed except that
+     endpoint assertion, now `:streamGenerateContent?alt=sse`.
+   - **Text is shown exactly as before.** Today's loop trimmed each step's
+     text and put a blank line between steps. `StepText` holds back leading
+     and trailing whitespace, so the streamed deltas join to the same text.
+   - **Assemblers reuse today's parsers.** `finish()` rebuilds the whole
+     response (`output` + `status`; `content`; one candidate with the merged
+     content and `finishReason`) and passes it to the existing `toolTurn`, so
+     call IDs, `incomplete`, finish reasons and arguments behave as before.
+   - **Failures:** a call that started but never finished (OpenAI added
+     without done; an Anthropic block without stop) or arguments that aren't a
+     JSON object → `invalidResponse`, before or regardless of a later
+     completion event. A stream with no completion event (`response.completed`
+     or `incomplete`, `message_stop`, a Gemini `finishReason`) →
+     `streamEndedUnexpectedly`, as the plain cloud clients do. Provider error
+     events → `providerMessage` with the provider's message.
+   - **Gemini merging:** adjacent text parts with the same `thought` flag are
+     joined, and a signature on a later (often empty) part moves onto the
+     joined part; a part that already has a signature, and every
+     `functionCall` part, stays separate. Thought text is never shown.
+   - **Forced choice:** OpenAI `tool_choice {"type":"function","name"}`,
+     Anthropic `{"type":"tool","name"}`, Gemini `toolConfig.functionCallingConfig
+     {mode: "ANY", allowedFunctionNames}` — first step only, and only when the
+     toolbox defines the tool. Anthropic with extended thinking (`/think`)
+     sends no `tool_choice`, since only `auto` is allowed there; CP4's
+     instruction covers it.
+   - **Empty deltas** are returned as nil, so the chat never gets an empty
+     token.
+   - **OpenAI `[DONE]`** is ignored, as the plain OpenAI client accepts it
+     (review round 1); completion still needs `response.completed`.
+   - **Review round 1** (4 Should fix, no Blocker): added several-calls
+     tests per provider, a test that a required tool the toolbox doesn't
+     define is never forced, the `[DONE]` fix, and the `docs/Messages.md`
+     line. The three mutations the reviewer found surviving (no
+     `offeredRequiredTool` guard, Anthropic argument deltas sent to every
+     open block, OpenAI items not ordered by `output_index`) now each fail a
+     test. Round 2 found no Blocker or Should fix.
+
 4. **Verification:**
+   - Test-first: the new tests failed to compile (no assemblers, no
+     `streamPost`, no two-argument `step`) before the code existed. The first
+     run after implementing failed one test (an empty Gemini delta was
+     reported), fixed by returning nil for empty deltas.
+   - `scripts/verify-xcode.sh test -only-testing:EnigmaTests/CloudToolLoopTests
+     -only-testing:EnigmaTests/OpenAIToolStreamAssemblerTests
+     -only-testing:EnigmaTests/AnthropicToolStreamAssemblerTests
+     -only-testing:EnigmaTests/GeminiToolStreamAssemblerTests
+     -only-testing:EnigmaTests/CloudToolStreamPostTests
+     -only-testing:EnigmaTests/MessagesRequestTests`: 72 executed, 0 failed.
+   - `scripts/verify-xcode.sh build`: succeeded. `analyze`: succeeded, 0
+     warnings. Full `test`: 1425 executed, 25 skipped, 0 failed.
+   - After review round 1: the `[DONE]` test failed first (`invalidResponse`);
+     the CP2 classes then ran 62 executed, 0 failed. Full `test`: 1430 executed, 25 skipped,
+     1 failed, the known load-sensitive
+     `testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField`,
+     which passed alone. Round 2's reviewer then ran the CP2 classes (77,
+     0 failed), the full `test` (1430 executed, 25 skipped, 0 failed) and
+     `analyze` (0 warnings), and found nothing to fix; `build` succeeded
+     after the fixes.
+   - No live runs.
+   - CI: recorded by the CP3 worker.
+
 5. **Limitations:**
+   - The OpenAI and Gemini fixtures, and Anthropic's thinking stream, are
+     from the docs (CP0). The assemblers match them and today's parsers, but
+     live streams are unverified until the owner records them before CP5.
+   - Forced choice is checked in the request bodies only, never against a
+     live provider.
+
 6. **For the next checkpoint:**
+   - `CloudToolLoop.run`'s `step` is `(isFirst, onText)`; call `onText` per
+     delta and the loop does the trimming and the blank line between steps.
+     A step that returns text whole can use the zero-argument overload.
+   - Use `toolbox.offeredRequiredTool`, not `requiredTool`, when building a
+     request: it is nil when the toolbox doesn't define that tool.
+   - `QueuedTransport(streams:)` serves recorded fixtures; `F32Fixture`
+     (in `CloudToolStreamingTests.swift`) loads them.
