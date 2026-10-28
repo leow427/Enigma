@@ -35,7 +35,7 @@ final class NativeToolsProbeTests: XCTestCase {
         rest.insert(existing.lastPathComponent, at: 0)
         existing.deleteLastPathComponent()
       }
-      let resolved = realpath(existing.path, nil).map { defer { free($0) }; return String(cString: $0) } ?? existing.path
+      let resolved = realpath(existing.path, nil).map { path in defer { free(path) }; return String(cString: path) } ?? existing.path
       return ([resolved] + rest).joined(separator: "/").replacingOccurrences(of: "//", with: "/").lowercased()
     }
     let folder = canonical(folder), repository = canonical(repository)
