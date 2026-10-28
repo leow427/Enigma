@@ -75,16 +75,25 @@ final class IntentModels: Sendable {
 
   /// Empty text: the negative label, without loading a model. Otherwise the
   /// pins, then the model at its cut-off. A missing or damaged model gives
-  /// the negative label and logs the skill's name once.
+  /// the negative label and logs the skill's name once. A draft the model has
+  /// no opinion on (every label equally likely) gives the negative label too.
   func answer(_ skill: IntentSkill, cleaned: String, now: Date = Date()) -> String {
     guard !cleaned.isEmpty else { return skill.negativeLabel }
     if let pinned = pins.answer(skill, cleaned: cleaned) { return pinned }
     let input = IntentText.modelInput(cleaned, now: now)
     let answer = withModel(skill) { model, info -> String? in
-      let hypotheses = model.predictedLabelHypotheses(for: input, maximumCount: skill.labels.count)
-      return hypotheses.isEmpty ? nil : skill.answer(probabilities: hypotheses, cutoff: info.cutoff)
+      Self.answer(skill, hypotheses: model.predictedLabelHypotheses(for: input, maximumCount: skill.labels.count),
+                  cutoff: info.cutoff)
     } ?? nil
     return answer ?? skill.negativeLabel
+  }
+
+  /// The skill's answer for a prediction, or nil when there's none to give: no hypotheses, or every
+  /// label equally likely. A model that knows no word of the draft ("👍", another language) gives
+  /// that tie, and it's no opinion at all, not a yes at a cut-off of 0.5.
+  static func answer(_ skill: IntentSkill, hypotheses: [String: Double], cutoff: Double) -> String? {
+    guard let high = hypotheses.values.max(), let low = hypotheses.values.min(), high - low > 1e-9 else { return nil }
+    return skill.answer(probabilities: hypotheses, cutoff: cutoff)
   }
 
   /// How many times the skill's model has been loaded; at most once (tests).

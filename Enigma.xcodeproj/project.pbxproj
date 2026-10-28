@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AA90B85473C0DCFC106B4561 /* Enigma/Intent/IntentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */; };
+		452A891F3CC5D57C311AEB80 /* Enigma/Resources/IntentModels/IntentSearch.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 0BCD7E37495BAD9D621511E6 /* Enigma/Resources/IntentModels/IntentSearch.mlmodel */; };
 		BFAD38A1FF9C3D0CDA1F986E /* Enigma/Intent/IntentPins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */; };
 		232E2D4E8B56903A5287C674 /* EnigmaTests/IntentModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */; };
 		C300E7E0083C6EC970C1D128 /* EnigmaTests/IntentScoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2129912C232C57A501D5BED /* EnigmaTests/IntentScoreTests.swift */; };
@@ -232,6 +233,7 @@
 
 /* Begin PBXFileReference section */
 		B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentModels.swift"; sourceTree = SOURCE_ROOT; };
+		0BCD7E37495BAD9D621511E6 /* Enigma/Resources/IntentModels/IntentSearch.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = "Enigma/Resources/IntentModels/IntentSearch.mlmodel"; sourceTree = SOURCE_ROOT; };
 		6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Intent/IntentPins.swift"; sourceTree = SOURCE_ROOT; };
 		9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/IntentModelsTests.swift"; sourceTree = SOURCE_ROOT; };
 		B2129912C232C57A501D5BED /* EnigmaTests/IntentScoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/IntentScoreTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -472,6 +474,7 @@
 			children = (
 				B736E1A1C629A5BCFD20FA97 /* Enigma/Intent/IntentModels.swift */,
 				6BD232C263483DEF3B856D57 /* Enigma/Intent/IntentPins.swift */,
+				0BCD7E37495BAD9D621511E6 /* Enigma/Resources/IntentModels/IntentSearch.mlmodel */,
 				9DC92B173EF0FF91AF51529D /* EnigmaTests/IntentModelsTests.swift */,
 				B2129912C232C57A501D5BED /* EnigmaTests/IntentScoreTests.swift */,
 				DB840E58D12CA559AC052091 /* IntentTraining/IntentTrainingSupport.swift */,
@@ -868,6 +871,7 @@
 			files = (
 				AA90B85473C0DCFC106B4561 /* Enigma/Intent/IntentModels.swift in Sources */,
 				BFAD38A1FF9C3D0CDA1F986E /* Enigma/Intent/IntentPins.swift in Sources */,
+				452A891F3CC5D57C311AEB80 /* Enigma/Resources/IntentModels/IntentSearch.mlmodel in Sources */,
 				6CE027E14079CA01D5E1E1B9 /* Enigma/Intent/IntentSkill.swift in Sources */,
 				4E93BDE4E87ADADBAD41E17F /* Enigma/Intent/IntentText.swift in Sources */,
 				0AA8637ACCD55E970535A148 /* Enigma/App/EnigmaAppIcon.swift in Sources */,

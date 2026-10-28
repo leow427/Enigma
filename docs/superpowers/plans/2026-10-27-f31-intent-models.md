@@ -245,7 +245,7 @@ stays in its brief.
 | --- | --- | --- | --- |
 | CP0 | done | 3 | Q1 yes here (CI pending), Q2 BERT 6.4 ms > 5 ms chip budget so chips are maxEnt, Q3 yes, Q4 yes; owner approved type choice within speed limits and `--kind` skipping limits |
 | CP1 | done | 2 (owner skipped a third) | Q1 yes on CI too, `allowsBERT` true; examples for six skills; owner spot-check 0 of 100 wrong; baseline accuracies search 0.760, messages 0.868, think 0.888, selection 0.762, coding 0.664, reasoning 0.676; owner: in-depth coding counts as reasoning too |
-| CP2 | not started | | |
+| CP2 | done | 3 | search switched: test 0.891 vs rules 0.760, wrong-yes 0.081 vs 0.183, must-pass 0 of 32 failed, floor 0.871; maxEnt (BERT over 5 ms); 1 pin; tie answers no; owner widened `optOut` and added "texted me" to the own-communications rule; "news Sam texted me" uses Messages |
 | CP3 | not started | | |
 | CP4 | not started | | |
 | CP5 | not started | | |

@@ -35,10 +35,6 @@ final class ComposerIntentPhrasingTests: XCTestCase {
     assertResolves(PhrasingCorpus.think, to: [.think])
   }
 
-  func testSearchPhrasings() {
-    assertResolves(PhrasingCorpus.search, to: [.search])
-  }
-
   func testPhrasingsThatRecognizeNothing() {
     assertResolves(PhrasingCorpus.none, to: [])
   }

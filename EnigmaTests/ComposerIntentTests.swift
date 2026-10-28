@@ -263,7 +263,11 @@ final class ComposerIntentResolveTests: XCTestCase {
   }
 
   func testDismissedMessagesLetsSearchApply() {
-    let intent = resolve("what's the latest news Sam texted me", searchesAutomatically: true, dismissed: [.messages])
+    // A follow-up after a Messages turn that also reads as news. News someone texted the person never
+    // searches (owner, 2026-10-27; `WebSearchTests.testNewsSomeoneTextedMeNeverSearches`).
+    let draft = "what about the latest election results?"
+    XCTAssertEqual(resolve(draft, previousTurnUsedMessages: true, searchesAutomatically: true).inferred, [.messages])
+    let intent = resolve(draft, previousTurnUsedMessages: true, searchesAutomatically: true, dismissed: [.messages])
     XCTAssertEqual(intent.inferred, [.search])
     XCTAssertFalse(intent.messages)
   }

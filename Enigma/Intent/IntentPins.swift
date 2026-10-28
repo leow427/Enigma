@@ -6,8 +6,13 @@ import Foundation
 struct IntentPins: Sendable {
   static let maximumPerSkill = 20
 
-  /// The app's pins; empty until a must-pass example needs one.
-  static let shipped = IntentPins([:])
+  /// The app's pins. Each one fixes a must-pass example that more training examples didn't.
+  static let shipped = IntentPins([
+    .search: [
+      // "summarize this article: …": text pasted after the colon is material to transform, not a question.
+      (#"^(?:(?:please|can you|could you) )?(?:summari[sz]e|tl;?dr|proofread|rewrite|rephrase|paraphrase|translate|shorten|condense) (?:this|the following|that)\b(?! (?:past )?(?:week|weekend|month|year|morning|afternoon|evening|season)(?:'?s)?\b)[^:]{0,40}:"#, "no"),
+    ],
+  ])
 
   private let table: [IntentSkill: [Pin]]
 

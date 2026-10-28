@@ -30,3 +30,4 @@
 {"text": "what's in the current file", "label": "no", "why": "doc: own work, not fresh information"}
 {"text": "summarize my latest draft", "label": "no", "why": "doc: own work"}
 {"text": "what are the latest SMS rules for my store", "label": "no", "why": "doc: held back by the own-communications rule; type /search for those"}
+{"text": "what's the latest news Sam texted me", "label": "no", "why": "owner (2026-10-27): news someone texted the person is their own messages; Messages, never search"}

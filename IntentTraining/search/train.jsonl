@@ -51,7 +51,6 @@
 {"text": "check my messages", "label": "no", "nearMiss": true}
 {"text": "did Alex reply yet?", "label": "no"}
 {"text": "has Mom texted back?", "label": "no"}
-{"text": "what's the latest news Sam texted me", "label": "no", "nearMiss": true}
 {"text": "who texted me last?", "label": "no"}
 {"text": "what did my boss say in his last text", "label": "no", "nearMiss": true}
 {"text": "summarize my texts from today", "label": "no", "nearMiss": true}
@@ -2019,3 +2018,314 @@
 {"text": "did i get any calls today\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.", "label": "no", "nearMiss": true}
 {"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nwhat did you say in your last message", "label": "no", "nearMiss": true}
 {"text": "summarize my emails from today\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "no", "nearMiss": true}
+{"text": "summarize this post: breaking updates on the rail strike this morning", "label": "no", "nearMiss": true}
+{"text": "Summarize this thread: today's headlines about the heat wave", "label": "no", "nearMiss": true}
+{"text": "tl;dr this: the latest earnings news for tech stocks", "label": "no", "nearMiss": true}
+{"text": "proofread this paragraph: Breaking news tonight, the council voted to close the bridge", "label": "no", "nearMiss": true}
+{"text": "rewrite this headline: latest storm updates for the coast", "label": "no", "nearMiss": true}
+{"text": "make this shorter: today's update on the election count", "label": "no", "nearMiss": true}
+{"text": "fix the grammar in this: the newest phone release is happening tomorrow", "label": "no", "nearMiss": true}
+{"text": "translate this to french: latest news from the summit in geneva", "label": "no", "nearMiss": true}
+{"text": "paraphrase this tweet: who won the game last night? we did!", "label": "no", "nearMiss": true}
+{"text": "summarize the following: recent developments in battery research", "label": "no", "nearMiss": true}
+{"text": "Summarize this email from the newsletter: this week's top stories", "label": "no", "nearMiss": true}
+{"text": "turn this into bullet points: today's market news and the bitcoin price", "label": "no", "nearMiss": true}
+{"text": "can you condense this press release: new products announced today", "label": "no", "nearMiss": true}
+{"text": "rephrase this so it sounds friendlier: the latest schedule changes take effect tomorrow", "label": "no", "nearMiss": true}
+{"text": "summarize this transcript: the CEO's remarks at this morning's earnings call", "label": "no", "nearMiss": true}
+{"text": "proofread: Current weather in Lisbon is sunny and 24 degrees", "label": "no", "nearMiss": true}
+{"text": "list the files in this project's root", "label": "no", "nearMiss": true}
+{"text": "summarize the current file for me", "label": "no", "nearMiss": true}
+{"text": "what does the current file do", "label": "no", "nearMiss": true}
+{"text": "show me the latest commit message", "label": "no", "nearMiss": true}
+{"text": "what changed in the current branch", "label": "no", "nearMiss": true}
+{"text": "explain the current diff", "label": "no", "nearMiss": true}
+{"text": "what's in my current working directory", "label": "no", "nearMiss": true}
+{"text": "read the latest log entries and tell me what failed", "label": "no", "nearMiss": true}
+{"text": "what's the current selection about", "label": "no", "nearMiss": true}
+{"text": "describe the latest draft i wrote", "label": "no", "nearMiss": true}
+{"text": "which tests are in the current file", "label": "no", "nearMiss": true}
+{"text": "what's the most recent function i added", "label": "no", "nearMiss": true}
+{"text": "what's the true meaning of christmas", "label": "no", "nearMiss": true}
+{"text": "why do we celebrate thanksgiving", "label": "no", "nearMiss": true}
+{"text": "what is the spirit of the holiday season", "label": "no", "nearMiss": true}
+{"text": "what's the point of new year's resolutions", "label": "no", "nearMiss": true}
+{"text": "what's the reason we celebrate easter", "label": "no", "nearMiss": true}
+{"text": "which season comes after autumn", "label": "no", "nearMiss": true}
+{"text": "why do seasons change", "label": "no", "nearMiss": true}
+{"text": "what's the meaning behind the festival of lights", "label": "no", "nearMiss": true}
+{"text": "search online for the city's recycling pickup schedule", "label": "yes"}
+{"text": "pull up the aquarium's ticket prices online", "label": "yes"}
+{"text": "go online and find user ratings for that new espresso grinder", "label": "yes"}
+{"text": "find out on the web if the ski lifts are running", "label": "yes"}
+{"text": "can you find online when the library reopens", "label": "yes"}
+{"text": "look up online what the parking rules are downtown this weekend", "label": "yes"}
+{"text": "please verify online that the concert is still on", "label": "yes"}
+{"text": "hunt the web for a cheap hotel in porto next month", "label": "yes"}
+{"text": "browse the web and find the opening date of the new stadium", "label": "yes"}
+{"text": "go online and check the train delays", "label": "yes"}
+{"text": "look up the box office numbers online", "label": "yes"}
+{"text": "find the current gas prices online", "label": "yes"}
+{"text": "what's the latest from NASA", "label": "yes"}
+{"text": "any word from the white house today", "label": "yes"}
+{"text": "what's the latest from the fed", "label": "yes"}
+{"text": "what's new from nintendo", "label": "yes"}
+{"text": "what's the latest from the mayor's office", "label": "yes"}
+{"text": "anything new from the city council this week", "label": "yes"}
+{"text": "what's the latest from the transit authority on the strike", "label": "yes"}
+{"text": "what's the latest from Taylor Swift", "label": "yes"}
+{"text": "latest statement from the ministry of health", "label": "yes"}
+{"text": "what's the most recent update from the airline about the outage", "label": "yes"}
+{"text": "thank you!", "label": "no"}
+{"text": "ok thanks", "label": "no"}
+{"text": "cool, thanks", "label": "no"}
+{"text": "great, thanks a lot", "label": "no"}
+{"text": "thanks so much", "label": "no"}
+{"text": "perfect, thank you", "label": "no"}
+{"text": "awesome thanks!", "label": "no"}
+{"text": "appreciate it", "label": "no"}
+{"text": "got it, thanks", "label": "no"}
+{"text": "who is the current governor of oregon", "label": "yes"}
+{"text": "who's the current ceo of boeing", "label": "yes"}
+{"text": "what's the current population of canada", "label": "yes"}
+{"text": "who is the current world chess champion", "label": "yes"}
+{"text": "what's the current interest rate set by the ecb", "label": "yes"}
+{"text": "how much is platinum going for right now", "label": "yes"}
+{"text": "who is the current president of brazil", "label": "yes"}
+{"text": "who manages the yankees at the moment", "label": "yes"}
+{"text": "what's the current unemployment rate in the uk", "label": "yes"}
+{"text": "which country tops the medal table right now", "label": "yes"}
+{"text": "what's the current status of the mars rover", "label": "yes"}
+{"text": "how long is the line at the dmv right now", "label": "yes"}
+{"text": "refactor the function that fetches today's weather data", "label": "no", "nearMiss": true}
+{"text": "write a unit test for the latest version of my parser", "label": "no", "nearMiss": true}
+{"text": "why does my build fail since the latest xcode update", "label": "no", "nearMiss": true}
+{"text": "debug the crash i got this morning in my app", "label": "no", "nearMiss": true}
+{"text": "rename the latest migration file", "label": "no", "nearMiss": true}
+{"text": "add logging to the code that loads current exchange rates", "label": "no", "nearMiss": true}
+{"text": "what does the newest commit on my branch change", "label": "no", "nearMiss": true}
+{"text": "revert the most recent change in my repo", "label": "no", "nearMiss": true}
+{"text": "why is the latest build of my app so slow", "label": "no", "nearMiss": true}
+{"text": "write a swift struct for a news article with a headline and date", "label": "no", "nearMiss": true}
+{"text": "explain this stack trace from today's crash", "label": "no", "nearMiss": true}
+{"text": "clean up the current module and remove dead code", "label": "no", "nearMiss": true}
+{"text": "what's wrong with the date formatting in today's log output", "label": "no", "nearMiss": true}
+{"text": "fix the failing test in the latest pull request i opened", "label": "no", "nearMiss": true}
+{"text": "generate sample json for a weather forecast api", "label": "no", "nearMiss": true}
+{"text": "how should i name the variable that stores the current price", "label": "no", "nearMiss": true}
+{"text": "review my latest diff for bugs", "label": "no", "nearMiss": true}
+{"text": "optimize the query that returns today's orders", "label": "no", "nearMiss": true}
+{"text": "show the last five commits in my project", "label": "no", "nearMiss": true}
+{"text": "write a regex that matches dates like 2026-10-27", "label": "no", "nearMiss": true}
+{"text": "rewrite my headline about the election so it's punchier", "label": "no", "nearMiss": true}
+{"text": "translate my note about tomorrow's meeting into german", "label": "no", "nearMiss": true}
+{"text": "make my update on the storm cleanup sound more upbeat", "label": "no", "nearMiss": true}
+{"text": "turn these notes on today's standup into an email", "label": "no", "nearMiss": true}
+{"text": "proofread my post about the new phone launch", "label": "no", "nearMiss": true}
+{"text": "shorten my summary of the conference keynote", "label": "no", "nearMiss": true}
+{"text": "reword the announcement i wrote for the new release", "label": "no", "nearMiss": true}
+{"text": "draft a tweet about our product launch tomorrow", "label": "no", "nearMiss": true}
+{"text": "write a short story set during next year's world cup", "label": "no", "nearMiss": true}
+{"text": "compose a limerick about the stock market", "label": "no", "nearMiss": true}
+{"text": "imagine it's 2040, what does a typical news site look like", "label": "no", "nearMiss": true}
+{"text": "pretend you're a news anchor and read me a made up headline", "label": "no", "nearMiss": true}
+{"text": "role-play a sports commentator calling a fictional final", "label": "no", "nearMiss": true}
+{"text": "what would the weather be like on a planet with two suns", "label": "no", "nearMiss": true}
+{"text": "invent a breaking news story about a dragon in paris", "label": "no", "nearMiss": true}
+{"text": "if you were president, what would you do first", "label": "no", "nearMiss": true}
+{"text": "make up a sports chant for a team of wizards", "label": "no", "nearMiss": true}
+{"text": "write a fake press release for a time machine", "label": "no", "nearMiss": true}
+{"text": "when was the magna carta signed", "label": "no", "nearMiss": true}
+{"text": "who sculpted the statue of david", "label": "no", "nearMiss": true}
+{"text": "what started the hundred years' war", "label": "no", "nearMiss": true}
+{"text": "when did humans first land on the moon", "label": "no", "nearMiss": true}
+{"text": "what caused the great depression", "label": "no", "nearMiss": true}
+{"text": "how did the cold war end", "label": "no", "nearMiss": true}
+{"text": "which year did the hindenburg disaster happen", "label": "no", "nearMiss": true}
+{"text": "how many strings does a cello have", "label": "no", "nearMiss": true}
+{"text": "how many bones are in the human hand", "label": "no", "nearMiss": true}
+{"text": "\ud83d\udc4d", "label": "no"}
+{"text": "\ud83d\ude42", "label": "no"}
+{"text": "\u2764\ufe0f", "label": "no"}
+{"text": "\ud83d\ude02", "label": "no"}
+{"text": "\ud83d\ude4f", "label": "no"}
+{"text": "\ud83c\udf89", "label": "no"}
+{"text": "\ud83d\udc40", "label": "no"}
+{"text": "\ud83e\udd14", "label": "no"}
+{"text": "ok", "label": "no"}
+{"text": "okay", "label": "no"}
+{"text": "k", "label": "no"}
+{"text": "sure", "label": "no"}
+{"text": "yep", "label": "no"}
+{"text": "nope", "label": "no"}
+{"text": "yes", "label": "no"}
+{"text": "no", "label": "no"}
+{"text": "lol", "label": "no"}
+{"text": "haha", "label": "no"}
+{"text": "hmm", "label": "no"}
+{"text": "wow", "label": "no"}
+{"text": "nice", "label": "no"}
+{"text": "cool", "label": "no"}
+{"text": "ty", "label": "no"}
+{"text": "thx", "label": "no"}
+{"text": "np", "label": "no"}
+{"text": "next", "label": "no"}
+{"text": "go on", "label": "no"}
+{"text": "continue", "label": "no"}
+{"text": "more", "label": "no"}
+{"text": "again", "label": "no"}
+{"text": "and then?", "label": "no"}
+{"text": "really?", "label": "no"}
+{"text": "why?", "label": "no"}
+{"text": "how so?", "label": "no"}
+{"text": "?", "label": "no"}
+{"text": "??", "label": "no"}
+{"text": "!", "label": "no"}
+{"text": "...", "label": "no"}
+{"text": "good night", "label": "no"}
+{"text": "hey there", "label": "no"}
+{"text": "bye", "label": "no"}
+{"text": "see you", "label": "no"}
+{"text": "1", "label": "no"}
+{"text": "42", "label": "no"}
+{"text": "100", "label": "no"}
+{"text": "3.14", "label": "no"}
+{"text": "hola, \u00bfc\u00f3mo est\u00e1s?", "label": "no"}
+{"text": "\u00bfqu\u00e9 hora es en madrid?", "label": "no"}
+{"text": "\u00bfcu\u00e1l es el precio del oro hoy?", "label": "no"}
+{"text": "\u00bfqui\u00e9n es el presidente de francia?", "label": "no"}
+{"text": "bonjour, \u00e7a va ?", "label": "no"}
+{"text": "quel temps fait-il \u00e0 lyon demain ?", "label": "no"}
+{"text": "quelles sont les infos du jour ?", "label": "no"}
+{"text": "guten tag", "label": "no"}
+{"text": "wie sp\u00e4t ist es in wien?", "label": "no"}
+{"text": "was gibt es neues heute?", "label": "no"}
+{"text": "wer hat gestern das spiel gewonnen?", "label": "no"}
+{"text": "ciao, come stai?", "label": "no"}
+{"text": "che tempo fa a roma domani?", "label": "no"}
+{"text": "ol\u00e1, tudo bem?", "label": "no"}
+{"text": "quais s\u00e3o as not\u00edcias de hoje?", "label": "no"}
+{"text": "\u043f\u0440\u0438\u0432\u0435\u0442, \u043a\u0430\u043a \u0434\u0435\u043b\u0430?", "label": "no"}
+{"text": "\u043a\u0430\u043a\u0430\u044f \u043f\u043e\u0433\u043e\u0434\u0430 \u0432 \u043c\u043e\u0441\u043a\u0432\u0435 \u0437\u0430\u0432\u0442\u0440\u0430?", "label": "no"}
+{"text": "\u4f60\u597d", "label": "no"}
+{"text": "\u660e\u5929\u5929\u6c14\u600e\u4e48\u6837", "label": "no"}
+{"text": "\u3053\u3093\u306b\u3061\u306f", "label": "no"}
+{"text": "\u4eca\u65e5\u306e\u30cb\u30e5\u30fc\u30b9\u306f\u4f55\u3067\u3059\u304b", "label": "no"}
+{"text": "merci", "label": "no"}
+{"text": "gracias", "label": "no"}
+{"text": "danke sch\u00f6n", "label": "no"}
+{"text": "obrigado", "label": "no"}
+{"text": "grazie mille", "label": "no"}
+{"text": "morning!", "label": "no"}
+{"text": "good morning to you", "label": "no"}
+{"text": "morning, how are you doing", "label": "no"}
+{"text": "what a lovely morning", "label": "no"}
+{"text": "i love slow sunday mornings", "label": "no"}
+{"text": "good morning, can you help me with something", "label": "no"}
+{"text": "next one", "label": "no"}
+{"text": "next please", "label": "no"}
+{"text": "ok next", "label": "no"}
+{"text": "next question", "label": "no"}
+{"text": "what's next in this recipe", "label": "no"}
+{"text": "show me the next step", "label": "no"}
+{"text": "and the next part?", "label": "no"}
+{"text": "go to the next slide idea", "label": "no"}
+{"text": "what's the price of ethereum?", "label": "yes"}
+{"text": "what's a bushel of wheat selling for this week?", "label": "yes"}
+{"text": "what's the going rate for copper right now", "label": "yes"}
+{"text": "is the ps5 still in stock anywhere?", "label": "yes"}
+{"text": "are tickets still available for the show on friday?", "label": "yes"}
+{"text": "is the blue model still for sale?", "label": "yes"}
+{"text": "what's the latest research on sleep and memory?", "label": "yes"}
+{"text": "what does recent research say about intermittent fasting?", "label": "yes"}
+{"text": "what is the newest research on long covid?", "label": "yes"}
+{"text": "can you look it up for me: when does the pharmacy open", "label": "yes"}
+{"text": "look it up: who won the derby this year", "label": "yes"}
+{"text": "please look that up online, the new tax brackets", "label": "yes"}
+{"text": "look up online who's playing at the arena tonight", "label": "yes"}
+{"text": "could you look it up and tell me if the museum is open today", "label": "yes"}
+{"text": "What are the latest options for this product?", "label": "yes"}
+{"text": "What is the latest news about this?", "label": "yes"}
+{"text": "what's the latest on this?", "label": "yes"}
+{"text": "any recent news about this company?", "label": "yes"}
+{"text": "what are the newest reviews of this laptop?", "label": "yes"}
+{"text": "what's the current price of this item?", "label": "yes"}
+{"text": "are there newer models of this car?", "label": "yes"}
+{"text": "what are today's updates on this story?", "label": "yes"}
+{"text": "is there any news about this recall?", "label": "yes"}
+{"text": "what's the most recent version of this app?", "label": "yes"}
+{"text": "what's the meaning of this phrase", "label": "no", "nearMiss": true}
+{"text": "what's the origin of this saying", "label": "no", "nearMiss": true}
+{"text": "what's the context of this poem", "label": "no", "nearMiss": true}
+{"text": "what's the source of this proverb", "label": "no", "nearMiss": true}
+{"text": "what's the theme of this song", "label": "no", "nearMiss": true}
+{"text": "what's the moral of this story", "label": "no", "nearMiss": true}
+{"text": "what does this idiom mean", "label": "no", "nearMiss": true}
+{"text": "what's the background of this painting", "label": "no", "nearMiss": true}
+{"text": "what's the tone of this paragraph", "label": "no", "nearMiss": true}
+{"text": "what's the main idea of this essay", "label": "no", "nearMiss": true}
+{"text": "what's the symbolism in this scene", "label": "no", "nearMiss": true}
+{"text": "what's the history behind this word", "label": "no", "nearMiss": true}
+{"text": "what's the latest from Elon", "label": "yes"}
+{"text": "what's the latest from Jerome Powell", "label": "yes"}
+{"text": "what's the latest from Messi", "label": "yes"}
+{"text": "what's the latest from Drake", "label": "yes"}
+{"text": "what's the latest from Zelensky", "label": "yes"}
+{"text": "what's the latest from Oprah", "label": "yes"}
+{"text": "what's the latest from Beyonce", "label": "yes"}
+{"text": "what's the latest from the pope", "label": "yes"}
+{"text": "what's the latest from Spielberg", "label": "yes"}
+{"text": "what's the latest from Serena", "label": "yes"}
+{"text": "whats the latest from obama", "label": "yes"}
+{"text": "what's the latest from Greta Thunberg", "label": "yes"}
+{"text": "pretend you're my coach and give me a pep talk before the final", "label": "no", "nearMiss": true}
+{"text": "act as a meteorologist and explain why fog forms", "label": "no", "nearMiss": true}
+{"text": "roleplay a tv host introducing the evening headlines segment", "label": "no", "nearMiss": true}
+{"text": "pretend you're a sports announcer and describe a buzzer beater", "label": "no", "nearMiss": true}
+{"text": "imagine you're running for mayor and write your opening speech", "label": "no", "nearMiss": true}
+{"text": "play a news anchor and practise reading a weather segment with me", "label": "no", "nearMiss": true}
+{"text": "pretend we're at a press conference and you're the team captain", "label": "no", "nearMiss": true}
+{"text": "act like a stock broker and teach me what a limit order is", "label": "no", "nearMiss": true}
+{"text": "imagine you won the election, what's your victory speech", "label": "no", "nearMiss": true}
+{"text": "pretend you're a radio dj announcing today's top song", "label": "no", "nearMiss": true}
+{"text": "roleplay a referee explaining a penalty call", "label": "no", "nearMiss": true}
+{"text": "be a weather presenter and practise the five day forecast segment with me", "label": "no", "nearMiss": true}
+{"text": "pretend it's the morning news and you're interviewing me about my garden", "label": "no", "nearMiss": true}
+{"text": "imagine you're a war correspondent describing a battle in ancient rome", "label": "no", "nearMiss": true}
+{"text": "act as a campaign manager and help me write a slogan", "label": "no", "nearMiss": true}
+{"text": "night!", "label": "no"}
+{"text": "night night", "label": "no"}
+{"text": "nighty night", "label": "no"}
+{"text": "sleep well tonight", "label": "no"}
+{"text": "have a good night", "label": "no"}
+{"text": "talk to you tomorrow", "label": "no"}
+{"text": "see you tomorrow!", "label": "no"}
+{"text": "catch you tomorrow", "label": "no"}
+{"text": "until tomorrow then", "label": "no"}
+{"text": "happy new year!", "label": "no"}
+{"text": "happy new year to you too", "label": "no"}
+{"text": "merry christmas", "label": "no"}
+{"text": "happy holidays", "label": "no"}
+{"text": "good luck tonight!", "label": "no"}
+{"text": "good luck tomorrow", "label": "no"}
+{"text": "break a leg tonight", "label": "no"}
+{"text": "that's great news!", "label": "no"}
+{"text": "great news, thanks", "label": "no"}
+{"text": "what wonderful news", "label": "no"}
+{"text": "sorry to hear that news", "label": "no"}
+{"text": "have a great weekend", "label": "no"}
+{"text": "enjoy your evening", "label": "no"}
+{"text": "see you next week", "label": "no"}
+{"text": "congrats on the new job", "label": "no"}
+{"text": "sweet dreams", "label": "no"}
+{"text": "have fun tonight", "label": "no"}
+{"text": "thanks, see you tomorrow", "label": "no"}
+{"text": "good night and thanks for the help", "label": "no"}
+{"text": "let's talk tomorrow", "label": "no"}
+{"text": "ok, talk tomorrow then", "label": "no"}
+{"text": "chat tomorrow", "label": "no"}
+{"text": "speak tomorrow", "label": "no"}
+{"text": "talk soon", "label": "no"}
+{"text": "talk later", "label": "no"}
+{"text": "we'll talk tomorrow, bye", "label": "no"}
+{"text": "talk more tomorrow", "label": "no"}

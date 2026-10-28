@@ -74,6 +74,28 @@ final class IntentModelsTests: XCTestCase {
     XCTAssertEqual(Set(probabilities?.keys.map { $0 } ?? []), ["yes", "no"])
   }
 
+  /// A model that knows no word of a draft gives every label the same probability; that's no answer.
+  func testTiedProbabilitiesAnswerNegative() throws {
+    let models = IntentModels(compiledModelsIn: compiledModels)
+    for text in ["🙂", "zzqx"] {
+      let probabilities = try XCTUnwrap(models.probabilities(.search, for: text), text)
+      XCTAssertEqual(probabilities["yes"] ?? 0, probabilities["no"] ?? 1, accuracy: 1e-9, text)
+      XCTAssertEqual(models.answer(.search, cleaned: text), "no", text)
+    }
+    XCTAssertEqual(IntentSkill.search.answer(probabilities: ["yes": 0.5, "no": 0.5], cutoff: 0.5), "yes")
+  }
+
+  /// The tie rule itself, at a cut-off a tie would otherwise pass.
+  func testAnswerFromHypothesesSkipsTies() {
+    XCTAssertNil(IntentModels.answer(.search, hypotheses: ["yes": 0.5, "no": 0.5], cutoff: 0.5))
+    XCTAssertNil(IntentModels.answer(.selection, hypotheses: ["edit": 1 / 3, "translate": 1 / 3, "none": 1 / 3], cutoff: 0.3))
+    XCTAssertNil(IntentModels.answer(.search, hypotheses: [:], cutoff: 0.5))
+    XCTAssertEqual(IntentModels.answer(.search, hypotheses: ["yes": 0.51, "no": 0.49], cutoff: 0.5), "yes")
+    XCTAssertEqual(IntentModels.answer(.search, hypotheses: ["yes": 0.49, "no": 0.51], cutoff: 0.5), "no")
+    XCTAssertEqual(IntentModels.answer(.selection, hypotheses: ["edit": 0.34, "translate": 0.33, "none": 0.33], cutoff: 0.3),
+                   "translate")
+  }
+
   func testMissingModelAnswersNegative() {
     let models = IntentModels(compiledModelsIn: emptyFolder)
     XCTAssertNil(models.info(.messages))
@@ -171,6 +193,25 @@ final class IntentModelsTests: XCTestCase {
     let expected = models.answer(.search, cleaned: "latest news about the election")
     DispatchQueue.concurrentPerform(iterations: 200) { _ in
       XCTAssertEqual(models.answer(.search, cleaned: "latest news about the election"), expected)
+    }
+  }
+
+  func testShippedSearchModelLoads() throws {
+    let info = try XCTUnwrap(IntentModels.shared.info(.search), "IntentSearch.mlmodel isn't in the app bundle")
+    let training = try Data(contentsOf: IntentExamples.url(.search, "train"))
+    XCTAssertEqual(info.trainingFingerprint, IntentTrainingSupport.fingerprint(training))
+  }
+
+  /// Pasted text to transform doesn't search; the model alone missed it.
+  func testShippedSearchPins() {
+    for text in ["summarize this article: today's headlines", "proofread the following: breaking news tonight",
+                 "can you translate this paragraph: latest updates"] {
+      XCTAssertEqual(IntentPins.shipped.answer(.search, cleaned: text), "no", text)
+    }
+    for text in ["summarize today's news", "latest news: the summit", "what's this week's news: anything big?",
+                 "summarize this week's top stories: anything on the strike?",
+                 "summarize this weeks top stories: anything on the strike?", "summarize this past week's news: any updates?"] {
+      XCTAssertNil(IntentPins.shipped.answer(.search, cleaned: text), text)
     }
   }
 

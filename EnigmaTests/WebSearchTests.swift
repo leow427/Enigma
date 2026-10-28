@@ -185,6 +185,109 @@ final class WebSearchTests: XCTestCase {
     XCTAssertTrue(typed.search, "A typed /search still searches")
   }
 
+  /// The privacy rules decide before the search model is asked, and location questions always search.
+  func testSearchGatesRunBeforeTheModel() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in ["did my sister text me about the game score tonight", "what were the latest messages from my dad",
+                   "who won the game last night? don't search", "what was the first message I sent you"] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+    for prompt in ["good coffee near me", "will it rain tomorrow"] {
+      XCTAssertTrue(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+  }
+
+  /// The gates hold whatever the model says: with a model that always says yes, they still say no,
+  /// and with one that always says no, location questions still search.
+  func testSearchGatesHoldWhateverTheModelSays() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    let alwaysYes = IntentModels(bundle: .main, pins: IntentPins([.search: [(".", "yes")]]))
+    let alwaysNo = IntentModels(bundle: .main, pins: IntentPins([.search: [(".", "no")]]))
+    func search(_ prompt: String, _ models: IntentModels) -> Bool {
+      WebSearchPolicy.needsFreshInformation(normalized: WebSearchPolicy.questionText(prompt), now: date, models: models)
+    }
+    for prompt in ["did my sister text me about the game score tonight", "what were the latest messages from my dad",
+                   "what did mom say today", "who won the game last night? don't search",
+                   "what was the first message I sent you", "you told me the score earlier, what was it", "  ",
+                   // Location questions too: the privacy rules decide before location does.
+                   "did my sister text me about cafes near me", "what did mom say about the weather today",
+                   "what did my boss email me about restaurants nearby",
+                   "the first message i sent you was about cafes near me, find more"] {
+      XCTAssertFalse(search(prompt, alwaysYes), prompt)
+    }
+    XCTAssertTrue(search("tell me a joke", alwaysYes), "The stub model is the one asked")
+    for prompt in ["good coffee near me", "will it rain tomorrow"] {
+      XCTAssertTrue(search(prompt, alwaysNo), prompt)
+    }
+    XCTAssertFalse(search("latest news today", alwaysNo), "The stub model is the one asked")
+  }
+
+  /// "Don't search" in other words is still an opt-out, and it keeps the location unread too.
+  /// The opt-out is a rule, so it holds even with a model that always says yes.
+  func testLooselyWordedOptOutsNeverSearch() {
+    let alwaysYes = IntentModels(bundle: .main, pins: IntentPins([.search: [(".", "yes")]]))
+    func search(_ prompt: String) -> Bool {
+      WebSearchPolicy.needsFreshInformation(normalized: WebSearchPolicy.questionText(prompt), models: alwaysYes)
+    }
+    for prompt in ["please don't look anything up. what's new with the strike?", "don't look it up, who won?",
+                   "without looking anything up, what's the latest phone?", "don't bother looking anything up: today's news",
+                   "please don't google it. who's leading the tournament right now?", "do not google anything, who runs apple now",
+                   "no searching please, latest news on the strike", "no lookups, who won the game last night",
+                   "no googling: what's the score", "without checking online, what's the newest xcode",
+                   "answer from memory: who is the president right now", "just from memory, what's bitcoin at",
+                   "don't google it, cafes near me", "skip the web search, who won the game", "skip searching, latest scores",
+                   "avoid googling, latest iphone price", "please refrain from searching: latest news",
+                   "offline please: today's top headlines", "offline only, who's the ceo of apple",
+                   "offline answer only: cafes near me", "who's the ceo of apple? offline only",
+                   "offline answers only please, will it rain tomorrow", "please don't google, just tell me"] {
+      XCTAssertFalse(search(prompt), prompt)
+    }
+    XCTAssertFalse(LocationIntent.needsLocation("don't google it, cafes near me"))
+    XCTAssertFalse(LocationIntent.needsLocation("offline answer only: cafes near me"))
+    XCTAssertTrue(LocationIntent.needsLocation("are there any arcades near me that are offline only"))
+    // Questions that only mention Google, or being online, aren't opt-outs.
+    for prompt in ["why don't you look it up online", "look it up online: the ferry schedule", "no wonder it's raining",
+                   "which stores near me don't take google pay", "best places near me to work without being online",
+                   "what countries do not allow google right now",
+                   "can i buy tickets for tonight's game without registering online",
+                   "skip the intro and give me today's headlines", "is the store offline today",
+                   "is the new zelda game offline only", "are there any arcades near me that are offline only",
+                   "why don't google maps directions show traffic near me today",
+                   "how can i avoid browsing data leaks after the latest chrome breach"] {
+      XCTAssertTrue(search(prompt), prompt)
+    }
+    XCTAssertTrue(LocationIntent.needsLocation("which stores near me don't take google pay"))
+    XCTAssertTrue(LocationIntent.needsLocation("best places near me to work without being online"))
+  }
+
+  /// Recognition is English-only, and replies with no question in them never search.
+  func testDraftsWithoutAnEnglishQuestionDontSearch() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    for prompt in ["👍", "🙂", "❤️", "?", "ty", "thanks!", "ok", "sure", "lol", "haha", "hmm", "wow", "next", "go on",
+                   "good morning", "good night", "talk tomorrow", "happy new year", "42", "hola", "danke", "merci beaucoup", "¿quién ganó el partido anoche?",
+                   "Wie wird das Wetter morgen in Berlin?", "Quelles sont les dernières nouvelles?", "今天有什么新闻"] {
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(prompt, now: date), prompt)
+    }
+  }
+
+  /// Owner, 2026-10-27: news someone texted the person is their own messages, never a web search.
+  /// It's a privacy rule, so it holds even with a model that always says yes.
+  func testNewsSomeoneTextedMeNeverSearches() {
+    let date = Date(timeIntervalSince1970: 1_788_825_600)
+    XCTAssertFalse(WebSearchPolicy.needsFreshInformation("what's the latest news Sam texted me", now: date))
+    let alwaysYes = IntentModels(bundle: .main, pins: IntentPins([.search: [(".", "yes")]]))
+    for prompt in ["what's the latest news jordan texted me about the election", "the article priya messaged me about the strike",
+                   "what's that link alex dm'd me today", "the score my brother texted us last night"] {
+      XCTAssertTrue(WebSearchPolicy.isAboutOwnCommunications(WebSearchPolicy.questionText(prompt)), prompt)
+      XCTAssertFalse(WebSearchPolicy.needsFreshInformation(normalized: WebSearchPolicy.questionText(prompt), now: date,
+                                                           models: alwaysYes), prompt)
+    }
+    XCTAssertFalse(WebSearchPolicy.isAboutOwnCommunications("who texted the most in the senate group chat leak"))
+    let intent = ComposerIntent.resolve(.init(draft: "what's the latest news Sam texted me", infersCommands: true,
+                                              searchesAutomatically: true), now: date)
+    XCTAssertEqual(intent.inferred, [.messages])
+  }
+
   func testTypedSearchStillSearchesPersonalCommunications() async {
     let search = SearchSpy(results: fixtureResults)
     let model = makeModel(search: search, automatic: true)

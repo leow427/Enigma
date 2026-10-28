@@ -10,13 +10,15 @@ enum WebSearchPolicy {
 
   /// `needsFreshInformation` for text already normalized by `questionText`.
   /// The person's own communications never search, even when Messages isn't
-  /// recognized: their contents must not become a web query.
-  static func needsFreshInformation(normalized text: String, now: Date = Date()) -> Bool {
+  /// recognized: their contents must not become a web query. Past these rules,
+  /// location questions search, and the bundled search model decides the rest.
+  static func needsFreshInformation(normalized text: String, now: Date = Date(),
+                                    models: IntentModels = .shared) -> Bool {
     guard !text.isEmpty, !matches(optOut, text), !isAboutOwnCommunications(text), !matches(thisChat, text) else {
       return false
     }
     if LocationIntent.needsLocation(normalized: text) { return true }
-    return needsFreshFacts(text, now: now)
+    return models.answer(.search, cleaned: text, now: now) == "yes"
   }
 
   static func questionText(_ prompt: String) -> String {
@@ -38,30 +40,6 @@ enum WebSearchPolicy {
     return (matches(personalTerm, text) && matches(firstPerson, text)) || matches(ownCommunications, text)
   }
 
-  private static func needsFreshFacts(_ text: String, now: Date) -> Bool {
-    if matches(explicitLookup, text) { return true }
-    guard !matches(transformation, text), !matches(localTask, text) else { return false }
-
-    if matches(recentDevelopments, text) { return true }
-    let asksForFacts = matches(factualRequest, text)
-    if asksForFacts && matches(recency, text) { return true }
-    let year = Calendar(identifier: .gregorian).component(.year, from: now)
-    let years = text.split(whereSeparator: { !$0.isNumber }).compactMap { part -> Int? in
-      guard part.count == 4, let value = Int(part), (1000...2999).contains(value) else { return nil }
-      return value
-    }
-    let historical = years.contains { $0 < year - 1 } || matches(historicalTopic, text)
-    if !historical && !matches(conceptualQuestion, text) && matches(changingFact, text) { return true }
-
-    // A year alone is not a freshness signal (arithmetic and historical questions
-    // stay local). Current/recent event queries can omit words such as "latest".
-    guard asksForFacts && matches(eventTopic, text) else { return false }
-    let recentYears = year - 1...year + 1
-    return fourDigitWord.matches(in: text, range: NSRange(text.startIndex..., in: text)).contains { match in
-      Range(match.range, in: text).flatMap { Int(text[$0]) }.map(recentYears.contains) ?? false
-    }
-  }
-
   private static func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
     pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
@@ -71,15 +49,21 @@ enum WebSearchPolicy {
     try! NSRegularExpression(pattern: pattern)
   }
 
+  /// Unused here since the search model took over; F29's `recency(_:now:)` reads it.
   private static let fourDigitWord = expression(#"\b[0-9]{4}\b"#)
-  private static let optOut = expression(#"\b(?:(?:do not|don't|dont|never) (?:\w+ ){0,3}(?:search|browse|look up|use (?:the )?(?:web|internet))|(?:without|no) (?:\w+ ){0,2}(?:web|internet|browsing|search)|(?:stay|answer|respond|keep (?:this|it)) offline|(?:use|using|from) (?:only )?(?:your (?:own |existing )?knowledge|memory only))\b"#)
-  private static let explicitLookup = expression(#"^(?:(?:please|can you|could you) )?(?:search|browse|check|look up|find|verify)\b.{0,60}\b(?:web|internet|online)\b"#)
+  /// "Don't search" in any of its usual wordings. It runs before the model and before location.
+  private static let optOut = expression(#"\b(?:(?:do not|don't|dont|never) (?:\w+ ){0,3}(?:search|browse|look up|use (?:the )?(?:web|internet))"#
+    // "please don't google it", but not "stores that don't take google pay".
+    + #"|(?:do not|don't|dont|never) (?:even |bother (?:to )?)?google(?: (?:it|this|that|anything|stuff|things|the answer))?(?=[.,;:!?]|$)"#
+    + #"|(?:without|no) (?:\w+ ){0,2}(?:web|internet|browsing|search|searching|googling|look ?ups?)"#
+    + #"|without (?:checking|looking|searching|browsing|going) (?:\w+ ){0,1}online"#
+    // "please don't look anything up", "without looking it up": nothing but "even" or "bother" before "look".
+    + #"|(?:do not|don't|dont|never|without|no need to) (?:even |bother (?:to )?)?look(?:ing)? (?:anything|it|this|that|things|stuff) up"#
+    + #"|skip (?:the )?(?:web |internet |online )?(?:search|searching|googling|lookup)|(?:avoid|refrain from) (?:searching|googling|looking (?:\w+ )?up|(?:using )?the (?:web|internet))"#
+    + #"|(?:stay|answer|respond|keep (?:this|it)) offline|(?:^|[.,;:!?] )offline (?:answers? )?(?:only|please)|(?:use|using|from) (?:only )?(?:your (?:own |existing )?knowledge|memory only)"#
+    + #"|(?:answer|respond|reply|just|only) (?:\w+ ){0,2}from (?:your )?memory)\b"#)
   private static let transformation = expression(#"^(?:(?:please|can you|could you|help me) )?(?:translate|rewrite|rephrase|proofread|paraphrase|(?:write|draft|compose) (?:(?:a|an|me|a short|a new) )?(?:poem|story|email|message|letter|function|script|test)|invent|imagine|roleplay|pretend|debug|refactor|implement|fix (?:this|my|the) (?:code|function|test)|summari[sz]e (?:this|the following|the attached|my))\b"#)
   private static let localTask = expression(#"\b(?:current|latest|recent) (?:file|folder|directory|selection|function|variable|branch|commit|diff|log|chat|conversation|document|draft|code|buffer|working directory)\b"#)
-  private static let factualRequest = expression(#"\b(?:what|who|when|where|which|how|is|are|has|have|did|does|do|can|could|tell me|give me|show me|find|check|compare|summari[sz]e|explain|list|write|update me)\b"#)
-  private static let recency = expression(#"\b(?:latest|recent|recently|newest|breaking|currently|today|yesterday|tonight|tomorrow|right now|up[- ]to[- ]date|this (?:week|weekend|month|year|season)|(?:past|last) (?:night|weekend|week|month|year|\d+ (?:hours|days|weeks))|current (?!in\b|through\b|flow\b|flows\b|density\b|account\b|assets\b|liabilities\b))\b"#)
-  private static let recentDevelopments = expression(#"\b(?:(?:latest|recent|breaking|today'?s|current|new|upcoming) (?:\w+ ){0,3}(?:news|headlines|updates|developments|events|research|studies|announcements|releases|products)|(?:news|headlines|updates) (?:about|on|from|in|for)|what'?s (?:new|happening|going on)|what is (?:new|happening|going on))\b"#)
-  private static let changingFact = expression(#"\b(?:(?:who (?:is|'s)|who's) (?:the )?(?:president|prime minister|ceo|governor|mayor|leader|champion)\b|(?:weather|forecast) (?:in|for|at)\b|(?:will it|is it going to) (?:rain|snow)\b|(?:stock|share|bitcoin|btc|ethereum|eth) price\b|(?:price|value) of (?:bitcoin|btc|ethereum|eth)\b|(?:exchange|mortgage) rates?\b|(?:who (?:won|is winning)|score (?:of|in)|scores? for)\b|(?:when (?:is|does)|what time (?:is|does))\b.{0,60}\b(?:next|play|start|open|close|release)\b|(?:is|are)\b.{0,50}\b(?:open now|still available|in stock)\b)"#)
   private static let personalTerm = expression(#"\b(?:texts|text messages?|imessages?|sms|voicemails?|dms|direct messages|missed calls?)\b"#)
   private static let firstPerson = expression(#"\b(?:my|me|i|i'm|im|our|us)\b"#)
   /// This chat, not anything to look up: "the first message I sent you".
@@ -94,13 +78,12 @@ enum WebSearchPolicy {
     return expression(#"\b(?:my|our) (?:(?:new|unread|recent|latest|last|most|few|missed|old|own|family|work|group|text|direct|personal) ){0,3}\#(term)\b(?! (?:apps?|components?|tables?|endpoints?|apis?|views?|schemas?)\b)"#
       + #"|\b\#(term) (?:(?:from|to|with|for|between) )?(?:me|us)\b|\b\#(term) (?:from|with|by) (?:my|our) (?:\w+ )?\#(relation)\b"#
       + #"|\b\#(term) (?:did|have|has|had) (?:i|we)\b|\b\#(term) (?:\w+ )?(?:came|come|coming) in\b"#
+      // "the news Sam texted me", "the link Alex DM'd us" (owner, 2026-10-27).
+      + #"|\b(?:texted|messaged|imessaged|dm'?d|dmed) (?:me|us)\b"#
       // "what did Jordan send me", "did I get any texts", "what did Mom say today", "any news from my sister".
       + #"|\b(?:did|has|have|had)\b(?: [\w']+){1,3} (?:send|sent) (?:me|us)\b|\bdid (?:i|we) (?:get|miss|receive)\b|\b(?:did|has|have)\b(?: [\w']+){1,2} call(?:ed)? (?:me|us)\b|\bwho called (?:me|us)\b"#
       + #"|\b(?:what|did|has) (?:did )?(?:(?:my|our) \#(relation)|mom|dad|mum) (?:say|said|send|sent|text|texted|write|wrote|tell|told)\b|\bfrom (?:my|our) \#(relation)\b"#
       // A call with family or with me: "what did Grandpa say on the phone yesterday".
       + #"|\b\#(relation)\b.{0,40}\b(?:on|over) (?:the phone|a call|facetime)\b|\b(?:on|over) (?:the phone|a call|facetime) (?:with|to) (?:me|us|(?:(?:my|our) )?\#(relation))\b|\bwhen (?:(?:my|our) )?(?:\#(relation)|he|she|they) called\b"#)
   }()
-  private static let historicalTopic = expression(#"\b(?:world war|ancient|medieval|roman empire|historical|history of)\b"#)
-  private static let conceptualQuestion = expression(#"\b(?:what (?:is|are)|define|explain|how (?:does|do)) (?:a |an |the concept of )?(?:weather|stock prices?|share prices?|exchange rates?|mortgage rates?)(?: work| mean| change| fluctuate)?[?.!]*$"#)
-  private static let eventTopic = expression(#"\b(?:election|elections|results|winner|winners|release|releases|announcements|conference|summit|wwdc|schedule|standings|season|tournament|olympics|world cup|budget|laws|regulations)\b"#)
 }
