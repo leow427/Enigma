@@ -19,6 +19,10 @@ final class LocalToolStreamingTests: XCTestCase {
   private let weather = AgentToolDefinition(name: "get_weather", description: "Get the current weather for a city.",
     properties: ["city": .object(["type": .string("string")])], required: ["city"])
 
+  private static let heldTool = AgentToolDefinition(name: "get_weather", description: "Get the current weather for a city.",
+    properties: ["city": .object(["type": .string("string")])], required: ["city"])
+  private static let heldMessages = [AgentInferenceMessage(role: "user", content: "What's the weather in Paris?")]
+
   private func messages(_ prompt: String = "What's the weather in Paris?") -> [AgentInferenceMessage] {
     [AgentInferenceMessage(role: "system", content: "You can look up the weather."),
      AgentInferenceMessage(role: "user", content: prompt)]
@@ -170,8 +174,10 @@ final class LocalToolStreamingTests: XCTestCase {
     let runtime = LlamaServerVisionEngine()
     addTeardownBlock { await runtime.unload() }
     try Data("hold".utf8).write(to: directory.appending(path: "mode"))
-    let stream = runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil)
-    let held = Task { try await Self.collect(stream) }
+    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
+    let held = Task {
+      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+    }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "request-started").path) }
     let identifier = await runtime.runtimeProcessIdentifier()
     let pid = try XCTUnwrap(identifier)
@@ -194,8 +200,10 @@ final class LocalToolStreamingTests: XCTestCase {
     let model = try stubModel(serving: "text")
     let runtime = LlamaServerVisionEngine()
     try Data("hold-tokenizer".utf8).write(to: directory.appending(path: "mode"))
-    let stream = runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil)
-    let held = Task { try await Self.collect(stream) }
+    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
+    let held = Task {
+      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+    }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "tokenizer-started").path) }
     held.cancel()
     do { _ = try await held.value; XCTFail("Expected cancellation") } catch { }
@@ -209,8 +217,10 @@ final class LocalToolStreamingTests: XCTestCase {
     let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
     addTeardownBlock { await runtime.unload(); await deadline.close() }
     try Data("hold".utf8).write(to: directory.appending(path: "mode"))
-    let stream = runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil)
-    let held = Task { try await Self.collect(stream) }
+    // Built inside the task, capturing only Sendable values, as CI's older compiler needs.
+    let held = Task {
+      try await Self.collect(runtime.streamTools(messages: Self.heldMessages, tools: [Self.heldTool], model: model, requiredTool: nil))
+    }
     try await waitFor { FileManager.default.fileExists(atPath: self.directory.appending(path: "request-started").path) }
     let identifier = await runtime.runtimeProcessIdentifier()
     let pid = try XCTUnwrap(identifier)

@@ -264,7 +264,11 @@ CP0's `Fixtures/F32/llama/*.txt`.
      stopped at its first text, and asked again 200 ms later: the reply came as
      fast as a fresh one, so `llama-server` stops generating when the request
      closes.
-   - CI: recorded by the CP4 worker.
+   - CI: the run on `9c976d2` failed to compile three test lines (CI's Xcode
+     26.6 region checker: "pattern … does not understand how to check"; local
+     Xcode 27.1 accepts them). `Fix CI after F32 CP3` builds those held streams
+     inside their `Task`, as `LocalVisionTests` does. Its run is recorded by
+     the CP4 worker.
 
 5. **Limitations:**
    - Fixtures cover Gemma 4 and Qwen3.8 only (CP0 Q3).
