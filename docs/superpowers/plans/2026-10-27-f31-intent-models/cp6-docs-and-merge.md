@@ -79,7 +79,7 @@ skill that kept its rules is described as rules.
 - [ ] **Run** `scripts/verify-xcode.sh build`, `test` and `analyze`.
 - [ ] **Start a final reviewer** (`model: "opus"`, `effort: "xhigh"`) on the
   whole branch against `main`, with the workflow's reviewer rules and spec
-  §5. Fix its findings as in any round, at most four rounds.
+  §5. Fix its findings as in any round, at most three rounds.
 - [ ] **Commit** this checkpoint as the workflow says, push, and wait for CI
   on the pull request.
 - [ ] **Merge,** with the owner's go-ahead in the chat: mark the pull

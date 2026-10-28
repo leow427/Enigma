@@ -155,7 +155,7 @@ In short, for each checkpoint in order:
    high effort) with `docs/reviewer.md`, the workflow's reviewer rules and
    the brief's checklist.
 3. **Fixes.** The same worker fixes every Blocker and Should fix. A new
-   reviewer runs each round, until a round has neither, for at most four
+   reviewer runs each round, until a round has neither, for at most three
    rounds.
 4. **Commit.** The worker reruns the exit checks, commits
    `<summary> (F31 CPn)` on `feat/f31-intent-models`, with the progress log
