@@ -1,7 +1,7 @@
 # Native tool calling for capable models (F32) — design
 
-Status: design for the owner's review, not yet implemented. Date: 2026-10-28.
-Plan: not written yet (it follows this spec's approval).
+Status: approved design, not yet implemented. Date: 2026-10-28.
+Plan: [2026-10-28-f32-native-tool-calling.md](../plans/2026-10-28-f32-native-tool-calling.md).
 Affects: F29 (paused), F30 (re-scoped later) and F31 (halted). See
 [Related items](#related-items).
 

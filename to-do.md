@@ -960,6 +960,10 @@ and a queue in the compact panel.
 
 **Spec:** [docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md](docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md)
 
+**Plan:** [docs/superpowers/plans/2026-10-28-f32-native-tool-calling.md](docs/superpowers/plans/2026-10-28-f32-native-tool-calling.md)
+(checkpoints CP0–CP5, each built by a fresh agent and audited by a fresh
+reviewer)
+
 **Today:** hand-written rules read the draft and decide, before the model
 runs, whether to search, use Messages or revise a selection (the `messages`,
 `search`, `think`, `edit` and `translate` chips). Models get tools only after
