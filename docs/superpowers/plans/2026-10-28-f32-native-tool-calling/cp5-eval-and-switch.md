@@ -51,8 +51,12 @@ and `ENIGMA_F32_REPORT` names a folder outside the repository.
 
 ### Task 5.2: Run and set the flags (owner-approved)
 
-- [ ] **Hand the owner** the commands for each installed local model and one
-  model per cloud provider. Keys go only through owner-run commands.
+- [ ] **Hand the owner** the commands for each installed local model, and
+  for ChatGPT (Codex) and Claude Code on the owner's subscriptions. The owner
+  has no API keys, so the OpenAI, Anthropic and Gemini API routes are not
+  evaluated live: they share the model families measured through Codex and
+  Claude Code, and their streaming is covered by CP2's fixtures. Record that
+  limitation in the Hand-off and the docs' Limitations.
 - [ ] **Set flags:** Qwen3.5 4B, Gemma 4 E4B and Ministral 3 8B on only at
   ≥ 0.90. A starting-flagged model below 0.90, or a route over the latency
   gate (1.15 × today), stops the line: report numbers to the owner.

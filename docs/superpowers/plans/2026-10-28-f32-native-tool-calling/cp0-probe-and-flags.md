@@ -88,16 +88,20 @@ keys). Write the probes as opt-in XCTests in
 `ENIGMA_F32_PROBE` is set, and write raw recordings to the folder it names,
 outside the repository.
 
-- [ ] **Q1 and Q2, cloud streams and forced choice.** For OpenAI Responses,
-  Anthropic Messages and Gemini `streamGenerateContent?alt=sse`, record a
-  streamed request with one function tool (`get_weather(city)`), for four
-  cases: text only; one call; text then a call; a call forced by name
-  (OpenAI `tool_choice: {"type":"function","name":…}`, Anthropic
-  `tool_choice: {"type":"tool","name":…}`, Gemini
-  `toolConfig.functionCallingConfig {mode: "ANY", allowedFunctionNames: […]}`).
-  One cheap model per provider; also one Anthropic run with extended
-  thinking on, to record `thinking` and `signature_delta` blocks. Record the
-  exact event names in the Hand-off.
+- [ ] **Q1 and Q2, cloud streams and forced choice.** The owner has no
+  OpenAI, Anthropic or Gemini API key (only ChatGPT and Claude
+  subscriptions), so these are answered from each provider's current
+  official API reference, not live runs. For OpenAI Responses, Anthropic
+  Messages and Gemini `streamGenerateContent?alt=sse`, write the streamed
+  event sequence for four cases with one function tool
+  (`get_weather(city)`): text only; one call; text then a call; a call
+  forced by name (OpenAI `tool_choice: {"type":"function","name":…}`,
+  Anthropic `tool_choice: {"type":"tool","name":…}`, Gemini
+  `toolConfig.functionCallingConfig {mode: "ANY", allowedFunctionNames: […]}`),
+  plus one Anthropic stream with extended thinking (`thinking_delta`,
+  `signature_delta`). Copy shapes from the documented examples exactly;
+  cite each source page in the Hand-off and mark these fixtures
+  "from docs, not recorded". Never ask the owner for a key.
 - [ ] **Q3, local streamed tool calls.** For each flagged family the owner
   has installed, start `llama-server` with `LocalFileRuntime.textArguments`
   and record a streamed `v1/chat/completions` request (`"stream": true`,
@@ -120,7 +124,8 @@ outside the repository.
 
 ### Task 0.3: Fixtures
 
-- [ ] **Scrub** the recordings: remove keys, request and response IDs,
+- [ ] **Scrub** the local and subscription recordings (the API fixtures
+  are written from docs and need no scrubbing): remove keys, request and response IDs,
   account or organization names, and anything else identifying; keep event
   names, ordering and payload shapes.
 - [ ] **Save** them as `EnigmaTests/Fixtures/F32/<openai|anthropic|gemini|llama>/<case>.txt`
@@ -137,6 +142,8 @@ outside the repository.
   "F32: native tool calling for capable models" from the branch to `main`.
 
 ## Exit criteria
+
+- The Hand-off lists which fixtures are from docs and which are recorded.
 
 - `scripts/verify-xcode.sh build`, `test` and `analyze` pass; probe tests
   skip without `ENIGMA_F32_PROBE`.
