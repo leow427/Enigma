@@ -116,3 +116,63 @@ struct LocalToolAgent: Sendable {
     throw AgentToolError.stepLimit
   }
 }
+
+extension LocalToolAgent {
+  /// `run` with each step streamed: text reaches `onText` as it arrives, trimmed and with a
+  /// blank line between steps as the cloud loops show it, and `toolbox.offeredRequiredTool`
+  /// is asked for on the first step. History, `/think` and tool results match `run`.
+  func runStreaming(messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox,
+                    onActivity: @Sendable (AssistantActivityEvent) async -> Void,
+                    onText: @Sendable (String) async -> Void) async throws {
+    var history = [AgentInferenceMessage(role: "system", content:
+      ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + Self.localInstructions)]
+      + messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
+    if ThinkCommand.enabled(in: messages) {
+      history[0].extendedThinking = true
+      history[0].content = ThinkCommand.guidance + "\n\n" + (history[0].content ?? "")
+    }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
+    var emittedText = false
+    for step in 0..<maximumSteps {
+      try Task.checkCancellation()
+      let text = CloudToolLoop.StepText(afterEarlierText: emittedText)
+      var finished: AgentInferenceMessage?
+      for try await event in inference.streamTools(messages: history, tools: toolbox.definitions, model: model,
+                                                   requiredTool: step == 0 ? toolbox.offeredRequiredTool : nil) {
+        switch event {
+        case .text(let delta):
+          let started = text.started
+          guard let shown = text.append(delta) else { continue }
+          if !started { await onActivity(.phase(.generating)) }
+          await onText(shown)
+        case .message(let message): finished = message
+        }
+      }
+      // A stopped stream ends without a message; so does one that broke off.
+      try Task.checkCancellation()
+      emittedText = emittedText || text.started
+      guard var response = finished else {
+        throw AgentToolError.invalidResponse("The local runtime ended a step without a response.")
+      }
+      guard response.role == "assistant" else { throw AgentToolError.invalidResponse("The local runtime returned an unexpected message role.") }
+      guard let first = response.toolCalls?.first else { return }
+      // Discarded batch members never enter history and never run.
+      let call = AgentToolCall(id: String(format: "tool%05d", step), function: first.function)
+      response.toolCalls = [call]
+      response.content = nil
+      history.append(response)
+      await onActivity(.phase(toolbox.phase(for: call.function.name)))
+      let result = await toolbox.execute(name: call.function.name, jsonArguments: call.function.arguments)
+      try Task.checkCancellation()
+      if let error = result.stopError { throw error }
+      let output = (try? JSONDecoder().decode(CodexValue.self, from: Data(result.text.utf8))) ?? .string(result.text)
+      let content = String(decoding: try encoder.encode(CodexValue.object([
+        "success": .bool(result.success), "result": output,
+      ])), as: UTF8.self)
+      history.append(AgentInferenceMessage(role: "tool", content: content, toolCallID: call.id))
+      await onActivity(.phase(.thinking))
+    }
+    throw AgentToolError.stepLimit
+  }
+}

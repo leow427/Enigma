@@ -47,6 +47,8 @@ enum LocalVisionModelValidation {
 actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   private var runtime: LocalModelRuntimeSession?
   private var activeID: UUID?
+  /// The tool step whose request is streaming, so stopping it can keep the server.
+  private var streamingID: UUID?
   private var tokenizerUnavailable = false
   private var idleTask: Task<Void, Never>?
   private var idleID: UUID?
@@ -75,6 +77,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     idleTask = nil
     idleID = nil
     activeID = nil
+    streamingID = nil
     runtime?.close()
     runtime = nil
   }
@@ -351,7 +354,123 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     } onCancel: { Task { await self.cancel(id: id) } }
   }
 
-  private func toolJSON(path: String, payload: CodexValue, session: LocalModelRuntimeSession, method: String = "POST") async throws -> CodexValue {
+  /// Said on the last user message when a step must call a tool. llama-server's `required`
+  /// can't name the tool, and Qwen3.8 ignores it (CP0), so the instruction goes with it.
+  static func requiredToolInstruction(_ name: String) -> String {
+    "Call the \(name) tool before you answer."
+  }
+
+  /// One streamed tool step on the server plain turns use: the same load, reuse and idle
+  /// unload, with the prompt cache on so the system prompt and tools are read once.
+  /// Stopping a step that is already streaming closes its request and keeps the server.
+  nonisolated func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                               requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task { await self.generateTools(messages: messages, tools: tools, model: model,
+                                                 requiredTool: requiredTool, continuation: continuation) }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+
+  private func generateTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                             requiredTool: String?, continuation: AsyncThrowingStream<LocalToolStreamEvent, Error>.Continuation) async {
+    let maximumTokens = messages.first?.extendedThinking == true ? max(fileMaximumTokens, 2_048) : fileMaximumTokens
+    let required = requiredTool.flatMap { name in tools.contains { $0.name == name } ? name : nil }
+    var messages = messages
+    if let required, let last = messages.lastIndex(where: { $0.role == "user" }) {
+      messages[last].content = (messages[last].content ?? "") + "\n\n" + Self.requiredToolInstruction(required)
+    }
+    let id = UUID()
+    if activeID != nil { await unload() }
+    idleTask?.cancel()
+    idleID = nil
+    activeID = id
+    await withTaskCancellationHandler {
+      do {
+        try Task.checkCancellation()
+        guard (128...4_096).contains(maximumTokens),
+              fileContextOverride == nil || (4_096...32_768).contains(fileContextOverride!) else {
+          throw FileModeError.invalidArguments
+        }
+        let session = try await load(model, requestID: id)
+        let payload = try LocalFileRuntime.payload(messages: messages, tools: tools, alias: session.alias,
+          maximumTokens: maximumTokens, stream: true, cachePrompt: true, requiresTool: required != nil)
+        let template = try await toolJSON(path: "apply-template", payload: payload, session: session, task: "request")
+        guard let prompt = template["prompt"].string else {
+          throw FileModeError.operation("The local runtime did not return a rendered tool template.")
+        }
+        let tokens = try await toolJSON(path: "tokenize", payload: .object([
+          "content": .string(prompt), "add_special": .bool(true)]), session: session, task: "request")
+        guard let count = tokens["tokens"].array?.count else {
+          throw FileModeError.operation("The local runtime did not return a token count for this request.")
+        }
+        let contextWindow = fileContextOverride ?? LocalFileRuntime.contextWindow(for: model)
+        do {
+          try LocalFileRuntime.validateBudget(promptTokens: count, maximumTokens: maximumTokens, contextWindow: contextWindow)
+        } catch FileModeError.contextExhausted {
+          // A chat turn says what plain turns say, not File Mode's wording.
+          throw ChatContextError.oversizedPrompt(inputLimit: contextWindow - maximumTokens - 64)
+        }
+        try Task.checkCancellation()
+        guard activeID == id else { throw CancellationError() }
+        streamingID = id
+        var parser = ServerSentEventParser()
+        var assembler = LocalToolStreamAssembler()
+        var status: Int?
+        func consume(_ events: [ServerSentEvent]) throws {
+          for event in events {
+            if let text = try assembler.consume(event.data) { continuation.yield(.text(text)) }
+          }
+        }
+        let request = try toolRequest(path: "v1/chat/completions", payload: payload, session: session)
+        for try await event in URLSessionCloudTransport(session: session.network).stream(for: request) {
+          try Task.checkCancellation()
+          guard activeID == id else { throw CancellationError() }
+          switch event {
+          case .response(let code): status = code
+          case .data(let data):
+            guard status == 200 else {
+              throw LocalInferenceError.bridgeFailure("The local model returned an error. Verify the model and projector match.")
+            }
+            try consume(parser.append(data))
+          }
+        }
+        try Task.checkCancellation()
+        guard activeID == id else { throw CancellationError() }
+        guard status == 200 else {
+          throw LocalInferenceError.bridgeFailure("The local model returned an error. Verify the model and projector match.")
+        }
+        try consume(parser.finish())
+        // A server that finished its reply is healthy even when the reply is unusable,
+        // so it stays loaded; only a request that broke off unloads it.
+        if assembler.isComplete {
+          activeID = nil
+          streamingID = nil
+          scheduleIdleUnload(id: id)
+        }
+        let message = try assembler.finish()
+        continuation.yield(.message(message))
+        continuation.finish()
+      } catch {
+        if Task.isCancelled { await stopTools(id: id) } else { await cancel(id: id) }
+        continuation.finish(throwing: error)
+      }
+    } onCancel: { Task { await self.stopTools(id: id) } }
+  }
+
+  /// A stopped tool step keeps a server that is already streaming: closing the request ends
+  /// its generation, and the next turn reuses the loaded model and its prompt cache. A step
+  /// stopped while the server loads or checks the budget unloads it, as plain turns do.
+  private func stopTools(id: UUID) async {
+    guard activeID == id else { return }
+    guard streamingID == id else { return await unload() }
+    activeID = nil
+    streamingID = nil
+    scheduleIdleUnload(id: id)
+  }
+
+  private func toolRequest(path: String, payload: CodexValue, session: LocalModelRuntimeSession,
+                           method: String = "POST") throws -> URLRequest {
     var request = URLRequest(url: session.base.appendingPathComponent(path), timeoutInterval: 180)
     request.httpMethod = method
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -361,9 +480,17 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     encoder.outputFormatting = .sortedKeys
     if method == "POST" { request.httpBody = try encoder.encode(payload) }
     guard (request.httpBody?.count ?? 0) <= 2 * 1_024 * 1_024 else { throw FileModeError.tooLarge }
+    return request
+  }
+
+  private func toolJSON(path: String, payload: CodexValue, session: LocalModelRuntimeSession, method: String = "POST",
+                        task: String = "file inference") async throws -> CodexValue {
+    let request = try toolRequest(path: path, payload: payload, session: session, method: method)
     let result = try await URLSessionCloudTransport(session: session.network).data(for: request)
     guard result.statusCode == 200 else {
-      throw FileModeError.operation("The local runtime returned HTTP \(result.statusCode) for \(path). It could not complete this file inference. Review keeps any earlier edits; ordinary model text is never executed.")
+      throw FileModeError.operation(task == "file inference"
+        ? "The local runtime returned HTTP \(result.statusCode) for \(path). It could not complete this file inference. Review keeps any earlier edits; ordinary model text is never executed."
+        : "The local runtime returned HTTP \(result.statusCode) for \(path). It could not complete this \(task).")
     }
     guard result.data.count <= 4 * 1_024 * 1_024 else { throw FileModeError.tooLarge }
     return try JSONDecoder().decode(CodexValue.self, from: result.data)
