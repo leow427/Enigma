@@ -22,6 +22,25 @@
 
 ## Bug fixes
 
+### B17. Escape doesn't hide the chat unless the text box is focused
+
+**Problem:** Pressing Escape hides the chat only while the text box has focus.
+After clicking anywhere else in Enigma (the conversation, a reply, empty space
+in the panel), Escape does nothing and the chat stays on screen.
+
+**Today:** `SpotlightPanel` (`SpotlightPanelController.swift`) handles Escape
+(key code 53) in `keyDown(with:)` and `performKeyEquivalent(with:)`: it closes
+the command list, an open menu or an `EnigmaEscapeDismissal` first, then calls
+`onHide`. The panel is a `.nonactivatingPanel`. Why the key doesn't reach
+these paths once focus leaves `SlashCommandTextView` is not yet confirmed; check
+whether the panel stays key after the click, and whether another view (for
+example the message list's text views) takes Escape first.
+
+**Wanted:** Once the person has clicked anywhere in Enigma, Escape hides the
+chat, whatever has focus. Escape still closes an open menu, the command list
+or the selection details first, as now. Add a regression test that moves focus
+off the text box and checks Escape hides the panel.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
