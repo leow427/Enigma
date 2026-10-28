@@ -1,0 +1,38 @@
+{
+  "coding": {
+    "accuracy": 0.6641,
+    "mustPassFailures": 15,
+    "total": 256,
+    "wrongYesShare": 0.25
+  },
+  "messages": {
+    "accuracy": 0.868,
+    "mustPassFailures": 0,
+    "total": 250,
+    "wrongYesShare": 0.0235
+  },
+  "reasoning": {
+    "accuracy": 0.676,
+    "mustPassFailures": 12,
+    "total": 287,
+    "wrongYesShare": 0.2737
+  },
+  "search": {
+    "accuracy": 0.7597,
+    "mustPassFailures": 6,
+    "total": 258,
+    "wrongYesShare": 0.1828
+  },
+  "selection": {
+    "accuracy": 0.7617,
+    "mustPassFailures": 1,
+    "total": 256,
+    "wrongYesShare": 0
+  },
+  "think": {
+    "accuracy": 0.8876,
+    "mustPassFailures": 1,
+    "total": 258,
+    "wrongYesShare": 0.0412
+  }
+}

@@ -1,0 +1,1155 @@
+{"asOf": "2026-10-27"}
+{"text": "Design a fault-tolerant payment system that handles duplicate events and regional outages.", "label": "yes"}
+{"text": "Evaluate whether our expansion assumptions are internally consistent.", "label": "yes"}
+{"text": "Solve this problem: two trains leave opposite ends of a 300 km track at different speeds.", "label": "yes"}
+{"text": "Compare these three business strategies, assess their risks, and recommend the best option.", "label": "yes"}
+{"text": "Explain in depth how quantum tunnelling differs from classical motion.", "label": "yes"}
+{"text": "Create a comprehensive migration plan with dependencies, budget constraints, and rollback criteria.", "label": "yes"}
+{"text": "Calculate the probability of drawing three red balls without replacement.", "label": "yes"}
+{"text": "Which option is best given the trade-offs between reliability, cost, and performance?", "label": "yes"}
+{"text": "Think deeply about this question and challenge the assumptions before answering.", "label": "yes"}
+{"text": "Give me step–by–step reasoning for this decision.", "label": "yes"}
+{"text": "Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Perform a root cause analysis and analyze the tradeoffs.", "label": "yes"}
+{"text": "This is private. Design a resilient payment system and evaluate its failure modes.", "label": "yes"}
+{"text": "Help me choose between keeping our current supplier and switching to a new one.\nThe current supplier has reliable delivery but charges more, requires a large\nminimum order, and only accepts payment in advance. The new supplier offers a\nlower unit price and smaller orders, but has a longer lead time and has never\nworked with our team. We only have enough cash for two months of inventory,\nand missing deliveries would put our largest customer at risk. Account for\nthe effect of each option on working capital, service quality, and our ability\nto recover if something goes wrong. Include the assumptions behind your answer\nand tell me which missing facts could change it. Give me a recommendation\nwith a practical sequence of next steps that our small team could carry out.", "label": "yes"}
+{"text": "Hi, how are you?", "label": "no"}
+{"text": "Summarize this paragraph in three bullets.", "label": "no"}
+{"text": "Make this email shorter and friendlier.", "label": "no"}
+{"text": "Translate good morning into French.", "label": "no"}
+{"text": "Explain why the sky is blue.", "label": "no", "nearMiss": true}
+{"text": "Compare tea and coffee in one sentence.", "label": "no", "nearMiss": true}
+{"text": "Write a story about a character called Eva.", "label": "no"}
+{"text": "Tell me about the designer of this chair.", "label": "no"}
+{"text": "Summarize this passage: The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. ", "label": "no"}
+{"text": "Draft a warm thank-you note.", "label": "no"}
+{"text": "Summarize this.", "label": "no"}
+{"text": "Hi", "label": "no"}
+{"text": "Continue", "label": "no"}
+{"text": "This is private information. Draft a warm thank-you note.", "label": "no"}
+{"text": "Search the web for the latest news.", "label": "no"}
+{"text": "Write Swift code.", "label": "yes"}
+{"text": "Implement this Swift function and debug the stack trace.", "label": "yes"}
+{"text": "Write Swift code for it.", "label": "yes"}
+{"text": "Private information. Draft a warm thank-you note.", "label": "no"}
+{"text": "This is private. Draft a warm thank-you note.", "label": "no"}
+{"text": "Keep this private. Draft a warm thank-you note.", "label": "no"}
+{"text": "Do not send this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Don't send this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Do not share this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Don't share this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Confidential. Draft a warm thank-you note.", "label": "no"}
+{"text": "Sensitive personal information. Draft a warm thank-you note.", "label": "no"}
+{"text": "Private information. Write Swift code for it.", "label": "yes"}
+{"text": "This is private. Write Swift code for it.", "label": "yes"}
+{"text": "Keep this private. Write Swift code for it.", "label": "yes"}
+{"text": "Do not send this. Write Swift code for it.", "label": "yes"}
+{"text": "Don't send this. Write Swift code for it.", "label": "yes"}
+{"text": "Do not share this. Write Swift code for it.", "label": "yes"}
+{"text": "Don't share this. Write Swift code for it.", "label": "yes"}
+{"text": "Confidential. Write Swift code for it.", "label": "yes"}
+{"text": "Sensitive personal information. Write Swift code for it.", "label": "yes"}
+{"text": "Private information. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "This is private. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Keep this private. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Do not send this. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Don't send this. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Do not share this. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Don't share this. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Confidential. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "Sensitive personal information. Evaluate the assumptions behind this strategy.", "label": "yes"}
+{"text": "design a scalable chat backend that supports a million concurrent users", "label": "yes"}
+{"text": "design a database schema for a hospital with patients, doctors and appointments and justify the choices", "label": "yes"}
+{"text": "what are the trade-offs between microservices and a monolith for a five person team", "label": "yes"}
+{"text": "prove that the square root of 2 is irrational", "label": "yes"}
+{"text": "derive the formula for the sum of a geometric series", "label": "yes"}
+{"text": "prove there are infinitely many primes", "label": "yes"}
+{"text": "solve this system of equations and show your work: 3x + 2y = 12, x - y = 1", "label": "yes"}
+{"text": "a bat and a ball cost $1.10 together and the bat costs $1 more than the ball, how much is the ball, explain the reasoning", "label": "yes"}
+{"text": "optimize our delivery routes given five trucks, twelve stops and a two hour window per stop", "label": "yes"}
+{"text": "we have a budget of 50k, three hires to make and two products to ship, help me prioritize under those constraints", "label": "yes"}
+{"text": "figure out the root cause: our signups dropped 30% after the redesign but traffic stayed flat", "label": "yes"}
+{"text": "diagnose why my sourdough keeps coming out dense given these five changes i made", "label": "yes"}
+{"text": "compare postgres, mongodb and dynamodb for our analytics workload against cost, latency and operational burden", "label": "yes"}
+{"text": "evaluate these three job offers against salary, growth, commute and stability and recommend one", "label": "yes"}
+{"text": "analyze the pros and cons of leasing vs buying a car over seven years with these numbers", "label": "yes"}
+{"text": "should we raise prices or cut costs? walk through the second order effects", "label": "yes"}
+{"text": "build a decision framework for choosing which features to cut from the release", "label": "yes"}
+{"text": "what is the expected value of this bet: 30% chance to win 500, 70% chance to lose 150", "label": "yes"}
+{"text": "calculate the break even point if fixed costs are 20k and margin per unit is 12", "label": "yes"}
+{"text": "find the flaw in this argument: all birds can fly, penguins are birds, so penguins can fly", "label": "yes"}
+{"text": "is this proof correct? check every step", "label": "yes"}
+{"text": "work out the optimal strategy for this game where each player picks a number from 1 to 10", "label": "yes"}
+{"text": "plan a migration from on-prem servers to the cloud with zero downtime, including rollback steps", "label": "yes"}
+{"text": "design an experiment to test whether the new onboarding improves retention", "label": "yes"}
+{"text": "how should we structure equity among four cofounders with different contributions", "label": "yes"}
+{"text": "model the cash flow for the next 18 months with these assumptions and tell me when we run out", "label": "yes"}
+{"text": "which caching strategy fits our read-heavy api with strict consistency needs, and why", "label": "yes"}
+{"text": "explain the causal chain that led to the 2008 financial crisis and what could have prevented it", "label": "yes"}
+{"text": "assess the risks of expanding into three new markets at once", "label": "yes"}
+{"text": "weigh the ethical trade-offs of using facial recognition in schools", "label": "yes"}
+{"text": "given these symptoms and test results, what are the likely differential diagnoses and how would you narrow them", "label": "yes"}
+{"text": "schedule twelve meetings across four time zones with these availability constraints", "label": "yes"}
+{"text": "solve this logic puzzle: five houses, five colors, five owners", "label": "yes"}
+{"text": "how many ways can 8 people sit at a round table if two of them refuse to sit together", "label": "yes"}
+{"text": "find the minimum number of weighings to identify the fake coin among 12", "label": "yes"}
+{"text": "analyse the failure modes of this distributed lock design", "label": "yes"}
+{"text": "compare three approaches to sharding and pick one for our use case", "label": "yes"}
+{"text": "estimate how many piano tuners there are in chicago and show the reasoning", "label": "yes"}
+{"text": "reconcile these two conflicting reports and figure out which numbers are right", "label": "yes"}
+{"text": "evaluate whether our pricing tiers cannibalize each other", "label": "yes"}
+{"text": "critique this business plan's assumptions and stress test the revenue model", "label": "yes"}
+{"text": "design a fair grading rubric that balances effort and outcome", "label": "yes"}
+{"text": "plan a 12 week training schedule to run a marathon under 4 hours with my current pace data", "label": "yes"}
+{"text": "figure out why the numbers in this spreadsheet don't add up across tabs", "label": "yes"}
+{"text": "what is the optimal portfolio allocation given these return and volatility estimates", "label": "yes"}
+{"text": "design a load balancing algorithm that handles uneven server capacities", "label": "yes"}
+{"text": "prove the time complexity of merge sort", "label": "yes"}
+{"text": "derive the bayes posterior for this coin flip problem", "label": "yes"}
+{"text": "determine whether this contract clause creates a conflict with the earlier indemnity section", "label": "yes"}
+{"text": "investigate why our cloud bill doubled last month and recommend fixes", "label": "yes"}
+{"text": "compare the long term costs of solar panels vs staying on the grid with these rates", "label": "yes"}
+{"text": "develop a strategy to reduce churn with these cohort numbers", "label": "yes"}
+{"text": "choose between three vendors using a weighted scoring matrix and explain the weights", "label": "yes"}
+{"text": "infer what caused the outage from these log excerpts", "label": "yes"}
+{"text": "reason through whether we should rewrite the app or refactor it gradually", "label": "yes"}
+{"text": "optimise this production schedule to minimise idle time on the machines", "label": "yes"}
+{"text": "formalize this problem as a linear program and solve it", "label": "yes"}
+{"text": "synthesize these five research papers into a coherent position on the question", "label": "yes"}
+{"text": "logo design ideas for a coffee shop", "label": "no", "nearMiss": true}
+{"text": "interior design tips for a small apartment", "label": "no", "nearMiss": true}
+{"text": "what's your favorite design style", "label": "no", "nearMiss": true}
+{"text": "design a birthday card for my mom", "label": "no", "nearMiss": true}
+{"text": "design a t-shirt slogan", "label": "no", "nearMiss": true}
+{"text": "nail design ideas", "label": "no", "nearMiss": true}
+{"text": "garden design ideas for a small yard", "label": "no", "nearMiss": true}
+{"text": "solve this crossword clue: four letters, feline", "label": "no", "nearMiss": true}
+{"text": "calculate a 20% tip on $45", "label": "no", "nearMiss": true}
+{"text": "calculate 15 times 12", "label": "no", "nearMiss": true}
+{"text": "what's 12 percent of 300", "label": "no", "nearMiss": true}
+{"text": "compute the area of a 3 by 4 rectangle", "label": "no", "nearMiss": true}
+{"text": "analyze this poem in one sentence", "label": "no", "nearMiss": true}
+{"text": "analyze my handwriting", "label": "no", "nearMiss": true}
+{"text": "compare tea and coffee briefly", "label": "no", "nearMiss": true}
+{"text": "compare cats and dogs in a sentence", "label": "no", "nearMiss": true}
+{"text": "evaluate my outfit, is it nice", "label": "no", "nearMiss": true}
+{"text": "plan a picnic for saturday", "label": "no", "nearMiss": true}
+{"text": "plan a birthday party for a 6 year old", "label": "no", "nearMiss": true}
+{"text": "make a plan for cleaning my room", "label": "no", "nearMiss": true}
+{"text": "what's a good plan for a rainy day", "label": "no", "nearMiss": true}
+{"text": "optimize my morning routine with quick tips", "label": "no", "nearMiss": true}
+{"text": "how do i optimize my linkedin profile", "label": "no", "nearMiss": true}
+{"text": "prove you are not a robot", "label": "no", "nearMiss": true}
+{"text": "what's the root of 49", "label": "no", "nearMiss": true}
+{"text": "what's the square root of 16", "label": "no", "nearMiss": true}
+{"text": "root vegetables recipes", "label": "no", "nearMiss": true}
+{"text": "reason with a toddler tips", "label": "no", "nearMiss": true}
+{"text": "give me a reason to smile", "label": "no", "nearMiss": true}
+{"text": "what's the reason the sky is blue", "label": "no", "nearMiss": true}
+{"text": "recommend a good book", "label": "no", "nearMiss": true}
+{"text": "recommend a movie for tonight", "label": "no", "nearMiss": true}
+{"text": "choose a random number", "label": "no", "nearMiss": true}
+{"text": "help me choose a paint color", "label": "no", "nearMiss": true}
+{"text": "investigate the noise in my car, any common causes", "label": "no", "nearMiss": true}
+{"text": "infer the meaning of this emoji", "label": "no", "nearMiss": true}
+{"text": "develop film photos at home", "label": "no", "nearMiss": true}
+{"text": "explain why leaves change color", "label": "no", "nearMiss": true}
+{"text": "explain photosynthesis", "label": "no", "nearMiss": true}
+{"text": "summarize this article in three bullets", "label": "no", "nearMiss": true}
+{"text": "what's the capital of canada", "label": "no", "nearMiss": true}
+{"text": "how many days in a leap year", "label": "no", "nearMiss": true}
+{"text": "tell me a fun fact", "label": "no", "nearMiss": true}
+{"text": "hi how are you", "label": "no", "nearMiss": true}
+{"text": "thanks so much", "label": "no", "nearMiss": true}
+{"text": "what's a good name for a goldfish", "label": "no", "nearMiss": true}
+{"text": "write a poem about autumn", "label": "no", "nearMiss": true}
+{"text": "write a short thank you note", "label": "no", "nearMiss": true}
+{"text": "what time zone is london in", "label": "no", "nearMiss": true}
+{"text": "how do i boil pasta", "label": "no", "nearMiss": true}
+{"text": "convert 10 km to miles", "label": "no", "nearMiss": true}
+{"text": "what's 2 + 2", "label": "no", "nearMiss": true}
+{"text": "is it better to shower in the morning or at night", "label": "no", "nearMiss": true}
+{"text": "should i wear a jacket today", "label": "no", "nearMiss": true}
+{"text": "how long should i nap", "label": "no", "nearMiss": true}
+{"text": "tips for a job interview", "label": "no", "nearMiss": true}
+{"text": "how do i ask for a raise", "label": "no", "nearMiss": true}
+{"text": "what's the difference between baking soda and baking powder", "label": "no", "nearMiss": true}
+{"text": "trade offs of a high protein diet, quick answer", "label": "no", "nearMiss": true}
+{"text": "a detailed list of fruits", "label": "no", "nearMiss": true}
+{"text": "complex carbs vs simple carbs", "label": "no", "nearMiss": true}
+{"text": "analyze the risks of a hiring plan for next year given flat revenue and three open roles", "label": "yes"}
+{"text": "analyze the risks of launching in europe given gdpr rules and a small team", "label": "yes"}
+{"text": "analyze the risks of migrating our data warehouse given zero downtime and a strict deadline", "label": "yes"}
+{"text": "analyze the risks of moving the team to four day weeks given no drop in customer coverage", "label": "yes"}
+{"text": "analyze the risks of opening a second store given a fixed budget and a six month lease window", "label": "yes"}
+{"text": "analyze the risks of rebuilding the kitchen given a budget of 30k and two kids at home", "label": "yes"}
+{"text": "analyze the risks of switching our billing provider given no double charges and no lost subscriptions", "label": "yes"}
+{"text": "compare a state school and a private one against cost, class sizes and commute and recommend one", "label": "yes"}
+{"text": "compare a state school and a private one against outcomes, cost and my kid's needs and recommend one", "label": "yes"}
+{"text": "compare an electric car and a hybrid against running costs, range and resale value and recommend one", "label": "yes"}
+{"text": "compare an electric car and a hybrid against total cost over eight years and charging access and recommend one", "label": "yes"}
+{"text": "compare aws and gcp against cost, latency and the services we need and recommend one", "label": "yes"}
+{"text": "compare aws and gcp against pricing, support and lock-in risk and recommend one", "label": "yes"}
+{"text": "compare building in house or buying a tool against cost, time to ship and maintenance burden and recommend one", "label": "yes"}
+{"text": "compare hiring a contractor or a full timer against cost, risk and how long we need them and recommend one", "label": "yes"}
+{"text": "compare index funds and real estate against tax impact, effort and diversification and recommend one", "label": "yes"}
+{"text": "compare renting and buying a house against taxes, maintenance and how long we'll stay and recommend one", "label": "yes"}
+{"text": "compare three suppliers against price, reliability and support and recommend one", "label": "yes"}
+{"text": "design a booking system that handles double bookings and time zones", "label": "yes"}
+{"text": "design a chat backend that handles message ordering and offline delivery", "label": "yes"}
+{"text": "design a feature flag system that handles gradual rollouts and instant rollback", "label": "yes"}
+{"text": "design a file sync service that handles offline edits and conflicts", "label": "yes"}
+{"text": "design a inventory tracker that handles returns, transfers and offline stores", "label": "yes"}
+{"text": "design a job scheduler that handles failures, priorities and exactly once runs", "label": "yes"}
+{"text": "design a leaderboard that handles millions of score updates per minute", "label": "yes"}
+{"text": "design a notification service that handles retries without duplicates", "label": "yes"}
+{"text": "design a payment pipeline that handles partial failures and refunds", "label": "yes"}
+{"text": "design a rate limiter that handles bursts of traffic and many servers", "label": "yes"}
+{"text": "design a recommendation engine that handles cold starts and changing tastes", "label": "yes"}
+{"text": "design a search index that handles frequent updates and typo tolerance", "label": "yes"}
+{"text": "diagnose customers churning after the first month and suggest fixes", "label": "yes"}
+{"text": "diagnose our app slowing down every friday and suggest fixes", "label": "yes"}
+{"text": "diagnose the build taking twice as long since the upgrade and suggest fixes", "label": "yes"}
+{"text": "diagnose the drop in conversions after the price change and suggest fixes", "label": "yes"}
+{"text": "diagnose the inventory numbers not matching the orders and suggest fixes", "label": "yes"}
+{"text": "evaluate building in house or buying a tool against control, vendor risk and total cost", "label": "yes"}
+{"text": "evaluate hiring a contractor or a full timer against speed, cost and knowledge retention", "label": "yes"}
+{"text": "evaluate moving abroad or staying against career, family and cost of living", "label": "yes"}
+{"text": "evaluate moving abroad or staying against taxes, healthcare and long term plans", "label": "yes"}
+{"text": "evaluate renting and buying a house against monthly cost, equity and flexibility", "label": "yes"}
+{"text": "evaluate sql and nosql for our app against consistency, query patterns and scaling", "label": "yes"}
+{"text": "evaluate sql and nosql for our app against operational burden, cost and flexibility", "label": "yes"}
+{"text": "evaluate three suppliers against price, reliability and support", "label": "yes"}
+{"text": "evaluate two job offers against commute, culture and long term growth", "label": "yes"}
+{"text": "help me decide between a state school and a private one, weighing cost, class sizes and commute", "label": "yes"}
+{"text": "help me decide between an electric car and a hybrid, weighing total cost over eight years and charging access", "label": "yes"}
+{"text": "help me decide between aws and gcp, weighing pricing, support and lock-in risk", "label": "yes"}
+{"text": "help me decide between hiring a contractor or a full timer, weighing speed, cost and knowledge retention", "label": "yes"}
+{"text": "help me decide between index funds and real estate, weighing risk, liquidity and expected return", "label": "yes"}
+{"text": "help me decide between moving abroad or staying, weighing taxes, healthcare and long term plans", "label": "yes"}
+{"text": "help me decide between paying off the mortgage early or investing, weighing interest rates, risk and liquidity", "label": "yes"}
+{"text": "help me decide between paying off the mortgage early or investing, weighing taxes, peace of mind and expected returns", "label": "yes"}
+{"text": "help me decide between renting and buying a house, weighing monthly cost, equity and flexibility", "label": "yes"}
+{"text": "help me decide between sql and nosql for our app, weighing operational burden, cost and flexibility", "label": "yes"}
+{"text": "help me decide between three suppliers, weighing lead times, minimum orders and quality", "label": "yes"}
+{"text": "help me decide between two job offers, weighing commute, culture and long term growth", "label": "yes"}
+{"text": "help me decide between two job offers, weighing salary, growth and stability", "label": "yes"}
+{"text": "how would you architect a booking system that copes with double bookings and time zones", "label": "yes"}
+{"text": "how would you architect a chat backend that copes with message ordering and offline delivery", "label": "yes"}
+{"text": "how would you architect a feature flag system that copes with gradual rollouts and instant rollback", "label": "yes"}
+{"text": "how would you architect a file sync service that copes with offline edits and conflicts", "label": "yes"}
+{"text": "how would you architect a inventory tracker that copes with returns, transfers and offline stores", "label": "yes"}
+{"text": "how would you architect a job scheduler that copes with failures, priorities and exactly once runs", "label": "yes"}
+{"text": "how would you architect a leaderboard that copes with millions of score updates per minute", "label": "yes"}
+{"text": "how would you architect a notification service that copes with retries without duplicates", "label": "yes"}
+{"text": "how would you architect a payment pipeline that copes with partial failures and refunds", "label": "yes"}
+{"text": "how would you architect a rate limiter that copes with bursts of traffic and many servers", "label": "yes"}
+{"text": "how would you architect a recommendation engine that copes with cold starts and changing tastes", "label": "yes"}
+{"text": "how would you architect a search index that copes with frequent updates and typo tolerance", "label": "yes"}
+{"text": "plan a hiring plan for next year with flat revenue and three open roles", "label": "yes"}
+{"text": "plan launching in europe with gdpr rules and a small team", "label": "yes"}
+{"text": "plan migrating our data warehouse with zero downtime and a strict deadline", "label": "yes"}
+{"text": "plan moving the team to four day weeks with no drop in customer coverage", "label": "yes"}
+{"text": "plan opening a second store with a fixed budget and a six month lease window", "label": "yes"}
+{"text": "plan rebuilding the kitchen with a budget of 30k and two kids at home", "label": "yes"}
+{"text": "plan switching our billing provider with no double charges and no lost subscriptions", "label": "yes"}
+{"text": "what are the trade-offs between a state school and a private one, considering outcomes, cost and my kid's needs", "label": "yes"}
+{"text": "what are the trade-offs between an electric car and a hybrid, considering running costs, range and resale value", "label": "yes"}
+{"text": "what are the trade-offs between aws and gcp, considering cost, latency and the services we need", "label": "yes"}
+{"text": "what are the trade-offs between building in house or buying a tool, considering control, vendor risk and total cost", "label": "yes"}
+{"text": "what are the trade-offs between building in house or buying a tool, considering cost, time to ship and maintenance burden", "label": "yes"}
+{"text": "what are the trade-offs between hiring a contractor or a full timer, considering cost, risk and how long we need them", "label": "yes"}
+{"text": "what are the trade-offs between index funds and real estate, considering risk, liquidity and expected return", "label": "yes"}
+{"text": "what are the trade-offs between index funds and real estate, considering tax impact, effort and diversification", "label": "yes"}
+{"text": "what are the trade-offs between moving abroad or staying, considering career, family and cost of living", "label": "yes"}
+{"text": "what are the trade-offs between paying off the mortgage early or investing, considering interest rates, risk and liquidity", "label": "yes"}
+{"text": "what are the trade-offs between paying off the mortgage early or investing, considering taxes, peace of mind and expected returns", "label": "yes"}
+{"text": "what are the trade-offs between renting and buying a house, considering taxes, maintenance and how long we'll stay", "label": "yes"}
+{"text": "what are the trade-offs between sql and nosql for our app, considering consistency, query patterns and scaling", "label": "yes"}
+{"text": "what are the trade-offs between three suppliers, considering lead times, minimum orders and quality", "label": "yes"}
+{"text": "what are the trade-offs between two job offers, considering salary, growth and stability", "label": "yes"}
+{"text": "work out the root cause of customers churning after the first month", "label": "yes"}
+{"text": "work out the root cause of our app slowing down every friday", "label": "yes"}
+{"text": "work out the root cause of the build taking twice as long since the upgrade", "label": "yes"}
+{"text": "work out the root cause of the drop in conversions after the price change", "label": "yes"}
+{"text": "work out the root cause of the inventory numbers not matching the orders", "label": "yes"}
+{"text": "design a cute logo for my lemonade stand", "label": "no", "nearMiss": true}
+{"text": "plan a simple picnic menu", "label": "no", "nearMiss": true}
+{"text": "compare two shades of blue quickly", "label": "no", "nearMiss": true}
+{"text": "calculate 30 divided by 6", "label": "no", "nearMiss": true}
+{"text": "solve this riddle for kids: what has hands but can't clap", "label": "no", "nearMiss": true}
+{"text": "analyze my coffee order lol", "label": "no", "nearMiss": true}
+{"text": "optimize my desk for a cozy look", "label": "no", "nearMiss": true}
+{"text": "evaluate this knock knock joke", "label": "no", "nearMiss": true}
+{"text": "design a poster for the bake sale", "label": "no", "nearMiss": true}
+{"text": "design ideas for a kids bedroom", "label": "no", "nearMiss": true}
+{"text": "plan a game night", "label": "no", "nearMiss": true}
+{"text": "plan my weekend chores", "label": "no", "nearMiss": true}
+{"text": "calculate how many minutes are in a day", "label": "no", "nearMiss": true}
+{"text": "compare a latte and a cappuccino", "label": "no", "nearMiss": true}
+{"text": "analyze the colors in this painting in one line", "label": "no", "nearMiss": true}
+{"text": "prove you're paying attention, say banana", "label": "no", "nearMiss": true}
+{"text": "recommend a podcast", "label": "no", "nearMiss": true}
+{"text": "choose a name for my plant", "label": "no", "nearMiss": true}
+{"text": "what's a quick way to calculate a tip", "label": "no", "nearMiss": true}
+{"text": "design my business card with a fun font", "label": "no", "nearMiss": true}
+{"text": "plan a road trip playlist", "label": "no", "nearMiss": true}
+{"text": "solve 7 times 8", "label": "no", "nearMiss": true}
+{"text": "compare iphone and android in a sentence", "label": "no", "nearMiss": true}
+{"text": "evaluate whether this shirt matches my pants", "label": "no", "nearMiss": true}
+{"text": "plan a surprise for my wife's birthday", "label": "no", "nearMiss": true}
+{"text": "design a chore chart for kids", "label": "no", "nearMiss": true}
+{"text": "optimize my closet space, quick tips", "label": "no", "nearMiss": true}
+{"text": "analyze this horoscope for fun", "label": "no", "nearMiss": true}
+{"text": "calculate my age in months", "label": "no", "nearMiss": true}
+{"text": "solve the anagram tesh", "label": "no", "nearMiss": true}
+{"text": "reason with me, is cereal soup", "label": "no", "nearMiss": true}
+{"text": "plan a tea party for my daughter", "label": "no", "nearMiss": true}
+{"text": "design a birthday banner", "label": "no", "nearMiss": true}
+{"text": "compare paper and plastic bags quickly", "label": "no", "nearMiss": true}
+{"text": "calculate 12 squared", "label": "no", "nearMiss": true}
+{"text": "what's the best way to plan a weekly menu", "label": "no", "nearMiss": true}
+{"text": "design a menu for a dinner party", "label": "no", "nearMiss": true}
+{"text": "explain how rainbows form", "label": "no", "nearMiss": true}
+{"text": "explain what a mortgage is", "label": "no", "nearMiss": true}
+{"text": "detailed instructions for folding a paper crane", "label": "no", "nearMiss": true}
+{"text": "we sell 400 units a month at $25 with a 40% margin, would a 10% price cut that lifts volume 15% make us more money", "label": "yes"}
+{"text": "three friends split a rental car, one drives twice as far, work out a fair split and explain the logic", "label": "yes"}
+{"text": "design a sharding strategy for a multi tenant saas database where a few tenants are huge", "label": "yes"}
+{"text": "help me figure out whether to take the lump sum pension or the annuity given my health and savings", "label": "yes"}
+{"text": "what's the best order to pay off these four debts with these rates and minimums", "label": "yes"}
+{"text": "my house is cold upstairs but the furnace runs constantly, reason through the likely causes", "label": "yes"}
+{"text": "our nightly batch job sometimes takes 10 minutes and sometimes 3 hours, what could explain the variance", "label": "yes"}
+{"text": "find the optimal number of warehouses to minimize shipping cost for these regional demand numbers", "label": "yes"}
+{"text": "explain why this probability puzzle's answer is 1/3 and not 1/2", "label": "yes"}
+{"text": "is it better to fund a 529 or my retirement first, walk through the math", "label": "yes"}
+{"text": "construct a counterexample showing this conjecture is false", "label": "yes"}
+{"text": "design a cache invalidation scheme for a product catalog with frequent price updates", "label": "yes"}
+{"text": "how should we sequence these eight projects given their dependencies and a team of three", "label": "yes"}
+{"text": "analyze whether our customer acquisition cost is sustainable given lifetime value and payback period", "label": "yes"}
+{"text": "we have conflicting survey results from two regions, help me reason about which is more reliable", "label": "yes"}
+{"text": "model the impact of a 2% rate increase on our variable loan portfolio", "label": "yes"}
+{"text": "come up with a fair way to allocate shared office costs among five teams of different sizes", "label": "yes"}
+{"text": "what's the most efficient way to schedule 30 exams in 10 rooms with no student conflicts", "label": "yes"}
+{"text": "lay out the arguments for and against a four day work week and reach a conclusion", "label": "yes"}
+{"text": "determine which of these three studies provides the strongest evidence and why", "label": "yes"}
+{"text": "my tomato plants have yellow leaves, brown spots and wilting, work through the possible causes", "label": "yes"}
+{"text": "design a backup strategy for a small office with offsite copies and a two hour recovery target", "label": "yes"}
+{"text": "figure out whether this investment beats a savings account after taxes and fees", "label": "yes"}
+{"text": "what would happen to traffic flow if we closed one of the two bridges, reason it through", "label": "yes"}
+{"text": "evaluate the security trade-offs of storing tokens in cookies versus local storage", "label": "yes"}
+{"text": "help me build a pricing model for a subscription with three tiers and usage overages", "label": "yes"}
+{"text": "compare the total cost of ownership of a heat pump vs a gas furnace over 15 years", "label": "yes"}
+{"text": "reason through the ethics of a self driving car choosing between two harms", "label": "yes"}
+{"text": "we keep missing sprint goals even though velocity looks stable, help me diagnose why", "label": "yes"}
+{"text": "assess whether we should expand the factory or outsource production given demand uncertainty", "label": "yes"}
+{"text": "plan the logistics for a 300 person conference with two venues and a fixed shuttle budget", "label": "yes"}
+{"text": "derive the expected number of rolls to get two sixes in a row", "label": "yes"}
+{"text": "prove that every tree with n nodes has n minus 1 edges", "label": "yes"}
+{"text": "explain the game theory behind why both prisoners confess", "label": "yes"}
+{"text": "find the bug in my reasoning: if the average went up, every group must have gone up", "label": "yes"}
+{"text": "estimate the carbon savings of switching our delivery fleet to electric with these mileage numbers", "label": "yes"}
+{"text": "work out how much house i can afford given my income, debts and a 20% down payment", "label": "yes"}
+{"text": "design an incentive scheme for sales staff that doesn't encourage discounting", "label": "yes"}
+{"text": "which of these two hypotheses better explains the data, and what test would distinguish them", "label": "yes"}
+{"text": "plan the order of operations for renovating a house so trades don't block each other", "label": "yes"}
+{"text": "figure out the minimum staffing to keep wait times under five minutes with these arrival rates", "label": "yes"}
+{"text": "optimize my weekly meal plan for protein, cost and prep time under these limits", "label": "yes"}
+{"text": "develop a contingency plan if our main supplier fails during peak season", "label": "yes"}
+{"text": "reason about whether this clinical trial result is statistically meaningful given the sample size", "label": "yes"}
+{"text": "evaluate whether to refinance now or wait a year, accounting for closing costs and rate uncertainty", "label": "yes"}
+{"text": "compare three ways to structure the database migration and pick the least risky", "label": "yes"}
+{"text": "how should we split the inheritance fairly when one sibling cared for our parents for years", "label": "yes"}
+{"text": "analyse the root cause of the recurring payment failures from these error rates by bank", "label": "yes"}
+{"text": "design a tournament format for 13 teams so everyone plays the same number of games", "label": "yes"}
+{"text": "what's the best strategy for the monty hall problem and why does it work", "label": "yes"}
+{"text": "solve this scheduling puzzle: four nurses, seven days, each needs two days off in a row", "label": "yes"}
+{"text": "work out whether my startup should raise money now or extend runway by cutting costs", "label": "yes"}
+{"text": "critically evaluate the claim that remote work lowers productivity using the evidence available", "label": "yes"}
+{"text": "a quick tip for remembering names", "label": "no", "nearMiss": true}
+{"text": "what's a good plan b for a rainy picnic, one idea", "label": "no", "nearMiss": true}
+{"text": "give me one reason to learn spanish", "label": "no", "nearMiss": true}
+{"text": "compare pancakes and waffles, which is tastier", "label": "no", "nearMiss": true}
+{"text": "analyze this tweet's vibe in one word", "label": "no", "nearMiss": true}
+{"text": "solve this simple maze description: left then right", "label": "no", "nearMiss": true}
+{"text": "design a fun cupcake decoration", "label": "no", "nearMiss": true}
+{"text": "calculate 25% off $80", "label": "no", "nearMiss": true}
+{"text": "what's 3 squared plus 4 squared", "label": "no", "nearMiss": true}
+{"text": "evaluate my dad joke", "label": "no", "nearMiss": true}
+{"text": "plan a 20 minute workout", "label": "no", "nearMiss": true}
+{"text": "optimize my morning coffee routine", "label": "no", "nearMiss": true}
+{"text": "recommend a board game for two", "label": "no", "nearMiss": true}
+{"text": "quick advice for a first date", "label": "no", "nearMiss": true}
+{"text": "what should i get my sister for christmas", "label": "no", "nearMiss": true}
+{"text": "how many cups in a quart", "label": "no", "nearMiss": true}
+{"text": "explain what a budget is", "label": "no", "nearMiss": true}
+{"text": "what's the difference between weather and climate, short answer", "label": "no", "nearMiss": true}
+{"text": "is a tomato a fruit", "label": "no", "nearMiss": true}
+{"text": "what's a good stretch for tight hips", "label": "no", "nearMiss": true}
+{"text": "name three primary colors", "label": "no", "nearMiss": true}
+{"text": "summarize the plot of cinderella", "label": "no", "nearMiss": true}
+{"text": "how do i make my bed neatly", "label": "no", "nearMiss": true}
+{"text": "what's the tallest mountain", "label": "no", "nearMiss": true}
+{"text": "tell me something interesting about owls", "label": "no", "nearMiss": true}
+{"text": "whats going on in the stock market right now", "label": "no"}
+{"text": "did the fed raise rates this week", "label": "no"}
+{"text": "who won the game last night between the celtics and the knicks", "label": "no"}
+{"text": "is the bridge on route 9 still closed", "label": "no"}
+{"text": "how much is a gallon of gas in ohio right now", "label": "no"}
+{"text": "what time does the hardware store on elm street close tonight", "label": "no"}
+{"text": "any updates on the hurricane heading for florida", "label": "no"}
+{"text": "what's the current exchange rate for yen to dollars", "label": "no"}
+{"text": "who's leading the tour de france", "label": "no"}
+{"text": "is it going to snow in denver this weekend", "label": "no"}
+{"text": "what's the weather in lisbon next week", "label": "no"}
+{"text": "how hot will it be in phoenix tomorrow", "label": "no"}
+{"text": "did the new iphone come out yet", "label": "no"}
+{"text": "when does the next season of that dragon show drop", "label": "no"}
+{"text": "what movies are playing near me tonight", "label": "no"}
+{"text": "latest version of node", "label": "no"}
+{"text": "what's the newest macos version", "label": "no"}
+{"text": "is xcode 27 out", "label": "no"}
+{"text": "who is the prime minister of the uk right now", "label": "no"}
+{"text": "who's the current mayor of chicago", "label": "no"}
+{"text": "who coaches the patriots now", "label": "no"}
+{"text": "what's bitcoin at", "label": "no"}
+{"text": "eth price", "label": "no"}
+{"text": "price of gold today", "label": "no"}
+{"text": "how's the s&p doing today", "label": "no"}
+{"text": "tesla stock", "label": "no"}
+{"text": "mortgage rates this week", "label": "no"}
+{"text": "what are interest rates at right now", "label": "no"}
+{"text": "is the airport open after the storm", "label": "no"}
+{"text": "flight status for the morning flight from boston to dallas", "label": "no"}
+{"text": "are there delays on the northern line", "label": "no"}
+{"text": "when is the next bus to the city center", "label": "no"}
+{"text": "what's trending on twitter", "label": "no"}
+{"text": "what are people saying about the new pixel phone", "label": "no"}
+{"text": "reviews of the new galaxy watch", "label": "no"}
+{"text": "is the new zelda game any good, what are reviewers saying", "label": "no"}
+{"text": "what's the score in the cricket", "label": "no"}
+{"text": "liverpool score", "label": "no"}
+{"text": "did spain win", "label": "no"}
+{"text": "f1 results from the weekend", "label": "no"}
+{"text": "who won the oscar for best picture this year", "label": "no"}
+{"text": "who won the election in argentina", "label": "no"}
+{"text": "what are the polls saying for the senate race", "label": "no"}
+{"text": "breaking news", "label": "no"}
+{"text": "anything big happen in the world today", "label": "no"}
+{"text": "headlines please", "label": "no"}
+{"text": "give me today's top stories", "label": "no"}
+{"text": "news about the strike at the port", "label": "no"}
+{"text": "what's happening with the teachers strike", "label": "no"}
+{"text": "what's the latest on the merger between those two airlines", "label": "no"}
+{"text": "has the trial verdict come out", "label": "no"}
+{"text": "is the store still selling the blue model", "label": "no"}
+{"text": "is the ps5 in stock anywhere", "label": "no"}
+{"text": "cheapest flights to rome next month", "label": "no"}
+{"text": "hotel prices in tokyo for december", "label": "no"}
+{"text": "what's on at the theatre this week", "label": "no"}
+{"text": "concerts in austin this weekend", "label": "no"}
+{"text": "is the museum open on mondays", "label": "no"}
+{"text": "opening hours for the post office on main st", "label": "no"}
+{"text": "when does the farmers market open tomorrow", "label": "no"}
+{"text": "what time is sunset today", "label": "no"}
+{"text": "when is high tide today in brighton", "label": "no"}
+{"text": "air quality in delhi today", "label": "no"}
+{"text": "pollen count today", "label": "no"}
+{"text": "uv index right now", "label": "no"}
+{"text": "is there a heat advisory today", "label": "no"}
+{"text": "traffic on the i-95 right now", "label": "no"}
+{"text": "road closures downtown today", "label": "no"}
+{"text": "what's the latest on the wildfire in california", "label": "no"}
+{"text": "how many people have been affected by the floods this week", "label": "no"}
+{"text": "yo did priya text me back", "label": "no"}
+{"text": "did my roommate text about rent", "label": "no"}
+{"text": "wat did mom txt me", "label": "no"}
+{"text": "any txts from dad", "label": "no"}
+{"text": "has kai messaged me since this morning", "label": "no"}
+{"text": "what did my landlord text me about the heater", "label": "no"}
+{"text": "read me the newest text", "label": "no"}
+{"text": "whats the last thing nina sent me on imessage", "label": "no"}
+{"text": "pull up the convo with my brother", "label": "no"}
+{"text": "scroll back through my chat with ravi and find the restaurant name", "label": "no"}
+{"text": "find the text where mia sent her flight number", "label": "no"}
+{"text": "search my messages for the wifi password theo sent", "label": "no"}
+{"text": "when did grandma last text me", "label": "no"}
+{"text": "did the dentist office text me a reminder", "label": "no"}
+{"text": "who texted me in the last hour", "label": "no"}
+{"text": "how many unread texts do i have", "label": "no"}
+{"text": "summarize the family group chat from today", "label": "no"}
+{"text": "what's everyone saying in the soccer moms chat", "label": "no"}
+{"text": "catch me up on what the book club chat has been saying", "label": "no"}
+{"text": "did anyone in the group chat answer about saturday", "label": "no"}
+{"text": "what did my coach text me about practice", "label": "no"}
+{"text": "has ben read my message", "label": "no"}
+{"text": "did zoe respond to my text from last night", "label": "no"}
+{"text": "check if the babysitter texted", "label": "no"}
+{"text": "go through my texts from last week and list any plans i made", "label": "no"}
+{"text": "what time did dana say to meet in her text", "label": "no"}
+{"text": "what address did omar text me", "label": "no"}
+{"text": "show me the photo marco sent in our chat", "label": "no"}
+{"text": "did my wife text me about picking up milk", "label": "no"}
+{"text": "any new imessages from my partner", "label": "no"}
+{"text": "read the last 3 messages from jess", "label": "no"}
+{"text": "what's the latest text in my chat with mike", "label": "no"}
+{"text": "check whether the plumber replied to my text", "label": "no"}
+{"text": "text priya that i'll be 10 minutes late", "label": "no"}
+{"text": "send dad a text saying happy birthday", "label": "no"}
+{"text": "message my brother that the game starts at 8", "label": "no"}
+{"text": "shoot nina a quick text saying thanks for dinner", "label": "no"}
+{"text": "let the group chat know i'm bringing chips", "label": "no"}
+{"text": "tell mom via imessage that i got home safe", "label": "no"}
+{"text": "reply to kai saying sounds good", "label": "no"}
+{"text": "make this sound more professional", "label": "no"}
+{"text": "can you make it less wordy", "label": "no"}
+{"text": "cut this down to two sentences", "label": "no"}
+{"text": "make this paragraph flow better", "label": "no"}
+{"text": "clean this up", "label": "no"}
+{"text": "smooth this out a bit", "label": "no"}
+{"text": "make it punchier", "label": "no"}
+{"text": "make it sound less robotic", "label": "no"}
+{"text": "rewrite this so a ten year old could understand it", "label": "no"}
+{"text": "simplify the wording", "label": "no"}
+{"text": "fix any mistakes in this", "label": "no"}
+{"text": "correct the grammar and spelling", "label": "no"}
+{"text": "fix the punctuation", "label": "no"}
+{"text": "check this for typos and fix them", "label": "no"}
+{"text": "proofread and correct this", "label": "no"}
+{"text": "make the tone warmer", "label": "no"}
+{"text": "make it more polite", "label": "no"}
+{"text": "make it sound more confident", "label": "no"}
+{"text": "tone it down a little", "label": "no"}
+{"text": "make this less aggressive", "label": "no"}
+{"text": "soften the tone", "label": "no"}
+{"text": "make it more enthusiastic", "label": "no"}
+{"text": "make this more concise", "label": "no"}
+{"text": "condense this", "label": "no"}
+{"text": "trim this to under 100 words", "label": "no"}
+{"text": "shorten it to one paragraph", "label": "no"}
+{"text": "expand this into a full paragraph", "label": "no"}
+{"text": "make this longer and more detailed", "label": "no", "nearMiss": true}
+{"text": "rephrase this", "label": "no"}
+{"text": "paraphrase this", "label": "no"}
+{"text": "i think i left the oven on", "label": "no"}
+{"text": "i think so too", "label": "no"}
+{"text": "i think you're right", "label": "no"}
+{"text": "i think my code is broken, can you look", "label": "yes"}
+{"text": "i think the answer is 42", "label": "no"}
+{"text": "i don't think that's correct", "label": "no"}
+{"text": "what do you think about pineapple on pizza", "label": "no"}
+{"text": "what do you think of my poem", "label": "no"}
+{"text": "what do you think i should name my dog", "label": "no"}
+{"text": "do you think it will rain tomorrow", "label": "no"}
+{"text": "do you think ai will replace programmers", "label": "no"}
+{"text": "what do you think happens after we die", "label": "no"}
+{"text": "think of a name for my startup", "label": "no"}
+{"text": "think of a word that rhymes with orange", "label": "no"}
+{"text": "think of three gift ideas for my mom", "label": "no"}
+{"text": "think of a number between 1 and 10", "label": "no"}
+{"text": "can you think of a good title for my essay", "label": "no"}
+{"text": "can you think of any synonyms for big", "label": "no"}
+{"text": "i'm thinking about buying a new car", "label": "no"}
+{"text": "i'm thinking of moving to spain", "label": "no"}
+{"text": "what does this mean", "label": "no"}
+{"text": "explain this", "label": "no", "nearMiss": true}
+{"text": "explain this to me like i'm five", "label": "no", "nearMiss": true}
+{"text": "summarize this", "label": "no"}
+{"text": "give me a summary", "label": "no"}
+{"text": "tldr", "label": "no"}
+{"text": "what's the main point here", "label": "no"}
+{"text": "who wrote this", "label": "no"}
+{"text": "when was this written", "label": "no"}
+{"text": "is this true", "label": "no"}
+{"text": "is this accurate", "label": "no"}
+{"text": "fact check this", "label": "no"}
+{"text": "is this grammatically correct?", "label": "no"}
+{"text": "are there any grammar mistakes in this?", "label": "no"}
+{"text": "is this formal enough?", "label": "no"}
+{"text": "does this sound rude?", "label": "no"}
+{"text": "is the tone ok?", "label": "no"}
+{"text": "what's the tone of this", "label": "no"}
+{"text": "what language is this", "label": "no"}
+{"text": "what language is this written in", "label": "no"}
+{"text": "how many words is this", "label": "no"}
+{"text": "how long would this take to read", "label": "no"}
+{"text": "what's this about", "label": "no"}
+{"text": "is it hard to translate this?", "label": "no"}
+{"text": "how would you translate a word like this in general", "label": "no"}
+{"text": "is this a good translation?", "label": "no"}
+{"text": "is the translation accurate", "label": "no"}
+{"text": "what's wrong with this sentence", "label": "no"}
+{"text": "why does this sound off", "label": "no", "nearMiss": true}
+{"text": "can you explain the grammar here", "label": "no", "nearMiss": true}
+{"text": "so thanks so much thanks", "label": "no", "nearMiss": true}
+{"text": "yo what's 3 squared plus 4 squared!!", "label": "no", "nearMiss": true}
+{"text": "um make a plan for cleaning my room please", "label": "no", "nearMiss": true}
+{"text": "determine whether this contract clause creaets a conflict with the earlier indemnity section", "label": "yes"}
+{"text": "quick question: tips for a job interview!!", "label": "no", "nearMiss": true}
+{"text": "yo Summarize this paragraph in three bullets.?", "label": "no"}
+{"text": "hi, reason about whether this clinical trial result is statistically meaningful given the sample size lol", "label": "yes"}
+{"text": "hey can you tell me, how would you architect a recommendation engine that copes with cold starts and changing tastes!!", "label": "yes"}
+{"text": "hey can you tell me, what are the trade-offs between aws and gcp, considering cost, latency and the services we need pls", "label": "yes"}
+{"text": "so what are the trade-offs between three suppliers, considering lead times, minimum orders and quality!!", "label": "yes"}
+{"text": "consturct a counterexample showing this conjecture is false", "label": "yes"}
+{"text": "yo how would you architect a feature flag system that copes with gradual rollouts and instant rollback?", "label": "yes"}
+{"text": "yo derive the expected number of rolls to get two sixes in a row?", "label": "yes"}
+{"text": "how do i make my bed netaly", "label": "no", "nearMiss": true}
+{"text": "hi, analyse the root cause of the recurring payment failures from these error rates by bank thx", "label": "yes"}
+{"text": "help me decide between sql and nosql for our app, wieghing operational burden, cost and flexibility", "label": "yes"}
+{"text": "yo model the impact of a 2% rate increase on our variable loan portfolio?", "label": "yes"}
+{"text": "evaluate renting and buying a house agaisnt monthly cost, equity and flexibility", "label": "yes"}
+{"text": "um evaluate moving abroad or staying against taxes, healthcare and long term plans thx", "label": "yes"}
+{"text": "ok so what's 2 + 2 please", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, a quick tip for remembering names pls", "label": "no", "nearMiss": true}
+{"text": "compare three suppliers aganist price, reliability and support and recommend one", "label": "yes"}
+{"text": "critique this business plan's assumptions and stress test the revenue moedl", "label": "yes"}
+{"text": "analyze my cfofee order lol", "label": "no", "nearMiss": true}
+{"text": "yo plan switching our billing provider with no double charges and no lost subscriptions lol", "label": "yes"}
+{"text": "design a load balancing algorithm that handles uneven sevrer capacities", "label": "yes"}
+{"text": "analyze the risks of a hiring plan for next year given flat revenue and there open roles", "label": "yes"}
+{"text": "desgin a fun cupcake decoration", "label": "no", "nearMiss": true}
+{"text": "design a booking sysetm that handles double bookings and time zones", "label": "yes"}
+{"text": "yo how would you architect a inventory tracker that copes with returns, transfers and offline stores lol", "label": "yes"}
+{"text": "hi, formalize this problem as a linear program and solve it please", "label": "yes"}
+{"text": "so analyze this tweet's vibe in one word?", "label": "no", "nearMiss": true}
+{"text": "yo my house is cold upstairs but the furnace runs constantly, reason through the likely causes?", "label": "yes"}
+{"text": "design my buisness card with a fun font", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, how many ways can 8 people sit at a round table if two of them refuse to sit together pls", "label": "yes"}
+{"text": "Search the web for the ltaest news.", "label": "no"}
+{"text": "find the flaw in this argument: all birds can fly, penugins are birds, so penguins can fly", "label": "yes"}
+{"text": "um what are the trade-offs between paying off the mortgage early or investing, considering interest rates, risk and liquidity thx", "label": "yes"}
+{"text": "yo optimize my closet space, quick tips?", "label": "no", "nearMiss": true}
+{"text": "what's a good plan for a raniy day", "label": "no", "nearMiss": true}
+{"text": "ok so optimise this production schedule to minimise idle time on the machines thx", "label": "yes"}
+{"text": "quick question: Continue thanks", "label": "no"}
+{"text": "hey calculate my age in months", "label": "no", "nearMiss": true}
+{"text": "ok so Private information. Evaluate the assumptions behind this strategy. thanks", "label": "yes"}
+{"text": "quick question: a bat and a ball cost $1.10 together and the bat costs $1 more than the ball, how much is the ball, explain the reasoning?", "label": "yes"}
+{"text": "ok so Write Swift code. thx", "label": "yes"}
+{"text": "plan launhcing in europe with gdpr rules and a small team", "label": "yes"}
+{"text": "ok so Solve this problem: two trains leave opposite ends of a 300 km track at different speeds.", "label": "yes"}
+{"text": "Give me step–by–step reasonnig for this decision.", "label": "yes"}
+{"text": "ok so plan a 12 week training schedule to run a marathon under 4 hours with my current pace data thx", "label": "yes"}
+{"text": "hey Keep this private. Draft a warm thank-you note. thx", "label": "no"}
+{"text": "choose a name for my palnt", "label": "no", "nearMiss": true}
+{"text": "ok so prove you're paying attention, say banana", "label": "no", "nearMiss": true}
+{"text": "hey Do not share this. Draft a warm thank-you note. thx", "label": "no"}
+{"text": "hey can you tell me, how would you architect a booking system that copes with double bookings and time zones lol", "label": "yes"}
+{"text": "quick question: help me decide between two job offers, weighing salary, growth and stability thx", "label": "yes"}
+{"text": "what's the capiatl of canada", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, help me decide between a state school and a private one, weighing cost, class sizes and commute thx", "label": "yes"}
+{"text": "ok so what are the trade-offs between an electric car and a hybrid, considering running costs, range and resale value?", "label": "yes"}
+{"text": "quick question: lay out the arguments for and against a four day work week and reach a conclusion!!", "label": "yes"}
+{"text": "detailed instructions for folding a paepr crane", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, what's a good name for a goldfish thanks", "label": "no", "nearMiss": true}
+{"text": "design a sharding srtategy for a multi tenant saas database where a few tenants are huge", "label": "yes"}
+{"text": "Don't share this. Evaluate the assumptions beihnd this strategy.", "label": "yes"}
+{"text": "hi, This is private. Draft a warm thank-you note. lol", "label": "no"}
+{"text": "hi, Confidential. Evaluate the assumptions behind this strategy. pls", "label": "yes"}
+{"text": "um what's the tallest mountain pls", "label": "no", "nearMiss": true}
+{"text": "compare building in house or buying a tool against cost, time to ship and maintenance budren and recommend one", "label": "yes"}
+{"text": "explian why this probability puzzle's answer is 1/3 and not 1/2", "label": "yes"}
+{"text": "yo what is the expected value of this bet: 30% chance to win 500, 70% chance to lose 150 please", "label": "yes"}
+{"text": "hey can you tell me, design a birthday card for my mom!!", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, summarize the plot of cinderella lol", "label": "no", "nearMiss": true}
+{"text": "hi, help me decide between three suppliers, weighing lead times, minimum orders and quality thanks", "label": "yes"}
+{"text": "um what's the best order to pay off these four debts with these rates and minimums please", "label": "yes"}
+{"text": "hi, infer the meaning of this emoji", "label": "no", "nearMiss": true}
+{"text": "solve 7 tmies 8", "label": "no", "nearMiss": true}
+{"text": "quick question: what's the best strategy for the monty hall problem and why does it work!!", "label": "yes"}
+{"text": "so explain why leaves change color!!", "label": "no", "nearMiss": true}
+{"text": "design a file sync servcie that handles offline edits and conflicts", "label": "yes"}
+{"text": "hey can you tell me, evaluate building in house or buying a tool against control, vendor risk and total cost pls", "label": "yes"}
+{"text": "This is private. Evaluate the assumptions beihnd this strategy.", "label": "yes"}
+{"text": "hi, help me choose a paint color!!", "label": "no", "nearMiss": true}
+{"text": "ok so plan opening a second store with a fixed budget and a six month lease window thx", "label": "yes"}
+{"text": "figure out why the nmubers in this spreadsheet don't add up across tabs", "label": "yes"}
+{"text": "yo how would you architect a rate limiter that copes with bursts of traffic and many servers?", "label": "yes"}
+{"text": "come up with a fair way to allocate shared office costs among five temas of different sizes", "label": "yes"}
+{"text": "yo plan a simple picnic menu", "label": "no", "nearMiss": true}
+{"text": "how should we structure equity among four cofounders with difefrent contributions", "label": "yes"}
+{"text": "plan a pcinic for saturday", "label": "no", "nearMiss": true}
+{"text": "should i wear a jakcet today", "label": "no", "nearMiss": true}
+{"text": "hey calculate how many minutes are in a day?", "label": "no", "nearMiss": true}
+{"text": "hey Do not send this. Write Swift code for it.?", "label": "yes"}
+{"text": "quick question: plan a hiring plan for next year with flat revenue and three open roles lol", "label": "yes"}
+{"text": "which caching strtaegy fits our read-heavy api with strict consistency needs, and why", "label": "yes"}
+{"text": "hey our nightly batch job sometimes takes 10 minutes and sometimes 3 hours, what could explain the variance thanks", "label": "yes"}
+{"text": "conevrt 10 km to miles", "label": "no", "nearMiss": true}
+{"text": "yo design a feature flag system that handles gradual rollouts and instant rollback", "label": "yes"}
+{"text": "given these symptoms and test results, what are the likely dfiferential diagnoses and how would you narrow them", "label": "yes"}
+{"text": "figure out the minimum staffing to keep wait times unedr five minutes with these arrival rates", "label": "yes"}
+{"text": "so Do not send this. Draft a warm thank-you note. lol", "label": "no"}
+{"text": "ok so assess the risks of expanding into three new markets at once thx", "label": "yes"}
+{"text": "yo design a payment pipeline that handles partial failures and refunds lol", "label": "yes"}
+{"text": "give me a resaon to smile", "label": "no", "nearMiss": true}
+{"text": "um Explain why the sky is blue. please", "label": "no", "nearMiss": true}
+{"text": "so quick advice for a first date thx", "label": "no", "nearMiss": true}
+{"text": "help me decide between aws and gcp, weighing pricing, supoprt and lock-in risk", "label": "yes"}
+{"text": "um analyze this poem in one sentence thanks", "label": "no", "nearMiss": true}
+{"text": "hey design a rate limiter that handles bursts of traffic and many servers please", "label": "yes"}
+{"text": "hey can you tell me, work out whether my startup should raise money now or extend runway by cutting costs please", "label": "yes"}
+{"text": "solve this riddle for kids: what has hadns but can't clap", "label": "no", "nearMiss": true}
+{"text": "hey solve the anagram tesh?", "label": "no", "nearMiss": true}
+{"text": "dreive the bayes posterior for this coin flip problem", "label": "yes"}
+{"text": "compare paepr and plastic bags quickly", "label": "no", "nearMiss": true}
+{"text": "ok so prove that the square root of 2 is irrational thanks", "label": "yes"}
+{"text": "how would you architect a payment ppieline that copes with partial failures and refunds", "label": "yes"}
+{"text": "so prove there are infinitely many primes thx", "label": "yes"}
+{"text": "ok so what's the reason the sky is blue", "label": "no", "nearMiss": true}
+{"text": "yo build a decision framework for choosing which features to cut from the release lol", "label": "yes"}
+{"text": "plan the logistics for a 300 person confeernce with two venues and a fixed shuttle budget", "label": "yes"}
+{"text": "design a t-shirt slgoan", "label": "no", "nearMiss": true}
+{"text": "hey Do not share this. Write Swift code for it. thx", "label": "yes"}
+{"text": "Keep this private. Evaluate the assupmtions behind this strategy.", "label": "yes"}
+{"text": "ok so Summarize this. pls", "label": "no"}
+{"text": "um design ideas for a kids bedroom please", "label": "no", "nearMiss": true}
+{"text": "Implement this Swift function and debug the satck trace.", "label": "yes"}
+{"text": "hey can you tell me, analyze the risks of rebuilding the kitchen given a budget of 30k and two kids at home", "label": "yes"}
+{"text": "design a chore cahrt for kids", "label": "no", "nearMiss": true}
+{"text": "um solve this logic puzzle: five houses, five colors, five owners", "label": "yes"}
+{"text": "yo what's the difference between baking soda and baking powder", "label": "no", "nearMiss": true}
+{"text": "hi, Don't share this. Draft a warm thank-you note. thanks", "label": "no"}
+{"text": "evalutae two job offers against commute, culture and long term growth", "label": "yes"}
+{"text": "tell me something interesting aobut owls", "label": "no", "nearMiss": true}
+{"text": "yo how do i ask for a raise pls", "label": "no", "nearMiss": true}
+{"text": "hey design a database schema for a hospital with patients, doctors and appointments and justify the choices please", "label": "yes"}
+{"text": "my tomtao plants have yellow leaves, brown spots and wilting, work through the possible causes", "label": "yes"}
+{"text": "work out the root casue of our app slowing down every friday", "label": "yes"}
+{"text": "design a saerch index that handles frequent updates and typo tolerance", "label": "yes"}
+{"text": "help me decide between moving abraod or staying, weighing taxes, healthcare and long term plans", "label": "yes"}
+{"text": "what are the trade-offs between pyaing off the mortgage early or investing, considering taxes, peace of mind and expected returns", "label": "yes"}
+{"text": "work out the root cause of the drop in convresions after the price change", "label": "yes"}
+{"text": "compare a satte school and a private one against outcomes, cost and my kid's needs and recommend one", "label": "yes"}
+{"text": "help me biuld a pricing model for a subscription with three tiers and usage overages", "label": "yes"}
+{"text": "so Evaluate whether our expansion assumptions are internally consistent. thanks", "label": "yes"}
+{"text": "so infer what caused the outage from these log excerpts?", "label": "yes"}
+{"text": "quick question: reason through whether we should rewrite the app or refactor it gradually thanks", "label": "yes"}
+{"text": "quick question: develop a strategy to reduce churn with these cohort numbers?", "label": "yes"}
+{"text": "ok so Compare tea and coffee in one sentence.?", "label": "no", "nearMiss": true}
+{"text": "help me figure out whether to take the lump sum pension or the annuity given my health and savnigs", "label": "yes"}
+{"text": "hey compare the long term costs of solar panels vs staying on the grid with these rates thx", "label": "yes"}
+{"text": "um prove the time complexity of merge sort thanks", "label": "yes"}
+{"text": "hi, design a leaderboard that handles millions of score updates per minute pls", "label": "yes"}
+{"text": "compare index funds and real estate against tax impact, effort and diversification and reocmmend one", "label": "yes"}
+{"text": "yo evaluate my outfit, is it nice!!", "label": "no", "nearMiss": true}
+{"text": "hi, work out how much house i can afford given my income, debts and a 20% down payment pls", "label": "yes"}
+{"text": "exlpain the causal chain that led to the 2008 financial crisis and what could have prevented it", "label": "yes"}
+{"text": "evaluate whether to refinance now or wait a year, acocunting for closing costs and rate uncertainty", "label": "yes"}
+{"text": "optiimze my morning routine with quick tips", "label": "no", "nearMiss": true}
+{"text": "quick question: how long should i nap pls", "label": "no", "nearMiss": true}
+{"text": "quick question: how would you architect a notification service that copes with retries without duplicates lol", "label": "yes"}
+{"text": "quick question: we sell 400 units a month at $25 with a 40% margin, would a 10% price cut that lifts volume 15% make us more money thx", "label": "yes"}
+{"text": "choose a ranodm number", "label": "no", "nearMiss": true}
+{"text": "yo analyze the risks of migrating our data warehouse given zero downtime and a strict deadline please", "label": "yes"}
+{"text": "what's 12 pecrent of 300", "label": "no", "nearMiss": true}
+{"text": "design a recommendation engine that handles cold starts and changing tatses", "label": "yes"}
+{"text": "analyze my hanwdriting", "label": "no", "nearMiss": true}
+{"text": "quick question: solve this simple maze description: left then right?", "label": "no", "nearMiss": true}
+{"text": "what's a good plan b for a riany picnic, one idea", "label": "no", "nearMiss": true}
+{"text": "yo investigate the noise in my car, any common causes pls", "label": "no", "nearMiss": true}
+{"text": "reason through the ethics of a self driving car choosing bewteen two harms", "label": "yes"}
+{"text": "ok so explain how rainbows form pls", "label": "no", "nearMiss": true}
+{"text": "so compare postgres, mongodb and dynamodb for our analytics workload against cost, latency and operational burden please", "label": "yes"}
+{"text": "Priavte information. Draft a warm thank-you note.", "label": "no"}
+{"text": "um explain what a budget is thx", "label": "no", "nearMiss": true}
+{"text": "ok so what's the square root of 16 please", "label": "no", "nearMiss": true}
+{"text": "plan a game ngiht", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, calculate 15 times 12?", "label": "no", "nearMiss": true}
+{"text": "Keep this private. Write Siwft code for it.", "label": "yes"}
+{"text": "plan my weekned chores", "label": "no", "nearMiss": true}
+{"text": "so Sensitive personal information. Evaluate the assumptions behind this strategy. please", "label": "yes"}
+{"text": "find the optimal number of warehouses to minimize shipping cost for these regional demand numbres", "label": "yes"}
+{"text": "hey analyze this horoscope for fun thx", "label": "no", "nearMiss": true}
+{"text": "opitmize my desk for a cozy look", "label": "no", "nearMiss": true}
+{"text": "help me decide between paying off the mortgage early or investing, weighing inetrest rates, risk and liquidity", "label": "yes"}
+{"text": "find the bug in my reasoning: if the average went up, every gruop must have gone up", "label": "yes"}
+{"text": "so what's the difference between weather and climate, short answer thanks", "label": "no", "nearMiss": true}
+{"text": "so calculate the break even point if fixed costs are 20k and margin per unit is 12 thanks", "label": "yes"}
+{"text": "garden design ideas for a samll yard", "label": "no", "nearMiss": true}
+{"text": "write a poem about autmun", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, solve this scheduling puzzle: four nurses, seven days, each needs two days off in a row thanks", "label": "yes"}
+{"text": "compare aws and gcp against pricing, support and lock-in risk and recomemnd one", "label": "yes"}
+{"text": "compare three ways to structure the database mirgation and pick the least risky", "label": "yes"}
+{"text": "name three prmiary colors", "label": "no", "nearMiss": true}
+{"text": "um compare an electric car and a hybrid against running costs, range and resale value and recommend one thx", "label": "yes"}
+{"text": "evaluate sql and nsoql for our app against operational burden, cost and flexibility", "label": "yes"}
+{"text": "ok so compare hiring a contractor or a full timer against cost, risk and how long we need them and recommend one pls", "label": "yes"}
+{"text": "plan mgirating our data warehouse with zero downtime and a strict deadline", "label": "yes"}
+{"text": "hi, design a chat backend that handles message ordering and offline delivery pls", "label": "yes"}
+{"text": "find the flaw in this argument: all birds can fly, penguins are birds, so penguins can fly\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.", "label": "yes"}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\ncompare the long term costs of solar panels vs staying on the grid with these rates", "label": "yes"}
+{"text": "determine whether this contract clause creates a conflict with the earlier indemnity section\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "yes"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nhow many ways can 8 people sit at a round table if two of them refuse to sit together", "label": "yes"}
+{"text": "optimise this production schedule to minimise idle time on the machines\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.", "label": "yes"}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nsynthesize these five research papers into a coherent position on the question", "label": "yes"}
+{"text": "work out the optimal strategy for this game where each player picks a number from 1 to 10\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.", "label": "yes"}
+{"text": "Our neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nprove there are infinitely many primes", "label": "yes"}
+{"text": "prove the time complexity of merge sort\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.", "label": "yes"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nanalyse the failure modes of this distributed lock design", "label": "yes"}
+{"text": "model the cash flow for the next 18 months with these assumptions and tell me when we run out\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "yes"}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nestimate how many piano tuners there are in chicago and show the reasoning", "label": "yes"}
+{"text": "summarize this in two lines\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.", "label": "no", "nearMiss": true}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\ngive this a title", "label": "no", "nearMiss": true}
+{"text": "fix the typos\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "no", "nearMiss": true}
+{"text": "The meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nwhat's a fun name for this", "label": "no", "nearMiss": true}
+{"text": "translate this to french\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "no", "nearMiss": true}
+{"text": "The apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nrecommend a good book", "label": "no", "nearMiss": true}
+{"text": "complex carbs vs simple carbs\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "no", "nearMiss": true}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nwrite a poem about autumn", "label": "no", "nearMiss": true}
+{"text": "how do i ask for a raise\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.", "label": "no", "nearMiss": true}
+{"text": "The apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nwhat's the root of 49", "label": "no", "nearMiss": true}
+{"text": "write a python script that renames all the files in a folder", "label": "yes"}
+{"text": "how do i reverse a linked list in java", "label": "yes"}
+{"text": "fix this typescript error: property 'name' does not exist on type 'never'", "label": "yes"}
+{"text": "why does my react component render twice", "label": "yes"}
+{"text": "what does this regex do", "label": "yes"}
+{"text": "write a regex that matches email addresses", "label": "yes"}
+{"text": "write a sql query to get the top 5 customers by revenue", "label": "yes"}
+{"text": "optimize this sql query, it's slow", "label": "yes"}
+{"text": "explain this stack trace", "label": "yes"}
+{"text": "my app crashes with EXC_BAD_ACCESS, how do i debug it", "label": "yes"}
+{"text": "segmentation fault in my c program, help", "label": "yes"}
+{"text": "convert this javascript to typescript", "label": "yes"}
+{"text": "write unit tests for this function", "label": "yes"}
+{"text": "review this pull request diff", "label": "yes"}
+{"text": "refactor this function to be more readable", "label": "yes"}
+{"text": "how do i make an http request in swift", "label": "no", "nearMiss": true}
+{"text": "how do i parse json in go", "label": "no", "nearMiss": true}
+{"text": "what's the difference between let and var in javascript", "label": "no", "nearMiss": true}
+{"text": "explain async await in swift", "label": "yes"}
+{"text": "how do i use useEffect correctly", "label": "no", "nearMiss": true}
+{"text": "write a bash script to back up my home folder", "label": "yes"}
+{"text": "how do i undo the last git commit", "label": "no", "nearMiss": true}
+{"text": "git merge conflict, how do i fix it", "label": "yes"}
+{"text": "write a dockerfile for a node app", "label": "yes"}
+{"text": "my kubernetes pod keeps restarting, how do i check the logs", "label": "yes"}
+{"text": "how do i center a div in css", "label": "no", "nearMiss": true}
+{"text": "what's wrong with this css grid", "label": "yes"}
+{"text": "write a function to check if a number is prime", "label": "yes"}
+{"text": "implement binary search in rust", "label": "yes"}
+{"text": "implement a stack using two queues", "label": "yes"}
+{"text": "how do i read a csv file with pandas", "label": "no", "nearMiss": true}
+{"text": "plot a histogram with matplotlib", "label": "yes"}
+{"text": "numpy array reshape error", "label": "yes"}
+{"text": "my python code throws a keyerror", "label": "yes"}
+{"text": "what does null pointer exception mean in java", "label": "yes"}
+{"text": "how do i handle errors in rust with result", "label": "no", "nearMiss": true}
+{"text": "write a swiftui view that shows a list of items", "label": "yes"}
+{"text": "how do i use combine to debounce a text field", "label": "no", "nearMiss": true}
+{"text": "why is my swift concurrency code giving a data race warning", "label": "yes"}
+{"text": "write a kotlin data class for a user", "label": "yes"}
+{"text": "how do i set up a flask api", "label": "no", "nearMiss": true}
+{"text": "write an express route that returns json", "label": "yes"}
+{"text": "how do i connect to postgres from node", "label": "no", "nearMiss": true}
+{"text": "explain closures in javascript", "label": "yes"}
+{"text": "explain pointers in c", "label": "yes"}
+{"text": "what is a monad in haskell", "label": "yes"}
+{"text": "write a hello world in assembly", "label": "yes"}
+{"text": "write a recursive fibonacci function", "label": "yes"}
+{"text": "make this loop faster", "label": "yes"}
+{"text": "this function is O(n^2), can it be O(n)?", "label": "yes"}
+{"text": "how do i profile my python code", "label": "yes"}
+{"text": "memory leak in my ios app", "label": "yes"}
+{"text": "write a cron expression for every monday at 9am", "label": "yes"}
+{"text": "write a github actions workflow that runs tests", "label": "yes"}
+{"text": "how do i deploy to vercel from the cli", "label": "no", "nearMiss": true}
+{"text": "how do i install packages with pip", "label": "no", "nearMiss": true}
+{"text": "npm install fails with eresolve", "label": "yes"}
+{"text": "cmake can't find my library", "label": "yes"}
+{"text": "xcode build fails with linker error", "label": "yes"}
+{"text": "how do i write a makefile", "label": "no", "nearMiss": true}
+{"text": "write a vim macro to wrap lines in quotes", "label": "yes"}
+{"text": "write an excel vba macro that copies rows", "label": "yes"}
+{"text": "write a google apps script to email a spreadsheet", "label": "yes"}
+{"text": "how do i use the openai api in python", "label": "no", "nearMiss": true}
+{"text": "write a graphql query for a user's posts", "label": "yes"}
+{"text": "how do i use regex in sed to replace a word", "label": "no", "nearMiss": true}
+{"text": "write a jq command to extract names from json", "label": "yes"}
+{"text": "convert this curl command to python requests", "label": "yes"}
+{"text": "how do i debounce a function in js", "label": "no", "nearMiss": true}
+{"text": "what's the time complexity of quicksort", "label": "yes"}
+{"text": "explain big o notation with code examples", "label": "yes"}
+{"text": "leetcode two sum solution in python", "label": "yes"}
+{"text": "write a class for a bank account in c++", "label": "yes"}
+{"text": "how do i use generics in typescript", "label": "no", "nearMiss": true}
+{"text": "explain dependency injection with an example in c#", "label": "yes"}
+{"text": "what does `yield` do in python", "label": "yes"}
+{"text": "how do i run a shell command from swift", "label": "no", "nearMiss": true}
+{"text": "write a powershell script to list large files", "label": "yes"}
+{"text": "how do i mock a network call in jest", "label": "no", "nearMiss": true}
+{"text": "pytest fixture not found error", "label": "yes"}
+{"text": "why are my tests flaky", "label": "yes"}
+{"text": "write a migration to add a column in rails", "label": "yes"}
+{"text": "how do i use django orm to filter by date", "label": "no", "nearMiss": true}
+{"text": "my docker container can't reach the database", "label": "yes"}
+{"text": "write terraform for an s3 bucket", "label": "yes"}
+{"text": "explain this code to me", "label": "yes"}
+{"text": "what does this function return", "label": "yes"}
+{"text": "comment this code", "label": "yes"}
+{"text": "add type hints to this python", "label": "yes"}
+{"text": "translate this python to javascript", "label": "yes"}
+{"text": "port this objective-c to swift", "label": "yes"}
+{"text": "why is this variable undefined", "label": "yes"}
+{"text": "how do i fix cors errors", "label": "yes"}
+{"text": "write a web scraper with beautiful soup", "label": "yes"}
+{"text": "build a simple todo app in vue", "label": "yes"}
+{"text": "how to use websockets in node", "label": "no", "nearMiss": true}
+{"text": "debug this: TypeError: cannot read properties of undefined", "label": "yes"}
+{"text": "fix my code pls", "label": "yes"}
+{"text": "my code doesnt work", "label": "yes"}
+{"text": "pls help with this bug in my script", "label": "yes"}
+{"text": "why does this throw", "label": "yes"}
+{"text": "whats wrong with my for loop", "label": "yes"}
+{"text": "how do i print to console in rust", "label": "no", "nearMiss": true}
+{"text": "how do i exit vim", "label": "no", "nearMiss": true}
+{"text": "debug this c# memory leak", "label": "yes"}
+{"text": "debug this c# type mismatch", "label": "yes"}
+{"text": "debug this dart segfault", "label": "yes"}
+{"text": "debug this javascript deadlock", "label": "yes"}
+{"text": "debug this php null reference", "label": "yes"}
+{"text": "debug this php off by one error", "label": "yes"}
+{"text": "debug this scala import error", "label": "yes"}
+{"text": "debug this swift off by one error", "label": "yes"}
+{"text": "debug this typescript undefined is not a function", "label": "yes"}
+{"text": "explain this bash snippet", "label": "yes"}
+{"text": "explain this dart snippet", "label": "yes"}
+{"text": "explain this elixir snippet", "label": "yes"}
+{"text": "explain this go snippet", "label": "yes"}
+{"text": "explain this javascript snippet", "label": "yes"}
+{"text": "explain this ruby snippet", "label": "yes"}
+{"text": "explain this rust snippet", "label": "yes"}
+{"text": "explain this scala snippet", "label": "yes"}
+{"text": "fix the deadlock in my ruby code", "label": "yes"}
+{"text": "fix the import error in my ruby code", "label": "yes"}
+{"text": "fix the index out of range in my dart code", "label": "yes"}
+{"text": "fix the index out of range in my elixir code", "label": "yes"}
+{"text": "fix the index out of range in my python code", "label": "yes"}
+{"text": "fix the infinite loop in my dart code", "label": "yes"}
+{"text": "fix the infinite loop in my elixir code", "label": "yes"}
+{"text": "fix the null reference in my sql code", "label": "yes"}
+{"text": "fix the race condition in my javascript code", "label": "yes"}
+{"text": "fix the race condition in my typescript code", "label": "yes"}
+{"text": "fix the timeout in my javascript code", "label": "yes"}
+{"text": "fix the timeout in my scala code", "label": "yes"}
+{"text": "fix the type mismatch in my kotlin code", "label": "yes"}
+{"text": "fix the undefined is not a function in my dart code", "label": "yes"}
+{"text": "fix the undefined is not a function in my python code", "label": "yes"}
+{"text": "write c# code that validates an email address", "label": "yes"}
+{"text": "write c++ code that removes duplicates from a list", "label": "yes"}
+{"text": "write dart code that finds the longest palindrome", "label": "yes"}
+{"text": "write dart code that parses a date string", "label": "yes"}
+{"text": "write java code that serializes a struct to json", "label": "yes"}
+{"text": "write javascript code that retries a request three times", "label": "yes"}
+{"text": "write python code that caches results in memory", "label": "yes"}
+{"text": "write python code that flattens a nested array", "label": "yes"}
+{"text": "write ruby code that counts word frequencies in a file", "label": "yes"}
+{"text": "write ruby code that validates an email address", "label": "yes"}
+{"text": "write rust code that removes duplicates from a list", "label": "yes"}
+{"text": "write scala code that merges two sorted lists", "label": "yes"}
+{"text": "write sql code that parses a date string", "label": "yes"}
+{"text": "in bash, how do i make something that flattens a nested array", "label": "yes"}
+{"text": "in bash, how do i make something that validates an email address", "label": "yes"}
+{"text": "in dart, how do i make something that retries a request three times", "label": "yes"}
+{"text": "in go, how do i make something that counts word frequencies in a file", "label": "yes"}
+{"text": "in java, how do i make something that converts celsius to fahrenheit", "label": "yes"}
+{"text": "in javascript, how do i make something that paginates an api", "label": "yes"}
+{"text": "in javascript, how do i make something that parses a date string", "label": "yes"}
+{"text": "in kotlin, how do i make something that validates an email address", "label": "yes"}
+{"text": "in rust, how do i make something that counts word frequencies in a file", "label": "yes"}
+{"text": "in sql, how do i make something that flattens a nested array", "label": "yes"}
+{"text": "in typescript, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "refactor my bash code that downloads a file and checks its hash", "label": "yes"}
+{"text": "refactor my dart code that paginates an api", "label": "yes"}
+{"text": "refactor my go code that finds the longest palindrome", "label": "yes"}
+{"text": "refactor my go code that retries a request three times", "label": "yes"}
+{"text": "refactor my javascript code that debounces a callback", "label": "yes"}
+{"text": "refactor my kotlin code that merges two sorted lists", "label": "yes"}
+{"text": "refactor my php code that finds the longest palindrome", "label": "yes"}
+{"text": "refactor my python code that retries a request three times", "label": "yes"}
+{"text": "refactor my ruby code that caches results in memory", "label": "yes"}
+{"text": "refactor my rust code that validates an email address", "label": "yes"}
+{"text": "refactor my swift code that counts word frequencies in a file", "label": "yes"}
+{"text": "refactor my swift code that parses a date string", "label": "yes"}
+{"text": "refactor my typescript code that merges two sorted lists", "label": "yes"}
+{"text": "review my c# code for bugs", "label": "yes"}
+{"text": "review my dart code for bugs", "label": "yes"}
+{"text": "review my java code for bugs", "label": "yes"}
+{"text": "review my javascript code for bugs", "label": "yes"}
+{"text": "review my rust code for bugs", "label": "yes"}
+{"text": "review my sql code for bugs", "label": "yes"}
+{"text": "what's the idiomatic way in c# to write a function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "what's the idiomatic way in dart to write a function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "what's the idiomatic way in go to write a function that serializes a struct to json", "label": "yes"}
+{"text": "what's the idiomatic way in java to write a function that retries a request three times", "label": "yes"}
+{"text": "what's the idiomatic way in php to write a function that counts word frequencies in a file", "label": "yes"}
+{"text": "what's the idiomatic way in php to write a function that merges two sorted lists", "label": "yes"}
+{"text": "what's the idiomatic way in scala to write a function that validates an email address", "label": "yes"}
+{"text": "what's the idiomatic way in swift to write a function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "what's the idiomatic way in typescript to write a function that caches results in memory", "label": "yes"}
+{"text": "why does my bash program have an undefined is not a function", "label": "yes"}
+{"text": "why does my c# program have a timeout", "label": "yes"}
+{"text": "why does my go program have a memory leak", "label": "yes"}
+{"text": "why does my java program have a deadlock", "label": "yes"}
+{"text": "why does my php program have an infinite loop", "label": "yes"}
+{"text": "why does my php program have a race condition", "label": "yes"}
+{"text": "why does my rust program have a segfault", "label": "yes"}
+{"text": "why does my sql program have an import error", "label": "yes"}
+{"text": "why does my swift program have an index out of range", "label": "yes"}
+{"text": "write a bash function that validates an email address", "label": "yes"}
+{"text": "write a c++ function that reads a csv and sums a column", "label": "yes"}
+{"text": "write a go function that reads a csv and sums a column", "label": "yes"}
+{"text": "write a kotlin function that reads a csv and sums a column", "label": "yes"}
+{"text": "write a ruby function that validates an email address", "label": "yes"}
+{"text": "write a scala function that reads a csv and sums a column", "label": "yes"}
+{"text": "write a scala function that validates an email address", "label": "yes"}
+{"text": "write a typescript function that serializes a struct to json", "label": "yes"}
+{"text": "write tests for my bash function that flattens a nested array", "label": "yes"}
+{"text": "write tests for my dart function that serializes a struct to json", "label": "yes"}
+{"text": "write tests for my elixir function that merges two sorted lists", "label": "yes"}
+{"text": "write tests for my python function that removes duplicates from a list", "label": "yes"}
+{"text": "write tests for my python function that validates an email address", "label": "yes"}
+{"text": "write tests for my ruby function that counts word frequencies in a file", "label": "yes"}
+{"text": "write tests for my ruby function that finds the longest palindrome", "label": "yes"}
+{"text": "write tests for my rust function that parses a date string", "label": "yes"}
+{"text": "write tests for my scala function that flattens a nested array", "label": "yes"}
+{"text": "convert this c++ code to javascript", "label": "yes"}
+{"text": "convert this go code to scala", "label": "yes"}
+{"text": "convert this go code to swift", "label": "yes"}
+{"text": "convert this javascript code to kotlin", "label": "yes"}
+{"text": "convert this javascript code to rust", "label": "yes"}
+{"text": "convert this rust code to dart", "label": "yes"}
+{"text": "convert this scala code to dart", "label": "yes"}
+{"text": "convert this sql code to scala", "label": "yes"}
+{"text": "convert this swift code to dart", "label": "yes"}
+{"text": "convert this swift code to python", "label": "yes"}
+{"text": "is there a bash library that counts word frequencies in a file", "label": "no", "nearMiss": true}
+{"text": "is there a bash library that finds the longest palindrome", "label": "no", "nearMiss": true}
+{"text": "is there a bash library that merges two sorted lists", "label": "no", "nearMiss": true}
+{"text": "is there a bash library that retries a request three times", "label": "no", "nearMiss": true}
+{"text": "is there a c# library that paginates an api", "label": "no", "nearMiss": true}
+{"text": "is there a c++ library that flattens a nested array", "label": "no", "nearMiss": true}
+{"text": "is there a c++ library that merges two sorted lists", "label": "no", "nearMiss": true}
+{"text": "is there a dart library that paginates an api", "label": "no", "nearMiss": true}
+{"text": "is there a go library that flattens a nested array", "label": "no", "nearMiss": true}
+{"text": "is there a java library that caches results in memory", "label": "no", "nearMiss": true}
+{"text": "is there a java library that validates an email address", "label": "no", "nearMiss": true}
+{"text": "is there a javascript library that converts celsius to fahrenheit", "label": "no", "nearMiss": true}
+{"text": "is there a javascript library that counts word frequencies in a file", "label": "no", "nearMiss": true}
+{"text": "is there a kotlin library that converts celsius to fahrenheit", "label": "no", "nearMiss": true}
+{"text": "is there a kotlin library that debounces a callback", "label": "no", "nearMiss": true}
+{"text": "is there a kotlin library that parses a date string", "label": "no", "nearMiss": true}
+{"text": "is there a ruby library that parses a date string", "label": "no", "nearMiss": true}
+{"text": "is there a scala library that debounces a callback", "label": "no", "nearMiss": true}
+{"text": "is there a typescript library that debounces a callback", "label": "no", "nearMiss": true}
+{"text": "design a function that merges overlapping time ranges and explain the edge cases", "label": "yes"}
+{"text": "design the api for a small caching module, what functions should it expose and why", "label": "yes"}
+{"text": "explain what this recursive function does line by line", "label": "yes"}
+{"text": "walk me through how this sorting code works", "label": "yes"}
+{"text": "explain why this closure captures the wrong value in the loop", "label": "yes"}
+{"text": "design a data structure for an lru cache with o(1) get and put", "label": "yes"}
+{"text": "how should i structure the functions in my parser so it's testable", "label": "yes"}
+{"text": "explain how the event loop runs this async code in order", "label": "yes"}
+{"text": "why does this function return nil sometimes, trace through it with me", "label": "yes"}
+{"text": "design a class hierarchy for shapes that avoids duplicate area code", "label": "yes"}
+{"text": "help me design the database models for a todo app with shared lists", "label": "yes"}
+{"text": "explain this code and point out what could go wrong with concurrent calls", "label": "yes"}
+{"text": "design a retry function with exponential backoff and jitter in swift", "label": "yes"}
+{"text": "explain how this regex backtracks and why it's slow on long input", "label": "yes"}
+{"text": "figure out why my unit test passes locally but fails on ci", "label": "yes"}
+{"text": "design a function signature for paginated search that's easy to extend", "label": "yes"}
+{"text": "explain the difference between these two implementations and which is faster", "label": "yes"}
+{"text": "refactor this 200 line function into smaller pieces and explain the split", "label": "yes"}
+{"text": "review my error handling strategy for this networking layer", "label": "yes"}
+{"text": "explain what this sql query is doing step by step and whether it uses the index", "label": "yes"}
+{"text": "design a state machine for a checkout flow in code", "label": "yes"}
+{"text": "explain how this generic constraint makes the code compile", "label": "yes"}
+{"text": "why does my swift actor deadlock here, explain", "label": "yes"}
+{"text": "design a plugin system for my python app", "label": "yes"}
+{"text": "explain this git history and why the merge broke the build", "label": "yes"}
+{"text": "how would you structure a function that validates a form with dependent fields", "label": "yes"}
+{"text": "explain what's happening in this memory graph and where the leak comes from", "label": "yes"}
+{"text": "optimize this function that's slow on large lists and explain the complexity", "label": "yes"}
+{"text": "design an interface for swapping storage backends in my app", "label": "yes"}
+{"text": "explain how this recursive descent parser handles operator precedence", "label": "yes"}
+{"text": "how do i comment out a line in python", "label": "no", "nearMiss": true}
+{"text": "what's the shortcut to build in xcode", "label": "no", "nearMiss": true}
+{"text": "how do i check my node version", "label": "no", "nearMiss": true}
+{"text": "what's the syntax for a for loop in go", "label": "no", "nearMiss": true}
+{"text": "how do i make a comment in html", "label": "no", "nearMiss": true}
+{"text": "how do i print a variable in javascript", "label": "no", "nearMiss": true}
+{"text": "what's the keyboard shortcut to format code in vscode", "label": "no", "nearMiss": true}
+{"text": "how do i create a new branch in git", "label": "no", "nearMiss": true}
+{"text": "what's the file extension for typescript", "label": "no", "nearMiss": true}
+{"text": "how do i install homebrew", "label": "no", "nearMiss": true}
+{"text": "how do i rename a file in the terminal", "label": "no", "nearMiss": true}
+{"text": "how do i list files in a folder in bash", "label": "no", "nearMiss": true}
+{"text": "what does ls -la do", "label": "no", "nearMiss": true}
+{"text": "how do i open the terminal on mac", "label": "no", "nearMiss": true}
+{"text": "how do i declare a constant in swift", "label": "no", "nearMiss": true}
+{"text": "what's the default port for postgres", "label": "no", "nearMiss": true}
+{"text": "how do i quit python in the terminal", "label": "no", "nearMiss": true}
+{"text": "how do i clear the terminal", "label": "no", "nearMiss": true}
+{"text": "how do i add a package with npm", "label": "no", "nearMiss": true}
+{"text": "what's the command to run a python file", "label": "no", "nearMiss": true}
+{"text": "wrtie a sql query to get the top 5 customers by revenue", "label": "yes"}
+{"text": "is tehre a kotlin library that parses a date string", "label": "no", "nearMiss": true}
+{"text": "um cmake can't find my library?", "label": "yes"}
+{"text": "wirte a ruby function that validates an email address", "label": "yes"}
+{"text": "write a class for a bank acconut in c++", "label": "yes"}
+{"text": "um git merge conflict, how do i fix it pls", "label": "yes"}
+{"text": "leetcode two sum soltuion in python", "label": "yes"}
+{"text": "how do i comment out a line in pyhton", "label": "no", "nearMiss": true}
+{"text": "exlpain this ruby snippet", "label": "yes"}
+{"text": "yo what does `yield` do in python thanks", "label": "yes"}
+{"text": "quick question: how do i parse json in go!!", "label": "no", "nearMiss": true}
+{"text": "plot a histgoram with matplotlib", "label": "yes"}
+{"text": "what's the time complexity of quicksrot", "label": "yes"}
+{"text": "um is there a c# library that paginates an api lol", "label": "no", "nearMiss": true}
+{"text": "um how would you structure a function that validates a form with dependent fields!!", "label": "yes"}
+{"text": "um write tests for my ruby function that finds the longest palindrome", "label": "yes"}
+{"text": "debug this c# meomry leak", "label": "yes"}
+{"text": "write a recursive fibonacci funciton", "label": "yes"}
+{"text": "so write a vim macro to wrap lines in quotes please", "label": "yes"}
+{"text": "ok so segmentation fault in my c program, help thx", "label": "yes"}
+{"text": "hi, write tests for my dart function that serializes a struct to json pls", "label": "yes"}
+{"text": "reveiw my dart code for bugs", "label": "yes"}
+{"text": "whtas wrong with my for loop", "label": "yes"}
+{"text": "debug this c# type mimsatch", "label": "yes"}
+{"text": "refactor my rust code that valdiates an email address", "label": "yes"}
+{"text": "hey write a kotlin function that reads a csv and sums a column pls", "label": "yes"}
+{"text": "what's the idiomatic way in swift to write a function that converts celsius to fahrenehit", "label": "yes"}
+{"text": "fix the inifnite loop in my dart code", "label": "yes"}
+{"text": "debug this javascript dedalock", "label": "yes"}
+{"text": "hey can you tell me, debug this swift off by one error thx", "label": "yes"}
+{"text": "hey can you tell me, write tests for my scala function that flattens a nested array thanks", "label": "yes"}
+{"text": "hey can you tell me, what's the keyboard shortcut to format code in vscode?", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, how do i read a csv file with pandas thanks", "label": "no", "nearMiss": true}
+{"text": "what's wrnog with this css grid", "label": "yes"}
+{"text": "how do i fix cors erorrs", "label": "yes"}
+{"text": "hey can you tell me, what's the idiomatic way in java to write a function that retries a request three times?", "label": "yes"}
+{"text": "quick question: how do i debounce a function in js pls", "label": "no", "nearMiss": true}
+{"text": "hey why does my php program have an infinite loop please", "label": "yes"}
+{"text": "hi, how do i make an http request in swift?", "label": "no", "nearMiss": true}
+{"text": "yo explain pointers in c please", "label": "yes"}
+{"text": "hey can you tell me, optimize this function that's slow on large lists and explain the complexity thx", "label": "yes"}
+{"text": "hey can you tell me, convert this swift code to swift!!", "label": "yes"}
+{"text": "deubg this dart segfault", "label": "yes"}
+{"text": "hi, convert this sql code to scala lol", "label": "yes"}
+{"text": "quick question: why does my bash program have an undefined is not a function thanks", "label": "yes"}
+{"text": "ok so pls help with this bug in my script lol", "label": "yes"}
+{"text": "debug this typecsript undefined is not a function", "label": "yes"}
+{"text": "um explain what this recursive function does line by line lol", "label": "yes"}
+{"text": "hi, how do i undo the last git commit please", "label": "no", "nearMiss": true}
+{"text": "hi, fix the undefined is not a function in my dart code thanks", "label": "yes"}
+{"text": "refactor my typescript code that merges two sorted litss", "label": "yes"}
+{"text": "in bash, how do i make something that valiadtes an email address", "label": "yes"}
+{"text": "so refactor my swift code that parses a date string please", "label": "yes"}
+{"text": "hey can you tell me, how do i add a package with npm lol", "label": "no", "nearMiss": true}
+{"text": "um write a scala function that reads a csv and sums a column please", "label": "yes"}
+{"text": "refactor my dart code that paginaets an api", "label": "yes"}
+{"text": "ok so debug this php off by one error please", "label": "yes"}
+{"text": "make this loop fasetr", "label": "yes"}
+{"text": "hey can you tell me, in kotlin, how do i make something that validates an email address", "label": "yes"}
+{"text": "hi, port this objective-c to swift?", "label": "yes"}

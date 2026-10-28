@@ -1,0 +1,2021 @@
+{"asOf": "2026-10-27"}
+{"text": "what are the most recent messages from my dad", "label": "no", "nearMiss": true}
+{"text": "what did my dad text me", "label": "no", "nearMiss": true}
+{"text": "show me my texts from mom", "label": "no", "nearMiss": true}
+{"text": "did my sister message me today", "label": "no", "nearMiss": true}
+{"text": "any messages from Sam?", "label": "no", "nearMiss": true}
+{"text": "what was Alex's last text", "label": "no", "nearMiss": true}
+{"text": "read me the last message from Jordan", "label": "no", "nearMiss": true}
+{"text": "what has Sam been texting me about", "label": "no"}
+{"text": "summarize my conversation with Alex", "label": "no"}
+{"text": "check if mom texted", "label": "no"}
+{"text": "has dad replied yet", "label": "no"}
+{"text": "catch me up on the group chat", "label": "no"}
+{"text": "whats new in my texts", "label": "no", "nearMiss": true}
+{"text": "do i have any unread texts", "label": "no", "nearMiss": true}
+{"text": "who messaged me today", "label": "no", "nearMiss": true}
+{"text": "what was the last thing my wife sent me", "label": "no"}
+{"text": "pull up my chat with Alex", "label": "no"}
+{"text": "show my recent imessages", "label": "no", "nearMiss": true}
+{"text": "what did Jordan send me yesterday", "label": "no"}
+{"text": "latest text from dad", "label": "no", "nearMiss": true}
+{"text": "read my messages from my boss", "label": "no", "nearMiss": true}
+{"text": "go through my messages with Sam and tell me what we planned", "label": "no", "nearMiss": true}
+{"text": "what were my dad's last few messages", "label": "no", "nearMiss": true}
+{"text": "what's my mom been saying in our texts", "label": "no", "nearMiss": true}
+{"text": "any texts from Jordan today?", "label": "no", "nearMiss": true}
+{"text": "can you look at my messages from Sam", "label": "no", "nearMiss": true}
+{"text": "see if Alex got back to me", "label": "no"}
+{"text": "did my brother answer my text", "label": "no", "nearMiss": true}
+{"text": "what did mom say in her last message", "label": "no", "nearMiss": true}
+{"text": "get my latest messages", "label": "no", "nearMiss": true}
+{"text": "find the message where Sam sent the address", "label": "no", "nearMiss": true}
+{"text": "when did I last text Alex", "label": "no", "nearMiss": true}
+{"text": "check what my sister texted me last", "label": "no"}
+{"text": "what did Sam text me?", "label": "no", "nearMiss": true}
+{"text": "did Mom message me today", "label": "no", "nearMiss": true}
+{"text": "check my messages from Alex", "label": "no", "nearMiss": true}
+{"text": "any new texts from Jordan?", "label": "no", "nearMiss": true}
+{"text": "what did Sam say in our chat", "label": "no"}
+{"text": "what did Sam say on iMessage", "label": "no"}
+{"text": "show me the last text from Dad", "label": "no", "nearMiss": true}
+{"text": "what didn’t she text me back about", "label": "no", "nearMiss": true}
+{"text": "What did Sam text me last?", "label": "no", "nearMiss": true}
+{"text": "last text from Alex", "label": "no", "nearMiss": true}
+{"text": "has Jordan texted me?", "label": "no"}
+{"text": "read my latest messages", "label": "no", "nearMiss": true}
+{"text": "any new messages from Mom", "label": "no", "nearMiss": true}
+{"text": "what was the last message Sam sent me", "label": "no", "nearMiss": true}
+{"text": "did Alex reply", "label": "no"}
+{"text": "check messages", "label": "no", "nearMiss": true}
+{"text": "check my messages", "label": "no", "nearMiss": true}
+{"text": "did Alex reply yet?", "label": "no"}
+{"text": "has Mom texted back?", "label": "no"}
+{"text": "what's the latest news Sam texted me", "label": "no", "nearMiss": true}
+{"text": "who texted me last?", "label": "no"}
+{"text": "what did my boss say in his last text", "label": "no", "nearMiss": true}
+{"text": "summarize my texts from today", "label": "no", "nearMiss": true}
+{"text": "show me the group chat", "label": "no"}
+{"text": "did anyone text me", "label": "no", "nearMiss": true}
+{"text": "what did she text me", "label": "no", "nearMiss": true}
+{"text": "has Sam responded yet?", "label": "no"}
+{"text": "what's in my latest messages", "label": "no", "nearMiss": true}
+{"text": "any unread messages?", "label": "no", "nearMiss": true}
+{"text": "read my last text from Jordan", "label": "no", "nearMiss": true}
+{"text": "look through my messages with Alex for the address", "label": "no", "nearMiss": true}
+{"text": "has my landlord texted me back", "label": "no"}
+{"text": "what did my mom message me about dinner", "label": "no", "nearMiss": true}
+{"text": "did Jordan get back to me", "label": "no"}
+{"text": "what time did Sam text me", "label": "no", "nearMiss": true}
+{"text": "get my texts from the group chat", "label": "no", "nearMiss": true}
+{"text": "check if Alex has replied", "label": "no"}
+{"text": "what were my last few texts", "label": "no", "nearMiss": true}
+{"text": "catch me up on my messages from Sam", "label": "no", "nearMiss": true}
+{"text": "did my wife text", "label": "no", "nearMiss": true}
+{"text": "what's Alex been texting me about", "label": "no"}
+{"text": "pull up my conversation with mom", "label": "no"}
+{"text": "summarize the family group chat", "label": "no"}
+{"text": "did the package arrive? check my messages", "label": "no", "nearMiss": true}
+{"text": "did sam text", "label": "no", "nearMiss": true}
+{"text": "what did i text alex", "label": "no", "nearMiss": true}
+{"text": "text my dad that I'll be late", "label": "no", "nearMiss": true}
+{"text": "send a message to mom saying happy birthday", "label": "no", "nearMiss": true}
+{"text": "send Alex a text saying I'm outside", "label": "no", "nearMiss": true}
+{"text": "reply to Jordan with sounds good", "label": "no"}
+{"text": "message the group chat that I'm on my way", "label": "no", "nearMiss": true}
+{"text": "let mom know I landed via text", "label": "no", "nearMiss": true}
+{"text": "shoot Sam a text that I'm here", "label": "no", "nearMiss": true}
+{"text": "can you send my wife a message saying I'm on my way home", "label": "no", "nearMiss": true}
+{"text": "imessage Jordan the address", "label": "no"}
+{"text": "respond to my sister and say yes", "label": "no"}
+{"text": "send a quick text to my boss that I'm sick today", "label": "no", "nearMiss": true}
+{"text": "drop Alex a message saying thanks", "label": "no", "nearMiss": true}
+{"text": "text Sam happy birthday", "label": "no", "nearMiss": true}
+{"text": "message mom: running late", "label": "no", "nearMiss": true}
+{"text": "send dad a message", "label": "no", "nearMiss": true}
+{"text": "tell Sam over text that dinner is at 7", "label": "no", "nearMiss": true}
+{"text": "text Alex that I'm running late", "label": "no", "nearMiss": true}
+{"text": "send her a message saying hey", "label": "no", "nearMiss": true}
+{"text": "send Sam a text saying hi", "label": "no", "nearMiss": true}
+{"text": "message Sam that dinner is at 7", "label": "no", "nearMiss": true}
+{"text": "reply to Mom with ok", "label": "no"}
+{"text": "tell Jordan on iMessage I'm here", "label": "no"}
+{"text": "iMessage Alex the address", "label": "no"}
+{"text": "please text Mom that I landed", "label": "no", "nearMiss": true}
+{"text": "can you send Alex a message saying I'm late", "label": "no", "nearMiss": true}
+{"text": "tell Sam by text that I'm here", "label": "no", "nearMiss": true}
+{"text": "send a message to Alex saying hi", "label": "no", "nearMiss": true}
+{"text": "text the group that I'm late", "label": "no", "nearMiss": true}
+{"text": "text her I'm on my way", "label": "no", "nearMiss": true}
+{"text": "message my sister saying happy birthday", "label": "no", "nearMiss": true}
+{"text": "text Mom back that I'm fine", "label": "no", "nearMiss": true}
+{"text": "text my boss I'm running ten minutes late", "label": "no", "nearMiss": true}
+{"text": "send a text to Jordan saying thanks", "label": "no", "nearMiss": true}
+{"text": "reply to my dad saying sounds good", "label": "no"}
+{"text": "message Alex: see you at 8", "label": "no", "nearMiss": true}
+{"text": "shoot my brother a quick text that I'm home", "label": "no", "nearMiss": true}
+{"text": "please message the group chat that dinner moved to 7", "label": "no", "nearMiss": true}
+{"text": "text my wife that I love her", "label": "no", "nearMiss": true}
+{"text": "send Sam an imessage saying I'm outside", "label": "no"}
+{"text": "respond to Alex with yes", "label": "no"}
+{"text": "let Jordan know over text that I'm late", "label": "no", "nearMiss": true}
+{"text": "ask mom by text if she needs anything", "label": "no", "nearMiss": true}
+{"text": "can you text Alex the address", "label": "no", "nearMiss": true}
+{"text": "i want you to text my dad happy birthday", "label": "no", "nearMiss": true}
+{"text": "send an sms to Alex saying I'm late", "label": "no"}
+{"text": "who texted me", "label": "no"}
+{"text": "what did Sam text me", "label": "no", "nearMiss": true}
+{"text": "what texts did I get today", "label": "no", "nearMiss": true}
+{"text": "read my last 5 messages", "label": "no", "nearMiss": true}
+{"text": "what's the last text I got from Sam", "label": "no", "nearMiss": true}
+{"text": "show the texts between me and Alex", "label": "no", "nearMiss": true}
+{"text": "when is dinner according to mom's text", "label": "no", "nearMiss": true}
+{"text": "check whether Alex replied", "label": "no"}
+{"text": "how many unread messages do I have", "label": "no", "nearMiss": true}
+{"text": "answer Sam's text with yes", "label": "no", "nearMiss": true}
+{"text": "respond to Alex's message saying ok", "label": "no", "nearMiss": true}
+{"text": "what did my mom text me this morning", "label": "no", "nearMiss": true}
+{"text": "did jake text me back", "label": "no", "nearMiss": true}
+{"text": "any new texts from priya?", "label": "no", "nearMiss": true}
+{"text": "can u check my messages from dad", "label": "no", "nearMiss": true}
+{"text": "whats the last thing sarah texted me", "label": "no"}
+{"text": "read me my latest imessages", "label": "no", "nearMiss": true}
+{"text": "catch me up on the family group chat", "label": "no"}
+{"text": "summarize the group chat with the roommates from today", "label": "no", "nearMiss": true}
+{"text": "did anyone text me in the last hour", "label": "no", "nearMiss": true}
+{"text": "what did tom say in his last text", "label": "no", "nearMiss": true}
+{"text": "show me my unread messages", "label": "no", "nearMiss": true}
+{"text": "check if alex replied to my text", "label": "no", "nearMiss": true}
+{"text": "hey can you look at my texts and tell me if my landlord got back to me", "label": "no", "nearMiss": true}
+{"text": "what time did my sister say to meet, she texted me earlier", "label": "no"}
+{"text": "scroll through my messages with ben and find the address he sent", "label": "no", "nearMiss": true}
+{"text": "go through my texts with kevin and find when he said the party was", "label": "no", "nearMiss": true}
+{"text": "who texted me last night", "label": "no"}
+{"text": "summarize my imessages from this week", "label": "no", "nearMiss": true}
+{"text": "did my boss message me on imessage", "label": "no", "nearMiss": true}
+{"text": "what was the last message from grandma", "label": "no", "nearMiss": true}
+{"text": "pull up my conversation with lisa in messages", "label": "no", "nearMiss": true}
+{"text": "any sms from the bank today?", "label": "no", "nearMiss": true}
+{"text": "check my texts for a verification code", "label": "no", "nearMiss": true}
+{"text": "what did the soccer group chat decide about saturday", "label": "no"}
+{"text": "what are people saying in the book club chat in messages", "label": "no", "nearMiss": true}
+{"text": "i think emma texted me about lunch, can you check", "label": "no"}
+{"text": "whats in my latest text from mike", "label": "no", "nearMiss": true}
+{"text": "did i get any texts while i was in the meeting", "label": "no", "nearMiss": true}
+{"text": "look at my recent messages from chris and remind me what i promised him", "label": "no", "nearMiss": true}
+{"text": "recap my text thread with my brother", "label": "no", "nearMiss": true}
+{"text": "has olivia texted me since friday", "label": "no"}
+{"text": "find the text where dan sent me the wifi password", "label": "no", "nearMiss": true}
+{"text": "what did my wife text me about dinner", "label": "no", "nearMiss": true}
+{"text": "did my husband message me about picking up the kids", "label": "no", "nearMiss": true}
+{"text": "can you read my last few messages from nora", "label": "no", "nearMiss": true}
+{"text": "tell me what my texts from jordan say", "label": "no", "nearMiss": true}
+{"text": "any unread imessages from work people", "label": "no"}
+{"text": "summarize what i missed in the family chat", "label": "no"}
+{"text": "did the plumber text me a quote", "label": "no", "nearMiss": true}
+{"text": "check messages from mom pls", "label": "no", "nearMiss": true}
+{"text": "whats the latest in my group text with the cousins", "label": "no", "nearMiss": true}
+{"text": "look thru my texts and see if anyone mentioned the concert tickets", "label": "no", "nearMiss": true}
+{"text": "did sam reply to the message i sent yesterday", "label": "no", "nearMiss": true}
+{"text": "what did my roommate text me about rent", "label": "no", "nearMiss": true}
+{"text": "go over my imessage convo with rachel and list the dates we talked about", "label": "no"}
+{"text": "im behind on texts, who do i need to reply to", "label": "no", "nearMiss": true}
+{"text": "what did ethan send me in messages last week", "label": "no", "nearMiss": true}
+{"text": "did my doctors office text me an appointment reminder", "label": "no", "nearMiss": true}
+{"text": "check if my dad messaged me back about the car", "label": "no"}
+{"text": "summarize the last 20 messages from the hiking group chat", "label": "no", "nearMiss": true}
+{"text": "text jake that im running 10 min late", "label": "no", "nearMiss": true}
+{"text": "send mom a message saying ill call her tonight", "label": "no", "nearMiss": true}
+{"text": "reply to priya with sounds good see you at 7", "label": "no"}
+{"text": "can you text my sister happy birthday", "label": "no", "nearMiss": true}
+{"text": "send a text to alex asking if he wants pizza", "label": "no", "nearMiss": true}
+{"text": "imessage tom that the meeting moved to 3", "label": "no"}
+{"text": "text dad: landed safely", "label": "no", "nearMiss": true}
+{"text": "message sarah and tell her i left the keys under the mat", "label": "no", "nearMiss": true}
+{"text": "shoot ben a text saying thanks for dinner", "label": "no", "nearMiss": true}
+{"text": "send an imessage to lisa saying im outside", "label": "no"}
+{"text": "reply to my brothers last text with lol yes", "label": "no", "nearMiss": true}
+{"text": "text the roommates group that the rent is due friday", "label": "no", "nearMiss": true}
+{"text": "please send a message to kevin saying i'll bring the charger", "label": "no", "nearMiss": true}
+{"text": "can u text emma and ask what time the movie is", "label": "no", "nearMiss": true}
+{"text": "send my wife a text that im picking up groceries", "label": "no", "nearMiss": true}
+{"text": "text chris back and say no worries", "label": "no", "nearMiss": true}
+{"text": "reply to nora's message saying i can do tuesday", "label": "no", "nearMiss": true}
+{"text": "send a quick sms to the babysitter that we'll be home by 11", "label": "no"}
+{"text": "text grandma i love her", "label": "no", "nearMiss": true}
+{"text": "message jordan on imessage asking for the slides", "label": "no", "nearMiss": true}
+{"text": "send a text to my landlord saying the sink is fixed", "label": "no", "nearMiss": true}
+{"text": "reply to the family group chat with a thumbs up and see you sunday", "label": "no"}
+{"text": "text mike that i owe him 20 bucks", "label": "no", "nearMiss": true}
+{"text": "hey send olivia a message that class is cancelled", "label": "no", "nearMiss": true}
+{"text": "text my husband to grab milk on the way home", "label": "no", "nearMiss": true}
+{"text": "respond to dan's text and tell him im in", "label": "no", "nearMiss": true}
+{"text": "send a message to rachel in messages saying congrats on the new job", "label": "no", "nearMiss": true}
+{"text": "text ethan: are we still on for tomorrow?", "label": "no", "nearMiss": true}
+{"text": "can you reply to my moms text and say yes ill be there", "label": "no", "nearMiss": true}
+{"text": "send a text message to the plumber confirming thursday at 9", "label": "no", "nearMiss": true}
+{"text": "did priya get back to me about the trip", "label": "no"}
+{"text": "has my brother responded yet", "label": "no"}
+{"text": "what did my mom text me about the weather today", "label": "no", "nearMiss": true}
+{"text": "check my texts for the latest news from my cousin", "label": "no", "nearMiss": true}
+{"text": "what did my brother text me about the stock price today", "label": "no", "nearMiss": true}
+{"text": "did jess text me the current flight status", "label": "no", "nearMiss": true}
+{"text": "summarize todays group chat about the election", "label": "no", "nearMiss": true}
+{"text": "what did my wife message me about the forecast this weekend", "label": "no", "nearMiss": true}
+{"text": "whats the latest message from my landlord about the rent increase", "label": "no", "nearMiss": true}
+{"text": "did my aunt send me the news article about the storm in my texts", "label": "no", "nearMiss": true}
+{"text": "what time is the game tonight, my friend texted me but i forgot", "label": "no", "nearMiss": true}
+{"text": "did my uncle text me the score of the match", "label": "no", "nearMiss": true}
+{"text": "read my latest texts about the concert tonight", "label": "no", "nearMiss": true}
+{"text": "did my kid's school text me about the snow day today", "label": "no", "nearMiss": true}
+{"text": "check my recent messages for todays meeting time", "label": "no", "nearMiss": true}
+{"text": "yo whats my sister been texting me", "label": "no"}
+{"text": "did the landlord ever text me back about the leak", "label": "no", "nearMiss": true}
+{"text": "pull up the last few texts from coach", "label": "no", "nearMiss": true}
+{"text": "anything new from my wife in imessage", "label": "no", "nearMiss": true}
+{"text": "what time did mom say to come over in her text", "label": "no", "nearMiss": true}
+{"text": "any unread imessages", "label": "no"}
+{"text": "who's been blowing up my phone with texts today", "label": "no", "nearMiss": true}
+{"text": "show me what dad sent in the family group chat", "label": "no"}
+{"text": "text my roommate that i'm locking the door", "label": "no", "nearMiss": true}
+{"text": "pls message mike saying the meeting moved to 3", "label": "no", "nearMiss": true}
+{"text": "send my mom a text that says happy anniversary", "label": "no", "nearMiss": true}
+{"text": "reply to the group chat with lol same", "label": "no"}
+{"text": "shoot a text to jess asking if she's free tonight", "label": "no", "nearMiss": true}
+{"text": "tell my boss via text that i'm running 10 min late", "label": "no", "nearMiss": true}
+{"text": "what did my dad text me about the game tonight", "label": "no", "nearMiss": true}
+{"text": "i want you to tell me about some data structures, take a while to think about your answer", "label": "no"}
+{"text": "think about this carefully", "label": "no"}
+{"text": "please think hard about this", "label": "no"}
+{"text": "take your time and explain recursion", "label": "no"}
+{"text": "really think it over before answering", "label": "no"}
+{"text": "give this some serious thought", "label": "no"}
+{"text": "think long and hard about the best approach", "label": "no"}
+{"text": "reason through this step by step", "label": "no"}
+{"text": "be thorough, what's the best way to learn rust", "label": "no"}
+{"text": "don't rush, explain how tcp works", "label": "no"}
+{"text": "think deeply about free will", "label": "no"}
+{"text": "spend some time thinking about this", "label": "no"}
+{"text": "use extended thinking", "label": "no"}
+{"text": "think it through", "label": "no"}
+{"text": "consider this carefully before answering", "label": "no"}
+{"text": "carefully reason about whether p equals np", "label": "no"}
+{"text": "take a moment to think before you answer", "label": "no"}
+{"text": "think more about this", "label": "no"}
+{"text": "double check your answer before replying", "label": "no"}
+{"text": "work through this methodically", "label": "no"}
+{"text": "think harder", "label": "no"}
+{"text": "put some real thought into this", "label": "no"}
+{"text": "take as long as you need", "label": "no"}
+{"text": "go deep on this: how does a hash map work", "label": "no"}
+{"text": "think hard about this", "label": "no"}
+{"text": "think carefully: which plan is cheaper?", "label": "no"}
+{"text": "think deeply about it", "label": "no"}
+{"text": "take your time and compare them", "label": "no"}
+{"text": "walk me through it step by step", "label": "no"}
+{"text": "reason it through", "label": "no"}
+{"text": "Think harder about this one", "label": "no"}
+{"text": "please think it through carefully", "label": "no"}
+{"text": "no rush, but which sorting algorithm is best for nearly sorted data", "label": "no"}
+{"text": "think before you answer: is 91 prime?", "label": "no"}
+{"text": "reflect carefully on the tradeoffs between sql and nosql", "label": "no"}
+{"text": "ponder this deeply: what is consciousness", "label": "no"}
+{"text": "explain monads thoroughly", "label": "no"}
+{"text": "be thorough when you compare these two options", "label": "no"}
+{"text": "go deeper on why the sky is blue", "label": "no"}
+{"text": "think this one over: should I use a monorepo", "label": "no"}
+{"text": "double-check the math before answering", "label": "no"}
+{"text": "take a minute and think about the edge cases", "label": "no"}
+{"text": "solve this step-by-step: 17 times 23", "label": "no"}
+{"text": "please reason carefully about this proof", "label": "no"}
+{"text": "consider this deeply before you respond", "label": "no"}
+{"text": "give it some careful thought: tabs or spaces", "label": "no"}
+{"text": "methodically list the failure modes of this design", "label": "no"}
+{"text": "really think hard before you answer this riddle", "label": "no"}
+{"text": "think it over and tell me which laptop to buy", "label": "no"}
+{"text": "mull it over: is a hot dog a sandwich", "label": "no"}
+{"text": "think hard about this: is p equal to np in practice", "label": "no"}
+{"text": "take your time and give me a careful answer on whether to refinance", "label": "no"}
+{"text": "please be thorough, review this contract clause by clause", "label": "no"}
+{"text": "walk through it step by step", "label": "no"}
+{"text": "double check your math on this before answering", "label": "no"}
+{"text": "think carefully, which of these job offers is better", "label": "no"}
+{"text": "really think this through: should i move to berlin", "label": "no"}
+{"text": "reason step by step and solve this logic puzzle", "label": "no"}
+{"text": "take a while if you need to, i want the best answer", "label": "no"}
+{"text": "dont rush, figure out why this code deadlocks", "label": "no"}
+{"text": "think deeply about the tradeoffs here", "label": "no"}
+{"text": "be very careful with this one, its for a medical dosing question", "label": "no"}
+{"text": "go slow and verify each step of the proof", "label": "no"}
+{"text": "think it over and give me your best plan", "label": "no"}
+{"text": "use deep reasoning for this chess position", "label": "no"}
+{"text": "please think really hard about the edge cases in this function", "label": "no"}
+{"text": "think step-by-step about how to schedule these meetings", "label": "no"}
+{"text": "take ur time and check your work", "label": "no"}
+{"text": "carefully reason through this probability question", "label": "no"}
+{"text": "i need a thorough analysis of this business plan", "label": "no"}
+{"text": "think longer on this one please", "label": "no"}
+{"text": "ultrathink: design a caching layer for this api", "label": "no"}
+{"text": "work it out carefully and double-check the answer", "label": "no"}
+{"text": "reflect carefully before answering: is this argument valid", "label": "no"}
+{"text": "think harder, your last answer was wrong", "label": "no"}
+{"text": "be meticulous, find every bug in this file", "label": "no"}
+{"text": "consider this carefully and show your reasoning", "label": "no"}
+{"text": "take some time to think about the best data structure here", "label": "no"}
+{"text": "do a careful step by step derivation of the formula", "label": "no"}
+{"text": "think this through thoroughly before replying", "label": "no"}
+{"text": "slow down and think about whether this is correct", "label": "no"}
+{"text": "please reason carefully about the legal implications", "label": "no"}
+{"text": "spend extra time on this, accuracy matters more than speed", "label": "no"}
+{"text": "deliberate carefully then answer: which algorithm is faster here", "label": "no"}
+{"text": "think really carefully about the units in this physics problem", "label": "no"}
+{"text": "go through this methodically", "label": "no"}
+{"text": "triple check the dates in this itinerary", "label": "no"}
+{"text": "think deeply, why did the roman empire fall", "label": "no"}
+{"text": "can you think this through more carefully", "label": "no"}
+{"text": "please use extended thinking for this", "label": "no"}
+{"text": "step by step instructions for changing a tire", "label": "no"}
+{"text": "take your time on this one, what's the best db for my app", "label": "no"}
+{"text": "really think it through before you answer: is p=np", "label": "no"}
+{"text": "no rush, walk me through how vaccines work", "label": "no"}
+{"text": "be careful with the math here: 17% of 2340", "label": "no"}
+{"text": "What happened in the news today?", "label": "yes"}
+{"text": "Latest AI news", "label": "yes"}
+{"text": "What happened last night?", "label": "yes"}
+{"text": "What's new with Apple?", "label": "yes"}
+{"text": "What are the recent developments in fusion research?", "label": "yes"}
+{"text": "Who is the president of France?", "label": "yes"}
+{"text": "Who is the CEO of Apple?", "label": "yes"}
+{"text": "Weather in Copenhagen", "label": "yes"}
+{"text": "Will it rain tomorrow?", "label": "yes"}
+{"text": "What's Apple's stock price?", "label": "yes"}
+{"text": "What is the price of Bitcoin?", "label": "yes"}
+{"text": "USD EUR exchange rate", "label": "yes"}
+{"text": "Who won the match last night?", "label": "yes"}
+{"text": "What is the latest stable Swift release?", "label": "yes"}
+{"text": "What was announced at WWDC 2026?", "label": "yes"}
+{"text": "Search the web for the meaning of serendipity", "label": "yes"}
+{"text": "what's the latest AI news", "label": "yes"}
+{"text": "what's the latest message from the white house on tariffs", "label": "yes"}
+{"text": "what are the most recent developments in sms marketing", "label": "yes"}
+{"text": "what are the latest messages in the kafka topic", "label": "yes"}
+{"text": "what did the president say in his latest message to congress", "label": "yes"}
+{"text": "latest news about apple's imessage update", "label": "yes"}
+{"text": "what's the weather today", "label": "yes"}
+{"text": "explain the most recent text in the book", "label": "yes"}
+{"text": "did Microsoft respond to the allegations today", "label": "yes"}
+{"text": "did Nvidia respond to the latest export rules", "label": "yes"}
+{"text": "did Ukraine respond to the peace plan this week", "label": "yes"}
+{"text": "what's the latest version of my messages app", "label": "yes"}
+{"text": "when is the next earnings call for my stock nvda", "label": "yes"}
+{"text": "what time is my team's call of duty match today", "label": "yes"}
+{"text": "what were the controversial calls in our game last night", "label": "yes"}
+{"text": "what's the latest on the call for proposals for my conference", "label": "yes"}
+{"text": "latest news about calls for my resignation", "label": "yes"}
+{"text": "what are the latest chats about my favorite show on reddit", "label": "yes"}
+{"text": "what time does my local post office mail pickup happen today", "label": "yes"}
+{"text": "latest dm news for my dungeon master group this week", "label": "yes"}
+{"text": "what's the latest from Sam", "label": "yes"}
+{"text": "summarize what Jordan sent yesterday", "label": "yes"}
+{"text": "in breaking bad what did jesse text walt", "label": "yes"}
+{"text": "do you think it will rain tomorrow", "label": "yes"}
+{"text": "weather in my city tomorrow, im in chicago", "label": "yes"}
+{"text": "how is my stock aapl doing today", "label": "yes"}
+{"text": "latest news about my favorite band radiohead", "label": "yes"}
+{"text": "is my flight ua 123 on time today", "label": "yes"}
+{"text": "whats the current price of bitcoin, i own some", "label": "yes"}
+{"text": "did my team the yankees win last night", "label": "yes"}
+{"text": "is there a recall on my car, a 2019 honda civic, this year", "label": "yes"}
+{"text": "current mortgage rates for my refinance", "label": "yes"}
+{"text": "my favorite restaurant chipotle, is it open on christmas this year", "label": "yes"}
+{"text": "has my senator voted on the new bill this week", "label": "yes"}
+{"text": "current exchange rate for my trip to japan, usd to yen", "label": "yes"}
+{"text": "whats the latest news on my company's stock nvidia", "label": "yes"}
+{"text": "when is my teams next game, the chiefs", "label": "yes"}
+{"text": "whats my teams score tonight, the lakers", "label": "yes"}
+{"text": "whats the latest ios update for my iphone", "label": "yes"}
+{"text": "whats the latest version of python for my project", "label": "yes"}
+{"text": "whats the weather like this weekend where i live in seattle", "label": "yes"}
+{"text": "did my favorite author release a new book this month", "label": "yes"}
+{"text": "who won the game last night", "label": "yes"}
+{"text": "text classification with bert", "label": "no", "nearMiss": true}
+{"text": "how do I send a message in slack", "label": "no", "nearMiss": true}
+{"text": "what is message passing in mpi", "label": "no", "nearMiss": true}
+{"text": "how do i reply to a recruiter", "label": "no"}
+{"text": "how to text a girl", "label": "no", "nearMiss": true}
+{"text": "what does the error message mean", "label": "no", "nearMiss": true}
+{"text": "summarize this text", "label": "no", "nearMiss": true}
+{"text": "send me a list of data structures", "label": "no"}
+{"text": "tell me a joke", "label": "no"}
+{"text": "what's the best way to message a landlord", "label": "no", "nearMiss": true}
+{"text": "what message does the ending of inception send", "label": "no", "nearMiss": true}
+{"text": "write my dad a text saying happy fathers day", "label": "no", "nearMiss": true}
+{"text": "write a message to my landlord about rent", "label": "no", "nearMiss": true}
+{"text": "what does this error message mean", "label": "no", "nearMiss": true}
+{"text": "write a commit message for this diff", "label": "no", "nearMiss": true}
+{"text": "what does this message mean", "label": "no", "nearMiss": true}
+{"text": "explain how a message queue works", "label": "no", "nearMiss": true}
+{"text": "send me a summary", "label": "no"}
+{"text": "tell me about Denmark", "label": "no"}
+{"text": "send an email to Alex", "label": "no", "nearMiss": true}
+{"text": "write a text for my slide", "label": "no", "nearMiss": true}
+{"text": "what does \"text Alex\" mean", "label": "no"}
+{"text": "`message Sam` is a command", "label": "no"}
+{"text": "the error message says file not found", "label": "no", "nearMiss": true}
+{"text": "what's the exit message from this script", "label": "no", "nearMiss": true}
+{"text": "message me a joke", "label": "no", "nearMiss": true}
+{"text": "text me a joke", "label": "no", "nearMiss": true}
+{"text": "text me a summary", "label": "no", "nearMiss": true}
+{"text": "draft a text to my boss asking for Friday off", "label": "no", "nearMiss": true}
+{"text": "reply to this email politely", "label": "no", "nearMiss": true}
+{"text": "explain this message broker", "label": "no", "nearMiss": true}
+{"text": "what's on my screen", "label": "no"}
+{"text": "translate this text to French", "label": "no", "nearMiss": true}
+{"text": "check the log message", "label": "no", "nearMiss": true}
+{"text": "text editor recommendations", "label": "no", "nearMiss": true}
+{"text": "what is a text message", "label": "no", "nearMiss": true}
+{"text": "send me the last text you wrote", "label": "no", "nearMiss": true}
+{"text": "text wrapping in css", "label": "no", "nearMiss": true}
+{"text": "text alignment in swiftui", "label": "no", "nearMiss": true}
+{"text": "text generation models", "label": "no", "nearMiss": true}
+{"text": "message passing in Erlang explained", "label": "no", "nearMiss": true}
+{"text": "explain actors and message passing", "label": "no", "nearMiss": true}
+{"text": "message brokers compared", "label": "no", "nearMiss": true}
+{"text": "message types in protobuf", "label": "no", "nearMiss": true}
+{"text": "message board software recommendations", "label": "no", "nearMiss": true}
+{"text": "sms gateway providers", "label": "no"}
+{"text": "SMS marketing best practices", "label": "no"}
+{"text": "imessage not working on mac", "label": "no"}
+{"text": "message types that protobuf supports", "label": "no", "nearMiss": true}
+{"text": "text messages vs email for marketing", "label": "no", "nearMiss": true}
+{"text": "fix my text with proper punctuation", "label": "no", "nearMiss": true}
+{"text": "rewrite my text from above", "label": "no", "nearMiss": true}
+{"text": "in your last message from earlier you said X", "label": "no", "nearMiss": true}
+{"text": "what was the last message you sent me", "label": "no", "nearMiss": true}
+{"text": "reply to reviewer 2 politely", "label": "no"}
+{"text": "did you reply to my question", "label": "no"}
+{"text": "check messages in the kafka queue", "label": "no", "nearMiss": true}
+{"text": "check my email from my boss", "label": "no", "nearMiss": true}
+{"text": "what did Sam say on slack", "label": "no"}
+{"text": "send Alex a message on whatsapp", "label": "no", "nearMiss": true}
+{"text": "text to speech apps for mac", "label": "no", "nearMiss": true}
+{"text": "how do I read messages from kafka", "label": "no", "nearMiss": true}
+{"text": "what's a good reply to a compliment", "label": "no"}
+{"text": "what should I text my crush", "label": "no", "nearMiss": true}
+{"text": "is it rude to text after 10pm", "label": "no", "nearMiss": true}
+{"text": "how many messages can a kafka topic hold", "label": "no", "nearMiss": true}
+{"text": "what is the text of the first amendment", "label": "no", "nearMiss": true}
+{"text": "send us the details", "label": "no"}
+{"text": "summarize the text above", "label": "no", "nearMiss": true}
+{"text": "write a commit message", "label": "no", "nearMiss": true}
+{"text": "explain message passing", "label": "no", "nearMiss": true}
+{"text": "translate this text", "label": "no", "nearMiss": true}
+{"text": "what does this text mean", "label": "no", "nearMiss": true}
+{"text": "is this text grammatical", "label": "no", "nearMiss": true}
+{"text": "make this text shorter", "label": "no", "nearMiss": true}
+{"text": "what language is this text written in", "label": "no", "nearMiss": true}
+{"text": "explain the message of the poem", "label": "no", "nearMiss": true}
+{"text": "what's the reason he replied like that", "label": "no"}
+{"text": "has anyone replied to my post", "label": "no"}
+{"text": "who texted you", "label": "no"}
+{"text": "did my professor reply to my email", "label": "no", "nearMiss": true}
+{"text": "show me the messages from the server log", "label": "no", "nearMiss": true}
+{"text": "read the text from the image", "label": "no", "nearMiss": true}
+{"text": "what did my mom say on whatsapp", "label": "no"}
+{"text": "find text in a file with grep", "label": "no", "nearMiss": true}
+{"text": "tell Sam I'm running late", "label": "no"}
+{"text": "what did Sam say about dinner", "label": "no"}
+{"text": "what was my last message", "label": "no", "nearMiss": true}
+{"text": "rewrite your last message", "label": "no", "nearMiss": true}
+{"text": "summarize our conversation", "label": "no"}
+{"text": "summarize this chat", "label": "no"}
+{"text": "what did you say in your last message", "label": "no", "nearMiss": true}
+{"text": "can you repeat your last reply", "label": "no"}
+{"text": "what did I ask in my first message", "label": "no", "nearMiss": true}
+{"text": "shorten your previous answer", "label": "no"}
+{"text": "continue this conversation in French", "label": "no"}
+{"text": "make my previous message clearer", "label": "no", "nearMiss": true}
+{"text": "what have we talked about with you so far", "label": "no"}
+{"text": "write a message to my landlord", "label": "no", "nearMiss": true}
+{"text": "help me write a text to my boss asking for a raise", "label": "no", "nearMiss": true}
+{"text": "draft a reply to my sister's message", "label": "no", "nearMiss": true}
+{"text": "compose a message for my mom's birthday card", "label": "no", "nearMiss": true}
+{"text": "write a text message I can send to my team", "label": "no", "nearMiss": true}
+{"text": "rewrite my message to Alex so it sounds nicer", "label": "no", "nearMiss": true}
+{"text": "come up with a funny text to send my brother", "label": "no", "nearMiss": true}
+{"text": "proofread this text before I send it", "label": "no", "nearMiss": true}
+{"text": "what do you think about python", "label": "no"}
+{"text": "i think the answer is 4", "label": "no"}
+{"text": "how do people think", "label": "no"}
+{"text": "think of a name for my dog", "label": "no"}
+{"text": "what are you thinking", "label": "no"}
+{"text": "do you think it will rain", "label": "no"}
+{"text": "I think it's broken", "label": "no"}
+{"text": "what do you think of this?", "label": "no"}
+{"text": "`step by step` is a phrase", "label": "no"}
+{"text": "I thought hard about it", "label": "no"}
+{"text": "i'm thinking about buying a car", "label": "no"}
+{"text": "i think more people should cook", "label": "no"}
+{"text": "what do you think about rust vs go", "label": "no"}
+{"text": "think of a word that rhymes with orange", "label": "no"}
+{"text": "how long does it take to boil an egg", "label": "no"}
+{"text": "does it take a while to learn piano", "label": "no"}
+{"text": "i thoroughly enjoyed the movie, suggest a similar one", "label": "no"}
+{"text": "what are some deep sea creatures", "label": "no"}
+{"text": "i want to think more about my career, any tips?", "label": "no"}
+{"text": "think tank funding sources", "label": "no"}
+{"text": "how do I double check my tax return", "label": "no"}
+{"text": "what's the reason for the season", "label": "no"}
+{"text": "consider the lilies of the field meaning", "label": "no"}
+{"text": "think long-term about investing", "label": "no"}
+{"text": "i'll think it over", "label": "no"}
+{"text": "let me think about it more", "label": "no"}
+{"text": "the page takes a while to load, why", "label": "no"}
+{"text": "think about whether it's over", "label": "no"}
+{"text": "explain photosynthesis", "label": "no"}
+{"text": "what is a binary tree?", "label": "no"}
+{"text": "hello", "label": "no"}
+{"text": "thanks!", "label": "no"}
+{"text": "what's 2 + 2", "label": "no"}
+{"text": "write a poem about the sea", "label": "no"}
+{"text": "how do I center a div", "label": "no"}
+{"text": "who wrote pride and prejudice", "label": "no"}
+{"text": "explain recursion", "label": "no"}
+{"text": "what's the capital of Peru", "label": "no"}
+{"text": "make it shorter", "label": "no"}
+{"text": "translate this", "label": "no"}
+{"text": "rewrite this", "label": "no"}
+{"text": "has Apple responded to the EU ruling yet", "label": "no"}
+{"text": "has Boeing replied to the FAA yet", "label": "no"}
+{"text": "did Russia respond to the sanctions", "label": "no"}
+{"text": "has Trump responded to the verdict", "label": "no"}
+{"text": "has Israel replied to the ceasefire proposal", "label": "no"}
+{"text": "did Sam Altman respond to the lawsuit", "label": "no"}
+{"text": "did Drake respond to Kendrick", "label": "no"}
+{"text": "has the White House responded", "label": "no"}
+{"text": "has Meta responded to the fine", "label": "no"}
+{"text": "did Netflix reply to the boycott", "label": "no"}
+{"text": "did Google respond to my appeal", "label": "no"}
+{"text": "find out if he replied to the thread on github", "label": "no"}
+{"text": "did Kendrick reply to Drake's diss track", "label": "no"}
+{"text": "did Taylor Swift reply to Kanye", "label": "no"}
+{"text": "Sam sent me this article, summarize it", "label": "no"}
+{"text": "my coworker sent me a pr to review, check it for bugs", "label": "no"}
+{"text": "what does this mean? my dad sent me: ok", "label": "no"}
+{"text": "check my grammar in my message to my boss", "label": "no", "nearMiss": true}
+{"text": "read my message to my boss and tell me if it's too harsh", "label": "no", "nearMiss": true}
+{"text": "read messages from my sqs queue in batches", "label": "no", "nearMiss": true}
+{"text": "fetch messages from my firebase database", "label": "no", "nearMiss": true}
+{"text": "get messages from my api", "label": "no", "nearMiss": true}
+{"text": "read messages from my kafka consumer", "label": "no", "nearMiss": true}
+{"text": "get all messages from my redis stream", "label": "no", "nearMiss": true}
+{"text": "show messages from my backend", "label": "no", "nearMiss": true}
+{"text": "list the messages from my mailbox server", "label": "no", "nearMiss": true}
+{"text": "summarize the text from my notes", "label": "no", "nearMiss": true}
+{"text": "summarize the text from my essay", "label": "no", "nearMiss": true}
+{"text": "read me my texts from the book chapter", "label": "no", "nearMiss": true}
+{"text": "what are my messages component props in react", "label": "no", "nearMiss": true}
+{"text": "get my messages endpoint returning 500", "label": "no", "nearMiss": true}
+{"text": "find my texts table schema", "label": "no", "nearMiss": true}
+{"text": "summarize the book Text Me When You Get Home", "label": "no", "nearMiss": true}
+{"text": "what's the meaning of the song text me back", "label": "no", "nearMiss": true}
+{"text": "who sang send me a text", "label": "no", "nearMiss": true}
+{"text": "what genre is the song message me", "label": "no", "nearMiss": true}
+{"text": "who wrote the book texts from my ex", "label": "no", "nearMiss": true}
+{"text": "what happened in the episode where Ross texted Rachel", "label": "no", "nearMiss": true}
+{"text": "what does text me mean in slang", "label": "no", "nearMiss": true}
+{"text": "what does message me mean", "label": "no", "nearMiss": true}
+{"text": "text my ex or not?", "label": "no", "nearMiss": true}
+{"text": "what are my chances if I text her", "label": "no", "nearMiss": true}
+{"text": "latest messages from nasa to us about artemis today", "label": "no", "nearMiss": true}
+{"text": "what did I get from mom today", "label": "no", "nearMiss": true}
+{"text": "what emails came in today", "label": "no", "nearMiss": true}
+{"text": "any news from my sister today", "label": "no", "nearMiss": true}
+{"text": "what did mom say today", "label": "no", "nearMiss": true}
+{"text": "deep thought from hitchhiker's guide", "label": "no"}
+{"text": "what is deep thought", "label": "no"}
+{"text": "some thought experiments about time travel", "label": "no"}
+{"text": "I've given it some thought and I want to quit", "label": "no"}
+{"text": "real thought leadership examples", "label": "no"}
+{"text": "go deep sea fishing tips", "label": "no"}
+{"text": "think more positively", "label": "no"}
+{"text": "think more like a ceo", "label": "no"}
+{"text": "how to think more clearly", "label": "no"}
+{"text": "how to think critically", "label": "no"}
+{"text": "the process can take a while, is that normal", "label": "no"}
+{"text": "take a minute and read this email I wrote", "label": "no", "nearMiss": true}
+{"text": "what does think it over mean", "label": "no"}
+{"text": "mull over wine recipe", "label": "no"}
+{"text": "how do i send a message to a kafka topic in python", "label": "no", "nearMiss": true}
+{"text": "my rabbitmq messages keep getting requeued, why", "label": "no", "nearMiss": true}
+{"text": "whats the difference between sms and mms protocols technically", "label": "no"}
+{"text": "write a regex to extract phone numbers from a text file", "label": "no", "nearMiss": true}
+{"text": "how do i read a text file line by line in swift", "label": "no", "nearMiss": true}
+{"text": "explain message passing in erlang", "label": "no", "nearMiss": true}
+{"text": "build me a simple chat app with websockets in node", "label": "no"}
+{"text": "error message says null pointer exception, what does that mean", "label": "no", "nearMiss": true}
+{"text": "how do i send a text message with twilio api", "label": "no", "nearMiss": true}
+{"text": "whats a good commit message for fixing a typo", "label": "no", "nearMiss": true}
+{"text": "my git commit messages are messy, how do i squash them", "label": "no", "nearMiss": true}
+{"text": "how do i set placeholder text in a uitextfield", "label": "no", "nearMiss": true}
+{"text": "text processing with awk to count words", "label": "no", "nearMiss": true}
+{"text": "implement a message queue in go with channels", "label": "no", "nearMiss": true}
+{"text": "why does my discord bot not reply to messages", "label": "no", "nearMiss": true}
+{"text": "convert this text to uppercase in javascript", "label": "no", "nearMiss": true}
+{"text": "whats the max length of an sms message in characters", "label": "no", "nearMiss": true}
+{"text": "how does end to end encryption work in imessage", "label": "no"}
+{"text": "how to design a database schema for a messaging app", "label": "no"}
+{"text": "my console shows the message undefined is not a function", "label": "no", "nearMiss": true}
+{"text": "explain pub sub messaging patterns", "label": "no"}
+{"text": "how do i make text bold in markdown", "label": "no", "nearMiss": true}
+{"text": "whats the best text editor for coding on mac", "label": "no", "nearMiss": true}
+{"text": "how do push notifications for chat messages work on ios", "label": "no", "nearMiss": true}
+{"text": "grpc vs rest for sending messages between microservices", "label": "no", "nearMiss": true}
+{"text": "how do i read messages from an sqs queue", "label": "no", "nearMiss": true}
+{"text": "why does imessage say not delivered sometimes", "label": "no"}
+{"text": "how do i turn off read receipts in messages on iphone", "label": "no", "nearMiss": true}
+{"text": "how do i back up my imessages to icloud", "label": "no"}
+{"text": "my imessage wont activate on my new phone", "label": "no", "nearMiss": true}
+{"text": "what was the famous last message from the titanic", "label": "no", "nearMiss": true}
+{"text": "what did elon musk tweet about tesla", "label": "no"}
+{"text": "summarize the leaked text messages in the trial news", "label": "no", "nearMiss": true}
+{"text": "in the movie her, what does samantha text theodore", "label": "no", "nearMiss": true}
+{"text": "what was the message of martin luther kings i have a dream speech", "label": "no", "nearMiss": true}
+{"text": "whats the main message of the great gatsby", "label": "no", "nearMiss": true}
+{"text": "what did romeo say to juliet in the balcony scene", "label": "no"}
+{"text": "what texts did the senator send that got him in trouble", "label": "no", "nearMiss": true}
+{"text": "whats the song about a text message by drake", "label": "no", "nearMiss": true}
+{"text": "explain the zimmermann telegram message", "label": "no", "nearMiss": true}
+{"text": "what did the first ever sms say", "label": "no"}
+{"text": "what message was on the voyager golden record", "label": "no", "nearMiss": true}
+{"text": "summarize the plot of the novel where the girl gets anonymous texts", "label": "no", "nearMiss": true}
+{"text": "what did lincoln write in his letter to mrs bixby", "label": "no"}
+{"text": "what is the central message of the book of job", "label": "no", "nearMiss": true}
+{"text": "what did the ceo say in his message to employees about layoffs", "label": "no", "nearMiss": true}
+{"text": "did taylor swift text travis kelce about the album", "label": "no", "nearMiss": true}
+{"text": "what was the text exchange in the gamestop lawsuit about", "label": "no", "nearMiss": true}
+{"text": "what does the hidden message in the dark side of the moon mean", "label": "no", "nearMiss": true}
+{"text": "what did my character's mom text her in chapter 3 of my story, give me ideas", "label": "no", "nearMiss": true}
+{"text": "what was the message in the bottle in that nicholas sparks book", "label": "no", "nearMiss": true}
+{"text": "what did the pope say in his easter message", "label": "no", "nearMiss": true}
+{"text": "why did the kardashians group chat leak matter", "label": "no"}
+{"text": "what did the president text the prime minister according to reports", "label": "no", "nearMiss": true}
+{"text": "what was your last message", "label": "no", "nearMiss": true}
+{"text": "can you repeat my previous message", "label": "no", "nearMiss": true}
+{"text": "summarize our conversation so far", "label": "no"}
+{"text": "you didnt answer the second part of my message", "label": "no", "nearMiss": true}
+{"text": "re read my last message and try again", "label": "no", "nearMiss": true}
+{"text": "what did i say earlier in this chat", "label": "no"}
+{"text": "shorten your previous reply", "label": "no"}
+{"text": "in your last message you said 5 but now 6, which is it", "label": "no", "nearMiss": true}
+{"text": "ignore my previous message, i meant python not java", "label": "no", "nearMiss": true}
+{"text": "can you send that again but shorter", "label": "no"}
+{"text": "the text you wrote above has a typo", "label": "no", "nearMiss": true}
+{"text": "go back to what you said in your first message", "label": "no", "nearMiss": true}
+{"text": "summarize this chat into bullet points", "label": "no"}
+{"text": "reply to my question above", "label": "no"}
+{"text": "that last message was confusing, explain again", "label": "no", "nearMiss": true}
+{"text": "copy the text from your answer into a table", "label": "no", "nearMiss": true}
+{"text": "did you get my message about the budget numbers", "label": "no", "nearMiss": true}
+{"text": "continue from where your message got cut off", "label": "no", "nearMiss": true}
+{"text": "what was the first thing i asked you in this conversation", "label": "no"}
+{"text": "rewrite the text you just gave me in a friendlier tone", "label": "no", "nearMiss": true}
+{"text": "write a message to my landlord about the broken heater", "label": "no", "nearMiss": true}
+{"text": "help me write a text to my ex asking for my stuff back", "label": "no", "nearMiss": true}
+{"text": "make my text to my boss sound more professional", "label": "no", "nearMiss": true}
+{"text": "how should i reply to my friend who said she's moving away", "label": "no"}
+{"text": "should i text him first or wait", "label": "no", "nearMiss": true}
+{"text": "draft a birthday message for my coworker", "label": "no", "nearMiss": true}
+{"text": "what's a nice way to text someone that i cant come to their wedding", "label": "no", "nearMiss": true}
+{"text": "give me a funny text to send my brother on his birthday", "label": "no", "nearMiss": true}
+{"text": "is it rude to not reply to a text for 3 days", "label": "no", "nearMiss": true}
+{"text": "rewrite this text so it sounds less angry: you never listen to me", "label": "no", "nearMiss": true}
+{"text": "my friend texted me 'we need to talk', what does that usually mean", "label": "no"}
+{"text": "how do i respond to a passive aggressive message from my roommate", "label": "no", "nearMiss": true}
+{"text": "write a sympathy message for a colleague who lost her dad", "label": "no", "nearMiss": true}
+{"text": "whats a good first text to send on hinge", "label": "no", "nearMiss": true}
+{"text": "help me word a message to my team about the deadline", "label": "no", "nearMiss": true}
+{"text": "proofread this text before i send it to my mom: im sorry i forgot ur bday", "label": "no", "nearMiss": true}
+{"text": "how long should i wait to text after a first date", "label": "no", "nearMiss": true}
+{"text": "write a thank you text for my aunt for the gift", "label": "no", "nearMiss": true}
+{"text": "should i reply to my ex's message", "label": "no", "nearMiss": true}
+{"text": "compose a short text asking my neighbor to move their car", "label": "no", "nearMiss": true}
+{"text": "is this text too clingy: miss you already", "label": "no", "nearMiss": true}
+{"text": "suggest a reply to a guy who texted 'wyd'", "label": "no"}
+{"text": "what do i say in a text to cancel plans politely", "label": "no", "nearMiss": true}
+{"text": "turn this into a short text message: meeting moved to 4pm room b", "label": "no", "nearMiss": true}
+{"text": "help me write a group text inviting people to my bbq", "label": "no", "nearMiss": true}
+{"text": "check my email for anything from amazon", "label": "no", "nearMiss": true}
+{"text": "summarize my slack messages from today", "label": "no", "nearMiss": true}
+{"text": "what did my boss say in teams", "label": "no"}
+{"text": "send a whatsapp to ahmed saying im late", "label": "no"}
+{"text": "did anyone dm me on instagram", "label": "no"}
+{"text": "reply to the email from hr saying thanks", "label": "no", "nearMiss": true}
+{"text": "read my latest gmail", "label": "no", "nearMiss": true}
+{"text": "check my discord messages from the gaming server", "label": "no", "nearMiss": true}
+{"text": "send an email to my professor asking for an extension", "label": "no", "nearMiss": true}
+{"text": "what did people say in the telegram group", "label": "no"}
+{"text": "post in the slack channel that standup is cancelled", "label": "no"}
+{"text": "read my linkedin messages", "label": "no", "nearMiss": true}
+{"text": "any new messages on facebook messenger", "label": "no", "nearMiss": true}
+{"text": "send a signal message to my cousin", "label": "no", "nearMiss": true}
+{"text": "check my outlook inbox for the invoice", "label": "no", "nearMiss": true}
+{"text": "send me a summary of this article", "label": "no"}
+{"text": "text me a reminder tomorrow at 9", "label": "no", "nearMiss": true}
+{"text": "can you message me when its done", "label": "no", "nearMiss": true}
+{"text": "give me the text of the declaration of independence", "label": "no", "nearMiss": true}
+{"text": "send me a list of good sci fi books", "label": "no"}
+{"text": "reply in spanish please", "label": "no"}
+{"text": "write your answer as a text message style", "label": "no", "nearMiss": true}
+{"text": "send me the recipe again", "label": "no"}
+{"text": "just text back yes or no", "label": "no", "nearMiss": true}
+{"text": "answer me in short messages like a text", "label": "no", "nearMiss": true}
+{"text": "whats the message behind this painting", "label": "no", "nearMiss": true}
+{"text": "i dont get the message my teacher was trying to send", "label": "no", "nearMiss": true}
+{"text": "how do i get the message across in my presentation", "label": "no", "nearMiss": true}
+{"text": "stay on message during a job interview tips", "label": "no", "nearMiss": true}
+{"text": "what does mixed messages mean in a relationship", "label": "no", "nearMiss": true}
+{"text": "whats the subtext of this poem", "label": "no"}
+{"text": "the textbook says mitochondria is the powerhouse, why", "label": "no"}
+{"text": "send a clear message to investors in my pitch deck", "label": "no", "nearMiss": true}
+{"text": "the text of the contract says net 30, what does that mean", "label": "no", "nearMiss": true}
+{"text": "whats the context for this quote", "label": "no"}
+{"text": "tell sam im late", "label": "no"}
+{"text": "let mom know i landed", "label": "no"}
+{"text": "ask jake if hes coming tonight", "label": "no", "nearMiss": true}
+{"text": "what did my boss say about friday", "label": "no"}
+{"text": "tell my wife i love her", "label": "no"}
+{"text": "remind alex about the tickets", "label": "no"}
+{"text": "what did lisa want", "label": "no"}
+{"text": "how do i reverse a linked list in python", "label": "no"}
+{"text": "whats a good substitute for buttermilk in pancakes", "label": "no"}
+{"text": "explain photosynthesis to a 10 year old", "label": "no"}
+{"text": "write a cover letter for a junior data analyst role", "label": "no"}
+{"text": "how many grams of protein should i eat per day", "label": "no"}
+{"text": "what are some things to do in lisbon for 3 days", "label": "no"}
+{"text": "fix this sql: select * form users where id = 1", "label": "no"}
+{"text": "how long do i boil an egg for soft yolk", "label": "no"}
+{"text": "translate 'where is the train station' into japanese", "label": "no"}
+{"text": "why does my knee hurt when i run downhill", "label": "no"}
+{"text": "help me outline an essay on the causes of ww1", "label": "no"}
+{"text": "what is the derivative of x^2 sin x", "label": "no"}
+{"text": "give me a 4 day workout split for beginners", "label": "no"}
+{"text": "how do i center a div with flexbox", "label": "no"}
+{"text": "write a haiku about autumn", "label": "no"}
+{"text": "what's the difference between affect and effect", "label": "no"}
+{"text": "packing list for a week of camping", "label": "no"}
+{"text": "how do i get red wine out of a carpet", "label": "no"}
+{"text": "explain big o notation simply", "label": "no"}
+{"text": "recipe for vegan chili", "label": "no"}
+{"text": "whats the capital of australia", "label": "no"}
+{"text": "convert 350 fahrenheit to celsius", "label": "no"}
+{"text": "summarize the plot of hamlet", "label": "no"}
+{"text": "how do vaccines work", "label": "no"}
+{"text": "write a python script that renames files by date", "label": "no"}
+{"text": "is it safe to take ibuprofen with coffee", "label": "no"}
+{"text": "help me plan a budget on 3000 a month", "label": "no"}
+{"text": "whats a good name for a golden retriever", "label": "no"}
+{"text": "explain the difference between a roth and traditional ira", "label": "no"}
+{"text": "how do i make sourdough starter", "label": "no"}
+{"text": "write a limerick about a cat named steve", "label": "no"}
+{"text": "what does async await do in swift", "label": "no"}
+{"text": "how many cups in a liter", "label": "no"}
+{"text": "tips for a long flight with a toddler", "label": "no"}
+{"text": "what is the pythagorean theorem", "label": "no"}
+{"text": "explain how a car engine works", "label": "no"}
+{"text": "give me 5 icebreaker questions for a team meeting", "label": "no"}
+{"text": "how do i unclog a drain without chemicals", "label": "no"}
+{"text": "whats the best way to learn spanish fast", "label": "no"}
+{"text": "help me write a toast for my sisters wedding", "label": "no"}
+{"text": "what are symptoms of dehydration", "label": "no"}
+{"text": "how do i make a pivot table in excel", "label": "no"}
+{"text": "explain recursion with an example", "label": "no"}
+{"text": "whats a good itinerary for a road trip from la to sf", "label": "no"}
+{"text": "write unit tests for this function: def add(a,b): return a+b", "label": "no"}
+{"text": "how to grow tomatoes on a balcony", "label": "no"}
+{"text": "what is the krebs cycle", "label": "no"}
+{"text": "rewrite this paragraph to be more concise", "label": "no"}
+{"text": "how do i tie a windsor knot", "label": "no"}
+{"text": "ideas for a 7 year olds birthday party", "label": "no"}
+{"text": "what's the plural of octopus", "label": "no"}
+{"text": "how do i calculate compound interest", "label": "no"}
+{"text": "why is the sky blue", "label": "no"}
+{"text": "explain docker vs virtual machines", "label": "no"}
+{"text": "give me a meal prep plan for the week under 2000 calories", "label": "no", "nearMiss": true}
+{"text": "what should i see in tokyo if i like anime", "label": "no"}
+{"text": "how to stop procrastinating", "label": "no"}
+{"text": "explain the french revolution in 5 bullet points", "label": "no"}
+{"text": "whats a good stretching routine for lower back pain", "label": "no"}
+{"text": "how do i write a for loop in bash", "label": "no"}
+{"text": "what wine goes with salmon", "label": "no"}
+{"text": "make me a study schedule for finals", "label": "no"}
+{"text": "how do i get rid of fruit flies", "label": "no"}
+{"text": "what's the difference between a virus and bacteria", "label": "no"}
+{"text": "write a short bedtime story about a dragon", "label": "no"}
+{"text": "how does a mortgage work", "label": "no"}
+{"text": "help me name my startup, its a dog walking app", "label": "no"}
+{"text": "solve 3x + 7 = 22", "label": "no"}
+{"text": "how do i make my resume stand out", "label": "no"}
+{"text": "what is a good beginner guitar song", "label": "no"}
+{"text": "explain the rules of cricket", "label": "no"}
+{"text": "how to clean a cast iron pan", "label": "no"}
+{"text": "regex for a valid email address", "label": "no", "nearMiss": true}
+{"text": "how many hours of sleep do teenagers need", "label": "no"}
+{"text": "whats the best order to watch the marvel movies", "label": "no"}
+{"text": "explain supply and demand", "label": "no"}
+{"text": "write a product description for a bamboo toothbrush", "label": "no"}
+{"text": "how to say no to extra work politely", "label": "no"}
+{"text": "how to make cold brew coffee", "label": "no"}
+{"text": "explain what a neural network is", "label": "no"}
+{"text": "im going to paris in april, what should i pack", "label": "no"}
+{"text": "how do i compute the median in pandas", "label": "no"}
+{"text": "what is stoicism", "label": "no"}
+{"text": "help me memorize the periodic table", "label": "no"}
+{"text": "give me a 10 minute meditation script", "label": "no"}
+{"text": "is a tomato a fruit or vegetable", "label": "no"}
+{"text": "how to improve my credit score", "label": "no", "nearMiss": true}
+{"text": "write a git command to undo the last commit", "label": "no"}
+{"text": "what are good houseplants for low light", "label": "no"}
+{"text": "how do i deal with a coworker who interrupts me", "label": "no"}
+{"text": "explain the theory of relativity simply", "label": "no"}
+{"text": "how do i make my swiftui list editable", "label": "no"}
+{"text": "best way to store fresh herbs", "label": "no"}
+{"text": "write an apology email to a customer for a late order", "label": "no", "nearMiss": true}
+{"text": "what is the difference between let and var in swift", "label": "no"}
+{"text": "how many calories in a banana", "label": "no"}
+{"text": "design a logo concept for a coffee shop", "label": "no"}
+{"text": "tips for running my first 5k", "label": "no"}
+{"text": "explain how compound words work in german", "label": "no"}
+{"text": "what's a good gift for my dad who likes fishing", "label": "no"}
+{"text": "what do you think of my essay", "label": "no"}
+{"text": "i think my code has a bug in line 4", "label": "no"}
+{"text": "think of a name for my band", "label": "no"}
+{"text": "how do i think more critically", "label": "no"}
+{"text": "this might take a while to load, is that normal", "label": "no"}
+{"text": "what do you think about remote work", "label": "no"}
+{"text": "i was thinking we could go to italy, thoughts?", "label": "no"}
+{"text": "what's thinking fast and slow about", "label": "no"}
+{"text": "give me some food for thought on leadership", "label": "no"}
+{"text": "what does think different mean in apples ad", "label": "no"}
+{"text": "i dont think this recipe needs eggs right", "label": "no"}
+{"text": "think of 5 fun date ideas", "label": "no"}
+{"text": "why do people overthink everything", "label": "no"}
+{"text": "how long does it take a while for bread to rise", "label": "no"}
+{"text": "thinking about learning piano, where do i start", "label": "no"}
+{"text": "what are critical thinking skills", "label": "no"}
+{"text": "do you think dogs dream", "label": "no"}
+{"text": "summarize the book thinking in systems", "label": "no"}
+{"text": "i think therefore i am, explain", "label": "no"}
+{"text": "take your pick: pizza or tacos?", "label": "no"}
+{"text": "take a break ideas for work", "label": "no"}
+{"text": "careful with the spelling in this sentence: recieve", "label": "no"}
+{"text": "how do i take my time when eating to lose weight", "label": "no"}
+{"text": "be thorough when cleaning a bathroom, what should i do", "label": "no"}
+{"text": "what's design thinking", "label": "no"}
+{"text": "what would you think if i dyed my hair blue", "label": "no"}
+{"text": "i think im getting sick what should i eat", "label": "no"}
+{"text": "think pieces about ai are everywhere, why", "label": "no"}
+{"text": "whats a thoughtful gift for a teacher", "label": "no"}
+{"text": "this will take a while to explain but my car makes a noise", "label": "no"}
+{"text": "i need to double check my flight, how do i find my booking", "label": "no"}
+{"text": "what do u think is the best laptop for students", "label": "no"}
+{"text": "how to think like a programmer", "label": "no"}
+{"text": "can you think of a better title for this post", "label": "no"}
+{"text": "thinking of you messages for a sick friend", "label": "no", "nearMiss": true}
+{"text": "careful planning tips for a wedding", "label": "no"}
+{"text": "i think i left the stove on, how dangerous is that", "label": "no"}
+{"text": "did my boss email me about the latest quarterly numbers", "label": "no", "nearMiss": true}
+{"text": "any missed calls from my sister today", "label": "no", "nearMiss": true}
+{"text": "what did my dad say about the game score last night", "label": "no", "nearMiss": true}
+{"text": "who called me today", "label": "no", "nearMiss": true}
+{"text": "what did my coworker say in his latest email about the price change", "label": "no", "nearMiss": true}
+{"text": "any new voicemails today", "label": "no", "nearMiss": true}
+{"text": "what did grandpa say on the phone yesterday about the hurricane", "label": "no"}
+{"text": "how do i parse sms messages in python", "label": "no", "nearMiss": true}
+{"text": "why does my react chat app drop messages on reconnect", "label": "no", "nearMiss": true}
+{"text": "write a regex that extracts phone numbers from text messages", "label": "no", "nearMiss": true}
+{"text": "what's the max length of an sms message", "label": "no", "nearMiss": true}
+{"text": "what did lincoln say in his letter to grant", "label": "no"}
+{"text": "did the senator text the lobbyist according to the report", "label": "no", "nearMiss": true}
+{"text": "can you repeat your last message but shorter", "label": "no", "nearMiss": true}
+{"text": "what was the first message i sent you today", "label": "no", "nearMiss": true}
+{"text": "help me write a text to my dad apologizing for missing dinner", "label": "no", "nearMiss": true}
+{"text": "is it rude to text my boss after 9pm", "label": "no", "nearMiss": true}
+{"text": "how should i respond if my ex texts me", "label": "no", "nearMiss": true}
+{"text": "rewrite this text so it sounds less angry: you never listen", "label": "no", "nearMiss": true}
+{"text": "check my email from my dad", "label": "no", "nearMiss": true}
+{"text": "what did sam say in slack", "label": "no"}
+{"text": "text me a summary of this later", "label": "no", "nearMiss": true}
+{"text": "what message is the author trying to send in chapter 4", "label": "no", "nearMiss": true}
+{"text": "the text of the constitution says what about speech", "label": "no", "nearMiss": true}
+{"text": "mixed messages from my body after running, should i rest", "label": "no", "nearMiss": true}
+{"text": "how long should i boil an egg", "label": "no"}
+{"text": "explain big o notation with examples", "label": "no"}
+{"text": "convert 5 miles to km", "label": "no"}
+{"text": "i think i messed up my resume, can you look", "label": "no"}
+{"text": "what do you think of my essay intro", "label": "no"}
+{"text": "think of 5 birthday gift ideas for my dad", "label": "no"}
+{"text": "it might take a while to load, ignore that", "label": "no"}
+{"text": "any new emails from my boss today", "label": "no", "nearMiss": true}
+{"text": "think hard: what's the latest AI news", "label": "yes"}
+{"text": "What is the weather forecast today?", "label": "yes"}
+{"text": "What are some good restaurants around me?", "label": "yes"}
+{"text": "Weather forecast", "label": "yes"}
+{"text": "Do I need an umbrella today?", "label": "yes"}
+{"text": "Find nearby cafes", "label": "yes"}
+{"text": "What's the temperature today?", "label": "yes"}
+{"text": "Where am I?", "label": "yes"}
+{"text": "Write a report on today's AI news", "label": "yes"}
+{"text": "What is the score of the Arsenal match?", "label": "yes"}
+{"text": "When does the next train to Aarhus leave?", "label": "yes"}
+{"text": "What were the 2025 election results?", "label": "yes"}
+{"text": "What happened yesterday?", "label": "yes"}
+{"text": "Is this product still available?", "label": "yes"}
+{"text": "How much does this phone cost today?", "label": "yes"}
+{"text": "What's on at the cinema this weekend?", "label": "yes"}
+{"text": "latest news from the Fed today", "label": "yes"}
+{"text": "whats a closure in swift", "label": "no"}
+{"text": "whats the difference between a set and an array", "label": "no"}
+{"text": "whatsapp vs imessage, which is more private", "label": "no"}
+{"text": "How do I search the web?", "label": "no", "nearMiss": true}
+{"text": "Who was the president in 1999?", "label": "no", "nearMiss": true}
+{"text": "Who won the 1998 World Cup?", "label": "no", "nearMiss": true}
+{"text": "Who won World War II?", "label": "no", "nearMiss": true}
+{"text": "What happened in 1812?", "label": "no", "nearMiss": true}
+{"text": "Explain electric current", "label": "no", "nearMiss": true}
+{"text": "How does current flow through a resistor?", "label": "no", "nearMiss": true}
+{"text": "What are exchange rates?", "label": "no", "nearMiss": true}
+{"text": "What is a stock price?", "label": "no", "nearMiss": true}
+{"text": "What is 2026 divided by 2?", "label": "no", "nearMiss": true}
+{"text": "Summarize this article: latest news today", "label": "no", "nearMiss": true}
+{"text": "Write a poem about the weather in Copenhagen", "label": "no", "nearMiss": true}
+{"text": "Translate: \"What is the latest news?\"", "label": "no"}
+{"text": "Explain `latest news`", "label": "no"}
+{"text": "Debug this code: ```\nprint(\"latest news\")\n```", "label": "no"}
+{"text": "Explain my current function", "label": "no", "nearMiss": true}
+{"text": "Review the latest commit", "label": "no", "nearMiss": true}
+{"text": "What's in the current directory?", "label": "no", "nearMiss": true}
+{"text": "Don't search the web. Who is the president?", "label": "no", "nearMiss": true}
+{"text": "Do not browse. What happened today?", "label": "no", "nearMiss": true}
+{"text": "Without web search, explain the latest news", "label": "no", "nearMiss": true}
+{"text": "Use only your existing knowledge: who is the CEO of Apple?", "label": "no", "nearMiss": true}
+{"text": "Stay offline. What is today's news?", "label": "no", "nearMiss": true}
+{"text": "What happened today? Answer offline.", "label": "no", "nearMiss": true}
+{"text": "Rewrite \"search the web\" as a shorter phrase", "label": "no"}
+{"text": "what are the latest emails from my boss today", "label": "no", "nearMiss": true}
+{"text": "what are the latest texts from my sister", "label": "no", "nearMiss": true}
+{"text": "what's the latest in our group chat", "label": "no", "nearMiss": true}
+{"text": "did I miss any calls from my mom today", "label": "no", "nearMiss": true}
+{"text": "check my inbox for anything new today", "label": "no", "nearMiss": true}
+{"text": "what are my latest DMs about", "label": "no", "nearMiss": true}
+{"text": "I got so many texts today, who were they from", "label": "no", "nearMiss": true}
+{"text": "what voicemails came today? I was out", "label": "no", "nearMiss": true}
+{"text": "whats going on in the stock market right now", "label": "yes"}
+{"text": "did the fed raise rates this week", "label": "yes"}
+{"text": "who won the game last night between the celtics and the knicks", "label": "yes"}
+{"text": "is the bridge on route 9 still closed", "label": "yes"}
+{"text": "how much is a gallon of gas in ohio right now", "label": "yes"}
+{"text": "what time does the hardware store on elm street close tonight", "label": "yes"}
+{"text": "any updates on the hurricane heading for florida", "label": "yes"}
+{"text": "what's the current exchange rate for yen to dollars", "label": "yes"}
+{"text": "who's leading the tour de france", "label": "yes"}
+{"text": "is it going to snow in denver this weekend", "label": "yes"}
+{"text": "what's the weather in lisbon next week", "label": "yes"}
+{"text": "how hot will it be in phoenix tomorrow", "label": "yes"}
+{"text": "did the new iphone come out yet", "label": "yes"}
+{"text": "when does the next season of that dragon show drop", "label": "yes"}
+{"text": "what movies are playing near me tonight", "label": "yes"}
+{"text": "latest version of node", "label": "yes"}
+{"text": "what's the newest macos version", "label": "yes"}
+{"text": "is xcode 27 out", "label": "yes"}
+{"text": "who is the prime minister of the uk right now", "label": "yes"}
+{"text": "who's the current mayor of chicago", "label": "yes"}
+{"text": "who coaches the patriots now", "label": "yes"}
+{"text": "what's bitcoin at", "label": "yes"}
+{"text": "eth price", "label": "yes"}
+{"text": "price of gold today", "label": "yes"}
+{"text": "how's the s&p doing today", "label": "yes"}
+{"text": "tesla stock", "label": "yes"}
+{"text": "mortgage rates this week", "label": "yes"}
+{"text": "what are interest rates at right now", "label": "yes"}
+{"text": "is the airport open after the storm", "label": "yes"}
+{"text": "flight status for the morning flight from boston to dallas", "label": "yes"}
+{"text": "are there delays on the northern line", "label": "yes"}
+{"text": "when is the next bus to the city center", "label": "yes"}
+{"text": "what's trending on twitter", "label": "yes"}
+{"text": "what are people saying about the new pixel phone", "label": "yes"}
+{"text": "reviews of the new galaxy watch", "label": "yes"}
+{"text": "is the new zelda game any good, what are reviewers saying", "label": "yes"}
+{"text": "what's the score in the cricket", "label": "yes"}
+{"text": "liverpool score", "label": "yes"}
+{"text": "did spain win", "label": "yes"}
+{"text": "f1 results from the weekend", "label": "yes"}
+{"text": "who won the oscar for best picture this year", "label": "yes"}
+{"text": "who won the election in argentina", "label": "yes"}
+{"text": "what are the polls saying for the senate race", "label": "yes"}
+{"text": "breaking news", "label": "yes"}
+{"text": "anything big happen in the world today", "label": "yes"}
+{"text": "headlines please", "label": "yes"}
+{"text": "give me today's top stories", "label": "yes"}
+{"text": "news about the strike at the port", "label": "yes"}
+{"text": "what's happening with the teachers strike", "label": "yes"}
+{"text": "what's the latest on the merger between those two airlines", "label": "yes"}
+{"text": "has the trial verdict come out", "label": "yes"}
+{"text": "is the store still selling the blue model", "label": "yes"}
+{"text": "is the ps5 in stock anywhere", "label": "yes"}
+{"text": "cheapest flights to rome next month", "label": "yes"}
+{"text": "hotel prices in tokyo for december", "label": "yes"}
+{"text": "what's on at the theatre this week", "label": "yes"}
+{"text": "concerts in austin this weekend", "label": "yes"}
+{"text": "is the museum open on mondays", "label": "yes"}
+{"text": "opening hours for the post office on main st", "label": "yes"}
+{"text": "when does the farmers market open tomorrow", "label": "yes"}
+{"text": "what time is sunset today", "label": "yes"}
+{"text": "when is high tide today in brighton", "label": "yes"}
+{"text": "air quality in delhi today", "label": "yes"}
+{"text": "pollen count today", "label": "yes"}
+{"text": "uv index right now", "label": "yes"}
+{"text": "is there a heat advisory today", "label": "yes"}
+{"text": "traffic on the i-95 right now", "label": "yes"}
+{"text": "road closures downtown today", "label": "yes"}
+{"text": "what's the latest on the wildfire in california", "label": "yes"}
+{"text": "how many people have been affected by the floods this week", "label": "yes"}
+{"text": "covid numbers this week", "label": "yes"}
+{"text": "did they announce the date for the next apple event", "label": "yes"}
+{"text": "when is the next spacex launch", "label": "yes"}
+{"text": "what's the release date for the new pixar movie", "label": "yes"}
+{"text": "is the beta out for ios 27", "label": "yes"}
+{"text": "what's new in the latest chrome update", "label": "yes"}
+{"text": "current version of python", "label": "yes"}
+{"text": "latest stable rust version", "label": "yes"}
+{"text": "what's the latest version of react", "label": "yes"}
+{"text": "is there a newer version of the postgres docker image", "label": "yes"}
+{"text": "what does the latest kubernetes release change", "label": "yes"}
+{"text": "did openai release a new model this week", "label": "yes"}
+{"text": "what ai models came out this month", "label": "yes"}
+{"text": "who is the richest person in the world right now", "label": "yes"}
+{"text": "how many subscribers does that cooking channel have now", "label": "yes"}
+{"text": "what's the population of tokyo right now", "label": "yes"}
+{"text": "whats the minimum wage in california now", "label": "yes"}
+{"text": "current tax brackets for this year", "label": "yes"}
+{"text": "did the law on tipping pass", "label": "yes"}
+{"text": "what's the speed limit change they announced for the city", "label": "yes"}
+{"text": "are the trains running today", "label": "yes"}
+{"text": "is it raining in london right now", "label": "yes"}
+{"text": "weather for my run tomorrow morning in portland", "label": "yes"}
+{"text": "should i bring a jacket to boston tomorrow", "label": "yes"}
+{"text": "what's the forecast for the cape this weekend", "label": "yes"}
+{"text": "how cold is it in oslo", "label": "yes"}
+{"text": "is the ski resort open yet", "label": "yes"}
+{"text": "snow report for whistler", "label": "yes"}
+{"text": "surf report for malibu", "label": "yes"}
+{"text": "what's the wait time at the dmv", "label": "yes"}
+{"text": "who's playing at the stadium on saturday", "label": "yes"}
+{"text": "when do lakers tickets go on sale", "label": "yes"}
+{"text": "nba standings", "label": "yes"}
+{"text": "premier league table", "label": "yes"}
+{"text": "who's top of the bundesliga", "label": "yes"}
+{"text": "where are the warriors in the standings", "label": "yes"}
+{"text": "did the yankees make the playoffs", "label": "yes"}
+{"text": "what's the latest transfer news for chelsea", "label": "yes"}
+{"text": "is the player injured or playing tonight", "label": "yes"}
+{"text": "fantasy football waiver pickups this week", "label": "yes"}
+{"text": "look up the menu at the thai place on 5th", "label": "yes"}
+{"text": "find me the phone number for the nearest pharmacy", "label": "yes"}
+{"text": "find coffee shops open late near me", "label": "yes"}
+{"text": "best rated pizza near me", "label": "yes"}
+{"text": "where can i buy a phone charger nearby", "label": "yes"}
+{"text": "gas stations near me", "label": "yes"}
+{"text": "search for reviews of the dentist on oak avenue", "label": "yes"}
+{"text": "look this up online: who founded the new startup that just went public", "label": "yes"}
+{"text": "google the latest on the rail strike", "label": "yes"}
+{"text": "search online for the latest jobs report", "label": "yes"}
+{"text": "can you look up what happened at the summit", "label": "yes"}
+{"text": "check online whether the concert is cancelled", "label": "yes"}
+{"text": "what are the new covid rules for travel to japan", "label": "yes"}
+{"text": "do i need a visa for vietnam now", "label": "yes"}
+{"text": "what's the latest guidance on the measles outbreak", "label": "yes"}
+{"text": "recall on the baby formula this week", "label": "yes"}
+{"text": "any product recalls for my car model this year", "label": "yes"}
+{"text": "is the gmail outage fixed", "label": "yes"}
+{"text": "is slack down right now", "label": "yes"}
+{"text": "is aws having problems today", "label": "yes"}
+{"text": "what's the status of the github outage", "label": "yes"}
+{"text": "current price of the macbook air", "label": "yes"}
+{"text": "how much does a tesla model 3 cost now", "label": "yes"}
+{"text": "how much is the new iphone in the uk", "label": "yes"}
+{"text": "is there a sale on airpods", "label": "yes"}
+{"text": "black friday deals this year", "label": "yes"}
+{"text": "whats the cheapest 4k tv right now", "label": "yes"}
+{"text": "what did the president say today", "label": "yes"}
+{"text": "what did the supreme court decide this week", "label": "yes"}
+{"text": "new laws taking effect this month", "label": "yes"}
+{"text": "what's the deadline to file taxes this year", "label": "yes"}
+{"text": "when are the next elections in germany", "label": "yes"}
+{"text": "who's running for governor in 2025", "label": "yes"}
+{"text": "what's the score of the ohio state game", "label": "yes"}
+{"text": "how did the marathon go today, who won", "label": "yes"}
+{"text": "what time is the match on tonight", "label": "yes"}
+{"text": "when does the world cup start", "label": "yes"}
+{"text": "who won wimbledon this year", "label": "yes"}
+{"text": "is the new season of the baking show out", "label": "yes"}
+{"text": "top songs this week", "label": "yes"}
+{"text": "what's number one on the charts", "label": "yes"}
+{"text": "what's the box office for the new batman movie", "label": "yes"}
+{"text": "latest episode of the podcast about history, what was it about", "label": "yes"}
+{"text": "anything new from the band this year", "label": "yes"}
+{"text": "what's the newest book by that mystery author", "label": "yes"}
+{"text": "who won the nobel prize in physics this year", "label": "yes"}
+{"text": "what's the latest research on intermittent fasting", "label": "yes"}
+{"text": "are there new findings about the james webb telescope this month", "label": "yes"}
+{"text": "latest earthquake", "label": "yes"}
+{"text": "was there an earthquake in japan today", "label": "yes"}
+{"text": "volcano eruption news", "label": "yes"}
+{"text": "what's the inflation rate now", "label": "yes"}
+{"text": "unemployment rate latest", "label": "yes"}
+{"text": "what's the price of eggs these days", "label": "yes"}
+{"text": "how much are concert tickets for the tour", "label": "yes"}
+{"text": "is the restaurant on 3rd still open or did it close", "label": "yes"}
+{"text": "did the bakery reopen", "label": "yes"}
+{"text": "what's the wifi like at the new library, any reviews", "label": "yes"}
+{"text": "current wait for the new nintendo console", "label": "yes"}
+{"text": "when is the next full moon", "label": "yes"}
+{"text": "what's happening in the city this weekend", "label": "yes"}
+{"text": "events in seattle tonight", "label": "yes"}
+{"text": "any good exhibitions in paris right now", "label": "yes"}
+{"text": "whats on netflix this week", "label": "yes"}
+{"text": "new shows on hbo this month", "label": "yes"}
+{"text": "what's the latest on the housing market", "label": "yes"}
+{"text": "how are home prices doing right now in denver", "label": "yes"}
+{"text": "rent prices in austin now", "label": "yes"}
+{"text": "is the subway running late tonight", "label": "yes"}
+{"text": "do the trains run on the holiday this year", "label": "yes"}
+{"text": "are banks open today", "label": "yes"}
+{"text": "is today a public holiday in the uk", "label": "yes"}
+{"text": "what date is easter this year", "label": "yes"}
+{"text": "what time is it in sydney right now", "label": "yes"}
+{"text": "when does daylight saving end this year", "label": "yes"}
+{"text": "how long is the line at the passport office", "label": "yes"}
+{"text": "is the beach open after the shark sighting", "label": "yes"}
+{"text": "current conditions on mount rainier", "label": "yes"}
+{"text": "avalanche warning today", "label": "yes"}
+{"text": "is the highway pass open", "label": "yes"}
+{"text": "fire danger level today", "label": "yes"}
+{"text": "what's the latest polling for the mayor race", "label": "yes"}
+{"text": "did the bill pass the senate", "label": "yes"}
+{"text": "how did the markets close", "label": "yes"}
+{"text": "crypto prices", "label": "yes"}
+{"text": "what's the dollar worth in euros today", "label": "yes"}
+{"text": "convert 100 dollars to pesos at today's rate", "label": "yes"}
+{"text": "how much is the pound against the euro now", "label": "yes"}
+{"text": "when is the next apple keynote", "label": "yes"}
+{"text": "did google announce anything new today", "label": "yes"}
+{"text": "latest security vulnerability in openssl", "label": "yes"}
+{"text": "is there a patch for the new chrome zero day", "label": "yes"}
+{"text": "any new macos security updates", "label": "yes"}
+{"text": "whats the latest firmware for my router model", "label": "yes"}
+{"text": "latest drivers for my nvidia card", "label": "yes"}
+{"text": "what's the current world record in the 100m", "label": "yes"}
+{"text": "who holds the record for most goals in the premier league now", "label": "yes"}
+{"text": "who is the oldest person alive today", "label": "yes"}
+{"text": "who's the ceo of twitter now", "label": "yes"}
+{"text": "who runs the bbc now", "label": "yes"}
+{"text": "who is the current secretary general of the un", "label": "yes"}
+{"text": "who is the pope now", "label": "yes"}
+{"text": "who is the head of the fed", "label": "yes"}
+{"text": "who is the speaker of the house", "label": "yes"}
+{"text": "is the governor still in office after the scandal", "label": "yes"}
+{"text": "explain how weather forecasts are made", "label": "no", "nearMiss": true}
+{"text": "what causes hurricanes", "label": "no", "nearMiss": true}
+{"text": "how does the stock market work", "label": "no", "nearMiss": true}
+{"text": "what is inflation", "label": "no", "nearMiss": true}
+{"text": "what is a mortgage rate", "label": "no", "nearMiss": true}
+{"text": "how do interest rates affect inflation", "label": "no", "nearMiss": true}
+{"text": "what is bitcoin", "label": "no", "nearMiss": true}
+{"text": "how do exchange rates work", "label": "no", "nearMiss": true}
+{"text": "who was the first president of the united states", "label": "no", "nearMiss": true}
+{"text": "who won the world cup in 1986", "label": "no", "nearMiss": true}
+{"text": "what happened in the french revolution", "label": "no", "nearMiss": true}
+{"text": "when was the eiffel tower built", "label": "no", "nearMiss": true}
+{"text": "what year did the berlin wall fall", "label": "no", "nearMiss": true}
+{"text": "history of the olympics", "label": "no", "nearMiss": true}
+{"text": "who invented the telephone", "label": "no", "nearMiss": true}
+{"text": "what is the capital of australia", "label": "no", "nearMiss": true}
+{"text": "how many planets are in the solar system", "label": "no", "nearMiss": true}
+{"text": "what is the population formula in ecology", "label": "no", "nearMiss": true}
+{"text": "write a news article about a dog who saves a town", "label": "no", "nearMiss": true}
+{"text": "write a fake headline for my school project", "label": "no", "nearMiss": true}
+{"text": "write a weather report for my fantasy novel", "label": "no", "nearMiss": true}
+{"text": "summarize this news article", "label": "no", "nearMiss": true}
+{"text": "rewrite this headline to be catchier", "label": "no", "nearMiss": true}
+{"text": "translate this news story into spanish", "label": "no", "nearMiss": true}
+{"text": "what's the latest i can submit my essay according to the rubric i pasted", "label": "no", "nearMiss": true}
+{"text": "what time is it in a 24 hour clock if it's 3pm", "label": "no", "nearMiss": true}
+{"text": "how do i check the weather on my iphone", "label": "no", "nearMiss": true}
+{"text": "how do i set up stock alerts in the app", "label": "no", "nearMiss": true}
+{"text": "how do i find the latest version of a file in git", "label": "no", "nearMiss": true}
+{"text": "how do i update node to the latest version", "label": "no", "nearMiss": true}
+{"text": "explain semantic versioning", "label": "no", "nearMiss": true}
+{"text": "what does \"latest\" mean in a docker tag", "label": "no", "nearMiss": true}
+{"text": "what's new in swift 5.9 compared to 5.8, in general terms", "label": "no", "nearMiss": true}
+{"text": "whats the difference between today and tomorrow in spanish", "label": "no", "nearMiss": true}
+{"text": "how do you say current events in french", "label": "no", "nearMiss": true}
+{"text": "what is a current account", "label": "no", "nearMiss": true}
+{"text": "what's a current in physics", "label": "no", "nearMiss": true}
+{"text": "current vs voltage", "label": "no", "nearMiss": true}
+{"text": "explain alternating current", "label": "no", "nearMiss": true}
+{"text": "what is the price elasticity of demand", "label": "no", "nearMiss": true}
+{"text": "how do i price my freelance work", "label": "no", "nearMiss": true}
+{"text": "what's a fair price to charge for babysitting", "label": "no", "nearMiss": true}
+{"text": "what is a stock split", "label": "no", "nearMiss": true}
+{"text": "how do I read a weather map", "label": "no", "nearMiss": true}
+{"text": "what is a cold front", "label": "no", "nearMiss": true}
+{"text": "how far is the moon", "label": "no", "nearMiss": true}
+{"text": "what is the boiling point of water", "label": "no", "nearMiss": true}
+{"text": "what is the plot of hamlet", "label": "no", "nearMiss": true}
+{"text": "how do elections work in the uk", "label": "no", "nearMiss": true}
+{"text": "what is the electoral college", "label": "no", "nearMiss": true}
+{"text": "what's the difference between a senator and a representative", "label": "no", "nearMiss": true}
+{"text": "how does the supreme court pick cases", "label": "no", "nearMiss": true}
+{"text": "what does the president do", "label": "no", "nearMiss": true}
+{"text": "what is a prime minister", "label": "no", "nearMiss": true}
+{"text": "what does a ceo do", "label": "no", "nearMiss": true}
+{"text": "how do i become a news reporter", "label": "no", "nearMiss": true}
+{"text": "how do i write a press release", "label": "no", "nearMiss": true}
+{"text": "what's a good name for a news blog", "label": "no", "nearMiss": true}
+{"text": "give me tips for watching the news without getting anxious", "label": "no", "nearMiss": true}
+{"text": "what did i ask you earlier", "label": "no", "nearMiss": true}
+{"text": "what was the latest thing we talked about", "label": "no", "nearMiss": true}
+{"text": "summarize our chat so far", "label": "no", "nearMiss": true}
+{"text": "what's the latest draft of my essay that i pasted above", "label": "no", "nearMiss": true}
+{"text": "look at my latest commit message and improve it", "label": "no", "nearMiss": true}
+{"text": "check my current code for bugs", "label": "no", "nearMiss": true}
+{"text": "what's the current value of x in this loop", "label": "no", "nearMiss": true}
+{"text": "whats new in this diff", "label": "no", "nearMiss": true}
+{"text": "what are the latest changes in the file i pasted", "label": "no", "nearMiss": true}
+{"text": "the latest version of my resume is below, tidy it up", "label": "no", "nearMiss": true}
+{"text": "today i want to learn about black holes", "label": "no", "nearMiss": true}
+{"text": "today was rough, can you cheer me up", "label": "no", "nearMiss": true}
+{"text": "i'm feeling down today", "label": "no", "nearMiss": true}
+{"text": "what should i cook tonight", "label": "no", "nearMiss": true}
+{"text": "what should i wear today", "label": "no", "nearMiss": true}
+{"text": "plan my day today", "label": "no", "nearMiss": true}
+{"text": "write me a to do list for today", "label": "no", "nearMiss": true}
+{"text": "how do i stay productive this week", "label": "no", "nearMiss": true}
+{"text": "give me a workout plan for this week", "label": "no", "nearMiss": true}
+{"text": "what's a good weekend project for kids", "label": "no", "nearMiss": true}
+{"text": "ideas for a date tonight", "label": "no", "nearMiss": true}
+{"text": "what's a good movie to watch tonight, any classic", "label": "no", "nearMiss": true}
+{"text": "recommend a book for this weekend", "label": "no", "nearMiss": true}
+{"text": "how do i say good morning in japanese", "label": "no", "nearMiss": true}
+{"text": "what's the news in the book i'm reading about, the main plot", "label": "no", "nearMiss": true}
+{"text": "tell me some news vocabulary in german", "label": "no", "nearMiss": true}
+{"text": "what is breaking news in journalism terms", "label": "no", "nearMiss": true}
+{"text": "what is the weather like on mars", "label": "no", "nearMiss": true}
+{"text": "what's the weather like in the sahara usually", "label": "no", "nearMiss": true}
+{"text": "what's the climate of iceland", "label": "no", "nearMiss": true}
+{"text": "what is the average temperature in july in rome historically", "label": "no", "nearMiss": true}
+{"text": "why is it hot in summer", "label": "no", "nearMiss": true}
+{"text": "how do hurricanes get names", "label": "no", "nearMiss": true}
+{"text": "what's the best time of year to visit japan", "label": "no", "nearMiss": true}
+{"text": "is it safe to swim after eating", "label": "no", "nearMiss": true}
+{"text": "how do i make cold brew coffee", "label": "no", "nearMiss": true}
+{"text": "what is the score of a perfect bowling game", "label": "no", "nearMiss": true}
+{"text": "how is a tennis match scored", "label": "no", "nearMiss": true}
+{"text": "what are the rules of cricket", "label": "no", "nearMiss": true}
+{"text": "how many players on a soccer team", "label": "no", "nearMiss": true}
+{"text": "who is the greatest basketball player of all time in your opinion", "label": "no", "nearMiss": true}
+{"text": "was michael jordan better than lebron", "label": "no", "nearMiss": true}
+{"text": "explain the offside rule", "label": "no", "nearMiss": true}
+{"text": "what is a stock price", "label": "no", "nearMiss": true}
+{"text": "what does bearish mean", "label": "no", "nearMiss": true}
+{"text": "what is a bull market", "label": "no", "nearMiss": true}
+{"text": "how do i invest in index funds", "label": "no", "nearMiss": true}
+{"text": "should i buy stocks or bonds, general advice", "label": "no", "nearMiss": true}
+{"text": "how do cryptocurrencies work", "label": "no", "nearMiss": true}
+{"text": "what is ethereum", "label": "no", "nearMiss": true}
+{"text": "how does bitcoin mining work", "label": "no", "nearMiss": true}
+{"text": "what is a recession", "label": "no", "nearMiss": true}
+{"text": "what causes unemployment", "label": "no", "nearMiss": true}
+{"text": "what is gdp", "label": "no", "nearMiss": true}
+{"text": "history of the stock market crash in 2014", "label": "no", "nearMiss": true}
+{"text": "what happened during the 2014 financial crisis", "label": "no", "nearMiss": true}
+{"text": "who won the 2008 super bowl", "label": "no", "nearMiss": true}
+{"text": "who was president in 1998", "label": "no", "nearMiss": true}
+{"text": "what were the results of the 1998 election", "label": "no", "nearMiss": true}
+{"text": "what happened at the 2014 olympics", "label": "no", "nearMiss": true}
+{"text": "what's 2 plus 2", "label": "no", "nearMiss": true}
+{"text": "convert 5 miles to kilometers", "label": "no", "nearMiss": true}
+{"text": "how many ounces in a cup", "label": "no", "nearMiss": true}
+{"text": "what's 15 percent of 80", "label": "no", "nearMiss": true}
+{"text": "how long do i boil an egg", "label": "no", "nearMiss": true}
+{"text": "how do i change a tire", "label": "no", "nearMiss": true}
+{"text": "how to fix a leaky faucet", "label": "no", "nearMiss": true}
+{"text": "how do i open a pdf on mac", "label": "no", "nearMiss": true}
+{"text": "write a python function to reverse a string", "label": "no", "nearMiss": true}
+{"text": "write a poem about today", "label": "no", "nearMiss": true}
+{"text": "write a haiku about the news", "label": "no", "nearMiss": true}
+{"text": "write a song about the rain in london", "label": "no", "nearMiss": true}
+{"text": "write a story set in tokyo in the future", "label": "no", "nearMiss": true}
+{"text": "what will the world be like in 2035, imagine it", "label": "no", "nearMiss": true}
+{"text": "predict what cars will look like in 50 years", "label": "no", "nearMiss": true}
+{"text": "draw up a fictional newspaper front page", "label": "no", "nearMiss": true}
+{"text": "what does the word latest mean", "label": "no", "nearMiss": true}
+{"text": "what is a news anchor", "label": "no", "nearMiss": true}
+{"text": "whats the opposite of current", "label": "no", "nearMiss": true}
+{"text": "spell restaurant", "label": "no", "nearMiss": true}
+{"text": "what's the plural of news", "label": "no", "nearMiss": true}
+{"text": "can you recommend a recipe for tonight", "label": "no", "nearMiss": true}
+{"text": "what's a fun fact about octopuses", "label": "no", "nearMiss": true}
+{"text": "tell me a joke about the weather", "label": "no", "nearMiss": true}
+{"text": "how do weather apps get their data", "label": "no", "nearMiss": true}
+{"text": "how do airlines set prices", "label": "no", "nearMiss": true}
+{"text": "why are flights expensive at christmas", "label": "no", "nearMiss": true}
+{"text": "how do i book a cheap flight, general tips", "label": "no", "nearMiss": true}
+{"text": "how do i check if a store is open on google maps", "label": "no", "nearMiss": true}
+{"text": "any new messages from work today", "label": "no", "nearMiss": true}
+{"text": "what did my boss email me this morning", "label": "no", "nearMiss": true}
+{"text": "did i get any calls today", "label": "no", "nearMiss": true}
+{"text": "show me today's texts", "label": "no", "nearMiss": true}
+{"text": "what did the group chat say today", "label": "no", "nearMiss": true}
+{"text": "any new imessages", "label": "no", "nearMiss": true}
+{"text": "what's the latest text from my mom", "label": "no", "nearMiss": true}
+{"text": "did alex reply to my email yet", "label": "no", "nearMiss": true}
+{"text": "summarize my emails from today", "label": "no", "nearMiss": true}
+{"text": "check my voicemail from today", "label": "no", "nearMiss": true}
+{"text": "did anyone dm me today", "label": "no", "nearMiss": true}
+{"text": "what are my unread messages", "label": "no", "nearMiss": true}
+{"text": "whats new in my inbox", "label": "no", "nearMiss": true}
+{"text": "any texts from the landlord this week", "label": "no", "nearMiss": true}
+{"text": "did my friend send the photos yet", "label": "no", "nearMiss": true}
+{"text": "what did dad say in his latest text", "label": "no", "nearMiss": true}
+{"text": "what did the plumber text me today", "label": "no", "nearMiss": true}
+{"text": "read my latest email", "label": "no", "nearMiss": true}
+{"text": "don't search, just tell me who the president of france is", "label": "no", "nearMiss": true}
+{"text": "no web search please: what's the capital of peru", "label": "no", "nearMiss": true}
+{"text": "without looking anything up, what do you know about the latest iphone", "label": "no", "nearMiss": true}
+{"text": "answer from memory: who won the world cup in 2014", "label": "no", "nearMiss": true}
+{"text": "offline only, what's the weather usually like in june in rome", "label": "no", "nearMiss": true}
+{"text": "dont google it, what is bitcoin", "label": "no", "nearMiss": true}
+{"text": "don't look it up, what's the newest swift version you know of", "label": "no", "nearMiss": true}
+{"text": "skip the search and tell me what you remember about the election", "label": "no", "nearMiss": true}
+{"text": "no need to search, what's a good pasta recipe", "label": "no", "nearMiss": true}
+{"text": "just from your own knowledge, what is the current state of fusion research", "label": "no", "nearMiss": true}
+{"text": "what was the first thing i asked you today", "label": "no", "nearMiss": true}
+{"text": "can you repeat your latest answer", "label": "no", "nearMiss": true}
+{"text": "what's the latest version of the essay we wrote in this chat", "label": "no", "nearMiss": true}
+{"text": "hi", "label": "no"}
+{"text": "hello there", "label": "no"}
+{"text": "good morning", "label": "no"}
+{"text": "how are you", "label": "no"}
+{"text": "write a limerick about cats", "label": "no"}
+{"text": "give me ideas for a birthday party", "label": "no"}
+{"text": "help me write a cover letter", "label": "no"}
+{"text": "explain photosynthesis simply", "label": "no"}
+{"text": "what is a black hole", "label": "no"}
+{"text": "how do magnets work", "label": "no"}
+{"text": "summarize this paragraph", "label": "no"}
+{"text": "proofread my email", "label": "no", "nearMiss": true}
+{"text": "translate hello to german", "label": "no"}
+{"text": "what's a synonym for happy", "label": "no"}
+{"text": "write a function to sort a list in javascript", "label": "no"}
+{"text": "fix this sql query", "label": "no"}
+{"text": "how do i make pancakes", "label": "no"}
+{"text": "how do i improve my sleep", "label": "no"}
+{"text": "what are some good stretches for back pain", "label": "no"}
+{"text": "how do i deal with a difficult coworker", "label": "no"}
+{"text": "give me feedback on my essay", "label": "no"}
+{"text": "what's the meaning of life", "label": "no"}
+{"text": "explain quantum entanglement like i'm five", "label": "no"}
+{"text": "write a short story about a dragon", "label": "no"}
+{"text": "name ideas for a bakery", "label": "no"}
+{"text": "how do i learn guitar", "label": "no"}
+{"text": "what should i name my cat", "label": "no"}
+{"text": "help me plan a garden", "label": "no"}
+{"text": "how many legs does a spider have", "label": "no"}
+{"text": "what is the largest ocean", "label": "no"}
+{"text": "explain the water cycle", "label": "no"}
+{"text": "write a thank you note to my teacher", "label": "no"}
+{"text": "what's a good way to start a speech", "label": "no"}
+{"text": "give me a riddle", "label": "no"}
+{"text": "can you make this sound more professional", "label": "no"}
+{"text": "convert this to bullet points", "label": "no"}
+{"text": "list some fun indoor activities", "label": "no"}
+{"text": "how do i tie a tie", "label": "no"}
+{"text": "what's a healthy breakfast", "label": "no"}
+{"text": "any updates on the climate summit", "label": "yes"}
+{"text": "any updates on the court case", "label": "yes"}
+{"text": "any updates on the election", "label": "yes"}
+{"text": "any updates on the heat wave", "label": "yes"}
+{"text": "any updates on the space launch", "label": "yes"}
+{"text": "any updates on the wildfire", "label": "yes"}
+{"text": "celtic score", "label": "yes"}
+{"text": "costco hours next week", "label": "yes"}
+{"text": "current android version", "label": "yes"}
+{"text": "current blender version", "label": "yes"}
+{"text": "current firefox version", "label": "yes"}
+{"text": "current homebrew version", "label": "yes"}
+{"text": "current node version", "label": "yes"}
+{"text": "current photoshop version", "label": "yes"}
+{"text": "current postgres version", "label": "yes"}
+{"text": "current python version", "label": "yes"}
+{"text": "current swift version", "label": "yes"}
+{"text": "current the linux kernel version", "label": "yes"}
+{"text": "current ubuntu version", "label": "yes"}
+{"text": "current vscode version", "label": "yes"}
+{"text": "current windows version", "label": "yes"}
+{"text": "did psg win yesterday", "label": "yes"}
+{"text": "did real madrid win this weekend", "label": "yes"}
+{"text": "did the bulls win yesterday", "label": "yes"}
+{"text": "did the dodgers win last night", "label": "yes"}
+{"text": "did the eagles win last night", "label": "yes"}
+{"text": "did the maple leafs win last night", "label": "yes"}
+{"text": "did the maple leafs win today", "label": "yes"}
+{"text": "did the mets win last night", "label": "yes"}
+{"text": "did the mets win yesterday", "label": "yes"}
+{"text": "dogecoin stock price", "label": "yes"}
+{"text": "forecast for austin this week", "label": "yes"}
+{"text": "forecast for boise tomorrow", "label": "yes"}
+{"text": "forecast for fresno in the morning", "label": "yes"}
+{"text": "forecast for halifax this weekend", "label": "yes"}
+{"text": "forecast for hanoi in the morning", "label": "yes"}
+{"text": "forecast for hanoi later today", "label": "yes"}
+{"text": "forecast for hanoi right now", "label": "yes"}
+{"text": "forecast for lisbon right now", "label": "yes"}
+{"text": "forecast for marrakesh on saturday", "label": "yes"}
+{"text": "forecast for oslo next week", "label": "yes"}
+{"text": "forecast for tucson next week", "label": "yes"}
+{"text": "how cold is it in austin in the morning", "label": "yes"}
+{"text": "how cold is it in bergen tonight", "label": "yes"}
+{"text": "how cold is it in cork next week", "label": "yes"}
+{"text": "how cold is it in denver this weekend", "label": "yes"}
+{"text": "how cold is it in denver tomorrow", "label": "yes"}
+{"text": "how cold is it in glasgow on saturday", "label": "yes"}
+{"text": "how cold is it in glasgow tonight", "label": "yes"}
+{"text": "how cold is it in hanoi tomorrow", "label": "yes"}
+{"text": "how cold is it in krakow tonight", "label": "yes"}
+{"text": "how cold is it in toronto right now", "label": "yes"}
+{"text": "how cold is it in valencia on saturday", "label": "yes"}
+{"text": "how is amazon doing later today", "label": "yes"}
+{"text": "how is amazon doing this weekend", "label": "yes"}
+{"text": "how is apple doing this weekend", "label": "yes"}
+{"text": "how is apple doing tonight", "label": "yes"}
+{"text": "how is gold doing this week", "label": "yes"}
+{"text": "how is nvidia doing this weekend", "label": "yes"}
+{"text": "how is oil doing on saturday", "label": "yes"}
+{"text": "how is shopify doing in the morning", "label": "yes"}
+{"text": "how is shopify doing later today", "label": "yes"}
+{"text": "how is solana doing later today", "label": "yes"}
+{"text": "how is tesla doing later today", "label": "yes"}
+{"text": "how is tesla doing tonight", "label": "yes"}
+{"text": "is costco open next week", "label": "yes"}
+{"text": "is costco open right now", "label": "yes"}
+{"text": "is home depot open this week", "label": "yes"}
+{"text": "is the bank open later today", "label": "yes"}
+{"text": "is the dmv open this week", "label": "yes"}
+{"text": "is the gym open later today", "label": "yes"}
+{"text": "is the pharmacy on 2nd open on saturday", "label": "yes"}
+{"text": "is the post office open on saturday", "label": "yes"}
+{"text": "is there a new blender update", "label": "yes"}
+{"text": "is there a new photoshop update", "label": "yes"}
+{"text": "is there a new swift update", "label": "yes"}
+{"text": "is there a new the linux kernel update", "label": "yes"}
+{"text": "is there a new unity update", "label": "yes"}
+{"text": "is there a new windows update", "label": "yes"}
+{"text": "is trader joe's open tonight", "label": "yes"}
+{"text": "is walmart open later today", "label": "yes"}
+{"text": "juventus game today, what time", "label": "yes"}
+{"text": "latest news on the bird flu outbreak", "label": "yes"}
+{"text": "latest news on the chip shortage", "label": "yes"}
+{"text": "latest news on the climate summit", "label": "yes"}
+{"text": "latest news on the heat wave", "label": "yes"}
+{"text": "latest news on the new ai rules", "label": "yes"}
+{"text": "latest news on the rail strike", "label": "yes"}
+{"text": "latest news on the space launch", "label": "yes"}
+{"text": "latest news on the transit fare hike", "label": "yes"}
+{"text": "latest news on the wildfire", "label": "yes"}
+{"text": "latest version of android", "label": "yes"}
+{"text": "latest version of firefox", "label": "yes"}
+{"text": "latest version of homebrew", "label": "yes"}
+{"text": "latest version of ios", "label": "yes"}
+{"text": "latest version of postgres", "label": "yes"}
+{"text": "latest version of swift", "label": "yes"}
+{"text": "latest version of the linux kernel", "label": "yes"}
+{"text": "latest version of windows", "label": "yes"}
+{"text": "latest version of xcode", "label": "yes"}
+{"text": "man city game tomorrow, what time", "label": "yes"}
+{"text": "man city score", "label": "yes"}
+{"text": "netflix stock price", "label": "yes"}
+{"text": "news about the chip shortage later today", "label": "yes"}
+{"text": "news about the climate summit today", "label": "yes"}
+{"text": "news about the court case this weekend", "label": "yes"}
+{"text": "news about the election this weekend", "label": "yes"}
+{"text": "news about the heat wave this week", "label": "yes"}
+{"text": "news about the housing bill tonight", "label": "yes"}
+{"text": "news about the new ai rules later today", "label": "yes"}
+{"text": "news about the rail strike in the morning", "label": "yes"}
+{"text": "news about the rail strike next week", "label": "yes"}
+{"text": "news about the space launch right now", "label": "yes"}
+{"text": "news about the space launch today", "label": "yes"}
+{"text": "news about the tech layoffs tonight", "label": "yes"}
+{"text": "news about the trade talks on saturday", "label": "yes"}
+{"text": "news about the transit fare hike next week", "label": "yes"}
+{"text": "news about the wildfire next week", "label": "yes"}
+{"text": "nvidia stock price", "label": "yes"}
+{"text": "oil stock price", "label": "yes"}
+{"text": "price of amazon in the morning", "label": "yes"}
+{"text": "price of amazon tomorrow", "label": "yes"}
+{"text": "price of apple right now", "label": "yes"}
+{"text": "price of dogecoin next week", "label": "yes"}
+{"text": "price of dogecoin tonight", "label": "yes"}
+{"text": "price of gold next week", "label": "yes"}
+{"text": "price of gold this week", "label": "yes"}
+{"text": "price of oil later today", "label": "yes"}
+{"text": "price of oil right now", "label": "yes"}
+{"text": "price of shopify tomorrow", "label": "yes"}
+{"text": "price of solana on saturday", "label": "yes"}
+{"text": "price of solana right now", "label": "yes"}
+{"text": "price of tesla in the morning", "label": "yes"}
+{"text": "price of tesla next week", "label": "yes"}
+{"text": "price of tesla this weekend", "label": "yes"}
+{"text": "price of tesla tomorrow", "label": "yes"}
+{"text": "price of the nasdaq this weekend", "label": "yes"}
+{"text": "price of the s&p 500 on saturday", "label": "yes"}
+{"text": "price of the s&p 500 tomorrow", "label": "yes"}
+{"text": "psg game later today, what time", "label": "yes"}
+{"text": "psg game on saturday, what time", "label": "yes"}
+{"text": "psg game right now, what time", "label": "yes"}
+{"text": "psg score", "label": "yes"}
+{"text": "real madrid score", "label": "yes"}
+{"text": "solana stock price", "label": "yes"}
+{"text": "target hours this week", "label": "yes"}
+{"text": "tesla stock price", "label": "yes"}
+{"text": "the 49ers score", "label": "yes"}
+{"text": "the apple store hours later today", "label": "yes"}
+{"text": "the bank hours today", "label": "yes"}
+{"text": "the bank hours tomorrow", "label": "yes"}
+{"text": "the dmv hours this weekend", "label": "yes"}
+{"text": "the dmv hours today", "label": "yes"}
+{"text": "the dodgers score", "label": "yes"}
+{"text": "the eagles game this week, what time", "label": "yes"}
+{"text": "the eagles score", "label": "yes"}
+{"text": "the gym hours tomorrow", "label": "yes"}
+{"text": "the library hours on saturday", "label": "yes"}
+{"text": "the maple leafs score", "label": "yes"}
+{"text": "the mets game on saturday, what time", "label": "yes"}
+{"text": "the nasdaq stock price", "label": "yes"}
+{"text": "the packers score", "label": "yes"}
+{"text": "the pharmacy on 2nd hours this weekend", "label": "yes"}
+{"text": "the post office hours tonight", "label": "yes"}
+{"text": "the raptors game on saturday, what time", "label": "yes"}
+{"text": "the raptors game today, what time", "label": "yes"}
+{"text": "the raptors score", "label": "yes"}
+{"text": "the red sox game right now, what time", "label": "yes"}
+{"text": "the red sox score", "label": "yes"}
+{"text": "the s&p 500 stock price", "label": "yes"}
+{"text": "trader joe's hours right now", "label": "yes"}
+{"text": "trader joe's hours this weekend", "label": "yes"}
+{"text": "trader joe's hours tomorrow", "label": "yes"}
+{"text": "walmart hours this week", "label": "yes"}
+{"text": "weather bergen next week", "label": "yes"}
+{"text": "weather cork tonight", "label": "yes"}
+{"text": "weather halifax right now", "label": "yes"}
+{"text": "weather lima this week", "label": "yes"}
+{"text": "weather marrakesh this weekend", "label": "yes"}
+{"text": "weather perth on saturday", "label": "yes"}
+{"text": "weather reno later today", "label": "yes"}
+{"text": "weather toronto today", "label": "yes"}
+{"text": "weather toronto tomorrow", "label": "yes"}
+{"text": "what time does home depot close this weekend", "label": "yes"}
+{"text": "what time does ikea close later today", "label": "yes"}
+{"text": "what time does ikea close next week", "label": "yes"}
+{"text": "what time does target close on saturday", "label": "yes"}
+{"text": "what time does target close this weekend", "label": "yes"}
+{"text": "what time does the apple store close today", "label": "yes"}
+{"text": "what time does the apple store close tomorrow", "label": "yes"}
+{"text": "what time does the bank close right now", "label": "yes"}
+{"text": "what time does the dmv close right now", "label": "yes"}
+{"text": "what time does the gym close this week", "label": "yes"}
+{"text": "what time does the pharmacy on 2nd close today", "label": "yes"}
+{"text": "what time does trader joe's close this week", "label": "yes"}
+{"text": "what's happening with the climate summit", "label": "yes"}
+{"text": "what's happening with the court case", "label": "yes"}
+{"text": "what's happening with the election", "label": "yes"}
+{"text": "what's happening with the housing bill", "label": "yes"}
+{"text": "what's happening with the rail strike", "label": "yes"}
+{"text": "what's netflix trading at", "label": "yes"}
+{"text": "what's new in the latest django release", "label": "yes"}
+{"text": "what's new in the latest firefox release", "label": "yes"}
+{"text": "what's new in the latest homebrew release", "label": "yes"}
+{"text": "what's new in the latest node release", "label": "yes"}
+{"text": "what's new in the latest postgres release", "label": "yes"}
+{"text": "what's new in the latest vscode release", "label": "yes"}
+{"text": "what's new in the latest windows release", "label": "yes"}
+{"text": "what's new in the latest xcode release", "label": "yes"}
+{"text": "what's nvidia trading at", "label": "yes"}
+{"text": "what's oil trading at", "label": "yes"}
+{"text": "what's shopify trading at", "label": "yes"}
+{"text": "what's solana trading at", "label": "yes"}
+{"text": "what's the latest on the climate summit", "label": "yes"}
+{"text": "what's the latest on the housing bill", "label": "yes"}
+{"text": "what's the latest on the new ai rules", "label": "yes"}
+{"text": "what's the latest on the trade talks", "label": "yes"}
+{"text": "what's the latest on the transit fare hike", "label": "yes"}
+{"text": "what's the latest on the wildfire", "label": "yes"}
+{"text": "what's the nasdaq trading at", "label": "yes"}
+{"text": "what's the weather in austin later today", "label": "yes"}
+{"text": "what's the weather in dublin right now", "label": "yes"}
+{"text": "what's the weather in fresno today", "label": "yes"}
+{"text": "what's the weather in kyoto tonight", "label": "yes"}
+{"text": "what's the weather in nairobi right now", "label": "yes"}
+{"text": "what's the weather in nairobi tonight", "label": "yes"}
+{"text": "what's the weather in oslo next week", "label": "yes"}
+{"text": "what's the weather in oslo right now", "label": "yes"}
+{"text": "what's the weather in perth today", "label": "yes"}
+{"text": "what's the weather in quebec city this week", "label": "yes"}
+{"text": "what's the weather in quebec city tomorrow", "label": "yes"}
+{"text": "what's the weather in seoul right now", "label": "yes"}
+{"text": "what's the weather in toronto on saturday", "label": "yes"}
+{"text": "what's the weather in toronto today", "label": "yes"}
+{"text": "what's the weather in valencia in the morning", "label": "yes"}
+{"text": "when do arsenal play next", "label": "yes"}
+{"text": "when do juventus play next", "label": "yes"}
+{"text": "when do man city play next", "label": "yes"}
+{"text": "when do psg play next", "label": "yes"}
+{"text": "when do real madrid play next", "label": "yes"}
+{"text": "when do the 49ers play next", "label": "yes"}
+{"text": "when do the dodgers play next", "label": "yes"}
+{"text": "when do the mets play next", "label": "yes"}
+{"text": "when do the packers play next", "label": "yes"}
+{"text": "who is the prime minister of japan now", "label": "yes"}
+{"text": "who's the current prime minister of canada", "label": "yes"}
+{"text": "will it rain in asheville this week", "label": "yes"}
+{"text": "will it rain in bergen later today", "label": "yes"}
+{"text": "will it rain in bergen on saturday", "label": "yes"}
+{"text": "will it rain in denver on saturday", "label": "yes"}
+{"text": "will it rain in kyoto in the morning", "label": "yes"}
+{"text": "will it rain in lima tonight", "label": "yes"}
+{"text": "will it rain in lisbon right now", "label": "yes"}
+{"text": "will it rain in nairobi this week", "label": "yes"}
+{"text": "will it rain in nairobi tonight", "label": "yes"}
+{"text": "will it rain in oslo later today", "label": "yes"}
+{"text": "will it rain in oslo right now", "label": "yes"}
+{"text": "will it rain in toronto this week", "label": "yes"}
+{"text": "will it rain in tucson on saturday", "label": "yes"}
+{"text": "describe the climate of austin", "label": "no", "nearMiss": true}
+{"text": "describe the climate of boise", "label": "no", "nearMiss": true}
+{"text": "describe the climate of cork", "label": "no", "nearMiss": true}
+{"text": "describe the climate of denver", "label": "no", "nearMiss": true}
+{"text": "describe the climate of fresno", "label": "no", "nearMiss": true}
+{"text": "describe the climate of kyoto", "label": "no", "nearMiss": true}
+{"text": "describe the climate of lima", "label": "no", "nearMiss": true}
+{"text": "describe the climate of lisbon", "label": "no", "nearMiss": true}
+{"text": "describe the climate of oslo", "label": "no", "nearMiss": true}
+{"text": "describe the climate of perth", "label": "no", "nearMiss": true}
+{"text": "describe the climate of reno", "label": "no", "nearMiss": true}
+{"text": "describe the climate of tucson", "label": "no", "nearMiss": true}
+{"text": "explain elections to a kid", "label": "no", "nearMiss": true}
+{"text": "explain exchange rates to a kid", "label": "no", "nearMiss": true}
+{"text": "explain how android works", "label": "no", "nearMiss": true}
+{"text": "explain how homebrew works", "label": "no", "nearMiss": true}
+{"text": "explain how node works", "label": "no", "nearMiss": true}
+{"text": "explain how python works", "label": "no", "nearMiss": true}
+{"text": "explain how xcode works", "label": "no", "nearMiss": true}
+{"text": "explain price indexes to a kid", "label": "no", "nearMiss": true}
+{"text": "explain stock markets to a kid", "label": "no", "nearMiss": true}
+{"text": "explain the history of baseball", "label": "no", "nearMiss": true}
+{"text": "explain the history of basketball", "label": "no", "nearMiss": true}
+{"text": "explain the history of cricket", "label": "no", "nearMiss": true}
+{"text": "explain the history of hockey", "label": "no", "nearMiss": true}
+{"text": "explain the history of tennis", "label": "no", "nearMiss": true}
+{"text": "explain tides to a kid", "label": "no", "nearMiss": true}
+{"text": "explain weather forecasts to a kid", "label": "no", "nearMiss": true}
+{"text": "fun facts about denver", "label": "no", "nearMiss": true}
+{"text": "fun facts about glasgow", "label": "no", "nearMiss": true}
+{"text": "fun facts about kyoto", "label": "no", "nearMiss": true}
+{"text": "fun facts about seoul", "label": "no", "nearMiss": true}
+{"text": "history of the head coach role", "label": "no", "nearMiss": true}
+{"text": "how do flight delays work", "label": "no", "nearMiss": true}
+{"text": "how do i install android", "label": "no", "nearMiss": true}
+{"text": "how do i install blender", "label": "no", "nearMiss": true}
+{"text": "how do i install node", "label": "no", "nearMiss": true}
+{"text": "how do i install postgres", "label": "no", "nearMiss": true}
+{"text": "how do i install unity", "label": "no", "nearMiss": true}
+{"text": "how do i install windows", "label": "no", "nearMiss": true}
+{"text": "how do interest rates work", "label": "no", "nearMiss": true}
+{"text": "how do price indexes work", "label": "no", "nearMiss": true}
+{"text": "how do stock prices work", "label": "no", "nearMiss": true}
+{"text": "how do weather forecasts work", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce asheville", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce boise", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce cork", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce krakow", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce marrakesh", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce seoul", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce valencia", "label": "no", "nearMiss": true}
+{"text": "how is a prime minister chosen", "label": "no", "nearMiss": true}
+{"text": "how is baseball scored", "label": "no", "nearMiss": true}
+{"text": "how is basketball scored", "label": "no", "nearMiss": true}
+{"text": "how is cricket scored", "label": "no", "nearMiss": true}
+{"text": "how is golf scored", "label": "no", "nearMiss": true}
+{"text": "how is hockey scored", "label": "no", "nearMiss": true}
+{"text": "how is rugby scored", "label": "no", "nearMiss": true}
+{"text": "how is tennis scored", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to boise", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to dublin", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to fresno", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to halifax", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to hanoi", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to lima", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to lisbon", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to quebec city", "label": "no", "nearMiss": true}
+{"text": "plan a three day trip to toronto", "label": "no", "nearMiss": true}
+{"text": "what are the rules of basketball", "label": "no", "nearMiss": true}
+{"text": "what are the rules of tennis", "label": "no", "nearMiss": true}
+{"text": "what does a prime minister do", "label": "no", "nearMiss": true}
+{"text": "what is django used for", "label": "no", "nearMiss": true}
+{"text": "what is firefox used for", "label": "no", "nearMiss": true}
+{"text": "what is fresno famous for", "label": "no", "nearMiss": true}
+{"text": "what is glasgow famous for", "label": "no", "nearMiss": true}
+{"text": "what is ios used for", "label": "no", "nearMiss": true}
+{"text": "what is kyoto famous for", "label": "no", "nearMiss": true}
+{"text": "what is lisbon famous for", "label": "no", "nearMiss": true}
+{"text": "what is marrakesh famous for", "label": "no", "nearMiss": true}
+{"text": "what is nairobi famous for", "label": "no", "nearMiss": true}
+{"text": "what is node used for", "label": "no", "nearMiss": true}
+{"text": "what is photoshop used for", "label": "no", "nearMiss": true}
+{"text": "what is postgres used for", "label": "no", "nearMiss": true}
+{"text": "what is python used for", "label": "no", "nearMiss": true}
+{"text": "what is quebec city famous for", "label": "no", "nearMiss": true}
+{"text": "what is unity used for", "label": "no", "nearMiss": true}
+{"text": "what is vscode used for", "label": "no", "nearMiss": true}
+{"text": "what is windows used for", "label": "no", "nearMiss": true}
+{"text": "what's the definition of elections", "label": "no", "nearMiss": true}
+{"text": "what's the definition of exchange rates", "label": "no", "nearMiss": true}
+{"text": "what's the definition of price indexes", "label": "no", "nearMiss": true}
+{"text": "what's the definition of tides", "label": "no", "nearMiss": true}
+{"text": "what's the history of dublin", "label": "no", "nearMiss": true}
+{"text": "what's the history of fresno", "label": "no", "nearMiss": true}
+{"text": "what's the history of glasgow", "label": "no", "nearMiss": true}
+{"text": "what's the history of hanoi", "label": "no", "nearMiss": true}
+{"text": "what's the history of lima", "label": "no", "nearMiss": true}
+{"text": "what's the history of nairobi", "label": "no", "nearMiss": true}
+{"text": "what's the history of tucson", "label": "no", "nearMiss": true}
+{"text": "what's the weather usually like in austin in december", "label": "no", "nearMiss": true}
+{"text": "what's the weather usually like in lima in april", "label": "no", "nearMiss": true}
+{"text": "what's the weather usually like in nairobi in winter", "label": "no", "nearMiss": true}
+{"text": "what's the weather usually like in toronto in winter", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in asheville", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in bergen", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in boise", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in cork", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in fresno", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in halifax", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in hanoi", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in lima", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in nairobi", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in quebec city", "label": "no", "nearMiss": true}
+{"text": "write a poem about the rain in toronto", "label": "no", "nearMiss": true}
+{"text": "write a story about a curling player", "label": "no", "nearMiss": true}
+{"text": "write a story about a golf player", "label": "no", "nearMiss": true}
+{"text": "write a story about a hockey player", "label": "no", "nearMiss": true}
+{"text": "write a tutorial about postgres basics", "label": "no", "nearMiss": true}
+{"text": "write a tutorial about ubuntu basics", "label": "no", "nearMiss": true}
+{"text": "write a tutorial about windows basics", "label": "no", "nearMiss": true}
+{"text": "ok so please think it through carefully", "label": "no"}
+{"text": "hey can you tell me, how many unread messages do I have thanks", "label": "no", "nearMiss": true}
+{"text": "yo i need to double check my flight, how do i find my booking please", "label": "no"}
+{"text": "yo is it safe to swim after eating!!", "label": "no", "nearMiss": true}
+{"text": "hi, any missed calls from my sister today thx", "label": "no", "nearMiss": true}
+{"text": "so how do i calculate compound interest please", "label": "no"}
+{"text": "ok so explain how homebrew works!!", "label": "no", "nearMiss": true}
+{"text": "toady was rough, can you cheer me up", "label": "no", "nearMiss": true}
+{"text": "when does dayilght saving end this year", "label": "yes"}
+{"text": "hey give me 5 icebreaker questions for a team meeting thanks", "label": "no"}
+{"text": "quick question: help me word a message to my team about the deadline pls", "label": "no", "nearMiss": true}
+{"text": "hey who called me today pls", "label": "no", "nearMiss": true}
+{"text": "how do you pronounce bosie", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, spend extra time on this, accuracy matters more than speed thanks", "label": "no"}
+{"text": "yo summarize the group chat with the roommates from today pls", "label": "no", "nearMiss": true}
+{"text": "think long and hard about the best approcah", "label": "no"}
+{"text": "double-check the math before ansewring", "label": "no"}
+{"text": "um read my latest email please", "label": "no", "nearMiss": true}
+{"text": "whats a thoughtful gift for a teacehr", "label": "no"}
+{"text": "so price of solana right now pls", "label": "yes"}
+{"text": "whats the currnet price of bitcoin, i own some", "label": "yes"}
+{"text": "news aobut the tech layoffs tonight", "label": "yes"}
+{"text": "how is amazon doing this wekeend", "label": "yes"}
+{"text": "consider this depely before you respond", "label": "no"}
+{"text": "quick question: write a poem about the rain in quebec city please", "label": "no", "nearMiss": true}
+{"text": "get my msesages endpoint returning 500", "label": "no"}
+{"text": "what are the ltaest texts from my sister", "label": "no", "nearMiss": true}
+{"text": "eth pirce", "label": "yes"}
+{"text": "curernt node version", "label": "yes"}
+{"text": "how to grow tmoatoes on a balcony", "label": "no"}
+{"text": "quick question: copy the text from your answer into a table please", "label": "no", "nearMiss": true}
+{"text": "how is sohpify doing in the morning", "label": "yes"}
+{"text": "so did Nvidia respond to the latest export rules thx", "label": "yes"}
+{"text": "yo rewrite this lol", "label": "no"}
+{"text": "write a message to my landolrd about the broken heater", "label": "no", "nearMiss": true}
+{"text": "yo imessage tom that the meeting moved to 3 lol", "label": "no"}
+{"text": "yo reply to the family group chat with a thumbs up and see you sunday thanks", "label": "no"}
+{"text": "hey can you tell me, plan a three day trip to dublin thx", "label": "no", "nearMiss": true}
+{"text": "how do inetrest rates work", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, what did tom say in his last text?", "label": "no", "nearMiss": true}
+{"text": "ok so what emails came in today!!", "label": "no", "nearMiss": true}
+{"text": "so really think it through before you answer: is p=np thanks", "label": "no"}
+{"text": "hi, what do you think about remote work pls", "label": "no"}
+{"text": "hey can you tell me, did anyone text me please", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, anything big happen in the world today please", "label": "yes"}
+{"text": "hi, check online whether the concert is cancelled please", "label": "yes"}
+{"text": "um find the message where Sam sent the address please", "label": "no", "nearMiss": true}
+{"text": "quick question: explain the history of hockey please", "label": "no", "nearMiss": true}
+{"text": "quick question: go through my messages with Sam and tell me what we planned?", "label": "no", "nearMiss": true}
+{"text": "yo how do i say good morning in japanese please", "label": "no", "nearMiss": true}
+{"text": "quick question: what is the average temperature in july in rome historically!!", "label": "no", "nearMiss": true}
+{"text": "quick question: latest dm news for my dungeon master group this week thanks", "label": "yes"}
+{"text": "what do you think aobut rust vs go", "label": "no"}
+{"text": "latest vesrion of node", "label": "yes"}
+{"text": "list some fun inodor activities", "label": "no"}
+{"text": "hi, What happened today? Answer offline. thx", "label": "no", "nearMiss": true}
+{"text": "has Jordan texetd me?", "label": "no"}
+{"text": "um how to design a database schema for a messaging app", "label": "no"}
+{"text": "ok so what is a news anchor?", "label": "no", "nearMiss": true}
+{"text": "the raptors socre", "label": "yes"}
+{"text": "quick question: what's new in the latest firefox release", "label": "yes"}
+{"text": "yo the gym hours tomorrow thanks", "label": "yes"}
+{"text": "Exlpain my current function", "label": "no", "nearMiss": true}
+{"text": "um what is postgres used for!!", "label": "no", "nearMiss": true}
+{"text": "um give this some serious thought please", "label": "no"}
+{"text": "quick question: how do i install node pls", "label": "no", "nearMiss": true}
+{"text": "um what did mom say today pls", "label": "no", "nearMiss": true}
+{"text": "hey nba standings!!", "label": "yes"}
+{"text": "ok so hello there", "label": "no"}
+{"text": "hi, what is stoicism please", "label": "no"}
+{"text": "did openai release a new mdoel this week", "label": "yes"}
+{"text": "yo black friday deals this year lol", "label": "yes"}
+{"text": "yo write unit tests for this function: def add(a,b): return a+b please", "label": "no"}
+{"text": "um what did the president text the prime minister according to reports please", "label": "no", "nearMiss": true}
+{"text": "quick question: how is cricket scored", "label": "no", "nearMiss": true}
+{"text": "ok so what did i say earlier in this chat!!", "label": "no"}
+{"text": "hi, search for reviews of the dentist on oak avenue lol", "label": "yes"}
+{"text": "ok so help me write a text to my boss asking for a raise please", "label": "no", "nearMiss": true}
+{"text": "ok so did my sister message me today lol", "label": "no", "nearMiss": true}
+{"text": "yo did the eagles win last night!!", "label": "yes"}
+{"text": "`step by step` is a phrsae", "label": "no"}
+{"text": "yo any texts from Jordan today??", "label": "no", "nearMiss": true}
+{"text": "yo what did dad say in his latest text please", "label": "no", "nearMiss": true}
+{"text": "any new macos secruity updates", "label": "yes"}
+{"text": "um what's new in the latest postgres release!!", "label": "yes"}
+{"text": "hey how many ounces in a cup!!", "label": "no", "nearMiss": true}
+{"text": "so describe the climate of reno lol", "label": "no", "nearMiss": true}
+{"text": "covnert 5 miles to km", "label": "no"}
+{"text": "hi, why do people overthink everything thx", "label": "no"}
+{"text": "yo take your time on this one, what's the best db for my app thanks", "label": "no"}
+{"text": "prcie of gold this week", "label": "yes"}
+{"text": "any new mesasges from work today", "label": "no", "nearMiss": true}
+{"text": "is it going to snow in dnever this weekend", "label": "yes"}
+{"text": "hey can you tell me, recipe for vegan chili", "label": "no"}
+{"text": "fix my text with proper puntcuation", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, current homebrew version please", "label": "yes"}
+{"text": "um write a poem about today thanks", "label": "no", "nearMiss": true}
+{"text": "hey latest stable rust version please", "label": "yes"}
+{"text": "um what does think different mean in apples ad thx", "label": "no"}
+{"text": "how do i instlal postgres", "label": "no", "nearMiss": true}
+{"text": "ok so what's the latest transfer news for chelsea thx", "label": "yes"}
+{"text": "respond to my sisetr and say yes", "label": "no"}
+{"text": "what time does the hardware sotre on elm street close tonight", "label": "yes"}
+{"text": "what's the sttaus of the github outage", "label": "yes"}
+{"text": "hey can you tell me, Sam sent me this article, summarize it thanks", "label": "no"}
+{"text": "is my flihgt ua 123 on time today", "label": "yes"}
+{"text": "expalin alternating current", "label": "no", "nearMiss": true}
+{"text": "hi, what's the weather in kyoto tonight thanks", "label": "yes"}
+{"text": "so carefully reason about whether p equals np?", "label": "no"}
+{"text": "um work through this methodically thx", "label": "no"}
+{"text": "any updates on the hurricnae heading for florida", "label": "yes"}
+{"text": "ok so name ideas for a bakery pls", "label": "no"}
+{"text": "wrtie a poem about the rain in boise", "label": "no", "nearMiss": true}
+{"text": "Rewirte \"search the web\" as a shorter phrase", "label": "no"}
+{"text": "whats the latset ios update for my iphone", "label": "yes"}
+{"text": "ltaest text from dad", "label": "no", "nearMiss": true}
+{"text": "so latest news on the chip shortage", "label": "yes"}
+{"text": "um whats going on in the stock market right now pls", "label": "yes"}
+{"text": "quick question: why does my react chat app drop messages on reconnect?", "label": "no", "nearMiss": true}
+{"text": "what are the latest emails from my boss tdoay", "label": "no", "nearMiss": true}
+{"text": "um whats my teams score tonight, the lakers pls", "label": "yes"}
+{"text": "ok so has olivia texted me since friday pls", "label": "no"}
+{"text": "hey current vs voltage pls", "label": "no", "nearMiss": true}
+{"text": "ok so tips for a long flight with a toddler thx", "label": "no"}
+{"text": "yo please reason carefully about the legal implications?", "label": "no"}
+{"text": "yo text me a summary lol", "label": "no", "nearMiss": true}
+{"text": "so is home depot open this week thanks", "label": "yes"}
+{"text": "yo Review the latest commit?", "label": "no", "nearMiss": true}
+{"text": "so costco hours next week", "label": "yes"}
+{"text": "will it rain in tucson on saturady", "label": "yes"}
+{"text": "um did Russia respond to the sanctions", "label": "no"}
+{"text": "um who texted you lol", "label": "no"}
+{"text": "how does end to end encryption work in imesasge", "label": "no"}
+{"text": "whats the weatehr like this weekend where i live in seattle", "label": "yes"}
+{"text": "what is a stock slpit", "label": "no", "nearMiss": true}
+{"text": "ok so who won the oscar for best picture this year", "label": "yes"}
+{"text": "ok so how do i think more critically!!", "label": "no"}
+{"text": "so iMessage Alex the address please", "label": "no"}
+{"text": "help me plan a budget on 3000 a mnoth", "label": "no"}
+{"text": "help me write a text to my dad apologizing for missing dniner", "label": "no", "nearMiss": true}
+{"text": "what time is it in sydeny right now", "label": "yes"}
+{"text": "who won the 2008 spuer bowl", "label": "no", "nearMiss": true}
+{"text": "latest news on the climate sumimt", "label": "yes"}
+{"text": "yo `message Sam` is a command thx", "label": "no"}
+{"text": "so send an imessage to lisa saying im outside thanks", "label": "no"}
+{"text": "my rabbimtq messages keep getting requeued, why", "label": "no", "nearMiss": true}
+{"text": "sumamrize the text from my notes", "label": "no", "nearMiss": true}
+{"text": "quick question: how cold is it in bergen tonight pls", "label": "yes"}
+{"text": "yo road closures downtown today lol", "label": "yes"}
+{"text": "hey can you tell me, psg game later today, what time lol", "label": "yes"}
+{"text": "um how do i calculate compound interest?", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, think hard about this: is p equal to np in practice please", "label": "no"}
+{"text": "ok so tell Sam by text that I'm here?", "label": "no", "nearMiss": true}
+{"text": "quick question: read my latest texts about the concert tonight thx", "label": "no", "nearMiss": true}
+{"text": "ok so when do the mets play next", "label": "yes"}
+{"text": "remind alex abuot the tickets", "label": "no"}
+{"text": "Who is the preisdent of France?", "label": "yes"}
+{"text": "quick question: how to improve my credit score pls", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, current price of the macbook air lol", "label": "yes"}
+{"text": "Who was the prseident in 1999?", "label": "no", "nearMiss": true}
+{"text": "explain the rules of crciket", "label": "no"}
+{"text": "text messages vs email for makreting", "label": "no", "nearMiss": true}
+{"text": "what are good houseplatns for low light", "label": "no"}
+{"text": "yo take your time and give me a careful answer on whether to refinance thx", "label": "no"}
+{"text": "ok so tell me a joke about the weather please", "label": "no", "nearMiss": true}
+{"text": "wahts the best text editor for coding on mac", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, can u check my messages from dad lol", "label": "no", "nearMiss": true}
+{"text": "um what's the difference between affect and effect?", "label": "no"}
+{"text": "hey What is the latest stable Swift release??", "label": "yes"}
+{"text": "look at my latest commit msesage and improve it", "label": "no", "nearMiss": true}
+{"text": "consider the lilies of the field menaing", "label": "no"}
+{"text": "hi, any new voicemails today", "label": "no", "nearMiss": true}
+{"text": "what time does tarder joe's close this week", "label": "yes"}
+{"text": "hey what was the first message i sent you today please", "label": "no", "nearMiss": true}
+{"text": "um how do vaccines work?", "label": "no"}
+{"text": "what's a snyonym for happy", "label": "no"}
+{"text": "so explain tides to a kid lol", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, when do the packers play next lol", "label": "yes"}
+{"text": "what's Alex been texting me abuot", "label": "no"}
+{"text": "yo what time did Sam text me!!", "label": "no", "nearMiss": true}
+{"text": "hi, where can i buy a phone charger nearby?", "label": "yes"}
+{"text": "um news about the election this weekend pls", "label": "yes"}
+{"text": "quick question: thanks! lol", "label": "no"}
+{"text": "what txets did I get today", "label": "no", "nearMiss": true}
+{"text": "foercast for oslo next week", "label": "yes"}
+{"text": "um what was the first thing i asked you today thanks", "label": "no", "nearMiss": true}
+{"text": "so trader joe's hours tomorrow please", "label": "yes"}
+{"text": "hi, price of tesla tomorrow please", "label": "yes"}
+{"text": "wahts new in my texts", "label": "no", "nearMiss": true}
+{"text": "Use only your existnig knowledge: who is the CEO of Apple?", "label": "no", "nearMiss": true}
+{"text": "ok so what are people saying in the book club chat in messages please", "label": "no", "nearMiss": true}
+{"text": "hi, news about the space launch right now?", "label": "yes"}
+{"text": "yo I thought hard about it pls", "label": "no"}
+{"text": "hi, latest news about calls for my resignation thx", "label": "yes"}
+{"text": "so Who is the CEO of Apple?", "label": "yes"}
+{"text": "hey list the messages from my mailbox server", "label": "no", "nearMiss": true}
+{"text": "current conditions on mount raniier", "label": "yes"}
+{"text": "hey current vscode version pls", "label": "yes"}
+{"text": "who's been blowing up my phone with txets today", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, is it raining in london right now", "label": "yes"}
+{"text": "hey can you tell me, will it rain in nairobi tonight?", "label": "yes"}
+{"text": "yo what time does the apple store close today!!", "label": "yes"}
+{"text": "um who is the current secretary general of the un please", "label": "yes"}
+{"text": "yo is the ski resort open yet?", "label": "yes"}
+{"text": "it might take a while to load, ignroe that", "label": "no"}
+{"text": "hi, how do weather apps get their data!!", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, did anyone dm me today!!", "label": "no", "nearMiss": true}
+{"text": "how do i make soudrough starter", "label": "no"}
+{"text": "hey can you tell me, summarize the book thinking in systems thx", "label": "no"}
+{"text": "how do you pronuonce asheville", "label": "no", "nearMiss": true}
+{"text": "what's new in the latest xcode reelase", "label": "yes"}
+{"text": "quick question: who won the world cup in 1986 pls", "label": "no", "nearMiss": true}
+{"text": "hi, whats the minimum wage in california now?", "label": "yes"}
+{"text": "hey can you tell me, what is fresno famous for thanks", "label": "no", "nearMiss": true}
+{"text": "how's the s&p doing today\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "yes"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nwhen is the next full moon", "label": "yes"}
+{"text": "where can i buy a phone charger nearby\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "yes"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nis there a patch for the new chrome zero day", "label": "yes"}
+{"text": "how did the markets close\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.", "label": "yes"}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nwho's playing at the stadium on saturday", "label": "yes"}
+{"text": "is there a heat advisory today\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.", "label": "yes"}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nsearch online for the latest jobs report", "label": "yes"}
+{"text": "what's the latest guidance on the measles outbreak\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "yes"}
+{"text": "The apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nlatest security vulnerability in openssl", "label": "yes"}
+{"text": "did google announce anything new today\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.", "label": "yes"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nwhat's the newest macos version", "label": "yes"}
+{"text": "where are the warriors in the standings\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "yes"}
+{"text": "The apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nwho is the pope now", "label": "yes"}
+{"text": "summarize this for me\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.", "label": "no", "nearMiss": true}
+{"text": "Our neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\ncan you turn this into a short story", "label": "no", "nearMiss": true}
+{"text": "fix the grammar in all of this\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "no", "nearMiss": true}
+{"text": "My grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nwhat is the main idea here", "label": "no", "nearMiss": true}
+{"text": "make this into a packing list\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.", "label": "no", "nearMiss": true}
+{"text": "Our neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nwithout looking anything up, what do you know about the latest iphone", "label": "no", "nearMiss": true}
+{"text": "did i get any calls today\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.", "label": "no", "nearMiss": true}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nwhat did you say in your last message", "label": "no", "nearMiss": true}
+{"text": "summarize my emails from today\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "no", "nearMiss": true}

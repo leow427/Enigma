@@ -151,6 +151,13 @@ final class AutoRouterTests: XCTestCase {
     XCTAssertEqual(reasoning.reason, .requiresAdvancedReasoning)
   }
 
+  func testCodingAndReasoningChecksTakeTheRawPrompt() {
+    XCTAssertTrue(AutoRouter.requiresCoding("Write Swift code."))
+    XCTAssertTrue(AutoRouter.requiresAdvancedReasoning(
+      "Design a fault-tolerant payment system that handles duplicate events and regional outages."
+    ))
+  }
+
   func testContextBeyondTheLocalLimitRoutesToCloud() {
     let localCapabilities = AutoRouter.ModelCapabilities(
       maximumContextTokens: 600,

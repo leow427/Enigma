@@ -1,0 +1,27 @@
+{"asOf": "2026-10-27"}
+{"text": "translate it to Spanish, please", "label": "translate", "why": "doc headline, polite"}
+{"text": "make it sound more formal", "label": "edit", "why": "doc-style edit"}
+{"text": "fix the grammar please", "label": "edit", "why": "edit"}
+{"text": "tighten this paragraph", "label": "edit", "why": "doc-style edit"}
+{"text": "proofread this for me", "label": "edit", "why": "edit"}
+{"text": "rewrite it in plain English", "label": "edit", "why": "edit"}
+{"text": "change the tone to friendly", "label": "edit", "why": "tone change"}
+{"text": "shorten it a little", "label": "edit", "why": "doc-style edit"}
+{"text": "translate this into Italian", "label": "translate", "why": "translate"}
+{"text": "can you translate it to German and fix the grammar", "label": "translate", "why": "translation wins"}
+{"text": "translate to English please", "label": "translate", "why": "translate"}
+{"text": "what does this paragraph mean?", "label": "none", "why": "question about it"}
+{"text": "is it hard to translate this?", "label": "none", "why": "question, not a request"}
+{"text": "summarize this", "label": "none", "why": "summary"}
+{"text": "who do you think wrote this?", "label": "none", "why": "question"}
+{"text": "is the grammar ok?", "label": "none", "why": "question"}
+{"text": "how do you translate puns in general?", "label": "none", "why": "general question"}
+{"text": "Polish translation history", "label": "none", "why": "Polish the language"}
+{"text": "reescribe esto más corto", "label": "none", "why": "non-English stays off"}
+{"text": "übersetze das ins Englische", "label": "none", "why": "non-English stays off"}
+{"text": "traduis ce texte en anglais", "label": "none", "why": "non-English stays off"}
+{"text": "🤔", "label": "none", "why": "emoji only"}
+{"text": "✍️✨", "label": "none", "why": "emoji only"}
+{"text": "what language is this?", "label": "none", "why": "question"}
+{"text": "reply to this email", "label": "none", "why": "new content, not an edit"}
+{"text": "explain the second paragraph", "label": "none", "why": "explanation"}

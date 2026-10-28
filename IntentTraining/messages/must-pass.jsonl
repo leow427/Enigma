@@ -1,0 +1,27 @@
+{"asOf": "2026-10-27"}
+{"text": "what did my sister text me about dinner tonight", "label": "yes", "why": "read own texts"}
+{"text": "has Priya texted me back yet", "label": "yes", "why": "read own texts"}
+{"text": "text Omar that the game is cancelled", "label": "yes", "why": "send"}
+{"text": "read my newest iMessage from Ben", "label": "yes", "why": "read"}
+{"text": "catch me up on the cousins group chat", "label": "yes", "why": "doc headline, catch me up"}
+{"text": "¿qué me escribió mi mamá?", "label": "no", "why": "non-English stays off"}
+{"text": "envoie un message à Paul pour dire que je suis en retard", "label": "no", "why": "non-English stays off"}
+{"text": "was hat mir Anna geschrieben", "label": "no", "why": "non-English stays off"}
+{"text": "📱💬", "label": "no", "why": "emoji only"}
+{"text": "😂😂😂", "label": "no", "why": "emoji only"}
+{"text": "send an email to Sam saying hi", "label": "no", "why": "other service"}
+{"text": "check my WhatsApp for anything from ravi", "label": "no", "why": "other service"}
+{"text": "how do I text a photo from my Mac", "label": "no", "why": "how-to"}
+{"text": "should I text her first after the date or wait", "label": "no", "why": "advice"}
+{"text": "Kai sent me this link about budgets, what's the gist", "label": "no", "why": "pasted content"}
+{"text": "what's the message of this poem", "label": "no", "why": "noun sense"}
+{"text": "your last message was confusing, try again", "label": "no", "why": "this chat"}
+{"text": "write a text to my boss saying I'm sick", "label": "no", "why": "drafting, not sending"}
+{"text": "check the tone of my message to the landlord", "label": "no", "why": "reviewing a draft"}
+{"text": "read messages from the dead letter queue", "label": "no", "why": "my things that aren't people"}
+{"text": "text summarization models compared", "label": "no", "why": "noun compound"}
+{"text": "did the mayor respond to the petition", "label": "no", "why": "news reply"}
+{"text": "the song Text Me Back is so catchy", "label": "no", "why": "title"}
+{"text": "what did Sam say about the movie", "label": "no", "why": "no messaging word"}
+{"text": "send me three dinner ideas", "label": "no", "why": "send me"}
+{"text": "summarize our conversation for me", "label": "no", "why": "this chat"}

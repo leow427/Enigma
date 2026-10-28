@@ -1,0 +1,27 @@
+{"asOf": "2026-10-27"}
+{"text": "think hard about whether I should refinance", "label": "yes", "why": "spec: Foundation Models refused this"}
+{"text": "please take your time with this tax question", "label": "yes", "why": "effort phrase"}
+{"text": "be very careful and reason it out", "label": "yes", "why": "effort phrase"}
+{"text": "think it over before you answer: should I sell my car?", "label": "yes", "why": "depth phrase"}
+{"text": "work through this step by step and double-check each part", "label": "yes", "why": "effort phrase"}
+{"text": "could you think this one through a bit more carefully", "label": "yes", "why": "doc headline, polite"}
+{"text": "ultrathink: which plan saves more money", "label": "yes", "why": "doc cue"}
+{"text": "don't rush this one, it matters", "label": "yes", "why": "effort phrase"}
+{"text": "give this some careful thought", "label": "yes", "why": "effort phrase"}
+{"text": "think harder, that answer was wrong", "label": "yes", "why": "depth"}
+{"text": "reason carefully about the edge cases", "label": "yes", "why": "depth"}
+{"text": "go deep on this question about my lease", "label": "yes", "why": "doc cue"}
+{"text": "what do you think about my haircut", "label": "no", "why": "opinion"}
+{"text": "I think the meeting is at 3", "label": "no", "why": "I think"}
+{"text": "think of a name for my podcast", "label": "no", "why": "think of"}
+{"text": "it'll take a while to finish the download", "label": "no", "why": "it'll take a while"}
+{"text": "how to think about risk in investing", "label": "no", "why": "how to think about"}
+{"text": "what does the phrase think it over mean", "label": "no", "why": "meaning question"}
+{"text": "do you think cats get bored", "label": "no", "why": "opinion"}
+{"text": "I'm thinking about learning Italian", "label": "no", "why": "I'm thinking about"}
+{"text": "be thorough when you clean the fridge, any tips", "label": "no", "why": "doc near-miss"}
+{"text": "what is deep thought in that book", "label": "no", "why": "doc near-miss"}
+{"text": "think more positively, how?", "label": "no", "why": "doc near-miss"}
+{"text": "thinking of you today", "label": "no", "why": "phrase"}
+{"text": "the thinker by rodin", "label": "no", "why": "noun"}
+{"text": "this could take a while, just give me the short version", "label": "no", "why": "short answer wanted"}

@@ -1,0 +1,257 @@
+{"asOf": "2026-10-27"}
+{"text": "write a python function that checks if a string is a palindrome", "label": "yes"}
+{"text": "why does my javascript say undefined is not a function", "label": "yes"}
+{"text": "fix this: for i in range(10) print(i)", "label": "yes"}
+{"text": "explain what this regex does: ^\\d{3}-\\d{4}$", "label": "yes"}
+{"text": "write a sql query to get the top 5 customers by total orders", "label": "yes"}
+{"text": "review my swift code for retain cycles", "label": "yes"}
+{"text": "what's the difference between let and var in swift", "label": "yes"}
+{"text": "can you run this snippet and tell me the output: print(sum([1,2,3]))", "label": "yes"}
+{"text": "TypeError: Cannot read properties of null (reading 'map') what does this mean", "label": "yes"}
+{"text": "regex to match an email address", "label": "yes"}
+{"text": "how do I use async await in rust", "label": "yes"}
+{"text": "write a bash script that renames all .txt files to .md", "label": "yes"}
+{"text": "explain this stack trace: Exception in thread \"main\" java.lang.NullPointerException at Main.main(Main.java:12)", "label": "yes"}
+{"text": "how do I install pandas", "label": "yes"}
+{"text": "convert this python 2 code to python 3", "label": "yes"}
+{"text": "whats a closure in javascript", "label": "yes"}
+{"text": "help me debug my react component, it re-renders forever", "label": "yes"}
+{"text": "how to center a div with flexbox", "label": "yes"}
+{"text": "SELECT * FROM users WHERE age > 30 — why is this slow on a big table", "label": "yes"}
+{"text": "what does git rebase do", "label": "yes"}
+{"text": "how do I undo my last git commit", "label": "yes"}
+{"text": "write a C program that prints fibonacci numbers", "label": "yes"}
+{"text": "is this code thread safe?", "label": "yes"}
+{"text": "implement binary search in go", "label": "yes"}
+{"text": "my docker container exits immediately, how do i debug it", "label": "yes"}
+{"text": "what's the best python library for parsing PDFs", "label": "yes"}
+{"text": "how do I read a csv file in R", "label": "yes"}
+{"text": "optimize this SQL join", "label": "yes"}
+{"text": "write a regex that finds phone numbers like 555-0100", "label": "yes"}
+{"text": "code review pls: function add(a,b){return a+b}", "label": "yes"}
+{"text": "how do i fix \"ModuleNotFoundError: No module named 'requests'\"", "label": "yes"}
+{"text": "explain what a promise is in JS", "label": "yes"}
+{"text": "how do I make an http request in swift with URLSession", "label": "yes"}
+{"text": "write a kotlin data class for a user with name and email", "label": "yes"}
+{"text": "why does my for loop run one extra time", "label": "yes"}
+{"text": "segfault in my c++ code when I access a vector, help", "label": "yes"}
+{"text": "what's the difference between == and === in javascript", "label": "yes"}
+{"text": "convert this json to a typescript interface", "label": "yes"}
+{"text": "write a function to flatten a nested list", "label": "yes"}
+{"text": "whats wrong with my code: if x = 5: print(\"five\")", "label": "yes"}
+{"text": "how do I connect to postgres from python", "label": "yes"}
+{"text": "write me a simple todo app in vue", "label": "yes"}
+{"text": "explain the visitor pattern", "label": "yes"}
+{"text": "how do i write a for each loop in c#", "label": "yes"}
+{"text": "generate a regex for US zip codes", "label": "yes"}
+{"text": "why is my css not applying", "label": "yes"}
+{"text": "how to deploy a flask app to a server", "label": "yes"}
+{"text": "what does the yield keyword do in python", "label": "yes"}
+{"text": "write a haskell function to compute factorial", "label": "yes"}
+{"text": "help me understand this error: error[E0382]: borrow of moved value", "label": "yes"}
+{"text": "how do I sort a dictionary by value in python", "label": "yes"}
+{"text": "create a github actions workflow that runs my tests", "label": "yes"}
+{"text": "what is dependency injection", "label": "yes"}
+{"text": "how do I profile a slow python script", "label": "yes"}
+{"text": "write an excel VBA macro to delete empty rows", "label": "yes"}
+{"text": "is numpy faster than plain python lists and why", "label": "yes"}
+{"text": "how do I use swiftui's @State vs @Binding", "label": "yes"}
+{"text": "write a shell one liner to count lines in all .swift files", "label": "yes"}
+{"text": "explain this line: const [a, ...rest] = arr", "label": "yes"}
+{"text": "what's a good library for charts in react", "label": "yes"}
+{"text": "my xcode build fails with \"no such module\", how do I fix it", "label": "yes"}
+{"text": "write a sql query to find duplicate emails", "label": "yes"}
+{"text": "explain recursion with a python example", "label": "yes"}
+{"text": "how do i handle exceptions in java properly", "label": "yes"}
+{"text": "translate this python code to javascript", "label": "yes"}
+{"text": "why is my api returning 500", "label": "yes"}
+{"text": "what is a race condition, show me an example in go", "label": "yes"}
+{"text": "write a function that validates a password has a number and a capital letter", "label": "yes"}
+{"text": "teach me the basics of rust ownership", "label": "yes"}
+{"text": "write a script to back up a folder every night with cron", "label": "yes"}
+{"text": "what does this awk command do: awk '{print $2}' file.txt", "label": "yes"}
+{"text": "pls fix my code, it says IndentationError", "label": "yes"}
+{"text": "how to merge two dataframes in pandas", "label": "yes"}
+{"text": "write a jest test for this component", "label": "yes"}
+{"text": "explain the difference between an abstract class and an interface", "label": "yes"}
+{"text": "how do I make a REST API in express", "label": "yes"}
+{"text": "convert this loop into a list comprehension", "label": "yes"}
+{"text": "i keep getting CORS errors in my frontend", "label": "yes"}
+{"text": "what is memoization, give me code", "label": "yes"}
+{"text": "how do I write a SwiftData model with a relationship", "label": "yes"}
+{"text": "explain this SQL: SELECT name, COUNT(*) FROM orders GROUP BY name HAVING COUNT(*) > 2", "label": "yes"}
+{"text": "help me write a python scraper for my own blog's posts", "label": "yes"}
+{"text": "why does 0.1 + 0.2 not equal 0.3 in javascript", "label": "yes"}
+{"text": "write a typescript generic function that returns the first element of an array", "label": "yes"}
+{"text": "what's the best way to learn programming as a total beginner? which language first", "label": "yes"}
+{"text": "implement a stack in python with push and pop", "label": "yes"}
+{"text": "my unit tests are flaky, how do I find out why", "label": "yes"}
+{"text": "explain what this kotlin coroutine code does", "label": "yes"}
+{"text": "Here's my function: def avg(xs): return sum(xs)/len(xs). It crashes on an empty list. Can you fix it and also add a docstring?", "label": "yes"}
+{"text": "write a regex to strip html tags", "label": "yes"}
+{"text": "how do I use the requests library to post json", "label": "yes"}
+{"text": "I'm getting \"fatal: not a git repository\" what did I do wrong", "label": "yes"}
+{"text": "write a google sheets formula to sum column B if column A says \"paid\"", "label": "yes"}
+{"text": "how do I create a virtual environment in python", "label": "yes"}
+{"text": "what's the difference between processes and threads, with code", "label": "yes"}
+{"text": "write an arduino sketch to blink an led", "label": "yes"}
+{"text": "explain how a hash map works internally and write one in c", "label": "yes"}
+{"text": "I've been learning Swift for a few weeks and I'm building a little habit tracker app. I have a list of habits and want to save them so they're still there when I reopen the app. Right now I'm just using an array in a view model. What's the simplest way to persist them? Show me code please.", "label": "yes"}
+{"text": "write a sql migration that adds a created_at column", "label": "yes"}
+{"text": "check my code for bugs and also explain what it does", "label": "yes"}
+{"text": "how do I write a python decorator", "label": "yes"}
+{"text": "what does \"undefined reference to main\" mean when compiling", "label": "yes"}
+{"text": "write a powershell script that lists all running services", "label": "yes"}
+{"text": "how do I implement layoffs humanely at my company", "label": "no"}
+{"text": "there's a python in my garden what do I do", "label": "no", "nearMiss": true}
+{"text": "thanks for the swift reply", "label": "no", "nearMiss": true}
+{"text": "help me debug my morning routine, I'm always late", "label": "no", "nearMiss": true}
+{"text": "what's a good java to buy for a french press", "label": "no", "nearMiss": true}
+{"text": "is a ruby or a sapphire better for an engagement ring", "label": "no", "nearMiss": true}
+{"text": "how do I get rust off my bike chain", "label": "no", "nearMiss": true}
+{"text": "my apartment has a bug problem, are these cockroaches", "label": "no", "nearMiss": true}
+{"text": "how should I react to my friend's bad news", "label": "no", "nearMiss": true}
+{"text": "what's a good recipe for chocolate chip cookies", "label": "no", "nearMiss": true}
+{"text": "what is shell shock", "label": "no", "nearMiss": true}
+{"text": "how do I fix a squeaky door hinge", "label": "no"}
+{"text": "explain the plot of the movie The Matrix", "label": "no", "nearMiss": true}
+{"text": "write a poem about the ocean", "label": "no"}
+{"text": "give me a script for a 2 minute wedding toast", "label": "no", "nearMiss": true}
+{"text": "what's the best way to learn spanish", "label": "no"}
+{"text": "what does a software engineer do day to day", "label": "no", "nearMiss": true}
+{"text": "how much do programmers earn in Germany", "label": "no", "nearMiss": true}
+{"text": "tell me a joke", "label": "no"}
+{"text": "what is the capital of Canada", "label": "no", "nearMiss": true}
+{"text": "how do I bake bread", "label": "no"}
+{"text": "best laptop for a college student", "label": "no", "nearMiss": true}
+{"text": "what is the cloud in simple terms, for my mom", "label": "no", "nearMiss": true}
+{"text": "summarize this article about climate change", "label": "no"}
+{"text": "how do I format a resume", "label": "no"}
+{"text": "what's the weather today", "label": "no"}
+{"text": "translate hello into french", "label": "no"}
+{"text": "recommend some fantasy books", "label": "no"}
+{"text": "my kid broke the mouse of our computer, can I fix the scroll wheel", "label": "no", "nearMiss": true}
+{"text": "whats the swift river in new hampshire like for kayaking", "label": "no", "nearMiss": true}
+{"text": "Taylor Swift tour dates?", "label": "no", "nearMiss": true}
+{"text": "is a python bite dangerous", "label": "no", "nearMiss": true}
+{"text": "plan a trip to Java, Indonesia", "label": "no", "nearMiss": true}
+{"text": "what is the Ruby Princess cruise ship", "label": "no", "nearMiss": true}
+{"text": "how to remove rust from cast iron pan", "label": "no", "nearMiss": true}
+{"text": "what's a branch manager's job", "label": "no", "nearMiss": true}
+{"text": "my git-up-and-go is gone lately, how to get motivated", "label": "no", "nearMiss": true}
+{"text": "what's the root of all evil", "label": "no"}
+{"text": "how do I handle exceptions to the dress code at work", "label": "no", "nearMiss": true}
+{"text": "explain the terminal stage of cancer gently", "label": "no", "nearMiss": true}
+{"text": "write a cover letter for an office manager job", "label": "no"}
+{"text": "what's a good name for my startup", "label": "no"}
+{"text": "design a logo for my bakery", "label": "no"}
+{"text": "how do I fix my sleep schedule", "label": "no"}
+{"text": "what's the best mouse for gaming", "label": "no", "nearMiss": true}
+{"text": "how do I clean my keyboard", "label": "no", "nearMiss": true}
+{"text": "my laptop is slow, what should I check", "label": "no", "nearMiss": true}
+{"text": "how do I free up storage on my iphone", "label": "no", "nearMiss": true}
+{"text": "should I upgrade my ram for photo editing", "label": "no", "nearMiss": true}
+{"text": "how do I connect my airpods to my mac", "label": "no"}
+{"text": "is a mechanical keyboard worth it", "label": "no", "nearMiss": true}
+{"text": "what's the meaning of life", "label": "no"}
+{"text": "how do I run a 5k in under 25 min", "label": "no", "nearMiss": true}
+{"text": "run me through the rules of cricket", "label": "no", "nearMiss": true}
+{"text": "compile a list of the best hikes in Colorado", "label": "no", "nearMiss": true}
+{"text": "what's a good variable rate mortgage", "label": "no"}
+{"text": "what does \"function\" mean in math class", "label": "no", "nearMiss": true}
+{"text": "how do you say \"loop\" in spanish", "label": "no", "nearMiss": true}
+{"text": "tell me about the life of Ada Lovelace", "label": "no"}
+{"text": "who invented the computer", "label": "no"}
+{"text": "history of the internet in a paragraph", "label": "no"}
+{"text": "tips for working with remote developers as a manager", "label": "no", "nearMiss": true}
+{"text": "how do I hire a good web developer", "label": "no", "nearMiss": true}
+{"text": "what's the difference between a bug and an insect", "label": "no", "nearMiss": true}
+{"text": "my code word with my sister for \"get me out of here\" — ideas", "label": "no", "nearMiss": true}
+{"text": "crack the code: what's the secret ingredient in coca cola", "label": "no", "nearMiss": true}
+{"text": "write a breakup text", "label": "no"}
+{"text": "how do I patch a hole in drywall", "label": "no", "nearMiss": true}
+{"text": "what's a good command for teaching my dog to sit", "label": "no", "nearMiss": true}
+{"text": "help me sort my closet by color", "label": "no", "nearMiss": true}
+{"text": "my excel skills are bad, which course should I take", "label": "no", "nearMiss": true}
+{"text": "how many bytes in a gigabyte", "label": "no", "nearMiss": true}
+{"text": "explain the terms and conditions of my phone plan", "label": "no"}
+{"text": "how to merge two families after remarriage", "label": "no", "nearMiss": true}
+{"text": "what does it mean to fork over money", "label": "no", "nearMiss": true}
+{"text": "the class I'm taking is boring, how do I stay focused", "label": "no", "nearMiss": true}
+{"text": "what's a good object for a still life drawing", "label": "no", "nearMiss": true}
+{"text": "string instruments for beginners", "label": "no", "nearMiss": true}
+{"text": "how to tie a slip knot", "label": "no"}
+{"text": "what's a constant in physics, like the speed of light?", "label": "no", "nearMiss": true}
+{"text": "what is pandas' diet in the wild", "label": "no", "nearMiss": true}
+{"text": "tell me about the Go board game strategy", "label": "no", "nearMiss": true}
+{"text": "how do I import a car from japan", "label": "no", "nearMiss": true}
+{"text": "best way to export photos from my old phone", "label": "no", "nearMiss": true}
+{"text": "how do I return an item to amazon without the box", "label": "no"}
+{"text": "recommend a good shell for a hermit crab", "label": "no", "nearMiss": true}
+{"text": "is the Swift Current in Saskatchewan worth visiting", "label": "no", "nearMiss": true}
+{"text": "what is a monad in philosophy, like Leibniz", "label": "no", "nearMiss": true}
+{"text": "what's a framework for making hard decisions", "label": "no", "nearMiss": true}
+{"text": "how do I declare my major", "label": "no"}
+{"text": "stack the dishwasher properly tips", "label": "no", "nearMiss": true}
+{"text": "what's a queue at the DMV usually like on monday", "label": "no", "nearMiss": true}
+{"text": "I need to deploy a new strategy at work, how do I get buy-in from my team", "label": "no", "nearMiss": true}
+{"text": "how to build a deck in my backyard", "label": "no"}
+{"text": "what's a regular expression of gratitude for a thank you card", "label": "no", "nearMiss": true}
+{"text": "write me a script for a youtube video about travel", "label": "no", "nearMiss": true}
+{"text": "how do I compile my notes into a study guide", "label": "no", "nearMiss": true}
+{"text": "null and void meaning in a contract", "label": "no", "nearMiss": true}
+{"text": "what's \"byte-sized\" learning, is that a real thing", "label": "no", "nearMiss": true}
+{"text": "debugging a relationship: how do we stop fighting about chores", "label": "no", "nearMiss": true}
+{"text": "what does the \"Matrix\" mean in biology", "label": "no", "nearMiss": true}
+{"text": "My coworker Elio keeps saying our team's \"pipeline\" is broken but I work in sales and honestly don't know what he means by that. Is he talking about deals or something else?", "label": "no", "nearMiss": true}
+{"text": "we have to migrate our whole office to a new building next month, how do I plan the move", "label": "no", "nearMiss": true}
+{"text": "our sprint planning meetings take forever, how do I run them faster", "label": "no", "nearMiss": true}
+{"text": "c'est quoi un bon livre pour l'été", "label": "no"}
+{"text": "🐍🐍🐍", "label": "no", "nearMiss": true}
+{"text": "hello", "label": "no"}
+{"text": "what's a good chess opening", "label": "no"}
+{"text": "how do I make cold brew", "label": "no"}
+{"text": "write a limerick about a cat", "label": "no"}
+{"text": "define \"binary\" in gender studies", "label": "no", "nearMiss": true}
+{"text": "what's the token economy in behavioural therapy", "label": "no", "nearMiss": true}
+{"text": "explain hash browns vs home fries", "label": "no", "nearMiss": true}
+{"text": "write a song about coding all night, for my developer friend's birthday", "label": "no", "nearMiss": true}
+{"text": "what is a container ship's capacity", "label": "no", "nearMiss": true}
+{"text": "tell me how a cookie consent banner works legally in the EU", "label": "no", "nearMiss": true}
+{"text": "the server at the restaurant was rude, should I tip", "label": "no", "nearMiss": true}
+{"text": "is java island near bali", "label": "no", "nearMiss": true}
+{"text": "help me tidy my python-print dress collection lol, outfit ideas", "label": "no", "nearMiss": true}
+{"text": "how do I train for a hackathon mentally, I get anxious", "label": "no", "nearMiss": true}
+{"text": "terminal velocity of a falling cat", "label": "no", "nearMiss": true}
+{"text": "what's an index fund", "label": "no", "nearMiss": true}
+{"text": "how long should I rest between sets at the gym", "label": "no"}
+{"text": "what's the difference between baking soda and baking powder", "label": "no"}
+{"text": "give me a packing list for 4 days in Lisbon", "label": "no"}
+{"text": "why do my eyes twitch", "label": "no"}
+{"text": "write a thank you note for my neighbor who watered my plants", "label": "no"}
+{"text": "how do I ask for a deadline extension politely", "label": "no"}
+{"text": "what's a fun board game for 6 people", "label": "no"}
+{"text": "explain the electoral college", "label": "no"}
+{"text": "what's the healthiest breakfast cereal", "label": "no"}
+{"text": "how do I get red wine out of a carpet", "label": "no"}
+{"text": "I'm planning a road trip from Denver to Santa Fe with two kids under 8. We want to stop somewhere interesting halfway, maybe something with dinosaurs or caves. What would you suggest, and how long should we plan for the drive?", "label": "no"}
+{"text": "swift kick to the shin, how long does a bruise last", "label": "no", "nearMiss": true}
+{"text": "what's the best python species to keep as a pet", "label": "no", "nearMiss": true}
+{"text": "java the hut — wait, is it Jabba? star wars trivia", "label": "no", "nearMiss": true}
+{"text": "write the code of conduct for my book club", "label": "no", "nearMiss": true}
+{"text": "how do I debug my sourdough starter, it won't rise", "label": "no", "nearMiss": true}
+{"text": "run a mile faster tips", "label": "no", "nearMiss": true}
+{"text": "what's the c-section recovery time", "label": "no", "nearMiss": true}
+{"text": "ok so i have this python list of dicts and i want to group them by the \"city\" key and count how many in each, whats the cleanest way", "label": "yes"}
+{"text": "write a function in swift that formats a Date as \"Mon 3 Oct\"", "label": "yes"}
+{"text": "explain what this error means and how to fix it: Uncaught SyntaxError: Unexpected token '<'", "label": "yes"}
+{"text": "what's the diff between git merge and git rebase, and which should my team use", "label": "yes"}
+{"text": "write a regex that matches dates in YYYY-MM-DD format and then explain it", "label": "yes"}
+{"text": "make my python script faster, it loops over 1 million rows with iterrows", "label": "yes"}
+{"text": "my swiftui list jumps to the top every time an item updates, how do i keep the scroll position", "label": "yes"}
+{"text": "write a small node script that reads a folder of json files and merges them into one array", "label": "yes"}
+{"text": "why does this postgres query return nothing: SELECT * FROM events WHERE created_at = '2026-10-01'", "label": "yes"}
+{"text": "my teenager wants to learn to code but only likes minecraft, what kind of summer camp should I look for", "label": "no", "nearMiss": true}
+{"text": "how do I get the kids to stop bugging each other on long car rides", "label": "no", "nearMiss": true}
+{"text": "whats the syntax for writing a formal letter in german, like the order of the parts", "label": "no", "nearMiss": true}
+{"text": "how many kernels end up unpopped in a normal bag of microwave popcorn", "label": "no", "nearMiss": true}

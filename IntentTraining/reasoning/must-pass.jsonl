@@ -1,0 +1,32 @@
+{"asOf": "2026-10-27"}
+{"text": "logo design ideas", "label": "no", "why": "spec misfire"}
+{"text": "solve for x in 2x = 4", "label": "no", "why": "simple maths"}
+{"text": "interior design ideas for a bedroom", "label": "no", "why": "design used lightly"}
+{"text": "calculate a 15% tip on $60", "label": "no", "why": "simple arithmetic"}
+{"text": "compare apples and oranges in one line", "label": "no", "why": "light compare"}
+{"text": "plan a sleepover for four kids", "label": "no", "why": "everyday planning"}
+{"text": "what's the capital of Peru", "label": "no", "why": "simple fact"}
+{"text": "summarize this email in two bullets", "label": "no", "why": "short summary"}
+{"text": "hey, how's it going", "label": "no", "why": "chit-chat"}
+{"text": "analyze my dream about flying, just for fun", "label": "no", "why": "light"}
+{"text": "evaluate my pun", "label": "no", "why": "light"}
+{"text": "optimize my grocery list", "label": "no", "why": "light"}
+{"text": "what's the root of 81", "label": "no", "why": "simple maths"}
+{"text": "design a garden party invitation", "label": "no", "why": "design used lightly"}
+{"text": "Design a distributed job queue that guarantees each job runs exactly once", "label": "yes", "why": "system design"}
+{"text": "prove that the sum of two odd numbers is even", "label": "yes", "why": "proof"}
+{"text": "compare three retirement plans against fees, risk and flexibility and recommend one", "label": "yes", "why": "criteria comparison"}
+{"text": "find the root cause of the memory spikes from these metrics", "label": "yes", "why": "root cause"}
+{"text": "derive the quadratic formula", "label": "yes", "why": "derivation"}
+{"text": "what are the trade-offs between caching at the edge and in the database", "label": "yes", "why": "trade-offs"}
+{"text": "optimize our staff schedule to cover every shift with the fewest overtime hours", "label": "yes", "why": "optimization under constraints"}
+{"text": "evaluate whether our pricing strategy holds up if costs rise 20%", "label": "yes", "why": "analysis"}
+{"text": "analyze the trade-offs of renting vs buying with these numbers", "label": "yes", "why": "analysis"}
+{"text": "what's the probability of at least one six in four rolls, show the reasoning", "label": "yes", "why": "probability"}
+{"text": "plan a data migration with rollback steps and zero downtime", "label": "yes", "why": "planning under constraints"}
+{"text": "diagnose why the pump keeps failing given these readings", "label": "yes", "why": "diagnosis"}
+{"text": "explain how this recursive function works", "label": "yes", "why": "owner: explaining code is reasoning"}
+{"text": "design a function that splits a bill fairly among friends with different shares", "label": "yes", "why": "owner: designing functions is reasoning"}
+{"text": "why does my async code run out of order, walk me through it", "label": "yes", "why": "owner: debugging code is reasoning"}
+{"text": "how do I comment out a block in Swift", "label": "no", "why": "quick syntax lookup"}
+{"text": "what's the git command to see my branches", "label": "no", "why": "quick tool lookup"}

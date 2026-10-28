@@ -1,0 +1,1088 @@
+{"asOf": "2026-10-27"}
+{"text": "rewrite this", "label": "edit"}
+{"text": "make it shorter", "label": "edit"}
+{"text": "make this more formal", "label": "edit"}
+{"text": "make it friendlier", "label": "edit"}
+{"text": "fix the grammar", "label": "edit"}
+{"text": "fix the typos", "label": "edit"}
+{"text": "reword this", "label": "edit"}
+{"text": "proofread it", "label": "edit"}
+{"text": "tighten this up", "label": "edit"}
+{"text": "shorten this", "label": "edit"}
+{"text": "Please rewrite this", "label": "edit"}
+{"text": "fix the spelling", "label": "edit"}
+{"text": "make it longer", "label": "edit"}
+{"text": "can you make this a bit more casual", "label": "edit"}
+{"text": "polish this", "label": "edit"}
+{"text": "polish it up", "label": "edit"}
+{"text": "polish my intro", "label": "edit"}
+{"text": "translate this", "label": "translate"}
+{"text": "translate it to Spanish", "label": "translate"}
+{"text": "translate into Japanese", "label": "translate"}
+{"text": "please translate this and fix the grammar", "label": "translate"}
+{"text": "Translate", "label": "translate"}
+{"text": "can you translate this to Spanish", "label": "translate"}
+{"text": "help me translate it into French", "label": "translate"}
+{"text": "what does this mean?", "label": "none"}
+{"text": "who wrote this?", "label": "none"}
+{"text": "summarize it", "label": "none"}
+{"text": "what does \"rewrite this\" mean", "label": "none"}
+{"text": "is the grammar right?", "label": "none", "nearMiss": true}
+{"text": "how would you translate idioms in general?", "label": "none", "nearMiss": true}
+{"text": "Polish translation of this", "label": "none", "nearMiss": true}
+{"text": "what's the Polish word for this?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this idiom?", "label": "none", "nearMiss": true}
+{"text": "why is this hard to translate?", "label": "none", "nearMiss": true}
+{"text": "make this sound more professional", "label": "edit"}
+{"text": "can you make it less wordy", "label": "edit"}
+{"text": "cut this down to two sentences", "label": "edit"}
+{"text": "make this paragraph flow better", "label": "edit"}
+{"text": "clean this up", "label": "edit"}
+{"text": "smooth this out a bit", "label": "edit"}
+{"text": "make it punchier", "label": "edit"}
+{"text": "make it sound less robotic", "label": "edit"}
+{"text": "rewrite this so a ten year old could understand it", "label": "edit"}
+{"text": "simplify the wording", "label": "edit"}
+{"text": "fix any mistakes in this", "label": "edit"}
+{"text": "correct the grammar and spelling", "label": "edit"}
+{"text": "fix the punctuation", "label": "edit"}
+{"text": "check this for typos and fix them", "label": "edit"}
+{"text": "proofread and correct this", "label": "edit"}
+{"text": "make the tone warmer", "label": "edit"}
+{"text": "make it more polite", "label": "edit"}
+{"text": "make it sound more confident", "label": "edit"}
+{"text": "tone it down a little", "label": "edit"}
+{"text": "make this less aggressive", "label": "edit"}
+{"text": "soften the tone", "label": "edit"}
+{"text": "make it more enthusiastic", "label": "edit"}
+{"text": "make this more concise", "label": "edit"}
+{"text": "condense this", "label": "edit"}
+{"text": "trim this to under 100 words", "label": "edit"}
+{"text": "shorten it to one paragraph", "label": "edit"}
+{"text": "expand this into a full paragraph", "label": "edit"}
+{"text": "make this longer and more detailed", "label": "edit"}
+{"text": "rephrase this", "label": "edit"}
+{"text": "paraphrase this", "label": "edit"}
+{"text": "say this differently", "label": "edit"}
+{"text": "reword the first sentence", "label": "edit"}
+{"text": "rewrite the ending", "label": "edit"}
+{"text": "change the tone to casual", "label": "edit"}
+{"text": "change it to sound more formal", "label": "edit"}
+{"text": "make it sound like a native speaker wrote it", "label": "edit"}
+{"text": "improve the writing", "label": "edit"}
+{"text": "improve this", "label": "edit"}
+{"text": "tidy this up", "label": "edit"}
+{"text": "edit this for clarity", "label": "edit"}
+{"text": "make this clearer", "label": "edit"}
+{"text": "rewrite in active voice", "label": "edit"}
+{"text": "change this to past tense", "label": "edit"}
+{"text": "switch it to first person", "label": "edit"}
+{"text": "make it gender neutral", "label": "edit"}
+{"text": "remove the jargon", "label": "edit"}
+{"text": "make it less repetitive", "label": "edit"}
+{"text": "fix the awkward phrasing", "label": "edit"}
+{"text": "make it more persuasive", "label": "edit"}
+{"text": "make it sound friendlier but still professional", "label": "edit"}
+{"text": "rewrite it as a tweet", "label": "edit"}
+{"text": "make it fit in a text message", "label": "edit"}
+{"text": "make this sound less like a robot wrote it", "label": "edit"}
+{"text": "punch this up", "label": "edit"}
+{"text": "make it snappier", "label": "edit"}
+{"text": "fix my grammar pls", "label": "edit"}
+{"text": "fix grammer", "label": "edit"}
+{"text": "proofread pls", "label": "edit"}
+{"text": "can u make this shorter", "label": "edit"}
+{"text": "make it shorter and sweeter", "label": "edit"}
+{"text": "rewrite this more nicely", "label": "edit"}
+{"text": "fix the wording", "label": "edit"}
+{"text": "make it more formal please", "label": "edit"}
+{"text": "less formal pls", "label": "edit"}
+{"text": "more casual", "label": "edit"}
+{"text": "shorter", "label": "edit"}
+{"text": "more polite", "label": "edit"}
+{"text": "fix it", "label": "edit"}
+{"text": "reword", "label": "edit"}
+{"text": "translate this to german", "label": "translate"}
+{"text": "translate into french please", "label": "translate"}
+{"text": "put this into spanish", "label": "translate"}
+{"text": "what's this in english", "label": "translate"}
+{"text": "how do you say this in italian", "label": "translate"}
+{"text": "can you translate this into portuguese", "label": "translate"}
+{"text": "translate this text to korean", "label": "translate"}
+{"text": "translate it into chinese", "label": "translate"}
+{"text": "translate to japanese", "label": "translate"}
+{"text": "translate this into dutch", "label": "translate"}
+{"text": "turn this into french", "label": "translate"}
+{"text": "render this in spanish", "label": "translate"}
+{"text": "convert this to german", "label": "translate"}
+{"text": "english please", "label": "translate"}
+{"text": "in english?", "label": "translate"}
+{"text": "translate pls", "label": "translate"}
+{"text": "translate this for me", "label": "translate"}
+{"text": "what does this say in english, translate it", "label": "translate"}
+{"text": "translate this paragraph to arabic", "label": "translate"}
+{"text": "translate it to hindi", "label": "translate"}
+{"text": "can you put this in russian", "label": "translate"}
+{"text": "translate this from spanish to english", "label": "translate"}
+{"text": "translate the first paragraph into french", "label": "translate"}
+{"text": "help me translate this to greek", "label": "translate"}
+{"text": "translate into swedish", "label": "translate"}
+{"text": "translate this message to polish", "label": "translate"}
+{"text": "translate and keep the formatting", "label": "translate"}
+{"text": "translate this into simple english", "label": "translate"}
+{"text": "translate to mandarin", "label": "translate"}
+{"text": "translat this to spanish", "label": "translate"}
+{"text": "tranlsate to french", "label": "translate"}
+{"text": "traduce esto al ingles", "label": "none", "nearMiss": true}
+{"text": "translate it but keep it casual", "label": "translate"}
+{"text": "what does this mean", "label": "none", "nearMiss": true}
+{"text": "explain this", "label": "none", "nearMiss": true}
+{"text": "explain this to me like i'm five", "label": "none", "nearMiss": true}
+{"text": "give me a summary", "label": "none", "nearMiss": true}
+{"text": "tldr", "label": "none", "nearMiss": true}
+{"text": "what's the main point here", "label": "none", "nearMiss": true}
+{"text": "who wrote this", "label": "none", "nearMiss": true}
+{"text": "when was this written", "label": "none", "nearMiss": true}
+{"text": "is this true", "label": "none", "nearMiss": true}
+{"text": "is this accurate", "label": "none", "nearMiss": true}
+{"text": "fact check this", "label": "none", "nearMiss": true}
+{"text": "is this grammatically correct?", "label": "none", "nearMiss": true}
+{"text": "are there any grammar mistakes in this?", "label": "none", "nearMiss": true}
+{"text": "is this formal enough?", "label": "none", "nearMiss": true}
+{"text": "does this sound rude?", "label": "none", "nearMiss": true}
+{"text": "is the tone ok?", "label": "none", "nearMiss": true}
+{"text": "what's the tone of this", "label": "none", "nearMiss": true}
+{"text": "what language is this written in", "label": "none", "nearMiss": true}
+{"text": "how many words is this", "label": "none", "nearMiss": true}
+{"text": "how long would this take to read", "label": "none", "nearMiss": true}
+{"text": "what's this about", "label": "none", "nearMiss": true}
+{"text": "how would you translate a word like this in general", "label": "none", "nearMiss": true}
+{"text": "is this a good translation?", "label": "none", "nearMiss": true}
+{"text": "is the translation accurate", "label": "none", "nearMiss": true}
+{"text": "what's wrong with this sentence", "label": "none", "nearMiss": true}
+{"text": "why does this sound off", "label": "none", "nearMiss": true}
+{"text": "can you explain the grammar here", "label": "none", "nearMiss": true}
+{"text": "what does this word mean", "label": "none", "nearMiss": true}
+{"text": "define the second word", "label": "none", "nearMiss": true}
+{"text": "reply to this", "label": "none", "nearMiss": true}
+{"text": "write a response to this", "label": "none", "nearMiss": true}
+{"text": "draft a reply to this email", "label": "none", "nearMiss": true}
+{"text": "what should i say back", "label": "none", "nearMiss": true}
+{"text": "answer the question in this", "label": "none", "nearMiss": true}
+{"text": "give me feedback on this", "label": "none", "nearMiss": true}
+{"text": "rate this from 1 to 10", "label": "none", "nearMiss": true}
+{"text": "critique this", "label": "none", "nearMiss": true}
+{"text": "what do you think of this", "label": "none", "nearMiss": true}
+{"text": "is this any good", "label": "none", "nearMiss": true}
+{"text": "what are the key takeaways", "label": "none", "nearMiss": true}
+{"text": "make a list of the action items", "label": "none", "nearMiss": true}
+{"text": "extract the dates from this", "label": "none", "nearMiss": true}
+{"text": "pull out the names mentioned", "label": "none", "nearMiss": true}
+{"text": "what's the deadline in this", "label": "none", "nearMiss": true}
+{"text": "turn this into a quiz", "label": "none", "nearMiss": true}
+{"text": "write questions about this", "label": "none", "nearMiss": true}
+{"text": "is this plagiarized", "label": "none", "nearMiss": true}
+{"text": "what's the reading level of this", "label": "none", "nearMiss": true}
+{"text": "who is this addressed to", "label": "none", "nearMiss": true}
+{"text": "is this a scam", "label": "none", "nearMiss": true}
+{"text": "is this email legit", "label": "none", "nearMiss": true}
+{"text": "does this make sense", "label": "none", "nearMiss": true}
+{"text": "can you find the main argument", "label": "none", "nearMiss": true}
+{"text": "what's the author's opinion", "label": "none", "nearMiss": true}
+{"text": "compare this to the previous version", "label": "none", "nearMiss": true}
+{"text": "how should i respond", "label": "none", "nearMiss": true}
+{"text": "what is the polish word for hello", "label": "none", "nearMiss": true}
+{"text": "polish history", "label": "none", "nearMiss": true}
+{"text": "what's the french word for cat", "label": "none", "nearMiss": true}
+{"text": "why are some words hard to translate", "label": "none", "nearMiss": true}
+{"text": "how do translators handle puns", "label": "none", "nearMiss": true}
+{"text": "learn spanish tips", "label": "none", "nearMiss": true}
+{"text": "can you change the tone to playful", "label": "edit"}
+{"text": "can you cut this to 75 words", "label": "edit"}
+{"text": "can you fix the awkward wording", "label": "edit"}
+{"text": "can you fix the verb tenses", "label": "edit"}
+{"text": "can you fix the verb tenses in this", "label": "edit"}
+{"text": "can you make it a bit less stiff", "label": "edit"}
+{"text": "can you make it a bit more direct", "label": "edit"}
+{"text": "can you make it a bit more professional", "label": "edit"}
+{"text": "can you make it more casual", "label": "edit"}
+{"text": "can you make it more neutral", "label": "edit"}
+{"text": "can you make it punchier", "label": "edit"}
+{"text": "can you make the tone more formal", "label": "edit"}
+{"text": "can you make the tone warmer", "label": "edit"}
+{"text": "can you make this clearer", "label": "edit"}
+{"text": "can you make this friendlier", "label": "edit"}
+{"text": "can you make this less salesy", "label": "edit"}
+{"text": "can you polish this caption", "label": "edit"}
+{"text": "can you polish this cover letter", "label": "edit"}
+{"text": "can you polish this message", "label": "edit"}
+{"text": "can you polish this note", "label": "edit"}
+{"text": "can you proofread this caption", "label": "edit"}
+{"text": "can you proofread this email", "label": "edit"}
+{"text": "can you reword this to sound less formal", "label": "edit"}
+{"text": "can you rewrite it so it's more upbeat", "label": "edit"}
+{"text": "can you rewrite it so it's simpler", "label": "edit"}
+{"text": "can you rewrite this note", "label": "edit"}
+{"text": "can you rewrite this to be more polite", "label": "edit"}
+{"text": "can you shorten this to 200 words", "label": "edit"}
+{"text": "can you shorten this to 30 words", "label": "edit"}
+{"text": "can you tighten up this announcement", "label": "edit"}
+{"text": "change the tone to firm but kind", "label": "edit"}
+{"text": "could you change the tone to apologetic", "label": "edit"}
+{"text": "could you change the tone to casual", "label": "edit"}
+{"text": "could you change the tone to enthusiastic", "label": "edit"}
+{"text": "could you change the tone to firm but kind", "label": "edit"}
+{"text": "could you change the tone to formal", "label": "edit"}
+{"text": "could you change the tone to playful", "label": "edit"}
+{"text": "could you fix the awkward wording in this", "label": "edit"}
+{"text": "could you fix the capitalization", "label": "edit"}
+{"text": "could you fix the punctuation", "label": "edit"}
+{"text": "could you fix the typos", "label": "edit"}
+{"text": "could you make it a bit less formal", "label": "edit"}
+{"text": "could you make it a bit less stiff", "label": "edit"}
+{"text": "could you make it less formal", "label": "edit"}
+{"text": "could you make the tone more confident", "label": "edit"}
+{"text": "could you make the tone more neutral", "label": "edit"}
+{"text": "could you make the tone punchier", "label": "edit"}
+{"text": "could you make the tone warmer", "label": "edit"}
+{"text": "could you polish this caption", "label": "edit"}
+{"text": "could you polish this paragraph", "label": "edit"}
+{"text": "could you polish this slide text", "label": "edit"}
+{"text": "could you polish this summary", "label": "edit"}
+{"text": "could you proofread this announcement", "label": "edit"}
+{"text": "could you proofread this caption", "label": "edit"}
+{"text": "could you proofread this cover letter", "label": "edit"}
+{"text": "could you proofread this slide text", "label": "edit"}
+{"text": "could you proofread this summary", "label": "edit"}
+{"text": "could you rewrite it so it's less formal", "label": "edit"}
+{"text": "could you rewrite it so it's more neutral", "label": "edit"}
+{"text": "could you rewrite it so it's warmer", "label": "edit"}
+{"text": "could you rewrite this bio", "label": "edit"}
+{"text": "could you rewrite this email", "label": "edit"}
+{"text": "could you rewrite this paragraph", "label": "edit"}
+{"text": "could you rewrite this post", "label": "edit"}
+{"text": "could you rewrite this slide text", "label": "edit"}
+{"text": "could you shorten this to 20 words", "label": "edit"}
+{"text": "could you shorten this to 200 words", "label": "edit"}
+{"text": "could you tighten up this cover letter", "label": "edit"}
+{"text": "could you tighten up this message", "label": "edit"}
+{"text": "cut this to 30 words", "label": "edit"}
+{"text": "edit this announcement to be more upbeat", "label": "edit"}
+{"text": "edit this note to be more formal", "label": "edit"}
+{"text": "edit this note to be more upbeat", "label": "edit"}
+{"text": "fix the capitalization in this", "label": "edit"}
+{"text": "fix the run-on sentences", "label": "edit"}
+{"text": "hey, change the tone to apologetic", "label": "edit"}
+{"text": "hey, change the tone to casual", "label": "edit"}
+{"text": "hey, cut this to 100 words", "label": "edit"}
+{"text": "hey, cut this to 200 words", "label": "edit"}
+{"text": "hey, cut this to 30 words", "label": "edit"}
+{"text": "hey, cut this to 50 words", "label": "edit"}
+{"text": "hey, edit this post to be more polite", "label": "edit"}
+{"text": "hey, fix the capitalization in this", "label": "edit"}
+{"text": "hey, fix the grammar", "label": "edit"}
+{"text": "hey, fix the punctuation", "label": "edit"}
+{"text": "hey, fix the verb tenses in this", "label": "edit"}
+{"text": "hey, make it friendlier", "label": "edit"}
+{"text": "hey, make it more concise", "label": "edit"}
+{"text": "hey, make it shorter", "label": "edit"}
+{"text": "hey, make the tone more concise", "label": "edit"}
+{"text": "hey, make this longer", "label": "edit"}
+{"text": "hey, make this more confident", "label": "edit"}
+{"text": "hey, make this more neutral", "label": "edit"}
+{"text": "hey, polish this note", "label": "edit"}
+{"text": "hey, reword this to sound less stiff", "label": "edit"}
+{"text": "hey, reword this to sound more casual", "label": "edit"}
+{"text": "hey, reword this to sound more concise", "label": "edit"}
+{"text": "hey, reword this to sound warmer", "label": "edit"}
+{"text": "hey, rewrite it so it's less salesy", "label": "edit"}
+{"text": "hey, rewrite it so it's longer", "label": "edit"}
+{"text": "hey, rewrite this announcement", "label": "edit"}
+{"text": "hey, rewrite this cover letter", "label": "edit"}
+{"text": "hey, rewrite this post", "label": "edit"}
+{"text": "hey, rewrite this to be less formal", "label": "edit"}
+{"text": "hey, shorten this to 100 words", "label": "edit"}
+{"text": "hey, tighten up this announcement", "label": "edit"}
+{"text": "hey, tighten up this slide text", "label": "edit"}
+{"text": "make it more professional", "label": "edit"}
+{"text": "make it more upbeat", "label": "edit"}
+{"text": "please change the tone to firm but kind", "label": "edit"}
+{"text": "please change the tone to neutral", "label": "edit"}
+{"text": "please cut this to 100 words", "label": "edit"}
+{"text": "please cut this to 20 words", "label": "edit"}
+{"text": "please cut this to 200 words", "label": "edit"}
+{"text": "please cut this to 30 words", "label": "edit"}
+{"text": "please edit this cover letter to be less stiff", "label": "edit"}
+{"text": "please edit this paragraph to be more direct", "label": "edit"}
+{"text": "please edit this slide text to be more formal", "label": "edit"}
+{"text": "please fix the awkward wording", "label": "edit"}
+{"text": "please fix the awkward wording in this", "label": "edit"}
+{"text": "please fix the capitalization in this", "label": "edit"}
+{"text": "please fix the grammar", "label": "edit"}
+{"text": "please fix the grammar in this", "label": "edit"}
+{"text": "please fix the typos", "label": "edit"}
+{"text": "please fix the typos in this", "label": "edit"}
+{"text": "please fix the verb tenses", "label": "edit"}
+{"text": "please fix the verb tenses in this", "label": "edit"}
+{"text": "please make it a bit less salesy", "label": "edit"}
+{"text": "please make it more direct", "label": "edit"}
+{"text": "please make it more neutral", "label": "edit"}
+{"text": "please make it shorter", "label": "edit"}
+{"text": "please make the tone more direct", "label": "edit"}
+{"text": "please make the tone more formal", "label": "edit"}
+{"text": "please make this more casual", "label": "edit"}
+{"text": "please polish this note", "label": "edit"}
+{"text": "please proofread this bio", "label": "edit"}
+{"text": "please proofread this slide text", "label": "edit"}
+{"text": "please reword this to sound more professional", "label": "edit"}
+{"text": "please reword this to sound simpler", "label": "edit"}
+{"text": "please rewrite it so it's less stiff", "label": "edit"}
+{"text": "please rewrite this announcement", "label": "edit"}
+{"text": "please rewrite this intro", "label": "edit"}
+{"text": "please rewrite this note", "label": "edit"}
+{"text": "please rewrite this to be friendlier", "label": "edit"}
+{"text": "please rewrite this to be shorter", "label": "edit"}
+{"text": "please shorten this to 50 words", "label": "edit"}
+{"text": "pls change the tone to friendly", "label": "edit"}
+{"text": "pls change the tone to neutral", "label": "edit"}
+{"text": "pls cut this to 200 words", "label": "edit"}
+{"text": "pls cut this to 30 words", "label": "edit"}
+{"text": "pls fix the capitalization in this", "label": "edit"}
+{"text": "pls fix the typos", "label": "edit"}
+{"text": "pls fix the verb tenses", "label": "edit"}
+{"text": "pls make it a bit more neutral", "label": "edit"}
+{"text": "pls make it a bit simpler", "label": "edit"}
+{"text": "pls make it simpler", "label": "edit"}
+{"text": "pls make it warmer", "label": "edit"}
+{"text": "pls make the tone less stiff", "label": "edit"}
+{"text": "pls make the tone more formal", "label": "edit"}
+{"text": "pls make this less formal", "label": "edit"}
+{"text": "pls make this more professional", "label": "edit"}
+{"text": "pls proofread this intro", "label": "edit"}
+{"text": "pls rewrite this message", "label": "edit"}
+{"text": "pls rewrite this post", "label": "edit"}
+{"text": "pls rewrite this to be more confident", "label": "edit"}
+{"text": "pls rewrite this to be more formal", "label": "edit"}
+{"text": "pls tighten up this summary", "label": "edit"}
+{"text": "polish this note", "label": "edit"}
+{"text": "quickly change the tone to firm but kind", "label": "edit"}
+{"text": "quickly change the tone to friendly", "label": "edit"}
+{"text": "quickly cut this to 100 words", "label": "edit"}
+{"text": "quickly edit this announcement to be more upbeat", "label": "edit"}
+{"text": "quickly edit this paragraph to be friendlier", "label": "edit"}
+{"text": "quickly edit this paragraph to be less stiff", "label": "edit"}
+{"text": "quickly fix the capitalization", "label": "edit"}
+{"text": "quickly fix the capitalization in this", "label": "edit"}
+{"text": "quickly fix the verb tenses in this", "label": "edit"}
+{"text": "quickly make it a bit clearer", "label": "edit"}
+{"text": "quickly make it a bit less formal", "label": "edit"}
+{"text": "quickly make it a bit more professional", "label": "edit"}
+{"text": "quickly make it more neutral", "label": "edit"}
+{"text": "quickly make it more upbeat", "label": "edit"}
+{"text": "quickly make the tone simpler", "label": "edit"}
+{"text": "quickly make this more concise", "label": "edit"}
+{"text": "quickly polish this paragraph", "label": "edit"}
+{"text": "quickly polish this slide text", "label": "edit"}
+{"text": "quickly proofread this bio", "label": "edit"}
+{"text": "quickly proofread this email", "label": "edit"}
+{"text": "quickly reword this to sound less salesy", "label": "edit"}
+{"text": "quickly reword this to sound more formal", "label": "edit"}
+{"text": "quickly rewrite it so it's more professional", "label": "edit"}
+{"text": "quickly rewrite this bio", "label": "edit"}
+{"text": "quickly rewrite this summary", "label": "edit"}
+{"text": "quickly rewrite this to be friendlier", "label": "edit"}
+{"text": "quickly tighten up this summary", "label": "edit"}
+{"text": "reword this to sound shorter", "label": "edit"}
+{"text": "rewrite it so it's punchier", "label": "edit"}
+{"text": "rewrite this summary", "label": "edit"}
+{"text": "rewrite this to be more concise", "label": "edit"}
+{"text": "shorten this to 100 words", "label": "edit"}
+{"text": "shorten this to 50 words", "label": "edit"}
+{"text": "tighten up this email", "label": "edit"}
+{"text": "tighten up this post", "label": "edit"}
+{"text": "would you change the tone to apologetic", "label": "edit"}
+{"text": "would you cut this to 100 words", "label": "edit"}
+{"text": "would you edit this announcement to be more polite", "label": "edit"}
+{"text": "would you edit this note to be more polite", "label": "edit"}
+{"text": "would you edit this post to be more formal", "label": "edit"}
+{"text": "would you fix the capitalization", "label": "edit"}
+{"text": "would you fix the grammar", "label": "edit"}
+{"text": "would you fix the spelling", "label": "edit"}
+{"text": "would you fix the verb tenses in this", "label": "edit"}
+{"text": "would you make it a bit more professional", "label": "edit"}
+{"text": "would you make it friendlier", "label": "edit"}
+{"text": "would you make it more neutral", "label": "edit"}
+{"text": "would you make it warmer", "label": "edit"}
+{"text": "would you make this clearer", "label": "edit"}
+{"text": "would you polish this note", "label": "edit"}
+{"text": "would you proofread this intro", "label": "edit"}
+{"text": "would you proofread this paragraph", "label": "edit"}
+{"text": "would you rewrite it so it's less formal", "label": "edit"}
+{"text": "would you rewrite it so it's more confident", "label": "edit"}
+{"text": "would you rewrite this announcement", "label": "edit"}
+{"text": "would you rewrite this note", "label": "edit"}
+{"text": "would you rewrite this to be more concise", "label": "edit"}
+{"text": "would you rewrite this to be more formal", "label": "edit"}
+{"text": "would you rewrite this to be more neutral", "label": "edit"}
+{"text": "would you rewrite this to be more professional", "label": "edit"}
+{"text": "would you rewrite this to be warmer", "label": "edit"}
+{"text": "arabic please", "label": "translate"}
+{"text": "can you give me this in turkish", "label": "translate"}
+{"text": "can you put this in dutch", "label": "translate"}
+{"text": "can you put this in hebrew", "label": "translate"}
+{"text": "can you put this in hindi", "label": "translate"}
+{"text": "can you translate into hindi", "label": "translate"}
+{"text": "can you translate into japanese", "label": "translate"}
+{"text": "can you translate into norwegian", "label": "translate"}
+{"text": "can you translate it into japanese", "label": "translate"}
+{"text": "can you translate it into polish", "label": "translate"}
+{"text": "can you translate this caption to dutch", "label": "translate"}
+{"text": "can you translate this email to greek", "label": "translate"}
+{"text": "can you translate this into finnish for me", "label": "translate"}
+{"text": "can you translate this into korean for me", "label": "translate"}
+{"text": "can you translate this into norwegian for me", "label": "translate"}
+{"text": "can you translate this into vietnamese for me", "label": "translate"}
+{"text": "can you translate this note to arabic", "label": "translate"}
+{"text": "can you translate this paragraph to hindi", "label": "translate"}
+{"text": "can you translate this slide text to hindi", "label": "translate"}
+{"text": "can you translate this to english", "label": "translate"}
+{"text": "can you translate to german and keep the tone", "label": "translate"}
+{"text": "can you translate to hindi and keep the tone", "label": "translate"}
+{"text": "could you give me this in italian", "label": "translate"}
+{"text": "could you give me this in polish", "label": "translate"}
+{"text": "could you give me this in swedish", "label": "translate"}
+{"text": "could you put this in japanese", "label": "translate"}
+{"text": "could you put this in spanish", "label": "translate"}
+{"text": "could you translate into spanish", "label": "translate"}
+{"text": "could you translate it into chinese", "label": "translate"}
+{"text": "could you translate it into norwegian", "label": "translate"}
+{"text": "could you translate it into turkish", "label": "translate"}
+{"text": "could you translate this announcement to spanish", "label": "translate"}
+{"text": "could you translate this into thai for me", "label": "translate"}
+{"text": "could you translate this post to spanish", "label": "translate"}
+{"text": "could you translate this to indonesian", "label": "translate"}
+{"text": "could you translate this to japanese", "label": "translate"}
+{"text": "could you translate this to norwegian", "label": "translate"}
+{"text": "could you translate to english and keep the tone", "label": "translate"}
+{"text": "could you translate to polish and keep the tone", "label": "translate"}
+{"text": "czech please", "label": "translate"}
+{"text": "danish please", "label": "translate"}
+{"text": "dutch please", "label": "translate"}
+{"text": "give me this in german", "label": "translate"}
+{"text": "hey, give me this in indonesian", "label": "translate"}
+{"text": "hey, give me this in thai", "label": "translate"}
+{"text": "hey, give me this in vietnamese", "label": "translate"}
+{"text": "hey, put this in chinese", "label": "translate"}
+{"text": "hey, translate it into czech", "label": "translate"}
+{"text": "hey, translate it into dutch", "label": "translate"}
+{"text": "hey, translate it into polish", "label": "translate"}
+{"text": "hey, translate it into spanish", "label": "translate"}
+{"text": "hey, translate this cover letter to vietnamese", "label": "translate"}
+{"text": "hey, translate this into chinese for me", "label": "translate"}
+{"text": "hey, translate this into french for me", "label": "translate"}
+{"text": "hey, translate this into swedish for me", "label": "translate"}
+{"text": "hey, translate this into thai for me", "label": "translate"}
+{"text": "hey, translate this into turkish for me", "label": "translate"}
+{"text": "hey, translate this intro to vietnamese", "label": "translate"}
+{"text": "hey, translate this to norwegian", "label": "translate"}
+{"text": "hey, translate this to turkish", "label": "translate"}
+{"text": "hey, translate to japanese and keep the tone", "label": "translate"}
+{"text": "hey, translate to norwegian and keep the tone", "label": "translate"}
+{"text": "hey, translate to thai and keep the tone", "label": "translate"}
+{"text": "hey, translate to turkish and keep the tone", "label": "translate"}
+{"text": "hindi please", "label": "translate"}
+{"text": "how do you say this in arabic", "label": "translate"}
+{"text": "how do you say this in czech", "label": "translate"}
+{"text": "how do you say this in danish", "label": "translate"}
+{"text": "how do you say this in dutch", "label": "translate"}
+{"text": "how do you say this in english", "label": "translate"}
+{"text": "how do you say this in french", "label": "translate"}
+{"text": "how do you say this in german", "label": "translate"}
+{"text": "how do you say this in greek", "label": "translate"}
+{"text": "how do you say this in hebrew", "label": "translate"}
+{"text": "how do you say this in hindi", "label": "translate"}
+{"text": "how do you say this in indonesian", "label": "translate"}
+{"text": "how do you say this in korean", "label": "translate"}
+{"text": "how do you say this in polish", "label": "translate"}
+{"text": "how do you say this in spanish", "label": "translate"}
+{"text": "how do you say this in turkish", "label": "translate"}
+{"text": "indonesian please", "label": "translate"}
+{"text": "italian please", "label": "translate"}
+{"text": "japanese please", "label": "translate"}
+{"text": "korean please", "label": "translate"}
+{"text": "norwegian please", "label": "translate"}
+{"text": "please put this in chinese", "label": "translate"}
+{"text": "please translate into dutch", "label": "translate"}
+{"text": "please translate into finnish", "label": "translate"}
+{"text": "please translate into japanese", "label": "translate"}
+{"text": "please translate into turkish", "label": "translate"}
+{"text": "please translate it into italian", "label": "translate"}
+{"text": "please translate it into portuguese", "label": "translate"}
+{"text": "please translate it into thai", "label": "translate"}
+{"text": "please translate this into japanese for me", "label": "translate"}
+{"text": "please translate this post to turkish", "label": "translate"}
+{"text": "please translate this slide text to german", "label": "translate"}
+{"text": "please translate this summary to greek", "label": "translate"}
+{"text": "please translate to chinese and keep the tone", "label": "translate"}
+{"text": "pls give me this in korean", "label": "translate"}
+{"text": "pls give me this in turkish", "label": "translate"}
+{"text": "pls put this in greek", "label": "translate"}
+{"text": "pls put this in norwegian", "label": "translate"}
+{"text": "pls translate into spanish", "label": "translate"}
+{"text": "pls translate into swedish", "label": "translate"}
+{"text": "pls translate it into arabic", "label": "translate"}
+{"text": "pls translate it into french", "label": "translate"}
+{"text": "pls translate this email to spanish", "label": "translate"}
+{"text": "pls translate this into german for me", "label": "translate"}
+{"text": "pls translate this into polish for me", "label": "translate"}
+{"text": "pls translate this into vietnamese for me", "label": "translate"}
+{"text": "pls translate this to hebrew", "label": "translate"}
+{"text": "pls translate this to japanese", "label": "translate"}
+{"text": "pls translate this to thai", "label": "translate"}
+{"text": "pls translate this to vietnamese", "label": "translate"}
+{"text": "pls translate to indonesian and keep the tone", "label": "translate"}
+{"text": "pls translate to turkish and keep the tone", "label": "translate"}
+{"text": "portuguese please", "label": "translate"}
+{"text": "put this in indonesian", "label": "translate"}
+{"text": "put this in turkish", "label": "translate"}
+{"text": "quickly give me this in japanese", "label": "translate"}
+{"text": "quickly translate it into turkish", "label": "translate"}
+{"text": "quickly translate this into english for me", "label": "translate"}
+{"text": "quickly translate this into polish for me", "label": "translate"}
+{"text": "quickly translate this into thai for me", "label": "translate"}
+{"text": "quickly translate this slide text to dutch", "label": "translate"}
+{"text": "quickly translate this to greek", "label": "translate"}
+{"text": "quickly translate this to hindi", "label": "translate"}
+{"text": "quickly translate this to polish", "label": "translate"}
+{"text": "quickly translate to danish and keep the tone", "label": "translate"}
+{"text": "quickly translate to dutch and keep the tone", "label": "translate"}
+{"text": "quickly translate to thai and keep the tone", "label": "translate"}
+{"text": "spanish please", "label": "translate"}
+{"text": "swedish please", "label": "translate"}
+{"text": "translate into chinese", "label": "translate"}
+{"text": "translate into danish", "label": "translate"}
+{"text": "translate it into hindi", "label": "translate"}
+{"text": "translate this email to chinese", "label": "translate"}
+{"text": "translate this into dutch for me", "label": "translate"}
+{"text": "translate this into german for me", "label": "translate"}
+{"text": "translate this into hebrew for me", "label": "translate"}
+{"text": "translate this into spanish for me", "label": "translate"}
+{"text": "translate this into vietnamese for me", "label": "translate"}
+{"text": "translate this to hebrew", "label": "translate"}
+{"text": "translate this to japanese", "label": "translate"}
+{"text": "translate to english and keep the tone", "label": "translate"}
+{"text": "translate to italian and keep the tone", "label": "translate"}
+{"text": "turkish please", "label": "translate"}
+{"text": "would you give me this in chinese", "label": "translate"}
+{"text": "would you give me this in czech", "label": "translate"}
+{"text": "would you give me this in french", "label": "translate"}
+{"text": "would you give me this in german", "label": "translate"}
+{"text": "would you give me this in hindi", "label": "translate"}
+{"text": "would you give me this in italian", "label": "translate"}
+{"text": "would you put this in arabic", "label": "translate"}
+{"text": "would you put this in german", "label": "translate"}
+{"text": "would you put this in hebrew", "label": "translate"}
+{"text": "would you translate it into danish", "label": "translate"}
+{"text": "would you translate this into finnish for me", "label": "translate"}
+{"text": "would you translate this into german for me", "label": "translate"}
+{"text": "would you translate this into vietnamese for me", "label": "translate"}
+{"text": "would you translate this intro to chinese", "label": "translate"}
+{"text": "would you translate this message to thai", "label": "translate"}
+{"text": "would you translate this to czech", "label": "translate"}
+{"text": "would you translate this to indonesian", "label": "translate"}
+{"text": "would you translate this to italian", "label": "translate"}
+{"text": "would you translate this to spanish", "label": "translate"}
+{"text": "would you translate to japanese and keep the tone", "label": "translate"}
+{"text": "would you translate to portuguese and keep the tone", "label": "translate"}
+{"text": "would you translate to vietnamese and keep the tone", "label": "translate"}
+{"text": "can you explain this announcement", "label": "none", "nearMiss": true}
+{"text": "can you explain this bio", "label": "none", "nearMiss": true}
+{"text": "can you explain this summary", "label": "none", "nearMiss": true}
+{"text": "can you give me feedback on this cover letter", "label": "none", "nearMiss": true}
+{"text": "can you give me feedback on this email", "label": "none", "nearMiss": true}
+{"text": "can you list the action items in this caption", "label": "none", "nearMiss": true}
+{"text": "can you reply to this post", "label": "none", "nearMiss": true}
+{"text": "can you summarize this announcement", "label": "none", "nearMiss": true}
+{"text": "can you summarize this message", "label": "none", "nearMiss": true}
+{"text": "can you summarize this slide text", "label": "none", "nearMiss": true}
+{"text": "could you explain this bio", "label": "none", "nearMiss": true}
+{"text": "could you explain this email", "label": "none", "nearMiss": true}
+{"text": "could you explain this intro", "label": "none", "nearMiss": true}
+{"text": "could you explain this slide text", "label": "none", "nearMiss": true}
+{"text": "could you explain this summary", "label": "none", "nearMiss": true}
+{"text": "could you give me feedback on this bio", "label": "none", "nearMiss": true}
+{"text": "could you give me feedback on this email", "label": "none", "nearMiss": true}
+{"text": "could you give me feedback on this note", "label": "none", "nearMiss": true}
+{"text": "could you give me feedback on this paragraph", "label": "none", "nearMiss": true}
+{"text": "could you give me feedback on this slide text", "label": "none", "nearMiss": true}
+{"text": "could you reply to this bio", "label": "none", "nearMiss": true}
+{"text": "could you reply to this email", "label": "none", "nearMiss": true}
+{"text": "could you reply to this note", "label": "none", "nearMiss": true}
+{"text": "could you reply to this post", "label": "none", "nearMiss": true}
+{"text": "could you summarize this bio", "label": "none", "nearMiss": true}
+{"text": "could you summarize this message", "label": "none", "nearMiss": true}
+{"text": "does this caption sound less stiff?", "label": "none", "nearMiss": true}
+{"text": "does this caption sound more polite?", "label": "none", "nearMiss": true}
+{"text": "does this cover letter sound less stiff?", "label": "none", "nearMiss": true}
+{"text": "does this cover letter sound more upbeat?", "label": "none", "nearMiss": true}
+{"text": "does this email sound longer?", "label": "none", "nearMiss": true}
+{"text": "does this email sound more professional?", "label": "none", "nearMiss": true}
+{"text": "does this intro sound less formal?", "label": "none", "nearMiss": true}
+{"text": "does this intro sound more casual?", "label": "none", "nearMiss": true}
+{"text": "does this intro sound simpler?", "label": "none", "nearMiss": true}
+{"text": "does this message sound simpler?", "label": "none", "nearMiss": true}
+{"text": "does this note sound more neutral?", "label": "none", "nearMiss": true}
+{"text": "does this paragraph sound more formal?", "label": "none", "nearMiss": true}
+{"text": "does this paragraph sound shorter?", "label": "none", "nearMiss": true}
+{"text": "does this post sound longer?", "label": "none", "nearMiss": true}
+{"text": "does this slide text sound punchier?", "label": "none", "nearMiss": true}
+{"text": "does this summary sound less formal?", "label": "none", "nearMiss": true}
+{"text": "does this summary sound less salesy?", "label": "none", "nearMiss": true}
+{"text": "does this summary sound more confident?", "label": "none", "nearMiss": true}
+{"text": "explain this bio", "label": "none", "nearMiss": true}
+{"text": "explain this caption", "label": "none", "nearMiss": true}
+{"text": "explain this note", "label": "none", "nearMiss": true}
+{"text": "explain this slide text", "label": "none", "nearMiss": true}
+{"text": "give me feedback on this cover letter", "label": "none", "nearMiss": true}
+{"text": "give me feedback on this slide text", "label": "none", "nearMiss": true}
+{"text": "hey, give me feedback on this announcement", "label": "none", "nearMiss": true}
+{"text": "hey, give me feedback on this intro", "label": "none", "nearMiss": true}
+{"text": "hey, give me feedback on this paragraph", "label": "none", "nearMiss": true}
+{"text": "hey, give me feedback on this summary", "label": "none", "nearMiss": true}
+{"text": "hey, list the action items in this note", "label": "none", "nearMiss": true}
+{"text": "hey, list the action items in this post", "label": "none", "nearMiss": true}
+{"text": "hey, list the action items in this slide text", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this announcement", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this bio", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this intro", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this message", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this post", "label": "none", "nearMiss": true}
+{"text": "hey, reply to this summary", "label": "none", "nearMiss": true}
+{"text": "hey, summarize this announcement", "label": "none", "nearMiss": true}
+{"text": "how do czech speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do danish speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do dutch speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do french speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do german speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do greek speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do italian speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do korean speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do norwegian speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do polish speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do swedish speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do turkish speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how do vietnamese speakers say thanks", "label": "none", "nearMiss": true}
+{"text": "how many words is this caption", "label": "none", "nearMiss": true}
+{"text": "how many words is this cover letter", "label": "none", "nearMiss": true}
+{"text": "how many words is this email", "label": "none", "nearMiss": true}
+{"text": "how many words is this intro", "label": "none", "nearMiss": true}
+{"text": "how many words is this message", "label": "none", "nearMiss": true}
+{"text": "how many words is this note", "label": "none", "nearMiss": true}
+{"text": "how many words is this paragraph", "label": "none", "nearMiss": true}
+{"text": "how many words is this post", "label": "none", "nearMiss": true}
+{"text": "how many words is this slide text", "label": "none", "nearMiss": true}
+{"text": "how should i answer this announcement", "label": "none", "nearMiss": true}
+{"text": "how should i answer this bio", "label": "none", "nearMiss": true}
+{"text": "how should i answer this caption", "label": "none", "nearMiss": true}
+{"text": "how should i answer this cover letter", "label": "none", "nearMiss": true}
+{"text": "how should i answer this email", "label": "none", "nearMiss": true}
+{"text": "how should i answer this intro", "label": "none", "nearMiss": true}
+{"text": "how should i answer this message", "label": "none", "nearMiss": true}
+{"text": "how should i answer this note", "label": "none", "nearMiss": true}
+{"text": "how should i answer this paragraph", "label": "none", "nearMiss": true}
+{"text": "how should i answer this post", "label": "none", "nearMiss": true}
+{"text": "how should i answer this slide text", "label": "none", "nearMiss": true}
+{"text": "how should i answer this summary", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this announcement into dutch?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this announcement into finnish?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this bio into finnish?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this bio into hebrew?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this caption into dutch?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this caption into italian?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this cover letter into chinese?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this cover letter into italian?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this cover letter into thai?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this email into polish?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this note into danish?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this note into indonesian?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this note into japanese?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this note into korean?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this paragraph into english?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this paragraph into hindi?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this post into dutch?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this post into finnish?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this slide text into german?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this slide text into norwegian?", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this summary into korean?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this bio correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this caption correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this email correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this message correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this note correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this paragraph correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this post correct?", "label": "none", "nearMiss": true}
+{"text": "is the grammar in this slide text correct?", "label": "none", "nearMiss": true}
+{"text": "is this announcement in czech?", "label": "none", "nearMiss": true}
+{"text": "is this announcement in indonesian?", "label": "none", "nearMiss": true}
+{"text": "is this announcement more polite enough?", "label": "none", "nearMiss": true}
+{"text": "is this announcement more upbeat enough?", "label": "none", "nearMiss": true}
+{"text": "is this announcement punchier enough?", "label": "none", "nearMiss": true}
+{"text": "is this announcement too long?", "label": "none", "nearMiss": true}
+{"text": "is this bio in turkish?", "label": "none", "nearMiss": true}
+{"text": "is this bio more neutral enough?", "label": "none", "nearMiss": true}
+{"text": "is this bio too long?", "label": "none", "nearMiss": true}
+{"text": "is this bio warmer enough?", "label": "none", "nearMiss": true}
+{"text": "is this caption in hebrew?", "label": "none", "nearMiss": true}
+{"text": "is this caption in hindi?", "label": "none", "nearMiss": true}
+{"text": "is this caption in korean?", "label": "none", "nearMiss": true}
+{"text": "is this caption less formal enough?", "label": "none", "nearMiss": true}
+{"text": "is this caption too long?", "label": "none", "nearMiss": true}
+{"text": "is this cover letter in english?", "label": "none", "nearMiss": true}
+{"text": "is this cover letter in french?", "label": "none", "nearMiss": true}
+{"text": "is this cover letter in swedish?", "label": "none", "nearMiss": true}
+{"text": "is this cover letter longer enough?", "label": "none", "nearMiss": true}
+{"text": "is this cover letter too long?", "label": "none", "nearMiss": true}
+{"text": "is this email in greek?", "label": "none", "nearMiss": true}
+{"text": "is this email more professional enough?", "label": "none", "nearMiss": true}
+{"text": "is this email too long?", "label": "none", "nearMiss": true}
+{"text": "is this intro more formal enough?", "label": "none", "nearMiss": true}
+{"text": "is this intro more polite enough?", "label": "none", "nearMiss": true}
+{"text": "is this intro too long?", "label": "none", "nearMiss": true}
+{"text": "is this message clearer enough?", "label": "none", "nearMiss": true}
+{"text": "is this message in english?", "label": "none", "nearMiss": true}
+{"text": "is this message more upbeat enough?", "label": "none", "nearMiss": true}
+{"text": "is this message too long?", "label": "none", "nearMiss": true}
+{"text": "is this note less formal enough?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph in english?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph in japanese?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph less stiff enough?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph more casual enough?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph more concise enough?", "label": "none", "nearMiss": true}
+{"text": "is this paragraph too long?", "label": "none", "nearMiss": true}
+{"text": "is this post in thai?", "label": "none", "nearMiss": true}
+{"text": "is this post too long?", "label": "none", "nearMiss": true}
+{"text": "is this slide text in hindi?", "label": "none", "nearMiss": true}
+{"text": "is this slide text more casual enough?", "label": "none", "nearMiss": true}
+{"text": "is this slide text shorter enough?", "label": "none", "nearMiss": true}
+{"text": "is this slide text too long?", "label": "none", "nearMiss": true}
+{"text": "is this summary in dutch?", "label": "none", "nearMiss": true}
+{"text": "is this summary too long?", "label": "none", "nearMiss": true}
+{"text": "list the action items in this message", "label": "none", "nearMiss": true}
+{"text": "list the action items in this summary", "label": "none", "nearMiss": true}
+{"text": "please explain this summary", "label": "none", "nearMiss": true}
+{"text": "please give me feedback on this message", "label": "none", "nearMiss": true}
+{"text": "please give me feedback on this slide text", "label": "none", "nearMiss": true}
+{"text": "please list the action items in this announcement", "label": "none", "nearMiss": true}
+{"text": "please list the action items in this note", "label": "none", "nearMiss": true}
+{"text": "please reply to this caption", "label": "none", "nearMiss": true}
+{"text": "please reply to this email", "label": "none", "nearMiss": true}
+{"text": "please reply to this slide text", "label": "none", "nearMiss": true}
+{"text": "please reply to this summary", "label": "none", "nearMiss": true}
+{"text": "please summarize this bio", "label": "none", "nearMiss": true}
+{"text": "please summarize this post", "label": "none", "nearMiss": true}
+{"text": "please summarize this slide text", "label": "none", "nearMiss": true}
+{"text": "pls explain this slide text", "label": "none", "nearMiss": true}
+{"text": "pls list the action items in this caption", "label": "none", "nearMiss": true}
+{"text": "pls list the action items in this intro", "label": "none", "nearMiss": true}
+{"text": "pls list the action items in this slide text", "label": "none", "nearMiss": true}
+{"text": "pls reply to this intro", "label": "none", "nearMiss": true}
+{"text": "pls reply to this slide text", "label": "none", "nearMiss": true}
+{"text": "pls summarize this cover letter", "label": "none", "nearMiss": true}
+{"text": "quickly explain this cover letter", "label": "none", "nearMiss": true}
+{"text": "quickly explain this message", "label": "none", "nearMiss": true}
+{"text": "quickly explain this paragraph", "label": "none", "nearMiss": true}
+{"text": "quickly give me feedback on this post", "label": "none", "nearMiss": true}
+{"text": "quickly give me feedback on this slide text", "label": "none", "nearMiss": true}
+{"text": "quickly list the action items in this message", "label": "none", "nearMiss": true}
+{"text": "quickly list the action items in this note", "label": "none", "nearMiss": true}
+{"text": "quickly list the action items in this post", "label": "none", "nearMiss": true}
+{"text": "quickly reply to this caption", "label": "none", "nearMiss": true}
+{"text": "quickly summarize this bio", "label": "none", "nearMiss": true}
+{"text": "quickly summarize this paragraph", "label": "none", "nearMiss": true}
+{"text": "quickly summarize this summary", "label": "none", "nearMiss": true}
+{"text": "reply to this message", "label": "none", "nearMiss": true}
+{"text": "reply to this paragraph", "label": "none", "nearMiss": true}
+{"text": "reply to this post", "label": "none", "nearMiss": true}
+{"text": "summarize this post", "label": "none", "nearMiss": true}
+{"text": "summarize this slide text", "label": "none", "nearMiss": true}
+{"text": "what is this announcement about", "label": "none", "nearMiss": true}
+{"text": "what is this bio about", "label": "none", "nearMiss": true}
+{"text": "what is this cover letter about", "label": "none", "nearMiss": true}
+{"text": "what is this email about", "label": "none", "nearMiss": true}
+{"text": "what is this intro about", "label": "none", "nearMiss": true}
+{"text": "what is this message about", "label": "none", "nearMiss": true}
+{"text": "what is this note about", "label": "none", "nearMiss": true}
+{"text": "what is this paragraph about", "label": "none", "nearMiss": true}
+{"text": "what is this post about", "label": "none", "nearMiss": true}
+{"text": "what is this slide text about", "label": "none", "nearMiss": true}
+{"text": "what is this summary about", "label": "none", "nearMiss": true}
+{"text": "what language is this announcement in", "label": "none", "nearMiss": true}
+{"text": "what language is this bio in", "label": "none", "nearMiss": true}
+{"text": "what language is this caption in", "label": "none", "nearMiss": true}
+{"text": "what language is this cover letter in", "label": "none", "nearMiss": true}
+{"text": "what language is this intro in", "label": "none", "nearMiss": true}
+{"text": "what language is this message in", "label": "none", "nearMiss": true}
+{"text": "what language is this note in", "label": "none", "nearMiss": true}
+{"text": "what language is this post in", "label": "none", "nearMiss": true}
+{"text": "what language is this slide text in", "label": "none", "nearMiss": true}
+{"text": "what language is this summary in", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this announcement", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this caption", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this cover letter", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this email", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this intro", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this paragraph", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this post", "label": "none", "nearMiss": true}
+{"text": "what's the main point of this summary", "label": "none", "nearMiss": true}
+{"text": "who wrote this announcement", "label": "none", "nearMiss": true}
+{"text": "who wrote this bio", "label": "none", "nearMiss": true}
+{"text": "who wrote this cover letter", "label": "none", "nearMiss": true}
+{"text": "who wrote this email", "label": "none", "nearMiss": true}
+{"text": "who wrote this message", "label": "none", "nearMiss": true}
+{"text": "who wrote this paragraph", "label": "none", "nearMiss": true}
+{"text": "who wrote this post", "label": "none", "nearMiss": true}
+{"text": "who wrote this slide text", "label": "none", "nearMiss": true}
+{"text": "who wrote this summary", "label": "none", "nearMiss": true}
+{"text": "would you explain this caption", "label": "none", "nearMiss": true}
+{"text": "would you explain this note", "label": "none", "nearMiss": true}
+{"text": "would you give me feedback on this post", "label": "none", "nearMiss": true}
+{"text": "would you list the action items in this bio", "label": "none", "nearMiss": true}
+{"text": "would you list the action items in this cover letter", "label": "none", "nearMiss": true}
+{"text": "would you reply to this announcement", "label": "none", "nearMiss": true}
+{"text": "would you reply to this email", "label": "none", "nearMiss": true}
+{"text": "would you summarize this bio", "label": "none", "nearMiss": true}
+{"text": "would you summarize this cover letter", "label": "none", "nearMiss": true}
+{"text": "would you summarize this note", "label": "none", "nearMiss": true}
+{"text": "would you summarize this summary", "label": "none", "nearMiss": true}
+{"text": "whats going on in the stock market right now", "label": "none"}
+{"text": "did the fed raise rates this week", "label": "none"}
+{"text": "who won the game last night between the celtics and the knicks", "label": "none"}
+{"text": "is the bridge on route 9 still closed", "label": "none"}
+{"text": "how much is a gallon of gas in ohio right now", "label": "none"}
+{"text": "what time does the hardware store on elm street close tonight", "label": "none"}
+{"text": "any updates on the hurricane heading for florida", "label": "none"}
+{"text": "what's the current exchange rate for yen to dollars", "label": "none"}
+{"text": "who's leading the tour de france", "label": "none"}
+{"text": "is it going to snow in denver this weekend", "label": "none"}
+{"text": "what's the weather in lisbon next week", "label": "none"}
+{"text": "how hot will it be in phoenix tomorrow", "label": "none"}
+{"text": "did the new iphone come out yet", "label": "none"}
+{"text": "when does the next season of that dragon show drop", "label": "none"}
+{"text": "what movies are playing near me tonight", "label": "none"}
+{"text": "latest version of node", "label": "none"}
+{"text": "what's the newest macos version", "label": "none"}
+{"text": "is xcode 27 out", "label": "none"}
+{"text": "who is the prime minister of the uk right now", "label": "none"}
+{"text": "who's the current mayor of chicago", "label": "none"}
+{"text": "who coaches the patriots now", "label": "none"}
+{"text": "what's bitcoin at", "label": "none"}
+{"text": "eth price", "label": "none"}
+{"text": "price of gold today", "label": "none"}
+{"text": "how's the s&p doing today", "label": "none"}
+{"text": "tesla stock", "label": "none"}
+{"text": "mortgage rates this week", "label": "none"}
+{"text": "what are interest rates at right now", "label": "none"}
+{"text": "is the airport open after the storm", "label": "none"}
+{"text": "flight status for the morning flight from boston to dallas", "label": "none"}
+{"text": "are there delays on the northern line", "label": "none"}
+{"text": "when is the next bus to the city center", "label": "none"}
+{"text": "what's trending on twitter", "label": "none"}
+{"text": "what are people saying about the new pixel phone", "label": "none"}
+{"text": "reviews of the new galaxy watch", "label": "none"}
+{"text": "is the new zelda game any good, what are reviewers saying", "label": "none"}
+{"text": "what's the score in the cricket", "label": "none"}
+{"text": "liverpool score", "label": "none"}
+{"text": "did spain win", "label": "none"}
+{"text": "f1 results from the weekend", "label": "none"}
+{"text": "design a scalable chat backend that supports a million concurrent users", "label": "none"}
+{"text": "design a database schema for a hospital with patients, doctors and appointments and justify the choices", "label": "none"}
+{"text": "what are the trade-offs between microservices and a monolith for a five person team", "label": "none"}
+{"text": "prove that the square root of 2 is irrational", "label": "none"}
+{"text": "derive the formula for the sum of a geometric series", "label": "none"}
+{"text": "prove there are infinitely many primes", "label": "none"}
+{"text": "solve this system of equations and show your work: 3x + 2y = 12, x - y = 1", "label": "none"}
+{"text": "a bat and a ball cost $1.10 together and the bat costs $1 more than the ball, how much is the ball, explain the reasoning", "label": "none"}
+{"text": "optimize our delivery routes given five trucks, twelve stops and a two hour window per stop", "label": "none"}
+{"text": "we have a budget of 50k, three hires to make and two products to ship, help me prioritize under those constraints", "label": "none"}
+{"text": "figure out the root cause: our signups dropped 30% after the redesign but traffic stayed flat", "label": "none"}
+{"text": "diagnose why my sourdough keeps coming out dense given these five changes i made", "label": "none"}
+{"text": "compare postgres, mongodb and dynamodb for our analytics workload against cost, latency and operational burden", "label": "none"}
+{"text": "evaluate these three job offers against salary, growth, commute and stability and recommend one", "label": "none"}
+{"text": "analyze the pros and cons of leasing vs buying a car over seven years with these numbers", "label": "none"}
+{"text": "should we raise prices or cut costs? walk through the second order effects", "label": "none"}
+{"text": "build a decision framework for choosing which features to cut from the release", "label": "none"}
+{"text": "what is the expected value of this bet: 30% chance to win 500, 70% chance to lose 150", "label": "none"}
+{"text": "calculate the break even point if fixed costs are 20k and margin per unit is 12", "label": "none"}
+{"text": "find the flaw in this argument: all birds can fly, penguins are birds, so penguins can fly", "label": "none"}
+{"text": "claen this up", "label": "edit"}
+{"text": "so punch this up", "label": "edit"}
+{"text": "Trnaslate", "label": "translate"}
+{"text": "hey can you tell me, hey, fix the punctuation?", "label": "edit"}
+{"text": "potruguese please", "label": "translate"}
+{"text": "hey hey, reword this to sound warmer lol", "label": "edit"}
+{"text": "hi, make it shorter and sweeter thanks", "label": "edit"}
+{"text": "hey can you tell me, fix the wording!!", "label": "edit"}
+{"text": "traudce esto al ingles", "label": "none", "nearMiss": true}
+{"text": "can you give me feedabck on this cover letter", "label": "none", "nearMiss": true}
+{"text": "so pls translate it into arabic lol", "label": "translate"}
+{"text": "pls explain this silde text", "label": "none", "nearMiss": true}
+{"text": "so what does \"rewrite this\" mean?", "label": "none"}
+{"text": "what does this say in english, transltae it", "label": "translate"}
+{"text": "relpy to this", "label": "none", "nearMiss": true}
+{"text": "make it more poltie", "label": "edit"}
+{"text": "yo who wrote this cover letter pls", "label": "none", "nearMiss": true}
+{"text": "quickly trnaslate this to greek", "label": "translate"}
+{"text": "so hey, translate to turkish and keep the tone pls", "label": "translate"}
+{"text": "what's the author's opinoin", "label": "none", "nearMiss": true}
+{"text": "pull out the nmaes mentioned", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, is this announcement in indonesian? thx", "label": "none", "nearMiss": true}
+{"text": "so could you change the tone to apologetic!!", "label": "edit"}
+{"text": "make it sanppier", "label": "edit"}
+{"text": "hey can you tell me, can you explain this announcement lol", "label": "none", "nearMiss": true}
+{"text": "hi, what's the deadline in this thx", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, could you give me feedback on this note lol", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, pls reply to this slide text pls", "label": "none", "nearMiss": true}
+{"text": "hi, hey, translate this into chinese for me?", "label": "translate"}
+{"text": "who wrtoe this post", "label": "none", "nearMiss": true}
+{"text": "hey can you polish this cover letter thanks", "label": "edit"}
+{"text": "can you summarize this messgae", "label": "none", "nearMiss": true}
+{"text": "ok so would you list the action items in this bio please", "label": "none", "nearMiss": true}
+{"text": "what do you tihnk of this", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, is the grammar in this slide text correct? pls", "label": "none", "nearMiss": true}
+{"text": "quick question: can you explain the grammar here?", "label": "none", "nearMiss": true}
+{"text": "quickly translate to dansih and keep the tone", "label": "translate"}
+{"text": "hey can you tell me, explain this note please", "label": "none", "nearMiss": true}
+{"text": "trasnlate to italian and keep the tone", "label": "translate"}
+{"text": "wolud you make it friendlier", "label": "edit"}
+{"text": "is this paragraph more conicse enough?", "label": "none", "nearMiss": true}
+{"text": "wuold you translate this intro to chinese", "label": "translate"}
+{"text": "yo please edit this paragraph to be more direct thanks", "label": "edit"}
+{"text": "hi, hey, translate it into dutch thx", "label": "translate"}
+{"text": "yo hey, translate this to turkish pls", "label": "translate"}
+{"text": "quick question: can you reply to this post thanks", "label": "none", "nearMiss": true}
+{"text": "so cut this down to two sentences?", "label": "edit"}
+{"text": "so how do you say this in turkish lol", "label": "translate"}
+{"text": "translate this into ducth", "label": "translate"}
+{"text": "hey can you tell me, list the action items in this message?", "label": "none", "nearMiss": true}
+{"text": "hi, translate this into hebrew for me pls", "label": "translate"}
+{"text": "quick question: quickly summarize this bio please", "label": "none", "nearMiss": true}
+{"text": "can you tighten up this announcmeent", "label": "edit"}
+{"text": "is this silde text in hindi?", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, translate this into spanish for me pls", "label": "translate"}
+{"text": "hey is this cover letter longer enough?", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, is this accurate?", "label": "none", "nearMiss": true}
+{"text": "how shuold i answer this post", "label": "none", "nearMiss": true}
+{"text": "pls transltae into swedish", "label": "translate"}
+{"text": "um can you translate this paragraph to hindi please", "label": "translate"}
+{"text": "why does this sonud off", "label": "none", "nearMiss": true}
+{"text": "could you polish this catpion", "label": "edit"}
+{"text": "say this diffeerntly", "label": "edit"}
+{"text": "yo english please!!", "label": "translate"}
+{"text": "yo make it friendlier please", "label": "edit"}
+{"text": "hey please reword this to sound simpler please", "label": "edit"}
+{"text": "is it hard to trasnlate this caption into dutch?", "label": "none", "nearMiss": true}
+{"text": "plaese translate into turkish", "label": "translate"}
+{"text": "relpy to this paragraph", "label": "none", "nearMiss": true}
+{"text": "hi, can you proofread this caption thanks", "label": "edit"}
+{"text": "hey would you give me this in german?", "label": "translate"}
+{"text": "please reply to this emial", "label": "none", "nearMiss": true}
+{"text": "how shuold i answer this cover letter", "label": "none", "nearMiss": true}
+{"text": "um is the grammar in this message correct? pls", "label": "none", "nearMiss": true}
+{"text": "ok so hey, polish this note?", "label": "edit"}
+{"text": "could you give me feedback on this pargaraph", "label": "none", "nearMiss": true}
+{"text": "ok so hey, translate it into czech thanks", "label": "translate"}
+{"text": "wuold you change the tone to apologetic", "label": "edit"}
+{"text": "hey can you tell me, fix the punctuation thx", "label": "edit"}
+{"text": "can you proofraed this email", "label": "edit"}
+{"text": "who worte this message", "label": "none", "nearMiss": true}
+{"text": "how do you say this in cezch", "label": "translate"}
+{"text": "hi, quickly translate this into polish for me lol", "label": "translate"}
+{"text": "hi, polish this pls", "label": "edit"}
+{"text": "quick question: polish it up?", "label": "edit"}
+{"text": "quickly summarize this praagraph", "label": "none", "nearMiss": true}
+{"text": "hey would you translate to vietnamese and keep the tone", "label": "translate"}
+{"text": "would you rewrtie this to be more professional", "label": "edit"}
+{"text": "hey please make it shorter pls", "label": "edit"}
+{"text": "quick question: can you translate this slide text to hindi pls", "label": "translate"}
+{"text": "hey can you tell me, hey, make it shorter thx", "label": "edit"}
+{"text": "pls fix the tyops", "label": "edit"}
+{"text": "hey, reowrd this to sound more casual", "label": "edit"}
+{"text": "ok so pls make it warmer pls", "label": "edit"}
+{"text": "um who is this addressed to", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, please make this more casual", "label": "edit"}
+{"text": "hey is this paragraph less stiff enough??", "label": "none", "nearMiss": true}
+{"text": "does this sonud rude?", "label": "none", "nearMiss": true}
+{"text": "is this message more upebat enough?", "label": "none", "nearMiss": true}
+{"text": "um shorter", "label": "edit"}
+{"text": "pls trnaslate this into vietnamese for me", "label": "translate"}
+{"text": "um pls translate this to thai lol", "label": "translate"}
+{"text": "ok so can you rewrite this to be more polite lol", "label": "edit"}
+{"text": "how do you say this in koraen", "label": "translate"}
+{"text": "um please give me feedback on this message", "label": "none", "nearMiss": true}
+{"text": "ok so how do dutch speakers say thanks!!", "label": "none", "nearMiss": true}
+{"text": "hey can you tell me, learn spanish tips please", "label": "none", "nearMiss": true}
+{"text": "quick question: is this bio warmer enough??", "label": "none", "nearMiss": true}
+{"text": "yo can you cut this to 75 words", "label": "edit"}
+{"text": "yo can you translate this into finnish for me lol", "label": "translate"}
+{"text": "does this mesasge sound simpler?", "label": "none", "nearMiss": true}
+{"text": "um could you summarize this message", "label": "none", "nearMiss": true}
+{"text": "rpely to this message", "label": "none", "nearMiss": true}
+{"text": "is it hard to translate this cvoer letter into chinese?", "label": "none", "nearMiss": true}
+{"text": "yo fix the awkward phrasing thx", "label": "edit"}
+{"text": "is it hard to trnaslate this note into indonesian?", "label": "none", "nearMiss": true}
+{"text": "please translate this silde text to german", "label": "translate"}
+{"text": "colud you explain this bio", "label": "none", "nearMiss": true}
+{"text": "translate to madnarin", "label": "translate"}
+{"text": "yo is this summary too long?!!", "label": "none", "nearMiss": true}
+{"text": "ok so would you fix the capitalization thx", "label": "edit"}
+{"text": "could you rewirte this slide text", "label": "edit"}
+{"text": "hey can you tell me, condense this lol", "label": "edit"}
+{"text": "does this eamil sound longer?", "label": "none", "nearMiss": true}
+{"text": "trnaslate this into german for me", "label": "translate"}
+{"text": "make it more upbaet", "label": "edit"}
+{"text": "change it to suond more formal", "label": "edit"}
+{"text": "um pls cut this to 200 words thx", "label": "edit"}
+{"text": "yo quickly translate this into english for me", "label": "translate"}
+{"text": "extract the dtaes from this", "label": "none", "nearMiss": true}
+{"text": "can you transalte to hindi and keep the tone", "label": "translate"}
+{"text": "hi, quickly make it more upbeat!!", "label": "edit"}
+{"text": "ok so does this email sound more professional? pls", "label": "none", "nearMiss": true}
+{"text": "hi, translate to japanese please", "label": "translate"}
+{"text": "hey, translate to japnaese and keep the tone", "label": "translate"}
+{"text": "ok so what's the french word for cat thanks", "label": "none", "nearMiss": true}
+{"text": "pls rewrtie this message", "label": "edit"}
+{"text": "is this messgae in english?", "label": "none", "nearMiss": true}
+{"text": "so pls put this in greek thanks", "label": "translate"}
+{"text": "ok so can you make the tone warmer lol", "label": "edit"}
+{"text": "so please rewrite this to be friendlier pls", "label": "edit"}
+{"text": "um pls translate to turkish and keep the tone!!", "label": "translate"}
+{"text": "hey please fix the capitalization in this?", "label": "edit"}
+{"text": "colud you translate it into norwegian", "label": "translate"}
+{"text": "um please fix the verb tenses in this", "label": "edit"}
+{"text": "pls make it a bit more nuetral", "label": "edit"}
+{"text": "hey can you tell me, how should i answer this slide text lol", "label": "none", "nearMiss": true}
+{"text": "tarnslate to english and keep the tone", "label": "translate"}
+{"text": "quick question: fix grammer!!", "label": "edit"}
+{"text": "what's the main ponit of this cover letter", "label": "none", "nearMiss": true}
+{"text": "quick question: is this paragraph too long? lol", "label": "none", "nearMiss": true}
+{"text": "rewrite it as a tewet", "label": "edit"}
+{"text": "yo can you reply to this email", "label": "none", "nearMiss": true}
+{"text": "please cut this to 20 wodrs", "label": "edit"}
+{"text": "um quickly make it a bit less formal thanks", "label": "edit"}
+{"text": "hey make a list of the action items thanks", "label": "none", "nearMiss": true}
+{"text": "um would you fix the verb tenses in this!!", "label": "edit"}
+{"text": "make all of this shorter and clearer\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.", "label": "edit"}
+{"text": "The apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nrewrite this to sound more formal", "label": "edit"}
+{"text": "fix the grammar and spelling in this\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "edit"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\npolish this so it reads smoothly", "label": "edit"}
+{"text": "tighten this up, it rambles\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "edit"}
+{"text": "Our neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nchange the tone to be more upbeat", "label": "edit"}
+{"text": "translate all of this into spanish\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "translate"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\ntranslate this into german please", "label": "translate"}
+{"text": "put this in french\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "translate"}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\ntranslate to japanese", "label": "translate"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nwhat is this about", "label": "none", "nearMiss": true}
+{"text": "who might have written this\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "none", "nearMiss": true}
+{"text": "Our soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nexplain the second part", "label": "none", "nearMiss": true}
+{"text": "is this too long?\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "none", "nearMiss": true}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nreply to this for me", "label": "none", "nearMiss": true}

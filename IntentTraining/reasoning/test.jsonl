@@ -1,0 +1,288 @@
+{"asOf": "2026-10-27"}
+{"text": "compare postgres vs mongodb for an app with lots of relational data and some unstructured logs, and recommend one", "label": "yes"}
+{"text": "design a url shortener that handles 10k requests per second", "label": "yes"}
+{"text": "I have $40k, should I pay off my 6% student loan or invest in an index fund? walk through the trade-offs", "label": "yes"}
+{"text": "our website's checkout conversions dropped 30% after last week's release, help me figure out the root cause", "label": "yes"}
+{"text": "plan the cheapest way to visit Rome, Florence and Venice in 6 days with trains, I have a budget of 900 euros", "label": "yes"}
+{"text": "weigh the pros and cons of leasing vs buying a car given I drive 20k miles a year", "label": "yes"}
+{"text": "design a database schema for a library with books, members, loans and reservations", "label": "yes"}
+{"text": "prove by induction that 1+2+...+n = n(n+1)/2", "label": "yes"}
+{"text": "my sourdough keeps coming out dense even though I've changed flour, hydration and proofing time — what's the most likely cause given all that", "label": "yes"}
+{"text": "compare three job offers by salary, commute, growth and remote policy and rank them", "label": "yes"}
+{"text": "optimize my weekly schedule: 40 hrs work, 3 gym sessions, 2 evenings with kids, and I need 8 hours sleep", "label": "yes"}
+{"text": "why is my monthly electricity bill doubling in winter when I use heat pumps? help me diagnose it step by step", "label": "yes"}
+{"text": "design a fair tournament format for 13 teams with 4 courts and one day", "label": "yes"}
+{"text": "is it better for our startup to raise a seed round now or bootstrap another year? consider runway, dilution and market timing", "label": "yes"}
+{"text": "derive the kinetic energy formula from work", "label": "yes"}
+{"text": "figure out the optimal number of solar panels for my roof given 25 sqm, $8k budget and my usage of 600 kWh a month", "label": "yes"}
+{"text": "evaluate whether microservices or a monolith fits a 5 person team building a marketplace", "label": "yes"}
+{"text": "what's the best strategy in the monty hall problem and prove why", "label": "yes"}
+{"text": "I'm choosing between three apartments with different rents, commute times and sizes. Help me build a scoring model and decide.", "label": "yes"}
+{"text": "design a caching strategy for an api where data changes every few minutes but reads are 100x writes", "label": "yes"}
+{"text": "our team keeps missing deadlines. analyse possible root causes and suggest fixes, here's the context: 4 devs, 2 week sprints, lots of unplanned support work", "label": "yes"}
+{"text": "solve this system: 3x + 2y - z = 1, 2x - 2y + 4z = -2, -x + y/2 - z = 0", "label": "yes"}
+{"text": "compare the long term cost of a heat pump vs gas furnace over 15 years with these prices", "label": "yes"}
+{"text": "show that there are infinitely many primes", "label": "yes"}
+{"text": "how should I architect offline sync for a notes app with conflicts between devices", "label": "yes"}
+{"text": "which is the better investment for retirement, roth or traditional, given I'm 28 and expect higher income later? reason it through", "label": "yes"}
+{"text": "my car makes a clunk when turning left only at low speed after it rained — diagnose likely causes in order", "label": "yes"}
+{"text": "design an algorithm to schedule exams so no student has two at once", "label": "yes"}
+{"text": "analyze the trade-offs between nuclear and wind for a small island nation's grid", "label": "yes"}
+{"text": "prove that a graph with n nodes and n edges must contain a cycle", "label": "yes"}
+{"text": "plan a seating chart for 40 wedding guests at 5 tables where these 6 pairs can't sit together", "label": "yes"}
+{"text": "compare react native, flutter and native swift for our app considering team skills, performance and time to market", "label": "yes"}
+{"text": "derive bayes theorem and use it on this medical test example: 1% prevalence, 95% sensitivity, 90% specificity", "label": "yes"}
+{"text": "figure out why our email open rates fell from 40% to 18% over 3 months, here's what changed", "label": "yes"}
+{"text": "work out the most efficient route to visit these 7 stops on saturday and be back by 3", "label": "yes"}
+{"text": "weigh moving to Berlin vs staying in London for my career in UX, considering salary, cost of living and language", "label": "yes"}
+{"text": "design a rate limiter for a public api", "label": "yes"}
+{"text": "is it worth refinancing my mortgage from 7.1% to 6.2% with $4,500 closing costs if I'll stay 5 years? show the math", "label": "yes"}
+{"text": "why does my plant die every time I repot it? I've changed soil, pots and watering, analyse what's left", "label": "yes"}
+{"text": "choose the best of these 4 project management tools for a 30 person nonprofit against cost, ease and integrations", "label": "yes"}
+{"text": "derive the quadratic formula by completing the square", "label": "yes"}
+{"text": "how would you design a recommendation system for a small bookstore's website", "label": "yes"}
+{"text": "break down the trade offs of index funds vs picking individual stocks for someone with moderate risk tolerance", "label": "yes"}
+{"text": "our app crashes only on older iPads after the last update, how would you systematically narrow down the cause", "label": "yes"}
+{"text": "prove that the sum of the angles in a triangle is 180 degrees", "label": "yes"}
+{"text": "minimize the cost of feeding my family of 4 for a week under 120 dollars with these dietary needs", "label": "yes"}
+{"text": "evaluate three ways to structure equity between co-founders who joined at different times", "label": "yes"}
+{"text": "design a backup strategy for a small law firm with 12 laptops and sensitive client files", "label": "yes"}
+{"text": "calculate how many years until I can retire if I save $1,500 a month at 6% and need $1.2M, then test what changes if returns are 4%", "label": "yes"}
+{"text": "what's the root cause of this outage: db cpu spiked, then api timeouts, then the queue backed up", "label": "yes"}
+{"text": "compare the arguments for and against a four day work week for a hospital", "label": "yes"}
+{"text": "design a state machine for a vending machine", "label": "yes"}
+{"text": "show that every bounded monotonic sequence converges", "label": "yes"}
+{"text": "analyse whether my small cafe should add delivery given 15% commission, my margins and staff", "label": "yes"}
+{"text": "plan a 12 week training program to go from 5k to half marathon given I can only run 4 days", "label": "yes"}
+{"text": "help me decide between doing an MBA or a master's in data science, weighing cost, career goals and 2 years of lost income", "label": "yes"}
+{"text": "diagnose why my home wifi drops every evening around 8pm", "label": "yes"}
+{"text": "design a fair way to split a $3,600 inheritance among 4 siblings where one paid more for mom's care", "label": "yes"}
+{"text": "which sorting algorithm should I use for nearly sorted data with millions of records and why", "label": "yes"}
+{"text": "reason through whether this argument is valid: all A are B, some B are C, so some A are C", "label": "yes"}
+{"text": "design the data pipeline for ingesting IoT sensor data from 10k devices", "label": "yes"}
+{"text": "optimize the order of tasks in this project plan to finish soonest, dependencies listed below", "label": "yes"}
+{"text": "compare buying a used EV vs new hybrid for my 50 mile daily commute in a cold climate", "label": "yes"}
+{"text": "derive the time it takes a ball dropped from 20m to hit the ground, with air resistance ignored, then discuss how drag changes it", "label": "yes"}
+{"text": "figure out which of my subscriptions to cancel to save $50 a month while keeping the ones I use most", "label": "yes"}
+{"text": "We run a small online shop selling handmade candles. Last quarter revenue grew 20% but profit fell 10%. Costs we know: wax went up 15%, shipping went up, and we started running Instagram ads. Can you help me work out what's actually eating our margin and what to change first?", "label": "yes"}
+{"text": "design a permissions model for a document app with teams, folders and sharing links", "label": "yes"}
+{"text": "is it smarter to take the lump sum pension or the annuity given my health and these numbers", "label": "yes"}
+{"text": "analyze the security trade-offs of storing auth tokens in localStorage vs httpOnly cookies", "label": "yes"}
+{"text": "prove that there's no largest even number", "label": "yes"}
+{"text": "my dishwasher leaves a gritty film even after I changed detergent and cleaned the filter, what's left to check", "label": "yes"}
+{"text": "plan a menu for a dinner party of 10 with one vegan, two gluten free and a nut allergy, using each oven slot efficiently", "label": "yes"}
+{"text": "evaluate the pros and cons of three different neighborhoods for a family with a toddler and a dog", "label": "yes"}
+{"text": "explain and prove why the halting problem is undecidable", "label": "yes"}
+{"text": "design a queue system for a busy clinic to minimize average wait time", "label": "yes"}
+{"text": "compare term vs whole life insurance for a 35 year old with two kids and a mortgage, considering cost and coverage", "label": "yes"}
+{"text": "figure out the minimum number of weighings to find the fake coin among 12", "label": "yes"}
+{"text": "optimize my investment allocation across 4 funds given expected returns, volatility and my 10 year horizon", "label": "yes"}
+{"text": "why did our sign ups spike on tuesday and drop on wednesday? here's the data, analyse possible explanations", "label": "yes"}
+{"text": "architect a multiplayer game server for 100 players per match", "label": "yes"}
+{"text": "weigh the ethics of using AI to grade student essays from the perspective of teachers, students and parents", "label": "yes"}
+{"text": "plan the logistics of moving a family of 5 across the country in 3 weeks with a budget of $6k", "label": "yes"}
+{"text": "derive the expected value of rolling two dice and taking the max", "label": "yes"}
+{"text": "I'm trying to decide whether to accept a counteroffer from my current employer or leave for a startup. Here are the details... help me reason through it properly", "label": "yes"}
+{"text": "what's the optimal strategy for paying off 4 credit cards with different balances and rates, avalanche or snowball, show both", "label": "yes"}
+{"text": "diagnose why my python service's memory grows over hours, given these observations", "label": "yes"}
+{"text": "compare the trade offs of renting out my spare room vs listing it short term, factoring in taxes, wear and time", "label": "yes"}
+{"text": "design a loyalty program for a coffee shop that doesn't lose money", "label": "yes"}
+{"text": "prove that 0.999... equals 1", "label": "yes"}
+{"text": "analyze which of these 3 marketing channels gives us the best return given costs and conversion rates", "label": "yes"}
+{"text": "design an elevator scheduling algorithm for a 20 floor building", "label": "yes"}
+{"text": "is a 15 year or 30 year mortgage better for me if I can invest the difference at 7%? walk me through it", "label": "yes"}
+{"text": "figure out how to cut our team's AWS bill by 30% without hurting latency", "label": "yes"}
+{"text": "evaluate whether to repair my 12 year old car ($2,800) or replace it, considering reliability and costs", "label": "yes"}
+{"text": "plan the most efficient study schedule for 5 exams in 10 days with different weights and my weak subjects", "label": "yes"}
+{"text": "design a sharding strategy for a users table that's about to hit a billion rows", "label": "yes"}
+{"text": "compare the philosophical arguments for free will vs determinism and assess which is stronger", "label": "yes"}
+{"text": "find the flaw in this proof that 1 = 2", "label": "yes"}
+{"text": "our nonprofit has to cut 20% of the budget, help me analyse which programs to scale back against our mission and donor commitments", "label": "yes"}
+{"text": "design an interview process for hiring 3 engineers in 2 months, balancing speed and quality", "label": "yes"}
+{"text": "why is my bread rising then collapsing in the oven? consider yeast, temp and timing and narrow it down", "label": "yes"}
+{"text": "help me compare 3 health insurance plans given my expected doctor visits and a planned surgery", "label": "yes"}
+{"text": "work out a fair chore schedule for 4 roommates with different work shifts", "label": "yes"}
+{"text": "derive the formula for compound interest compounded continuously", "label": "yes"}
+{"text": "which of these two contracts is better for me as a freelancer? compare payment terms, IP, termination", "label": "yes"}
+{"text": "design a notification system that avoids spamming users but doesn't miss urgent alerts", "label": "yes"}
+{"text": "analyse why the Roman republic transitioned to an empire, weighing economic, military and political factors", "label": "yes"}
+{"text": "who is taylor swift dating", "label": "no"}
+{"text": "logo design ideas for a bakery", "label": "no"}
+{"text": "what's the capital of japan", "label": "no"}
+{"text": "summarize this paragraph in one sentence", "label": "no"}
+{"text": "what should I have for dinner", "label": "no"}
+{"text": "how long should I boil an egg", "label": "no"}
+{"text": "what's 15% of 80", "label": "no"}
+{"text": "translate thanks into italian", "label": "no"}
+{"text": "lol that's funny", "label": "no"}
+{"text": "what time is it in london", "label": "no"}
+{"text": "write a haiku about rain", "label": "no"}
+{"text": "how many ounces in a pound", "label": "no"}
+{"text": "good morning!", "label": "no"}
+{"text": "what does procrastinate mean", "label": "no"}
+{"text": "what's a good gift for my dad", "label": "no"}
+{"text": "give me 5 baby names", "label": "no"}
+{"text": "how do I get a stain out of my shirt", "label": "no"}
+{"text": "what's the weather like tomorrow", "label": "no"}
+{"text": "who wrote 1984", "label": "no"}
+{"text": "what color goes with navy", "label": "no"}
+{"text": "is it ok to drink coffee on an empty stomach", "label": "no"}
+{"text": "name 3 rivers in europe", "label": "no"}
+{"text": "how do I say no to plans politely", "label": "no"}
+{"text": "whats a quick snack before the gym", "label": "no"}
+{"text": "how tall is the eiffel tower", "label": "no"}
+{"text": "what's the plural of cactus", "label": "no"}
+{"text": "tell me a bedtime story", "label": "no"}
+{"text": "tldr this article for me", "label": "no"}
+{"text": "what's a synonym for happy", "label": "no"}
+{"text": "how many days until christmas", "label": "no"}
+{"text": "rewrite this sentence to be shorter", "label": "no"}
+{"text": "whats the best pizza topping", "label": "no"}
+{"text": "any tips for sleeping better", "label": "no"}
+{"text": "how do I make my room smell nice", "label": "no"}
+{"text": "what does RSVP stand for", "label": "no"}
+{"text": "write a birthday message for my aunt", "label": "no"}
+{"text": "give me a joke about cats", "label": "no"}
+{"text": "who's the main character in harry potter", "label": "no"}
+{"text": "what's the boiling point of water", "label": "no"}
+{"text": "how do I tie a tie", "label": "no"}
+{"text": "how do I thank my mentor", "label": "no"}
+{"text": "what rhymes with blue", "label": "no"}
+{"text": "what's 9 times 7", "label": "no"}
+{"text": "design ideas for my nails", "label": "no", "nearMiss": true}
+{"text": "interior design ideas for a small bathroom", "label": "no", "nearMiss": true}
+{"text": "prove you're not a robot lol", "label": "no", "nearMiss": true}
+{"text": "compare these two shades of blue, which is prettier", "label": "no", "nearMiss": true}
+{"text": "which is better, cats or dogs?", "label": "no", "nearMiss": true}
+{"text": "analyse my dream: I was flying over a lake", "label": "no", "nearMiss": true}
+{"text": "what's the root of the word \"biology\"", "label": "no", "nearMiss": true}
+{"text": "optimize my instagram bio, it says: coffee & books", "label": "no", "nearMiss": true}
+{"text": "a quick summary of the trade deal news, just 2 lines", "label": "no", "nearMiss": true}
+{"text": "what's the derivative of x^2", "label": "no", "nearMiss": true}
+{"text": "solve this riddle: what has keys but can't open locks", "label": "no", "nearMiss": true}
+{"text": "what's 2+2", "label": "no", "nearMiss": true}
+{"text": "what's the pros and cons of oat milk, quick list", "label": "no", "nearMiss": true}
+{"text": "design a birthday card for my grandma", "label": "no", "nearMiss": true}
+{"text": "diagnose: is it normal to sneeze when looking at the sun", "label": "no", "nearMiss": true}
+{"text": "give me a strategy game recommendation", "label": "no", "nearMiss": true}
+{"text": "trade-off is one word or two?", "label": "no", "nearMiss": true}
+{"text": "logic puzzle books for kids, recommend some", "label": "no", "nearMiss": true}
+{"text": "what's the system requirement for the new sims game", "label": "no", "nearMiss": true}
+{"text": "architecture of the colosseum, short description", "label": "no", "nearMiss": true}
+{"text": "proof read this for me: I goes to school", "label": "no", "nearMiss": true}
+{"text": "I need to optimize my time, any quick tips?", "label": "no", "nearMiss": true}
+{"text": "what's a root canal", "label": "no", "nearMiss": true}
+{"text": "which is heavier, a kilo of feathers or a kilo of bricks", "label": "no", "nearMiss": true}
+{"text": "compare prices of iphone 15 and 16", "label": "no", "nearMiss": true}
+{"text": "systems thinking — what is it in one sentence", "label": "no", "nearMiss": true}
+{"text": "weigh 200 grams of flour without a scale, how?", "label": "no", "nearMiss": true}
+{"text": "evaluate my outfit: black jeans and a white tee", "label": "no", "nearMiss": true}
+{"text": "why is the sky blue", "label": "no", "nearMiss": true}
+{"text": "design a cute name tag for my dog", "label": "no", "nearMiss": true}
+{"text": "explain what a hypothesis is", "label": "no", "nearMiss": true}
+{"text": "what's the best way to fold a fitted sheet", "label": "no", "nearMiss": true}
+{"text": "should I get the blue or the red sweater", "label": "no", "nearMiss": true}
+{"text": "solve x + 3 = 10", "label": "no", "nearMiss": true}
+{"text": "what's a good derivation of the name Olivia", "label": "no", "nearMiss": true}
+{"text": "what does \"root cause\" mean", "label": "no", "nearMiss": true}
+{"text": "how do you calculate a tip", "label": "no", "nearMiss": true}
+{"text": "what's an algorithm in simple terms", "label": "no", "nearMiss": true}
+{"text": "compare apples and oranges lol, just kidding, which has more vitamin C", "label": "no", "nearMiss": true}
+{"text": "is it better to shower morning or night", "label": "no", "nearMiss": true}
+{"text": "what's the optimal temperature for a bedroom", "label": "no", "nearMiss": true}
+{"text": "give me the trade-offs of short vs long hair in one line", "label": "no", "nearMiss": true}
+{"text": "design thinking definition", "label": "no", "nearMiss": true}
+{"text": "what's 25% off of $60", "label": "no", "nearMiss": true}
+{"text": "prove it! (just kidding) - tell me a fun fact about octopuses", "label": "no", "nearMiss": true}
+{"text": "analyze this poem's rhyme scheme quickly: roses are red violets are blue", "label": "no", "nearMiss": true}
+{"text": "what are the rules of sudoku", "label": "no", "nearMiss": true}
+{"text": "which phone is better, iphone or android, your quick take", "label": "no", "nearMiss": true}
+{"text": "what's a system of equations", "label": "no", "nearMiss": true}
+{"text": "what's the best route to the airport? just roughly, driving or train", "label": "no", "nearMiss": true}
+{"text": "a strategy for remembering names?", "label": "no", "nearMiss": true}
+{"text": "diagnosed with a cold, what soup should I eat", "label": "no", "nearMiss": true}
+{"text": "evaluate 3 + 4 × 2", "label": "no", "nearMiss": true}
+{"text": "compare these two words: affect and effect", "label": "no", "nearMiss": true}
+{"text": "why do cats sleep so much", "label": "no", "nearMiss": true}
+{"text": "optimize: make this text shorter", "label": "no", "nearMiss": true}
+{"text": "My friend Cyrus says I always overthink things and I should just \"decide already\". Today it's about which pizza to order lol. pepperoni or margherita?", "label": "no", "nearMiss": true}
+{"text": "I'm making a slideshow for my parents' 30th anniversary party and need a cheerful title for it. Something with a pun on \"30 years\" would be great. Any ideas?", "label": "no", "nearMiss": true}
+{"text": "derivative works under copyright, what does that mean briefly", "label": "no", "nearMiss": true}
+{"text": "what is game theory in one paragraph", "label": "no", "nearMiss": true}
+{"text": "which planet is the biggest", "label": "no", "nearMiss": true}
+{"text": "plan my afternoon: gym then groceries, what order", "label": "no", "nearMiss": true}
+{"text": "design a fun t-shirt slogan for our running club", "label": "no", "nearMiss": true}
+{"text": "compare the weather in Lisbon and Porto this time of year", "label": "no", "nearMiss": true}
+{"text": "analyze my handwriting? lol can you even do that", "label": "no", "nearMiss": true}
+{"text": "what's a good strategy for monopoly", "label": "no", "nearMiss": true}
+{"text": "what are the trade winds", "label": "no", "nearMiss": true}
+{"text": "should I text her back tonight or tomorrow", "label": "no", "nearMiss": true}
+{"text": "weigh in: is a hot dog a sandwich", "label": "no", "nearMiss": true}
+{"text": "logic of \"if it ain't broke don't fix it\" — where's the phrase from", "label": "no", "nearMiss": true}
+{"text": "how do I water a cactus", "label": "no"}
+{"text": "what's the name of that song that goes \"la la la\" from tiktok", "label": "no"}
+{"text": "write a short thank you to my team for the pizza party", "label": "no"}
+{"text": "is it rude to recline your seat on a plane", "label": "no"}
+{"text": "whats the population of norway roughly", "label": "no"}
+{"text": "recommend a podcast for my commute", "label": "no"}
+{"text": "what's a good stretch after running", "label": "no"}
+{"text": "explain what photosynthesis is in two sentences", "label": "no"}
+{"text": "how do I make my coffee less bitter", "label": "no"}
+{"text": "what does a notary do", "label": "no"}
+{"text": "cool thanks", "label": "no"}
+{"text": "I've had a really long week at work, my manager has been on my case about the quarterly report and my cat has been sick. I just want to vent for a sec. Anyway, what's a good comfort movie to watch tonight?", "label": "no"}
+{"text": "give me a fun icebreaker for a team call", "label": "no"}
+{"text": "how long does it take to fly from Paris to New York", "label": "no"}
+{"text": "what's the best design app for beginners", "label": "no", "nearMiss": true}
+{"text": "a quick pro/con: should I bring an umbrella", "label": "no", "nearMiss": true}
+{"text": "compare 3 easy pasta recipes, just list them", "label": "no", "nearMiss": true}
+{"text": "my laptop fan is loud, is that normal?", "label": "no", "nearMiss": true}
+{"text": "which of these names sounds nicer: Mila or Nora", "label": "no", "nearMiss": true}
+{"text": "analyse whether I should switch from my current phone plan ($65, 10GB) to a family plan with my sister ($110 for both, unlimited) given we each use about 15GB and she sometimes pays late", "label": "yes"}
+{"text": "design an inventory system for a bakery that minimizes waste given daily demand varies by weekday", "label": "yes"}
+{"text": "prove that the product of two odd numbers is odd, then generalize to any number of odd factors", "label": "yes"}
+{"text": "our team's build times went from 4 to 15 minutes over two months. given we added 3 new modules, switched CI runners and upgraded the compiler, help me isolate the cause", "label": "yes"}
+{"text": "compare three ways to fund my kid's college (529, brokerage, paying off the house early) against flexibility, taxes and expected returns", "label": "yes"}
+{"text": "work out the cheapest combination of bus passes for a month where I commute 18 days and travel on 4 weekends", "label": "yes"}
+{"text": "my two kids' school runs overlap by 10 minutes, one bus option and one car, work out a weekly plan that gets both there on time and keeps my 8:30 meetings", "label": "yes"}
+{"text": "compare keeping our old furnace with a $600/yr repair habit vs replacing it for $7k with 20% lower gas use, over 10 years, and say which wins under what gas prices", "label": "yes"}
+{"text": "our shared fridge at work keeps running out of milk midweek despite two deliveries — reason out what's actually going on and how to fix the ordering", "label": "yes"}
+{"text": "prove that any 6 people include either 3 mutual friends or 3 mutual strangers", "label": "yes"}
+{"text": "design a sign-up and waitlist scheme for a pottery class with 8 wheels, 3 skill levels and people who no-show a lot", "label": "yes"}
+{"text": "quick: is it 'compare to' or 'compare with'", "label": "no", "nearMiss": true}
+{"text": "give me a name idea for a podcast about strategy board games", "label": "no", "nearMiss": true}
+{"text": "what's the boiling point of olive oil, just the number", "label": "no"}
+{"text": "lol my cat just knocked over my coffee, mood", "label": "no"}
+{"text": "design a cozy reading nook vibe, like what colors", "label": "no", "nearMiss": true}
+{"text": "in one sentence, what is a trade-off", "label": "no", "nearMiss": true}
+{"text": "can you design a rate limiter class in go that supports per-user limits and bursts? walk me thru the tradeoffs", "label": "yes"}
+{"text": "explain what this recursive function actually does step by step, i inherited it and nobody knows: def f(n, acc=[]): ...", "label": "yes"}
+{"text": "my react component re-renders like 40 times when i type one letter in the search box, help me figure out why", "label": "yes"}
+{"text": "the nightly job fails only on the first of the month and the stack trace points at a date parse. what's the root cause likely to be and how do i confirm it", "label": "yes"}
+{"text": "implement an LRU cache in typescript with O(1) get and put, plus tests", "label": "yes"}
+{"text": "pls review this PR diff for race conditions, the order service writes to the same row from two workers", "label": "yes"}
+{"text": "refactor this 300 line controller into smaller pieces, its doing validation, db calls and email all in one method", "label": "yes"}
+{"text": "our sql query on the orders table takes 9 seconds, here's the EXPLAIN output. what index or rewrite would fix it?", "label": "yes"}
+{"text": "how should i model recurring calendar events in a database so edits to one occurrence dont break the series", "label": "yes"}
+{"text": "design a REST api for a small library app: books, members, loans, holds. include endpoints, status codes and pagination", "label": "yes"}
+{"text": "why does my swift actor deadlock when two tasks await each other? explain what's going on and how to restructure it", "label": "yes"}
+{"text": "write a function that merges overlapping time ranges and explain why your approach is correct for edge cases", "label": "yes"}
+{"text": "segfault in my C program only when compiled with -O2, valgrind says invalid read in parse_header. help me track it down", "label": "yes"}
+{"text": "whats the best data structure for autocomplete over 2 million product names, and how would you build it", "label": "yes"}
+{"text": "Could you look over my python script and tell me what's slow? it reads a 5GB csv and groups rows by customer", "label": "yes"}
+{"text": "explain how this regex based tokenizer handles nested quotes and where it breaks, then rewrite it as a proper state machine", "label": "yes"}
+{"text": "Mira's websocket chat app drops messages when the server restarts. design a reconnect + resend scheme that doesnt duplicate messages", "label": "yes"}
+{"text": "our unit tests pass locally but flake on CI about 1 in 5 runs, they share a temp dir. find the cause and suggest a fix. also is our mocking approach sane?", "label": "yes"}
+{"text": "how do i undo my last git commit", "label": "no", "nearMiss": true}
+{"text": "whats the shortcut to comment out a line in vscode on mac", "label": "no", "nearMiss": true}
+{"text": "syntax for a ternary in javascript?", "label": "no", "nearMiss": true}
+{"text": "command to see which process is using port 8080", "label": "no", "nearMiss": true}
+{"text": "how do you reverse a list in python, quick", "label": "no", "nearMiss": true}
+{"text": "npm command to update all packages", "label": "no", "nearMiss": true}
+{"text": "how to make a new branch in git and switch to it", "label": "no", "nearMiss": true}
+{"text": "what's the docker command to list running containers", "label": "no", "nearMiss": true}
+{"text": "how do i format a date as yyyy-mm-dd in swift", "label": "no", "nearMiss": true}
+{"text": "remind me how to write a for loop in bash", "label": "no", "nearMiss": true}
+{"text": "how to check node version", "label": "no", "nearMiss": true}
+{"text": "whats the css for centering a div horizontally and vertically", "label": "no", "nearMiss": true}
+{"text": "halve 3/4 cup of sugar for me", "label": "no", "nearMiss": true}

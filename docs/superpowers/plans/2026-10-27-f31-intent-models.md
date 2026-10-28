@@ -231,7 +231,7 @@ stays in its brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 3 | Q1 yes here (CI pending), Q2 BERT 6.4 ms > 5 ms chip budget so chips are maxEnt, Q3 yes, Q4 yes; owner approved type choice within speed limits and `--kind` skipping limits |
-| CP1 | not started | | |
+| CP1 | done | 2 (owner skipped a third) | Q1 yes on CI too, `allowsBERT` true; examples for six skills; owner spot-check 0 of 100 wrong; baseline accuracies search 0.760, messages 0.868, think 0.888, selection 0.762, coding 0.664, reasoning 0.676; owner: in-depth coding counts as reasoning too |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

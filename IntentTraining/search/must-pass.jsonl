@@ -1,0 +1,32 @@
+{"asOf": "2026-10-27"}
+{"text": "did my sister text me about dinner tonight", "label": "no", "why": "privacy: own texts never search"}
+{"text": "any new texts from my landlord today?", "label": "no", "why": "privacy: own texts"}
+{"text": "what did my boss email me about this morning's meeting", "label": "no", "why": "privacy: own email"}
+{"text": "did i miss a call from the school today", "label": "no", "why": "privacy: own calls"}
+{"text": "what's the latest in the cousins group chat", "label": "no", "why": "privacy: own group chat"}
+{"text": "summarize today's voicemails", "label": "no", "why": "privacy: own voicemail"}
+{"text": "show me my newest DMs", "label": "no", "why": "privacy: own DMs"}
+{"text": "what did grandma say on the phone today about the storm", "label": "no", "why": "privacy: own call, even with fresh words"}
+{"text": "don't search: who is the CEO of Apple now?", "label": "no", "why": "opt-out"}
+{"text": "no internet please, what's the newest iOS version you know about", "label": "no", "why": "opt-out"}
+{"text": "answer without searching: who won last night", "label": "no", "why": "opt-out"}
+{"text": "offline answer only: what's the weather in Paris today", "label": "no", "why": "opt-out"}
+{"text": "please don't look anything up. latest news on the strike?", "label": "no", "why": "opt-out"}
+{"text": "what was the last thing you told me today", "label": "no", "why": "this chat"}
+{"text": "what's happening in the world this week", "label": "yes", "why": "doc headline: what's happening in"}
+{"text": "cafes near me", "label": "yes", "why": "doc headline: nearby places"}
+{"text": "weather today", "label": "yes", "why": "doc headline: local weather"}
+{"text": "look up the ferry times online", "label": "yes", "why": "doc headline: look up online"}
+{"text": "is it going to rain here this afternoon", "label": "yes", "why": "local weather without a place"}
+{"text": "restaurants near me that are open now", "label": "yes", "why": "nearby places"}
+{"text": "who is the current prime minister of Spain", "label": "yes", "why": "who holds an office now"}
+{"text": "what are mortgage rates doing this week", "label": "yes", "why": "rates change"}
+{"text": "who won the 2014 World Cup", "label": "no", "why": "history"}
+{"text": "what happened in 1969 on the moon", "label": "no", "why": "history"}
+{"text": "summarize this article: the latest news from the summit", "label": "no", "why": "task on supplied text"}
+{"text": "translate \"what's the weather today\" into German", "label": "no", "why": "quoted and a transformation"}
+{"text": "what is a stock price, in simple terms", "label": "no", "why": "concept"}
+{"text": "write a poem about today's sunrise", "label": "no", "why": "writing"}
+{"text": "what's in the current file", "label": "no", "why": "doc: own work, not fresh information"}
+{"text": "summarize my latest draft", "label": "no", "why": "doc: own work"}
+{"text": "what are the latest SMS rules for my store", "label": "no", "why": "doc: held back by the own-communications rule; type /search for those"}

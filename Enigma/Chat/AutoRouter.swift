@@ -196,8 +196,6 @@ struct AutoRouter: Sendable {
     for request: Request,
     cloud: CloudConfiguration
   ) -> Decision {
-    let prompt = request.prompt.lowercased()
-
     // Attachment content still counts toward routing capacity, but cannot demand search.
     if requiresWebSearch(request.webSearchPrompt.lowercased()), !request.webSearchEnabled {
       guard cloud.capabilities.supportsWebSearch else {
@@ -242,7 +240,7 @@ struct AutoRouter: Sendable {
       return cloudDecision(for: cloud, reason: .exceedsLocalContext)
     }
 
-    if requiresCoding(prompt) {
+    if requiresCoding(request.prompt) {
       guard cloud.capabilities.supportsCoding else {
         if request.localCapabilities.supportsCoding, let localModel = request.localModel {
           return localDecision(for: localModel, reason: .localPreferred)
@@ -257,7 +255,7 @@ struct AutoRouter: Sendable {
       return cloudDecision(for: cloud, reason: .requiresCoding)
     }
 
-    if requiresAdvancedReasoning(prompt) {
+    if requiresAdvancedReasoning(request.prompt) {
       guard cloud.capabilities.reasoningLevel >= .advanced else {
         if request.localCapabilities.reasoningLevel >= .advanced,
            let localModel = request.localModel {
@@ -315,17 +313,19 @@ struct AutoRouter: Sendable {
     ])
   }
 
-  private static func requiresCoding(_ prompt: String) -> Bool {
-    containsAny(prompt, [
+  /// Takes the raw prompt and lowercases it itself.
+  static func requiresCoding(_ prompt: String) -> Bool {
+    containsAny(prompt.lowercased(), [
       "write code", "write a function", "implement ", "debug ", "stack trace",
       "swift", "python", "javascript", "typescript", "sql query", "regular expression",
     ])
   }
 
-  private static func requiresAdvancedReasoning(_ prompt: String) -> Bool {
+  /// Takes the raw prompt and lowercases it itself.
+  static func requiresAdvancedReasoning(_ prompt: String) -> Bool {
     // Whole words avoid matches such as "design" in "designer". Splitting also
     // makes punctuation, repeated whitespace, and hyphen variants equivalent.
-    let tokens = prompt.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+    let tokens = prompt.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
     let words = Set(tokens)
     let normalized = " " + tokens.joined(separator: " ") + " "
 

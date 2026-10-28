@@ -1,0 +1,960 @@
+{"asOf": "2026-10-27"}
+{"text": "Write Swift code.", "label": "yes"}
+{"text": "Implement this Swift function and debug the stack trace.", "label": "yes"}
+{"text": "Write Swift code for it.", "label": "yes"}
+{"text": "Hi, how are you?", "label": "no"}
+{"text": "Summarize this paragraph in three bullets.", "label": "no"}
+{"text": "Make this email shorter and friendlier.", "label": "no"}
+{"text": "Translate good morning into French.", "label": "no"}
+{"text": "Explain why the sky is blue.", "label": "no"}
+{"text": "Compare tea and coffee in one sentence.", "label": "no"}
+{"text": "Write a story about a character called Eva.", "label": "no"}
+{"text": "Tell me about the designer of this chair.", "label": "no"}
+{"text": "Summarize this passage: The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. The garden is green. ", "label": "no"}
+{"text": "Draft a warm thank-you note.", "label": "no"}
+{"text": "Summarize this.", "label": "no"}
+{"text": "Hi", "label": "no"}
+{"text": "Continue", "label": "no"}
+{"text": "This is private information. Draft a warm thank-you note.", "label": "no"}
+{"text": "Search the web for the latest news.", "label": "no"}
+{"text": "Design a fault-tolerant payment system that handles duplicate events and regional outages.", "label": "no"}
+{"text": "Evaluate whether our expansion assumptions are internally consistent.", "label": "no"}
+{"text": "Solve this problem: two trains leave opposite ends of a 300 km track at different speeds.", "label": "no"}
+{"text": "Compare these three business strategies, assess their risks, and recommend the best option.", "label": "no"}
+{"text": "Explain in depth how quantum tunnelling differs from classical motion.", "label": "no"}
+{"text": "Create a comprehensive migration plan with dependencies, budget constraints, and rollback criteria.", "label": "no"}
+{"text": "Calculate the probability of drawing three red balls without replacement.", "label": "no"}
+{"text": "Which option is best given the trade-offs between reliability, cost, and performance?", "label": "no"}
+{"text": "Think deeply about this question and challenge the assumptions before answering.", "label": "no"}
+{"text": "Give me step–by–step reasoning for this decision.", "label": "no"}
+{"text": "Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Perform a root cause analysis and analyze the tradeoffs.", "label": "no"}
+{"text": "This is private. Design a resilient payment system and evaluate its failure modes.", "label": "no"}
+{"text": "Help me choose between keeping our current supplier and switching to a new one.\nThe current supplier has reliable delivery but charges more, requires a large\nminimum order, and only accepts payment in advance. The new supplier offers a\nlower unit price and smaller orders, but has a longer lead time and has never\nworked with our team. We only have enough cash for two months of inventory,\nand missing deliveries would put our largest customer at risk. Account for\nthe effect of each option on working capital, service quality, and our ability\nto recover if something goes wrong. Include the assumptions behind your answer\nand tell me which missing facts could change it. Give me a recommendation\nwith a practical sequence of next steps that our small team could carry out.", "label": "no"}
+{"text": "Private information. Draft a warm thank-you note.", "label": "no"}
+{"text": "This is private. Draft a warm thank-you note.", "label": "no"}
+{"text": "Keep this private. Draft a warm thank-you note.", "label": "no"}
+{"text": "Do not send this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Don't send this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Do not share this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Don't share this. Draft a warm thank-you note.", "label": "no"}
+{"text": "Confidential. Draft a warm thank-you note.", "label": "no"}
+{"text": "Sensitive personal information. Draft a warm thank-you note.", "label": "no"}
+{"text": "Private information. Write Swift code for it.", "label": "yes"}
+{"text": "This is private. Write Swift code for it.", "label": "yes"}
+{"text": "Keep this private. Write Swift code for it.", "label": "yes"}
+{"text": "Do not send this. Write Swift code for it.", "label": "yes"}
+{"text": "Don't send this. Write Swift code for it.", "label": "yes"}
+{"text": "Do not share this. Write Swift code for it.", "label": "yes"}
+{"text": "Don't share this. Write Swift code for it.", "label": "yes"}
+{"text": "Confidential. Write Swift code for it.", "label": "yes"}
+{"text": "Sensitive personal information. Write Swift code for it.", "label": "yes"}
+{"text": "Private information. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "This is private. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Keep this private. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Do not send this. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Don't send this. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Do not share this. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Don't share this. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Confidential. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "Sensitive personal information. Evaluate the assumptions behind this strategy.", "label": "no"}
+{"text": "write a python script that renames all the files in a folder", "label": "yes"}
+{"text": "how do i reverse a linked list in java", "label": "yes"}
+{"text": "fix this typescript error: property 'name' does not exist on type 'never'", "label": "yes"}
+{"text": "why does my react component render twice", "label": "yes"}
+{"text": "what does this regex do", "label": "yes"}
+{"text": "write a regex that matches email addresses", "label": "yes"}
+{"text": "write a sql query to get the top 5 customers by revenue", "label": "yes"}
+{"text": "optimize this sql query, it's slow", "label": "yes"}
+{"text": "explain this stack trace", "label": "yes"}
+{"text": "my app crashes with EXC_BAD_ACCESS, how do i debug it", "label": "yes"}
+{"text": "segmentation fault in my c program, help", "label": "yes"}
+{"text": "convert this javascript to typescript", "label": "yes"}
+{"text": "write unit tests for this function", "label": "yes"}
+{"text": "review this pull request diff", "label": "yes"}
+{"text": "refactor this function to be more readable", "label": "yes"}
+{"text": "how do i make an http request in swift", "label": "yes"}
+{"text": "how do i parse json in go", "label": "yes"}
+{"text": "what's the difference between let and var in javascript", "label": "yes"}
+{"text": "explain async await in swift", "label": "yes"}
+{"text": "how do i use useEffect correctly", "label": "yes"}
+{"text": "write a bash script to back up my home folder", "label": "yes"}
+{"text": "how do i undo the last git commit", "label": "yes"}
+{"text": "git merge conflict, how do i fix it", "label": "yes"}
+{"text": "write a dockerfile for a node app", "label": "yes"}
+{"text": "my kubernetes pod keeps restarting, how do i check the logs", "label": "yes"}
+{"text": "how do i center a div in css", "label": "yes"}
+{"text": "what's wrong with this css grid", "label": "yes"}
+{"text": "write a function to check if a number is prime", "label": "yes"}
+{"text": "implement binary search in rust", "label": "yes"}
+{"text": "implement a stack using two queues", "label": "yes"}
+{"text": "how do i read a csv file with pandas", "label": "yes"}
+{"text": "plot a histogram with matplotlib", "label": "yes"}
+{"text": "numpy array reshape error", "label": "yes"}
+{"text": "my python code throws a keyerror", "label": "yes"}
+{"text": "what does null pointer exception mean in java", "label": "yes"}
+{"text": "how do i handle errors in rust with result", "label": "yes"}
+{"text": "write a swiftui view that shows a list of items", "label": "yes"}
+{"text": "how do i use combine to debounce a text field", "label": "yes"}
+{"text": "why is my swift concurrency code giving a data race warning", "label": "yes"}
+{"text": "write a kotlin data class for a user", "label": "yes"}
+{"text": "how do i set up a flask api", "label": "yes"}
+{"text": "write an express route that returns json", "label": "yes"}
+{"text": "how do i connect to postgres from node", "label": "yes"}
+{"text": "explain closures in javascript", "label": "yes"}
+{"text": "explain pointers in c", "label": "yes"}
+{"text": "what is a monad in haskell", "label": "yes"}
+{"text": "write a hello world in assembly", "label": "yes"}
+{"text": "write a recursive fibonacci function", "label": "yes"}
+{"text": "make this loop faster", "label": "yes"}
+{"text": "this function is O(n^2), can it be O(n)?", "label": "yes"}
+{"text": "how do i profile my python code", "label": "yes"}
+{"text": "memory leak in my ios app", "label": "yes"}
+{"text": "write a cron expression for every monday at 9am", "label": "yes"}
+{"text": "write a github actions workflow that runs tests", "label": "yes"}
+{"text": "how do i deploy to vercel from the cli", "label": "yes"}
+{"text": "npm install fails with eresolve", "label": "yes"}
+{"text": "cmake can't find my library", "label": "yes"}
+{"text": "xcode build fails with linker error", "label": "yes"}
+{"text": "how do i write a makefile", "label": "yes"}
+{"text": "write a vim macro to wrap lines in quotes", "label": "yes"}
+{"text": "write an excel vba macro that copies rows", "label": "yes"}
+{"text": "write a google apps script to email a spreadsheet", "label": "yes"}
+{"text": "how do i use the openai api in python", "label": "yes"}
+{"text": "write a graphql query for a user's posts", "label": "yes"}
+{"text": "how do i use regex in sed to replace a word", "label": "yes"}
+{"text": "write a jq command to extract names from json", "label": "yes"}
+{"text": "convert this curl command to python requests", "label": "yes"}
+{"text": "how do i debounce a function in js", "label": "yes"}
+{"text": "what's the time complexity of quicksort", "label": "yes"}
+{"text": "explain big o notation with code examples", "label": "yes"}
+{"text": "leetcode two sum solution in python", "label": "yes"}
+{"text": "write a class for a bank account in c++", "label": "yes"}
+{"text": "how do i use generics in typescript", "label": "yes"}
+{"text": "explain dependency injection with an example in c#", "label": "yes"}
+{"text": "what does `yield` do in python", "label": "yes"}
+{"text": "how do i run a shell command from swift", "label": "yes"}
+{"text": "write a powershell script to list large files", "label": "yes"}
+{"text": "how do i mock a network call in jest", "label": "yes"}
+{"text": "pytest fixture not found error", "label": "yes"}
+{"text": "why are my tests flaky", "label": "yes"}
+{"text": "write a migration to add a column in rails", "label": "yes"}
+{"text": "how do i use django orm to filter by date", "label": "yes"}
+{"text": "my docker container can't reach the database", "label": "yes"}
+{"text": "write terraform for an s3 bucket", "label": "yes"}
+{"text": "explain this code to me", "label": "yes"}
+{"text": "what does this function return", "label": "yes"}
+{"text": "comment this code", "label": "yes"}
+{"text": "add type hints to this python", "label": "yes"}
+{"text": "translate this python to javascript", "label": "yes"}
+{"text": "port this objective-c to swift", "label": "yes"}
+{"text": "why is this variable undefined", "label": "yes"}
+{"text": "how do i fix cors errors", "label": "yes"}
+{"text": "write a web scraper with beautiful soup", "label": "yes"}
+{"text": "build a simple todo app in vue", "label": "yes"}
+{"text": "how to use websockets in node", "label": "yes"}
+{"text": "debug this: TypeError: cannot read properties of undefined", "label": "yes"}
+{"text": "fix my code pls", "label": "yes"}
+{"text": "my code doesnt work", "label": "yes"}
+{"text": "pls help with this bug in my script", "label": "yes"}
+{"text": "why does this throw", "label": "yes"}
+{"text": "whats wrong with my for loop", "label": "yes"}
+{"text": "how do i print to console in rust", "label": "yes"}
+{"text": "how do i exit vim", "label": "yes"}
+{"text": "taylor swift tour dates", "label": "no", "nearMiss": true}
+{"text": "what's the best taylor swift album", "label": "no", "nearMiss": true}
+{"text": "a swift reply to an email is polite", "label": "no", "nearMiss": true}
+{"text": "the swift river in new hampshire", "label": "no", "nearMiss": true}
+{"text": "swift as a bird, finish the poem", "label": "no", "nearMiss": true}
+{"text": "how fast are swifts, the birds", "label": "no", "nearMiss": true}
+{"text": "is a python dangerous to dogs", "label": "no", "nearMiss": true}
+{"text": "how big do ball pythons get", "label": "no", "nearMiss": true}
+{"text": "monty python best sketches", "label": "no", "nearMiss": true}
+{"text": "i found a python in the garden, what do i do", "label": "no", "nearMiss": true}
+{"text": "java coffee vs sumatra coffee", "label": "no", "nearMiss": true}
+{"text": "visiting java island in indonesia", "label": "no", "nearMiss": true}
+{"text": "ruby engagement ring prices", "label": "no", "nearMiss": true}
+{"text": "how to clean a ruby gemstone", "label": "no", "nearMiss": true}
+{"text": "rust on my bike chain, how do i remove it", "label": "no", "nearMiss": true}
+{"text": "how to prevent rust on cast iron", "label": "no", "nearMiss": true}
+{"text": "go to the store and pick up milk, make a shopping list", "label": "no", "nearMiss": true}
+{"text": "how do i react when my friend is upset", "label": "no", "nearMiss": true}
+{"text": "react to this news with a funny comment", "label": "no", "nearMiss": true}
+{"text": "debug my morning routine, i'm always late", "label": "no", "nearMiss": true}
+{"text": "how do i debug my sleep schedule", "label": "no", "nearMiss": true}
+{"text": "implement layoffs fairly as a manager", "label": "no", "nearMiss": true}
+{"text": "how to implement a new policy at work", "label": "no", "nearMiss": true}
+{"text": "implement the new recycling rules at home", "label": "no", "nearMiss": true}
+{"text": "what is the dress code for a wedding", "label": "no", "nearMiss": true}
+{"text": "code of conduct for a book club", "label": "no", "nearMiss": true}
+{"text": "what's the zip code for beverly hills", "label": "no", "nearMiss": true}
+{"text": "morse code for sos", "label": "no", "nearMiss": true}
+{"text": "the da vinci code plot", "label": "no", "nearMiss": true}
+{"text": "program for my sister's wedding", "label": "no", "nearMiss": true}
+{"text": "best exercise program for beginners", "label": "no", "nearMiss": true}
+{"text": "masters program applications tips", "label": "no", "nearMiss": true}
+{"text": "there's a bug in my kitchen, what kind is it", "label": "no", "nearMiss": true}
+{"text": "bugs in the garden eating my tomatoes", "label": "no", "nearMiss": true}
+{"text": "compile a list of fun weekend activities", "label": "no", "nearMiss": true}
+{"text": "a function of age in biology terms", "label": "no", "nearMiss": true}
+{"text": "my class schedule is too busy", "label": "no", "nearMiss": true}
+{"text": "change the string on my guitar", "label": "no", "nearMiss": true}
+{"text": "an array of options for dinner", "label": "no", "nearMiss": true}
+{"text": "commit to going to the gym", "label": "no", "nearMiss": true}
+{"text": "which branch of my bank is closest", "label": "no", "nearMiss": true}
+{"text": "how to merge two lanes in traffic", "label": "no", "nearMiss": true}
+{"text": "deploy a strategy for my job search", "label": "no", "nearMiss": true}
+{"text": "terminal at the airport, which one is united", "label": "no", "nearMiss": true}
+{"text": "shell beach in australia", "label": "no", "nearMiss": true}
+{"text": "how do i get rid of a cookie stain", "label": "no", "nearMiss": true}
+{"text": "java chip frappuccino recipe", "label": "no", "nearMiss": true}
+{"text": "c major scale on piano", "label": "no", "nearMiss": true}
+{"text": "what is the language of flowers", "label": "no", "nearMiss": true}
+{"text": "programming a tv remote, how", "label": "no", "nearMiss": true}
+{"text": "script for a school play about friendship", "label": "no", "nearMiss": true}
+{"text": "write a screenplay scene", "label": "no", "nearMiss": true}
+{"text": "query letter for my novel", "label": "no", "nearMiss": true}
+{"text": "syntax of a japanese sentence", "label": "no", "nearMiss": true}
+{"text": "what's a binary star", "label": "no", "nearMiss": true}
+{"text": "how does a computer work, in simple terms", "label": "no", "nearMiss": true}
+{"text": "history of the internet", "label": "no", "nearMiss": true}
+{"text": "who founded apple", "label": "no", "nearMiss": true}
+{"text": "should i learn to code, career advice", "label": "no", "nearMiss": true}
+{"text": "best laptops for students", "label": "no", "nearMiss": true}
+{"text": "is a coding bootcamp worth it", "label": "no", "nearMiss": true}
+{"text": "how do i reset my wifi router", "label": "no", "nearMiss": true}
+{"text": "my iphone keeps freezing, what should i do", "label": "no", "nearMiss": true}
+{"text": "how do i update my mac", "label": "no", "nearMiss": true}
+{"text": "excel shortcut to sum a column", "label": "no", "nearMiss": true}
+{"text": "how do i make a pivot table", "label": "no", "nearMiss": true}
+{"text": "what is machine learning in simple words", "label": "no", "nearMiss": true}
+{"text": "is ai going to take my job", "label": "no", "nearMiss": true}
+{"text": "convert this bash code to dart", "label": "yes"}
+{"text": "convert this bash code to ruby", "label": "yes"}
+{"text": "convert this bash code to sql", "label": "yes"}
+{"text": "convert this c# code to php", "label": "yes"}
+{"text": "convert this c++ code to elixir", "label": "yes"}
+{"text": "convert this dart code to go", "label": "yes"}
+{"text": "convert this dart code to java", "label": "yes"}
+{"text": "convert this elixir code to go", "label": "yes"}
+{"text": "convert this go code to sql", "label": "yes"}
+{"text": "convert this kotlin code to c#", "label": "yes"}
+{"text": "convert this kotlin code to elixir", "label": "yes"}
+{"text": "convert this kotlin code to python", "label": "yes"}
+{"text": "convert this php code to c++", "label": "yes"}
+{"text": "convert this ruby code to java", "label": "yes"}
+{"text": "convert this ruby code to sql", "label": "yes"}
+{"text": "convert this ruby code to typescript", "label": "yes"}
+{"text": "convert this rust code to bash", "label": "yes"}
+{"text": "convert this rust code to sql", "label": "yes"}
+{"text": "convert this sql code to typescript", "label": "yes"}
+{"text": "convert this swift code to python", "label": "yes"}
+{"text": "convert this typescript code to javascript", "label": "yes"}
+{"text": "debug this bash memory leak", "label": "yes"}
+{"text": "debug this bash undefined is not a function", "label": "yes"}
+{"text": "debug this c# index out of range", "label": "yes"}
+{"text": "debug this c++ race condition", "label": "yes"}
+{"text": "debug this dart undefined is not a function", "label": "yes"}
+{"text": "debug this elixir import error", "label": "yes"}
+{"text": "debug this go segfault", "label": "yes"}
+{"text": "debug this java deadlock", "label": "yes"}
+{"text": "debug this java index out of range", "label": "yes"}
+{"text": "debug this java type mismatch", "label": "yes"}
+{"text": "debug this javascript import error", "label": "yes"}
+{"text": "debug this javascript index out of range", "label": "yes"}
+{"text": "debug this kotlin segfault", "label": "yes"}
+{"text": "debug this php segfault", "label": "yes"}
+{"text": "debug this php undefined is not a function", "label": "yes"}
+{"text": "debug this python deadlock", "label": "yes"}
+{"text": "debug this ruby null reference", "label": "yes"}
+{"text": "debug this rust off by one error", "label": "yes"}
+{"text": "debug this scala import error", "label": "yes"}
+{"text": "debug this scala off by one error", "label": "yes"}
+{"text": "debug this scala race condition", "label": "yes"}
+{"text": "debug this sql import error", "label": "yes"}
+{"text": "debug this sql null reference", "label": "yes"}
+{"text": "debug this swift memory leak", "label": "yes"}
+{"text": "debug this swift undefined is not a function", "label": "yes"}
+{"text": "debug this typescript import error", "label": "yes"}
+{"text": "debug this typescript memory leak", "label": "yes"}
+{"text": "explain this bash snippet", "label": "yes"}
+{"text": "explain this c# snippet", "label": "yes"}
+{"text": "explain this c++ snippet", "label": "yes"}
+{"text": "explain this dart snippet", "label": "yes"}
+{"text": "explain this go snippet", "label": "yes"}
+{"text": "explain this javascript snippet", "label": "yes"}
+{"text": "explain this kotlin snippet", "label": "yes"}
+{"text": "explain this php snippet", "label": "yes"}
+{"text": "explain this python snippet", "label": "yes"}
+{"text": "explain this ruby snippet", "label": "yes"}
+{"text": "explain this rust snippet", "label": "yes"}
+{"text": "explain this scala snippet", "label": "yes"}
+{"text": "explain this sql snippet", "label": "yes"}
+{"text": "explain this swift snippet", "label": "yes"}
+{"text": "fix the deadlock in my bash code", "label": "yes"}
+{"text": "fix the deadlock in my java code", "label": "yes"}
+{"text": "fix the import error in my c++ code", "label": "yes"}
+{"text": "fix the import error in my java code", "label": "yes"}
+{"text": "fix the import error in my ruby code", "label": "yes"}
+{"text": "fix the infinite loop in my go code", "label": "yes"}
+{"text": "fix the infinite loop in my sql code", "label": "yes"}
+{"text": "fix the memory leak in my javascript code", "label": "yes"}
+{"text": "fix the memory leak in my scala code", "label": "yes"}
+{"text": "fix the null reference in my dart code", "label": "yes"}
+{"text": "fix the null reference in my elixir code", "label": "yes"}
+{"text": "fix the null reference in my java code", "label": "yes"}
+{"text": "fix the null reference in my swift code", "label": "yes"}
+{"text": "fix the off by one error in my c# code", "label": "yes"}
+{"text": "fix the off by one error in my swift code", "label": "yes"}
+{"text": "fix the race condition in my php code", "label": "yes"}
+{"text": "fix the timeout in my c# code", "label": "yes"}
+{"text": "fix the timeout in my rust code", "label": "yes"}
+{"text": "fix the type mismatch in my elixir code", "label": "yes"}
+{"text": "fix the type mismatch in my python code", "label": "yes"}
+{"text": "fix the type mismatch in my rust code", "label": "yes"}
+{"text": "fix the type mismatch in my sql code", "label": "yes"}
+{"text": "fix the type mismatch in my typescript code", "label": "yes"}
+{"text": "fix the undefined is not a function in my c# code", "label": "yes"}
+{"text": "fix the undefined is not a function in my javascript code", "label": "yes"}
+{"text": "fix the undefined is not a function in my kotlin code", "label": "yes"}
+{"text": "how do i write code in c++ that validates an email address", "label": "yes"}
+{"text": "how do i write code in elixir that converts celsius to fahrenheit", "label": "yes"}
+{"text": "how do i write code in go that caches results in memory", "label": "yes"}
+{"text": "how do i write code in go that finds the longest palindrome", "label": "yes"}
+{"text": "how do i write code in java that debounces a callback", "label": "yes"}
+{"text": "how do i write code in java that removes duplicates from a list", "label": "yes"}
+{"text": "how do i write code in kotlin that converts celsius to fahrenheit", "label": "yes"}
+{"text": "how do i write code in php that finds the longest palindrome", "label": "yes"}
+{"text": "how do i write code in python that validates an email address", "label": "yes"}
+{"text": "how do i write code in ruby that merges two sorted lists", "label": "yes"}
+{"text": "how do i write code in ruby that paginates an api", "label": "yes"}
+{"text": "how do i write code in rust that finds the longest palindrome", "label": "yes"}
+{"text": "how do i write code in scala that paginates an api", "label": "yes"}
+{"text": "how do i write code in sql that counts word frequencies in a file", "label": "yes"}
+{"text": "how do i write code in sql that debounces a callback", "label": "yes"}
+{"text": "how do i write code in sql that downloads a file and checks its hash", "label": "yes"}
+{"text": "how do i write code in swift that debounces a callback", "label": "yes"}
+{"text": "how do i write code in typescript that validates an email address", "label": "yes"}
+{"text": "in c#, how do i make something that finds the longest palindrome", "label": "yes"}
+{"text": "in c#, how do i make something that retries a request three times", "label": "yes"}
+{"text": "in c++, how do i make something that counts word frequencies in a file", "label": "yes"}
+{"text": "in c++, how do i make something that merges two sorted lists", "label": "yes"}
+{"text": "in dart, how do i make something that flattens a nested array", "label": "yes"}
+{"text": "in elixir, how do i make something that flattens a nested array", "label": "yes"}
+{"text": "in elixir, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "in go, how do i make something that counts word frequencies in a file", "label": "yes"}
+{"text": "in javascript, how do i make something that counts word frequencies in a file", "label": "yes"}
+{"text": "in javascript, how do i make something that removes duplicates from a list", "label": "yes"}
+{"text": "in php, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "in python, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "in ruby, how do i make something that merges two sorted lists", "label": "yes"}
+{"text": "in ruby, how do i make something that paginates an api", "label": "yes"}
+{"text": "in ruby, how do i make something that parses a date string", "label": "yes"}
+{"text": "in rust, how do i make something that downloads a file and checks its hash", "label": "yes"}
+{"text": "in scala, how do i make something that merges two sorted lists", "label": "yes"}
+{"text": "in sql, how do i make something that finds the longest palindrome", "label": "yes"}
+{"text": "in sql, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "in swift, how do i make something that downloads a file and checks its hash", "label": "yes"}
+{"text": "in swift, how do i make something that serializes a struct to json", "label": "yes"}
+{"text": "is there a c# library that caches results in memory", "label": "yes"}
+{"text": "is there a dart library that removes duplicates from a list", "label": "yes"}
+{"text": "is there a go library that converts celsius to fahrenheit", "label": "yes"}
+{"text": "is there a java library that reads a csv and sums a column", "label": "yes"}
+{"text": "is there a java library that retries a request three times", "label": "yes"}
+{"text": "is there a javascript library that counts word frequencies in a file", "label": "yes"}
+{"text": "is there a kotlin library that merges two sorted lists", "label": "yes"}
+{"text": "is there a php library that caches results in memory", "label": "yes"}
+{"text": "is there a php library that merges two sorted lists", "label": "yes"}
+{"text": "is there a php library that removes duplicates from a list", "label": "yes"}
+{"text": "is there a php library that validates an email address", "label": "yes"}
+{"text": "is there a ruby library that parses a date string", "label": "yes"}
+{"text": "is there a rust library that caches results in memory", "label": "yes"}
+{"text": "is there a rust library that merges two sorted lists", "label": "yes"}
+{"text": "is there a rust library that reads a csv and sums a column", "label": "yes"}
+{"text": "is there a scala library that converts celsius to fahrenheit", "label": "yes"}
+{"text": "is there a scala library that serializes a struct to json", "label": "yes"}
+{"text": "is there a swift library that merges two sorted lists", "label": "yes"}
+{"text": "is there a typescript library that debounces a callback", "label": "yes"}
+{"text": "refactor my c# code that downloads a file and checks its hash", "label": "yes"}
+{"text": "refactor my c++ code that debounces a callback", "label": "yes"}
+{"text": "refactor my dart code that flattens a nested array", "label": "yes"}
+{"text": "refactor my go code that counts word frequencies in a file", "label": "yes"}
+{"text": "refactor my go code that removes duplicates from a list", "label": "yes"}
+{"text": "refactor my java code that merges two sorted lists", "label": "yes"}
+{"text": "refactor my kotlin code that flattens a nested array", "label": "yes"}
+{"text": "refactor my php code that debounces a callback", "label": "yes"}
+{"text": "refactor my python code that converts celsius to fahrenheit", "label": "yes"}
+{"text": "refactor my ruby code that parses a date string", "label": "yes"}
+{"text": "refactor my rust code that paginates an api", "label": "yes"}
+{"text": "refactor my rust code that parses a date string", "label": "yes"}
+{"text": "refactor my rust code that reads a csv and sums a column", "label": "yes"}
+{"text": "refactor my sql code that debounces a callback", "label": "yes"}
+{"text": "refactor my swift code that converts celsius to fahrenheit", "label": "yes"}
+{"text": "refactor my typescript code that downloads a file and checks its hash", "label": "yes"}
+{"text": "refactor my typescript code that serializes a struct to json", "label": "yes"}
+{"text": "review my bash code for bugs", "label": "yes"}
+{"text": "review my c# code for bugs", "label": "yes"}
+{"text": "review my c++ code for bugs", "label": "yes"}
+{"text": "review my dart code for bugs", "label": "yes"}
+{"text": "review my go code for bugs", "label": "yes"}
+{"text": "review my java code for bugs", "label": "yes"}
+{"text": "review my kotlin code for bugs", "label": "yes"}
+{"text": "review my php code for bugs", "label": "yes"}
+{"text": "review my python code for bugs", "label": "yes"}
+{"text": "review my ruby code for bugs", "label": "yes"}
+{"text": "review my rust code for bugs", "label": "yes"}
+{"text": "review my sql code for bugs", "label": "yes"}
+{"text": "review my swift code for bugs", "label": "yes"}
+{"text": "what's the idiomatic way in bash to write a function that removes duplicates from a list", "label": "yes"}
+{"text": "what's the idiomatic way in c++ to write a function that finds the longest palindrome", "label": "yes"}
+{"text": "what's the idiomatic way in c++ to write a function that flattens a nested array", "label": "yes"}
+{"text": "what's the idiomatic way in dart to write a function that reads a csv and sums a column", "label": "yes"}
+{"text": "what's the idiomatic way in dart to write a function that removes duplicates from a list", "label": "yes"}
+{"text": "what's the idiomatic way in dart to write a function that retries a request three times", "label": "yes"}
+{"text": "what's the idiomatic way in elixir to write a function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "what's the idiomatic way in java to write a function that downloads a file and checks its hash", "label": "yes"}
+{"text": "what's the idiomatic way in javascript to write a function that counts word frequencies in a file", "label": "yes"}
+{"text": "what's the idiomatic way in javascript to write a function that debounces a callback", "label": "yes"}
+{"text": "what's the idiomatic way in kotlin to write a function that validates an email address", "label": "yes"}
+{"text": "what's the idiomatic way in php to write a function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "what's the idiomatic way in ruby to write a function that parses a date string", "label": "yes"}
+{"text": "what's the idiomatic way in scala to write a function that removes duplicates from a list", "label": "yes"}
+{"text": "what's the idiomatic way in sql to write a function that downloads a file and checks its hash", "label": "yes"}
+{"text": "what's the idiomatic way in sql to write a function that removes duplicates from a list", "label": "yes"}
+{"text": "what's the idiomatic way in swift to write a function that flattens a nested array", "label": "yes"}
+{"text": "what's the idiomatic way in typescript to write a function that debounces a callback", "label": "yes"}
+{"text": "why does my bash program have a null reference", "label": "yes"}
+{"text": "why does my c# program have a type mismatch", "label": "yes"}
+{"text": "why does my dart program have a type mismatch", "label": "yes"}
+{"text": "why does my go program have a deadlock", "label": "yes"}
+{"text": "why does my go program have a timeout", "label": "yes"}
+{"text": "why does my javascript program have a segfault", "label": "yes"}
+{"text": "why does my javascript program have a timeout", "label": "yes"}
+{"text": "why does my kotlin program have an infinite loop", "label": "yes"}
+{"text": "why does my kotlin program have an off by one error", "label": "yes"}
+{"text": "why does my php program have an off by one error", "label": "yes"}
+{"text": "why does my python program have a deadlock", "label": "yes"}
+{"text": "why does my ruby program have an infinite loop", "label": "yes"}
+{"text": "why does my scala program have an index out of range", "label": "yes"}
+{"text": "why does my scala program have a type mismatch", "label": "yes"}
+{"text": "why does my swift program have a segfault", "label": "yes"}
+{"text": "why does my typescript program have a timeout", "label": "yes"}
+{"text": "write a bash function that counts word frequencies in a file", "label": "yes"}
+{"text": "write a c# function that merges two sorted lists", "label": "yes"}
+{"text": "write a c++ function that removes duplicates from a list", "label": "yes"}
+{"text": "write a elixir function that finds the longest palindrome", "label": "yes"}
+{"text": "write a elixir function that retries a request three times", "label": "yes"}
+{"text": "write a go function that finds the longest palindrome", "label": "yes"}
+{"text": "write a go function that removes duplicates from a list", "label": "yes"}
+{"text": "write a java function that counts word frequencies in a file", "label": "yes"}
+{"text": "write a java function that flattens a nested array", "label": "yes"}
+{"text": "write a javascript function that serializes a struct to json", "label": "yes"}
+{"text": "write a kotlin function that counts word frequencies in a file", "label": "yes"}
+{"text": "write a kotlin function that debounces a callback", "label": "yes"}
+{"text": "write a kotlin function that flattens a nested array", "label": "yes"}
+{"text": "write a kotlin function that reads a csv and sums a column", "label": "yes"}
+{"text": "write a python function that counts word frequencies in a file", "label": "yes"}
+{"text": "write a python function that retries a request three times", "label": "yes"}
+{"text": "write a python function that validates an email address", "label": "yes"}
+{"text": "write a ruby function that finds the longest palindrome", "label": "yes"}
+{"text": "write a rust function that paginates an api", "label": "yes"}
+{"text": "write a rust function that retries a request three times", "label": "yes"}
+{"text": "write a scala function that counts word frequencies in a file", "label": "yes"}
+{"text": "write a sql function that debounces a callback", "label": "yes"}
+{"text": "write a swift function that debounces a callback", "label": "yes"}
+{"text": "write a swift function that finds the longest palindrome", "label": "yes"}
+{"text": "write a typescript function that downloads a file and checks its hash", "label": "yes"}
+{"text": "write tests for my c# function that debounces a callback", "label": "yes"}
+{"text": "write tests for my c# function that removes duplicates from a list", "label": "yes"}
+{"text": "write tests for my c++ function that debounces a callback", "label": "yes"}
+{"text": "write tests for my c++ function that parses a date string", "label": "yes"}
+{"text": "write tests for my c++ function that retries a request three times", "label": "yes"}
+{"text": "write tests for my elixir function that counts word frequencies in a file", "label": "yes"}
+{"text": "write tests for my elixir function that reads a csv and sums a column", "label": "yes"}
+{"text": "write tests for my go function that debounces a callback", "label": "yes"}
+{"text": "write tests for my go function that flattens a nested array", "label": "yes"}
+{"text": "write tests for my go function that removes duplicates from a list", "label": "yes"}
+{"text": "write tests for my javascript function that validates an email address", "label": "yes"}
+{"text": "write tests for my kotlin function that caches results in memory", "label": "yes"}
+{"text": "write tests for my python function that parses a date string", "label": "yes"}
+{"text": "write tests for my ruby function that caches results in memory", "label": "yes"}
+{"text": "write tests for my ruby function that converts celsius to fahrenheit", "label": "yes"}
+{"text": "write tests for my ruby function that paginates an api", "label": "yes"}
+{"text": "write tests for my scala function that caches results in memory", "label": "yes"}
+{"text": "write tests for my sql function that downloads a file and checks its hash", "label": "yes"}
+{"text": "write tests for my sql function that finds the longest palindrome", "label": "yes"}
+{"text": "write tests for my sql function that removes duplicates from a list", "label": "yes"}
+{"text": "cobra facts", "label": "no", "nearMiss": true}
+{"text": "how do i code a secret message for a scavenger hunt", "label": "no", "nearMiss": true}
+{"text": "how do i compile my tax documents", "label": "no", "nearMiss": true}
+{"text": "how do i debug why my plants keep dying", "label": "no", "nearMiss": true}
+{"text": "how do i fix a squeaky door", "label": "no", "nearMiss": true}
+{"text": "how do i implement a chore chart for my kids", "label": "no", "nearMiss": true}
+{"text": "how do i program my thermostat schedule", "label": "no", "nearMiss": true}
+{"text": "how do i script a toast for my brother's wedding", "label": "no", "nearMiss": true}
+{"text": "java sparrow facts", "label": "no", "nearMiss": true}
+{"text": "python snake facts", "label": "no", "nearMiss": true}
+{"text": "ruby throated hummingbird facts", "label": "no", "nearMiss": true}
+{"text": "swift bird facts", "label": "no", "nearMiss": true}
+{"text": "history of the swift river", "label": "no", "nearMiss": true}
+{"text": "python snakes as pets", "label": "no", "nearMiss": true}
+{"text": "java island travel guide", "label": "no", "nearMiss": true}
+{"text": "ruby gemstone value", "label": "no", "nearMiss": true}
+{"text": "rust removal from tools", "label": "no", "nearMiss": true}
+{"text": "shell collecting on the beach", "label": "no", "nearMiss": true}
+{"text": "kotlin island in russia history", "label": "no", "nearMiss": true}
+{"text": "go kart tracks near the coast", "label": "no", "nearMiss": true}
+{"text": "swift bird migration", "label": "no", "nearMiss": true}
+{"text": "java coffee beans vs arabica", "label": "no", "nearMiss": true}
+{"text": "the ruby slippers in the wizard of oz", "label": "no", "nearMiss": true}
+{"text": "rust colored sweater outfit ideas", "label": "no", "nearMiss": true}
+{"text": "shell gas station hours", "label": "no", "nearMiss": true}
+{"text": "how to debug a relationship argument", "label": "no", "nearMiss": true}
+{"text": "coding in the medical billing sense, what is it", "label": "no", "nearMiss": true}
+{"text": "color code my calendar", "label": "no", "nearMiss": true}
+{"text": "cheat codes for life, any tips", "label": "no", "nearMiss": true}
+{"text": "implement a bedtime routine for toddlers", "label": "no", "nearMiss": true}
+{"text": "program the garage door opener", "label": "no", "nearMiss": true}
+{"text": "bug spray that's safe for kids", "label": "no", "nearMiss": true}
+{"text": "a function to celebrate my promotion, party ideas", "label": "no", "nearMiss": true}
+{"text": "string lights for the patio", "label": "no", "nearMiss": true}
+{"text": "merge my two closets into one", "label": "no", "nearMiss": true}
+{"text": "fork in the road meaning", "label": "no", "nearMiss": true}
+{"text": "branch out socially in a new city", "label": "no", "nearMiss": true}
+{"text": "taylor swift lyrics about heartbreak", "label": "no", "nearMiss": true}
+{"text": "taylor swift net worth", "label": "no", "nearMiss": true}
+{"text": "swift boat history", "label": "no", "nearMiss": true}
+{"text": "a python ate an alligator, is that real", "label": "no", "nearMiss": true}
+{"text": "python vs boa constrictor size", "label": "no", "nearMiss": true}
+{"text": "java the hutt quotes", "label": "no", "nearMiss": true}
+{"text": "how did java get its name, the island", "label": "no", "nearMiss": true}
+{"text": "ruby tuesday restaurant menu", "label": "no", "nearMiss": true}
+{"text": "ruby red grapefruit recipes", "label": "no", "nearMiss": true}
+{"text": "rust belt economy history", "label": "no", "nearMiss": true}
+{"text": "the band rust", "label": "no", "nearMiss": true}
+{"text": "go fish card game rules", "label": "no", "nearMiss": true}
+{"text": "how to play go, the board game", "label": "no", "nearMiss": true}
+{"text": "crab shell recipes", "label": "no", "nearMiss": true}
+{"text": "react to my friend's engagement news, what should i say", "label": "no", "nearMiss": true}
+{"text": "how to debug a car that won't start, the engine", "label": "no", "nearMiss": true}
+{"text": "i need to implement a budget for my family", "label": "no", "nearMiss": true}
+{"text": "what's the area code for seattle", "label": "no", "nearMiss": true}
+{"text": "qr code menus at restaurants, are they good", "label": "no", "nearMiss": true}
+{"text": "code words for a family emergency plan", "label": "no", "nearMiss": true}
+{"text": "compile a playlist for a road trip", "label": "no", "nearMiss": true}
+{"text": "script ideas for a youtube vlog about travel", "label": "no", "nearMiss": true}
+{"text": "program a universal remote for my tv", "label": "no", "nearMiss": true}
+{"text": "tv programs for kids about science", "label": "no", "nearMiss": true}
+{"text": "bugs in my lawn, how to treat them", "label": "no", "nearMiss": true}
+{"text": "whats going on in the stock market right now", "label": "no"}
+{"text": "did the fed raise rates this week", "label": "no"}
+{"text": "who won the game last night between the celtics and the knicks", "label": "no"}
+{"text": "is the bridge on route 9 still closed", "label": "no"}
+{"text": "how much is a gallon of gas in ohio right now", "label": "no"}
+{"text": "what time does the hardware store on elm street close tonight", "label": "no"}
+{"text": "any updates on the hurricane heading for florida", "label": "no"}
+{"text": "what's the current exchange rate for yen to dollars", "label": "no"}
+{"text": "who's leading the tour de france", "label": "no"}
+{"text": "is it going to snow in denver this weekend", "label": "no"}
+{"text": "what's the weather in lisbon next week", "label": "no"}
+{"text": "how hot will it be in phoenix tomorrow", "label": "no"}
+{"text": "did the new iphone come out yet", "label": "no"}
+{"text": "when does the next season of that dragon show drop", "label": "no"}
+{"text": "what movies are playing near me tonight", "label": "no"}
+{"text": "latest version of node", "label": "no"}
+{"text": "what's the newest macos version", "label": "no"}
+{"text": "is xcode 27 out", "label": "no"}
+{"text": "who is the prime minister of the uk right now", "label": "no"}
+{"text": "who's the current mayor of chicago", "label": "no"}
+{"text": "who coaches the patriots now", "label": "no"}
+{"text": "what's bitcoin at", "label": "no"}
+{"text": "eth price", "label": "no"}
+{"text": "price of gold today", "label": "no"}
+{"text": "how's the s&p doing today", "label": "no"}
+{"text": "tesla stock", "label": "no"}
+{"text": "mortgage rates this week", "label": "no"}
+{"text": "what are interest rates at right now", "label": "no"}
+{"text": "is the airport open after the storm", "label": "no"}
+{"text": "flight status for the morning flight from boston to dallas", "label": "no"}
+{"text": "are there delays on the northern line", "label": "no"}
+{"text": "when is the next bus to the city center", "label": "no"}
+{"text": "what's trending on twitter", "label": "no"}
+{"text": "what are people saying about the new pixel phone", "label": "no"}
+{"text": "reviews of the new galaxy watch", "label": "no"}
+{"text": "is the new zelda game any good, what are reviewers saying", "label": "no"}
+{"text": "what's the score in the cricket", "label": "no"}
+{"text": "liverpool score", "label": "no"}
+{"text": "did spain win", "label": "no"}
+{"text": "f1 results from the weekend", "label": "no"}
+{"text": "who won the oscar for best picture this year", "label": "no"}
+{"text": "who won the election in argentina", "label": "no"}
+{"text": "what are the polls saying for the senate race", "label": "no"}
+{"text": "breaking news", "label": "no"}
+{"text": "anything big happen in the world today", "label": "no"}
+{"text": "headlines please", "label": "no"}
+{"text": "give me today's top stories", "label": "no"}
+{"text": "news about the strike at the port", "label": "no"}
+{"text": "what's happening with the teachers strike", "label": "no"}
+{"text": "what's the latest on the merger between those two airlines", "label": "no"}
+{"text": "yo did priya text me back", "label": "no"}
+{"text": "did my roommate text about rent", "label": "no"}
+{"text": "wat did mom txt me", "label": "no"}
+{"text": "any txts from dad", "label": "no"}
+{"text": "has kai messaged me since this morning", "label": "no"}
+{"text": "what did my landlord text me about the heater", "label": "no"}
+{"text": "read me the newest text", "label": "no"}
+{"text": "whats the last thing nina sent me on imessage", "label": "no"}
+{"text": "pull up the convo with my brother", "label": "no"}
+{"text": "scroll back through my chat with ravi and find the restaurant name", "label": "no"}
+{"text": "find the text where mia sent her flight number", "label": "no"}
+{"text": "search my messages for the wifi password theo sent", "label": "no"}
+{"text": "when did grandma last text me", "label": "no"}
+{"text": "did the dentist office text me a reminder", "label": "no"}
+{"text": "who texted me in the last hour", "label": "no"}
+{"text": "how many unread texts do i have", "label": "no"}
+{"text": "summarize the family group chat from today", "label": "no"}
+{"text": "what's everyone saying in the soccer moms chat", "label": "no"}
+{"text": "catch me up on what the book club chat has been saying", "label": "no"}
+{"text": "did anyone in the group chat answer about saturday", "label": "no"}
+{"text": "what did my coach text me about practice", "label": "no"}
+{"text": "has ben read my message", "label": "no"}
+{"text": "did zoe respond to my text from last night", "label": "no"}
+{"text": "check if the babysitter texted", "label": "no"}
+{"text": "go through my texts from last week and list any plans i made", "label": "no", "nearMiss": true}
+{"text": "what time did dana say to meet in her text", "label": "no"}
+{"text": "what address did omar text me", "label": "no"}
+{"text": "show me the photo marco sent in our chat", "label": "no"}
+{"text": "did my wife text me about picking up milk", "label": "no"}
+{"text": "any new imessages from my partner", "label": "no"}
+{"text": "read the last 3 messages from jess", "label": "no"}
+{"text": "what's the latest text in my chat with mike", "label": "no"}
+{"text": "check whether the plumber replied to my text", "label": "no"}
+{"text": "text priya that i'll be 10 minutes late", "label": "no"}
+{"text": "send dad a text saying happy birthday", "label": "no"}
+{"text": "message my brother that the game starts at 8", "label": "no"}
+{"text": "shoot nina a quick text saying thanks for dinner", "label": "no"}
+{"text": "let the group chat know i'm bringing chips", "label": "no"}
+{"text": "tell mom via imessage that i got home safe", "label": "no"}
+{"text": "reply to kai saying sounds good", "label": "no"}
+{"text": "send a text to omar asking if he's free tomorrow", "label": "no"}
+{"text": "imessage dana the link to the playlist", "label": "no"}
+{"text": "text my landlord that the heater is broken again", "label": "no"}
+{"text": "can you text zoe i'm outside", "label": "no"}
+{"text": "send my sister a message asking what time the party is", "label": "no"}
+{"text": "please message theo and say i'm running late", "label": "no"}
+{"text": "text the babysitter that we'll be home by 11", "label": "no"}
+{"text": "reply to the last text from my boss with on my way", "label": "no"}
+{"text": "text ravi back and tell him yes", "label": "no"}
+{"text": "send mia a text: congrats on the new job!", "label": "no"}
+{"text": "message grandma that i'll call her on sunday", "label": "no"}
+{"text": "tell ben by text that practice is cancelled", "label": "no"}
+{"text": "text everyone in the family chat that dinner is at 6", "label": "no"}
+{"text": "send a quick imessage to jess saying i miss you", "label": "no"}
+{"text": "reply to the group with a thumbs up", "label": "no"}
+{"text": "let my roommate know by text that i paid the bill", "label": "no"}
+{"text": "did i text alex back yet", "label": "no"}
+{"text": "when did i last message my cousin", "label": "no"}
+{"text": "what did i tell sam in my last text", "label": "no"}
+{"text": "find the message i sent mom about thanksgiving", "label": "no"}
+{"text": "make this sound more professional", "label": "no"}
+{"text": "can you make it less wordy", "label": "no"}
+{"text": "cut this down to two sentences", "label": "no"}
+{"text": "make this paragraph flow better", "label": "no"}
+{"text": "clean this up", "label": "no"}
+{"text": "smooth this out a bit", "label": "no"}
+{"text": "make it punchier", "label": "no"}
+{"text": "make it sound less robotic", "label": "no"}
+{"text": "rewrite this so a ten year old could understand it", "label": "no"}
+{"text": "simplify the wording", "label": "no"}
+{"text": "fix any mistakes in this", "label": "no"}
+{"text": "correct the grammar and spelling", "label": "no"}
+{"text": "fix the punctuation", "label": "no"}
+{"text": "check this for typos and fix them", "label": "no"}
+{"text": "proofread and correct this", "label": "no"}
+{"text": "make the tone warmer", "label": "no"}
+{"text": "make it more polite", "label": "no"}
+{"text": "make it sound more confident", "label": "no"}
+{"text": "tone it down a little", "label": "no"}
+{"text": "make this less aggressive", "label": "no"}
+{"text": "soften the tone", "label": "no"}
+{"text": "make it more enthusiastic", "label": "no"}
+{"text": "make this more concise", "label": "no"}
+{"text": "condense this", "label": "no"}
+{"text": "trim this to under 100 words", "label": "no"}
+{"text": "shorten it to one paragraph", "label": "no"}
+{"text": "expand this into a full paragraph", "label": "no"}
+{"text": "make this longer and more detailed", "label": "no"}
+{"text": "rephrase this", "label": "no"}
+{"text": "paraphrase this", "label": "no"}
+{"text": "say this differently", "label": "no"}
+{"text": "reword the first sentence", "label": "no"}
+{"text": "rewrite the ending", "label": "no"}
+{"text": "change the tone to casual", "label": "no"}
+{"text": "change it to sound more formal", "label": "no"}
+{"text": "make it sound like a native speaker wrote it", "label": "no"}
+{"text": "improve the writing", "label": "no"}
+{"text": "improve this", "label": "no"}
+{"text": "tidy this up", "label": "no"}
+{"text": "edit this for clarity", "label": "no"}
+{"text": "think really hard before you answer this one", "label": "no"}
+{"text": "please think carefully, i keep getting this wrong", "label": "no"}
+{"text": "take a deep breath and work through this slowly", "label": "no"}
+{"text": "go step by step and show your reasoning", "label": "no", "nearMiss": true}
+{"text": "reason carefully about whether this contract clause is enforceable", "label": "no"}
+{"text": "think about this from every angle before answering", "label": "no"}
+{"text": "can you think harder about this, your last answer seemed rushed", "label": "no"}
+{"text": "slow down and think it through", "label": "no"}
+{"text": "i need you to really think this through", "label": "no"}
+{"text": "be extra careful with the numbers here", "label": "no"}
+{"text": "check your work twice before answering", "label": "no"}
+{"text": "double check everything", "label": "no"}
+{"text": "verify each step as you go", "label": "no", "nearMiss": true}
+{"text": "take as long as you need", "label": "no"}
+{"text": "no rush, give me your most careful answer", "label": "no"}
+{"text": "put some real thought into this", "label": "no"}
+{"text": "think critically about my argument and find the weak spots", "label": "no"}
+{"text": "mull it over and get back to me with your best answer", "label": "no"}
+{"text": "give it a lot of thought: should i move to berlin or stay in toronto", "label": "no"}
+{"text": "think hard: which of these two job offers is better", "label": "no"}
+{"text": "reason step by step: if a train leaves at 3 going 60 mph...", "label": "no"}
+{"text": "carefully consider all the options before recommending one", "label": "no"}
+{"text": "consider this very carefully", "label": "no"}
+{"text": "think deeply about what could go wrong with this plan", "label": "no", "nearMiss": true}
+{"text": "use your full reasoning on this", "label": "no"}
+{"text": "think it over thoroughly", "label": "no"}
+{"text": "go deep here, i want a really thoughtful answer", "label": "no", "nearMiss": true}
+{"text": "take your time with this one", "label": "no"}
+{"text": "dont rush this", "label": "no"}
+{"text": "don't hurry, accuracy matters more than speed", "label": "no"}
+{"text": "be meticulous with the dates", "label": "no"}
+{"text": "pay close attention to detail and think it through", "label": "no"}
+{"text": "think this through one step at a time", "label": "no"}
+{"text": "work through it carefully and show every step", "label": "no"}
+{"text": "think long and hard", "label": "no"}
+{"text": "ponder this carefully", "label": "no"}
+{"text": "deliberate carefully on the best approach", "label": "no"}
+{"text": "reflect deeply before answering", "label": "no"}
+{"text": "please reason it out thoroughly", "label": "no"}
+{"text": "take some time to think about the edge cases", "label": "no"}
+{"text": "what are the trade-offs between microservices and a monolith for a five person team", "label": "no"}
+{"text": "prove that the square root of 2 is irrational", "label": "no"}
+{"text": "derive the formula for the sum of a geometric series", "label": "no"}
+{"text": "prove there are infinitely many primes", "label": "no"}
+{"text": "solve this system of equations and show your work: 3x + 2y = 12, x - y = 1", "label": "no"}
+{"text": "a bat and a ball cost $1.10 together and the bat costs $1 more than the ball, how much is the ball, explain the reasoning", "label": "no"}
+{"text": "optimize our delivery routes given five trucks, twelve stops and a two hour window per stop", "label": "no"}
+{"text": "we have a budget of 50k, three hires to make and two products to ship, help me prioritize under those constraints", "label": "no"}
+{"text": "figure out the root cause: our signups dropped 30% after the redesign but traffic stayed flat", "label": "no"}
+{"text": "diagnose why my sourdough keeps coming out dense given these five changes i made", "label": "no"}
+{"text": "compare postgres, mongodb and dynamodb for our analytics workload against cost, latency and operational burden", "label": "no"}
+{"text": "evaluate these three job offers against salary, growth, commute and stability and recommend one", "label": "no"}
+{"text": "analyze the pros and cons of leasing vs buying a car over seven years with these numbers", "label": "no"}
+{"text": "should we raise prices or cut costs? walk through the second order effects", "label": "no"}
+{"text": "build a decision framework for choosing which features to cut from the release", "label": "no"}
+{"text": "what is the expected value of this bet: 30% chance to win 500, 70% chance to lose 150", "label": "no"}
+{"text": "calculate the break even point if fixed costs are 20k and margin per unit is 12", "label": "no"}
+{"text": "find the flaw in this argument: all birds can fly, penguins are birds, so penguins can fly", "label": "no"}
+{"text": "is this proof correct? check every step", "label": "no"}
+{"text": "work out the optimal strategy for this game where each player picks a number from 1 to 10", "label": "no"}
+{"text": "plan a migration from on-prem servers to the cloud with zero downtime, including rollback steps", "label": "no"}
+{"text": "design an experiment to test whether the new onboarding improves retention", "label": "no"}
+{"text": "how should we structure equity among four cofounders with different contributions", "label": "no"}
+{"text": "model the cash flow for the next 18 months with these assumptions and tell me when we run out", "label": "no"}
+{"text": "explain the causal chain that led to the 2008 financial crisis and what could have prevented it", "label": "no"}
+{"text": "assess the risks of expanding into three new markets at once", "label": "no"}
+{"text": "weigh the ethical trade-offs of using facial recognition in schools", "label": "no"}
+{"text": "given these symptoms and test results, what are the likely differential diagnoses and how would you narrow them", "label": "no"}
+{"text": "schedule twelve meetings across four time zones with these availability constraints", "label": "no"}
+{"text": "solve this logic puzzle: five houses, five colors, five owners", "label": "no"}
+{"text": "how many ways can 8 people sit at a round table if two of them refuse to sit together", "label": "no"}
+{"text": "find the minimum number of weighings to identify the fake coin among 12", "label": "no"}
+{"text": "estimate how many piano tuners there are in chicago and show the reasoning", "label": "no"}
+{"text": "reconcile these two conflicting reports and figure out which numbers are right", "label": "no"}
+{"text": "evaluate whether our pricing tiers cannibalize each other", "label": "no"}
+{"text": "critique this business plan's assumptions and stress test the revenue model", "label": "no"}
+{"text": "design a fair grading rubric that balances effort and outcome", "label": "no"}
+{"text": "plan a 12 week training schedule to run a marathon under 4 hours with my current pace data", "label": "no"}
+{"text": "figure out why the numbers in this spreadsheet don't add up across tabs", "label": "no"}
+{"text": "what is the optimal portfolio allocation given these return and volatility estimates", "label": "no"}
+{"text": "derive the bayes posterior for this coin flip problem", "label": "no"}
+{"text": "determine whether this contract clause creates a conflict with the earlier indemnity section", "label": "no"}
+{"text": "investigate why our cloud bill doubled last month and recommend fixes", "label": "no"}
+{"text": "compare the long term costs of solar panels vs staying on the grid with these rates", "label": "no"}
+{"text": "develop a strategy to reduce churn with these cohort numbers", "label": "no"}
+{"text": "choose between three vendors using a weighted scoring matrix and explain the weights", "label": "no"}
+{"text": "infer what caused the outage from these log excerpts", "label": "no"}
+{"text": "reason through whether we should rewrite the app or refactor it gradually", "label": "no"}
+{"text": "optimise this production schedule to minimise idle time on the machines", "label": "no"}
+{"text": "formalize this problem as a linear program and solve it", "label": "no", "nearMiss": true}
+{"text": "synthesize these five research papers into a coherent position on the question", "label": "no"}
+{"text": "fix the import erorr in my ruby code", "label": "yes"}
+{"text": "copmile a list of fun weekend activities", "label": "no", "nearMiss": true}
+{"text": "tv programs for kids abuot science", "label": "no", "nearMiss": true}
+{"text": "quick question: how do i write code in typescript that validates an email address", "label": "yes"}
+{"text": "how do i wirte code in sql that downloads a file and checks its hash", "label": "yes"}
+{"text": "fix the type mismatch in my pytohn code", "label": "yes"}
+{"text": "quick question: taylor swift tour dates", "label": "no", "nearMiss": true}
+{"text": "yo fix the type mismatch in my elixir code lol", "label": "yes"}
+{"text": "hey can you tell me, fix the deadlock in my bash code thanks", "label": "yes"}
+{"text": "um convert this curl command to python requests lol", "label": "yes"}
+{"text": "so write a c# function that merges two sorted lists please", "label": "yes"}
+{"text": "um Do not share this. Draft a warm thank-you note. thanks", "label": "no"}
+{"text": "how do i write code in sclaa that paginates an api", "label": "yes"}
+{"text": "how do i upadte my mac", "label": "no", "nearMiss": true}
+{"text": "um Evaluate the assumptions behind this strategy. thanks", "label": "no"}
+{"text": "how do i make an http request in swfit", "label": "yes"}
+{"text": "is there a scala library that convetrs celsius to fahrenheit", "label": "yes"}
+{"text": "yo write tests for my c++ function that debounces a callback thx", "label": "yes"}
+{"text": "hey can you tell me, write a typescript function that downloads a file and checks its hash?", "label": "yes"}
+{"text": "quick question: how do i connect to postgres from node please", "label": "yes"}
+{"text": "ok so how do i write code in sql that counts word frequencies in a file pls", "label": "yes"}
+{"text": "hey write tests for my elixir function that counts word frequencies in a file thanks", "label": "yes"}
+{"text": "fix the infiinte loop in my go code", "label": "yes"}
+{"text": "so Implement this Swift function and debug the stack trace. pls", "label": "yes"}
+{"text": "java the hutt quoets", "label": "no", "nearMiss": true}
+{"text": "ok so write a dockerfile for a node app pls", "label": "yes"}
+{"text": "yo what's a binary star thanks", "label": "no", "nearMiss": true}
+{"text": "git mrege conflict, how do i fix it", "label": "yes"}
+{"text": "ok so write a migration to add a column in rails please", "label": "yes"}
+{"text": "Tranlsate good morning into French.", "label": "no"}
+{"text": "so how do i write code in python that validates an email address thanks", "label": "yes"}
+{"text": "so debug this java index out of range thx", "label": "yes"}
+{"text": "um write tests for my javascript function that validates an email address thanks", "label": "yes"}
+{"text": "hey can you tell me, python snakes as pets", "label": "no", "nearMiss": true}
+{"text": "prorgamming a tv remote, how", "label": "no", "nearMiss": true}
+{"text": "write tests for my ruby function that cahces results in memory", "label": "yes"}
+{"text": "ok so Which option is best given the trade-offs between reliability, cost, and performance? thanks", "label": "no"}
+{"text": "is a python dangeruos to dogs", "label": "no", "nearMiss": true}
+{"text": "yo deploy a strategy for my job search pls", "label": "no", "nearMiss": true}
+{"text": "yo how do i reset my wifi router please", "label": "no", "nearMiss": true}
+{"text": "hi, Calculate the probability of drawing three red balls without replacement.!!", "label": "no"}
+{"text": "why does my sclaa program have an index out of range", "label": "yes"}
+{"text": "hi, how to debug a relationship argument thanks", "label": "no", "nearMiss": true}
+{"text": "is tehre a php library that removes duplicates from a list", "label": "yes"}
+{"text": "why does my swift prgoram have a segfault", "label": "yes"}
+{"text": "Cotninue", "label": "no"}
+{"text": "ok so explain async await in swift pls", "label": "yes"}
+{"text": "yo c major scale on piano lol", "label": "no", "nearMiss": true}
+{"text": "hey debug this go segfault lol", "label": "yes"}
+{"text": "ok so write a regex that matches email addresses lol", "label": "yes"}
+{"text": "cahnge the string on my guitar", "label": "no", "nearMiss": true}
+{"text": "hey can you tell me, Private information. Write Swift code for it.!!", "label": "yes"}
+{"text": "reivew my swift code for bugs", "label": "yes"}
+{"text": "how do i cetner a div in css", "label": "yes"}
+{"text": "quick question: explain this javascript snippet lol", "label": "yes"}
+{"text": "hi, how do i profile my python code thanks", "label": "yes"}
+{"text": "so my app crashes with EXC_BAD_ACCESS, how do i debug it pls", "label": "yes"}
+{"text": "how do i write code in ruby that merges two sotred lists", "label": "yes"}
+{"text": "hi, is there a go library that converts celsius to fahrenheit", "label": "yes"}
+{"text": "taylor swift's concert otufits", "label": "no", "nearMiss": true}
+{"text": "so leetcode two sum solution in python pls", "label": "yes"}
+{"text": "quick question: write a javascript function that serializes a struct to json pls", "label": "yes"}
+{"text": "ok so pytest fixture not found error lol", "label": "yes"}
+{"text": "debug this elixir ipmort error", "label": "yes"}
+{"text": "hey excel shortcut to sum a column thanks", "label": "no", "nearMiss": true}
+{"text": "add type hitns to this python", "label": "yes"}
+{"text": "hi, script for a school play about friendship?", "label": "no", "nearMiss": true}
+{"text": "reveiw my dart code for bugs", "label": "yes"}
+{"text": "so optimize this sql query, it's slow", "label": "yes"}
+{"text": "Wirte a story about a character called Eva.", "label": "no"}
+{"text": "fix this typescript error: property 'name' does not eixst on type 'never'", "label": "yes"}
+{"text": "so fix the type mismatch in my rust code thanks", "label": "yes"}
+{"text": "yo what's the idiomatic way in javascript to write a function that debounces a callback", "label": "yes"}
+{"text": "hi, write a java function that counts word frequencies in a file thx", "label": "yes"}
+{"text": "um shell gas station hours?", "label": "no", "nearMiss": true}
+{"text": "hi, This is private. Draft a warm thank-you note. lol", "label": "no"}
+{"text": "um code of conduct for a book club", "label": "no", "nearMiss": true}
+{"text": "yo Do not send this. Evaluate the assumptions behind this strategy.?", "label": "no"}
+{"text": "exlpain this bash snippet", "label": "yes"}
+{"text": "hi, what's the idiomatic way in java to write a function that downloads a file and checks its hash", "label": "yes"}
+{"text": "hey can you tell me, write tests for my sql function that downloads a file and checks its hash thanks", "label": "yes"}
+{"text": "hi, a swift reply to an email is polite?", "label": "no", "nearMiss": true}
+{"text": "ok so refactor my ruby code that parses a date string please", "label": "yes"}
+{"text": "write a ktolin function that debounces a callback", "label": "yes"}
+{"text": "quick question: what is the language of flowers please", "label": "no", "nearMiss": true}
+{"text": "hi, in swift, how do i make something that downloads a file and checks its hash?", "label": "yes"}
+{"text": "so code words for a family emergency plan lol", "label": "no", "nearMiss": true}
+{"text": "ok so who founded apple?", "label": "no", "nearMiss": true}
+{"text": "ok so explain closures in javascript thx", "label": "yes"}
+{"text": "fix the null rfeerence in my dart code", "label": "yes"}
+{"text": "quick question: debug this c# index out of range thanks", "label": "yes"}
+{"text": "is there a php library that validates an email addrses", "label": "yes"}
+{"text": "hey segmentation fault in my c program, help", "label": "yes"}
+{"text": "hey can you tell me, best exercise program for beginners pls", "label": "no", "nearMiss": true}
+{"text": "why does this trhow", "label": "yes"}
+{"text": "so explain this kotlin snippet thanks", "label": "yes"}
+{"text": "so Give me step–by–step reasoning for this decision. lol", "label": "no"}
+{"text": "write a python srcipt that renames all the files in a folder", "label": "yes"}
+{"text": "Do not send this. Darft a warm thank-you note.", "label": "no"}
+{"text": "um fix the undefined is not a function in my kotlin code please", "label": "yes"}
+{"text": "hey why does my go program have a deadlock?", "label": "yes"}
+{"text": "what does `yield` do in pytohn", "label": "yes"}
+{"text": "um whats wrong with my for loop?", "label": "yes"}
+{"text": "write tetss for my go function that debounces a callback", "label": "yes"}
+{"text": "hey convert this bash code to ruby", "label": "yes"}
+{"text": "write a python function that retreis a request three times", "label": "yes"}
+{"text": "write a ruby function that finds the longest plaindrome", "label": "yes"}
+{"text": "so convert this rust code to sql", "label": "yes"}
+{"text": "um why does my go program have a timeout please", "label": "yes"}
+{"text": "um Keep this private. Evaluate the assumptions behind this strategy. please", "label": "no"}
+{"text": "hey what's the idiomatic way in bash to write a function that removes duplicates from a list", "label": "yes"}
+{"text": "yo fix the memory leak in my scala code?", "label": "yes"}
+{"text": "fix my code pls\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.", "label": "yes"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nwrite a cron expression for every monday at 9am", "label": "yes"}
+{"text": "review this pull request diff\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "yes"}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nwrite a regex that matches email addresses", "label": "yes"}
+{"text": "write unit tests for this function\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.", "label": "yes"}
+{"text": "My grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nwhat's wrong with this css grid", "label": "yes"}
+{"text": "what is a monad in haskell\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "yes"}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nnumpy array reshape error", "label": "yes"}
+{"text": "how do i use generics in typescript\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.", "label": "yes"}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nhow do i set up a flask api", "label": "yes"}
+{"text": "pls help with this bug in my script\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "yes"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nhow do i use regex in sed to replace a word", "label": "yes"}
+{"text": "summarize this\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.", "label": "no", "nearMiss": true}
+{"text": "Our soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nturn this into a poem", "label": "no", "nearMiss": true}
+{"text": "what is the moral of this story\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.", "label": "no", "nearMiss": true}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nmake a shopping list from this", "label": "no", "nearMiss": true}
+{"text": "plan a weekend based on this\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.", "label": "no", "nearMiss": true}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nwhat's the zip code for beverly hills", "label": "no", "nearMiss": true}
+{"text": "commit to going to the gym\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "no", "nearMiss": true}
+{"text": "how do i make a pivot table\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "no", "nearMiss": true}
+{"text": "The meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nvisiting java island in indonesia", "label": "no", "nearMiss": true}
+{"text": "taylor swift's new album, what do critics say", "label": "no", "nearMiss": true}
+{"text": "what did taylor swift wear to the grammys", "label": "no", "nearMiss": true}
+{"text": "is taylor swift touring europe again", "label": "no", "nearMiss": true}
+{"text": "taylor swift and travis kelce, how did they meet", "label": "no", "nearMiss": true}
+{"text": "how many albums has taylor swift released", "label": "no", "nearMiss": true}
+{"text": "the swift current in the bay is strong, is it safe to kayak", "label": "no", "nearMiss": true}
+{"text": "python skin boots, are they ethical", "label": "no", "nearMiss": true}
+{"text": "how long do pythons live in captivity", "label": "no", "nearMiss": true}
+{"text": "java beans grind size for a french press", "label": "no", "nearMiss": true}
+{"text": "learning java the dance style", "label": "no", "nearMiss": true}
+{"text": "ruby wedding anniversary gift ideas", "label": "no", "nearMiss": true}
+{"text": "rusty nail cocktail recipe", "label": "no", "nearMiss": true}
+{"text": "my bike chain is rusty and squeaks", "label": "no", "nearMiss": true}
+{"text": "shell shocked meaning", "label": "no", "nearMiss": true}
+{"text": "shell out money idiom", "label": "no", "nearMiss": true}
+{"text": "code red meaning in a hospital", "label": "no", "nearMiss": true}
+{"text": "bar code scanner apps for my pantry", "label": "no", "nearMiss": true}
+{"text": "the debugging of my garden irrigation, which valve is stuck", "label": "no", "nearMiss": true}
+{"text": "implement a family budget plan", "label": "no", "nearMiss": true}
+{"text": "commit to a new year's resolution", "label": "no", "nearMiss": true}
+{"text": "branch manager interview questions", "label": "no", "nearMiss": true}
+{"text": "merge two families after a wedding, advice", "label": "no", "nearMiss": true}
+{"text": "deploy a parachute safely", "label": "no", "nearMiss": true}
+{"text": "what does compile mean in a cookbook", "label": "no", "nearMiss": true}
+{"text": "program the dates into my calendar", "label": "no", "nearMiss": true}
+{"text": "a bug in my soup, what do i say to the waiter", "label": "no", "nearMiss": true}
+{"text": "swift kick in the pants, where does the phrase come from", "label": "no", "nearMiss": true}
+{"text": "is the python exhibit at the zoo open on weekends", "label": "no", "nearMiss": true}
+{"text": "java jive song lyrics meaning", "label": "no", "nearMiss": true}
+{"text": "which rust remover works on garden tools", "label": "no", "nearMiss": true}
+{"text": "debugging a toddler tantrum, what actually works", "label": "no", "nearMiss": true}
+{"text": "what's the code word for a surprise party so the kids don't find out", "label": "no", "nearMiss": true}
+{"text": "compile my recipes into a little family cookbook", "label": "no", "nearMiss": true}
+{"text": "the program for the charity gala needs a theme, ideas?", "label": "no", "nearMiss": true}
+{"text": "git is british slang for what exactly", "label": "no", "nearMiss": true}
+{"text": "terminal illness support groups for families", "label": "no", "nearMiss": true}
+{"text": "bash a piñata safely at a kids party", "label": "no", "nearMiss": true}
+{"text": "go bag checklist for emergencies", "label": "no", "nearMiss": true}

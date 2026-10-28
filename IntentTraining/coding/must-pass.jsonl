@@ -1,0 +1,27 @@
+{"asOf": "2026-10-27"}
+{"text": "who is Taylor Swift dating", "label": "no", "why": "spec misfire"}
+{"text": "Taylor Swift's new album review", "label": "no", "why": "swift as a name"}
+{"text": "there's a python in the garden", "label": "no", "why": "python the snake"}
+{"text": "send a swift reply to the invitation", "label": "no", "why": "swift the adjective"}
+{"text": "implement layoffs", "label": "no", "why": "implement in a business sense"}
+{"text": "debug my morning routine", "label": "no", "why": "debug as a metaphor"}
+{"text": "java or espresso for my cafe menu", "label": "no", "why": "java as coffee"}
+{"text": "rust stains on my bathtub", "label": "no", "why": "rust the oxide"}
+{"text": "what's the dress code for the gala", "label": "no", "why": "code in another sense"}
+{"text": "write a program for the school concert", "label": "no", "why": "program as a booklet"}
+{"text": "compile a list of hiking trails", "label": "no", "why": "compile a list"}
+{"text": "how do I react to bad news at work", "label": "no", "why": "react the verb"}
+{"text": "write a Swift function that parses JSON", "label": "yes", "why": "coding"}
+{"text": "fix this Python stack trace", "label": "yes", "why": "coding"}
+{"text": "SQL query to count orders per day", "label": "yes", "why": "coding"}
+{"text": "what does this regex match: ^[a-z]+$", "label": "yes", "why": "regex"}
+{"text": "my TypeScript build fails with TS2322", "label": "yes", "why": "coding"}
+{"text": "how do I use async/await in JavaScript", "label": "yes", "why": "coding"}
+{"text": "review my Go code for race conditions", "label": "yes", "why": "coding"}
+{"text": "why does my bash script exit early", "label": "yes", "why": "coding"}
+{"text": "explain this Rust borrow checker error", "label": "yes", "why": "coding"}
+{"text": "write a unit test for this method", "label": "yes", "why": "coding"}
+{"text": "how do I install a package with pip", "label": "yes", "why": "library"}
+{"text": "convert this loop to a list comprehension", "label": "yes", "why": "coding"}
+{"text": "what's a good C++ book for beginners", "label": "yes", "why": "programming language"}
+{"text": "how do i use pandas groupby", "label": "yes", "why": "library"}

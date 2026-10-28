@@ -1,0 +1,1736 @@
+{"asOf": "2026-10-27"}
+{"text": "what are the most recent messages from my dad", "label": "no"}
+{"text": "what did my dad text me", "label": "no"}
+{"text": "show me my texts from mom", "label": "no"}
+{"text": "did my sister message me today", "label": "no"}
+{"text": "any messages from Sam?", "label": "no"}
+{"text": "what was Alex's last text", "label": "no"}
+{"text": "read me the last message from Jordan", "label": "no"}
+{"text": "what has Sam been texting me about", "label": "no"}
+{"text": "summarize my conversation with Alex", "label": "no"}
+{"text": "check if mom texted", "label": "no", "nearMiss": true}
+{"text": "has dad replied yet", "label": "no"}
+{"text": "catch me up on the group chat", "label": "no"}
+{"text": "whats new in my texts", "label": "no"}
+{"text": "do i have any unread texts", "label": "no"}
+{"text": "who messaged me today", "label": "no"}
+{"text": "what was the last thing my wife sent me", "label": "no"}
+{"text": "pull up my chat with Alex", "label": "no"}
+{"text": "show my recent imessages", "label": "no"}
+{"text": "what did Jordan send me yesterday", "label": "no"}
+{"text": "latest text from dad", "label": "no"}
+{"text": "read my messages from my boss", "label": "no"}
+{"text": "go through my messages with Sam and tell me what we planned", "label": "no"}
+{"text": "what were my dad's last few messages", "label": "no"}
+{"text": "what's my mom been saying in our texts", "label": "no"}
+{"text": "any texts from Jordan today?", "label": "no"}
+{"text": "can you look at my messages from Sam", "label": "no"}
+{"text": "see if Alex got back to me", "label": "no"}
+{"text": "did my brother answer my text", "label": "no"}
+{"text": "what did mom say in her last message", "label": "no"}
+{"text": "get my latest messages", "label": "no"}
+{"text": "find the message where Sam sent the address", "label": "no"}
+{"text": "when did I last text Alex", "label": "no"}
+{"text": "check what my sister texted me last", "label": "no", "nearMiss": true}
+{"text": "what did Sam text me?", "label": "no"}
+{"text": "did Mom message me today", "label": "no"}
+{"text": "check my messages from Alex", "label": "no", "nearMiss": true}
+{"text": "any new texts from Jordan?", "label": "no"}
+{"text": "what did Sam say in our chat", "label": "no"}
+{"text": "what did Sam say on iMessage", "label": "no"}
+{"text": "show me the last text from Dad", "label": "no"}
+{"text": "what didn’t she text me back about", "label": "no"}
+{"text": "What did Sam text me last?", "label": "no"}
+{"text": "last text from Alex", "label": "no"}
+{"text": "has Jordan texted me?", "label": "no"}
+{"text": "read my latest messages", "label": "no"}
+{"text": "any new messages from Mom", "label": "no"}
+{"text": "what was the last message Sam sent me", "label": "no"}
+{"text": "did Alex reply", "label": "no"}
+{"text": "check messages", "label": "no", "nearMiss": true}
+{"text": "check my messages", "label": "no", "nearMiss": true}
+{"text": "did Alex reply yet?", "label": "no"}
+{"text": "has Mom texted back?", "label": "no"}
+{"text": "what's the latest news Sam texted me", "label": "no"}
+{"text": "who texted me last?", "label": "no"}
+{"text": "what did my boss say in his last text", "label": "no"}
+{"text": "summarize my texts from today", "label": "no"}
+{"text": "show me the group chat", "label": "no"}
+{"text": "did anyone text me", "label": "no"}
+{"text": "what did she text me", "label": "no"}
+{"text": "has Sam responded yet?", "label": "no"}
+{"text": "what's in my latest messages", "label": "no"}
+{"text": "any unread messages?", "label": "no"}
+{"text": "read my last text from Jordan", "label": "no"}
+{"text": "look through my messages with Alex for the address", "label": "no"}
+{"text": "has my landlord texted me back", "label": "no"}
+{"text": "what did my mom message me about dinner", "label": "no"}
+{"text": "did Jordan get back to me", "label": "no"}
+{"text": "what time did Sam text me", "label": "no", "nearMiss": true}
+{"text": "get my texts from the group chat", "label": "no"}
+{"text": "check if Alex has replied", "label": "no", "nearMiss": true}
+{"text": "what were my last few texts", "label": "no"}
+{"text": "catch me up on my messages from Sam", "label": "no"}
+{"text": "did my wife text", "label": "no"}
+{"text": "what's Alex been texting me about", "label": "no"}
+{"text": "pull up my conversation with mom", "label": "no"}
+{"text": "summarize the family group chat", "label": "no"}
+{"text": "did the package arrive? check my messages", "label": "no", "nearMiss": true}
+{"text": "did sam text", "label": "no"}
+{"text": "what did i text alex", "label": "no"}
+{"text": "text my dad that I'll be late", "label": "no"}
+{"text": "send a message to mom saying happy birthday", "label": "no"}
+{"text": "send Alex a text saying I'm outside", "label": "no"}
+{"text": "reply to Jordan with sounds good", "label": "no"}
+{"text": "message the group chat that I'm on my way", "label": "no"}
+{"text": "let mom know I landed via text", "label": "no"}
+{"text": "shoot Sam a text that I'm here", "label": "no"}
+{"text": "can you send my wife a message saying I'm on my way home", "label": "no"}
+{"text": "imessage Jordan the address", "label": "no"}
+{"text": "respond to my sister and say yes", "label": "no"}
+{"text": "send a quick text to my boss that I'm sick today", "label": "no"}
+{"text": "drop Alex a message saying thanks", "label": "no"}
+{"text": "text Sam happy birthday", "label": "no"}
+{"text": "message mom: running late", "label": "no"}
+{"text": "send dad a message", "label": "no"}
+{"text": "tell Sam over text that dinner is at 7", "label": "no"}
+{"text": "text Alex that I'm running late", "label": "no"}
+{"text": "send her a message saying hey", "label": "no"}
+{"text": "send Sam a text saying hi", "label": "no"}
+{"text": "message Sam that dinner is at 7", "label": "no"}
+{"text": "reply to Mom with ok", "label": "no"}
+{"text": "tell Jordan on iMessage I'm here", "label": "no"}
+{"text": "iMessage Alex the address", "label": "no"}
+{"text": "please text Mom that I landed", "label": "no"}
+{"text": "can you send Alex a message saying I'm late", "label": "no"}
+{"text": "tell Sam by text that I'm here", "label": "no"}
+{"text": "send a message to Alex saying hi", "label": "no"}
+{"text": "text the group that I'm late", "label": "no"}
+{"text": "text her I'm on my way", "label": "no"}
+{"text": "message my sister saying happy birthday", "label": "no"}
+{"text": "text Mom back that I'm fine", "label": "no"}
+{"text": "text my boss I'm running ten minutes late", "label": "no"}
+{"text": "send a text to Jordan saying thanks", "label": "no"}
+{"text": "reply to my dad saying sounds good", "label": "no"}
+{"text": "message Alex: see you at 8", "label": "no"}
+{"text": "shoot my brother a quick text that I'm home", "label": "no"}
+{"text": "please message the group chat that dinner moved to 7", "label": "no"}
+{"text": "text my wife that I love her", "label": "no"}
+{"text": "send Sam an imessage saying I'm outside", "label": "no"}
+{"text": "respond to Alex with yes", "label": "no"}
+{"text": "let Jordan know over text that I'm late", "label": "no"}
+{"text": "ask mom by text if she needs anything", "label": "no"}
+{"text": "can you text Alex the address", "label": "no"}
+{"text": "i want you to text my dad happy birthday", "label": "no"}
+{"text": "send an sms to Alex saying I'm late", "label": "no"}
+{"text": "who texted me", "label": "no"}
+{"text": "what did Sam text me", "label": "no"}
+{"text": "what texts did I get today", "label": "no"}
+{"text": "read my last 5 messages", "label": "no"}
+{"text": "what's the last text I got from Sam", "label": "no"}
+{"text": "show the texts between me and Alex", "label": "no"}
+{"text": "when is dinner according to mom's text", "label": "no"}
+{"text": "check whether Alex replied", "label": "no", "nearMiss": true}
+{"text": "how many unread messages do I have", "label": "no"}
+{"text": "answer Sam's text with yes", "label": "no"}
+{"text": "respond to Alex's message saying ok", "label": "no"}
+{"text": "what did my mom text me this morning", "label": "no"}
+{"text": "did jake text me back", "label": "no"}
+{"text": "any new texts from priya?", "label": "no"}
+{"text": "can u check my messages from dad", "label": "no", "nearMiss": true}
+{"text": "whats the last thing sarah texted me", "label": "no"}
+{"text": "read me my latest imessages", "label": "no"}
+{"text": "catch me up on the family group chat", "label": "no"}
+{"text": "summarize the group chat with the roommates from today", "label": "no"}
+{"text": "did anyone text me in the last hour", "label": "no"}
+{"text": "what did tom say in his last text", "label": "no"}
+{"text": "show me my unread messages", "label": "no"}
+{"text": "check if alex replied to my text", "label": "no", "nearMiss": true}
+{"text": "hey can you look at my texts and tell me if my landlord got back to me", "label": "no"}
+{"text": "what time did my sister say to meet, she texted me earlier", "label": "no", "nearMiss": true}
+{"text": "scroll through my messages with ben and find the address he sent", "label": "no"}
+{"text": "go through my texts with kevin and find when he said the party was", "label": "no"}
+{"text": "who texted me last night", "label": "no"}
+{"text": "summarize my imessages from this week", "label": "no"}
+{"text": "did my boss message me on imessage", "label": "no"}
+{"text": "what was the last message from grandma", "label": "no"}
+{"text": "pull up my conversation with lisa in messages", "label": "no"}
+{"text": "any sms from the bank today?", "label": "no"}
+{"text": "check my texts for a verification code", "label": "no", "nearMiss": true}
+{"text": "what did the soccer group chat decide about saturday", "label": "no"}
+{"text": "what are people saying in the book club chat in messages", "label": "no"}
+{"text": "i think emma texted me about lunch, can you check", "label": "no", "nearMiss": true}
+{"text": "whats in my latest text from mike", "label": "no"}
+{"text": "did i get any texts while i was in the meeting", "label": "no", "nearMiss": true}
+{"text": "look at my recent messages from chris and remind me what i promised him", "label": "no"}
+{"text": "recap my text thread with my brother", "label": "no"}
+{"text": "has olivia texted me since friday", "label": "no"}
+{"text": "find the text where dan sent me the wifi password", "label": "no"}
+{"text": "what did my wife text me about dinner", "label": "no"}
+{"text": "did my husband message me about picking up the kids", "label": "no"}
+{"text": "can you read my last few messages from nora", "label": "no"}
+{"text": "tell me what my texts from jordan say", "label": "no"}
+{"text": "any unread imessages from work people", "label": "no"}
+{"text": "summarize what i missed in the family chat", "label": "no"}
+{"text": "did the plumber text me a quote", "label": "no"}
+{"text": "check messages from mom pls", "label": "no", "nearMiss": true}
+{"text": "whats the latest in my group text with the cousins", "label": "no"}
+{"text": "look thru my texts and see if anyone mentioned the concert tickets", "label": "no"}
+{"text": "did sam reply to the message i sent yesterday", "label": "no"}
+{"text": "what did my roommate text me about rent", "label": "no"}
+{"text": "go over my imessage convo with rachel and list the dates we talked about", "label": "no"}
+{"text": "im behind on texts, who do i need to reply to", "label": "no"}
+{"text": "what did ethan send me in messages last week", "label": "no"}
+{"text": "did my doctors office text me an appointment reminder", "label": "no"}
+{"text": "check if my dad messaged me back about the car", "label": "no", "nearMiss": true}
+{"text": "summarize the last 20 messages from the hiking group chat", "label": "no"}
+{"text": "text jake that im running 10 min late", "label": "no"}
+{"text": "send mom a message saying ill call her tonight", "label": "no"}
+{"text": "reply to priya with sounds good see you at 7", "label": "no"}
+{"text": "can you text my sister happy birthday", "label": "no"}
+{"text": "send a text to alex asking if he wants pizza", "label": "no"}
+{"text": "imessage tom that the meeting moved to 3", "label": "no"}
+{"text": "text dad: landed safely", "label": "no"}
+{"text": "message sarah and tell her i left the keys under the mat", "label": "no"}
+{"text": "shoot ben a text saying thanks for dinner", "label": "no"}
+{"text": "send an imessage to lisa saying im outside", "label": "no"}
+{"text": "reply to my brothers last text with lol yes", "label": "no"}
+{"text": "text the roommates group that the rent is due friday", "label": "no"}
+{"text": "please send a message to kevin saying i'll bring the charger", "label": "no"}
+{"text": "can u text emma and ask what time the movie is", "label": "no", "nearMiss": true}
+{"text": "send my wife a text that im picking up groceries", "label": "no"}
+{"text": "text chris back and say no worries", "label": "no"}
+{"text": "reply to nora's message saying i can do tuesday", "label": "no"}
+{"text": "send a quick sms to the babysitter that we'll be home by 11", "label": "no"}
+{"text": "text grandma i love her", "label": "no"}
+{"text": "message jordan on imessage asking for the slides", "label": "no"}
+{"text": "send a text to my landlord saying the sink is fixed", "label": "no"}
+{"text": "reply to the family group chat with a thumbs up and see you sunday", "label": "no"}
+{"text": "text mike that i owe him 20 bucks", "label": "no"}
+{"text": "hey send olivia a message that class is cancelled", "label": "no"}
+{"text": "text my husband to grab milk on the way home", "label": "no"}
+{"text": "respond to dan's text and tell him im in", "label": "no"}
+{"text": "send a message to rachel in messages saying congrats on the new job", "label": "no"}
+{"text": "text ethan: are we still on for tomorrow?", "label": "no"}
+{"text": "can you reply to my moms text and say yes ill be there", "label": "no"}
+{"text": "send a text message to the plumber confirming thursday at 9", "label": "no"}
+{"text": "did priya get back to me about the trip", "label": "no"}
+{"text": "has my brother responded yet", "label": "no"}
+{"text": "what did my mom text me about the weather today", "label": "no"}
+{"text": "check my texts for the latest news from my cousin", "label": "no", "nearMiss": true}
+{"text": "what did my brother text me about the stock price today", "label": "no"}
+{"text": "did jess text me the current flight status", "label": "no"}
+{"text": "summarize todays group chat about the election", "label": "no"}
+{"text": "what did my wife message me about the forecast this weekend", "label": "no"}
+{"text": "whats the latest message from my landlord about the rent increase", "label": "no"}
+{"text": "did my aunt send me the news article about the storm in my texts", "label": "no"}
+{"text": "what time is the game tonight, my friend texted me but i forgot", "label": "no", "nearMiss": true}
+{"text": "did my uncle text me the score of the match", "label": "no"}
+{"text": "read my latest texts about the concert tonight", "label": "no"}
+{"text": "did my kid's school text me about the snow day today", "label": "no"}
+{"text": "check my recent messages for todays meeting time", "label": "no", "nearMiss": true}
+{"text": "yo whats my sister been texting me", "label": "no"}
+{"text": "did the landlord ever text me back about the leak", "label": "no"}
+{"text": "pull up the last few texts from coach", "label": "no"}
+{"text": "anything new from my wife in imessage", "label": "no"}
+{"text": "what time did mom say to come over in her text", "label": "no", "nearMiss": true}
+{"text": "any unread imessages", "label": "no"}
+{"text": "who's been blowing up my phone with texts today", "label": "no"}
+{"text": "show me what dad sent in the family group chat", "label": "no"}
+{"text": "text my roommate that i'm locking the door", "label": "no"}
+{"text": "pls message mike saying the meeting moved to 3", "label": "no"}
+{"text": "send my mom a text that says happy anniversary", "label": "no"}
+{"text": "reply to the group chat with lol same", "label": "no"}
+{"text": "shoot a text to jess asking if she's free tonight", "label": "no"}
+{"text": "tell my boss via text that i'm running 10 min late", "label": "no"}
+{"text": "what did my dad text me about the game tonight", "label": "no"}
+{"text": "i want you to tell me about some data structures, take a while to think about your answer", "label": "yes"}
+{"text": "think about this carefully", "label": "yes"}
+{"text": "please think hard about this", "label": "yes"}
+{"text": "take your time and explain recursion", "label": "yes"}
+{"text": "really think it over before answering", "label": "yes"}
+{"text": "give this some serious thought", "label": "yes"}
+{"text": "think long and hard about the best approach", "label": "yes"}
+{"text": "reason through this step by step", "label": "yes"}
+{"text": "be thorough, what's the best way to learn rust", "label": "yes"}
+{"text": "don't rush, explain how tcp works", "label": "yes"}
+{"text": "think deeply about free will", "label": "yes"}
+{"text": "spend some time thinking about this", "label": "yes"}
+{"text": "use extended thinking", "label": "yes"}
+{"text": "think it through", "label": "yes"}
+{"text": "consider this carefully before answering", "label": "yes"}
+{"text": "carefully reason about whether p equals np", "label": "yes"}
+{"text": "take a moment to think before you answer", "label": "yes"}
+{"text": "think more about this", "label": "yes"}
+{"text": "double check your answer before replying", "label": "yes"}
+{"text": "work through this methodically", "label": "yes"}
+{"text": "think harder", "label": "yes"}
+{"text": "put some real thought into this", "label": "yes"}
+{"text": "take as long as you need", "label": "yes"}
+{"text": "go deep on this: how does a hash map work", "label": "yes"}
+{"text": "think hard about this", "label": "yes"}
+{"text": "think carefully: which plan is cheaper?", "label": "yes"}
+{"text": "think deeply about it", "label": "yes"}
+{"text": "take your time and compare them", "label": "yes"}
+{"text": "walk me through it step by step", "label": "yes"}
+{"text": "reason it through", "label": "yes"}
+{"text": "Think harder about this one", "label": "yes"}
+{"text": "please think it through carefully", "label": "yes"}
+{"text": "no rush, but which sorting algorithm is best for nearly sorted data", "label": "yes"}
+{"text": "think before you answer: is 91 prime?", "label": "yes"}
+{"text": "reflect carefully on the tradeoffs between sql and nosql", "label": "yes"}
+{"text": "ponder this deeply: what is consciousness", "label": "yes"}
+{"text": "explain monads thoroughly", "label": "yes"}
+{"text": "be thorough when you compare these two options", "label": "yes"}
+{"text": "go deeper on why the sky is blue", "label": "yes"}
+{"text": "think this one over: should I use a monorepo", "label": "yes"}
+{"text": "double-check the math before answering", "label": "yes"}
+{"text": "take a minute and think about the edge cases", "label": "yes"}
+{"text": "solve this step-by-step: 17 times 23", "label": "yes"}
+{"text": "please reason carefully about this proof", "label": "yes"}
+{"text": "consider this deeply before you respond", "label": "yes"}
+{"text": "give it some careful thought: tabs or spaces", "label": "yes"}
+{"text": "methodically list the failure modes of this design", "label": "yes"}
+{"text": "really think hard before you answer this riddle", "label": "yes"}
+{"text": "think it over and tell me which laptop to buy", "label": "yes"}
+{"text": "mull it over: is a hot dog a sandwich", "label": "yes"}
+{"text": "think hard about this: is p equal to np in practice", "label": "yes"}
+{"text": "take your time and give me a careful answer on whether to refinance", "label": "yes"}
+{"text": "please be thorough, review this contract clause by clause", "label": "yes"}
+{"text": "walk through it step by step", "label": "yes"}
+{"text": "double check your math on this before answering", "label": "yes"}
+{"text": "think carefully, which of these job offers is better", "label": "yes"}
+{"text": "really think this through: should i move to berlin", "label": "yes"}
+{"text": "reason step by step and solve this logic puzzle", "label": "yes"}
+{"text": "take a while if you need to, i want the best answer", "label": "yes"}
+{"text": "dont rush, figure out why this code deadlocks", "label": "yes"}
+{"text": "think deeply about the tradeoffs here", "label": "yes"}
+{"text": "be very careful with this one, its for a medical dosing question", "label": "yes"}
+{"text": "go slow and verify each step of the proof", "label": "yes"}
+{"text": "think it over and give me your best plan", "label": "yes"}
+{"text": "use deep reasoning for this chess position", "label": "yes"}
+{"text": "please think really hard about the edge cases in this function", "label": "yes"}
+{"text": "think step-by-step about how to schedule these meetings", "label": "yes"}
+{"text": "take ur time and check your work", "label": "yes"}
+{"text": "carefully reason through this probability question", "label": "yes"}
+{"text": "i need a thorough analysis of this business plan", "label": "yes"}
+{"text": "think longer on this one please", "label": "yes"}
+{"text": "ultrathink: design a caching layer for this api", "label": "yes"}
+{"text": "work it out carefully and double-check the answer", "label": "yes"}
+{"text": "reflect carefully before answering: is this argument valid", "label": "yes"}
+{"text": "think harder, your last answer was wrong", "label": "yes"}
+{"text": "be meticulous, find every bug in this file", "label": "yes"}
+{"text": "consider this carefully and show your reasoning", "label": "yes"}
+{"text": "take some time to think about the best data structure here", "label": "yes"}
+{"text": "do a careful step by step derivation of the formula", "label": "yes"}
+{"text": "think this through thoroughly before replying", "label": "yes"}
+{"text": "slow down and think about whether this is correct", "label": "yes"}
+{"text": "please reason carefully about the legal implications", "label": "yes"}
+{"text": "spend extra time on this, accuracy matters more than speed", "label": "yes"}
+{"text": "deliberate carefully then answer: which algorithm is faster here", "label": "yes"}
+{"text": "think really carefully about the units in this physics problem", "label": "yes"}
+{"text": "go through this methodically", "label": "yes"}
+{"text": "triple check the dates in this itinerary", "label": "yes"}
+{"text": "think deeply, why did the roman empire fall", "label": "yes"}
+{"text": "can you think this through more carefully", "label": "yes"}
+{"text": "please use extended thinking for this", "label": "yes"}
+{"text": "step by step instructions for changing a tire", "label": "yes"}
+{"text": "take your time on this one, what's the best db for my app", "label": "yes"}
+{"text": "really think it through before you answer: is p=np", "label": "yes"}
+{"text": "no rush, walk me through how vaccines work", "label": "yes"}
+{"text": "be careful with the math here: 17% of 2340", "label": "yes"}
+{"text": "What happened in the news today?", "label": "no"}
+{"text": "Latest AI news", "label": "no"}
+{"text": "What happened last night?", "label": "no"}
+{"text": "What's new with Apple?", "label": "no"}
+{"text": "What are the recent developments in fusion research?", "label": "no"}
+{"text": "Who is the president of France?", "label": "no"}
+{"text": "Who is the CEO of Apple?", "label": "no"}
+{"text": "Weather in Copenhagen", "label": "no"}
+{"text": "Will it rain tomorrow?", "label": "no"}
+{"text": "What's Apple's stock price?", "label": "no"}
+{"text": "What is the price of Bitcoin?", "label": "no"}
+{"text": "USD EUR exchange rate", "label": "no"}
+{"text": "Who won the match last night?", "label": "no"}
+{"text": "What is the latest stable Swift release?", "label": "no"}
+{"text": "What was announced at WWDC 2026?", "label": "no"}
+{"text": "Search the web for the meaning of serendipity", "label": "no"}
+{"text": "what's the latest AI news", "label": "no"}
+{"text": "what's the latest message from the white house on tariffs", "label": "no"}
+{"text": "what are the most recent developments in sms marketing", "label": "no"}
+{"text": "what are the latest messages in the kafka topic", "label": "no"}
+{"text": "what did the president say in his latest message to congress", "label": "no"}
+{"text": "latest news about apple's imessage update", "label": "no"}
+{"text": "what's the weather today", "label": "no"}
+{"text": "explain the most recent text in the book", "label": "no"}
+{"text": "did Microsoft respond to the allegations today", "label": "no"}
+{"text": "did Nvidia respond to the latest export rules", "label": "no"}
+{"text": "did Ukraine respond to the peace plan this week", "label": "no"}
+{"text": "what's the latest version of my messages app", "label": "no"}
+{"text": "when is the next earnings call for my stock nvda", "label": "no"}
+{"text": "what time is my team's call of duty match today", "label": "no", "nearMiss": true}
+{"text": "what were the controversial calls in our game last night", "label": "no"}
+{"text": "what's the latest on the call for proposals for my conference", "label": "no"}
+{"text": "latest news about calls for my resignation", "label": "no"}
+{"text": "what are the latest chats about my favorite show on reddit", "label": "no"}
+{"text": "what time does my local post office mail pickup happen today", "label": "no", "nearMiss": true}
+{"text": "latest dm news for my dungeon master group this week", "label": "no"}
+{"text": "what's the latest from Sam", "label": "no"}
+{"text": "summarize what Jordan sent yesterday", "label": "no"}
+{"text": "in breaking bad what did jesse text walt", "label": "no"}
+{"text": "do you think it will rain tomorrow", "label": "no", "nearMiss": true}
+{"text": "weather in my city tomorrow, im in chicago", "label": "no"}
+{"text": "how is my stock aapl doing today", "label": "no"}
+{"text": "latest news about my favorite band radiohead", "label": "no"}
+{"text": "is my flight ua 123 on time today", "label": "no", "nearMiss": true}
+{"text": "whats the current price of bitcoin, i own some", "label": "no"}
+{"text": "did my team the yankees win last night", "label": "no"}
+{"text": "is there a recall on my car, a 2019 honda civic, this year", "label": "no"}
+{"text": "current mortgage rates for my refinance", "label": "no"}
+{"text": "my favorite restaurant chipotle, is it open on christmas this year", "label": "no"}
+{"text": "has my senator voted on the new bill this week", "label": "no"}
+{"text": "current exchange rate for my trip to japan, usd to yen", "label": "no"}
+{"text": "whats the latest news on my company's stock nvidia", "label": "no"}
+{"text": "when is my teams next game, the chiefs", "label": "no"}
+{"text": "whats my teams score tonight, the lakers", "label": "no"}
+{"text": "whats the latest ios update for my iphone", "label": "no"}
+{"text": "whats the latest version of python for my project", "label": "no"}
+{"text": "whats the weather like this weekend where i live in seattle", "label": "no"}
+{"text": "did my favorite author release a new book this month", "label": "no"}
+{"text": "who won the game last night", "label": "no"}
+{"text": "text classification with bert", "label": "no"}
+{"text": "how do I send a message in slack", "label": "no"}
+{"text": "what is message passing in mpi", "label": "no"}
+{"text": "how do i reply to a recruiter", "label": "no"}
+{"text": "how to text a girl", "label": "no"}
+{"text": "what does the error message mean", "label": "no"}
+{"text": "summarize this text", "label": "no"}
+{"text": "send me a list of data structures", "label": "no"}
+{"text": "tell me a joke", "label": "no"}
+{"text": "what's the best way to message a landlord", "label": "no"}
+{"text": "what message does the ending of inception send", "label": "no"}
+{"text": "write my dad a text saying happy fathers day", "label": "no"}
+{"text": "write a message to my landlord about rent", "label": "no"}
+{"text": "what does this error message mean", "label": "no"}
+{"text": "write a commit message for this diff", "label": "no"}
+{"text": "what does this message mean", "label": "no"}
+{"text": "explain how a message queue works", "label": "no"}
+{"text": "send me a summary", "label": "no"}
+{"text": "tell me about Denmark", "label": "no"}
+{"text": "send an email to Alex", "label": "no"}
+{"text": "write a text for my slide", "label": "no"}
+{"text": "what does \"text Alex\" mean", "label": "no"}
+{"text": "`message Sam` is a command", "label": "no"}
+{"text": "the error message says file not found", "label": "no"}
+{"text": "what's the exit message from this script", "label": "no"}
+{"text": "message me a joke", "label": "no"}
+{"text": "text me a joke", "label": "no"}
+{"text": "text me a summary", "label": "no"}
+{"text": "draft a text to my boss asking for Friday off", "label": "no"}
+{"text": "reply to this email politely", "label": "no"}
+{"text": "explain this message broker", "label": "no"}
+{"text": "what's on my screen", "label": "no"}
+{"text": "translate this text to French", "label": "no"}
+{"text": "check the log message", "label": "no", "nearMiss": true}
+{"text": "text editor recommendations", "label": "no"}
+{"text": "what is a text message", "label": "no"}
+{"text": "send me the last text you wrote", "label": "no"}
+{"text": "text wrapping in css", "label": "no"}
+{"text": "text alignment in swiftui", "label": "no"}
+{"text": "text generation models", "label": "no"}
+{"text": "message passing in Erlang explained", "label": "no"}
+{"text": "explain actors and message passing", "label": "no"}
+{"text": "message brokers compared", "label": "no"}
+{"text": "message types in protobuf", "label": "no"}
+{"text": "message board software recommendations", "label": "no"}
+{"text": "sms gateway providers", "label": "no"}
+{"text": "SMS marketing best practices", "label": "no"}
+{"text": "imessage not working on mac", "label": "no"}
+{"text": "message types that protobuf supports", "label": "no"}
+{"text": "text messages vs email for marketing", "label": "no"}
+{"text": "fix my text with proper punctuation", "label": "no"}
+{"text": "rewrite my text from above", "label": "no"}
+{"text": "in your last message from earlier you said X", "label": "no"}
+{"text": "what was the last message you sent me", "label": "no"}
+{"text": "reply to reviewer 2 politely", "label": "no"}
+{"text": "did you reply to my question", "label": "no"}
+{"text": "check messages in the kafka queue", "label": "no", "nearMiss": true}
+{"text": "check my email from my boss", "label": "no", "nearMiss": true}
+{"text": "what did Sam say on slack", "label": "no"}
+{"text": "send Alex a message on whatsapp", "label": "no"}
+{"text": "text to speech apps for mac", "label": "no"}
+{"text": "how do I read messages from kafka", "label": "no"}
+{"text": "what's a good reply to a compliment", "label": "no"}
+{"text": "what should I text my crush", "label": "no"}
+{"text": "is it rude to text after 10pm", "label": "no"}
+{"text": "how many messages can a kafka topic hold", "label": "no"}
+{"text": "what is the text of the first amendment", "label": "no"}
+{"text": "send us the details", "label": "no"}
+{"text": "summarize the text above", "label": "no"}
+{"text": "write a commit message", "label": "no"}
+{"text": "explain message passing", "label": "no"}
+{"text": "translate this text", "label": "no"}
+{"text": "what does this text mean", "label": "no"}
+{"text": "is this text grammatical", "label": "no"}
+{"text": "make this text shorter", "label": "no"}
+{"text": "what language is this text written in", "label": "no"}
+{"text": "explain the message of the poem", "label": "no"}
+{"text": "what's the reason he replied like that", "label": "no", "nearMiss": true}
+{"text": "has anyone replied to my post", "label": "no"}
+{"text": "who texted you", "label": "no"}
+{"text": "did my professor reply to my email", "label": "no"}
+{"text": "show me the messages from the server log", "label": "no"}
+{"text": "read the text from the image", "label": "no"}
+{"text": "what did my mom say on whatsapp", "label": "no"}
+{"text": "find text in a file with grep", "label": "no"}
+{"text": "tell Sam I'm running late", "label": "no"}
+{"text": "what did Sam say about dinner", "label": "no"}
+{"text": "what was my last message", "label": "no"}
+{"text": "rewrite your last message", "label": "no"}
+{"text": "summarize our conversation", "label": "no"}
+{"text": "summarize this chat", "label": "no"}
+{"text": "what did you say in your last message", "label": "no"}
+{"text": "can you repeat your last reply", "label": "no"}
+{"text": "what did I ask in my first message", "label": "no"}
+{"text": "shorten your previous answer", "label": "no"}
+{"text": "continue this conversation in French", "label": "no"}
+{"text": "make my previous message clearer", "label": "no"}
+{"text": "what have we talked about with you so far", "label": "no"}
+{"text": "write a message to my landlord", "label": "no"}
+{"text": "help me write a text to my boss asking for a raise", "label": "no"}
+{"text": "draft a reply to my sister's message", "label": "no"}
+{"text": "compose a message for my mom's birthday card", "label": "no"}
+{"text": "write a text message I can send to my team", "label": "no"}
+{"text": "rewrite my message to Alex so it sounds nicer", "label": "no"}
+{"text": "come up with a funny text to send my brother", "label": "no"}
+{"text": "proofread this text before I send it", "label": "no"}
+{"text": "what do you think about python", "label": "no", "nearMiss": true}
+{"text": "i think the answer is 4", "label": "no", "nearMiss": true}
+{"text": "how do people think", "label": "no", "nearMiss": true}
+{"text": "think of a name for my dog", "label": "no", "nearMiss": true}
+{"text": "what are you thinking", "label": "no", "nearMiss": true}
+{"text": "do you think it will rain", "label": "no", "nearMiss": true}
+{"text": "I think it's broken", "label": "no", "nearMiss": true}
+{"text": "what do you think of this?", "label": "no", "nearMiss": true}
+{"text": "`step by step` is a phrase", "label": "no"}
+{"text": "I thought hard about it", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about buying a car", "label": "no", "nearMiss": true}
+{"text": "i think more people should cook", "label": "no", "nearMiss": true}
+{"text": "what do you think about rust vs go", "label": "no", "nearMiss": true}
+{"text": "think of a word that rhymes with orange", "label": "no", "nearMiss": true}
+{"text": "how long does it take to boil an egg", "label": "no"}
+{"text": "does it take a while to learn piano", "label": "no", "nearMiss": true}
+{"text": "i thoroughly enjoyed the movie, suggest a similar one", "label": "no"}
+{"text": "what are some deep sea creatures", "label": "no", "nearMiss": true}
+{"text": "i want to think more about my career, any tips?", "label": "no", "nearMiss": true}
+{"text": "think tank funding sources", "label": "no", "nearMiss": true}
+{"text": "how do I double check my tax return", "label": "no", "nearMiss": true}
+{"text": "what's the reason for the season", "label": "no", "nearMiss": true}
+{"text": "consider the lilies of the field meaning", "label": "no", "nearMiss": true}
+{"text": "think long-term about investing", "label": "no", "nearMiss": true}
+{"text": "i'll think it over", "label": "no", "nearMiss": true}
+{"text": "let me think about it more", "label": "no", "nearMiss": true}
+{"text": "the page takes a while to load, why", "label": "no", "nearMiss": true}
+{"text": "think about whether it's over", "label": "no", "nearMiss": true}
+{"text": "explain photosynthesis", "label": "no"}
+{"text": "what is a binary tree?", "label": "no"}
+{"text": "hello", "label": "no"}
+{"text": "thanks!", "label": "no"}
+{"text": "what's 2 + 2", "label": "no"}
+{"text": "write a poem about the sea", "label": "no"}
+{"text": "how do I center a div", "label": "no"}
+{"text": "who wrote pride and prejudice", "label": "no"}
+{"text": "explain recursion", "label": "no"}
+{"text": "what's the capital of Peru", "label": "no"}
+{"text": "make it shorter", "label": "no"}
+{"text": "translate this", "label": "no"}
+{"text": "rewrite this", "label": "no"}
+{"text": "has Apple responded to the EU ruling yet", "label": "no"}
+{"text": "has Boeing replied to the FAA yet", "label": "no"}
+{"text": "did Russia respond to the sanctions", "label": "no"}
+{"text": "has Trump responded to the verdict", "label": "no"}
+{"text": "has Israel replied to the ceasefire proposal", "label": "no"}
+{"text": "did Sam Altman respond to the lawsuit", "label": "no"}
+{"text": "did Drake respond to Kendrick", "label": "no"}
+{"text": "has the White House responded", "label": "no"}
+{"text": "has Meta responded to the fine", "label": "no"}
+{"text": "did Netflix reply to the boycott", "label": "no"}
+{"text": "did Google respond to my appeal", "label": "no"}
+{"text": "find out if he replied to the thread on github", "label": "no"}
+{"text": "did Kendrick reply to Drake's diss track", "label": "no"}
+{"text": "did Taylor Swift reply to Kanye", "label": "no"}
+{"text": "Sam sent me this article, summarize it", "label": "no"}
+{"text": "my coworker sent me a pr to review, check it for bugs", "label": "no", "nearMiss": true}
+{"text": "what does this mean? my dad sent me: ok", "label": "no"}
+{"text": "check my grammar in my message to my boss", "label": "no", "nearMiss": true}
+{"text": "read my message to my boss and tell me if it's too harsh", "label": "no"}
+{"text": "read messages from my sqs queue in batches", "label": "no"}
+{"text": "fetch messages from my firebase database", "label": "no"}
+{"text": "get messages from my api", "label": "no"}
+{"text": "read messages from my kafka consumer", "label": "no"}
+{"text": "get all messages from my redis stream", "label": "no"}
+{"text": "show messages from my backend", "label": "no"}
+{"text": "list the messages from my mailbox server", "label": "no"}
+{"text": "summarize the text from my notes", "label": "no"}
+{"text": "summarize the text from my essay", "label": "no"}
+{"text": "read me my texts from the book chapter", "label": "no"}
+{"text": "what are my messages component props in react", "label": "no"}
+{"text": "get my messages endpoint returning 500", "label": "no"}
+{"text": "find my texts table schema", "label": "no"}
+{"text": "summarize the book Text Me When You Get Home", "label": "no"}
+{"text": "what's the meaning of the song text me back", "label": "no"}
+{"text": "who sang send me a text", "label": "no"}
+{"text": "what genre is the song message me", "label": "no"}
+{"text": "who wrote the book texts from my ex", "label": "no"}
+{"text": "what happened in the episode where Ross texted Rachel", "label": "no"}
+{"text": "what does text me mean in slang", "label": "no"}
+{"text": "what does message me mean", "label": "no"}
+{"text": "text my ex or not?", "label": "no"}
+{"text": "what are my chances if I text her", "label": "no"}
+{"text": "latest messages from nasa to us about artemis today", "label": "no"}
+{"text": "what did I get from mom today", "label": "no"}
+{"text": "what emails came in today", "label": "no"}
+{"text": "any news from my sister today", "label": "no"}
+{"text": "what did mom say today", "label": "no"}
+{"text": "deep thought from hitchhiker's guide", "label": "no", "nearMiss": true}
+{"text": "what is deep thought", "label": "no", "nearMiss": true}
+{"text": "some thought experiments about time travel", "label": "no", "nearMiss": true}
+{"text": "I've given it some thought and I want to quit", "label": "no", "nearMiss": true}
+{"text": "real thought leadership examples", "label": "no", "nearMiss": true}
+{"text": "go deep sea fishing tips", "label": "no", "nearMiss": true}
+{"text": "think more positively", "label": "no", "nearMiss": true}
+{"text": "think more like a ceo", "label": "no", "nearMiss": true}
+{"text": "how to think more clearly", "label": "no", "nearMiss": true}
+{"text": "how to think critically", "label": "no", "nearMiss": true}
+{"text": "the process can take a while, is that normal", "label": "no", "nearMiss": true}
+{"text": "take a minute and read this email I wrote", "label": "no"}
+{"text": "what does think it over mean", "label": "no", "nearMiss": true}
+{"text": "mull over wine recipe", "label": "no"}
+{"text": "how do i send a message to a kafka topic in python", "label": "no"}
+{"text": "my rabbitmq messages keep getting requeued, why", "label": "no"}
+{"text": "whats the difference between sms and mms protocols technically", "label": "no"}
+{"text": "write a regex to extract phone numbers from a text file", "label": "no"}
+{"text": "how do i read a text file line by line in swift", "label": "no"}
+{"text": "explain message passing in erlang", "label": "no"}
+{"text": "build me a simple chat app with websockets in node", "label": "no"}
+{"text": "error message says null pointer exception, what does that mean", "label": "no"}
+{"text": "how do i send a text message with twilio api", "label": "no"}
+{"text": "whats a good commit message for fixing a typo", "label": "no"}
+{"text": "my git commit messages are messy, how do i squash them", "label": "no"}
+{"text": "how do i set placeholder text in a uitextfield", "label": "no"}
+{"text": "text processing with awk to count words", "label": "no"}
+{"text": "implement a message queue in go with channels", "label": "no"}
+{"text": "why does my discord bot not reply to messages", "label": "no"}
+{"text": "convert this text to uppercase in javascript", "label": "no"}
+{"text": "whats the max length of an sms message in characters", "label": "no"}
+{"text": "how does end to end encryption work in imessage", "label": "no"}
+{"text": "how to design a database schema for a messaging app", "label": "no"}
+{"text": "my console shows the message undefined is not a function", "label": "no"}
+{"text": "explain pub sub messaging patterns", "label": "no"}
+{"text": "how do i make text bold in markdown", "label": "no"}
+{"text": "whats the best text editor for coding on mac", "label": "no"}
+{"text": "how do push notifications for chat messages work on ios", "label": "no"}
+{"text": "grpc vs rest for sending messages between microservices", "label": "no"}
+{"text": "how do i read messages from an sqs queue", "label": "no"}
+{"text": "why does imessage say not delivered sometimes", "label": "no"}
+{"text": "how do i turn off read receipts in messages on iphone", "label": "no"}
+{"text": "how do i back up my imessages to icloud", "label": "no"}
+{"text": "my imessage wont activate on my new phone", "label": "no"}
+{"text": "what was the famous last message from the titanic", "label": "no"}
+{"text": "what did elon musk tweet about tesla", "label": "no"}
+{"text": "summarize the leaked text messages in the trial news", "label": "no"}
+{"text": "in the movie her, what does samantha text theodore", "label": "no"}
+{"text": "what was the message of martin luther kings i have a dream speech", "label": "no"}
+{"text": "whats the main message of the great gatsby", "label": "no"}
+{"text": "what did romeo say to juliet in the balcony scene", "label": "no"}
+{"text": "what texts did the senator send that got him in trouble", "label": "no"}
+{"text": "whats the song about a text message by drake", "label": "no"}
+{"text": "explain the zimmermann telegram message", "label": "no"}
+{"text": "what did the first ever sms say", "label": "no"}
+{"text": "what message was on the voyager golden record", "label": "no"}
+{"text": "summarize the plot of the novel where the girl gets anonymous texts", "label": "no"}
+{"text": "what did lincoln write in his letter to mrs bixby", "label": "no"}
+{"text": "what is the central message of the book of job", "label": "no"}
+{"text": "what did the ceo say in his message to employees about layoffs", "label": "no"}
+{"text": "did taylor swift text travis kelce about the album", "label": "no"}
+{"text": "what was the text exchange in the gamestop lawsuit about", "label": "no"}
+{"text": "what does the hidden message in the dark side of the moon mean", "label": "no"}
+{"text": "what did my character's mom text her in chapter 3 of my story, give me ideas", "label": "no"}
+{"text": "what was the message in the bottle in that nicholas sparks book", "label": "no"}
+{"text": "what did the pope say in his easter message", "label": "no"}
+{"text": "why did the kardashians group chat leak matter", "label": "no"}
+{"text": "what did the president text the prime minister according to reports", "label": "no"}
+{"text": "what was your last message", "label": "no"}
+{"text": "can you repeat my previous message", "label": "no"}
+{"text": "summarize our conversation so far", "label": "no"}
+{"text": "you didnt answer the second part of my message", "label": "no"}
+{"text": "re read my last message and try again", "label": "no"}
+{"text": "what did i say earlier in this chat", "label": "no"}
+{"text": "shorten your previous reply", "label": "no"}
+{"text": "in your last message you said 5 but now 6, which is it", "label": "no"}
+{"text": "ignore my previous message, i meant python not java", "label": "no"}
+{"text": "can you send that again but shorter", "label": "no"}
+{"text": "the text you wrote above has a typo", "label": "no"}
+{"text": "go back to what you said in your first message", "label": "no"}
+{"text": "summarize this chat into bullet points", "label": "no"}
+{"text": "reply to my question above", "label": "no"}
+{"text": "that last message was confusing, explain again", "label": "no"}
+{"text": "copy the text from your answer into a table", "label": "no"}
+{"text": "did you get my message about the budget numbers", "label": "no"}
+{"text": "continue from where your message got cut off", "label": "no"}
+{"text": "what was the first thing i asked you in this conversation", "label": "no"}
+{"text": "rewrite the text you just gave me in a friendlier tone", "label": "no"}
+{"text": "write a message to my landlord about the broken heater", "label": "no"}
+{"text": "help me write a text to my ex asking for my stuff back", "label": "no"}
+{"text": "make my text to my boss sound more professional", "label": "no"}
+{"text": "how should i reply to my friend who said she's moving away", "label": "no"}
+{"text": "should i text him first or wait", "label": "no"}
+{"text": "draft a birthday message for my coworker", "label": "no"}
+{"text": "what's a nice way to text someone that i cant come to their wedding", "label": "no"}
+{"text": "give me a funny text to send my brother on his birthday", "label": "no"}
+{"text": "is it rude to not reply to a text for 3 days", "label": "no"}
+{"text": "rewrite this text so it sounds less angry: you never listen to me", "label": "no"}
+{"text": "my friend texted me 'we need to talk', what does that usually mean", "label": "no"}
+{"text": "how do i respond to a passive aggressive message from my roommate", "label": "no"}
+{"text": "write a sympathy message for a colleague who lost her dad", "label": "no"}
+{"text": "whats a good first text to send on hinge", "label": "no"}
+{"text": "help me word a message to my team about the deadline", "label": "no"}
+{"text": "proofread this text before i send it to my mom: im sorry i forgot ur bday", "label": "no"}
+{"text": "how long should i wait to text after a first date", "label": "no"}
+{"text": "write a thank you text for my aunt for the gift", "label": "no"}
+{"text": "should i reply to my ex's message", "label": "no"}
+{"text": "compose a short text asking my neighbor to move their car", "label": "no"}
+{"text": "is this text too clingy: miss you already", "label": "no"}
+{"text": "suggest a reply to a guy who texted 'wyd'", "label": "no"}
+{"text": "what do i say in a text to cancel plans politely", "label": "no"}
+{"text": "turn this into a short text message: meeting moved to 4pm room b", "label": "no"}
+{"text": "help me write a group text inviting people to my bbq", "label": "no"}
+{"text": "check my email for anything from amazon", "label": "no", "nearMiss": true}
+{"text": "summarize my slack messages from today", "label": "no"}
+{"text": "what did my boss say in teams", "label": "no"}
+{"text": "send a whatsapp to ahmed saying im late", "label": "no"}
+{"text": "did anyone dm me on instagram", "label": "no"}
+{"text": "reply to the email from hr saying thanks", "label": "no"}
+{"text": "read my latest gmail", "label": "no"}
+{"text": "check my discord messages from the gaming server", "label": "no", "nearMiss": true}
+{"text": "send an email to my professor asking for an extension", "label": "no"}
+{"text": "what did people say in the telegram group", "label": "no"}
+{"text": "post in the slack channel that standup is cancelled", "label": "no"}
+{"text": "read my linkedin messages", "label": "no"}
+{"text": "any new messages on facebook messenger", "label": "no"}
+{"text": "send a signal message to my cousin", "label": "no"}
+{"text": "check my outlook inbox for the invoice", "label": "no", "nearMiss": true}
+{"text": "send me a summary of this article", "label": "no"}
+{"text": "text me a reminder tomorrow at 9", "label": "no"}
+{"text": "can you message me when its done", "label": "no"}
+{"text": "give me the text of the declaration of independence", "label": "no"}
+{"text": "send me a list of good sci fi books", "label": "no"}
+{"text": "reply in spanish please", "label": "no"}
+{"text": "write your answer as a text message style", "label": "no"}
+{"text": "send me the recipe again", "label": "no"}
+{"text": "just text back yes or no", "label": "no"}
+{"text": "answer me in short messages like a text", "label": "no"}
+{"text": "whats the message behind this painting", "label": "no"}
+{"text": "i dont get the message my teacher was trying to send", "label": "no"}
+{"text": "how do i get the message across in my presentation", "label": "no"}
+{"text": "stay on message during a job interview tips", "label": "no"}
+{"text": "what does mixed messages mean in a relationship", "label": "no"}
+{"text": "whats the subtext of this poem", "label": "no"}
+{"text": "the textbook says mitochondria is the powerhouse, why", "label": "no"}
+{"text": "send a clear message to investors in my pitch deck", "label": "no"}
+{"text": "the text of the contract says net 30, what does that mean", "label": "no"}
+{"text": "whats the context for this quote", "label": "no"}
+{"text": "tell sam im late", "label": "no"}
+{"text": "let mom know i landed", "label": "no"}
+{"text": "ask jake if hes coming tonight", "label": "no"}
+{"text": "what did my boss say about friday", "label": "no"}
+{"text": "tell my wife i love her", "label": "no"}
+{"text": "remind alex about the tickets", "label": "no"}
+{"text": "what did lisa want", "label": "no"}
+{"text": "how do i reverse a linked list in python", "label": "no"}
+{"text": "whats a good substitute for buttermilk in pancakes", "label": "no"}
+{"text": "explain photosynthesis to a 10 year old", "label": "no"}
+{"text": "write a cover letter for a junior data analyst role", "label": "no"}
+{"text": "how many grams of protein should i eat per day", "label": "no"}
+{"text": "what are some things to do in lisbon for 3 days", "label": "no"}
+{"text": "fix this sql: select * form users where id = 1", "label": "no"}
+{"text": "how long do i boil an egg for soft yolk", "label": "no"}
+{"text": "translate 'where is the train station' into japanese", "label": "no"}
+{"text": "why does my knee hurt when i run downhill", "label": "no"}
+{"text": "help me outline an essay on the causes of ww1", "label": "no"}
+{"text": "what is the derivative of x^2 sin x", "label": "no"}
+{"text": "give me a 4 day workout split for beginners", "label": "no"}
+{"text": "how do i center a div with flexbox", "label": "no"}
+{"text": "write a haiku about autumn", "label": "no"}
+{"text": "what's the difference between affect and effect", "label": "no"}
+{"text": "packing list for a week of camping", "label": "no"}
+{"text": "how do i get red wine out of a carpet", "label": "no"}
+{"text": "explain big o notation simply", "label": "no"}
+{"text": "recipe for vegan chili", "label": "no"}
+{"text": "whats the capital of australia", "label": "no"}
+{"text": "convert 350 fahrenheit to celsius", "label": "no"}
+{"text": "summarize the plot of hamlet", "label": "no"}
+{"text": "how do vaccines work", "label": "no"}
+{"text": "write a python script that renames files by date", "label": "no"}
+{"text": "is it safe to take ibuprofen with coffee", "label": "no"}
+{"text": "help me plan a budget on 3000 a month", "label": "no"}
+{"text": "whats a good name for a golden retriever", "label": "no"}
+{"text": "explain the difference between a roth and traditional ira", "label": "no"}
+{"text": "how do i make sourdough starter", "label": "no"}
+{"text": "write a limerick about a cat named steve", "label": "no"}
+{"text": "what does async await do in swift", "label": "no"}
+{"text": "how many cups in a liter", "label": "no"}
+{"text": "tips for a long flight with a toddler", "label": "no"}
+{"text": "what is the pythagorean theorem", "label": "no"}
+{"text": "explain how a car engine works", "label": "no"}
+{"text": "give me 5 icebreaker questions for a team meeting", "label": "no"}
+{"text": "how do i unclog a drain without chemicals", "label": "no"}
+{"text": "whats the best way to learn spanish fast", "label": "no"}
+{"text": "help me write a toast for my sisters wedding", "label": "no"}
+{"text": "what are symptoms of dehydration", "label": "no"}
+{"text": "how do i make a pivot table in excel", "label": "no"}
+{"text": "explain recursion with an example", "label": "no"}
+{"text": "whats a good itinerary for a road trip from la to sf", "label": "no"}
+{"text": "write unit tests for this function: def add(a,b): return a+b", "label": "no"}
+{"text": "how to grow tomatoes on a balcony", "label": "no"}
+{"text": "what is the krebs cycle", "label": "no"}
+{"text": "rewrite this paragraph to be more concise", "label": "no"}
+{"text": "how do i tie a windsor knot", "label": "no"}
+{"text": "ideas for a 7 year olds birthday party", "label": "no"}
+{"text": "what's the plural of octopus", "label": "no"}
+{"text": "how do i calculate compound interest", "label": "no"}
+{"text": "why is the sky blue", "label": "no"}
+{"text": "explain docker vs virtual machines", "label": "no"}
+{"text": "give me a meal prep plan for the week under 2000 calories", "label": "no"}
+{"text": "what should i see in tokyo if i like anime", "label": "no"}
+{"text": "how to stop procrastinating", "label": "no"}
+{"text": "explain the french revolution in 5 bullet points", "label": "no"}
+{"text": "whats a good stretching routine for lower back pain", "label": "no"}
+{"text": "how do i write a for loop in bash", "label": "no"}
+{"text": "what wine goes with salmon", "label": "no"}
+{"text": "make me a study schedule for finals", "label": "no"}
+{"text": "how do i get rid of fruit flies", "label": "no"}
+{"text": "what's the difference between a virus and bacteria", "label": "no"}
+{"text": "write a short bedtime story about a dragon", "label": "no"}
+{"text": "how does a mortgage work", "label": "no"}
+{"text": "help me name my startup, its a dog walking app", "label": "no"}
+{"text": "solve 3x + 7 = 22", "label": "no"}
+{"text": "how do i make my resume stand out", "label": "no"}
+{"text": "what is a good beginner guitar song", "label": "no"}
+{"text": "explain the rules of cricket", "label": "no"}
+{"text": "how to clean a cast iron pan", "label": "no"}
+{"text": "regex for a valid email address", "label": "no"}
+{"text": "how many hours of sleep do teenagers need", "label": "no"}
+{"text": "whats the best order to watch the marvel movies", "label": "no"}
+{"text": "explain supply and demand", "label": "no"}
+{"text": "write a product description for a bamboo toothbrush", "label": "no"}
+{"text": "how to say no to extra work politely", "label": "no"}
+{"text": "how to make cold brew coffee", "label": "no"}
+{"text": "explain what a neural network is", "label": "no"}
+{"text": "im going to paris in april, what should i pack", "label": "no"}
+{"text": "how do i compute the median in pandas", "label": "no"}
+{"text": "what is stoicism", "label": "no"}
+{"text": "help me memorize the periodic table", "label": "no"}
+{"text": "give me a 10 minute meditation script", "label": "no"}
+{"text": "is a tomato a fruit or vegetable", "label": "no"}
+{"text": "how to improve my credit score", "label": "no"}
+{"text": "write a git command to undo the last commit", "label": "no"}
+{"text": "what are good houseplants for low light", "label": "no"}
+{"text": "how do i deal with a coworker who interrupts me", "label": "no"}
+{"text": "explain the theory of relativity simply", "label": "no"}
+{"text": "how do i make my swiftui list editable", "label": "no"}
+{"text": "best way to store fresh herbs", "label": "no"}
+{"text": "write an apology email to a customer for a late order", "label": "no"}
+{"text": "what is the difference between let and var in swift", "label": "no"}
+{"text": "how many calories in a banana", "label": "no"}
+{"text": "design a logo concept for a coffee shop", "label": "no"}
+{"text": "tips for running my first 5k", "label": "no"}
+{"text": "explain how compound words work in german", "label": "no"}
+{"text": "what's a good gift for my dad who likes fishing", "label": "no"}
+{"text": "what do you think of my essay", "label": "no", "nearMiss": true}
+{"text": "i think my code has a bug in line 4", "label": "no", "nearMiss": true}
+{"text": "think of a name for my band", "label": "no", "nearMiss": true}
+{"text": "how do i think more critically", "label": "no", "nearMiss": true}
+{"text": "this might take a while to load, is that normal", "label": "no", "nearMiss": true}
+{"text": "what do you think about remote work", "label": "no", "nearMiss": true}
+{"text": "i was thinking we could go to italy, thoughts?", "label": "no", "nearMiss": true}
+{"text": "what's thinking fast and slow about", "label": "no", "nearMiss": true}
+{"text": "give me some food for thought on leadership", "label": "no", "nearMiss": true}
+{"text": "what does think different mean in apples ad", "label": "no", "nearMiss": true}
+{"text": "i dont think this recipe needs eggs right", "label": "no", "nearMiss": true}
+{"text": "think of 5 fun date ideas", "label": "no", "nearMiss": true}
+{"text": "why do people overthink everything", "label": "no"}
+{"text": "how long does it take a while for bread to rise", "label": "no", "nearMiss": true}
+{"text": "thinking about learning piano, where do i start", "label": "no", "nearMiss": true}
+{"text": "what are critical thinking skills", "label": "no", "nearMiss": true}
+{"text": "do you think dogs dream", "label": "no", "nearMiss": true}
+{"text": "summarize the book thinking in systems", "label": "no", "nearMiss": true}
+{"text": "i think therefore i am, explain", "label": "no", "nearMiss": true}
+{"text": "take your pick: pizza or tacos?", "label": "no"}
+{"text": "take a break ideas for work", "label": "no"}
+{"text": "careful with the spelling in this sentence: recieve", "label": "no", "nearMiss": true}
+{"text": "how do i take my time when eating to lose weight", "label": "no", "nearMiss": true}
+{"text": "be thorough when cleaning a bathroom, what should i do", "label": "no", "nearMiss": true}
+{"text": "what's design thinking", "label": "no", "nearMiss": true}
+{"text": "what would you think if i dyed my hair blue", "label": "no", "nearMiss": true}
+{"text": "i think im getting sick what should i eat", "label": "no", "nearMiss": true}
+{"text": "think pieces about ai are everywhere, why", "label": "no", "nearMiss": true}
+{"text": "whats a thoughtful gift for a teacher", "label": "no"}
+{"text": "this will take a while to explain but my car makes a noise", "label": "no", "nearMiss": true}
+{"text": "i need to double check my flight, how do i find my booking", "label": "no", "nearMiss": true}
+{"text": "what do u think is the best laptop for students", "label": "no", "nearMiss": true}
+{"text": "how to think like a programmer", "label": "no", "nearMiss": true}
+{"text": "can you think of a better title for this post", "label": "no", "nearMiss": true}
+{"text": "thinking of you messages for a sick friend", "label": "no", "nearMiss": true}
+{"text": "careful planning tips for a wedding", "label": "no", "nearMiss": true}
+{"text": "i think i left the stove on, how dangerous is that", "label": "no", "nearMiss": true}
+{"text": "did my boss email me about the latest quarterly numbers", "label": "no"}
+{"text": "any missed calls from my sister today", "label": "no"}
+{"text": "what did my dad say about the game score last night", "label": "no"}
+{"text": "who called me today", "label": "no"}
+{"text": "what did my coworker say in his latest email about the price change", "label": "no"}
+{"text": "any new voicemails today", "label": "no"}
+{"text": "what did grandpa say on the phone yesterday about the hurricane", "label": "no"}
+{"text": "how do i parse sms messages in python", "label": "no"}
+{"text": "why does my react chat app drop messages on reconnect", "label": "no"}
+{"text": "write a regex that extracts phone numbers from text messages", "label": "no"}
+{"text": "what's the max length of an sms message", "label": "no"}
+{"text": "what did lincoln say in his letter to grant", "label": "no"}
+{"text": "did the senator text the lobbyist according to the report", "label": "no"}
+{"text": "can you repeat your last message but shorter", "label": "no"}
+{"text": "what was the first message i sent you today", "label": "no"}
+{"text": "help me write a text to my dad apologizing for missing dinner", "label": "no"}
+{"text": "is it rude to text my boss after 9pm", "label": "no"}
+{"text": "how should i respond if my ex texts me", "label": "no"}
+{"text": "rewrite this text so it sounds less angry: you never listen", "label": "no"}
+{"text": "check my email from my dad", "label": "no", "nearMiss": true}
+{"text": "what did sam say in slack", "label": "no"}
+{"text": "text me a summary of this later", "label": "no"}
+{"text": "what message is the author trying to send in chapter 4", "label": "no"}
+{"text": "the text of the constitution says what about speech", "label": "no"}
+{"text": "mixed messages from my body after running, should i rest", "label": "no"}
+{"text": "how long should i boil an egg", "label": "no"}
+{"text": "explain big o notation with examples", "label": "no"}
+{"text": "convert 5 miles to km", "label": "no"}
+{"text": "i think i messed up my resume, can you look", "label": "no", "nearMiss": true}
+{"text": "what do you think of my essay intro", "label": "no", "nearMiss": true}
+{"text": "think of 5 birthday gift ideas for my dad", "label": "no", "nearMiss": true}
+{"text": "it might take a while to load, ignore that", "label": "no", "nearMiss": true}
+{"text": "any new emails from my boss today", "label": "no"}
+{"text": "think hard about the latest news", "label": "yes"}
+{"text": "think hard", "label": "yes"}
+{"text": "think it over", "label": "yes"}
+{"text": "take your time", "label": "yes"}
+{"text": "take a while to think", "label": "yes"}
+{"text": "don't rush", "label": "yes"}
+{"text": "be thorough", "label": "yes"}
+{"text": "be very careful with this one", "label": "yes"}
+{"text": "be meticulous", "label": "yes"}
+{"text": "go slow and verify each step", "label": "yes"}
+{"text": "step by step", "label": "yes"}
+{"text": "double-check your answer", "label": "yes"}
+{"text": "triple check the dates", "label": "yes"}
+{"text": "go deep on this", "label": "yes"}
+{"text": "spend extra time on this", "label": "yes"}
+{"text": "use deep reasoning", "label": "yes"}
+{"text": "ultrathink", "label": "yes"}
+{"text": "it can take a while", "label": "no", "nearMiss": true}
+{"text": "be thorough when cleaning a bathroom", "label": "no", "nearMiss": true}
+{"text": "think hard: what's the latest AI news", "label": "yes"}
+{"text": "think really hard before you answer this one", "label": "yes"}
+{"text": "please think carefully, i keep getting this wrong", "label": "yes"}
+{"text": "take a deep breath and work through this slowly", "label": "yes"}
+{"text": "go step by step and show your reasoning", "label": "yes"}
+{"text": "reason carefully about whether this contract clause is enforceable", "label": "yes"}
+{"text": "think about this from every angle before answering", "label": "yes"}
+{"text": "can you think harder about this, your last answer seemed rushed", "label": "yes"}
+{"text": "slow down and think it through", "label": "yes"}
+{"text": "i need you to really think this through", "label": "yes"}
+{"text": "be extra careful with the numbers here", "label": "yes"}
+{"text": "check your work twice before answering", "label": "yes"}
+{"text": "double check everything", "label": "yes"}
+{"text": "verify each step as you go", "label": "yes"}
+{"text": "no rush, give me your most careful answer", "label": "yes"}
+{"text": "think critically about my argument and find the weak spots", "label": "yes"}
+{"text": "mull it over and get back to me with your best answer", "label": "yes"}
+{"text": "give it a lot of thought: should i move to berlin or stay in toronto", "label": "yes"}
+{"text": "think hard: which of these two job offers is better", "label": "yes"}
+{"text": "reason step by step: if a train leaves at 3 going 60 mph...", "label": "yes"}
+{"text": "carefully consider all the options before recommending one", "label": "yes"}
+{"text": "consider this very carefully", "label": "yes"}
+{"text": "think deeply about what could go wrong with this plan", "label": "yes"}
+{"text": "use your full reasoning on this", "label": "yes"}
+{"text": "think it over thoroughly", "label": "yes"}
+{"text": "go deep here, i want a really thoughtful answer", "label": "yes"}
+{"text": "take your time with this one", "label": "yes"}
+{"text": "dont rush this", "label": "yes"}
+{"text": "don't hurry, accuracy matters more than speed", "label": "yes"}
+{"text": "be meticulous with the dates", "label": "yes"}
+{"text": "pay close attention to detail and think it through", "label": "yes"}
+{"text": "think this through one step at a time", "label": "yes"}
+{"text": "work through it carefully and show every step", "label": "yes"}
+{"text": "think long and hard", "label": "yes"}
+{"text": "ponder this carefully", "label": "yes"}
+{"text": "deliberate carefully on the best approach", "label": "yes"}
+{"text": "reflect deeply before answering", "label": "yes"}
+{"text": "please reason it out thoroughly", "label": "yes"}
+{"text": "take some time to think about the edge cases", "label": "yes"}
+{"text": "spend more time thinking about this one", "label": "yes"}
+{"text": "really dig into this and think it through", "label": "yes"}
+{"text": "can you give this extra thought", "label": "yes"}
+{"text": "think extra hard", "label": "yes"}
+{"text": "think more carefully this time", "label": "yes"}
+{"text": "be careful and thorough", "label": "yes"}
+{"text": "carefully reason through the proof", "label": "yes"}
+{"text": "walk through your reasoning slowly", "label": "yes"}
+{"text": "i want a careful, well reasoned answer", "label": "yes"}
+{"text": "make sure you think this through before replying", "label": "yes"}
+{"text": "think twice before answering", "label": "yes"}
+{"text": "think it through properly", "label": "yes"}
+{"text": "step through it slowly", "label": "yes"}
+{"text": "methodically work out the answer", "label": "yes"}
+{"text": "thoroughly think about the implications", "label": "yes"}
+{"text": "be rigorous and careful", "label": "yes"}
+{"text": "think hard about whether i should quit my job", "label": "yes"}
+{"text": "reason through this carefully, it's important", "label": "yes"}
+{"text": "use deep thinking for this", "label": "yes"}
+{"text": "enable extended thinking", "label": "yes"}
+{"text": "think step by step", "label": "yes"}
+{"text": "lets think step by step", "label": "yes"}
+{"text": "pls think hard abt this", "label": "yes"}
+{"text": "thnk carefully", "label": "yes"}
+{"text": "think carfully about this", "label": "yes"}
+{"text": "take ur time", "label": "yes"}
+{"text": "dont rush pls", "label": "yes"}
+{"text": "be thorough pls", "label": "yes"}
+{"text": "reason it out", "label": "yes"}
+{"text": "do some serious thinking on this", "label": "yes"}
+{"text": "give it serious consideration", "label": "yes"}
+{"text": "i think i left the oven on", "label": "no", "nearMiss": true}
+{"text": "i think so too", "label": "no", "nearMiss": true}
+{"text": "i think you're right", "label": "no", "nearMiss": true}
+{"text": "i think my code is broken, can you look", "label": "no", "nearMiss": true}
+{"text": "i think the answer is 42", "label": "no", "nearMiss": true}
+{"text": "i don't think that's correct", "label": "no", "nearMiss": true}
+{"text": "what do you think about pineapple on pizza", "label": "no", "nearMiss": true}
+{"text": "what do you think of my poem", "label": "no", "nearMiss": true}
+{"text": "what do you think i should name my dog", "label": "no", "nearMiss": true}
+{"text": "do you think ai will replace programmers", "label": "no", "nearMiss": true}
+{"text": "what do you think happens after we die", "label": "no", "nearMiss": true}
+{"text": "think of a name for my startup", "label": "no", "nearMiss": true}
+{"text": "think of three gift ideas for my mom", "label": "no", "nearMiss": true}
+{"text": "think of a number between 1 and 10", "label": "no", "nearMiss": true}
+{"text": "can you think of a good title for my essay", "label": "no", "nearMiss": true}
+{"text": "can you think of any synonyms for big", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about buying a new car", "label": "no", "nearMiss": true}
+{"text": "i'm thinking of moving to spain", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about getting a dog", "label": "no", "nearMiss": true}
+{"text": "i was thinking we could go hiking", "label": "no", "nearMiss": true}
+{"text": "thinking of you", "label": "no", "nearMiss": true}
+{"text": "i can't think straight today", "label": "no", "nearMiss": true}
+{"text": "how do i think more positively", "label": "no", "nearMiss": true}
+{"text": "how to stop overthinking", "label": "no", "nearMiss": true}
+{"text": "how can i think more clearly in the morning", "label": "no", "nearMiss": true}
+{"text": "what does think outside the box mean", "label": "no", "nearMiss": true}
+{"text": "what does it mean to think it over", "label": "no", "nearMiss": true}
+{"text": "what is critical thinking", "label": "no", "nearMiss": true}
+{"text": "what is design thinking", "label": "no", "nearMiss": true}
+{"text": "what is deep thought in hitchhiker's guide", "label": "no", "nearMiss": true}
+{"text": "who said i think therefore i am", "label": "no", "nearMiss": true}
+{"text": "the thinker statue history", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to load", "label": "no", "nearMiss": true}
+{"text": "it can take a while to get a reply", "label": "no", "nearMiss": true}
+{"text": "the download is taking forever", "label": "no", "nearMiss": true}
+{"text": "this might take some time", "label": "no", "nearMiss": true}
+{"text": "how long will it take to drive to chicago", "label": "no", "nearMiss": true}
+{"text": "take a while to explain what you mean", "label": "no", "nearMiss": true}
+{"text": "walk me to the door", "label": "no", "nearMiss": true}
+{"text": "walk me through the menu options in photoshop", "label": "no", "nearMiss": true}
+{"text": "be thorough when cleaning the kitchen", "label": "no", "nearMiss": true}
+{"text": "how to be careful with knives", "label": "no", "nearMiss": true}
+{"text": "be careful what you wish for meaning", "label": "no", "nearMiss": true}
+{"text": "careful with that vase", "label": "no", "nearMiss": true}
+{"text": "hard boiled eggs", "label": "no", "nearMiss": true}
+{"text": "this is hard", "label": "no", "nearMiss": true}
+{"text": "think pad keyboard", "label": "no", "nearMiss": true}
+{"text": "thinkpad vs macbook", "label": "no", "nearMiss": true}
+{"text": "the power of positive thinking book summary", "label": "no", "nearMiss": true}
+{"text": "reasoning is a cognitive skill", "label": "no", "nearMiss": true}
+{"text": "what is deductive reasoning", "label": "no", "nearMiss": true}
+{"text": "explain inductive vs deductive reasoning", "label": "no", "nearMiss": true}
+{"text": "what is a reasonable price for a used car", "label": "no", "nearMiss": true}
+{"text": "is it reasonable to ask for a raise after six months", "label": "no", "nearMiss": true}
+{"text": "consider the lilies poem", "label": "no", "nearMiss": true}
+{"text": "consider me interested", "label": "no", "nearMiss": true}
+{"text": "deep sea creatures", "label": "no", "nearMiss": true}
+{"text": "deep dish pizza recipe", "label": "no", "nearMiss": true}
+{"text": "think tank definition", "label": "no", "nearMiss": true}
+{"text": "thinking fast and slow summary", "label": "no", "nearMiss": true}
+{"text": "what do you think, is it worth it", "label": "no", "nearMiss": true}
+{"text": "i think therefore i am meaning", "label": "no", "nearMiss": true}
+{"text": "be really careful, how do i fix my sleep", "label": "yes"}
+{"text": "be really careful, what's the best way to split the bill", "label": "yes"}
+{"text": "be really careful: how many tiles do i need for the bathroom", "label": "yes"}
+{"text": "be really careful: how should i invest my bonus", "label": "yes"}
+{"text": "be really careful: is my proof correct", "label": "yes"}
+{"text": "be really careful: is this argument valid", "label": "yes"}
+{"text": "be really careful: what should i say to my landlord", "label": "yes"}
+{"text": "be thorough, explain why the bridge collapsed", "label": "yes"}
+{"text": "be thorough, how many tiles do i need for the bathroom", "label": "yes"}
+{"text": "be thorough, is my proof correct", "label": "yes"}
+{"text": "be thorough, should i take the job", "label": "yes"}
+{"text": "be thorough: how many tiles do i need for the bathroom", "label": "yes"}
+{"text": "be thorough: is this contract fair", "label": "yes"}
+{"text": "can you consider this carefully", "label": "yes"}
+{"text": "can you go slowly and check each step", "label": "yes"}
+{"text": "can you reason step by step", "label": "yes"}
+{"text": "can you think hard", "label": "yes"}
+{"text": "can you think it through", "label": "yes"}
+{"text": "consider this carefully", "label": "yes"}
+{"text": "consider this carefully, estimate the cost of the renovation", "label": "yes"}
+{"text": "consider this carefully, is this contract fair", "label": "yes"}
+{"text": "consider this carefully, what's wrong with my budget", "label": "yes"}
+{"text": "consider this carefully: is my proof correct", "label": "yes"}
+{"text": "consider this carefully: rank these options", "label": "yes"}
+{"text": "consider this carefully: what's the best way to split the bill", "label": "yes"}
+{"text": "don't rush, explain why the bridge collapsed", "label": "yes"}
+{"text": "don't rush, what's wrong with my budget", "label": "yes"}
+{"text": "don't rush, which laptop should i buy", "label": "yes"}
+{"text": "don't rush: estimate the cost of the renovation", "label": "yes"}
+{"text": "double check your work, should i take the job", "label": "yes"}
+{"text": "double check your work: estimate the cost of the renovation", "label": "yes"}
+{"text": "double check your work: explain why the bridge collapsed", "label": "yes"}
+{"text": "double check your work: find the bug in my logic", "label": "yes"}
+{"text": "double check your work: how should i invest my bonus", "label": "yes"}
+{"text": "double check your work: rank these options", "label": "yes"}
+{"text": "double check your work: should i take the job", "label": "yes"}
+{"text": "double check your work: what's the best way to split the bill", "label": "yes"}
+{"text": "double check your work: which mortgage is cheaper over 30 years", "label": "yes"}
+{"text": "estimate the cost of the renovation - take a moment to think it through", "label": "yes"}
+{"text": "estimate the cost of the renovation. be really careful", "label": "yes"}
+{"text": "estimate the cost of the renovation. think it through", "label": "yes"}
+{"text": "explain why the bridge collapsed - don't rush", "label": "yes"}
+{"text": "explain why the bridge collapsed. take your time", "label": "yes"}
+{"text": "find the bug in my logic. think carefully", "label": "yes"}
+{"text": "give it careful thought: is my proof correct", "label": "yes"}
+{"text": "give it careful thought: rank these options", "label": "yes"}
+{"text": "give it careful thought: which mortgage is cheaper over 30 years", "label": "yes"}
+{"text": "go slowly and check each step", "label": "yes"}
+{"text": "go slowly and check each step, explain why the bridge collapsed", "label": "yes"}
+{"text": "go slowly and check each step, find the bug in my logic", "label": "yes"}
+{"text": "go slowly and check each step, how many tiles do i need for the bathroom", "label": "yes"}
+{"text": "go slowly and check each step, is this contract fair", "label": "yes"}
+{"text": "go slowly and check each step, which laptop should i buy", "label": "yes"}
+{"text": "go slowly and check each step, which route is faster", "label": "yes"}
+{"text": "go slowly and check each step: explain why the bridge collapsed", "label": "yes"}
+{"text": "go slowly and check each step: find the bug in my logic", "label": "yes"}
+{"text": "go slowly and check each step: plan my week", "label": "yes"}
+{"text": "how do i fix my sleep - think carefully", "label": "yes"}
+{"text": "how do i fix my sleep - think it through", "label": "yes"}
+{"text": "how do i fix my sleep. think hard", "label": "yes"}
+{"text": "how do i fix my sleep. think it through", "label": "yes"}
+{"text": "how do i fix my sleep. think this over carefully", "label": "yes"}
+{"text": "how many tiles do i need for the bathroom - go slowly and check each step", "label": "yes"}
+{"text": "how many tiles do i need for the bathroom - reason step by step", "label": "yes"}
+{"text": "how many tiles do i need for the bathroom. don't rush", "label": "yes"}
+{"text": "how many tiles do i need for the bathroom. give it careful thought", "label": "yes"}
+{"text": "how many tiles do i need for the bathroom. think step by step", "label": "yes"}
+{"text": "how should i invest my bonus - think this over carefully", "label": "yes"}
+{"text": "i need you to double check your work", "label": "yes"}
+{"text": "i need you to give it careful thought", "label": "yes"}
+{"text": "i need you to take your time", "label": "yes"}
+{"text": "i need you to think carefully", "label": "yes"}
+{"text": "i need you to think deeply", "label": "yes"}
+{"text": "i need you to think hard", "label": "yes"}
+{"text": "i need you to think it through", "label": "yes"}
+{"text": "is my proof correct - take a moment to think it through", "label": "yes"}
+{"text": "is my proof correct - think it through", "label": "yes"}
+{"text": "is this argument valid - be thorough", "label": "yes"}
+{"text": "is this argument valid - don't rush", "label": "yes"}
+{"text": "is this argument valid - think it through", "label": "yes"}
+{"text": "is this argument valid. don't rush", "label": "yes"}
+{"text": "is this argument valid. think carefully", "label": "yes"}
+{"text": "is this argument valid. think this over carefully", "label": "yes"}
+{"text": "is this contract fair - think carefully", "label": "yes"}
+{"text": "is this contract fair - think this over carefully", "label": "yes"}
+{"text": "is this contract fair. think deeply", "label": "yes"}
+{"text": "ok consider this carefully", "label": "yes"}
+{"text": "ok give it careful thought", "label": "yes"}
+{"text": "ok take your time", "label": "yes"}
+{"text": "ok think deeply", "label": "yes"}
+{"text": "ok think hard", "label": "yes"}
+{"text": "plan my week - think this over carefully", "label": "yes"}
+{"text": "plan my week. be really careful", "label": "yes"}
+{"text": "plan my week. go slowly and check each step", "label": "yes"}
+{"text": "plan my week. think deeply", "label": "yes"}
+{"text": "plan my week. think harder than usual", "label": "yes"}
+{"text": "please be really careful", "label": "yes"}
+{"text": "please be thorough", "label": "yes"}
+{"text": "please consider this carefully", "label": "yes"}
+{"text": "please don't rush", "label": "yes"}
+{"text": "please go slowly and check each step", "label": "yes"}
+{"text": "please reason step by step", "label": "yes"}
+{"text": "please take a moment to think it through", "label": "yes"}
+{"text": "please take your time", "label": "yes"}
+{"text": "please think carefully", "label": "yes"}
+{"text": "please think harder than usual", "label": "yes"}
+{"text": "please think this over carefully", "label": "yes"}
+{"text": "pls be thorough", "label": "yes"}
+{"text": "pls consider this carefully", "label": "yes"}
+{"text": "pls double check your work", "label": "yes"}
+{"text": "pls go slowly and check each step", "label": "yes"}
+{"text": "pls reason carefully", "label": "yes"}
+{"text": "pls take your time", "label": "yes"}
+{"text": "rank these options - give it careful thought", "label": "yes"}
+{"text": "rank these options - think hard", "label": "yes"}
+{"text": "rank these options - think step by step", "label": "yes"}
+{"text": "rank these options. be really careful", "label": "yes"}
+{"text": "rank these options. don't rush", "label": "yes"}
+{"text": "rank these options. think hard", "label": "yes"}
+{"text": "reason carefully, find the bug in my logic", "label": "yes"}
+{"text": "reason carefully, how do i fix my sleep", "label": "yes"}
+{"text": "reason carefully, should i take the job", "label": "yes"}
+{"text": "reason carefully, solve this riddle", "label": "yes"}
+{"text": "reason carefully: how should i invest my bonus", "label": "yes"}
+{"text": "reason carefully: which mortgage is cheaper over 30 years", "label": "yes"}
+{"text": "reason step by step, estimate the cost of the renovation", "label": "yes"}
+{"text": "reason step by step, what should i say to my landlord", "label": "yes"}
+{"text": "reason step by step: explain why the bridge collapsed", "label": "yes"}
+{"text": "reason step by step: which laptop should i buy", "label": "yes"}
+{"text": "should i take the job. take your time", "label": "yes"}
+{"text": "solve this riddle - think hard", "label": "yes"}
+{"text": "solve this riddle - think this over carefully", "label": "yes"}
+{"text": "solve this riddle. consider this carefully", "label": "yes"}
+{"text": "solve this riddle. think step by step", "label": "yes"}
+{"text": "solve this riddle. think this over carefully", "label": "yes"}
+{"text": "take a moment to think it through, how many tiles do i need for the bathroom", "label": "yes"}
+{"text": "take a moment to think it through: find the bug in my logic", "label": "yes"}
+{"text": "take a moment to think it through: plan my week", "label": "yes"}
+{"text": "take a moment to think it through: rank these options", "label": "yes"}
+{"text": "take a moment to think it through: what should i say to my landlord", "label": "yes"}
+{"text": "take your time: find the bug in my logic", "label": "yes"}
+{"text": "think carefully, how do i fix my sleep", "label": "yes"}
+{"text": "think carefully, plan my week", "label": "yes"}
+{"text": "think carefully, which route is faster", "label": "yes"}
+{"text": "think carefully: how do i fix my sleep", "label": "yes"}
+{"text": "think carefully: is this contract fair", "label": "yes"}
+{"text": "think carefully: what's the best way to split the bill", "label": "yes"}
+{"text": "think deeply", "label": "yes"}
+{"text": "think deeply: find the bug in my logic", "label": "yes"}
+{"text": "think deeply: is this argument valid", "label": "yes"}
+{"text": "think hard, solve this riddle", "label": "yes"}
+{"text": "think hard, what's wrong with my budget", "label": "yes"}
+{"text": "think hard, which laptop should i buy", "label": "yes"}
+{"text": "think hard: estimate the cost of the renovation", "label": "yes"}
+{"text": "think hard: should i take the job", "label": "yes"}
+{"text": "think hard: solve this riddle", "label": "yes"}
+{"text": "think harder than usual, which route is faster", "label": "yes"}
+{"text": "think harder than usual: what should i say to my landlord", "label": "yes"}
+{"text": "think harder than usual: what's the best way to split the bill", "label": "yes"}
+{"text": "think it through, rank these options", "label": "yes"}
+{"text": "think it through, which mortgage is cheaper over 30 years", "label": "yes"}
+{"text": "think it through: is this contract fair", "label": "yes"}
+{"text": "think it through: rank these options", "label": "yes"}
+{"text": "think it through: solve this riddle", "label": "yes"}
+{"text": "think it through: which route is faster", "label": "yes"}
+{"text": "think step by step, what's wrong with my budget", "label": "yes"}
+{"text": "think step by step: how should i invest my bonus", "label": "yes"}
+{"text": "think step by step: which mortgage is cheaper over 30 years", "label": "yes"}
+{"text": "think this over carefully", "label": "yes"}
+{"text": "think this over carefully, how do i fix my sleep", "label": "yes"}
+{"text": "think this over carefully, is my proof correct", "label": "yes"}
+{"text": "think this over carefully, what's the best way to split the bill", "label": "yes"}
+{"text": "think this over carefully: estimate the cost of the renovation", "label": "yes"}
+{"text": "think this over carefully: is this argument valid", "label": "yes"}
+{"text": "think this over carefully: should i take the job", "label": "yes"}
+{"text": "think this over carefully: what should i say to my landlord", "label": "yes"}
+{"text": "what should i say to my landlord - give it careful thought", "label": "yes"}
+{"text": "what should i say to my landlord. double check your work", "label": "yes"}
+{"text": "what's the best way to split the bill - don't rush", "label": "yes"}
+{"text": "what's the best way to split the bill - think carefully", "label": "yes"}
+{"text": "what's the best way to split the bill - think deeply", "label": "yes"}
+{"text": "what's the best way to split the bill. think harder than usual", "label": "yes"}
+{"text": "what's wrong with my budget - take your time", "label": "yes"}
+{"text": "what's wrong with my budget - think deeply", "label": "yes"}
+{"text": "what's wrong with my budget. take a moment to think it through", "label": "yes"}
+{"text": "which laptop should i buy - don't rush", "label": "yes"}
+{"text": "which laptop should i buy - think deeply", "label": "yes"}
+{"text": "which laptop should i buy. double check your work", "label": "yes"}
+{"text": "which laptop should i buy. go slowly and check each step", "label": "yes"}
+{"text": "which laptop should i buy. think it through", "label": "yes"}
+{"text": "which mortgage is cheaper over 30 years - double check your work", "label": "yes"}
+{"text": "which mortgage is cheaper over 30 years. think hard", "label": "yes"}
+{"text": "which route is faster - double check your work", "label": "yes"}
+{"text": "which route is faster - reason carefully", "label": "yes"}
+{"text": "which route is faster - take your time", "label": "yes"}
+{"text": "which route is faster. go slowly and check each step", "label": "yes"}
+{"text": "which route is faster. think harder than usual", "label": "yes"}
+{"text": "assemble the bookshelf carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "bake sourdough carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "be careful when you assemble the bookshelf", "label": "no", "nearMiss": true}
+{"text": "be careful when you bake sourdough", "label": "no", "nearMiss": true}
+{"text": "be careful when you clean the oven", "label": "no", "nearMiss": true}
+{"text": "be careful when you drive to toronto", "label": "no", "nearMiss": true}
+{"text": "be careful when you grow tomatoes", "label": "no", "nearMiss": true}
+{"text": "be careful when you learn french", "label": "no", "nearMiss": true}
+{"text": "be careful when you paint a room", "label": "no", "nearMiss": true}
+{"text": "be careful when you replace a bike tire", "label": "no", "nearMiss": true}
+{"text": "can you think of a dinner idea", "label": "no", "nearMiss": true}
+{"text": "can you think of a gift for my dad", "label": "no", "nearMiss": true}
+{"text": "can you think of a name for my band", "label": "no", "nearMiss": true}
+{"text": "can you think of a pun about cheese", "label": "no", "nearMiss": true}
+{"text": "can you think of a slogan for my bakery", "label": "no", "nearMiss": true}
+{"text": "can you think of a word that means happy", "label": "no", "nearMiss": true}
+{"text": "can you think of an excuse to leave early", "label": "no", "nearMiss": true}
+{"text": "can you think of five fun date ideas", "label": "no", "nearMiss": true}
+{"text": "clean the oven carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "do you think he likes me", "label": "no", "nearMiss": true}
+{"text": "do you think i should call my mom", "label": "no", "nearMiss": true}
+{"text": "do you think it's going to rain", "label": "no", "nearMiss": true}
+{"text": "do you think my cat is sick", "label": "no", "nearMiss": true}
+{"text": "do you think that's a good idea", "label": "no", "nearMiss": true}
+{"text": "do you think the movie was overrated", "label": "no", "nearMiss": true}
+{"text": "do you think the printer is broken", "label": "no", "nearMiss": true}
+{"text": "do you think the store is closed", "label": "no", "nearMiss": true}
+{"text": "do you think this soup needs salt", "label": "no", "nearMiss": true}
+{"text": "do you think we're lost", "label": "no", "nearMiss": true}
+{"text": "drive to toronto carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "grow tomatoes carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "how long will it take to assemble the bookshelf", "label": "no", "nearMiss": true}
+{"text": "how long will it take to bake sourdough", "label": "no", "nearMiss": true}
+{"text": "how long will it take to clean the oven", "label": "no", "nearMiss": true}
+{"text": "how long will it take to drive to toronto", "label": "no", "nearMiss": true}
+{"text": "how long will it take to grow tomatoes", "label": "no", "nearMiss": true}
+{"text": "how long will it take to learn french", "label": "no", "nearMiss": true}
+{"text": "how long will it take to paint a room", "label": "no", "nearMiss": true}
+{"text": "how long will it take to replace a bike tire", "label": "no", "nearMiss": true}
+{"text": "i don't think he likes me", "label": "no", "nearMiss": true}
+{"text": "i don't think i should call my mom", "label": "no", "nearMiss": true}
+{"text": "i don't think it's going to rain", "label": "no", "nearMiss": true}
+{"text": "i don't think my cat is sick", "label": "no", "nearMiss": true}
+{"text": "i don't think that's a good idea", "label": "no", "nearMiss": true}
+{"text": "i don't think the movie was overrated", "label": "no", "nearMiss": true}
+{"text": "i don't think the printer is broken", "label": "no", "nearMiss": true}
+{"text": "i don't think the store is closed", "label": "no", "nearMiss": true}
+{"text": "i don't think this soup needs salt", "label": "no", "nearMiss": true}
+{"text": "i don't think we're lost", "label": "no", "nearMiss": true}
+{"text": "i think he likes me", "label": "no", "nearMiss": true}
+{"text": "i think i should call my mom", "label": "no", "nearMiss": true}
+{"text": "i think it's going to rain", "label": "no", "nearMiss": true}
+{"text": "i think my cat is sick", "label": "no", "nearMiss": true}
+{"text": "i think that's a good idea", "label": "no", "nearMiss": true}
+{"text": "i think the movie was overrated", "label": "no", "nearMiss": true}
+{"text": "i think the printer is broken", "label": "no", "nearMiss": true}
+{"text": "i think the store is closed", "label": "no", "nearMiss": true}
+{"text": "i think this soup needs salt", "label": "no", "nearMiss": true}
+{"text": "i think we're lost", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about getting a puppy", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about going back to school", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about learning piano", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about moving to the coast", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about repainting the kitchen", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about running a half marathon", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about starting a podcast", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about getting a puppy", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about going back to school", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about learning piano", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about moving to the coast", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about repainting the kitchen", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about running a half marathon", "label": "no", "nearMiss": true}
+{"text": "i've been thinking about starting a podcast", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to assemble the bookshelf", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to bake sourdough", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to clean the oven", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to drive to toronto", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to grow tomatoes", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to learn french", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to paint a room", "label": "no", "nearMiss": true}
+{"text": "it'll take a while to replace a bike tire", "label": "no", "nearMiss": true}
+{"text": "learn french carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "paint a room carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "replace a bike tire carefully, what tools do i need", "label": "no", "nearMiss": true}
+{"text": "think of a dinner idea", "label": "no", "nearMiss": true}
+{"text": "think of a gift for my dad", "label": "no", "nearMiss": true}
+{"text": "think of a pun about cheese", "label": "no", "nearMiss": true}
+{"text": "think of a slogan for my bakery", "label": "no", "nearMiss": true}
+{"text": "think of a word that means happy", "label": "no", "nearMiss": true}
+{"text": "think of an excuse to leave early", "label": "no", "nearMiss": true}
+{"text": "think of five fun date ideas", "label": "no", "nearMiss": true}
+{"text": "what do you think about electric cars", "label": "no", "nearMiss": true}
+{"text": "what do you think about modern art", "label": "no", "nearMiss": true}
+{"text": "what do you think about my business idea", "label": "no", "nearMiss": true}
+{"text": "what do you think about pineapple pizza", "label": "no", "nearMiss": true}
+{"text": "what do you think about social media", "label": "no", "nearMiss": true}
+{"text": "what do you think about the new star wars movie", "label": "no", "nearMiss": true}
+{"text": "what do you think about this color scheme", "label": "no", "nearMiss": true}
+{"text": "what do you think about tiny houses", "label": "no", "nearMiss": true}
+{"text": "what do you think of electric cars", "label": "no", "nearMiss": true}
+{"text": "what do you think of modern art", "label": "no", "nearMiss": true}
+{"text": "what do you think of my business idea", "label": "no", "nearMiss": true}
+{"text": "what do you think of my haircut", "label": "no", "nearMiss": true}
+{"text": "what do you think of pineapple pizza", "label": "no", "nearMiss": true}
+{"text": "what do you think of remote work", "label": "no", "nearMiss": true}
+{"text": "what do you think of social media", "label": "no", "nearMiss": true}
+{"text": "what do you think of the new star wars movie", "label": "no", "nearMiss": true}
+{"text": "what do you think of this color scheme", "label": "no", "nearMiss": true}
+{"text": "what do you think of tiny houses", "label": "no", "nearMiss": true}
+{"text": "i had a really hard day at work", "label": "no", "nearMiss": true}
+{"text": "this puzzle is too hard for my kid", "label": "no", "nearMiss": true}
+{"text": "hard rock songs from the 80s", "label": "no", "nearMiss": true}
+{"text": "how do i soften hard butter quickly", "label": "no", "nearMiss": true}
+{"text": "what is a hard drive", "label": "no", "nearMiss": true}
+{"text": "hard vs soft water", "label": "no", "nearMiss": true}
+{"text": "deep breathing exercises for anxiety", "label": "no", "nearMiss": true}
+{"text": "how deep is the ocean", "label": "no", "nearMiss": true}
+{"text": "deep cleaning tips for the bathroom", "label": "no", "nearMiss": true}
+{"text": "how to slow cook a pork shoulder", "label": "no", "nearMiss": true}
+{"text": "slow songs for a wedding first dance", "label": "no", "nearMiss": true}
+{"text": "why is my laptop so slow", "label": "no", "nearMiss": true}
+{"text": "the time zone in hawaii", "label": "no", "nearMiss": true}
+{"text": "what time is the eclipse visible in general", "label": "no", "nearMiss": true}
+{"text": "time management tips for students", "label": "no", "nearMiss": true}
+{"text": "time travel movies", "label": "no", "nearMiss": true}
+{"text": "how to be more careful with money", "label": "no", "nearMiss": true}
+{"text": "how to be more thorough at work", "label": "no", "nearMiss": true}
+{"text": "careful driving tips for snow", "label": "no", "nearMiss": true}
+{"text": "reasoning skills worksheets for kids", "label": "no", "nearMiss": true}
+{"text": "logical reasoning questions for interviews", "label": "no", "nearMiss": true}
+{"text": "consider the source meaning", "label": "no", "nearMiss": true}
+{"text": "considerate gift ideas", "label": "no", "nearMiss": true}
+{"text": "step counter app recommendations", "label": "no", "nearMiss": true}
+{"text": "step aerobics routine", "label": "no", "nearMiss": true}
+{"text": "stepmom gift ideas", "label": "no", "nearMiss": true}
+{"text": "walk the dog schedule", "label": "no", "nearMiss": true}
+{"text": "how many steps a day should i walk", "label": "no", "nearMiss": true}
+{"text": "rush hour in la, when is it", "label": "no", "nearMiss": true}
+{"text": "gold rush history", "label": "no", "nearMiss": true}
+{"text": "double chocolate cookie recipe", "label": "no", "nearMiss": true}
+{"text": "double check meaning", "label": "no", "nearMiss": true}
+{"text": "check in time for most hotels", "label": "no", "nearMiss": true}
+{"text": "check my spelling of necessary", "label": "no", "nearMiss": true}
+{"text": "spell check in google docs", "label": "no", "nearMiss": true}
+{"text": "thoughtful gifts for teachers", "label": "no", "nearMiss": true}
+{"text": "thought experiments in philosophy", "label": "no", "nearMiss": true}
+{"text": "famous thought leaders", "label": "no", "nearMiss": true}
+{"text": "a penny for your thoughts origin", "label": "no", "nearMiss": true}
+{"text": "what is thinking in psychology", "label": "no", "nearMiss": true}
+{"text": "think pink song", "label": "no", "nearMiss": true}
+{"text": "think positive quotes", "label": "no", "nearMiss": true}
+{"text": "think big, start small meaning", "label": "no", "nearMiss": true}
+{"text": "the little engine that could, i think i can", "label": "no", "nearMiss": true}
+{"text": "we think alike", "label": "no", "nearMiss": true}
+{"text": "i think we should order pizza", "label": "no", "nearMiss": true}
+{"text": "i think my plant is dying, what do i do", "label": "no", "nearMiss": true}
+{"text": "i thought the movie was great", "label": "no", "nearMiss": true}
+{"text": "i thought you said tuesday", "label": "no", "nearMiss": true}
+{"text": "what did you think of the ending of the book", "label": "no", "nearMiss": true}
+{"text": "what do you think the weather will be like for my trip", "label": "no", "nearMiss": true}
+{"text": "what do you think of the name luna for a cat", "label": "no", "nearMiss": true}
+{"text": "do you think i should dye my hair", "label": "no", "nearMiss": true}
+{"text": "think of a fun theme for a party", "label": "no", "nearMiss": true}
+{"text": "think up a riddle for my kids", "label": "no", "nearMiss": true}
+{"text": "think of a word for very tired", "label": "no", "nearMiss": true}
+{"text": "i'm thinking pasta for dinner, any recipe", "label": "no", "nearMiss": true}
+{"text": "thinking about changing careers, what jobs suit an artist", "label": "no", "nearMiss": true}
+{"text": "she's always thinking ahead", "label": "no", "nearMiss": true}
+{"text": "we need to think about dinner", "label": "no", "nearMiss": true}
+{"text": "think about joining a gym, what should i look for", "label": "no", "nearMiss": true}
+{"text": "it will take some time to heal, what helps a sprained ankle", "label": "no", "nearMiss": true}
+{"text": "take a seat", "label": "no", "nearMiss": true}
+{"text": "take a break ideas at work", "label": "no", "nearMiss": true}
+{"text": "take a hike trails near the city", "label": "no", "nearMiss": true}
+{"text": "take care messages for a sick friend", "label": "no", "nearMiss": true}
+{"text": "take your time is a song by", "label": "no", "nearMiss": true}
+{"text": "my coffee takes a while to kick in", "label": "no", "nearMiss": true}
+{"text": "the bus takes a while", "label": "no", "nearMiss": true}
+{"text": "careful people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "careful people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "careful people at work, how to deal", "label": "no", "nearMiss": true}
+{"text": "deliberate people at home, how to deal", "label": "no", "nearMiss": true}
+{"text": "deliberate people at my new job, how to deal", "label": "no", "nearMiss": true}
+{"text": "deliberate people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "deliberate people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "deliberate people at work, how to deal", "label": "no", "nearMiss": true}
+{"text": "detail oriented people at home, how to deal", "label": "no", "nearMiss": true}
+{"text": "detail oriented people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "detail oriented people at my new job, how to deal", "label": "no", "nearMiss": true}
+{"text": "detail oriented people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "detail oriented people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "do you think dogs are smarter than cats", "label": "no", "nearMiss": true}
+{"text": "do you think it'll be sunny for the picnic", "label": "no", "nearMiss": true}
+{"text": "do you think my brother is upset with me", "label": "no", "nearMiss": true}
+{"text": "do you think my sourdough starter is dead", "label": "no", "nearMiss": true}
+{"text": "do you think pluto should be a planet", "label": "no", "nearMiss": true}
+{"text": "do you think the store opens at nine", "label": "no", "nearMiss": true}
+{"text": "do you think this shirt is too big", "label": "no", "nearMiss": true}
+{"text": "does it take long to assemble the bookshelf", "label": "no", "nearMiss": true}
+{"text": "does it take long to bake sourdough", "label": "no", "nearMiss": true}
+{"text": "does it take long to clean the oven", "label": "no", "nearMiss": true}
+{"text": "does it take long to drive to toronto", "label": "no", "nearMiss": true}
+{"text": "does it take long to grow tomatoes", "label": "no", "nearMiss": true}
+{"text": "does it take long to learn french", "label": "no", "nearMiss": true}
+{"text": "does it take long to paint a room", "label": "no", "nearMiss": true}
+{"text": "does it take long to replace a bike tire", "label": "no", "nearMiss": true}
+{"text": "how do i be more careful at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more careful at my new job", "label": "no", "nearMiss": true}
+{"text": "how do i be more careful at school", "label": "no", "nearMiss": true}
+{"text": "how do i be more careful at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more deliberate at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more deliberate at school", "label": "no", "nearMiss": true}
+{"text": "how do i be more deliberate at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more detail oriented at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more detail oriented at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more detail oriented at my new job", "label": "no", "nearMiss": true}
+{"text": "how do i be more detail oriented at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more detail oriented at work", "label": "no", "nearMiss": true}
+{"text": "how do i be more methodical at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more methodical at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more methodical at school", "label": "no", "nearMiss": true}
+{"text": "how do i be more methodical at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more patient at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more patient at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more patient at my new job", "label": "no", "nearMiss": true}
+{"text": "how do i be more patient at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at my new job", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at school", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at the gym", "label": "no", "nearMiss": true}
+{"text": "how do i be more slow at work", "label": "no", "nearMiss": true}
+{"text": "how do i be more thorough at home", "label": "no", "nearMiss": true}
+{"text": "how do i be more thorough at meetings", "label": "no", "nearMiss": true}
+{"text": "how do i be more thorough at my new job", "label": "no", "nearMiss": true}
+{"text": "how do i be more thorough at the gym", "label": "no", "nearMiss": true}
+{"text": "how long does it take to assemble the bookshelf", "label": "no", "nearMiss": true}
+{"text": "how long does it take to bake sourdough", "label": "no", "nearMiss": true}
+{"text": "how long does it take to clean the oven", "label": "no", "nearMiss": true}
+{"text": "how long does it take to drive to toronto", "label": "no", "nearMiss": true}
+{"text": "how long does it take to grow tomatoes", "label": "no", "nearMiss": true}
+{"text": "how long does it take to learn french", "label": "no", "nearMiss": true}
+{"text": "how long does it take to paint a room", "label": "no", "nearMiss": true}
+{"text": "how long does it take to replace a bike tire", "label": "no", "nearMiss": true}
+{"text": "i think dogs are smarter than cats, right?", "label": "no", "nearMiss": true}
+{"text": "i think it'll be sunny for the picnic, right?", "label": "no", "nearMiss": true}
+{"text": "i think my brother is upset with me, right?", "label": "no", "nearMiss": true}
+{"text": "i think my sourdough starter is dead, right?", "label": "no", "nearMiss": true}
+{"text": "i think pluto should be a planet, right?", "label": "no", "nearMiss": true}
+{"text": "i think the store opens at nine, right?", "label": "no", "nearMiss": true}
+{"text": "i think this shirt is too big, right?", "label": "no", "nearMiss": true}
+{"text": "is it good to be careful at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be careful at meetings", "label": "no", "nearMiss": true}
+{"text": "is it good to be careful at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be careful at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be careful at the gym", "label": "no", "nearMiss": true}
+{"text": "is it good to be deliberate at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be deliberate at meetings", "label": "no", "nearMiss": true}
+{"text": "is it good to be deliberate at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be deliberate at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be deliberate at work", "label": "no", "nearMiss": true}
+{"text": "is it good to be detail oriented at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be detail oriented at meetings", "label": "no", "nearMiss": true}
+{"text": "is it good to be detail oriented at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be detail oriented at the gym", "label": "no", "nearMiss": true}
+{"text": "is it good to be detail oriented at work", "label": "no", "nearMiss": true}
+{"text": "is it good to be methodical at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be methodical at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be methodical at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be methodical at the gym", "label": "no", "nearMiss": true}
+{"text": "is it good to be methodical at work", "label": "no", "nearMiss": true}
+{"text": "is it good to be patient at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be patient at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be patient at the gym", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at meetings", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at school", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at work", "label": "no", "nearMiss": true}
+{"text": "is it good to be thorough at home", "label": "no", "nearMiss": true}
+{"text": "is it good to be thorough at meetings", "label": "no", "nearMiss": true}
+{"text": "is it good to be thorough at my new job", "label": "no", "nearMiss": true}
+{"text": "is it good to be thorough at the gym", "label": "no", "nearMiss": true}
+{"text": "methodical people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "methodical people at my new job, how to deal", "label": "no", "nearMiss": true}
+{"text": "methodical people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "methodical people at work, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at home, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at my new job, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "patient people at work, how to deal", "label": "no", "nearMiss": true}
+{"text": "slow people at home, how to deal", "label": "no", "nearMiss": true}
+{"text": "slow people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "slow people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at home, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at meetings, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at my new job, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at the gym, how to deal", "label": "no", "nearMiss": true}
+{"text": "thorough people at work, how to deal", "label": "no", "nearMiss": true}
+{"text": "what do you think of my garden", "label": "no", "nearMiss": true}
+{"text": "what do you think of my logo", "label": "no", "nearMiss": true}
+{"text": "what do you think of my new desk setup", "label": "no", "nearMiss": true}
+{"text": "what do you think of my outfit", "label": "no", "nearMiss": true}
+{"text": "what do you think of my plan for the weekend", "label": "no", "nearMiss": true}
+{"text": "what do you think of my resume", "label": "no", "nearMiss": true}
+{"text": "what do you think of my song lyrics", "label": "no", "nearMiss": true}
+{"text": "triple chcek the dates", "label": "yes"}
+{"text": "what's the best way to message a landlord?", "label": "no"}
+{"text": "send a mesasge to Alex saying hi", "label": "no"}
+{"text": "my coffee tkaes a while to kick in", "label": "no", "nearMiss": true}
+{"text": "reason step by step: explain why the bridge collapsed please", "label": "yes"}
+{"text": "explain photosynthesis to a 10 year old please", "label": "no"}
+{"text": "how do i be more careful at the gym?", "label": "no", "nearMiss": true}
+{"text": "rewrite this paragraph to be more concise!!", "label": "no"}
+{"text": "resopnd to Alex with yes", "label": "no"}
+{"text": "what didn’t she text me back about please", "label": "no"}
+{"text": "think long-term aobut investing", "label": "no", "nearMiss": true}
+{"text": "don't rush, explain how tcp works please", "label": "yes"}
+{"text": "send me the last text you wrote lol", "label": "no"}
+{"text": "how do i be more deliberate at home please", "label": "no", "nearMiss": true}
+{"text": "is it good to be slow at work lol", "label": "no", "nearMiss": true}
+{"text": "solve this riddle - think this over carefully please", "label": "yes"}
+{"text": "reason step by step, estimate the cost of the renovation pls", "label": "yes"}
+{"text": "what does this error message mean please", "label": "no"}
+{"text": "help me write a text to my dad apologziing for missing dinner", "label": "no"}
+{"text": "what did mom say in her last message pls", "label": "no"}
+{"text": "please think it through carefully?", "label": "yes"}
+{"text": "what are my chacnes if I text her", "label": "no"}
+{"text": "step coutner app recommendations", "label": "no", "nearMiss": true}
+{"text": "is it good to be thorough at my new job thanks", "label": "no", "nearMiss": true}
+{"text": "i tihnk my sourdough starter is dead, right?", "label": "no", "nearMiss": true}
+{"text": "what did mom say today please", "label": "no"}
+{"text": "whats the last thing sarah texted me please", "label": "no"}
+{"text": "think harder than usual: what should i say to my landlord thanks", "label": "yes"}
+{"text": "check my mesasges from Alex", "label": "no", "nearMiss": true}
+{"text": "give me the text of the declaration of indepenednce", "label": "no"}
+{"text": "check my texts for a verification code!!", "label": "no", "nearMiss": true}
+{"text": "how to clean a cast iron pan pls", "label": "no"}
+{"text": "explain this message broker thx", "label": "no"}
+{"text": "think carefully: whcih plan is cheaper?", "label": "yes"}
+{"text": "what's the laetst from Sam", "label": "no"}
+{"text": "think of a number between 1 and 10 thanks", "label": "no", "nearMiss": true}
+{"text": "summarize my imessages from this week pls", "label": "no"}
+{"text": "what was the last message you sent me please", "label": "no"}
+{"text": "cehck my spelling of necessary", "label": "no", "nearMiss": true}
+{"text": "find my texts table shcema", "label": "no"}
+{"text": "think carefully, which route is faster lol", "label": "yes"}
+{"text": "did my professor reply to my eamil", "label": "no"}
+{"text": "deep dish pziza recipe", "label": "no", "nearMiss": true}
+{"text": "how long will it take to leran french", "label": "no", "nearMiss": true}
+{"text": "send me a sumamry of this article", "label": "no"}
+{"text": "how to stop overthinking!!", "label": "no", "nearMiss": true}
+{"text": "i want to think more about my career, any tips??", "label": "no", "nearMiss": true}
+{"text": "help me write a group text inviting people to my bbq!!", "label": "no"}
+{"text": "give it seirous consideration", "label": "yes"}
+{"text": "do you think it will rain tomorrow!!", "label": "no", "nearMiss": true}
+{"text": "please send a message to kevin saying i'll bring the charger pls", "label": "no"}
+{"text": "is it good to be deliberate at work thanks", "label": "no", "nearMiss": true}
+{"text": "what did the soccer group chat decide about saturday thx", "label": "no"}
+{"text": "which route is faster - reason carefully lol", "label": "yes"}
+{"text": "what's the latest on the call for proposals for my conference?", "label": "no"}
+{"text": "what was the last message from grandma thx", "label": "no"}
+{"text": "continue this convresation in French", "label": "no"}
+{"text": "think about joining a gym, what should i look for?", "label": "no", "nearMiss": true}
+{"text": "do a craeful step by step derivation of the formula", "label": "yes"}
+{"text": "what is deducitve reasoning", "label": "no", "nearMiss": true}
+{"text": "think of an exucse to leave early", "label": "no", "nearMiss": true}
+{"text": "how to slow cook a pork shoulder!!", "label": "no", "nearMiss": true}
+{"text": "help me wrtie a toast for my sisters wedding", "label": "no"}
+{"text": "I think it's broken thx", "label": "no", "nearMiss": true}
+{"text": "how do i center a div with flexbox pls", "label": "no"}
+{"text": "is it good to be methodical at home lol", "label": "no", "nearMiss": true}
+{"text": "is this text too clingy: miss you alerady", "label": "no"}
+{"text": "explain spuply and demand", "label": "no"}
+{"text": "let Jordan know over text that I'm late pls", "label": "no"}
+{"text": "i need you to think it throguh", "label": "yes"}
+{"text": "go through my messages with Sam and tell me what we planned pls", "label": "no"}
+{"text": "slow people at the gym, how to deal please", "label": "no", "nearMiss": true}
+{"text": "check if alex replied to my text thanks", "label": "no", "nearMiss": true}
+{"text": "Sam sent me this article, summarzie it", "label": "no"}
+{"text": "shroten your previous answer", "label": "no"}
+{"text": "what is criitcal thinking", "label": "no", "nearMiss": true}
+{"text": "tell me abuot Denmark", "label": "no"}
+{"text": "is it good to be methdoical at the gym", "label": "no", "nearMiss": true}
+{"text": "is this contract fair - think careuflly", "label": "yes"}
+{"text": "text grnadma i love her", "label": "no"}
+{"text": "i thorouhgly enjoyed the movie, suggest a similar one", "label": "no"}
+{"text": "be thorough thx", "label": "yes"}
+{"text": "how do i be more methodical at school!!", "label": "no", "nearMiss": true}
+{"text": "take a moment to think it through: what sholud i say to my landlord", "label": "yes"}
+{"text": "what do you think of my ouftit", "label": "no", "nearMiss": true}
+{"text": "i think more people should cook?", "label": "no", "nearMiss": true}
+{"text": "think more careuflly this time", "label": "yes"}
+{"text": "think hard about this please", "label": "yes"}
+{"text": "who called me today pls", "label": "no"}
+{"text": "what would you think if i dyed my hair blue thanks", "label": "no", "nearMiss": true}
+{"text": "what did my dad say about the game score last night!!", "label": "no"}
+{"text": "whtas the song about a text message by drake", "label": "no"}
+{"text": "did my boss email me about the latest quarterly numbers!!", "label": "no"}
+{"text": "what message is the author trying to send in chpater 4", "label": "no"}
+{"text": "take a deep breath and work throguh this slowly", "label": "yes"}
+{"text": "catch me up on the family group chat thx", "label": "no"}
+{"text": "which laptop should i buy. think it through lol", "label": "yes"}
+{"text": "what do you think of my plan for the wekeend", "label": "no", "nearMiss": true}
+{"text": "i'm thinking about moving to the coast!!", "label": "no", "nearMiss": true}
+{"text": "how is my stock aapl doing tdoay", "label": "no"}
+{"text": "what did the president text the prmie minister according to reports", "label": "no"}
+{"text": "is it good to be thorough at meetings please", "label": "no", "nearMiss": true}
+{"text": "last text from Alex thx", "label": "no"}
+{"text": "Who is the prseident of France?", "label": "no"}
+{"text": "`message Sam` is a command please", "label": "no"}
+{"text": "be careful when you grow tomatoes please", "label": "no", "nearMiss": true}
+{"text": "any messages from Sam? thx", "label": "no"}
+{"text": "What is the price of Bitcoin?!!", "label": "no"}
+{"text": "reason it through pls", "label": "yes"}
+{"text": "read the text from the image?", "label": "no"}
+{"text": "message mom: running late pls", "label": "no"}
+{"text": "how do i read messages from an sqs queue!!", "label": "no"}
+{"text": "any new voicemails today please", "label": "no"}
+{"text": "ok take your time thanks", "label": "yes"}
+{"text": "what do you think about my business idea!!", "label": "no", "nearMiss": true}
+{"text": "text to speech apps for mac?", "label": "no"}
+{"text": "please reason carefully about this proof thx", "label": "yes"}
+{"text": "what do you think about this color scheme pls", "label": "no", "nearMiss": true}
+{"text": "do you think my sourodugh starter is dead", "label": "no", "nearMiss": true}
+{"text": "deliebrate people at school, how to deal", "label": "no", "nearMiss": true}
+{"text": "how long does it take to bake sourdough!!", "label": "no", "nearMiss": true}
+{"text": "how do i send a message to a kafka topic in python lol", "label": "no"}
+{"text": "what did tom say in his last text please", "label": "no"}
+{"text": "can you thnik of any synonyms for big", "label": "no", "nearMiss": true}
+{"text": "in your last message you said 5 but now 6, whcih is it", "label": "no"}
+{"text": "show the texts between me and Alex thanks", "label": "no"}
+{"text": "i don't think the stroe is closed", "label": "no", "nearMiss": true}
+{"text": "what are you thinking thanks", "label": "no", "nearMiss": true}
+{"text": "imessage Jordan the address pls", "label": "no"}
+{"text": "i'll tihnk it over", "label": "no"}
+{"text": "whats a good commit mesasge for fixing a typo", "label": "no"}
+{"text": "post in the slack channel that standup is cancelled thanks", "label": "no"}
+{"text": "consider the source maening", "label": "no", "nearMiss": true}
+{"text": "go step by step and show your reaosning", "label": "yes"}
+{"text": "solve 3x + 7 = 22 please", "label": "no"}
+{"text": "think harder than usual, which ruote is faster", "label": "yes"}
+{"text": "is a tomato a fruit or vegetable thx", "label": "no"}
+{"text": "when is the next earnings call for my stock nvda thx", "label": "no"}
+{"text": "think long and hard\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "yes"}
+{"text": "Our soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nthink twice before answering", "label": "yes"}
+{"text": "spend more time thinking about this one\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "yes"}
+{"text": "The meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\npls think hard abt this", "label": "yes"}
+{"text": "take a deep breath and work through this slowly\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "yes"}
+{"text": "Last spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.\n\nbe thorough pls", "label": "yes"}
+{"text": "no rush, give me your most careful answer\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.", "label": "yes"}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\ni want a careful, well reasoned answer", "label": "yes"}
+{"text": "think extra hard\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.", "label": "yes"}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nthink really hard before you answer this one", "label": "yes"}
+{"text": "don't hurry, accuracy matters more than speed\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.", "label": "yes"}
+{"text": "The hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\ndouble check everything", "label": "yes"}
+{"text": "what do you think of this\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nMy grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nOur soccer club has twenty two players this season, ranging from eight to eleven years old. Practices are on Monday and Wednesday evenings at the field behind the library, and games are on Saturday mornings. Parents take turns bringing orange slices and water. The coach wants every child to play at least half of each game, and he rotates the goalkeeper position so everyone gets a turn.", "label": "no", "nearMiss": true}
+{"text": "For the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nsummarize this please", "label": "no", "nearMiss": true}
+{"text": "i think this is too long, cut it down\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.", "label": "no", "nearMiss": true}
+{"text": "The book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nthink of a title for this", "label": "no", "nearMiss": true}
+{"text": "how long would this take to read\n\nThe meeting notes from Tuesday say the team agreed to move the launch party to the larger room on the fourth floor. Catering will bring sandwiches, fruit and two kinds of cake. Ana is in charge of the guest list, and Hugo will set up the speakers and the projector. We still need someone to collect the name badges from the front desk and someone to welcome people at the door.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "no", "nearMiss": true}
+{"text": "During the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nOur neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\ndo you think it will rain tomorrow", "label": "no", "nearMiss": true}
+{"text": "i think the answer is 42\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe apartment has two bedrooms, a narrow kitchen and a balcony that faces the park. The living room gets sun in the afternoon, which is nice in winter but warm in summer. The building has a laundry room in the basement and a bike storage area by the back door. The landlord mentioned that the heating was replaced two years ago and the windows were sealed last fall.", "label": "no", "nearMiss": true}
+{"text": "Our neighborhood association has been discussing the empty lot on Birch Road for months. Some people want a community garden with raised beds and a tool shed. Others prefer a small playground with swings and benches. A few residents worry about parking and noise, and the city has asked for a written proposal with a budget, a maintenance schedule and signatures from at least fifty households.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.\n\nThe hiking trail climbs for about four miles through pine forest before it opens onto a wide meadow. In early summer the meadow is covered in wildflowers, and you can often see deer grazing near the tree line. There is a stream crossing about halfway up that can be tricky after heavy rain, so bring shoes with good grip. The view from the ridge at the top looks out over three valleys.\n\nbe careful what you wish for meaning", "label": "no", "nearMiss": true}
+{"text": "the download is taking forever\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nThe book follows a young woman who inherits a run-down bookshop in a small mountain village. At first she plans to sell it, but the regular customers keep showing up with stories about the previous owner. Slowly she repairs the shelves, repaints the sign and starts hosting reading evenings. By the end of the novel the shop has become the heart of the village again.\n\nFor the science fair, my son built a model volcano out of papier mache and painted it brown and green. Inside there is a plastic cup for the baking soda and vinegar. He also made a poster explaining how magma moves under the crust and why some eruptions are explosive while others are slow. The judges asked him a lot of questions, and he answered most of them on his own.", "label": "no", "nearMiss": true}
+{"text": "My grandmother's recipe starts with two cups of flour, a pinch of salt and cold butter cut into small cubes. You rub the butter into the flour with your fingertips until it looks like coarse sand. Then you add ice water a spoonful at a time and press the dough into a disc. It rests in the fridge for an hour before you roll it out on a floured counter and fold it into the pie dish.\n\nDuring the workshop we practiced pottery on the wheel for the first time. Centering the clay was the hardest part, because if your hands are not steady the whole lump wobbles. The instructor showed us how to brace our elbows against our knees and use slow, even pressure. By the end of the afternoon I had made one lopsided bowl and a small cup that I am oddly proud of.\n\nLast spring we drove up the coast with two kids, a dog and far too many bags. The first night we stayed in a small inn with a creaky staircase and a garden full of lemon trees. The owner served soup with fresh bread and told us stories about the fishing boats that used to fill the harbor. The second day it was foggy, so we walked along the cliffs and watched the waves crash against the rocks below.\n\nwhat do you think i should name my dog", "label": "no", "nearMiss": true}
