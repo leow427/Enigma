@@ -233,14 +233,15 @@ Follow `docs/reviewer.md`, and these rules:
   test or probe yourself.
 - **Processes:** never use a broad `pkill -f`. Kill only by PID.
 - **Report** findings ranked from most to least severe. Mark each one
-  **Blocker**, **Should fix** or **Nit**, and give:
+  **Blocker** or **Should fix**, and give:
   - the file and line;
   - what's wrong;
   - a concrete failure scenario;
   - a suggested fix.
 
-  If nothing needs fixing, say so plainly. Don't report style preferences
-  that the spec and the surrounding code don't support.
+  Report nothing else: no nits, style preferences or polish that wouldn't
+  change behavior, correctness or maintainability. If nothing needs fixing,
+  say so plainly.
 
 ## Starting a checkpoint
 
