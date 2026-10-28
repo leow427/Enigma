@@ -9,7 +9,7 @@ F29 is built one checkpoint at a time, on the branch
 3. The worker starts a fresh reviewer agent to audit it.
 4. The worker fixes what the reviewer found. Rounds repeat, with a new
    reviewer each time, until a round finds no Blocker or Should fix, for
-   at most four rounds.
+   at most three rounds.
 5. The worker verifies the result and commits it in one commit, together
    with its row in the progress log in the [plan](../2026-10-27-f29-on-device-web-search.md).
 
@@ -38,7 +38,7 @@ questions, and makes every decision the brief marks for the owner.
 - builds exactly one checkpoint, test-first, in the order its brief gives;
 - runs the brief's exit checks;
 - fills in the brief's Hand-off section;
-- starts a fresh reviewer for each review round (at most four), and fixes
+- starts a fresh reviewer for each review round (at most three), and fixes
   its findings;
 - commits the checkpoint and its progress-log row in one commit, and pushes
   the branch.
@@ -241,7 +241,7 @@ sends:
    workflow file, the brief, `docs/reviewer.md`, and the base commit to diff
    against. Don't add your own account of the changes; it reads the code.
 4. Fix every Blocker and Should fix. Start a new reviewer for each round,
-   until a round has neither, for at most four rounds. If the fourth round
+   until a round has neither, for at most three rounds. If the third round
    still finds one, fix what you can, then stop and ask the owner before
    committing. Ask the owner about any finding you think is wrong rather
    than skipping it.
