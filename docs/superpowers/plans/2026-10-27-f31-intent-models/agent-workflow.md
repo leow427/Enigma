@@ -220,7 +220,7 @@ Follow `docs/reviewer.md`, and these rules:
      cleaned differently in the app and the script.
   2. **Privacy,** against spec §5:
      - every "Stays as rules" check in spec §2 still runs before the model;
-     - models read only the cleaned typed draft;
+     - chip models read only the cleaned typed draft; Auto's two models read the typed draft and the attached context, nothing else;
      - no draft or example text in logs;
      - example files contain only invented wording.
   3. **Spec values:** the Values table in the plan, the lean of each skill,

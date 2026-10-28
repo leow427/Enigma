@@ -89,13 +89,18 @@ This procedure is the same for every skill (CP3–CP5 refer to it):
   1. the test accuracy is higher than the baseline's;
   2. for lean-off skills only, `wrongYesShare` is no higher than the
      baseline's;
-  3. no must-pass failures.
-- [ ] **If all three hold,** add the skill to `IntentTraining/floors.json`
+  3. no must-pass failures;
+  4. the test accuracy is at least 0.80 (owner, 2026-10-27).
+- [ ] **If all four hold,** add the skill to `IntentTraining/floors.json`
   with its accuracy minus 0.02, rounded down to 3 decimals, and run
   `IntentScoreTests`. Expect them to pass.
 - [ ] **If one fails:**
   - a must-pass failure may be fixed with training examples or a pin
     (never by copying test examples), then retrain and rerun;
+  - accuracy under 0.80 may be fixed with more varied training examples,
+    chosen from the model's mistakes on the validation share (never the
+    test set), then retrain and rerun. If the lean-off wrong-yes cap is what
+    holds it under 0.80, stop and ask the owner;
   - otherwise stop and report the numbers to the owner. If the owner
     decides the skill keeps its rules, undo this checkpoint's wiring by
     hand, keep the trained model out of the app target, and record the

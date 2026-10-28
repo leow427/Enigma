@@ -50,7 +50,9 @@ skill that kept its rules is described as rules.
   examples that are still true.
 - [ ] **`docs/Web-Search.md`** and **`docs/Cloud-Model-Selection.md`:** the
   same change for automatic search and for Auto's coding and reasoning
-  checks, and their file and test tables.
+  checks, and their file and test tables. Say that Auto's two checks read
+  the typed message and the attached selection or file text, and that the
+  chips read only what you type (spec §5).
 - [ ] **`docs/Testing.md`:** `ENIGMA_INTENT_REPORT`, and what
   `IntentScoreTests` checks.
 - [ ] **`AGENTS.md`:** one line under "Build, Test, and Development

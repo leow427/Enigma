@@ -1,6 +1,7 @@
 # Trained models for recognizing commands and routing (F31) — design
 
 Status: approved design, not yet implemented. Date: 2026-10-27.
+Amended 2026-10-27 by the owner, after CP1: Auto's two checks read the attached context (§2, §5), and a skill switches only at 0.80 test accuracy or more (Testing).
 Plan: [2026-10-27-f31-intent-models.md](../plans/2026-10-27-f31-intent-models.md).
 Blocks: F29 (on-device web search) resumes after F31 is merged to `main`.
 
@@ -105,9 +106,18 @@ draft ──► IntentText.normalize ──► privacy and conflict rules ──
 | `messages` | `MessagesIntentPolicy.isRequested(normalized:)` | `isFollowUpCue` (it depends on the previous turn), and `ComposerIntent`'s conflicts | Whether the draft asks to read, search or send the person's own messages | Lean off |
 | `think` | `ThinkCommand.isRequested(normalized:)` | `ComposerIntent`'s conflicts | Whether the draft asks for careful or deeper thinking | Most answers right |
 | `edit`, `translate` | `SelectionIntentPolicy.command(normalized:)` | Only asked when a selection is attached; `leadIn` and `SelectionResponseMode` unchanged; translation wins | One model with three answers: edit, translate, neither | Lean off |
-| Auto: coding | `AutoRouter.requiresCoding` (private) | Everything else in `AutoRouter`: modes, context budgets, capabilities, limitations | Whether the request is a coding request | Lean Local |
-| Auto: harder reasoning | `AutoRouter.requiresAdvancedReasoning` (private) | As above | Whether the request needs advanced reasoning | Lean Local |
+| Auto: coding | `AutoRouter.requiresCoding` (private) | Everything else in `AutoRouter`: modes, context budgets, capabilities, limitations | Whether the request, with its attached context, is a coding request | Lean Local |
+| Auto: harder reasoning | `AutoRouter.requiresAdvancedReasoning` (private) | As above | Whether the request, with its attached context, needs advanced reasoning | Lean Local |
 
+- **Auto's two checks read the attached context** (owner, 2026-10-27).
+  Today's rules already read `AutoRouter.Request.prompt`, which in the main
+  send path is the typed draft plus any attached selection or file text, so
+  attached code can route a request to Cloud. The models keep that: they read
+  the typed draft first, then the attached text. Literal material is kept in
+  the attached part, since code there is the signal. Routing decides only
+  where a request runs, in a mode the person chose; it can't start a search,
+  read Messages or change a selection. Every chip model still reads only the
+  typed draft (§5).
 - **Auto's "search the web" check stays a rule.** `requiresWebSearch` only
   matches explicit phrases ("search the web", "latest news"), and when it
   matches with automatic search off, Auto stops the send with "Use /search…"
@@ -180,9 +190,14 @@ back from the training examples, never from the test set.
 
 ### 5. Privacy
 
-- The models read only the cleaned typed draft, exactly what the rules read
-  today. Selection text, files, screenshots, OCR, earlier messages and tool
-  results are never passed to them.
+- The chip models (`search`, `messages`, `think`, `selection`) read only the
+  cleaned typed draft, exactly what the rules read today. Selection text,
+  files, screenshots, OCR, earlier messages and tool results are never passed
+  to them, so text the person didn't write can't start a web search, turn on
+  Messages, or pick an edit.
+- Auto's `coding` and `reasoning` models read the typed draft and the
+  attached context, as today's rules do (§2). They never read earlier
+  messages or tool results, and their answer only chooses Local or Cloud.
 - Everything runs on the Mac. No example, draft or score is sent anywhere.
 - The privacy rules in section 2 run before the model and can't be overridden
   by it: message contents never become a web search, location is read only
@@ -239,9 +254,13 @@ its test set:
 1. the model gets more examples right than today's rules;
 2. for lean-off and lean-Local skills, the share of wrong yeses is no higher
    than the rules';
-3. every must-pass example is right.
+3. every must-pass example is right;
+4. the model's test accuracy is at least 0.80 (owner, 2026-10-27).
 
-A skill that fails keeps its rules, and the evaluation report says why.
+A skill that fails keeps its rules, and the evaluation report says why. If a
+lean-off skill can reach 0.80 only by breaking its 2% wrong-yes cap, the
+worker stops and the owner chooses between a looser cap and keeping the
+rules.
 
 ## Docs
 

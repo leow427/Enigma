@@ -70,13 +70,17 @@ doesn't repeat its reasoning.
   | Speed | Chip models (`search`, `messages`, `think`, `selection`) together ≤ 5 ms p95 per draft; `coding` and `reasoning` each ≤ 20 ms p95, measured by the script |
   | Pins | At most `IntentPins.maximumPerSkill` (20) per skill |
   | Example counts | Training ≥ 800 per skill (≥ 1,400 for `search`), ≥ 40% of negatives marked `nearMiss`; test ≥ 200 per skill; must-pass ≥ 25 per skill |
+  | Switch-over accuracy | At least `0.80` test accuracy, as well as beating the rules' baseline (owner, 2026-10-27) |
   | Score floor | The switched skill's test accuracy minus 0.02, rounded down to 3 decimals |
   | Model metadata keys | `enigma.cutoff`, `enigma.kind`, `enigma.fingerprint`, `enigma.asOf` |
 
 - **Privacy:**
-  - Recognizers and models read only the typed draft, cleaned by
-    `IntentText.clean`. Never selection text, files, OCR, earlier messages or
-    tool results.
+  - Chip recognizers and models (`search`, `messages`, `think`,
+    `selection`) read only the typed draft, cleaned by `IntentText.clean`.
+    Never selection text, files, OCR, earlier messages or tool results.
+  - Auto's `coding` and `reasoning` models read the typed draft and the
+    attached selection or file text, as today's rules do (spec §2, owner
+    2026-10-27). Never earlier messages or tool results.
   - The rules listed as "Stays as rules" in spec §2 run before the model and
     are never removed.
   - `LocationIntent.needsLocation` and Auto's `requiresWebSearch` aren't
@@ -95,8 +99,16 @@ doesn't repeat its reasoning.
     phrasing is fixed by more training examples, then by a pin, never by
     editing the test. If that would need more than 20 pins for a skill, stop
     and ask the owner.
-- **The switch-over test** (spec, Testing) decides whether a skill switches.
-  A skill that fails it keeps its rules; the worker stops and asks the owner.
+- **The switch-over test** (spec, Testing) decides whether a skill switches:
+  it beats the rules' baseline, keeps the lean-off wrong-yes share, passes
+  every must-pass example, and reaches at least 0.80 test accuracy. A skill
+  that fails it keeps its rules; the worker stops and asks the owner.
+- **Reaching 0.80.** Use BERT where its speed limit allows (`coding` and
+  `reasoning`). Where a skill falls short, look at its mistakes on the
+  validation share (never the test set) and add varied hand-written
+  training examples, starting with the kinds that came from filled
+  sentence patterns. If the 2% wrong-yes cap is what blocks 0.80, stop and
+  ask the owner.
 - **Git:** each worker commits its checkpoint once, after the last review
   round, on `feat/f31-intent-models`, with its progress-log row in the same
   commit. No other commits or git operations, and no attribution lines
@@ -165,7 +177,7 @@ In short, for each checkpoint in order:
 The next checkpoint starts only after that commit. These stop the line until
 the owner decides:
 
-- a skill that fails its switch-over test;
+- a skill that fails its switch-over test, the 0.80 accuracy floor included;
 - more than 20 pins needed for a skill;
 - the owner's spot-check finding more than 5 wrong test labels;
 - a spec conflict;
@@ -201,6 +213,7 @@ that use it.
 | `IntentTraining/baseline.json`, `IntentTraining/floors.json` | `IntentTraining/` | CP1 (floors empty) | CP2–CP6 |
 | `IntentScoreTests`, `IntentExamples` (test helper) | `EnigmaTests/IntentScoreTests.swift` | CP1 | CP2–CP6 |
 | `AutoRouter.requiresCoding(_:)`, `.requiresAdvancedReasoning(_:)` (internal, raw prompt) | `Enigma/Chat/AutoRouter.swift` | CP1 | CP1, CP5 |
+| `AutoRouter.Request.attachedText`, `IntentText.autoInput(draft:attached:now:)`, `IntentExample.context` | `Enigma/Chat/AutoRouter.swift`, `Enigma/Intent/IntentText.swift`, `IntentTraining/IntentTrainingSupport.swift` | CP5 | CP5 |
 
 **Where this plan refines the spec's names:**
 
