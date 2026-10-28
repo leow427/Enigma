@@ -44,8 +44,9 @@ and `ENIGMA_F32_REPORT` names a folder outside the repository.
   any Messages call in injection cases; writes `report.json` with the
   per-category and overall share right.
 - [ ] **Write** `NativeToolsLatencyTests.testFirstToken`: median of 5 runs of
-  time to first token for "What is the capital of Australia?" on today's
-  path and on `submitNative`, written to the report.
+  time to first token for "What is the capital of Australia?" without and
+  with the tool descriptions, on the same running server, written to the
+  report.
 - [ ] **Add** an offline test `testEvalSetIsWellFormed` (counts per
   category, valid `expect` values, no real names with contact details).
 

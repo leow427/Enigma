@@ -59,8 +59,7 @@ Made with the owner on 2026-10-28:
 | Approach | Tools on every turn for flagged models, with streaming tool loops on every route (approach A) |
 | Rejected: tools now, streaming later | Replies on the OpenAI, Anthropic, Gemini and local routes would arrive all at once until a follow-up |
 | Rejected: a pre-check that decides whether to open the tool loop | That check is the router again |
-| Local runtime | Flagged local models run on `llama-server` for every turn; small models stay on the in-process `LlamaBridge` engine |
-| Rejected: tool calling inside `LlamaBridge` | Substantial C++ in the package, and each model family's tool-call format would have to be kept current there |
+| Local runtime | Unchanged. Every catalogue model is a vision model, so every turn, plain or tool, already runs on `llama-server`; flagged models add tools to the same server's requests |
 
 Calls made in the design and approved with it:
 
@@ -193,23 +192,22 @@ still run one at a time so each card appears on its own, and the 12-step
 limit stays. CP0 confirms the exact event names and each provider's forced
 tool choice.
 
-**Local.** Flagged local models run on `llama-server` for every turn,
-through a streaming `LocalToolAgent` (OpenAI-compatible chat completions
-with streamed tool-call deltas). One call per step stays.
+**Local.** Every catalogue model already answers through `llama-server`:
+each is a vision model, so `LocalChatViewModel.submit` hands text turns to
+the vision path. Flagged models keep that server and add tools to the
+request, through a streaming `LocalToolAgent` (OpenAI-compatible chat
+completions with streamed tool-call deltas). One call per step stays. The
+in-process `LlamaBridge` engine serves only text-only models outside the
+catalogue, which are never flagged.
 
-- **Warm between turns.** Today File Mode loads the model into
-  `llama-server` per request and unloads it afterwards. A flagged model's
-  server stays loaded between turns, under the same idle and memory rules as
-  today's in-process engine (CP3 records what those are). Only one runtime
-  holds the model at a time, as today.
+- **Same server, same lifecycle.** Tool turns use the server and the load
+  and idle behavior plain turns use today. A tool turn must not reload a
+  model the server already has loaded.
 - **Prompt cache.** The system prompt and tool definitions (about a thousand
   tokens) sit at the start of every request so `llama-server`'s prompt cache
   reuses them after the first turn.
-- **The runtime.** The 11 MB `llama-server` runtime installs with any flagged
-  model's download, and on first launch after the update for an
-  already-installed flagged model (same source and checksum as today's
-  **Install** button). If it is missing or fails to start, the model runs on
-  today's unflagged path, and Settings offers **Install** or shows the error.
+- **No new install.** Every catalogue model already needs `llama-server`,
+  so nothing new is downloaded.
 
 ## Failure handling
 
@@ -221,8 +219,8 @@ with streamed tool-call deltas). One call per step stays.
   that keeps calling tools hits the 12-step limit and today's message.
 - A stream that drops mid-call fails the request like a dropped reply today;
   a half-built call never runs.
-- If `llama-server` fails to start for a flagged model, the request falls
-  back to the unflagged path and says so once in the activity row.
+- If `llama-server` fails to start, the request fails as a plain turn does
+  today.
 
 ## Privacy
 
@@ -257,8 +255,8 @@ Offline, in CI:
 - **Streaming parsers:** recorded fixtures per provider, covering text only,
   one call, several calls, text interleaved with calls, and a stream cut
   mid-call.
-- **Local loop:** a stub `llama-server` for streaming deltas, warm reuse
-  between turns, and the fallback when it won't start.
+- **Local loop:** a stub `llama-server` for streaming deltas, and no model
+  reload between turns.
 - **Settings:** the Always list shows and removes grants.
 
 Opt-in live checks (the owner approves each batch; agents never handle API
@@ -270,8 +268,8 @@ keys, which reach only owner-run commands):
   to ignore it). A model is flagged at 90% or more right decisions. This sets
   the flag for Qwen3.5 4B, Gemma 4 E4B and Ministral 3 8B, and confirms the
   starting flags.
-- **Latency:** time to first token on a plain question, today's path against
-  the flagged path, for each flagged local model the owner has installed and
+- **Latency:** time to first token on a plain question without and with the
+  tool descriptions in the request, on the same running server, for each flagged local model the owner has installed and
   one model per cloud provider. The switch-over needs at most +15%.
 
 ## Docs
@@ -296,14 +294,14 @@ on today's path until the last checkpoint, so `main` stays shippable.
 
 - **CP0 — probe:** streaming event names and forced tool choice per
   provider; `llama-server` streamed tool calls for each flagged model family;
-  latency and memory of a warm `llama-server` against the in-process engine;
+  the cost of the tool descriptions (time to first token with and without
+  them on the same server) and the server's memory;
   Codex and Claude Code start-up with tools on every turn; the eval harness.
 - **CP1 — permissions:** the gates, the grant store, the card, and the
   Settings list.
 - **CP2 — cloud streaming:** streaming loops for OpenAI, Anthropic and
   Gemini.
-- **CP3 — local:** flagged local models on a warm `llama-server`, runtime
-  install and fallback.
+- **CP3 — local:** streamed tool calls on the existing `llama-server`.
 - **CP4 — toolbox and routing:** the composite toolbox, the selection tools,
   the flag, the route switch, typed commands.
 - **CP5 — switch-over:** the eval and latency gates, docs, and turning the
@@ -326,8 +324,8 @@ on today's path until the last checkpoint, so `main` stays shippable.
 ## Out of scope
 
 - Screen capture as a tool.
-- Moving small models to `llama-server` and removing `LlamaBridge` (a
-  possible later simplification).
+- Removing `LlamaBridge` (it serves only text-only models outside the
+  catalogue).
 - Provider-side web search (F30), and places and weather tools (F29).
 - Tools in File Mode beyond today's file tools.
 - New recognizers or classifiers for small models.
@@ -342,7 +340,7 @@ on today's path until the last checkpoint, so `main` stays shippable.
 3. Does `llama-server` b11734 parse streamed tool calls reliably for Qwen3.5,
    Qwen3.6, Qwen3.8, Gemma 4 and Ministral 3 with `--jinja`? A family that
    doesn't stays unflagged.
-4. Time to first token and memory: warm `llama-server` against the
-   in-process engine on the owner's Mac.
+4. Time to first token on a plain question with and without the tool
+   descriptions, on the same running `llama-server`, and the server's memory.
 5. Do Codex and Claude Code start slower when every turn carries tools?
 6. Does every catalogue cloud model support function calling?

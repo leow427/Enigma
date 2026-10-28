@@ -18,8 +18,8 @@ models keep today's chips and rules.
    in-chat `ToolPermissionCard`; `MessagesTools` asks them through a
    `MessagesAccessGate` before message text leaves the database.
 3. The OpenAI, Anthropic and Gemini tool loops stream through per-provider
-   assemblers; flagged local models stream tool calls from a warm
-   `llama-server`.
+   assemblers; flagged local models stream tool calls from the
+   `llama-server` every catalogue model already runs on.
 4. `NativeToolPlan` decides which tool parts a turn gets; `AssistantToolbox`
    merges `WebSearchTool`, the gated `MessagesTools` and `SelectionTools`;
    `LocalChatViewModel.submitNative` runs it on the route's tool loop.
@@ -56,7 +56,7 @@ touched.
   | Starting local flags | On: Qwen3.5 9B, Gemma 4 12B, Ministral 3 14B, Gemma 4 26B-A4B, Gemma 4 31B, Qwen3.6 35B-A3B, Qwen3.8 27B. Off: Qwen3.5 2B. Off until the eval: Qwen3.5 4B, Gemma 4 E4B, Ministral 3 8B |
   | Cloud flag | On for every catalogue model, except any CP0 finds without function calling |
   | Eval pass mark | ≥ 0.90 right decisions per model |
-  | Latency gate | Median time to first token on a plain question, flagged path ≤ 1.15 × today's path |
+  | Latency gate | Median time to first token on a plain question, with tool descriptions ≤ 1.15 × without, on the same running server |
   | Step limit | 12 (`CloudToolLoop.maximumSteps`, `LocalToolAgent.maximumSteps`) |
   | Destinations | `thisMac`; `openAI` (OpenAI API and ChatGPT/Codex); `anthropic` (Anthropic API and Claude Code); `google` (Gemini) |
   | Always grants key | `tools.alwaysGrants` (JSON array in `UserDefaults`) |
@@ -151,7 +151,7 @@ below the eval pass mark that the spec starts flagged; a needed dependency.
 | CP0 | [Probe and flags](2026-10-28-f32-native-tool-calling/cp0-probe-and-flags.md) | — | Answers to the spec's 6 open questions; scrubbed stream fixtures; `NativeTools`; the flags; the draft PR |
 | CP1 | [Permissions](2026-10-28-f32-native-tool-calling/cp1-permissions.md) | CP0 | `ToolGrantStore`, `ToolPermissionCoordinator`, `ToolPermissionCard`, the Settings list, `MessagesAccessGate` in `MessagesTools` |
 | CP2 | [Cloud streaming](2026-10-28-f32-native-tool-calling/cp2-cloud-streaming.md) | CP0 | Streaming OpenAI, Anthropic and Gemini tool loops; `AgentToolbox.requiredTool` |
-| CP3 | [Local on llama-server](2026-10-28-f32-native-tool-calling/cp3-local-runtime.md) | CP2 | `streamTools`, a warm server, `LocalToolAgent.runStreaming`, runtime install and fallback |
+| CP3 | [Local on llama-server](2026-10-28-f32-native-tool-calling/cp3-local-runtime.md) | CP2 | `streamTools` on the existing server, `LocalToolAgent.runStreaming` |
 | CP4 | [Toolbox and routing](2026-10-28-f32-native-tool-calling/cp4-toolbox-and-routing.md) | CP1–CP3 | `WebSearchTool`, `SelectionTools`, `AssistantToolbox`, `NativeToolPlan`, `submitNative`, chips and Auto on flagged routes |
 | CP5 | [Eval, docs and switch-over](2026-10-28-f32-native-tool-calling/cp5-eval-and-switch.md) | CP4 | Eval and latency results, final flags, docs, the switch on, merge to `main` |
 
@@ -173,7 +173,6 @@ that use it.
 | `AgentToolbox.requiredTool` | `Enigma/Chat/AgentToolLoop.swift` | CP2 | CP2–CP4 |
 | `ToolStreamAssembler`, `OpenAIToolStreamAssembler`, `AnthropicToolStreamAssembler`, `GeminiToolStreamAssembler` | `Enigma/Cloud/CloudToolStreaming.swift` | CP2 | CP2 |
 | `LocalToolStreamEvent`, `LocalToolInference.streamTools(messages:tools:model:requiredTool:)`, `LocalToolAgent.runStreaming(…)` | `AgentFileTools.swift`, `AgentToolLoop.swift`, `LlamaServerVisionEngine.swift` | CP3 | CP4 |
-| `LocalChatViewModel.nativeLocalReady(_:)` | `LocalChatViewModel.swift` | CP3 | CP4 |
 | `WebSearchTool` | `Enigma/Search/WebSearchTool.swift` | CP4 | CP4 |
 | `SelectionTools`, `SelectionProposal` | `Enigma/Chat/SelectionTools.swift` | CP4 | CP4 |
 | `AssistantToolbox`, `NativeToolPlan`, `NativeToolPart` | `Enigma/Chat/AssistantToolbox.swift` | CP4 | CP4, CP5 |

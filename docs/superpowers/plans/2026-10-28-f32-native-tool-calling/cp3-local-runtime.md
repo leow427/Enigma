@@ -6,10 +6,11 @@ families stream tool calls and whether `tool_choice: "required"` works.
 
 ## Goal
 
-Flagged local models can run a whole turn on a warm `llama-server`, with
-text and tool calls streamed, the prompt prefix cached, and the runtime
-installed automatically; when the runtime is missing or fails, the caller
-can fall back. Nothing calls this on a live route yet (CP4).
+Flagged local models stream text and tool calls from the `llama-server`
+every catalogue model already runs on (each is a vision model, so plain
+turns go through `submitScreen`'s vision path today), with the prompt prefix
+cached and no model reload between turns. No new runtime or install step.
+Nothing calls this on a live route yet (CP4).
 
 ## Starting point
 
@@ -59,8 +60,6 @@ extension LocalToolAgent {
                     onActivity: @Sendable (AssistantActivityEvent) async -> Void,
                     onText: @Sendable (String) async -> Void) async throws
 }
-// LocalChatViewModel
-func nativeLocalReady(_ model: LocalModel?) -> Bool   // flag && runtime ready
 ```
 
 ## Tasks
@@ -82,11 +81,11 @@ CP0's `Fixtures/F32/llama/*.txt`.
     `tool_choice` `"auto"`, or `"required"` when `requiredTool` is set (or
     an instruction if CP0 found `required` unsupported), and otherwise the
     same keys as `completeTools`.
-  - `testWarmServerIsReused`: two `streamTools` calls for the same model
-    start one process; a different model restarts it; `completeTools` and
-    `generate` keep unloading as today.
-- [ ] **Implement** `streamTools`: ensure the server is loaded for this
-  model (reuse when the active model and its arguments match), keep the
+  - `testNoReloadBetweenTurns`: a `streamTools` call after a plain
+    `generate` (or another `streamTools`) for the same model reuses the
+    loaded server, as plain turns do today; a different model restarts it.
+- [ ] **Implement** `streamTools`: follow plain turns' load and reuse
+  behavior (CP0's Hand-off describes it), keep the
   budget check, stream `v1/chat/completions`, yield `delta.content` as
   `.text`, ignore `delta.reasoning_content`, assemble
   `delta.tool_calls[i].function.{name,arguments}`, and yield `.message` at
@@ -104,38 +103,20 @@ CP0's `Fixtures/F32/llama/*.txt`.
 - [ ] **Implement** with `run`'s history, think handling and tool-result
   JSON; only the inference call and `onText` timing differ.
 
-### Task 3.3: Runtime readiness, install and fallback
-
-**Files:** `LocalChatViewModel.swift`, `LocalFileRuntimeSetup.swift` (or
-the installer's owner); tests in `LocalInferenceTests`.
-
-- [ ] **Write failing tests:**
-  - `testNativeLocalReadyNeedsFlagAndRuntime`: flagged + runtime → true;
-    unflagged → false; flagged without runtime → false.
-  - `testFlaggedModelInstallsRuntime`: finishing a flagged model's download
-    starts the runtime install (stub installer); an unflagged model's
-    doesn't; an installed flagged model with no runtime starts the install
-    once at launch (`TestHost`-safe seam).
-  - `testRuntimeInstallFailureIsShownInSettings`: the install error is
-    published where `LocalFileToolsViews` shows it.
-- [ ] **Implement** with the existing installer (same source and checksum
-  as the Settings **Install** button). No new download source.
-
 ## Exit criteria
 
 - `build`, `test`, `analyze` pass; File Mode, local Messages and vision
   tests pass unedited.
 - The owner-approved check from CP0 Q4 is repeated through `streamTools`:
-  median time to first token on a warm server, recorded in the Hand-off.
+  median time to first token with and without the tool descriptions,
+  recorded in the Hand-off.
 
 ## Reviewer checklist
 
-- Only one runtime holds a model: the in-process engine is unloaded before
-  the server loads (the caller's job in CP4; check the helper makes it easy).
+- No model reload between turns on the same model.
 - A cancelled stream stops the HTTP request and leaves the server warm and
   usable.
 - `completeTools`/`generate` behavior unchanged.
-- The install path reuses the existing source and checksum.
 
 ## Hand-off
 

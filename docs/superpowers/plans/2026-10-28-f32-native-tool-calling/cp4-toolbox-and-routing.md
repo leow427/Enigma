@@ -44,7 +44,7 @@ tests turn the new path on through an injected flag.
 **Consumes:** `NativeTools` (CP0); `ToolGrantStore`, `ToolPermissionCoordinator`,
 `CoordinatorMessagesGate`, `MessagesTools.init(…, gate:)` (CP1);
 `AgentToolbox.requiredTool`, streaming `ToolCallingChatProvider`s (CP2);
-`LocalToolAgent.runStreaming`, `nativeLocalReady(_:)` (CP3).
+`LocalToolAgent.runStreaming` (CP3).
 
 **Produces:**
 
@@ -146,10 +146,10 @@ plan's untrusted-data instruction and, when `messagesRequested`, the typed
 the model's query as a written query, whose `mayQuery` is gate 3 through
 the coordinator, and whose `onSources` records sources on the reply;
 `SelectionTools` whose proposal becomes the message's `SelectionRevision`,
-applied automatically when today's setting says so). Local routes: unload
-the in-process engine, then `LocalToolAgent.runStreaming`; if
-`nativeLocalReady` is false, fall back to today's `submit` and note it once
-in the activity row. Cloud routes: the route's `ToolCallingChatProvider`
+applied automatically when today's setting says so). Local routes:
+`LocalToolAgent.runStreaming` on the same `llama-server` instance plain
+turns use (`visionEngine`, which is also `fileInference` by default). Cloud
+routes: the route's `ToolCallingChatProvider`
 `stream(_:toolbox:)`. It keeps `submitMessages`' access check (when
 `.messages` is in the plan), cancellation and `finishGeneration` handling,
 and calls `ToolGrantStore.endSession` when a chat is deleted or evicted.
@@ -157,7 +157,6 @@ and calls `ToolGrantStore.endSession` when a chat is deleted or evicted.
 - [ ] **Write failing tests:**
   - `testFlaggedLocalTurnUsesStreamingAgent` and
     `testFlaggedCloudTurnUsesToolStream`.
-  - `testUnreadyLocalRuntimeFallsBack`.
   - `testWebSearchAfterEarlierMessagesTurnAsks`: a read in turn 1, then a
     search in turn 2 shows gate 3; without the read it doesn't.
   - `testNewChatStartsWithoutMessageText`.
@@ -203,8 +202,7 @@ needed; tests in `ComposerIntentResolveTests`, `AutoRouterTests`,
 
 - The spec's Privacy items 1–8, each traced to code and a test.
 - Small models: unflagged routes call exactly today's functions.
-- The local in-process engine is unloaded before the server loads; no two
-  copies of a model.
+- Local tool turns reuse the loaded server; no model reload between turns.
 - Grants end with the chat; nothing about sessions is persisted.
 
 ## Hand-off
