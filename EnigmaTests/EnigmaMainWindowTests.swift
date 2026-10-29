@@ -822,6 +822,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the direct send pending", in: host.view) {
       fixture.engine.isHoldingPreparation && fixture.chat.pendingUserMessage?.content == "Hello" && editor.string.isEmpty
     }
+    // The composer may still be springing down from the first send, over the queued row.
+    try await waitForSettledLayout(in: host, "the queued row", markers: ["Send queued message now"])
     try await clickTestControl("Send queued message now", in: host.view)
     try await waitForUI("the held message pending, the stopped draft back in the field", in: host.view) {
       fixture.chat.pendingUserMessage?.content == "Held" && editor.string == "Hello"
