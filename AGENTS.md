@@ -81,9 +81,11 @@ GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
   materially changes.
 - Keep native llama.cpp integration within `Packages/LlamaBridge`; do not add
   C++ or binary-framework details to app feature code without a clear boundary.
-- Start with the smallest relevant XCTest target while developing. Before
-  publishing, run the affected tests and the appropriate build/test/analyze
-  checks above.
+- While developing and between review rounds, run only the affected test
+  classes (`-only-testing:`); the full suite's hosted UI tests take over the
+  screen and keyboard focus. Run the full suite (`scripts/verify-xcode.sh
+  test`) once per change, right before pushing to `main`, plus `build` or
+  `analyze` when relevant. Docs-only changes need no local test run.
 - Do not delete, disable, or weaken tests to make a check pass. Add regression
   coverage for fixes where practical, keeping tests deterministic and offline.
 - For permission-sensitive Screen, Files, selection, or cloud behavior, retain

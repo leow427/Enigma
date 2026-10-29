@@ -22,6 +22,25 @@
 
 ## Bug fixes
 
+### B17. Escape doesn't hide the chat unless the text box is focused
+
+**Problem:** Pressing Escape hides the chat only while the text box has focus.
+After clicking anywhere else in Enigma (the conversation, a reply, empty space
+in the panel), Escape does nothing and the chat stays on screen.
+
+**Today:** `SpotlightPanel` (`SpotlightPanelController.swift`) handles Escape
+(key code 53) in `keyDown(with:)` and `performKeyEquivalent(with:)`: it closes
+the command list, an open menu or an `EnigmaEscapeDismissal` first, then calls
+`onHide`. The panel is a `.nonactivatingPanel`. Why the key doesn't reach
+these paths once focus leaves `SlashCommandTextView` is not yet confirmed; check
+whether the panel stays key after the click, and whether another view (for
+example the message list's text views) takes Escape first.
+
+**Wanted:** Once the person has clicked anywhere in Enigma, Escape hides the
+chat, whatever has focus. Escape still closes an open menu, the command list
+or the selection details first, as now. Add a regression test that moves focus
+off the text box and checks Escape hides the panel.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -1020,10 +1039,16 @@ gets every must-pass example right. Built first, before the rest of F29.
 ### F29. On-device web search, replacing Brave
 
 **Status:** paused after CP1 (2026-10-27). F32 is on `main`, so F29 can
-resume; F31 is halted, so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
-`main` into the branch, and re-plan CP5/CP6 for F32: the engines become
-`web_search`'s backend, places and weather become tools for capable models,
-and today's routing stays for small models.
+resume; F31 is halted, so F29 no longer waits for it. CP1's second review
+ran on 2026-10-28: no Blockers, and six Should fixes not yet made. Four are
+in the weather, "local" and named-area routing rules (for example
+"temperature to bake salmon" routes to weather, "progress bars in swiftui"
+to places). Two are untested rules (location wins over a named place;
+recency comes from the typed question). Small models keep this routing
+under F32, so they still apply. On resuming: merge `main` into the branch,
+re-plan CP1's fixes and CP5/CP6 for F32 (the engines become `web_search`'s
+backend, places and weather become tools for capable models, and today's
+routing stays for small models), and fold in the maps additions below.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
@@ -1044,6 +1069,20 @@ reviewer)
 - Brave removed only after a quality gate against it passes.
 
 The spec has every decision, and the checkpoints the work runs in.
+
+**Added (owner, 2026-10-28), not yet in the spec or plan:**
+
+- A `/maps` command that always uses the places search, for any model, so
+  small models have a sure way to ask for places.
+- A map card under the reply, with numbered pins that match the reply's
+  numbered places. Clicking a pin opens the place in Apple Maps. It's a live
+  SwiftUI `Map` about 180–200 pt tall, still until clicked, built only when
+  its message scrolls into view, and a placeholder in the test host. Showing
+  an Apple map with Apple's attribution probably also answers CP0's MapKit
+  terms question (Q7).
+- Staged: first pin every place found; then only the places the reply
+  names. So the places tool returns an ID for each place from the start, for
+  the reply to cite and the card to pin.
 
 **Depends on / blocks:** blocks F30.
 
