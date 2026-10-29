@@ -6,6 +6,8 @@ import XCTest
 @MainActor
 final class NativeWebSearchLiveTests: XCTestCase {
   static let question = "What is the latest stable Swift release? Link your source."
+  static let multiSearchQuestion =
+    "Compare the current prices of the cheapest MacBook Air and the cheapest MacBook Pro in the US. Link your sources."
 
   private var root: URL!
   private var suiteName: String!
@@ -34,6 +36,20 @@ final class NativeWebSearchLiveTests: XCTestCase {
     XCTAssertTrue(reply.activity?.phases.contains(.searching) == true, "Codex searched")
     let sources = reply.searchSources ?? []
     XCTAssertFalse(sources.isEmpty, "At least one source was selected")
+    XCTAssertTrue(sources.allSatisfy(\.isSafeWebLink))
+    XCTAssertFalse(reply.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    print("F30 live \(route.providerID) \(modelID): \(sources.count) sources, \(reply.content.count) characters")
+  }
+
+  /// Uses the Mac's Claude sign-in, through Claude Code, with no Brave key. The question needs two
+  /// searches (CP0's multi-search question).
+  func testClaudeCodeSearchesLive() async throws {
+    let modelID = ProcessInfo.processInfo.environment["ENIGMA_CLAUDE_CODE_MODEL"] ?? ClaudeCodeSubscriptionClient.defaultModelID
+    let route = Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: modelID, usesNetwork: true)
+    let reply = try await ask(Self.multiSearchQuestion, route: route, providers: [.claudeCode])
+    XCTAssertTrue(reply.activity?.phases.contains(.searching) == true, "Claude Code searched")
+    let sources = reply.searchSources ?? []
+    XCTAssertGreaterThanOrEqual(sources.count, 2, "At least two sources were selected")
     XCTAssertTrue(sources.allSatisfy(\.isSafeWebLink))
     XCTAssertFalse(reply.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     print("F30 live \(route.providerID) \(modelID): \(sources.count) sources, \(reply.content.count) characters")

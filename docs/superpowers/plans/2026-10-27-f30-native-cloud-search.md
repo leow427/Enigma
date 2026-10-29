@@ -265,5 +265,5 @@ stays in its brief.
 | CP2 | deferred | | Owner, 2026-10-29: the API-key routes aren't the app's focus and there's no key to check them live; the API routes keep Enigma's search |
 | CP3 | deferred | | Same as CP2 |
 | CP4 | done | 2 | `.chatGPT` on after its live check (owner-approved, 2026-10-29); location key accepted by Codex, a search with it unverified (CP6 to check in the app); build and analyze clean; full suite 1609 run, 29 skipped, 0 failed |
-| CP5 | not started | | |
+| CP5 | done | 2 | `.claudeCode` on after its live check (owner-approved, sonnet, 2026-10-29: 6 sources); round 1's two test gaps fixed, round 2 clean; build and analyze clean; full suite 1622 run, 30 skipped, 0 failed |
 | CP6 | not started | | |

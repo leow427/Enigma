@@ -803,7 +803,7 @@ final class NativeToolRequestTests: XCTestCase {
 
   /// CP4 turns ChatGPT on: its turns ask Codex for live web search instead of offering `web_search`.
   /// The other routes keep Enigma's search until their checkpoints.
-  func testTheShippedProviderSetSearchesOnlyOnChatGPT() async throws {
+  func testTheShippedProviderSetSearchesOnChatGPTAndClaudeCode() async throws {
     let codex = SearchCodexTransport(script: [
       CodexNotification(method: "item/agentMessage/delta", params: .object([
         "threadId": .string("thread-one"), "turnId": .string("turn-one"), "delta": .string("Answer.")])),
@@ -820,7 +820,14 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(thread["developerInstructions"].string?.contains(Self.providerSearchText) == true)
     XCTAssertEqual(chatGPT.messages.last?.content, "Answer.")
 
-    for route in [Self.cloudRoute, Self.openAIRoute, Self.geminiRoute, Self.claudeCodeRoute] {
+    let claudeCode = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let claudeCodeChat = makeChat(cloud: claudeCode, nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders)
+    try await send("Hi", to: claudeCodeChat, route: Self.claudeCodeRoute)
+    XCTAssertNotNil(claudeCode.runs.first?.request.providerSearch)
+    XCTAssertFalse(claudeCode.runs.first?.toolNames.contains("web_search") ?? true)
+    XCTAssertTrue(claudeCode.runs.first?.instructions.contains(Self.providerSearchText) == true)
+
+    for route in [Self.cloudRoute, Self.openAIRoute, Self.geminiRoute] {
       let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
       let chat = makeChat(cloud: provider, nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders)
       try await send("Hi", to: chat, route: route)
