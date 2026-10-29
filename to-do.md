@@ -94,6 +94,31 @@ an escape. Don't strip `\n` from replies across the board: code blocks and
 answers about escapes need it. Add a regression test with a multi-line
 message.
 
+### B20. Picking a model with Command-K in Auto mode keeps Auto and ignores the pick
+
+**Problem:** With Auto selected, opening the mode and model menu with
+Command-K and choosing a model, local or cloud, leaves the mode on Auto. The
+next request is still routed by Auto, so the chosen model isn't what answers.
+
+**Today:** Command-K (`PanelShortcut.modePalette`) posts
+`.modePaletteRequested`, which toggles `shell.isModePalettePresented` in
+`AppShellView`. The menu's items come from `ModeAndModelMenu.sections`
+(`EnigmaMainWindowLogic.swift`): in Auto it lists both the "On this Mac" and
+the cloud provider's models. Their actions, `modeAndModelActions` in
+`AppShellView`, only change the model: `selectLocalModel` calls
+`localChat.selectModel(id:)` and `selectCloudModel` sets
+`cloudSettings.preferredModelID`. Neither calls `shell.chooseMode`, so
+`shell.selectedMode` stays `.auto` and `AutoRouter` keeps deciding the route.
+
+**Wanted:** Choosing a model by hand switches to that model's mode: a local
+model switches to Local, a cloud model to Cloud, and Auto is no longer
+selected. The same applies wherever the menu is shown (Command-K and the
+mode button), and a pick during a request in flight applies to the next
+request, as the menu's "Next request" title already says. Choosing Auto
+itself is unchanged. Add tests in `EnigmaMainWindowTests` (or wherever
+`ModeAndModelMenu` actions are covered) that pick a local and a cloud model
+from Auto and check the mode and the model both change.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -1148,6 +1173,40 @@ small and capable models:
 The spec has every decision, and the checkpoints the work runs in.
 
 **Depends on / blocks:** after F30.
+
+### F33. Show "Update available" on the menu bar icon and quietly in the app
+
+**Today:** Enigma already checks for updates once a day through Sparkle
+(`SUScheduledCheckInterval` 86400 in `Info.plist`). Daily is Sparkle's default
+and the usual interval for Mac apps, so keep it. A found update only shows in
+the status item's menu (`MenuBarController`): **Restart to Update to X** once
+it has downloaded, or **Update to X Available…** when Sparkle left it to
+Enigma, both from `AppUpdater.pendingUpdate`. The menu bar icon itself looks
+the same either way, and nothing inside the app says an update is waiting, so
+it goes unnoticed until the user happens to open the menu. See
+`docs/Updates.md`.
+
+**Wanted:**
+
+- Keep the daily check, plus Sparkle's check at launch when a day has passed.
+  Don't check more often.
+- While `pendingUpdate` is set, the menu bar icon carries a small badge (for
+  example a dot drawn into the template image, so it still follows the menu
+  bar's light and dark appearance). Its tooltip and VoiceOver label say
+  "Enigma, update available". The badge goes when `pendingUpdate` clears.
+- In the app, a quiet **Update available** item, quieter than the
+  What's new? button: small secondary text, perhaps with a dot, in
+  `EnigmaTopBar`'s top-right slot (`EnigmaSidebar.swift`), which then shows
+  even with the sidebar visible (`EnigmaTopBar.isShown`). Clicking it does
+  what the menu item does (`AppUpdater.performPendingUpdate`). Owner to
+  confirm the spot and whether the compact panel shows it too (default: main
+  window only).
+- No alerts, sounds or notifications beyond what Sparkle already shows.
+
+**Tests:** `AppUpdaterTests` for the badge and label following
+`pendingUpdate`. Add a main-window test that the item shows only with a
+pending update and calls `performPendingUpdate`. Update `docs/Updates.md` →
+What users see, with a screenshot.
 
 ### F3. Regenerate the latest reply
 
