@@ -95,8 +95,8 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
   var isMixtureOfExperts: Bool { self == .gemma4A4B || self == .qwen36_35BA3B }
 
   /// Whether the model chooses Enigma's tools itself on every turn (F32). Every
-  /// quantization of a family shares it. Families outside the catalogue stay off;
-  /// Qwen3.5 4B, Gemma 4 E4B and Ministral 3 8B wait for the tool-use eval.
+  /// quantization of a family shares it. Families outside the catalogue stay off,
+  /// and so do the small ones the tool-use eval didn't measure (F32 CP5).
   var nativeTools: Bool {
     switch self {
     case .qwen35_9B, .gemma4_12B, .ministral14B, .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B: true

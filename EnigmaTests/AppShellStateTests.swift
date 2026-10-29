@@ -633,7 +633,6 @@ extension ComposerSubmissionTests {
   }
 
   func testSwitchOffKeepsTodaysRouting() {
-    XCTAssertFalse(NativeTools.isEnabled)
     for submission in [ComposerSubmission.chat(prompt: "hi", searchEnabled: true), .messages(prompt: "hi")] {
       for mode in [ChatMode.local, .cloud, .auto] {
         XCTAssertNil(nativeRoute(submission, mode: mode, enabled: false), "\(submission) \(mode)")

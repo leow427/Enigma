@@ -19,6 +19,11 @@ arguments). Anthropic and `llama` add `thinking-call`.
 | `openai/` | **From docs, not recorded:** written from OpenAI's Responses streaming and function-calling documentation; no API key was available. `forced` is identical to `call` (a forced call streams like any call) |
 | `gemini/` | **From docs, not recorded:** written from the Gemini API reference and today's `GeminiContentClient`; no API key was available. Function calls arrive whole, with a `thoughtSignature` on the call part; events are CRLF-separated. `forced` is identical to `call`. `cut-mid-call` is a text chunk followed by the `call` chunk truncated inside its arguments |
 
-Streams from docs must be checked against a live recording before CP5
-switches the feature on (`NativeToolsProbeTests` records them when the owner
-supplies a key).
+Streams from docs haven't been checked against a live recording: CP5 switched
+the feature on without API keys, so the OpenAI, Anthropic and Gemini API tool
+streams are known only from these fixtures (the same model families were
+evaluated through Codex and Claude Code). `NativeToolsProbeTests` records them
+when a key is available.
+
+`eval.jsonl` is CP5's tool-use eval: 60 invented prompts, each with the tool a
+capable model should call first (or `none`), read by `NativeToolsEvalTests`.

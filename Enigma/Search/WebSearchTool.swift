@@ -7,18 +7,27 @@ struct WebSearchTool: AgentToolbox {
   private let search: @Sendable (String) async throws -> [WebSearchResult]
   private let mayQuery: @Sendable (String) async -> Bool
   private let onSources: @Sendable ([WebSearchSource]) async -> Void
+  private let today: String
 
+  /// `today` and `timeZone` give the model the user's date, which models without it asked for
+  /// instead of searching (CP5 eval). It changes the cached prompt prefix once a day.
   init(search: @escaping @Sendable (String) async throws -> [WebSearchResult],
        mayQuery: @escaping @Sendable (String) async -> Bool,
-       onSources: @escaping @Sendable ([WebSearchSource]) async -> Void) {
+       onSources: @escaping @Sendable ([WebSearchSource]) async -> Void,
+       today: Date = Date(), timeZone: TimeZone = .current) {
     self.search = search
     self.mayQuery = mayQuery
     self.onSources = onSources
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = timeZone
+    formatter.dateFormat = "EEEE, d MMMM yyyy"
+    self.today = formatter.string(from: today)
   }
 
   var instructions: String {
     """
-    Use web_search for facts that change or that you may not know: news, prices, schedules, weather, recent events, and specific pages. Don't search for things you already know well, for the user's own data, or to answer from Messages or an attached selection. Write a short, specific query. Cite the sources you use.
+    Today is \(today). Use web_search for facts that change or that you may not know: news, prices, schedules, weather, recent events, and specific pages. You can't see live information yourself, so when a question depends on it, call web_search instead of saying you can't look it up or asking for the date. Don't search for things you already know well, for the user's own data, or to answer from Messages or an attached selection. Write a short, specific query. Cite the sources you use.
     """
   }
 

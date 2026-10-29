@@ -4,7 +4,9 @@ Enigma can ground answers in current web results from Brave Search. With your ow
 Brave Search API key saved, questions that need fresh information search
 automatically, and **/search** forces a search for one message. Your selected
 model, local or cloud, writes the answer and the reply lists the sources it was
-given.
+given. Models that choose their own tools decide for themselves when to search,
+and write their own query; see
+[On models that choose their own tools](#on-models-that-choose-their-own-tools).
 
 ## Set up
 
@@ -23,8 +25,9 @@ given.
 takes effect once a key is saved. Turn it off for manual-only search; the choice
 is remembered and applies in Local, Cloud and Auto.
 
-Enigma decides on this Mac, from the wording of the current question alone, with
-no extra model call. Questions like these search:
+On models without native tools, Enigma decides on this Mac, from the wording of
+the current question alone, with no extra model call. Questions like these
+search:
 
 - News and recent developments: "latest AI news", "what's happening in …"
 - Facts that change: who holds an office, weather and forecasts, stock and
@@ -93,6 +96,37 @@ Without a saved key, `/search` isn't offered in suggestions, Help or the welcome
 tour. If you type it anyway, Enigma reports that a key is needed and keeps your
 draft.
 
+## On models that choose their own tools
+
+Local models of about 9B and up, both mixture-of-experts models, and the cloud
+models have a **native tools** flag (see
+[Slash commands](Slash-Commands.md#models-that-choose-their-own-tools)). On
+these, the rules above and the `search` chip don't run. Instead, while automatic
+search is on and a key is saved, every message offers the model a `web_search`
+tool, and the model decides whether to search and writes the query itself, a
+few words long. It can search more than once in a reply; the sources of every
+search are listed on it.
+
+- Automatic search off: `web_search` is offered only when you type `/search`.
+- `/search` typed: the model must search first.
+- No key: `web_search` is never offered.
+- Files or a screenshot attached: today's File Mode and screen paths, without
+  `web_search`.
+- In Auto, a question that needs a lookup no longer stops with "Use /search…",
+  since the model can search for itself.
+
+The query isn't refined by Enigma, since the model wrote it. A "near me" query
+still gets the approximate area added on this Mac before it goes to Brave.
+Results are fitted to 2,048 tokens on local routes and 8,192 on cloud routes.
+
+**After message text enters a chat** (a Messages read, a search hit, an allowed
+preview, or an earlier `/messages` turn), each web search in that chat asks
+first: **Search the web for “‹query›”?** *This chat includes text from your
+messages.*, with **Don't allow**, **For this conversation** and **Always**. The
+card shows the exact query on one line, and Brave gets exactly what the card
+showed. Don't allow tells the model "The user declined." See
+[Messages](Messages.md#permission-cards).
+
 ## Sources and citations
 
 While a search runs, the reply's activity line moves through **Preparing search
@@ -142,7 +176,9 @@ model's context for sources. **Stop** cancels both the search and the answer.
 - **Who can trigger a search:** only your current question or `/search`.
   Attached text, OCR, files and earlier messages can refine an approved query
   but can't cause a search on their own. An automatic search always shows its
-  chip before you send.
+  chip before you send. On models that choose their own tools, the model
+  decides and writes the query, and could be steered by text in the chat; once
+  message text is in the chat, no query leaves without your click on a card.
 - **Where the answer comes from:** search controls retrieval, not the model. In
   Local mode the answer is written on this Mac, but the query still goes to
   Brave.
@@ -208,6 +244,10 @@ is off, denied or unavailable, Enigma asks you to name a city and doesn't search
   location request.
 - `Enigma/Chat/AssistantActivity.swift` and `AssistantActivityView.swift`: the
   activity phases and the **web sources** list.
+- `Enigma/Search/WebSearchTool.swift`: `web_search` for flagged routes. It turns
+  the model's query into the card's one-line form, asks the search-after-messages
+  card through `mayQuery` when the chat holds message text, then searches.
+  `LocalChatViewModel.submitNative` builds it with `NativeToolPlan`'s parts.
 
 API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
 
@@ -219,6 +259,9 @@ API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/docume
 - Enigma doesn't check how recent or accurate each source is.
 - Screen questions that search need one extra model call to write the query.
 - Brave usage, limits and billing depend on your Brave plan.
+- On models that choose their own tools, whether a question searches depends on
+  the model. The tool-use eval measured it on the flagged models it covered; see
+  [Local models](Local-Model-Selection.md#native-tools).
 
 ## Tests
 
@@ -239,8 +282,12 @@ writer, which never sees slash commands;
 `EnigmaTests/ComposerIntentPhrasingTests.swift`, the phrasing corpus, checks
 which drafts get the chip and that Messages drafts never do; and
 `ComposerSubmissionTests` in `EnigmaTests/AppShellStateTests.swift` covers a
-dismissed chip sending without search. The tests use fixtures and need no Brave
-key or network.
+dismissed chip sending without search.
+`EnigmaTests/NativeToolPartsTests.swift` covers `web_search`'s arguments, the
+card's one-line query and a declined search;
+`EnigmaTests/NativeToolRequestTests.swift` covers searching after an earlier
+Messages turn, which asks, and a new chat, which doesn't. The tests use
+fixtures and need no Brave key or network.
 
 Run them with `scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchTests`.
 See [Testing](Testing.md).

@@ -157,9 +157,14 @@ How Enigma looks, starts, and works with your Mac.
   message asks for them, shown as a chip in the composer that you can click to
   remove. `/screen` and `/snapshot` always need their command. The `search`
   chip follows the automatic-search setting in **Cloud and search** instead.
-  See [Slash-Commands.md](Slash-Commands.md#recognized-commands).
+  Only models without native tools show chips; the others choose tools
+  themselves. See [Slash-Commands.md](Slash-Commands.md#recognized-commands)
+  and [Models that choose their own tools](Slash-Commands.md#models-that-choose-their-own-tools).
 - **Messages · /messages:** Full Disk Access, Contacts, and Automation for
-  `/messages`. See [Messages.md](Messages.md).
+  `/messages`, then **Always allowed** once you've answered a card with
+  **Always**: one row for each thing allowed, such as reading a chat or
+  searching all your messages, with where the text goes and **Remove**. See
+  [Messages.md](Messages.md#permission-cards).
 - **Updates:** **Check for updates automatically**, **Download and install
   updates automatically**, and a **Version** row with the version, when Enigma
   last checked, and **Check Now**. See [Updates.md](Updates.md).

@@ -956,7 +956,21 @@ queued messages editable.
 **Out of scope:** editing queued messages, queueing attachments or captures,
 and a queue in the compact panel.
 
-### F32. Native tool calling for capable models
+### F32. ✅ Done: Native tool calling for capable models
+
+> **Solved:** Flagged models (local families from about 9B up, and the cloud
+> catalogue) get web search, Messages and the selection tools on every message
+> and choose them themselves, streaming on every route; small models keep the
+> chips and rules. Reading a chat, searching all chats, and a web search once
+> message text is in the chat each ask first on a card in the chat, with **For
+> this conversation** and **Always** (listed in Settings). A tool-use eval of 60
+> invented prompts set the flags: Gemma 4 12B and Qwen3.8 27B got 0.95, ChatGPT
+> via Codex and Claude Code 0.97, and each stayed within the 1.15× gate on time
+> to the first answer text on a warm server. After a pause of more than a minute
+> the local server has stopped, and the first question reads the tool
+> descriptions in full (1.4 s on Gemma 4 12B, 4.1 s on Qwen3.8 27B, against
+> about 0.5 s and 0.9 s today). The small models weren't measured and stay off. See
+> `docs/Slash-Commands.md` and `docs/Local-Model-Selection.md`.
 
 **Spec:** [docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md](docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md)
 
@@ -1005,8 +1019,8 @@ gets every must-pass example right. Built first, before the rest of F29.
 
 ### F29. On-device web search, replacing Brave
 
-**Status:** paused after CP1 (2026-10-27); F32 comes first. F31 is halted,
-so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
+**Status:** paused after CP1 (2026-10-27). F32 is on `main`, so F29 can
+resume; F31 is halted, so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
 `main` into the branch, and re-plan CP5/CP6 for F32: the engines become
 `web_search`'s backend, places and weather become tools for capable models,
 and today's routing stays for small models.
@@ -1035,8 +1049,9 @@ The spec has every decision, and the checkpoints the work runs in.
 
 ### F30. Native web search for cloud models
 
-**Status:** to be re-scoped after F32: a provider's own search only in
-conversations with no message text, Enigma's gated `web_search` otherwise.
+**Status:** to be re-scoped now that F32 is on `main`: a provider's own search
+only in conversations with no message text, Enigma's gated `web_search`
+otherwise.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 

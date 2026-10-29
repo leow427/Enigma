@@ -116,8 +116,8 @@ final class NativeToolsTests: XCTestCase {
     XCTAssertFalse(NativeTools.isCapable(route: unknownProvider, localModel: flagged))
   }
 
-  func testSwitchIsOff() {
-    XCTAssertFalse(NativeTools.isEnabled)
+  func testSwitchIsOn() {
+    XCTAssertTrue(NativeTools.isEnabled)
   }
 
   func testFixturesAreScrubbed() throws {

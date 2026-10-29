@@ -108,6 +108,36 @@ final class NativeToolPartsTests: XCTestCase {
     XCTAssertFalse(edit.success)
     XCTAssertTrue(proposals.values.isEmpty, "A translation-only turn can't propose replacing the selection")
   }
+
+  // MARK: Wording measured by the CP5 eval
+
+  func testWebSearchGivesTodaysDateAndAsksToSearchRatherThanDecline() throws {
+    let today = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-28T23:30:00Z"))
+    let tool = WebSearchTool(search: { _ in [] }, mayQuery: { _ in true }, onSources: { _ in },
+                             today: today, timeZone: try XCTUnwrap(TimeZone(identifier: "America/Chicago")))
+    XCTAssertTrue(tool.instructions.contains("Today is Wednesday, 28 October 2026."), tool.instructions)
+    XCTAssertTrue(tool.instructions.contains("call web_search instead of saying you can't"), tool.instructions)
+    let tokyo = WebSearchTool(search: { _ in [] }, mayQuery: { _ in true }, onSources: { _ in },
+                              today: today, timeZone: try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo")))
+    XCTAssertTrue(tokyo.instructions.contains("Today is Thursday, 29 October 2026."), "The date is the user's own")
+  }
+
+  func testGatedMessagesToolsSteerANamedChatToGetMessages() {
+    let plain = MessagesTools(confirmSend: { _ in false })
+    let gated = MessagesTools(confirmSend: { _ in false }, gate: RecordingMessagesGate())
+    func description(_ tools: MessagesTools, _ name: String) -> String {
+      tools.definitions.first { $0.name == name }?.description ?? ""
+    }
+    XCTAssertTrue(gated.instructions.contains(MessagesTools.namedChatInstruction))
+    XCTAssertTrue(description(gated, "get_messages").contains("a person or group the user names"))
+    XCTAssertTrue(description(gated, "search_messages").contains("Only for searching across all chats"))
+    // Today's /messages on models without native tools keeps its wording.
+    XCTAssertFalse(plain.instructions.contains(MessagesTools.namedChatInstruction))
+    XCTAssertEqual(description(plain, "get_messages"),
+                   "Read messages from one conversation, oldest first within the page. For earlier messages, pass next_before from the previous result as before.")
+    XCTAssertEqual(description(plain, "search_messages"),
+                   "Search message text across all conversations, newest first, with two messages of context on each side.")
+  }
 }
 
 final class LockedStrings: @unchecked Sendable {

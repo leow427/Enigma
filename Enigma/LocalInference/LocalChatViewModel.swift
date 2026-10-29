@@ -5,7 +5,7 @@ import Foundation
 @MainActor
 final class LocalChatViewModel: ObservableObject {
   static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared, searchSettings: .shared,
-                                         locationProvider: LocationService.shared, nativeToolsEnabled: NativeTools.isEnabledForThisRun)
+                                         locationProvider: LocationService.shared, nativeToolsEnabled: NativeTools.isEnabled)
 
   /// The chat's request lifecycle. Model installs report through `modelOperation`.
   enum State: Equatable {

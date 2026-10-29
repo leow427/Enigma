@@ -34,6 +34,8 @@ Auto picks a route from the request itself, without asking another model:
 2. If the prompt asks for a web lookup ("search the web", "latest news",
    "current price" and similar) and web search isn't on for the request, Auto
    stops and suggests using `/search`. See [Web-Search.md](Web-Search.md).
+   This rule is skipped when the local model chooses its own tools, since the
+   model can search for itself.
 3. If the conversation won't fit the local model's context, Auto uses the cloud,
    provided the latest message fits the cloud budget.
 4. Coding requests (for example "write a function", "debug", "stack trace", or a
@@ -46,6 +48,34 @@ Auto picks a route from the request itself, without asking another model:
 
 Screenshots follow the same decision, with extra rules for sending images; see
 [Screen-Skill.md](Screen-Skill.md).
+
+A chat that holds text from your messages stays on this Mac in Auto, as a typed
+`/messages` does. See [Messages](Messages.md#message-text-in-a-chat).
+
+### Native tools
+
+Every cloud model in the catalogue calls tools natively, so in Cloud, or when
+Auto picks the cloud, the model gets Enigma's tools on every message (web
+search, Messages, the selection tools) and decides when to use them; see
+[Slash commands](Slash-Commands.md#models-that-choose-their-own-tools). The
+flag goes by family: every `claude-*` model on the Anthropic API except the
+retired Claude 2 and Instant, Gemini 2.5 and 3 text models and their `-latest`
+aliases, and on the OpenAI API, Codex and Claude Code the reviewed and listed
+models (`CloudModelCapabilities.supportsNativeTools`). Other model IDs, such as
+Gemma on the Gemini API or an unreviewed OpenAI ID, keep the chips and rules.
+
+The tool loops stream on every provider: OpenAI Responses, Anthropic Messages
+and Gemini `streamGenerateContent` show text as it arrives and assemble each
+tool call from the stream, running it only once the stream is complete. Codex
+and Claude Code stream through their own clients. Calls run one at a time, at
+most 12 model turns a request.
+
+The tool-use eval (see [Local models](Local-Model-Selection.md#native-tools))
+measured two cloud routes on 2026-10-28: ChatGPT via Codex with `gpt-5.6-luna`
+got 58 of 60 right (0.97), and Claude Code with `sonnet` 58 of 60 (0.97). Their
+first answer text with tools came 0.90× and 1.03× as soon as today's plain turn
+(the gate is 1.15×). Neither followed an instruction planted in a search result;
+each asked which city's marathon was meant instead of searching.
 
 ## Providers
 
@@ -166,7 +196,13 @@ A model's name never grants image support.
 - ChatGPT requests run in temporary Codex threads with a read-only sandbox, no
   approvals and an instruction not to use tools. Claude requests run in a fresh
   Claude Code process with tools, MCP servers, hooks, plugins and CLAUDE.md
-  turned off and no saved session. Neither inherits API keys from Enigma.
+  turned off and no saved session. Neither inherits API keys from Enigma. With
+  native tools, each gets only Enigma's tools: Codex as dynamic tools in an
+  empty workspace that declines every native approval, Claude Code as one
+  in-process MCP server with its built-in tools disabled.
+- With native tools, the model chooses when to search, read Messages or propose
+  an edit, but message text reaches it only after you answer a card for that
+  chat and company. See [Messages](Messages.md#permission-cards).
 - Screenshots go to ChatGPT via Codex and Claude via Claude Code under the same
   permission as to the API providers, and only to models that take images.
 - The cached model lists (`cloud-models.json` in Application Support) hold model
@@ -190,6 +226,7 @@ A model's name never grants image support.
 | Subscription clients | `CodexSubscriptionClient`, `ClaudeCodeSubscriptionClient` | `Enigma/Cloud/CodexSubscriptionClient.swift`, `Enigma/Cloud/CodexAppServer.swift`, `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` |
 | Keychain | `KeychainCredentialStore` | `Enigma/Cloud/KeychainCredentialStore.swift` |
 | Routing and budgets | `AutoRouter`, `ModelContextPolicy`, `CloudContext` | `Enigma/Chat/AutoRouter.swift`, `Enigma/Chat/ChatContext.swift` |
+| Native tools | `NativeTools`, `CloudModelCapabilities.supportsNativeTools`, `CloudToolLoop`, the stream assemblers | `Enigma/Chat/NativeTools.swift`, `Enigma/Cloud/CloudToolCalling.swift`, `Enigma/Cloud/CloudToolStreaming.swift` |
 | Mode menu | `ModeAndModelMenu`, `ComposerRouteIndicator` | `Enigma/App/EnigmaMainWindowLogic.swift` |
 
 The API clients stream over server-sent events: OpenAI uses
@@ -310,6 +347,11 @@ documentation, then update `CloudModelCapabilities`, this page and
   Cloud to override it.
 - Claude Code's aliases are assumed to take images; Claude Code doesn't report
   input types.
+- The OpenAI, Anthropic and Gemini API tool streams are tested against
+  fixtures written from the providers' documentation and, for Anthropic, streams
+  recorded through Claude Code, not against live API streams: there were no API
+  keys to record or evaluate them with. The tool-use eval ran through Codex and
+  Claude Code, which serve the same model families.
 
 ## Tests
 
@@ -321,7 +363,12 @@ or paid request:
   and shared budgets.
 - `CloudModeTests` and `CloudStreamingTransportTests`: request shapes, errors,
   the 24-hour cache, streaming, cancellation and partial output.
-- `AutoRouterTests`: Auto's routing rules.
+- `AutoRouterTests`: Auto's routing rules, including no `/search` stop when the
+  local model chooses its own tools.
+- `CloudToolLoopTests` and the `…ToolStreamAssemblerTests` in
+  `CloudToolStreamingTests.swift`: each provider's streamed tool calls (text
+  only, one call, several, text between calls, a stream cut mid-call) and its
+  forced tool choice.
 - `CodexSubscriptionTests` and `ClaudeCodeSubscriptionTests`: the subscription
   routes, sign-in, default models, `inputModalities` parsing and old caches, and
   the exact Codex `turn/start` input and Claude Code standard input with and

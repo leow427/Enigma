@@ -4,21 +4,11 @@ import OSLog
 /// Native tool calling (F32): capable models get Enigma's tools on every turn and
 /// decide themselves when to use them; other models keep today's chips and rules.
 enum NativeTools {
-  /// Off until F32 CP5. Flagged routes take today's path while false.
-  static let isEnabled = false
+  /// On since F32 CP5. Tests pass `nativeToolsEnabled: false` to `LocalChatViewModel` for today's path.
+  static let isEnabled = true
 
   /// Routes, tool parts and tool names only: never message text, queries, arguments or results.
   static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.leow427.AISpotlight", category: "NativeTools")
-
-  /// The switch the app runs with. A Debug build run from Xcode can turn flagged routes on
-  /// before CP5 with `ENIGMA_NATIVE_TOOLS=1` in the scheme's environment; Release builds can't.
-  static var isEnabledForThisRun: Bool {
-    #if DEBUG
-    isEnabled || ProcessInfo.processInfo.environment["ENIGMA_NATIVE_TOOLS"] == "1"
-    #else
-    isEnabled
-    #endif
-  }
 
   /// True when the route's model calls tools natively. Ignores `isEnabled`.
   static func isCapable(route: Route, localModel: LocalModel?) -> Bool {

@@ -203,6 +203,31 @@ environment variable, and they never run in CI.
   `TEST_RUNNER_ENIGMA_BANDWIDTH_PROBE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalBandwidthProbeTests/testMetalProbeOnThisMac`.
   It prints the measured bandwidth and checks it is in range and quick. See
   [Local-Model-Selection.md](Local-Model-Selection.md).
+- **Native tools:** `NativeToolsEvalTests/testEval` runs the 60 invented prompts
+  in `EnigmaTests/Fixtures/F32/eval.jsonl` on one route, with a stub web search,
+  invented Messages chats, every card allowed and nothing sent, and writes
+  `report.json`: the share of right tool decisions per category and overall (the
+  pass mark is 0.90). `NativeToolsLatencyTests/testFirstToken` writes
+  `latency.json`: time to first answer text without and with the tool
+  descriptions (the gate is 1.15×). Both need a route and a report folder
+  outside the repository:
+
+  ```sh
+  TEST_RUNNER_ENIGMA_F32_EVAL=local:gemma-4-12b-q5_k_m \
+  TEST_RUNNER_ENIGMA_F32_REPORT=/tmp/f32-eval \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/NativeToolsEvalTests/testEval \
+    -only-testing:EnigmaTests/NativeToolsLatencyTests/testFirstToken
+  ```
+
+  A route is `local:<installed model id>` or `<provider id>:<model id>`, such as
+  `chatgpt-codex:gpt-5.6-luna` or `claude-code:sonnet`. The API providers
+  (`openai`, `anthropic`, `gemini`) take their key from
+  `TEST_RUNNER_ENIGMA_OPENAI_KEY`, `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY` or
+  `TEST_RUNNER_ENIGMA_GEMINI_KEY`, as the probes do, and skip without it; the
+  test host never reads the keys saved in Enigma. See
+  [Local-Model-Selection.md](Local-Model-Selection.md#native-tools).
+  `NativeToolsProbeTests` holds F32's earlier probes, which record raw provider
+  streams into a folder named by `TEST_RUNNER_ENIGMA_F32_PROBE`.
 
 ## Permissions need a stable signed build
 
