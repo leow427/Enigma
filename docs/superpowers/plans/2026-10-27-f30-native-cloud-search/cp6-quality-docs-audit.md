@@ -12,7 +12,8 @@ app with the owner, and merge.
 ## Starting point
 
 - `CloudProviderID.nativeWebSearchProviders` holds every provider whose live
-  check passed (CP2–CP5 Hand-offs).
+  check passed (CP4 and CP5 Hand-offs). The API-key routes are deferred
+  (owner, 2026-10-29), so the quality check covers ChatGPT and Claude Code.
 - **F32's eval:** `NativeToolsEvalTests.testEval` runs the 60 prompts in
   `EnigmaTests/Fixtures/F32/eval.jsonl` on a real route, with a stub search,
   invented Messages chats and every card answered For this conversation,
@@ -63,8 +64,7 @@ importable module F29 reuses) and `scripts/evaluate-native-search.py`
   Code or Codex, the owner's choice), randomizing which answer is A,
   judging correctness, recency and sourcing. Its unit tests use fixture
   folders and a fake judge command.
-- [ ] **Get the owner's approval** (20–100 paid searches per API route,
-  plus plan usage), run, and apply the gate: the eval passes; it searched
+- [ ] **Get the owner's approval** (plan usage on each subscription), run, and apply the gate: the eval passes; it searched
   on 18 or more; 2 or more sources on 18 or more; no unsafe source; the
   judge prefers provider search or ties on 80% or more.
 - [ ] **A route that fails** comes out of the set, and the owner decides
@@ -80,8 +80,8 @@ importable module F29 reuses) and `scripts/evaluate-native-search.py`
 
 - [ ] **`docs/Web-Search.md`:** a "Cloud models' own search" section (which
   routes; only without message text; the restart; sources and fallback; the
-  spec's privacy table; costs, checked on the OpenAI and Anthropic pricing
-  pages on the day, with the date; the location card per provider, spec
+  spec's privacy table; costs (plan usage, no Brave key); the API-key
+  routes keep Enigma's search; the location card per provider, spec
   §2a, also in the "Location" section; Gemini).
   Update "On models that choose their own tools" (no key needed on those
   routes), "How it works" and "Tests".

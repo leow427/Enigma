@@ -4,9 +4,11 @@ This plan drives **F30** in `to-do.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to build your checkpoint yourself, task by task. Steps use checkbox (`- [ ]`) syntax for tracking. Here, each checkpoint is one worker's job, in a chat the owner starts; the worker starts its own reviewers. Read [agent-workflow.md](2026-10-27-f30-native-cloud-search/agent-workflow.md), then your checkpoint's brief. They and the spec are all you need.
 
-**Goal:** On OpenAI, Anthropic, ChatGPT (Codex) and Claude Code, a flagged
-cloud model searches with its provider's own search tool, with no Brave key,
-in chats that hold no message text. Enigma's `web_search` covers the rest.
+**Goal:** On ChatGPT (Codex) and Claude Code, a flagged cloud model searches
+with its provider's own search tool, with no Brave key, in chats that hold no
+message text. Enigma's `web_search` covers the rest, including the OpenAI and
+Anthropic API routes, whose checkpoints (CP2, CP3) are deferred (owner,
+2026-10-29).
 
 **Architecture:**
 
@@ -67,8 +69,9 @@ on-device provider, no blocked-sites list.
   and record the mapping in CP0's Hand-off.
 - **Turning providers on.**
   - `CloudProviderID.nativeWebSearchProviders` is `[]` after CP1.
-  - CP2 adds `.openAI`, CP3 `.anthropic`, CP4 `.chatGPT` and CP5
-    `.claudeCode`, each only after its live check passes.
+  - CP4 adds `.chatGPT` and CP5 `.claudeCode`, each only after its live
+    check passes. CP2 (`.openAI`) and CP3 (`.anthropic`) are deferred
+    (owner, 2026-10-29): the API routes keep Enigma's `web_search`.
   - A provider whose account the owner can't provide stays off, and the
     Hand-off says so.
   - `.gemini` is never added.
@@ -135,7 +138,7 @@ is pinned by a test in the checkpoint that owns the code:
      once.
    - **Pinned by:** CP1 `testMessageTextHoldsResultAndRestarts`,
      `testRestartRunsOnceWithoutProviderSearch` and
-     `testRestartKeepsTheReadGrant`; CP2–CP5 each
+     `testRestartKeepsTheReadGrant`; CP4 and CP5 each
      `test<Provider>RestartDeliversNothing`.
 2. **A chat reopened from Recents that holds message text.**
    - **Expected:** no provider search on any route; Enigma's `web_search`
@@ -204,9 +207,9 @@ These stop the line until the owner decides:
 | --- | --- | --- | --- |
 | CP0 | [Spike](2026-10-27-f30-native-cloud-search/cp0-spike.md) | F32 on `main` | Answers to the spec's 6 open questions, the F32 name check, scrubbed fixtures, the worktree |
 | CP1 | [Shared plumbing](2026-10-27-f30-native-cloud-search/cp1-shared-plumbing.md) | CP0 | `NativeWebSearch` and its helpers, the plan's search backend, `ChatRequest.providerSearch`, fallback, the restart, sources, the draft PR; no provider on yet |
-| CP2 | [OpenAI](2026-10-27-f30-native-cloud-search/cp2-openai.md) | CP1 | OpenAI's search tool in the tool loop, stream, replay, error mapping; the live-test file; `.openAI` on |
-| CP3 | [Anthropic](2026-10-27-f30-native-cloud-search/cp3-anthropic.md) | CP2 | Tool by model, stream and citations, server-block replay, `pause_turn`, error mapping, output margin; `.anthropic` on |
-| CP4 | [ChatGPT (Codex)](2026-10-27-f30-native-cloud-search/cp4-chatgpt-codex.md) | CP3 | Thread setting with dynamic tools, policy check, `webSearch` events, answer links, error mapping; `.chatGPT` on |
+| CP2 | [OpenAI](2026-10-27-f30-native-cloud-search/cp2-openai.md) | — | Deferred (owner, 2026-10-29); kept as the design for later |
+| CP3 | [Anthropic](2026-10-27-f30-native-cloud-search/cp3-anthropic.md) | — | Deferred (owner, 2026-10-29); kept as the design for later |
+| CP4 | [ChatGPT (Codex)](2026-10-27-f30-native-cloud-search/cp4-chatgpt-codex.md) | CP1 | Thread setting with dynamic tools, policy check, `webSearch` events, answer links, error mapping; the live-test file; `.chatGPT` on |
 | CP5 | [Claude Code](2026-10-27-f30-native-cloud-search/cp5-claude-code.md) | CP4 | Arguments beside the MCP tools, parser events, `init` check; `.claudeCode` on |
 | CP6 | [Quality check, docs and audit](2026-10-27-f30-native-cloud-search/cp6-quality-docs-audit.md) | CP5 | The eval and comparison, the report, docs, `to-do.md`, final audit and merge |
 
@@ -230,9 +233,9 @@ that use it.
 | `ProviderSearchRestart` | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP1–CP5 |
 | `LocalChatViewModel.init(nativeWebSearchProviders:)` | `Enigma/LocalInference/LocalChatViewModel.swift` | CP1 | CP1–CP6 tests |
 | `CloudSearchFixture`, `ScriptedSearchProvider` (tests) | `EnigmaTests/CloudSearchTestSupport.swift` | CP1 | CP1–CP6 tests |
-| `NativeWebSearchLiveTests` (tests) | `EnigmaTests/NativeWebSearchLiveTests.swift` | CP2 | CP3–CP6 |
-| `OpenAIResponsesClient.webSearchFields(required:)`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP2 | CP2 |
-| `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)`, `.dynamicSearchModelPrefixes`, `.maximumBlockedDomains`, `.maximumContinuations`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP3 | CP3 |
+| `NativeWebSearchLiveTests` (tests) | `EnigmaTests/NativeWebSearchLiveTests.swift` | CP4 | CP5–CP6 |
+| `OpenAIResponsesClient.webSearchFields(required:)`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP2 (deferred) | CP2 |
+| `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)`, `.dynamicSearchModelPrefixes`, `.maximumBlockedDomains`, `.maximumContinuations`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP3 (deferred) | CP3 |
 | `CodexToolMode.threadParameters(model:toolbox:providerSearch:searchMode:)`, `CodexSubscriptionClient.webSearchMode(requirements:)` | `Enigma/Cloud/CloudToolCalling.swift`, `CodexSubscriptionClient.swift` | CP4 | CP4 |
 | `ClaudeCodeSubscriptionClient` tool arguments with `providerSearch:`, `ClaudeCodeStreamParser.Event.toolsListed/.searchStarted/.searchResults` | `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` | CP5 | CP5 |
 | `scripts/web-search-queries.json`, `scripts/search_judge.py`, `scripts/evaluate-native-search.py`, `NativeWebSearchEvaluationTests` | `scripts/`, `EnigmaTests/` | CP6 | CP6; F29 extends them |
@@ -259,8 +262,8 @@ stays in its brief.
 | --- | --- | --- | --- |
 | CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; location goes to a provider's search after a per-provider card (spec §2a, amendment) |
 | CP1 | done | 3 | No provider on; `/messages` turns skip provider search and CP1 builds the "web search" footer (owner, review round 1); full suite 1591 run, 28 skipped, 1 window-test timing flake that passes alone (4 of 4 runs) |
-| CP2 | not started | | |
-| CP3 | not started | | |
+| CP2 | deferred | | Owner, 2026-10-29: the API-key routes aren't the app's focus and there's no key to check them live; the API routes keep Enigma's search |
+| CP3 | deferred | | Same as CP2 |
 | CP4 | not started | | |
 | CP5 | not started | | |
 | CP6 | not started | | |

@@ -1,8 +1,10 @@
 # CP4: ChatGPT (Codex) — live web search beside the dynamic tools
 
 Read [agent-workflow.md](agent-workflow.md), the spec (§3 "ChatGPT", §4,
-§5), and the Hand-offs of [CP0](cp0-spike.md#hand-off) to
-[CP3](cp3-anthropic.md#hand-off).
+§5), and the Hand-offs of [CP0](cp0-spike.md#hand-off) and
+[CP1](cp1-shared-plumbing.md#hand-off). CP2 and CP3 are deferred (owner,
+2026-10-29), so this checkpoint follows CP1 and creates the live-test file
+CP2 would have made (Task 4.3).
 
 ## Goal
 
@@ -68,6 +70,9 @@ extension CodexSubscriptionClient {
     `.phase(.searching)` on `item/started`; `openPage` URLs and `results`
     objects as discovered sources; `.sourcesSelected` from the answer's
     links before `.completed`.
+  - `testCodexFailureAfterSearchKeepsSources`: a turn that fails after a
+    search emits `.sourcesSelected` before the error, so the sources so far
+    are saved (spec §6 step 5; CP1 Hand-off).
   - `testMalformedSearchResultsAreSkipped`: `results` entries without a
     string `url`, with `javascript:` URLs, or as plain strings are skipped.
   - `testCodexSearchAndDynamicToolTogether`
@@ -81,9 +86,21 @@ extension CodexSubscriptionClient {
 
 ### Task 4.3: The live check, and turning ChatGPT on
 
-- [ ] **Add** `testChatGPTSearchesLive` to `NativeWebSearchLiveTests`: the
-  Swift release question through the Mac's ChatGPT sign-in; a search, a
-  safe source, an answer.
+**Files:** create `EnigmaTests/NativeWebSearchLiveTests.swift` (test
+target; register it as the workflow says); modify `CloudDomain.swift` and
+`NativeWebSearchTests`.
+
+```swift
+final class NativeWebSearchLiveTests: XCTestCase {
+  /// Skips unless ENIGMA_NATIVE_SEARCH_LIVE is set. Uses the Mac's ChatGPT sign-in.
+  func testChatGPTSearchesLive() async throws
+}
+```
+
+- [ ] **Write** `testChatGPTSearchesLive`: through `submitNative` on a real
+  ChatGPT route, the Swift release question; at least one `.searching`
+  phase, at least one selected source that passes `isSafeWebLink`, a
+  non-empty answer.
 - [ ] **Get the owner's approval** (one or two turns), run it, record it.
 - [ ] **When it passes,** add `.chatGPT` to the set and update the test.
 

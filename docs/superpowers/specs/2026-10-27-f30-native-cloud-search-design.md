@@ -9,6 +9,9 @@ Amended 2026-10-29 after CP0 (owner): Anthropic uses
 `response_inclusion: "full"`, and a provider's search may get the user's
 approximate location once the user allows it for that provider
 ([section 2a](#2a-location-with-the-users-consent)).
+Amended 2026-10-29 after CP1 (owner): the API-key routes (OpenAI and
+Anthropic) are deferred; F30 ships on ChatGPT (Codex) and Claude Code.
+A typed `/messages` turn never gets provider search.
 
 ## Goal and users
 
@@ -20,9 +23,11 @@ search at all.
 Cloud providers have their own search, and it's often better: bigger
 indexes, pages read on the provider's servers, and follow-up searches the
 model chooses. F30 offers the provider's own search tool in place of
-Enigma's `web_search` on OpenAI, Anthropic, ChatGPT (Codex) and Claude Code,
-whenever privacy allows. Enigma's `web_search` stays for everything else:
-Gemini, chats that hold message text, and the fallback.
+Enigma's `web_search` on ChatGPT (Codex) and Claude Code, the runtimes
+Enigma's users are expected to use, whenever privacy allows. Enigma's
+`web_search` stays for everything else: Gemini, the OpenAI and Anthropic
+API-key routes (deferred, see [Decisions](#decisions)), chats that hold
+message text, and the fallback.
 
 **What the owner asked for:**
 
@@ -44,7 +49,7 @@ Gemini, chats that hold message text, and the fallback.
 
 **Success means:**
 
-- **Search without a key.** On those four providers, a flagged cloud model
+- **Search without a key.** On those two providers, a flagged cloud model
   can search with nothing set up, Brave key or not. Its sources are shown
   and saved as today.
 - **Message text stays put.** No provider search runs in a chat that holds
@@ -64,7 +69,7 @@ Gemini, chats that hold message text, and the fallback.
 | --- | --- | --- |
 | Approach | Offer each provider's own search tool inside F32's streaming tool loop, **instead of** Enigma's `web_search` | One search tool per request keeps the model's choice simple. The other F32 tools (Messages, selection) stay offered beside it. |
 | Which turns | Flagged cloud turns that would get the search part under F32's rules: automatic search on, or `/search` typed. A Brave key is no longer needed for provider search | The automatic-search switch keeps its meaning. |
-| Providers | OpenAI (API key), Anthropic (API key), ChatGPT (Codex) and Claude Code | These have a search tool Enigma can turn on per request. |
+| Providers | ChatGPT (Codex) and Claude Code. OpenAI and Anthropic (API key) are deferred (owner, 2026-10-29): they keep Enigma's `web_search`, and their sections in §3 stay as the design for later | These have a search tool Enigma can turn on per request. The app's users are expected to use the Codex and Claude Code runtimes, and the owner has no API key to check the API routes live. |
 | Gemini | Enigma's `web_search` (owner, 2026-10-27) | Google's terms require showing Google's "Search suggestions" chip, which is Google's own HTML, with every grounded answer. That doesn't fit `docs/design/UI-Style.md`. |
 | Unflagged cloud models | Unchanged: today's path | F30 builds on the tool loop. |
 | Message text | Never in a chat that holds message text (`ChatSession.holdsMessageText`). If message text would enter a provider-search request mid-reply, that request stops and runs again without provider search | F32 privacy rule 2: no query leaves without gate 3 once message text is in a chat. A provider's search runs on its servers, where Enigma can't show a card. |
@@ -97,6 +102,9 @@ these hold:
   its provider on; never `.gemini`);
 - this provider and model aren't marked unavailable this run;
 - the chat doesn't hold message text;
+- `/messages` wasn't typed (owner, 2026-10-29): such a turn reads a chat,
+  which would restart a provider-search request (section 2), so it gets
+  `.enigma` behind gate 3, or no search;
 - the Messages tools haven't returned message text earlier in this reply
   (see section 2).
 
@@ -248,7 +256,10 @@ events:
 `submitNative` already merges the sources of every search in a reply onto
 it (F32 CP4). Provider sources join the same list.
 
-#### OpenAI (API key): `OpenAIResponsesClient`
+#### OpenAI (API key): `OpenAIResponsesClient` (deferred)
+
+Deferred (owner, 2026-10-29): kept as the design for later. Until then the
+OpenAI API route keeps Enigma's `web_search`.
 
 **The request.** With `providerSearch` set, each step's body adds:
 
@@ -280,7 +291,10 @@ appends them at the end of the reply as `[site](url)`.
 `param` starts with `tools` or whose message mentions `web_search`, becomes
 `CloudProviderError.webSearchUnavailable(.openAI)`. CP0 records the bodies.
 
-#### Anthropic (API key): `AnthropicMessagesClient`
+#### Anthropic (API key): `AnthropicMessagesClient` (deferred)
+
+Deferred (owner, 2026-10-29): kept as the design for later. Until then the
+Anthropic API route keeps Enigma's `web_search`.
 
 **The tool** comes from `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)`:
 
@@ -540,10 +554,10 @@ CP0 and live in `EnigmaTests/Fixtures/CloudSearch/`, read through
 | `RequestLifecycleTests` | Stop during a provider search and during a restart; a failure before and after the reply starts |
 
 **Live checks,** on the owner's Mac, not in CI. `NativeWebSearchLiveTests`
-skip unless `ENIGMA_NATIVE_SEARCH_LIVE` is set. API keys come from
-`TEST_RUNNER_ENIGMA_OPENAI_KEY` and `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY`
-(F32's `EnvironmentCredentials`), and never reach an agent; ChatGPT and
-Claude Code use the Mac's sign-ins.
+skip unless `ENIGMA_NATIVE_SEARCH_LIVE` is set. ChatGPT and Claude Code use
+the Mac's sign-ins. (The deferred API routes would read keys from
+`TEST_RUNNER_ENIGMA_OPENAI_KEY` and `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY`, F32's
+`EnvironmentCredentials`, never through an agent.)
 
 **Quality check (CP6), per route:**
 
@@ -562,8 +576,8 @@ Claude Code use the Mac's sign-ins.
   passes; it searched on 18 or more of the 20 questions; at least 2 sources
   were shown on 18 or more; no source fails `isSafeWebLink`; and the judge
   prefers provider search or calls a tie on 80% or more.
-- **Cost:** about 20–100 paid searches per API route, plus tokens, and plan
-  usage on the subscriptions. The owner approves each run.
+- **Cost:** plan usage on the ChatGPT and Claude subscriptions. The owner
+  approves each run.
 
 A route that fails is removed from `nativeWebSearchProviders` and keeps
 Enigma's `web_search`. The owner decides what's next.
@@ -572,8 +586,8 @@ Enigma's `web_search`. The owner decides what's next.
 
 - **`docs/Web-Search.md`** gains "Cloud models' own search": which routes,
   when (no message text), sources and fallback, the privacy table, costs
-  (about $10 per 1,000 searches on OpenAI and Anthropic API keys, plus
-  tokens, checked in CP6), the location card (section 2a), and limitations.
+  (plan usage on the ChatGPT and Claude subscriptions; no Brave key), the
+  location card (section 2a), and limitations.
   Its "On models that choose their own tools", "How it works" and "Tests"
   sections are updated.
 - **Updated:** `docs/ChatGPT-Setup.md` (live web search on search turns),
@@ -597,14 +611,15 @@ reviewers (at most three rounds), fixes, verifies and commits
 | --- | --- | --- |
 | CP0 Spike | Answer the open questions below with probes on the owner's accounts; record fixtures | A written answer per question; fixtures scrubbed and saved |
 | CP1 Shared plumbing | `NativeWebSearch`, the plan's search backend, `ChatRequest.providerSearch`, availability and fallback, the restart, sources, the location card and per-provider grant (section 2a). `nativeWebSearchProviders` stays empty | Tests pass; no visible change |
-| CP2 OpenAI | Request, stream, replay, inline-citation check, error mapping; turn on `.openAI` | Tests pass; the live check passes |
-| CP3 Anthropic | Tool by model, stream, server-block replay, `pause_turn`, error mapping, output budget; turn on `.anthropic` | Tests pass; the live check passes |
+| CP2 OpenAI | Deferred (owner, 2026-10-29) | — |
+| CP3 Anthropic | Deferred (owner, 2026-10-29) | — |
 | CP4 ChatGPT (Codex) | The thread setting, events, links, policy check, error mapping; turn on `.chatGPT` | Tests pass; the live check passes |
 | CP5 Claude Code | Arguments, parser, `init` check; turn on `.claudeCode` | Tests pass; the live check passes |
 | CP6 Quality check, docs and audit | The eval and comparison per route, the report, docs, release notes, `to-do.md`, a final check in the running app | The gate passes on each route that ships; docs match behavior |
 
-Without an API key for a provider, its checkpoint is built from CP0's
-documented shapes, and its live check and turn-on wait for the owner.
+The API-key checkpoints (CP2, CP3) are deferred: their briefs stay as the
+design for later, built from CP0's documented shapes once the owner has a
+key to check them live. CP4 follows CP1.
 
 **Open questions for CP0:**
 

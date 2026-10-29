@@ -62,11 +62,15 @@ owner's live check passes, `.claudeCode` joins the provider set.
   - `testClaudeCodeSourcesFromAnswerLinks`.
   - `testClaudeCodeRestartDeliversNothing`: on `ProviderSearchRestart`, no
     MCP response is written and the process ends as CP0 Q5 found.
+  - `testClaudeCodeFailureAfterSearchKeepsSources`: a turn that fails after
+    a search emits `.sourcesSelected` before the error (spec §6 step 5;
+    CP1 Hand-off).
 - [ ] **Run, implement, run.**
 
 ### Task 5.3: The live check, and turning Claude Code on
 
-- [ ] **Add** `testClaudeCodeSearchesLive`: the multi-search question
+- [ ] **Add** `testClaudeCodeSearchesLive` to `NativeWebSearchLiveTests`
+  (CP4): the multi-search question
   through the Mac's Claude sign-in; a search, two sources, an answer.
 - [ ] **Get the owner's approval,** run it, record it.
 - [ ] **When it passes,** add `.claudeCode` to the set and update the test.

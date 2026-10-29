@@ -1,5 +1,9 @@
 # CP2: OpenAI — the search tool in the Responses tool loop
 
+> **Deferred (owner, 2026-10-29).** The API-key routes aren't the app's
+> focus, and the owner has no key to check them live. This brief stays as
+> the design for later; no worker builds it now. CP4 follows CP1.
+
 Read [agent-workflow.md](agent-workflow.md), the spec (§3 "OpenAI", §4, §5),
 and the Hand-offs of [CP0](cp0-spike.md#hand-off) and
 [CP1](cp1-shared-plumbing.md#hand-off).

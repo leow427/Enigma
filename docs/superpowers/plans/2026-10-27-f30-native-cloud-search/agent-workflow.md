@@ -180,9 +180,9 @@ worker.
 
   | Set | Test host sees | Purpose |
   | --- | --- | --- |
-  | `TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1` | `ENIGMA_NATIVE_SEARCH_LIVE` | Live checks, CP2–CP5 |
-  | `TEST_RUNNER_ENIGMA_OPENAI_KEY=<key>` | `ENIGMA_OPENAI_KEY` | OpenAI live check and evaluation; set by the owner |
-  | `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY=<key>` | `ENIGMA_ANTHROPIC_KEY` | Anthropic live check and evaluation; set by the owner |
+  | `TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1` | `ENIGMA_NATIVE_SEARCH_LIVE` | Live checks, CP4–CP5 |
+  | `TEST_RUNNER_ENIGMA_OPENAI_KEY=<key>` | `ENIGMA_OPENAI_KEY` | OpenAI live check and evaluation; set by the owner (deferred) |
+  | `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY=<key>` | `ENIGMA_ANTHROPIC_KEY` | Anthropic live check and evaluation; set by the owner (deferred) |
   | `TEST_RUNNER_ENIGMA_OPENAI_MODEL`, `TEST_RUNNER_ENIGMA_ANTHROPIC_MODEL` | `ENIGMA_OPENAI_MODEL`, `ENIGMA_ANTHROPIC_MODEL` | Optional model overrides; defaults in the briefs |
   | `TEST_RUNNER_ENIGMA_SEARCH_EVAL=<folder>` | `ENIGMA_SEARCH_EVAL` | The CP6 comparison (F29 reuses it) |
 
