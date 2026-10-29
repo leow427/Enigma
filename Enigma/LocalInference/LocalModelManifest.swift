@@ -44,6 +44,7 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var familyID: String { displayName }
   var resolvedActiveParameterBillions: Double { activeParameterBillions ?? parameterBillions }
   var isMixtureOfExperts: Bool { resolvedProfile?.isMixtureOfExperts ?? false }
+  var supportsNativeTools: Bool { resolvedProfile?.nativeTools ?? false }
   /// Bytes read for each generated token: the whole file for a dense model,
   /// the active experts' share for a mixture-of-experts model.
   var activeWeightBytes: Double {

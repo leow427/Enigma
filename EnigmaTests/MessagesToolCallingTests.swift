@@ -57,26 +57,99 @@ private struct ToolTestCredentials: CloudCredentialStore {
   func removeAPIKey(for provider: CloudProviderID) throws {}
 }
 
-/// Returns queued JSON responses and records request bodies.
+/// Returns queued responses and records request bodies. A whole JSON response is served as one
+/// non-streamed reply, or, to a streaming request, as that provider's server-sent events built from
+/// it; a recorded stream (`init(streams:)`) is served as is.
 private final class QueuedTransport: CloudNetworkTransport, @unchecked Sendable {
+  enum Response {
+    case json([String: Any])
+    case stream(String)
+  }
+
   private let lock = NSLock()
-  private var responses: [[String: Any]]
+  private var responses: [Response]
   private(set) var bodies: [[String: Any]] = []
   private(set) var urls: [URL] = []
 
-  init(_ responses: [[String: Any]]) { self.responses = responses }
+  init(_ responses: [[String: Any]]) { self.responses = responses.map(Response.json) }
+  init(streams: [String]) { self.responses = streams.map(Response.stream) }
 
-  func data(for request: URLRequest) async throws -> CloudDataResponse {
+  private func next(_ request: URLRequest) throws -> Response {
     try lock.withLock {
       urls.append(request.url!)
       bodies.append(try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any] ?? [:])
-      let next = responses.removeFirst()
-      return CloudDataResponse(data: try JSONSerialization.data(withJSONObject: next), statusCode: 200)
+      return responses.removeFirst()
     }
   }
 
+  func data(for request: URLRequest) async throws -> CloudDataResponse {
+    guard case .json(let next) = try next(request) else { throw CloudProviderError.invalidResponse }
+    return CloudDataResponse(data: try JSONSerialization.data(withJSONObject: next), statusCode: 200)
+  }
+
   func stream(for request: URLRequest) -> AsyncThrowingStream<CloudNetworkEvent, Error> {
-    AsyncThrowingStream { $0.finish(throwing: CloudProviderError.invalidResponse) }
+    AsyncThrowingStream { continuation in
+      do {
+        let text = switch try next(request) {
+        case .stream(let text): text
+        case .json(let response): try Self.events(for: request.url!, response: response)
+        }
+        continuation.yield(.response(statusCode: 200))
+        continuation.yield(.data(Data(text.utf8)))
+        continuation.finish()
+      } catch { continuation.finish(throwing: error) }
+    }
+  }
+
+  /// A whole response as the stream its provider would send for it.
+  private static func events(for url: URL, response: [String: Any]) throws -> String {
+    func event(_ name: String?, _ object: [String: Any]) throws -> String {
+      let data = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+      return (name.map { "event: \($0)\n" } ?? "") + "data: \(data)\n\n"
+    }
+    switch url.host() {
+    case "api.anthropic.com":
+      var text = try event("message_start", ["type": "message_start", "message": ["role": "assistant", "content": []]])
+      for (index, block) in (response["content"] as? [[String: Any]] ?? []).enumerated() {
+        var start = block
+        var deltas: [[String: Any]] = []
+        switch block["type"] as? String {
+        case "text":
+          start["text"] = ""
+          deltas = [["type": "text_delta", "text": block["text"] ?? ""]]
+        case "tool_use":
+          start["input"] = [String: Any]()
+          deltas = [["type": "input_json_delta", "partial_json": CloudToolLoop.jsonString(block["input"] ?? [:])]]
+        case "thinking":
+          start["thinking"] = ""
+          start["signature"] = ""
+          deltas = [["type": "thinking_delta", "thinking": block["thinking"] ?? ""],
+                    ["type": "signature_delta", "signature": block["signature"] ?? ""]]
+        default: break
+        }
+        text += try event("content_block_start", ["type": "content_block_start", "index": index, "content_block": start])
+        for delta in deltas {
+          text += try event("content_block_delta", ["type": "content_block_delta", "index": index, "delta": delta])
+        }
+        text += try event("content_block_stop", ["type": "content_block_stop", "index": index])
+      }
+      text += try event("message_delta", ["type": "message_delta", "delta": ["stop_reason": response["stop_reason"] ?? "end_turn"]])
+      return text + (try event("message_stop", ["type": "message_stop"]))
+    case "api.openai.com":
+      var text = ""
+      let output = response["output"] as? [[String: Any]] ?? []
+      for (index, item) in output.enumerated() {
+        for part in item["content"] as? [[String: Any]] ?? [] where part["type"] as? String == "output_text" {
+          text += try event("response.output_text.delta", ["type": "response.output_text.delta", "output_index": index,
+            "delta": part["text"] ?? ""])
+        }
+        text += try event("response.output_item.done", ["type": "response.output_item.done", "output_index": index, "item": item])
+      }
+      let status = response["status"] as? String ?? "completed"
+      return text + (try event("response.\(status)", ["type": "response.\(status)", "response": response]))
+    default:
+      return try event(nil, response)
+    }
   }
 }
 
@@ -149,7 +222,7 @@ final class CloudToolLoopTests: XCTestCase {
     let client = GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
     let events = try await collect(client.stream(request(.gemini, model: "gemini-3-flash"), toolbox: toolbox))
     XCTAssertEqual(events.compactMap { if case .token(let text) = $0 { text } else { nil } }, ["42"])
-    XCTAssertTrue(transport.urls[0].absoluteString.hasSuffix("gemini-3-flash:generateContent"))
+    XCTAssertTrue(transport.urls[0].absoluteString.hasSuffix("gemini-3-flash:streamGenerateContent?alt=sse"))
     let declaration = try XCTUnwrap(((transport.bodies[0]["tools"] as? [[String: Any]])?.first?["functionDeclarations"] as? [[String: Any]])?.first)
     XCTAssertNil((declaration["parameters"] as? [String: Any])?["additionalProperties"])
     let contents = try XCTUnwrap(transport.bodies[1]["contents"] as? [[String: Any]])
@@ -376,6 +449,31 @@ final class ClaudeCodeToolModeTests: XCTestCase {
 
 private actor ScriptedToolInference: LocalToolInference {
   private(set) var requests: [[AgentInferenceMessage]] = []
+  private(set) var requiredTools: [String?] = []
+
+  /// Streams each scripted step's text in two deltas, recording the required tool.
+  nonisolated func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                               requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          await self.recordRequiredTool(requiredTool)
+          let message = try await self.completeTools(messages: messages, tools: tools, model: model)
+          if let content = message.content, !content.isEmpty {
+            let middle = content.index(content.startIndex, offsetBy: content.count / 2)
+            continuation.yield(.text(String(content[..<middle])))
+            continuation.yield(.text(String(content[middle...])))
+          }
+          continuation.yield(.message(message))
+          continuation.finish()
+        } catch { continuation.finish(throwing: error) }
+      }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+
+  private func recordRequiredTool(_ name: String?) { requiredTools.append(name) }
+
   func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
     requests.append(messages)
     if requests.count == 1 {
@@ -702,4 +800,477 @@ final class LockedText: @unchecked Sendable {
   private var text = ""
   var value: String { lock.withLock { text } }
   func append(_ fragment: String) { lock.withLock { text += fragment } }
+}
+
+/// Requires one tool on the first step, as `/search` will.
+private struct RequiringToolbox: AgentToolbox {
+  let base = RecordingToolbox()
+  var instructions: String { base.instructions }
+  var definitions: [AgentToolDefinition] { base.definitions }
+  var requiredTool: String? { "lookup" }
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult { await base.execute(name: name, arguments: arguments) }
+}
+
+/// Requires a tool it doesn't offer, as `/search` would without a search key.
+private struct UnofferedRequirementToolbox: AgentToolbox {
+  let base = RecordingToolbox()
+  var instructions: String { base.instructions }
+  var definitions: [AgentToolDefinition] { base.definitions }
+  var requiredTool: String? { "web_search" }
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult { await base.execute(name: name, arguments: arguments) }
+}
+
+/// The streaming tool loops (F32 CP2).
+extension CloudToolLoopTests {
+  private func tokens(_ events: [ChatEvent]) -> [String] {
+    events.compactMap { if case .token(let text) = $0 { text } else { nil } }
+  }
+
+  func testTextIsEmittedBeforeTheStepEnds() async throws {
+    let toolbox = RecordingToolbox()
+    var events: [ChatEvent] = []
+    var seenBeforeReturn: [ChatEvent] = []
+    var step = 0
+    try await CloudToolLoop.run(toolbox: toolbox, emit: { events.append($0) }, step: { _, onText in
+      step += 1
+      guard step == 1 else { return .init(text: "", calls: []) }
+      onText("Checking")
+      onText(" now.")
+      seenBeforeReturn = events
+      XCTAssertTrue(toolbox.calls.isEmpty, "The call runs only after the step ends")
+      return .init(text: "Checking now.", calls: [.init(id: "1", name: "lookup", arguments: #"{"query":"a"}"#)])
+    }, deliver: { _ in })
+    XCTAssertEqual(seenBeforeReturn, [.token("Checking"), .token(" now.")])
+    XCTAssertEqual(toolbox.calls.count, 1)
+    XCTAssertEqual(tokens(events), ["Checking", " now."], "Streamed text isn't emitted again when the step returns")
+    XCTAssertEqual(events.last, .completed)
+  }
+
+  func testStreamedTextKeepsTodaysTrimmingAndBlankLineBetweenSteps() async throws {
+    var events: [ChatEvent] = []
+    var step = 0
+    try await CloudToolLoop.run(toolbox: RecordingToolbox(), emit: { events.append($0) }, step: { _, onText in
+      step += 1
+      if step == 1 {
+        for delta in ["\n ", "Checking", " ", "\n"] { onText(delta) }
+        return .init(text: "", calls: [.init(id: "1", name: "lookup", arguments: "{}")])
+      }
+      if step == 2 {
+        onText("  ")
+        return .init(text: "", calls: [.init(id: "2", name: "lookup", arguments: "{}")])
+      }
+      for delta in [" ", "It is", " ", "42.", " \n"] { onText(delta) }
+      return .init(text: "", calls: [])
+    }, deliver: { _ in })
+    XCTAssertEqual(tokens(events).joined(), "Checking\n\nIt is 42.", "As today's loop printed the trimmed steps")
+    XCTAssertEqual(tokens(events), ["Checking", "\n\nIt is", " 42."])
+  }
+
+  func testFirstStepIsFlagged() async throws {
+    var flags: [Bool] = []
+    try await CloudToolLoop.run(toolbox: RecordingToolbox(), emit: { _ in }, step: { isFirst, _ in
+      flags.append(isFirst)
+      return .init(text: "", calls: flags.count < 3 ? [.init(id: "\(flags.count)", name: "lookup", arguments: "{}")] : [])
+    }, deliver: { _ in })
+    XCTAssertEqual(flags, [true, false, false])
+  }
+
+  func testOpenAIToolLoopStreams() async throws {
+    let transport = QueuedTransport(streams: [try F32Fixture.text("openai", "text-then-call"), try F32Fixture.text("openai", "text")])
+    let toolbox = RecordingToolbox()
+    let client = OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    let events = try await collect(client.stream(request(.openAI, model: "gpt-5.5"), toolbox: toolbox))
+    XCTAssertEqual(tokens(events), ["Let me", " check the", " weather in Paris.", "\n\nHello", " there", ", nice", " to meet", " you!"])
+    XCTAssertEqual(events.last, .completed)
+    XCTAssertEqual(toolbox.calls.map(\.0), ["get_weather"])
+    XCTAssertEqual(toolbox.calls.first?.1["city"].string, "Paris")
+    XCTAssertEqual(transport.bodies.map { $0["stream"] as? Bool }, [true, true])
+    XCTAssertEqual(transport.bodies[0]["parallel_tool_calls"] as? Bool, false)
+    let input = try XCTUnwrap(transport.bodies[1]["input"] as? [[String: Any]])
+    XCTAssertEqual(input.compactMap { $0["type"] as? String }, ["message", "function_call", "function_call_output"])
+    XCTAssertNil(input[2]["id"], "Unstored item IDs cannot be referenced")
+    XCTAssertNil(input[2]["status"])
+    XCTAssertEqual(input[2]["call_id"] as? String, "call-0")
+    XCTAssertEqual(input[2]["arguments"] as? String, #"{"city":"Paris"}"#)
+    XCTAssertEqual(input[3]["call_id"] as? String, "call-0")
+  }
+
+  func testAnthropicToolLoopStreams() async throws {
+    let transport = QueuedTransport(streams: [try F32Fixture.text("anthropic", "thinking-call"), try F32Fixture.text("anthropic", "text")])
+    let toolbox = RecordingToolbox()
+    let client = AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    let events = try await collect(client.stream(request(.anthropic, model: "claude-sonnet-4-6"), toolbox: toolbox))
+    XCTAssertEqual(tokens(events), ["Hello there", ", fri", "end", ",", " n", "ice day!"])
+    XCTAssertEqual(toolbox.calls.map(\.0), ["get_weather"])
+    XCTAssertEqual(transport.bodies.map { $0["stream"] as? Bool }, [true, true])
+    let messages = try XCTUnwrap(transport.bodies[1]["messages"] as? [[String: Any]])
+    XCTAssertEqual(messages.count, 3)
+    let assistant = try XCTUnwrap(messages[1]["content"] as? [[String: Any]])
+    XCTAssertEqual(assistant.first?["signature"] as? String, "EqQBCgIYAhIMSynthesizedSignatureForTests0000==",
+      "Thinking goes back with its signature")
+    XCTAssertEqual((assistant.last?["input"] as? [String: Any])?["city"] as? String, "Paris")
+    let result = try XCTUnwrap((messages[2]["content"] as? [[String: Any]])?.first)
+    XCTAssertEqual(result["tool_use_id"] as? String, "toolu-0")
+  }
+
+  func testGeminiToolLoopStreams() async throws {
+    let transport = QueuedTransport(streams: [try F32Fixture.text("gemini", "text-then-call"), try F32Fixture.text("gemini", "text")])
+    let toolbox = RecordingToolbox()
+    let client = GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
+    let events = try await collect(client.stream(request(.gemini, model: "gemini-2.5-flash"), toolbox: toolbox))
+    XCTAssertEqual(tokens(events), ["Let me check the weather in Paris.", "\n\nHello there,", " nice to meet you!"])
+    XCTAssertEqual(toolbox.calls.map(\.0), ["get_weather"])
+    XCTAssertEqual(transport.urls.map { $0.absoluteString.hasSuffix("gemini-2.5-flash:streamGenerateContent?alt=sse") }, [true, true])
+    let contents = try XCTUnwrap(transport.bodies[1]["contents"] as? [[String: Any]])
+    XCTAssertEqual(contents.count, 3)
+    let parts = try XCTUnwrap(contents[1]["parts"] as? [[String: Any]])
+    XCTAssertEqual(parts.first?["text"] as? String, "Let me check the weather in Paris.")
+    XCTAssertEqual(parts.last?["thoughtSignature"] as? String, "CiQBSynthesizedThoughtSignatureForTests0000")
+    let response = try XCTUnwrap((contents[2]["parts"] as? [[String: Any]])?.first?["functionResponse"] as? [String: Any])
+    XCTAssertEqual(response["name"] as? String, "get_weather")
+    XCTAssertNil(response["id"], "Synthesized call IDs aren't sent back")
+  }
+
+  func testStreamCutMidCallRunsNothingOnEveryProvider() async throws {
+    let routes: [(CloudProviderID, String, String, (QueuedTransport) -> any ToolCallingChatProvider)] = [
+      (.openAI, "gpt-5.5", "openai", { OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: $0) }),
+      (.anthropic, "claude-sonnet-4-6", "anthropic", { AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: $0) }),
+      (.gemini, "gemini-2.5-flash", "gemini", { GeminiContentClient(credentialStore: ToolTestCredentials(), transport: $0) }),
+    ]
+    for (provider, model, folder, client) in routes {
+      let transport = QueuedTransport(streams: [try F32Fixture.text(folder, "cut-mid-call")])
+      let toolbox = RecordingToolbox()
+      do {
+        _ = try await collect(client(transport).stream(request(provider, model: model), toolbox: toolbox))
+        XCTFail("\(folder): expected the request to fail")
+      } catch { XCTAssertEqual(error as? CloudProviderError, .invalidResponse, folder) }
+      XCTAssertTrue(toolbox.calls.isEmpty, "\(folder): a half-built call never runs")
+    }
+  }
+
+  func testRequiredToolIsSentOnFirstStepOnlyOnOpenAI() async throws {
+    let transport = QueuedTransport([
+      ["status": "completed", "output": [["type": "function_call", "call_id": "c", "name": "lookup", "arguments": "{}"]]],
+      ["status": "completed", "output": [["type": "message", "content": [["type": "output_text", "text": "42."]]]]],
+    ])
+    let client = OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    _ = try await collect(client.stream(request(.openAI, model: "gpt-5.5"), toolbox: RequiringToolbox()))
+    XCTAssertEqual(transport.bodies[0]["tool_choice"] as? [String: String], ["type": "function", "name": "lookup"])
+    XCTAssertNil(transport.bodies[1]["tool_choice"])
+  }
+
+  func testRequiredToolIsSentOnFirstStepOnlyOnAnthropic() async throws {
+    let transport = QueuedTransport([
+      ["content": [["type": "tool_use", "id": "t", "name": "lookup", "input": ["query": "x"]]], "stop_reason": "tool_use"],
+      ["content": [["type": "text", "text": "42."]]],
+    ])
+    let client = AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    _ = try await collect(client.stream(request(.anthropic, model: "claude-sonnet-4-6"), toolbox: RequiringToolbox()))
+    XCTAssertEqual(transport.bodies[0]["tool_choice"] as? [String: String], ["type": "tool", "name": "lookup"])
+    XCTAssertNil(transport.bodies[1]["tool_choice"])
+  }
+
+  func testRequiredToolIsNotForcedWithAnthropicExtendedThinking() async throws {
+    let transport = QueuedTransport([["content": [["type": "text", "text": "42."]]]])
+    let client = AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    let thinking = ChatRequest(sessionID: UUID(), messages: [ThinkCommand.message("/think What is the answer?")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.anthropic.rawValue, modelID: "claude-sonnet-4-6", usesNetwork: true))
+    _ = try await collect(client.stream(thinking, toolbox: RequiringToolbox()))
+    XCTAssertNotNil(transport.bodies[0]["thinking"])
+    XCTAssertNil(transport.bodies[0]["tool_choice"], "Anthropic allows only auto tool choice with extended thinking")
+  }
+
+  func testRequiredToolIsSentOnFirstStepOnlyOnGemini() async throws {
+    let transport = QueuedTransport([
+      ["candidates": [["content": ["role": "model", "parts": [["functionCall": ["name": "lookup", "args": [:]]]]], "finishReason": "STOP"]]],
+      ["candidates": [["content": ["role": "model", "parts": [["text": "42"]]], "finishReason": "STOP"]]],
+    ])
+    let client = GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
+    _ = try await collect(client.stream(request(.gemini, model: "gemini-3-flash"), toolbox: RequiringToolbox()))
+    let config = try XCTUnwrap((transport.bodies[0]["toolConfig"] as? [String: Any])?["functionCallingConfig"] as? [String: Any])
+    XCTAssertEqual(config["mode"] as? String, "ANY")
+    XCTAssertEqual(config["allowedFunctionNames"] as? [String], ["lookup"])
+    XCTAssertNil(transport.bodies[1]["toolConfig"])
+  }
+
+  func testARequiredToolTheToolboxDoesNotOfferIsNeverForced() async throws {
+    XCTAssertNil(UnofferedRequirementToolbox().offeredRequiredTool)
+    let openAI = QueuedTransport([["status": "completed", "output": [["type": "message", "content": [["type": "output_text", "text": "42."]]]]]])
+    _ = try await collect(OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: openAI)
+      .stream(request(.openAI, model: "gpt-5.5"), toolbox: UnofferedRequirementToolbox()))
+    XCTAssertNil(openAI.bodies[0]["tool_choice"])
+    let anthropic = QueuedTransport([["content": [["type": "text", "text": "42."]]]])
+    _ = try await collect(AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: anthropic)
+      .stream(request(.anthropic, model: "claude-sonnet-4-6"), toolbox: UnofferedRequirementToolbox()))
+    XCTAssertNil(anthropic.bodies[0]["tool_choice"])
+    let gemini = QueuedTransport([["candidates": [["content": ["role": "model", "parts": [["text": "42"]]], "finishReason": "STOP"]]]])
+    _ = try await collect(GeminiContentClient(credentialStore: ToolTestCredentials(), transport: gemini)
+      .stream(request(.gemini, model: "gemini-3-flash"), toolbox: UnofferedRequirementToolbox()))
+    XCTAssertNil(gemini.bodies[0]["toolConfig"])
+  }
+
+  func testNoToolIsForcedByDefault() async throws {
+    let transport = QueuedTransport([["status": "completed", "output": [["type": "message", "content": [["type": "output_text", "text": "42."]]]]]])
+    let client = OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    _ = try await collect(client.stream(request(.openAI, model: "gpt-5.5"), toolbox: RecordingToolbox()))
+    XCTAssertNil(transport.bodies[0]["tool_choice"])
+  }
+}
+
+/// Streams scripted steps: each step's deltas, then its message. With `holdAfterFirstDelta`,
+/// the first step waits after its first delta until `release` is called.
+private actor StreamingStepsInference: LocalToolInference {
+  struct Step { var deltas: [String]; var message: AgentInferenceMessage? }
+  private var steps: [Step]
+  private(set) var requiredTools: [String?] = []
+  private var held: CheckedContinuation<Void, Never>?
+  private var released = false
+  let holdAfterFirstDelta: Bool
+
+  init(_ steps: [Step], holdAfterFirstDelta: Bool = false) {
+    self.steps = steps
+    self.holdAfterFirstDelta = holdAfterFirstDelta
+  }
+
+  func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    XCTFail("The streaming loop must not use completeTools")
+    throw CancellationError()
+  }
+
+  nonisolated func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                               requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        let (step, first) = await self.next(requiredTool)
+        for (index, delta) in step.deltas.enumerated() {
+          continuation.yield(.text(delta))
+          if first && index == 0 && self.holdAfterFirstDelta { await self.waitForRelease() }
+        }
+        if let message = step.message { continuation.yield(.message(message)) }
+        continuation.finish()
+      }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+
+  private func next(_ requiredTool: String?) -> (Step, Bool) {
+    requiredTools.append(requiredTool)
+    return (steps.removeFirst(), requiredTools.count == 1)
+  }
+
+  private func waitForRelease() async {
+    if released { return }
+    await withCheckedContinuation { held = $0 }
+  }
+
+  func release() {
+    released = true
+    held?.resume()
+    held = nil
+  }
+}
+
+/// The streaming local tool loop (F32 CP3).
+extension MessagesRequestTests {
+  private var streamingModel: LocalModel {
+    LocalModel(id: "m", displayName: "M", fileURL: URL(fileURLWithPath: "/tmp/m.gguf"))
+  }
+
+  func testRunStreamingEmitsTextAsItArrives() async throws {
+    let inference = StreamingStepsInference([.init(deltas: ["Hello", " world"],
+      message: AgentInferenceMessage(role: "assistant", content: "Hello world"))], holdAfterFirstDelta: true)
+    let shown = LockedText()
+    let toolbox = RecordingToolbox()
+    // The second delta is released only once the first reached the chat, so a loop that
+    // waited for the step to end would never finish.
+    let run = Task { [streamingModel] in
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Hi")],
+        model: streamingModel, toolbox: toolbox, onActivity: { _ in }) { text in
+        shown.append(text)
+        await inference.release()
+      }
+    }
+    let timeout = Task { try await Task.sleep(for: .seconds(5)); run.cancel() }
+    defer { timeout.cancel() }
+    try await run.value
+    XCTAssertEqual(shown.value, "Hello world")
+    XCTAssertTrue(toolbox.calls.isEmpty)
+  }
+
+  func testRunStreamingKeepsOneCallPerStep() async throws {
+    let inference = ScriptedToolInference()
+    let runner = RecordingRunner()
+    let tools = MessagesTools(database: MessagesDatabase(url: try MessagesFixture(directory: root).url), contacts: FixtureContacts(), sender: MessagesSender(run: runner.run),
+      confirmSend: { _ in XCTFail("The discarded batch call must not reach approval"); return false })
+    let collected = LockedText()
+    try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Who texted last?")],
+      model: streamingModel, toolbox: tools, onActivity: { _ in }) { collected.append($0) }
+    XCTAssertTrue(collected.value.hasSuffix("Your latest chat is Weekend Trip."))
+    let requests = await inference.requests
+    XCTAssertEqual(requests.count, 2)
+    XCTAssertTrue(requests[0][0].content?.contains("untrusted data") == true)
+    XCTAssertEqual(requests[1].count, 4, "system, user, one assistant call, one tool result")
+    XCTAssertEqual(requests[1][2].toolCalls?.map(\.function.name), ["list_conversations"])
+    XCTAssertEqual(requests[1][2].toolCalls?.map(\.id), ["tool00000"])
+    XCTAssertNil(requests[1][2].content, "History keeps the call, as run does")
+    XCTAssertEqual(requests[1][3].role, "tool")
+    XCTAssertEqual(requests[1][3].toolCallID, "tool00000")
+    XCTAssertTrue(requests[1][3].content?.contains("Weekend Trip") == true)
+    XCTAssertTrue(runner.invocations.isEmpty)
+  }
+
+  func testRunStreamingMatchesRunsHistory() async throws {
+    // The same script through both loops sends the same requests: only the inference
+    // call and the timing of onText differ.
+    var histories: [[[AgentInferenceMessage]]] = []
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    for streaming in [false, true] {
+      let inference = ScriptedToolInference()
+      let tools = MessagesTools(database: database, contacts: FixtureContacts(), sender: MessagesSender(run: RecordingRunner().run),
+        confirmSend: { _ in false })
+      var thinking = ChatMessage(role: .user, content: "Who texted last?")
+      thinking.extendedThinking = true
+      let messages = [thinking]
+      let agent = LocalToolAgent(inference: inference)
+      if streaming {
+        try await agent.runStreaming(messages: messages, model: streamingModel, toolbox: tools, onActivity: { _ in }) { _ in }
+      } else {
+        try await agent.run(messages: messages, model: streamingModel, toolbox: tools) { _ in }
+      }
+      histories.append(await inference.requests)
+    }
+    XCTAssertEqual(histories[0], histories[1])
+    XCTAssertEqual(histories[1].first?.first?.extendedThinking, true)
+  }
+
+  func testRunStreamingPassesRequiredToolOnFirstStepOnly() async throws {
+    let call = AgentInferenceMessage(role: "assistant", content: nil, toolCalls: [
+      AgentToolCall(id: "a", function: .init(name: "lookup", arguments: #"{"query":"x"}"#))])
+    let answer = AgentInferenceMessage(role: "assistant", content: "42")
+    for (toolbox, expected) in [(RequiringToolbox() as any AgentToolbox, "lookup"), (UnofferedRequirementToolbox(), nil)] {
+      let inference = StreamingStepsInference([.init(deltas: [], message: call), .init(deltas: ["42"], message: answer)])
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Look it up")],
+        model: streamingModel, toolbox: toolbox, onActivity: { _ in }) { _ in }
+      let required = await inference.requiredTools
+      XCTAssertEqual(required, [expected, nil])
+    }
+  }
+
+  func testRunStreamingStepLimit() async throws {
+    let inference = RepeatingToolInference()
+    let toolbox = RecordingToolbox()
+    do {
+      try await LocalToolAgent(inference: inference, maximumSteps: 3).runStreaming(
+        messages: [ChatMessage(role: .user, content: "Loop")], model: streamingModel, toolbox: toolbox,
+        onActivity: { _ in }) { _ in }
+      XCTFail("Expected the step limit")
+    } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit) }
+    let requests = await inference.requests
+    XCTAssertEqual(requests, 3)
+    XCTAssertEqual(toolbox.calls.count, 3)
+  }
+
+  func testRunStreamingEndsOnATerminalResult() async throws {
+    let inference = RepeatingToolInference()
+    let toolbox = StoppingToolbox(.automationDenied)
+    do {
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Send it")],
+        model: streamingModel, toolbox: toolbox, onActivity: { _ in }) { _ in }
+      XCTFail("Expected the permission error")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    XCTAssertEqual(toolbox.callCount, 1)
+  }
+
+  func testRunStreamingFailsWhenAStepEndsWithoutAMessage() async throws {
+    let inference = StreamingStepsInference([.init(deltas: ["Partial"], message: nil)])
+    do {
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Hi")],
+        model: streamingModel, toolbox: RecordingToolbox(), onActivity: { _ in }) { _ in }
+      XCTFail("A step with no finished message must fail")
+    } catch { XCTAssertTrue(error is AgentToolError, "\(error)") }
+  }
+
+  func testRunStreamingJoinsStepsAsTheCloudLoopDoes() async throws {
+    let call = AgentInferenceMessage(role: "assistant", content: "Checking.\n\n", toolCalls: [
+      AgentToolCall(id: "a", function: .init(name: "lookup", arguments: #"{"query":"x"}"#))])
+    let answer = AgentInferenceMessage(role: "assistant", content: "\n\nIt is 42.")
+    let inference = StreamingStepsInference([.init(deltas: ["Checking.", "\n\n"], message: call),
+                                              .init(deltas: ["\n\n", "It is ", "42."], message: answer)])
+    let shown = LockedText()
+    let phases = LockedPhases()
+    try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Look it up")],
+      model: streamingModel, toolbox: RecordingToolbox(), onActivity: { phases.append($0) }) { shown.append($0) }
+    XCTAssertEqual(shown.value, "Checking.\n\nIt is 42.")
+    XCTAssertEqual(phases.value, [.generating, .readingMessages, .thinking, .generating])
+  }
+}
+
+/// Opens once; waiters before and after it carry on.
+private actor Gate {
+  private var open = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  func wait() async {
+    if open { return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+  func release() {
+    open = true
+    waiters.forEach { $0.resume() }
+    waiters.removeAll()
+  }
+}
+
+extension MessagesRequestTests {
+  func testStopDuringAStreamedStepRunsNoCall() async throws {
+    let call = AgentInferenceMessage(role: "assistant", content: "Checking", toolCalls: [
+      AgentToolCall(id: "a", function: .init(name: "lookup", arguments: #"{"query":"x"}"#))])
+    let inference = StreamingStepsInference([.init(deltas: ["Check", "ing"], message: call)], holdAfterFirstDelta: true)
+    let toolbox = RecordingToolbox()
+    let shown = LockedText()
+    let run = Task { [streamingModel] in
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Look it up")],
+        model: streamingModel, toolbox: toolbox, onActivity: { _ in }) { shown.append($0) }
+    }
+    while shown.value.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    run.cancel()
+    await inference.release()
+    do { try await run.value; XCTFail("Expected cancellation") }
+    catch { XCTAssertTrue(error is CancellationError, "Stop is quiet, not a broken step: \(error)") }
+    XCTAssertTrue(toolbox.calls.isEmpty)
+    let steps = await inference.requiredTools.count
+    XCTAssertEqual(steps, 1, "No further step after Stop")
+  }
+
+  func testStopAfterAStepFinishedRunsNoCall() async throws {
+    // The step's message is already buffered when Stop arrives; its call must not run.
+    let call = AgentInferenceMessage(role: "assistant", content: "Checking", toolCalls: [
+      AgentToolCall(id: "a", function: .init(name: "lookup", arguments: #"{"query":"x"}"#))])
+    let inference = StreamingStepsInference([.init(deltas: ["Checking"], message: call)])
+    let toolbox = RecordingToolbox()
+    let gate = Gate()
+    let shown = LockedText()
+    let run = Task { [streamingModel] in
+      try await LocalToolAgent(inference: inference).runStreaming(messages: [ChatMessage(role: .user, content: "Look it up")],
+        model: streamingModel, toolbox: toolbox, onActivity: { _ in }) { text in
+        shown.append(text)
+        await gate.wait()
+      }
+    }
+    while shown.value.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    run.cancel()
+    await gate.release()
+    do { try await run.value; XCTFail("Expected cancellation") }
+    catch { XCTAssertTrue(error is CancellationError, "\(error)") }
+    XCTAssertTrue(toolbox.calls.isEmpty)
+  }
+}
+
+private final class LockedPhases: @unchecked Sendable {
+  private let lock = NSLock()
+  private var phases: [AssistantActivity.Phase] = []
+  var value: [AssistantActivity.Phase] { lock.withLock { phases } }
+  func append(_ event: AssistantActivityEvent) {
+    guard case .phase(let phase) = event else { return }
+    lock.withLock { phases.append(phase) }
+  }
 }

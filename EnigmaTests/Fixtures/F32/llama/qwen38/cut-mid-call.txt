@@ -1,0 +1,5 @@
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"role":"assistant","content":null}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-0","type":"function","function":{"name":"get_weather","arguments":"{"}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"city\":\""}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}

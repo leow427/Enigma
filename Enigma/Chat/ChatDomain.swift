@@ -89,6 +89,9 @@ struct ChatSession: Codable, Sendable, Equatable, Identifiable {
   let createdAt: Date
   var lastActivityAt: Date
   var workspace: WorkspaceSelection? = nil
+  /// Message text from Messages entered this chat (F32), so a capable model's web searches
+  /// ask first, after a relaunch too. Only this flag is saved, never the text or any grant.
+  var holdsMessageText: Bool? = nil
 
   init(
     id: UUID = UUID(),

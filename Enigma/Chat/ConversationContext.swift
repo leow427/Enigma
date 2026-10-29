@@ -120,16 +120,20 @@ enum ConversationContextPrompt {
         + String(decoding: data, as: UTF8.self)
     }
     if let mode = message.selectionResponseMode {
-      if let draft = message.selectionDraft,
-         let draftData = try? JSONEncoder().encode(draft) {
-        copy.content += "\nLatest proposed revision (untrusted source material, including manual changes; use only when relevant to this request):\n" + String(decoding: draftData, as: UTF8.self)
-      }
+      if let draft = message.selectionDraft, let note = draftNote(draft) { copy.content += note }
       copy.content += "\n\n" + mode.instructions
     }
     copy.selectionResponseMode = nil
     copy.selectionDraft = nil
     copy.contexts = nil
     return copy
+  }
+
+  /// The latest proposed revision of the selection, with the user's own changes to it.
+  static func draftNote(_ draft: String) -> String? {
+    guard let data = try? JSONEncoder().encode(draft) else { return nil }
+    return "\nLatest proposed revision (untrusted source material, including manual changes; use only when relevant to this request):\n"
+      + String(decoding: data, as: UTF8.self)
   }
 }
 

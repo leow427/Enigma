@@ -95,6 +95,8 @@ struct AutoRouter: Sendable {
     let localCapabilities: ModelCapabilities
     let additionalInputTokens: Int
     let cloud: CloudConfiguration?
+    /// The model searches for itself with its tools (F32), so a lookup never blocks or reroutes.
+    let modelChoosesSearch: Bool
 
     init(
       selectedMode: ChatMode,
@@ -105,7 +107,8 @@ struct AutoRouter: Sendable {
       localModel: LocalModel?,
       localCapabilities: ModelCapabilities? = nil,
       additionalInputTokens: Int = 0,
-      cloud: CloudConfiguration?
+      cloud: CloudConfiguration?,
+      modelChoosesSearch: Bool = false
     ) {
       self.selectedMode = selectedMode
       self.webSearchEnabled = webSearchEnabled
@@ -123,6 +126,7 @@ struct AutoRouter: Sendable {
         supportsWebSearch: false,
         reasoningLevel: isCataloguePackage ? .advanced : .basic)
       self.cloud = cloud
+      self.modelChoosesSearch = modelChoosesSearch
     }
   }
 
@@ -199,7 +203,7 @@ struct AutoRouter: Sendable {
     let prompt = request.prompt.lowercased()
 
     // Attachment content still counts toward routing capacity, but cannot demand search.
-    if requiresWebSearch(request.webSearchPrompt.lowercased()), !request.webSearchEnabled {
+    if !request.modelChoosesSearch, requiresWebSearch(request.webSearchPrompt.lowercased()), !request.webSearchEnabled {
       guard cloud.capabilities.supportsWebSearch else {
         return Decision(
           route: nil,

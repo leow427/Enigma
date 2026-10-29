@@ -22,20 +22,25 @@ enum CloudToolLoop {
 
   static let maximumSteps = 12
 
+  /// Runs steps until one makes no call. A step reports its text through `onText` as it
+  /// streams; the loop shows it as today's whole-step loop did: trimmed, with a blank line
+  /// between steps.
   static func run(
     toolbox: any AgentToolbox, emit: (ChatEvent) -> Void,
-    step: () async throws -> Turn, deliver: ([(Call, AgentToolResult)]) throws -> Void
+    step: (_ isFirst: Bool, _ onText: (String) -> Void) async throws -> Turn,
+    deliver: ([(Call, AgentToolResult)]) throws -> Void
   ) async throws {
     var emittedText = false
-    for _ in 0..<maximumSteps {
+    for index in 0..<maximumSteps {
       try Task.checkCancellation()
-      let turn = try await step()
-      try Task.checkCancellation()
-      let text = turn.text.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !text.isEmpty {
-        emit(.token((emittedText ? "\n\n" : "") + text))
-        emittedText = true
+      let text = StepText(afterEarlierText: emittedText)
+      let turn = try await withoutActuallyEscaping(emit) { emit in
+        try await step(index == 0) { delta in
+          if let shown = text.append(delta) { emit(.token(shown)) }
+        }
       }
+      emittedText = emittedText || text.started
+      try Task.checkCancellation()
       guard !turn.calls.isEmpty else {
         emit(.completed)
         return
@@ -55,6 +60,39 @@ enum CloudToolLoop {
     throw AgentToolError.stepLimit
   }
 
+  /// A loop whose steps return their text whole.
+  static func run(
+    toolbox: any AgentToolbox, emit: (ChatEvent) -> Void,
+    step: () async throws -> Turn, deliver: ([(Call, AgentToolResult)]) throws -> Void
+  ) async throws {
+    try await run(toolbox: toolbox, emit: emit, step: { _, onText in
+      let turn = try await step()
+      onText(turn.text)
+      return turn
+    }, deliver: deliver)
+  }
+
+  /// One step's streamed text with its leading and trailing whitespace held back, so the
+  /// deltas add up to the trimmed text, after a blank line when an earlier step showed text.
+  final class StepText {
+    let afterEarlierText: Bool
+    private(set) var started = false
+    private var heldWhitespace = ""
+
+    init(afterEarlierText: Bool) { self.afterEarlierText = afterEarlierText }
+
+    func append(_ delta: String) -> String? {
+      var body = Substring(heldWhitespace + delta)
+      if !started { body = body.drop { $0.unicodeScalars.allSatisfy(CharacterSet.whitespacesAndNewlines.contains) } }
+      let trailing = body.reversed().prefix { $0.unicodeScalars.allSatisfy(CharacterSet.whitespacesAndNewlines.contains) }.count
+      heldWhitespace = String(body.suffix(trailing))
+      body = body.dropLast(trailing)
+      guard !body.isEmpty else { return nil }
+      defer { started = true }
+      return (!started && afterEarlierText ? "\n\n" : "") + body
+    }
+  }
+
   /// Wraps a provider-specific loop in the ChatProvider stream shape.
   static func stream(
     _ body: @escaping @Sendable (AsyncThrowingStream<ChatEvent, Error>.Continuation) async throws -> Void
@@ -70,21 +108,56 @@ enum CloudToolLoop {
     }
   }
 
-  static func post(_ url: URL, headers: [String: String], body: [String: Any],
-                   provider: CloudProviderID, transport: any CloudNetworkTransport) async throws -> [String: Any] {
+  /// Posts a streaming request and yields its server-sent events. A non-2xx status ends the
+  /// stream with today's HTTP error; cancelling the consumer stops the byte stream.
+  static func streamPost(_ url: URL, headers: [String: String], body: [String: Any],
+                         provider: CloudProviderID, transport: any CloudNetworkTransport)
+    -> AsyncThrowingStream<ServerSentEvent, Error> {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     for (field, value) in headers { request.setValue(value, forHTTPHeaderField: field) }
-    request.httpBody = try JSONSerialization.data(withJSONObject: body)
-    let response = try await transport.data(for: request)
-    guard (200...299).contains(response.statusCode) else {
-      throw cloudHTTPError(provider: provider, statusCode: response.statusCode, data: response.data)
+    let encoded = Result { try JSONSerialization.data(withJSONObject: body) }
+    return AsyncThrowingStream { continuation in
+      let task = Task { [request] in
+        do {
+          var request = request
+          request.httpBody = try encoded.get()
+          var parser = ServerSentEventParser()
+          var status: Int?
+          var errorData = Data()
+          for try await event in transport.stream(for: request) {
+            // Keep draining after cancellation so the transport's stream terminates its producer.
+            if Task.isCancelled { continue }
+            switch event {
+            case .response(let code): status = code
+            case .data(let data):
+              guard let status else { throw CloudProviderError.invalidResponse }
+              if (200...299).contains(status) { parser.append(data).forEach { continuation.yield($0) } }
+              else { errorData.append(data) }
+            }
+          }
+          try Task.checkCancellation()
+          guard let status else { throw CloudProviderError.invalidResponse }
+          guard (200...299).contains(status) else { throw cloudHTTPError(provider: provider, statusCode: status, data: errorData) }
+          parser.finish().forEach { continuation.yield($0) }
+          continuation.finish()
+        } catch { continuation.finish(throwing: error) }
+      }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
     }
-    guard let object = try JSONSerialization.jsonObject(with: response.data) as? [String: Any] else {
-      throw CloudProviderError.invalidResponse
+  }
+
+  /// Runs one streamed step: text deltas go to `onText` as they arrive, and the turn is
+  /// returned only once the stream has finished.
+  static func streamStep<Assembler: ToolStreamAssembler>(
+    _ assembler: inout Assembler, _ events: AsyncThrowingStream<ServerSentEvent, Error>, onText: (String) -> Void
+  ) async throws -> Turn {
+    for try await event in events {
+      if let text = try assembler.consume(event), !text.isEmpty { onText(text) }
     }
-    return object
+    try Task.checkCancellation()
+    return try assembler.finish()
   }
 
   static func json(_ value: CodexValue) throws -> Any {
@@ -120,17 +193,18 @@ extension OpenAIResponsesClient: ToolCallingChatProvider {
         ["type": "function", "name": definition.name, "description": definition.description,
          "parameters": try CloudToolLoop.json(definition.schema)]
       }
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: {
+      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
         var body: [String: Any] = [
           "model": request.route.modelID, "instructions": CloudToolLoop.systemPrompt(toolbox),
           "input": input, "tools": tools, "parallel_tool_calls": false, "store": false,
-          "max_output_tokens": prepared.budget.outputTokens,
+          "max_output_tokens": prepared.budget.outputTokens, "stream": true,
         ]
         if ThinkCommand.enabled(in: prepared.messages) { body["reasoning"] = ["effort": "high"] }
-        let response = try await CloudToolLoop.post(responsesURL, headers: ["Authorization": "Bearer \(key)"],
-          body: body, provider: .openAI, transport: transport)
-        let turn = try Self.toolTurn(response)
-        input += (response["output"] as? [[String: Any]] ?? []).compactMap(Self.replayable)
+        if isFirst, let required = toolbox.offeredRequiredTool { body["tool_choice"] = ["type": "function", "name": required] }
+        var assembler = OpenAIToolStreamAssembler()
+        let turn = try await CloudToolLoop.streamStep(&assembler, CloudToolLoop.streamPost(responsesURL,
+          headers: ["Authorization": "Bearer \(key)"], body: body, provider: .openAI, transport: transport), onText: onText)
+        input += assembler.replayItems
         return turn
       }, deliver: { results in
         input += results.map { call, result in
@@ -187,18 +261,20 @@ extension AnthropicMessagesClient: ToolCallingChatProvider {
       let tools = try toolbox.definitions.map { definition -> [String: Any] in
         ["name": definition.name, "description": definition.description, "input_schema": try CloudToolLoop.json(definition.schema)]
       }
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: {
+      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
         var body: [String: Any] = [
           "model": request.route.modelID, "max_tokens": prepared.budget.outputTokens,
-          "system": CloudToolLoop.systemPrompt(toolbox), "messages": messages, "tools": tools,
+          "system": CloudToolLoop.systemPrompt(toolbox), "messages": messages, "tools": tools, "stream": true,
         ]
+        // Extended thinking allows only automatic tool choice.
         if ThinkCommand.enabled(in: prepared.messages) { body.merge(Self.thinking(modelID: request.route.modelID)) { $1 } }
-        let response = try await CloudToolLoop.post(messagesURL,
+        else if isFirst, let required = toolbox.offeredRequiredTool { body["tool_choice"] = ["type": "tool", "name": required] }
+        var assembler = AnthropicToolStreamAssembler()
+        let turn = try await CloudToolLoop.streamStep(&assembler, CloudToolLoop.streamPost(messagesURL,
           headers: ["x-api-key": key, "anthropic-version": "2023-06-01"],
-          body: body, provider: .anthropic, transport: transport)
-        let turn = try Self.toolTurn(response)
+          body: body, provider: .anthropic, transport: transport), onText: onText)
         // Thinking and tool_use blocks must be returned unchanged.
-        messages.append(["role": "assistant", "content": response["content"] ?? [Any]()])
+        messages.append(["role": "assistant", "content": assembler.assistantContent])
         return turn
       }, deliver: { results in
         messages.append(["role": "user", "content": results.map { call, result in
@@ -236,7 +312,7 @@ extension GeminiContentClient: ToolCallingChatProvider {
       guard let key = try credentialStore.apiKey(for: .gemini), !key.isEmpty else { throw CloudProviderError.missingAPIKey(.gemini) }
       let model = request.route.modelID
       guard model.range(of: #"^[a-zA-Z0-9._-]+$"#, options: .regularExpression) != nil else { throw CloudProviderError.invalidResponse }
-      let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
+      let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):streamGenerateContent?alt=sse")!
       let prepared = try CloudContext.prepare(request)
       var contents = try MultimodalSerialization.messages(prepared.messages, image: nil, format: .gemini)
       let declarations = try toolbox.definitions.map { definition -> [String: Any] in
@@ -247,15 +323,20 @@ extension GeminiContentClient: ToolCallingChatProvider {
       if ThinkCommand.enabled(in: prepared.messages) {
         generationConfig["thinkingConfig"] = model.hasPrefix("gemini-3") ? ["thinkingLevel": "high"] : ["thinkingBudget": 2_048]
       }
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: {
-        let response = try await CloudToolLoop.post(url, headers: ["x-goog-api-key": key], body: [
+      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
+        var body: [String: Any] = [
           "contents": contents, "tools": [["functionDeclarations": declarations]],
           "systemInstruction": ["parts": [["text": CloudToolLoop.systemPrompt(toolbox)]]],
           "generationConfig": generationConfig,
-        ], provider: .gemini, transport: transport)
-        let (turn, content) = try Self.toolTurn(response)
+        ]
+        if isFirst, let required = toolbox.offeredRequiredTool {
+          body["toolConfig"] = ["functionCallingConfig": ["mode": "ANY", "allowedFunctionNames": [required]]]
+        }
+        var assembler = GeminiToolStreamAssembler()
+        let turn = try await CloudToolLoop.streamStep(&assembler, CloudToolLoop.streamPost(url,
+          headers: ["x-goog-api-key": key], body: body, provider: .gemini, transport: transport), onText: onText)
         // Returned unchanged so thought signatures stay attached to their calls.
-        if let content { contents.append(content) }
+        if let content = assembler.modelContent { contents.append(content) }
         return turn
       }, deliver: { results in
         contents.append(["role": "user", "parts": results.map { call, result -> [String: Any] in

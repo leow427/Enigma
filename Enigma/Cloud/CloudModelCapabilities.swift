@@ -90,6 +90,46 @@ enum CloudModelCapabilities {
     }
   }
 
+  /// Reviewed models whose provider documents no function calling (F32 CP0). They
+  /// keep today's chips and rules, like a model nobody reviewed.
+  static let modelsWithoutFunctionCalling: [CloudProviderID: Set<String>] = [:]
+
+  /// Every model with a reviewed entry. Mirrors the per-provider rules in
+  /// `metadata(provider:modelID:)`; keep the two in step.
+  static func reviewedModelIDs(for provider: CloudProviderID) -> [String] {
+    switch provider {
+    case .openAI: openAITextModels.flatMap(\.ids)
+    case .chatGPT: openAITextModels.filter(\.supportsCodex).compactMap(\.ids.first)
+      + CodexListedModels.shared.models.map(\.id)
+    case .claudeCode: ClaudeCodeSubscriptionClient.models.map(\.id)
+    case .anthropic, .gemini: visionModelIDs(for: provider)
+    }
+  }
+
+  // Gemini variants that generate content but take no function declarations, and the
+  // aliases Gemini keeps pointed at its current text models.
+  private static let geminiWithoutTools = ["-image", "-tts", "-audio", "-live"]
+  private static let geminiLatestAliases: Set = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"]
+
+  /// True when the model calls tools natively (F32). OpenAI, Codex and Claude Code need a
+  /// reviewed entry; Anthropic and Gemini go by family (owner, 2026-10-28), so the models
+  /// each provider lists first are covered: every Claude model, and Gemini 2.5 and 3 text
+  /// models. Gemma and other open models on the Gemini API stay on today's path.
+  static func supportsNativeTools(provider: CloudProviderID, modelID: String,
+                                  lacking: [CloudProviderID: Set<String>] = modelsWithoutFunctionCalling) -> Bool {
+    let id = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !id.isEmpty, lacking[provider]?.contains(id) != true else { return false }
+    switch provider {
+    case .openAI, .chatGPT, .claudeCode:
+      return metadata(provider: provider, modelID: id) != nil
+    case .anthropic:
+      return id.hasPrefix("claude-") && !id.hasPrefix("claude-2") && !id.hasPrefix("claude-instant")
+    case .gemini:
+      return geminiLatestAliases.contains(id)
+        || (id.hasPrefix("gemini-2.5") || id.hasPrefix("gemini-3")) && !geminiWithoutTools.contains { id.contains($0) }
+    }
+  }
+
   static func compatibility(provider: CloudProviderID, modelID: String) -> CloudModelCompatibility {
     let id = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !id.isEmpty else { return .unselected }
