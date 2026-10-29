@@ -158,6 +158,15 @@ struct CodexSubscriptionClient: ChatProvider {
         var turnID: String?
         var completed = false
         let toolStop = CodexToolMode.Stop()
+        // F30: Codex's own web search on a tool turn the plan gave provider search.
+        let providerSearch = toolbox == nil ? nil : request.providerSearch
+        var sources = NativeWebSearchSources()
+        var streamedText = false
+        // A turn that fails on web search before any text falls back like a refused thread.
+        func searchError(_ message: String) -> Error {
+          providerSearch != nil && !streamedText && Self.mentionsWebSearch(message)
+            ? CloudProviderError.webSearchUnavailable(.chatGPT) : CodexError.server(message)
+        }
         do {
           guard request.route.providerID == CloudProviderID.chatGPT.rawValue else { throw CodexError.invalidResponse }
           let prepared = try CloudContext.prepare(request)
@@ -168,15 +177,31 @@ struct CodexSubscriptionClient: ChatProvider {
           let notifications = try await transport.notifications()
           defer { Task { await notifications.cancel() } }
           if fileTools != nil || toolbox != nil { try await transport.prepareFileMode() }
+          var searchMode: String?
+          if providerSearch != nil {
+            // A workspace may limit the search modes; a thread that asks for another one fails.
+            let requirements = try? await transport.request("configRequirements/read", params: .object([:]))
+            try Task.checkCancellation()
+            guard let mode = Self.webSearchMode(requirements: requirements) else {
+              throw CloudProviderError.webSearchUnavailable(.chatGPT)
+            }
+            searchMode = mode
+          }
           let parameters: CodexValue
           if let fileTools {
             parameters = CodexFileMode.threadParameters(model: request.route.modelID, selection: fileTools.workspace.selection)
           } else if let toolbox {
-            parameters = try CodexToolMode.threadParameters(model: request.route.modelID, toolbox: toolbox)
+            parameters = try CodexToolMode.threadParameters(model: request.route.modelID, toolbox: toolbox,
+                                                            providerSearch: providerSearch, searchMode: searchMode)
           } else { parameters = Self.threadParameters(model: request.route.modelID) }
-          let started = try await Task {
-            try await transport.request("thread/start", params: parameters)
-          }.value
+          let started: CodexValue
+          do {
+            started = try await Task {
+              try await transport.request("thread/start", params: parameters)
+            }.value
+          } catch CodexError.server(let message) where providerSearch != nil && Self.mentionsWebSearch(message) {
+            throw CloudProviderError.webSearchUnavailable(.chatGPT)
+          }
           guard let id = started["thread"]["id"].string else { throw CodexError.invalidResponse }
           threadID = id
           if let fileTools {
@@ -193,6 +218,10 @@ struct CodexSubscriptionClient: ChatProvider {
               // A permission stop ends the notification loop below, which throws its error and
               // interrupts the turn, so the model doesn't continue.
               if toolStop.isStopped { await notifications.cancel() }
+              // A held-back result (F30) is never answered: the call waits until the cleanup below
+              // removes this handler, which cancels it, and the app server drops an answer to a
+              // removed handler. The turn is then interrupted.
+              if toolStop.isRestart { try? await Task.sleep(for: .seconds(60)) }
               return response
             }
           }
@@ -218,17 +247,29 @@ struct CodexSubscriptionClient: ChatProvider {
             case "item/agentMessage/delta":
               guard notification.params["turnId"].string == activeTurnID,
                     let delta = notification.params["delta"].string else { continue }
+              streamedText = true
+              if providerSearch != nil { sources.answered(delta) }
               continuation.yield(.token(delta))
+            case "item/started" where providerSearch != nil:
+              guard notification.params["turnId"].string == activeTurnID,
+                    notification.params["item"]["type"].string == "webSearch" else { continue }
+              continuation.yield(.activity(.phase(.searching)))
+            case "item/completed" where providerSearch != nil:
+              guard notification.params["turnId"].string == activeTurnID,
+                    notification.params["item"]["type"].string == "webSearch" else { continue }
+              let found = Self.webSearchSources(in: notification.params["item"])
+              sources.discovered(found)
+              if !found.isEmpty { continuation.yield(.activity(.sourcesDiscovered(found))) }
             case "turn/completed":
               let result = notification.params["turn"]
               guard result["id"].string == activeTurnID else { continue }
               switch result["status"].string {
               case "completed": completed = true
               case "interrupted": throw CancellationError()
-              default: throw CodexError.server(result["error"]["message"].string ?? "Codex could not complete the response.")
+              default: throw searchError(result["error"]["message"].string ?? "Codex could not complete the response.")
               }
             case "error" where notification.params["willRetry"].bool == false:
-              throw CodexError.server(notification.params["error"]["message"].string ?? "The Codex request failed.")
+              throw searchError(notification.params["error"]["message"].string ?? "The Codex request failed.")
             case "thread/closed":
               throw CodexError.disconnected
             default: break
@@ -239,10 +280,17 @@ struct CodexSubscriptionClient: ChatProvider {
           if let error = toolStop.error { throw error }
           guard completed else { throw CodexError.disconnected }
           if let fileTools { await fileTools.workspace.revoke() }
+          if providerSearch != nil, sources.searched {
+            continuation.yield(.activity(.sourcesSelected(sources.selection(linksAreCitations: true))))
+          }
           continuation.yield(.completed)
           continuation.finish()
         } catch {
           if let fileTools { await fileTools.workspace.revoke() }
+          // The sources so far are saved with the partial reply (spec §6).
+          if providerSearch != nil, sources.searched {
+            continuation.yield(.activity(.sourcesSelected(sources.selection(linksAreCitations: true))))
+          }
           continuation.finish(throwing: toolStop.error ?? error)
         }
         // Cleanup runs outside the cancelled task so Stop also interrupts server-side generation.
@@ -264,6 +312,39 @@ struct CodexSubscriptionClient: ChatProvider {
         if case .cancelled = reason { task.cancel() }
       }
     }
+  }
+
+  /// The search mode a provider-search thread asks for (F30): "live", or "cached" when the
+  /// workspace allows only that; nil when it allows neither. `requirements` is the
+  /// `configRequirements/read` result; no requirements, or no list of modes, allows any.
+  static func webSearchMode(requirements: CodexValue?) -> String? {
+    guard let allowed = requirements?["requirements"]["allowedWebSearchModes"].array else { return "live" }
+    let modes = allowed.compactMap(\.string)
+    return ["live", "cached"].first(where: modes.contains)
+  }
+
+  /// A completed `webSearch` item's pages: each result object with a string URL, then the page an
+  /// `openPage` or `findInPage` action read. Only safe web links; the site name for a missing title.
+  static func webSearchSources(in item: CodexValue) -> [WebSearchSource] {
+    var found: [(url: String, title: String?)] = (item["results"].array ?? []).compactMap { result in
+      result["url"].string.map { ($0, result["title"].string) }
+    }
+    if ["openPage", "findInPage"].contains(item["action"]["type"].string), let url = item["action"]["url"].string {
+      found.append((url, nil))
+    }
+    return found.compactMap { entry in
+      guard let url = URL(string: entry.url) else { return nil }
+      let title = entry.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let source = WebSearchSource(title: title, url: url)
+      guard source.isSafeWebLink else { return nil }
+      return title.isEmpty ? WebSearchSource(title: source.siteName, url: url) : source
+    }
+  }
+
+  /// Whether a Codex error is about web search, so a provider-search request can fall back.
+  static func mentionsWebSearch(_ message: String) -> Bool {
+    let lowered = message.lowercased()
+    return ["web_search", "web search", "websearch"].contains { lowered.contains($0) }
   }
 
   static func threadParameters(model: String) -> CodexValue {

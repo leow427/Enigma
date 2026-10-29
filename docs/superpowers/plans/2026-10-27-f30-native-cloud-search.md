@@ -264,6 +264,6 @@ stays in its brief.
 | CP1 | done | 3 | No provider on; `/messages` turns skip provider search and CP1 builds the "web search" footer (owner, review round 1); full suite 1591 run, 28 skipped, 1 window-test timing flake that passes alone (4 of 4 runs) |
 | CP2 | deferred | | Owner, 2026-10-29: the API-key routes aren't the app's focus and there's no key to check them live; the API routes keep Enigma's search |
 | CP3 | deferred | | Same as CP2 |
-| CP4 | not started | | |
+| CP4 | done | 2 | `.chatGPT` on after its live check (owner-approved, 2026-10-29); location key accepted by Codex, a search with it unverified (CP6 to check in the app); build and analyze clean; full suite 1609 run, 29 skipped, 0 failed |
 | CP5 | not started | | |
 | CP6 | not started | | |

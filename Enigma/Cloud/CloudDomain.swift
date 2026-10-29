@@ -63,8 +63,9 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     }
   }
 
-  /// The providers whose own web search is on (F30). CP2–CP5 each add theirs; never `.gemini`.
-  static let nativeWebSearchProviders: Set<CloudProviderID> = []
+  /// The providers whose own web search is on (F30), each after its live check passed: ChatGPT
+  /// (CP4). Claude Code joins in CP5; never `.gemini`.
+  static let nativeWebSearchProviders: Set<CloudProviderID> = [.chatGPT]
 
   var supportsNativeWebSearch: Bool { Self.nativeWebSearchProviders.contains(self) }
 }

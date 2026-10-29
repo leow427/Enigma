@@ -397,8 +397,23 @@ enum CodexToolMode {
     CodexRuntimeConfiguration.live.directory.appending(path: "tool-workspace", directoryHint: .isDirectory)
   }
 
-  static func threadParameters(model: String, toolbox: any AgentToolbox) throws -> CodexValue {
+  /// F32's thread. A provider-search thread (F30) also asks for Codex's web search in `searchMode`,
+  /// with the area the user allowed for it (spec §2a); without `providerSearch` the mode is ignored.
+  static func threadParameters(model: String, toolbox: any AgentToolbox,
+                               providerSearch: ProviderSearch? = nil, searchMode: String? = nil) throws -> CodexValue {
     try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+    var config: [String: CodexValue] = ["project_doc_max_bytes": .number(0), "features.skip_host_skill_discovery": .bool(true),
+      "features.shell_tool": .bool(false), "features.unified_exec": .bool(false),
+      "features.workspace_dependencies": .bool(false), "features.code_mode": .bool(false),
+      "features.code_mode_host": .bool(true), "features.artifact": .bool(false), "features.memories": .bool(false)]
+    let mode = providerSearch == nil ? nil : searchMode
+    if let mode {
+      // Overrides the app server's launch setting, `web_search="disabled"`, for this thread only.
+      config["web_search"] = .string(mode)
+      if let location = providerSearch?.location.flatMap(webSearchLocation) { config["tools.web_search.location"] = location }
+    }
+    let tools = mode == nil ? "Use only the supplied tools. You cannot run commands, read files, or browse."
+      : "Use only the supplied tools and web search. You cannot run commands or read files."
     return .object([
       "model": .string(model), "modelProvider": .string("openai"), "ephemeral": .bool(true),
       "cwd": .string(workspace.path), "sandbox": .string("read-only"),
@@ -406,22 +421,32 @@ enum CodexToolMode {
       "environments": .array([]),
       "dynamicTools": .array(toolbox.definitions.map(\.codex)),
       "baseInstructions": .string("You are Enigma, a helpful general-purpose assistant.\n" + ChatResponseStyle.instructions),
-      "developerInstructions": .string(toolbox.instructions + "\nUse only the supplied tools. You cannot run commands, read files, or browse."),
-      "config": .object(["project_doc_max_bytes": .number(0), "features.skip_host_skill_discovery": .bool(true),
-        "features.shell_tool": .bool(false), "features.unified_exec": .bool(false),
-        "features.workspace_dependencies": .bool(false), "features.code_mode": .bool(false),
-        "features.code_mode_host": .bool(true), "features.artifact": .bool(false), "features.memories": .bool(false)]),
+      "developerInstructions": .string(toolbox.instructions + "\n" + tools),
+      "config": .object(config),
     ])
   }
 
-  /// The first permission stop of the request. Once it is recorded, later calls in the turn don't run.
+  /// Codex's `WebSearchLocation` for an allowed area: the known parts only, never coordinates.
+  static func webSearchLocation(_ location: ProviderSearchLocation) -> CodexValue? {
+    var fields: [String: CodexValue] = [:]
+    for (key, value) in [("city", location.city), ("region", location.region), ("country", location.countryCode),
+                         ("timezone", location.timeZone)] {
+      if let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty { fields[key] = .string(value) }
+    }
+    return fields.isEmpty ? nil : .object(fields)
+  }
+
+  /// The first permission stop or provider-search restart of the request. Once it is recorded,
+  /// later calls in the turn don't run.
   final class Stop: Sendable {
-    private let recorded = Mutex<MessagesError?>(nil)
+    private let recorded = Mutex<(any Error)?>(nil)
 
     var isStopped: Bool { recorded.withLock { $0 != nil } }
     var error: Error? { recorded.withLock { $0 } }
+    /// Message text was held back from a provider-search request (F30): no call is answered.
+    var isRestart: Bool { recorded.withLock { $0 is ProviderSearchRestart } }
 
-    func record(_ error: MessagesError) {
+    func record(_ error: any Error) {
       recorded.withLock { if $0 == nil { $0 = error } }
     }
   }
@@ -435,9 +460,13 @@ enum CodexToolMode {
       }
       if stop?.isStopped == true { return AgentToolResult(text: "The request was stopped.", success: false).codex }
       let result = await toolbox.execute(name: name, arguments: params["arguments"])
-      // Only a permission stop is recorded; a call cancelled by a dropped connection must end
-      // with Codex's own error, not as Stop.
-      if case .messages(let error) = result.stop { stop?.record(error) }
+      // Only a permission stop or a restart is recorded; a call cancelled by a dropped connection
+      // must end with Codex's own error, not as Stop.
+      switch result.stop {
+      case .messages(let error): stop?.record(error)
+      case .restart: stop?.record(ProviderSearchRestart())
+      case .cancelled, nil: break
+      }
       return result.codex
     case "item/commandExecution/requestApproval", "item/fileChange/requestApproval":
       return .object(["decision": .string("decline")])

@@ -24,7 +24,8 @@ final class NativeWebSearchTests: XCTestCase {
   }
 
   func testNativeWebSearchProviders() {
-    XCTAssertEqual(CloudProviderID.nativeWebSearchProviders, [])
+    XCTAssertEqual(CloudProviderID.nativeWebSearchProviders, [.chatGPT], "ChatGPT is on after its live check (CP4)")
+    XCTAssertTrue(CloudProviderID.chatGPT.supportsNativeWebSearch)
     XCTAssertFalse(CloudProviderID.gemini.supportsNativeWebSearch)
     for provider in CloudProviderID.allCases {
       XCTAssertEqual(provider.supportsNativeWebSearch, CloudProviderID.nativeWebSearchProviders.contains(provider))

@@ -33,6 +33,7 @@
 		9D0B5B423BC5EACBE1CA8AA4 /* Enigma/Messages/MessagesIntentPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3BBA47DCE47AED9D0B5B42 /* Enigma/Messages/MessagesIntentPolicy.swift */; };
 		F5333B36591EC7D0992ECDD2 /* EnigmaTests/LocalToolStreamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD74821D7B3C30D8CF0C03D /* EnigmaTests/LocalToolStreamingTests.swift */; };
 		43416E7EE73895EC8E0F7CEF /* EnigmaTests/ComposerIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC338C374F50A2743416E7E /* EnigmaTests/ComposerIntentTests.swift */; };
+		12A4C8BE4711BC84F00C74A4 /* EnigmaTests/NativeWebSearchLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2129809A613528194EAF0693 /* EnigmaTests/NativeWebSearchLiveTests.swift */; };
 		212069D17F99D31624F7B452 /* EnigmaTests/ComposerIntentPhrasingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AB7FF379741ECFDEE9FE6D /* EnigmaTests/ComposerIntentPhrasingTests.swift */; };
 		67A83E9AC0134BD4A5EF555F /* EnigmaTests/EnigmaIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2EE23DD30DADC4726A2A12 /* EnigmaTests/EnigmaIconTests.swift */; };
 		0AA8637ACCD55E970535A148 /* Enigma/App/EnigmaAppIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8847E9740883DE782193462F /* Enigma/App/EnigmaAppIcon.swift */; };
@@ -270,6 +271,7 @@
 		6F3BBA47DCE47AED9D0B5B42 /* Enigma/Messages/MessagesIntentPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesIntentPolicy.swift"; sourceTree = SOURCE_ROOT; };
 		2AD74821D7B3C30D8CF0C03D /* EnigmaTests/LocalToolStreamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/LocalToolStreamingTests.swift"; sourceTree = SOURCE_ROOT; };
 		BFC338C374F50A2743416E7E /* EnigmaTests/ComposerIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ComposerIntentTests.swift"; sourceTree = SOURCE_ROOT; };
+		2129809A613528194EAF0693 /* EnigmaTests/NativeWebSearchLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeWebSearchLiveTests.swift"; sourceTree = SOURCE_ROOT; };
 		15AB7FF379741ECFDEE9FE6D /* EnigmaTests/ComposerIntentPhrasingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ComposerIntentPhrasingTests.swift"; sourceTree = SOURCE_ROOT; };
 		9B2EE23DD30DADC4726A2A12 /* EnigmaTests/EnigmaIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/EnigmaIconTests.swift"; sourceTree = SOURCE_ROOT; };
 		8847E9740883DE782193462F /* Enigma/App/EnigmaAppIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaAppIcon.swift"; sourceTree = SOURCE_ROOT; };
@@ -573,6 +575,7 @@
 				6F3BBA47DCE47AED9D0B5B42 /* Enigma/Messages/MessagesIntentPolicy.swift */,
 				2AD74821D7B3C30D8CF0C03D /* EnigmaTests/LocalToolStreamingTests.swift */,
 				BFC338C374F50A2743416E7E /* EnigmaTests/ComposerIntentTests.swift */,
+				2129809A613528194EAF0693 /* EnigmaTests/NativeWebSearchLiveTests.swift */,
 				15AB7FF379741ECFDEE9FE6D /* EnigmaTests/ComposerIntentPhrasingTests.swift */,
 				3628E3B5E1BD8769ADF2E5A8 /* Enigma/App/ChatHistoryList.swift */,
 				411A6C11B84136957D6FE772 /* EnigmaTests/AppShellStateTests.swift */,
@@ -1085,6 +1088,7 @@
 				051D2015ABFB2B36D0C65AEF /* EnigmaTests/MessagesTests.swift in Sources */,
 				F5333B36591EC7D0992ECDD2 /* EnigmaTests/LocalToolStreamingTests.swift in Sources */,
 				43416E7EE73895EC8E0F7CEF /* EnigmaTests/ComposerIntentTests.swift in Sources */,
+				12A4C8BE4711BC84F00C74A4 /* EnigmaTests/NativeWebSearchLiveTests.swift in Sources */,
 				212069D17F99D31624F7B452 /* EnigmaTests/ComposerIntentPhrasingTests.swift in Sources */,
 				CC5400000000000000000001,
 				14069C4454E33368512BA2E9 /* WorkspaceDocumentTests.swift in Sources */,

@@ -42,6 +42,7 @@ final class NativeToolRequestTests: XCTestCase {
                         nativeToolsEnabled: Bool = true,
                         hasFullDiskAccess: Bool = true, automaticSearch: Bool = true, hasSearchKey: Bool = true,
                         nativeWebSearchProviders: Set<CloudProviderID> = [],
+                        fileCodex: CodexSubscriptionClient = .fileMode,
                         locationProvider: (any LocationProviding)? = nil, sendRunner: RecordingRunner? = nil,
                         replace: (@MainActor (String) -> Void)? = nil) -> LocalChatViewModel {
     let provider = cloud ?? NativeToolProvider(steps: [])
@@ -67,6 +68,7 @@ final class NativeToolRequestTests: XCTestCase {
       messagesAccess: { if !hasFullDiskAccess { throw MessagesError.fullDiskAccessRequired } },
       localToolRuntime: { _ in true },
       fileInference: inference,
+      fileCodex: fileCodex,
       cloudProviders: registry,
       webSearch: search ?? NativeSearchProvider(results: Self.searchResults),
       searchSettings: settings,
@@ -755,6 +757,8 @@ final class NativeToolRequestTests: XCTestCase {
                                  usesNetwork: true)
   static let geminiRoute = Route(mode: .cloud, providerID: CloudProviderID.gemini.rawValue, modelID: "gemini-3-pro",
                                  usesNetwork: true)
+  static let chatGPTRoute = Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: "gpt-5.6-luna",
+                                  usesNetwork: true)
   static let claudeCodeRoute = Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: "sonnet",
                                      usesNetwork: true)
   static let providerSearchText = "You can search the web with your web search tool."
@@ -797,8 +801,25 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertFalse(run.instructions.contains(Self.providerSearchText))
   }
 
-  /// CP1 turns no provider on, so no request carries provider search: users see no change.
-  func testTheShippedProviderSetSendsNoProviderSearch() async throws {
+  /// CP4 turns ChatGPT on: its turns ask Codex for live web search instead of offering `web_search`.
+  /// The other routes keep Enigma's search until their checkpoints.
+  func testTheShippedProviderSetSearchesOnlyOnChatGPT() async throws {
+    let codex = SearchCodexTransport(script: [
+      CodexNotification(method: "item/agentMessage/delta", params: .object([
+        "threadId": .string("thread-one"), "turnId": .string("turn-one"), "delta": .string("Answer.")])),
+      CodexNotification(method: "turn/completed", params: .object([
+        "threadId": .string("thread-one"), "turn": .object(["id": .string("turn-one"), "status": .string("completed")])])),
+    ])
+    let chatGPT = makeChat(nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders,
+                           fileCodex: CodexSubscriptionClient(transport: codex))
+    try await send("Hi", to: chatGPT, route: Self.chatGPTRoute)
+    let started = await codex.threadStart
+    let thread = try XCTUnwrap(started)
+    XCTAssertEqual(thread["config"]["web_search"].string, "live")
+    XCTAssertFalse(thread["dynamicTools"].array?.contains { $0["name"].string == "web_search" } ?? true)
+    XCTAssertTrue(thread["developerInstructions"].string?.contains(Self.providerSearchText) == true)
+    XCTAssertEqual(chatGPT.messages.last?.content, "Answer.")
+
     for route in [Self.cloudRoute, Self.openAIRoute, Self.geminiRoute, Self.claudeCodeRoute] {
       let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
       let chat = makeChat(cloud: provider, nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders)
