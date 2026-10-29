@@ -41,6 +41,59 @@ chat, whatever has focus. Escape still closes an open menu, the command list
 or the selection details first, as now. Add a regression test that moves focus
 off the text box and checks Escape hides the panel.
 
+### B18. Without Full Disk Access, a Messages question gets "I don't have access" instead of the settings card
+
+**Problem:** When Enigma doesn't have Full Disk Access, asking about Messages
+(for example "what did Sam send me?", or a typed `/messages`) gets a reply in
+which the model says it can't access Messages. Nothing offers to fix it: the
+person isn't told that Full Disk Access is missing or shown how to turn it on.
+
+**Today:** On a native-tools turn (F32), `LocalChatViewModel.nativeToolPlan`
+passes `hasFullDiskAccess: (try? messagesAccess()) != nil`, and
+`NativeToolPlan.make` (`AssistantToolbox.swift`) only adds the `.messages` part
+when that is true. So without Full Disk Access the model gets no Messages
+tools at all, never reaches `MessagesError.fullDiskAccessRequired`, and answers
+from its own knowledge. A typed `/messages` still sets `messagesRequested`, so
+the model is told the user asked for Messages but has no tool for it. The card
+with the "Open Full Disk Access Settings…" button (`MessagesCards.swift`,
+shown through `appleMessages.report` when a tool fails with an error that has
+a `privacyPane`) only appears when a Messages tool actually runs and fails.
+Check the small-model chip path as well, to confirm it already shows the card.
+
+**Wanted:** When Full Disk Access is missing and the request needs Messages
+(a typed `/messages`, or the model tries to use Messages), Enigma shows the
+Messages card asking the person to turn on Full Disk Access, with the
+"Open Full Disk Access Settings…" button and the quit-and-reopen note, instead
+of a model reply saying it has no access. Requests that don't involve Messages
+are unchanged and don't show the card. One approach to weigh: keep the
+Messages tools in the toolbox without Full Disk Access and have them fail with
+`fullDiskAccessRequired`, which already ends the turn with the card (check this
+doesn't change the tool prefix in a way that hurts the warm-up, F32). Add
+tests for a typed `/messages` and for a model's Messages tool call without
+Full Disk Access, on both a local and a cloud route.
+
+### B19. Replies about a text show "\n" where the message had a line break
+
+**Problem:** When Enigma reads a text message and quotes or summarizes it,
+the reply sometimes shows a literal `\n` where the original message had a new
+line, instead of a line break.
+
+**Today:** `MessagesDatabase` decodes each message's text (from `text` or
+`attributedBody` via `AttributedBodyDecoder`) with real newlines and trims it.
+`MessagesTools` then returns tool results as JSON (`JSONEncoder`), which writes
+each newline as the two characters `\n`. The likely cause, not yet confirmed,
+is that the model copies that escape into its reply. Reproduce first: note the
+route and model, and check whether the `\n` is in the model's reply text or
+introduced by Enigma's own formatting.
+
+**Wanted:** A message's line breaks never appear as a literal `\n` in the
+chat. Where a quoted message had a new line, the reply shows a line break (or
+a space, if that reads better in a summary). Fix it where the escape comes
+from, for example by giving the model message text in a form it won't copy as
+an escape. Don't strip `\n` from replies across the board: code blocks and
+answers about escapes need it. Add a regression test with a multi-line
+message.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
