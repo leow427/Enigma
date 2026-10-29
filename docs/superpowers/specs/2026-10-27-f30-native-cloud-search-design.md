@@ -65,7 +65,7 @@ Gemini, chats that hold message text, and the fallback.
 | Location | Never sent to a provider's search (owner, 2026-10-27). Questions about places or weather near the user get Enigma's own lookup: F29's places and weather tools once they exist | Provider search doesn't know where the user is, and sending the location would share it. |
 | Selection attached | Provider search allowed | The provider already has the selection, and F32's `web_search` already lets the model put selection text in a query. |
 | Codex search mode | `live` (owner, 2026-10-27) | People search for fresh information, and the cached index can be days old. |
-| Anthropic tool | `web_search_20260318` with `response_inclusion: "excluded"` on models from Claude 4.6 on, and `web_search_20250305` on older ones | The newer tool filters results with code before they reach the model: better accuracy, fewer tokens. |
+| Anthropic tool | `web_search_20260318` with `response_inclusion: "full"` on models from Claude 4.6 on, and `web_search_20250305` on older ones | The newer tool filters results with code before they reach the model: better accuracy, fewer tokens. `full` keeps the search blocks, so Enigma sees each search and its results (owner, 2026-10-29, after CP0 found `excluded` hides them). |
 | OpenAI tool | `web_search`, with `include: ["web_search_call.action.sources"]` | `web_search_preview` is the legacy tool. |
 | Claude Code tool | `WebSearch` only; `WebFetch` stays off | `WebFetch` downloads pages from the user's Mac, which can reach the local network. |
 | Typed `/search` | The provider's search tool is forced where the provider allows it, and asked for in words otherwise | The same rule F32 uses for `web_search`. |
@@ -215,7 +215,7 @@ appends them at the end of the reply as `[site](url)`.
 
 - **From Claude 4.6 on:** models in a reviewed prefix list get
   `web_search_20260318` with `max_uses` 5 and
-  `response_inclusion: "excluded"`. The list covers `claude-opus-4-6`, 4-7
+  `response_inclusion: "full"`. The list covers `claude-opus-4-6`, 4-7
   and 4-8, `claude-sonnet-4-6`, `claude-opus-5`, `claude-sonnet-5`,
   `claude-fable-5` and `claude-haiku-5-5`; prefixes cover point releases.
   CP0 confirms it.

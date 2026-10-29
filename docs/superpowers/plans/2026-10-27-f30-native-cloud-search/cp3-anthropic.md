@@ -46,7 +46,7 @@ extension AnthropicMessagesClient {
   - `testAnthropicSearchToolByModel`: each listed prefix and a point
     release (`claude-opus-5-5` under `claude-opus-5`) get
     `web_search_20260318` with `max_uses` 5 and
-    `response_inclusion: "excluded"`; `claude-haiku-4-5` gets
+    `response_inclusion: "full"` (owner, 2026-10-29); `claude-haiku-4-5` gets
     `web_search_20250305` with `max_uses` 5.
   - `testAnthropicBlockedDomainsLeftOutWhenEmpty`, and
     `testAnthropicSearchSendsBlockedDomainsWithinLimit` (F29 fills the list

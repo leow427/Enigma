@@ -81,7 +81,7 @@ on-device provider, no blocked-sites list.
   | Sources shown and saved | At most 8, as `NativeWebSearch.maximumSources` (F29 later sets `WebSearchLimits.maximumSources` to the same 8; Brave's own cap stays 10) |
   | Restarts per turn | At most 1 |
   | Anthropic continuations after `pause_turn` | At most 3 per step, outside F32's 12-step limit |
-  | Anthropic tool | `web_search_20260318` with `max_uses: 5` and `response_inclusion: "excluded"` for the reviewed model prefixes; `web_search_20250305` with `max_uses: 5` otherwise |
+  | Anthropic tool | `web_search_20260318` with `max_uses: 5` and `response_inclusion: "full"` (owner, 2026-10-29) for the reviewed model prefixes; `web_search_20250305` with `max_uses: 5` otherwise |
   | OpenAI fields | `{"type": "web_search"}` in `tools`, `include: ["web_search_call.action.sources"]`, `max_tool_calls: 5` if CP0 confirms it counts only built-in calls |
   | Codex | `config.web_search` is `"live"`, or `"cached"` when the workspace allows only that |
   | Claude Code | `--tools WebSearch`, and `WebSearch` in `--allowedTools` beside F32's MCP tool names |
@@ -247,7 +247,7 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decisions open: OpenAI `user_location`, Anthropic `response_inclusion` |
+| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; OpenAI sends no `user_location`, as the spec says |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |

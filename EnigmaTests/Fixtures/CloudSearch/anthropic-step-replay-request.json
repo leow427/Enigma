@@ -97,7 +97,7 @@
       "type": "web_search_20260318",
       "name": "web_search",
       "max_uses": 5,
-      "response_inclusion": "excluded",
+      "response_inclusion": "full",
       "allowed_callers": [
         "direct"
       ]
