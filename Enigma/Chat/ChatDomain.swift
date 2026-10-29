@@ -17,12 +17,40 @@ struct Route: Codable, Sendable, Equatable {
   let usesNetwork: Bool
 }
 
+/// The approximate location a provider's search may use once the user allows it for that provider
+/// (F30, spec §2a). Never coordinates.
+struct ProviderSearchLocation: Sendable, Equatable {
+  var city: String?
+  var region: String?
+  /// ISO 3166-1 alpha-2.
+  var countryCode: String?
+  /// The Mac's IANA time zone identifier.
+  var timeZone: String?
+
+  /// "City, Region, Country" with missing parts left out, for the card and the instruction.
+  var displayName: String {
+    let country = countryCode.map { Locale(identifier: "en_US").localizedString(forRegionCode: $0) ?? $0 }
+    return [city, region, country].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }.joined(separator: ", ")
+  }
+}
+
+/// A request that uses the provider's own web search tool instead of Enigma's `web_search` (F30).
+struct ProviderSearch: Sendable, Equatable {
+  /// F29's blocked sites, most recently blocked first. Empty until F29.
+  var blockedDomains: [String] = []
+  /// Set only for a nearby question, after the user allowed it for this provider (spec §2a).
+  var location: ProviderSearchLocation? = nil
+}
+
 struct ChatRequest: Sendable, Equatable {
   let sessionID: UUID
   let messages: [ChatMessage]
   let route: Route
   var image: PreparedScreenImage? = nil
   var allowsCloudImages = false
+  /// Nil: no provider search, as before F30.
+  var providerSearch: ProviderSearch? = nil
 }
 
 enum ChatEvent: Sendable, Equatable {
@@ -45,6 +73,8 @@ struct ReplyOrigin: Sendable, Equatable {
   let mode: ChatMode
   let providerID: String
   let modelName: String
+  /// The provider's own web search ran the reply's searches, not Brave (F30).
+  var providerSearch = false
 }
 
 struct ChatMessage: Codable, Sendable, Equatable, Identifiable {

@@ -126,6 +126,11 @@ final class EnigmaConversationTests: XCTestCase {
                    "Fixture 8B · on this mac · \(time)")
     XCTAssertEqual(meta(ReplyOrigin(mode: .local, providerID: "local", modelName: "Fixture 8B"), searched: true),
                    "Fixture 8B · on this mac · brave search · \(time)")
+    // F30: a provider's own search is named for what it is, and Brave keeps its name.
+    XCTAssertEqual(meta(ReplyOrigin(mode: .cloud, providerID: "openai", modelName: "gpt-5.5", providerSearch: true),
+                        searched: true), "gpt-5.5 · openai · web search · \(time)")
+    XCTAssertEqual(meta(ReplyOrigin(mode: .cloud, providerID: "openai", modelName: "gpt-5.5"), searched: true),
+                   "gpt-5.5 · openai · brave search · \(time)")
     let providers: [(CloudProviderID, String)] = [(.chatGPT, "chatgpt"), (.claudeCode, "claude code"),
                                                   (.openAI, "openai"), (.anthropic, "anthropic"), (.gemini, "gemini")]
     for (provider, place) in providers {

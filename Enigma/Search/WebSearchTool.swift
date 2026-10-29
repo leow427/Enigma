@@ -18,11 +18,16 @@ struct WebSearchTool: AgentToolbox {
     self.search = search
     self.mayQuery = mayQuery
     self.onSources = onSources
+    self.today = Self.formattedDate(today, timeZone: timeZone)
+  }
+
+  /// The user's date, as the search instructions give it.
+  static func formattedDate(_ date: Date, timeZone: TimeZone) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = timeZone
     formatter.dateFormat = "EEEE, d MMMM yyyy"
-    self.today = formatter.string(from: today)
+    return formatter.string(from: date)
   }
 
   var instructions: String {

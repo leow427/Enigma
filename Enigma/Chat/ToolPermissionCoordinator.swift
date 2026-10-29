@@ -20,8 +20,11 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     case .searchChats(let query): title = "Search all your messages for “\(Self.oneLine(query))”?"
     case .searchAfterMessages(let query): title = "Search the web for “\(Self.oneLine(query))”?"
     case .shareMessageText: title = "Send text from your messages to \(destination.displayName)?"
+    case .shareLocation(let provider, _): title = "Share your location with \(provider.shortName)?"
     }
     detail = switch (permission, destination) {
+    case (.shareLocation(let provider, let area), _):
+      "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Enigma never sends your exact position."
     case (.searchAfterMessages, _), (.shareMessageText, _): "This chat includes text from your messages."
     case (_, .thisMac): "It stays on this Mac."
     case (_, let company): "It will be sent to \(company.displayName)."

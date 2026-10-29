@@ -18,7 +18,7 @@ final class NativeToolPlanTests: XCTestCase {
               let label = "\(command)| selection \(hasSelection) auto \(searchesAutomatically) key \(hasSearchKey) FDA \(hasFullDiskAccess)"
 
               var parts: Set<NativeToolPart> = []
-              if hasSearchKey && (searchesAutomatically || typed.search) { parts.insert(.search) }
+              if hasSearchKey && (searchesAutomatically || typed.search) { parts.insert(.search(.enigma)) }
               if hasFullDiskAccess { parts.insert(.messages) }
               if hasSelection { parts.insert(.selection) }
               XCTAssertEqual(plan.parts, parts, label)
@@ -41,10 +41,65 @@ final class NativeToolPlanTests: XCTestCase {
     XCTAssertEqual(checked, 6 * 16)
   }
 
+  /// F30: provider search needs no Brave key and wins over Enigma's search; a typed /search requires
+  /// `web_search` on both backends.
+  func testSearchBackend() {
+    var checked = 0
+    for providerSearch in [false, true] {
+      for hasSearchKey in [false, true] {
+        for searchesAutomatically in [false, true] {
+          for command in ["", "/search "] {
+            let typed = ComposerCommands(command + "what's new")
+            let plan = NativeToolPlan.make(.init(typed: typed, hasSelection: false, hasFiles: false, hasScreenshot: false,
+              searchesAutomatically: searchesAutomatically, hasSearchKey: hasSearchKey, hasFullDiskAccess: false,
+              providerSearch: providerSearch))
+            let label = "provider \(providerSearch) key \(hasSearchKey) auto \(searchesAutomatically) \(command)"
+            let wanted = searchesAutomatically || typed.search
+            let expected: Set<NativeToolPart> = !wanted ? [] : providerSearch ? [.search(.provider)]
+              : hasSearchKey ? [.search(.enigma)] : []
+            XCTAssertEqual(plan.parts, expected, label)
+            XCTAssertEqual(plan.requiredTool, typed.search && !expected.isEmpty ? "web_search" : nil, label)
+            checked += 1
+          }
+        }
+      }
+    }
+    XCTAssertEqual(checked, 16)
+    let files = NativeToolPlan.make(.init(typed: ComposerCommands("/search hi"), hasSelection: false, hasFiles: true,
+      hasScreenshot: false, searchesAutomatically: true, hasSearchKey: true, hasFullDiskAccess: true, providerSearch: true))
+    XCTAssertEqual(files.parts, [], "Files keep today's path, with no provider search")
+
+    // A typed /messages turn reads a chat, which would restart provider search: Enigma's search or none.
+    for hasSearchKey in [true, false] {
+      let messages = NativeToolPlan.make(.init(typed: ComposerCommands("/messages /search who texted?"), hasSelection: false,
+        hasFiles: false, hasScreenshot: false, searchesAutomatically: true, hasSearchKey: hasSearchKey,
+        hasFullDiskAccess: true, providerSearch: true))
+      XCTAssertEqual(messages.parts, hasSearchKey ? [.search(.enigma), .messages] : [.messages])
+      XCTAssertEqual(messages.requiredTool, hasSearchKey ? "web_search" : nil)
+    }
+  }
+
+  /// The plan is made again for a fallback or a restart from the inputs it was made from.
+  func testRemadeWithoutProviderSearch() {
+    let inputs = NativeToolPlan.Inputs(typed: ComposerCommands("/search hi"), hasSelection: false, hasFiles: false,
+      hasScreenshot: false, searchesAutomatically: false, hasSearchKey: true, hasFullDiskAccess: true, providerSearch: true)
+    let plan = NativeToolPlan.make(inputs)
+    XCTAssertEqual(plan.parts, [.search(.provider), .messages])
+    let remade = plan.remade(providerSearch: false)
+    XCTAssertEqual(remade.parts, [.search(.enigma), .messages])
+    XCTAssertEqual(remade.requiredTool, "web_search")
+    var keyless = inputs
+    keyless.hasSearchKey = false
+    let none = NativeToolPlan.make(keyless).remade(providerSearch: false)
+    XCTAssertEqual(none.parts, [.messages])
+    XCTAssertNil(none.requiredTool)
+    XCTAssertEqual(NativeToolPlan.empty.remade(providerSearch: true), .empty)
+  }
+
   func testTranslateWinsOverSearchForTheRequiredTool() {
     let plan = NativeToolPlan.make(.init(typed: ComposerCommands("/search /translate hola"), hasSelection: true,
       hasFiles: false, hasScreenshot: false, searchesAutomatically: false, hasSearchKey: true, hasFullDiskAccess: false))
-    XCTAssertEqual(plan.parts, [.search, .selection])
+    XCTAssertEqual(plan.parts, [.search(.enigma), .selection])
     XCTAssertEqual(plan.requiredTool, "propose_translation")
     XCTAssertFalse(plan.selectionAllowsEdit)
   }

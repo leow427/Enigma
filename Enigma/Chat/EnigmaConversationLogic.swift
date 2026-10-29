@@ -167,7 +167,7 @@ enum ReplyMetaLine {
       if !origin.modelName.isEmpty { parts.append(origin.modelName) }
       parts.append(place(origin))
     }
-    if searched { parts.append("brave search") }
+    if searched { parts.append(origin?.providerSearch == true ? "web search" : "brave search") }
     parts.append(time(date, now: now, calendar: calendar, locale: locale))
     return parts.joined(separator: " · ")
   }

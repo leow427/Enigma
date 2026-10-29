@@ -258,7 +258,7 @@ stays in its brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; location goes to a provider's search after a per-provider card (spec §2a, amendment) |
-| CP1 | not started | | |
+| CP1 | done | 3 | No provider on; `/messages` turns skip provider search and CP1 builds the "web search" footer (owner, review round 1); full suite 1591 run, 28 skipped, 1 window-test timing flake that passes alone (4 of 4 runs) |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

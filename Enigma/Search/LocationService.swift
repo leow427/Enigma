@@ -39,11 +39,26 @@ enum LocationIntent {
 struct ApproximateLocation: Equatable, Sendable {
   let area: String
   let coordinates: String
+  /// The geocoded parts a provider's search may get (F30), when the geocoder gave them.
+  var city: String?
+  var region: String?
+  /// ISO 3166-1 alpha-2.
+  var countryCode: String?
   var searchContext: String { "Approximate current location: \(area) (\(coordinates))" }
 
-  init(latitude: Double, longitude: Double, area: String = "current area") {
+  /// What a provider's own web search gets once the user allows it (spec §2a): the area and this
+  /// Mac's time zone. Coordinates stay on the Mac.
+  var providerSearchLocation: ProviderSearchLocation {
+    ProviderSearchLocation(city: city, region: region, countryCode: countryCode, timeZone: TimeZone.current.identifier)
+  }
+
+  init(latitude: Double, longitude: Double, area: String = "current area",
+       city: String? = nil, region: String? = nil, countryCode: String? = nil) {
     self.area = area
     coordinates = String(format: "%.2f, %.2f", locale: Locale(identifier: "en_US_POSIX"), latitude, longitude)
+    self.city = city
+    self.region = region
+    self.countryCode = countryCode
   }
 }
 
@@ -141,9 +156,19 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     self.geocoder = geocoder
     geocoder.getMapItems { [weak self, weak manager] items, _ in
       guard let self, let manager, self.manager === manager else { return }
-      let area = items?.first?.addressRepresentations?.cityWithContext ?? ""
-      self.finish(.success(area.isEmpty ? fallback : ApproximateLocation(latitude: latitude, longitude: longitude, area: area)))
+      let address = items?.first?.addressRepresentations
+      let area = address?.cityWithContext ?? ""
+      self.finish(.success(area.isEmpty ? fallback : ApproximateLocation(latitude: latitude, longitude: longitude, area: area,
+        city: address?.cityName, region: Self.region(cityWithContext: area, city: address?.cityName, country: address?.regionName),
+        countryCode: address?.region?.identifier)))
     }
+  }
+
+  /// The state or province in "Cupertino, CA": what follows the city, unless it's the country.
+  nonisolated static func region(cityWithContext: String, city: String?, country: String?) -> String? {
+    guard let city, cityWithContext.hasPrefix(city + ", ") else { return nil }
+    let rest = cityWithContext.dropFirst(city.count + 2).trimmingCharacters(in: .whitespaces)
+    return rest.isEmpty || rest == country ? nil : rest
   }
 
   func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

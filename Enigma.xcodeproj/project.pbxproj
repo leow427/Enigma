@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */; };
+		B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */; };
+		C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */; };
 		208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */; };
 		CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */; };
 		49C4B3DFF2ED966E3F736769 /* EnigmaTests/NativeToolPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */; };
@@ -241,6 +244,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/CloudSearchTestSupport.swift"; sourceTree = SOURCE_ROOT; };
+		EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeWebSearchTests.swift"; sourceTree = SOURCE_ROOT; };
+		19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/NativeWebSearch.swift"; sourceTree = SOURCE_ROOT; };
 		18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolRequestTests.swift"; sourceTree = SOURCE_ROOT; };
 		EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/AssistantToolbox.swift"; sourceTree = SOURCE_ROOT; };
 		E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolPlanTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -490,6 +496,9 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */,
+				EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */,
+				19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */,
 				18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */,
 				EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */,
 				E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */,
@@ -896,6 +905,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */,
 				CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */,
 				95ED97A60C86B267AB67A2EA /* Enigma/Chat/SelectionTools.swift in Sources */,
 				008F4070A5265D728FB6B5F5 /* Enigma/Search/WebSearchTool.swift in Sources */,
@@ -1049,6 +1059,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */,
+				B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */,
 				208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */,
 				49C4B3DFF2ED966E3F736769 /* EnigmaTests/NativeToolPlanTests.swift in Sources */,
 				A986767D257BA790D8CEBDF7 /* EnigmaTests/NativeToolsLatencyTests.swift in Sources */,
