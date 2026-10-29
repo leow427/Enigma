@@ -87,8 +87,12 @@ on-device provider, no blocked-sites list.
   | Claude Code | `--tools WebSearch`, and `WebSearch` in `--allowedTools` beside F32's MCP tool names |
 
 - **Privacy:**
-  - No location ever reaches a provider's search: no `user_location`, and
-    no Codex `tools.web_search.location`.
+  - Location reaches a provider's search only as spec §2a allows (owner,
+    2026-10-29, replacing "never"): a nearby question, after the user allows
+    it on that provider's card (grants keyed by `CloudProviderID`, never
+    shared between providers), as city, region, country and time zone,
+    never coordinates. `user_location` (OpenAI, Anthropic), Codex
+    `tools.web_search.location`, and the near-me clause on Claude Code.
   - No provider search in a chat that holds message text, and no message
     text in a provider-search request: the restart (spec §2) is enforced in
     the gate, in Swift.
@@ -120,7 +124,7 @@ on-device provider, no blocked-sites list.
 
 ## Review Focus
 
-Six inputs the spec implies but doesn't spell out, most likely first. Each
+Seven inputs the spec implies but doesn't spell out, most likely first. Each
 is pinned by a test in the checkpoint that owns the code:
 
 1. **The model reads a chat partway through a provider-search reply,**
@@ -153,7 +157,12 @@ is pinned by a test in the checkpoint that owns the code:
    - **Expected:** no fallback and no second run. The error is shown, and
      the text and sources so far are kept.
    - **Pinned by:** CP1 `testUnavailableAfterReplyStartsDoesNotFallBack`.
-6. **Stop during a restart,** after the first run stopped and before the
+6. **A nearby question after allowing location for another provider**
+   (ChatGPT allowed, now on the OpenAI API; or Claude Code allowed, now on
+   Anthropic).
+   - **Expected:** the card shows again; nothing is sent before an answer.
+   - **Pinned by:** CP1 `testLocationGrantIsPerProvider`.
+7. **Stop during a restart,** after the first run stopped and before the
    second sends anything.
    - **Expected:** the turn ends like any Stop; no second request goes out.
    - **Pinned by:** CP1 `testStopDuringRestartEndsTheTurn`.
@@ -211,6 +220,7 @@ that use it.
 | --- | --- | --- | --- |
 | `ProviderSearch`, `ChatRequest.providerSearch` | `Enigma/Chat/ChatDomain.swift` | CP1 | CP2–CP6 |
 | `SearchBackend`, `NativeToolPart.search(SearchBackend)`, `NativeToolPlan.Inputs.providerSearch` | `Enigma/Chat/AssistantToolbox.swift` | CP1 | CP1–CP6 |
+| `ProviderSearchLocation`, `ProviderSearch.location`, `ToolPermission.shareLocation(provider:area:)`, `ApproximateLocation.providerSearchLocation` | `Enigma/Chat/ChatDomain.swift`, `Enigma/Chat/ToolPermissions.swift`, `Enigma/Search/LocationService.swift` | CP1 (amendment) | CP2–CP6 |
 | `CloudProviderError.webSearchUnavailable(_:)` | `Enigma/Cloud/CloudDomain.swift` | CP1 | CP2–CP5 |
 | `CloudProviderID.nativeWebSearchProviders`, `.supportsNativeWebSearch` | `Enigma/Cloud/CloudDomain.swift` | CP1 (empty) | CP2–CP6 |
 | `NativeWebSearch` (`maximumSearches`, `maximumSources`, `isAllowed(provider:modelID:holdsMessageText:availability:)`, `selectSources(cited:linked:discovered:)`, `links(in:)`) | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP2–CP6 |
@@ -247,7 +257,7 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; OpenAI sends no `user_location`, as the spec says |
+| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; location goes to a provider's search after a per-provider card (spec §2a, amendment) |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |

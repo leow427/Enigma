@@ -244,7 +244,7 @@ Use the probes above; no extra searches.
 | # | Question | Answer | Evidence | Decision for later checkpoints |
 | --- | --- | --- | --- | --- |
 | Q0 | F32 names on `main` | All found, same names. Acceptance on cloud routes comes before the stream starts; the Messages gate can't throw yet | Code on `main` (8db6352); Codex 0.164.0 schema | See [Q0](#q0-f32-names) |
-| Q1 | OpenAI: events beside functions, links, `max_tool_calls`, forced choice, replay, errors | **Unrecorded: no API key.** From the docs: items and citations as the spec says; `max_tool_calls` counts built-in calls; forcing is documented (form to confirm); replay and error bodies aren't documented. **Owner decided:** no `user_location` (US default accepted) | Docs (2026-10-29); synthetic `openai-*` fixtures | See [Q1](#q1-openai) |
+| Q1 | OpenAI: events beside functions, links, `max_tool_calls`, forced choice, replay, errors | **Unrecorded: no API key.** From the docs: items and citations as the spec says; `max_tool_calls` counts built-in calls; forcing is documented (form to confirm); replay and error bodies aren't documented. **Owner decided:** `user_location` only after the per-provider card (spec §2a); otherwise none, US default | Docs (2026-10-29); synthetic `openai-*` fixtures | See [Q1](#q1-openai) |
 | Q2 | Anthropic: events, step replay, budget, `pause_turn`, forced choice, blocked-domains limit, prefixes, errors | **Unrecorded: no API key.** From the docs: events, replay rule and `pause_turn` as the spec says; the prefix list is confirmed. **Owner decided:** `response_inclusion: "full"`. Forcing a tool 400s on Opus 5.5, Sonnet 5.5, Fable 5.1 and Mythos 5.1. Budget, blocked-domains limit and error text aren't documented | Docs (2026-10-29); synthetic `anthropic-*` fixtures | See [Q2](#q2-anthropic) |
 | Q3 | Codex: thread setting with dynamic tools, `allowedWebSearchModes`, events, links | The thread's `config.web_search: "live"` overrides the launch setting with dynamic tools present. `allowedWebSearchModes` is `null` here. Answers carry Markdown links | `codex-web-search.jsonl`, `codex-search-and-dynamic-tool.jsonl` | See [Q3](#q3-codex) |
 | Q4 | Claude Code: `init` list, events, "Sources:" list, plain-string results | `init` lists `WebSearch` and the MCP tools. Plain-string results come on every search. 5 of 6 answers end with "Sources:" | `claude-code-web-search.jsonl` | See [Q4](#q4-claude-code) |
@@ -622,8 +622,10 @@ URLs, before the cap of 8.
      documented" or "unverified" is a guess CP2/CP3 must treat as one, and
      their live checks are needed before either provider turns on.
    - **Owner decisions (2026-10-29):** Anthropic uses
-     `response_inclusion: "full"` (Q2). OpenAI sends no `user_location`, as
-     the spec says, and accepts its US default (Q1).
+     `response_inclusion: "full"` (Q2). Location: after CP0 the owner
+     replaced "never send location" with a per-provider consent card (spec
+     §2a); without a grant OpenAI gets no `user_location` and its US default
+     applies (Q1).
    - **Found outside F30's scope:** F32's Anthropic loop sends
      `tool_choice: {"type": "tool", "name": …}` on step 1 for a required tool
      (typed `/search`, `/edit`), and Anthropic documents a 400 for that on

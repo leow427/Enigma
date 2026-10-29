@@ -116,7 +116,7 @@ extension AnthropicMessagesClient {
 - Replay is byte-faithful for server and code-execution blocks; mutation:
   drop an encrypted field, and a test fails.
 - The continuation cap and the step limit hold together.
-- No `user_location`; blocked domains omitted when empty.
+- `user_location` (`type: "approximate"`, city, region, country, timezone) only when `providerSearch.location` is set, never coordinates; blocked domains omitted when empty. Test both cases.
 - The restart delivers nothing.
 
 ## Hand-off

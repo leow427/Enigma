@@ -5,6 +5,10 @@ approved on 2026-10-27, which predated native tool calling (F32).
 Plan: [2026-10-27-f30-native-cloud-search.md](../plans/2026-10-27-f30-native-cloud-search.md).
 Depends on: F32 (native tool calling), on `main` since 2026-10-29. It no
 longer depends on F29, and runs before it (owner, 2026-10-29).
+Amended 2026-10-29 after CP0 (owner): Anthropic uses
+`response_inclusion: "full"`, and a provider's search may get the user's
+approximate location once the user allows it for that provider
+([section 2a](#2a-location-with-the-users-consent)).
 
 ## Goal and users
 
@@ -28,7 +32,9 @@ Gemini, chats that hold message text, and the fallback.
 - Seamless: nothing to set up.
 - Decisions made on 2026-10-27, still standing:
   - Gemini keeps Enigma's search;
-  - location is never sent to a provider's search;
+  - ~~location is never sent to a provider's search~~, replaced on
+    2026-10-29: the approximate location goes to a provider's search only
+    after the user allows it for that provider;
   - Codex searches the live web.
 - Decisions made on 2026-10-28 and 2026-10-29:
   - a provider's own search only in conversations with no message text,
@@ -62,7 +68,7 @@ Gemini, chats that hold message text, and the fallback.
 | Gemini | Enigma's `web_search` (owner, 2026-10-27) | Google's terms require showing Google's "Search suggestions" chip, which is Google's own HTML, with every grounded answer. That doesn't fit `docs/design/UI-Style.md`. |
 | Unflagged cloud models | Unchanged: today's path | F30 builds on the tool loop. |
 | Message text | Never in a chat that holds message text (`ChatSession.holdsMessageText`). If message text would enter a provider-search request mid-reply, that request stops and runs again without provider search | F32 privacy rule 2: no query leaves without gate 3 once message text is in a chat. A provider's search runs on its servers, where Enigma can't show a card. |
-| Location | Never sent to a provider's search (owner, 2026-10-27). Questions about places or weather near the user get Enigma's own lookup: F29's places and weather tools once they exist | Provider search doesn't know where the user is, and sending the location would share it. |
+| Location | Sent to a provider's search only after the user allows it on a card, per provider: Don't allow, For this conversation, or Always (owner, 2026-10-29, replacing "never"). City, region, country and time zone; never coordinates. Only for a question about places or weather near the user | Nearby questions need it, and the card tells the user exactly what goes where. A grant for one provider never covers another. |
 | Selection attached | Provider search allowed | The provider already has the selection, and F32's `web_search` already lets the model put selection text in a query. |
 | Codex search mode | `live` (owner, 2026-10-27) | People search for fresh information, and the cached index can be days old. |
 | Anthropic tool | `web_search_20260318` with `response_inclusion: "full"` on models from Claude 4.6 on, and `web_search_20250305` on older ones | The newer tool filters results with code before they reach the model: better accuracy, fewer tokens. `full` keeps the search blocks, so Enigma sees each search and its results (owner, 2026-10-29, after CP0 found `excluded` hides them). |
@@ -163,6 +169,71 @@ the search tool instead. On Codex and Claude Code the tools are fixed when
 the thread or process starts, so only a new request can drop them. One rule
 for every route is simpler to test.
 
+### 2a. Location, with the user's consent
+
+Owner, 2026-10-29. This replaces the 2026-10-27 rule that location never
+goes to a provider's search.
+
+**When Enigma asks.** All of these hold:
+
+- the turn's search is `.provider` (section 1);
+- the current question is about places or weather near the user, by
+  `LocationIntent.needsLocation` (the user's own words only, never quoted or
+  attached text, and never when the question names a place or says not to
+  use the location);
+- Settings → General → Location → "Use location for nearby questions" is on;
+- this provider has no grant yet for this chat (For this conversation) or
+  for good (Always).
+
+Enigma first finds the area with `LocationService`, on the Mac, as today.
+If location is off, denied or unavailable, there's no card and no location:
+the instruction says to ask which city the user means.
+
+**The card** appears before the request is sent, in F32's permission card
+(`ToolPermissionCard`), with its three buttons:
+
+> **Share your location with ‹provider›?**
+> ‹provider›'s web search will use ‹City, Region, Country› to find nearby
+> results. Enigma never sends your exact position.
+>
+> Don't allow · For this conversation · Always
+
+‹provider› is the route's provider name as Enigma shows it: OpenAI,
+ChatGPT, Anthropic or Claude Code.
+
+**Per provider.** The grant is keyed by `CloudProviderID`, not by F32's
+`ToolDestination` (which joins ChatGPT with the OpenAI API, and Claude Code
+with the Anthropic API). Allowing ChatGPT never allows the OpenAI API, and
+the other way round. "For this conversation" lasts as F32's conversation
+grants do, until the chat is deleted or the app quits; "Always" is saved
+with F32's Always grants and listed, and removable, in Settings.
+
+**What's sent.** With a grant, `ProviderSearch` carries
+`location: ProviderSearchLocation?`: city, region, ISO 3166-1 alpha-2
+country code and the Mac's IANA time zone. A part the geocoder didn't give
+is left out; coordinates never leave the Mac. It goes with this turn's
+requests only, and is looked up again for the next nearby question.
+
+| Route | How |
+| --- | --- |
+| OpenAI | `user_location: {"type": "approximate", city, region, country, timezone}` on the `web_search` tool |
+| Anthropic | `user_location` with the same fields on the `web_search` tool |
+| ChatGPT (Codex) | `config.tools.web_search.location` (`{city, region, country, timezone}`) in `thread/start`; CP4 confirms the key |
+| Claude Code | No location field: the instruction's near-me clause names the area, so it reaches Anthropic in the system prompt |
+
+**Don't allow** sends nothing; the instruction says to ask which city they
+mean, and the card comes back for the next nearby question in this chat.
+
+**The instruction's near-me clause** (section 4) becomes, with a location:
+"The user's approximate location is ‹City, Region, Country›; your web
+search tool uses it for places and weather near them." Without one, it
+stays "ask which city they mean".
+
+**Not changed.** Enigma's own `web_search` keeps today's location handling;
+the restart's second run (no provider search) asks nothing new; Gemini,
+File Mode and screenshot turns are unchanged. Nothing about the location is
+logged or saved, except the grant itself.
+
 ### 3. Providers
 
 Each provider's client adds its search tool to the requests F32's tool loop
@@ -183,7 +254,7 @@ it (F32 CP4). Provider sources join the same list.
 
 | Field | Value |
 | --- | --- |
-| `tools` | F32's function tools, plus `{"type": "web_search"}`: default context size, no `user_location`, no `filters` |
+| `tools` | F32's function tools, plus `{"type": "web_search"}`: default context size, no `filters`, and `user_location` only as section 2a allows (`{"type": "approximate", "city", "region", "country", "timezone"}`); otherwise none |
 | `include` | `["web_search_call.action.sources"]` |
 | `max_tool_calls` | `NativeWebSearch.maximumSearches`, if CP0 confirms it counts only built-in tool calls; otherwise the instruction's limit alone |
 | `tool_choice` | `{"type": "web_search"}` on step 1 when `/search` is typed, if CP0 confirms it; otherwise F32's instruction |
@@ -333,13 +404,15 @@ F32 eval measured, and adds the provider rules:
 > search for things you already know well, for the user's own data, or to
 > answer from Messages or an attached selection. Search at most 5 times.
 > Never put personal details, credentials, file contents, or text from
-> messages into a search query. You don't know where the user is: for
-> places or weather near them, ‹F29's tools, or: ask which city they mean›.
-> Link the pages you rely on.
+> messages into a search query. ‹Near-me clause›. Link the pages you rely
+> on.
 
-The date is formatted as `WebSearchTool` does it. Until F29, the near-me
-clause says to ask which city they mean; F29 replaces it with its places and
-weather tools.
+The date is formatted as `WebSearchTool` does it. The near-me clause is
+section 2a's: with a location allowed for this provider, "The user's
+approximate location is ‹City, Region, Country›; your web search tool uses
+it for places and weather near them"; otherwise "You don't know where the
+user is: for places or weather near them, ask which city they mean". F29
+may later add its own places and weather tools.
 
 **Where it goes:** F32's system prompt on the API routes; Codex's
 `developerInstructions` and Claude Code's `--system-prompt` through
@@ -420,6 +493,8 @@ Unchanged format, so older chats load as before.
 | The model doesn't search | The reply stands, with no sources. The eval measures how often. |
 | Anthropic `pause_turn` | Up to 3 silent continuations per step |
 | Message text about to enter the request | Section 2's restart, once per turn |
+| A nearby question, location not yet allowed for this provider | Section 2a's card, before the request; Stop while it shows ends the turn |
+| Location off, denied or unavailable, or the card declined | No location sent; the model asks which city |
 | Offline, signed out, or missing key | Today's errors |
 | An error after the reply starts | As today: partial text kept, the error shown, sources found so far saved |
 | Stop | As today. Stop during a restart ends the turn. |
@@ -434,14 +509,16 @@ Unchanged format, so older chats load as before.
 | Who writes the queries | The model | The model |
 | Who sees the queries | Brave (F29: the search sites) | The provider and its search backend |
 | Who sees the IP address | Brave (F29: the search sites and pages read) | Only the provider, as for any cloud request |
-| Location | The city, for "near me" queries | Never |
+| Location | The area, for "near me" queries | City, region, country and time zone, only after the user allows it for that provider (section 2a); never coordinates |
 | After message text enters the chat | Every query asks first (gate 3) | Not offered |
 
 **Rules:**
 
 1. No provider search in a chat that holds message text, and no message
    text in a provider-search request (section 2).
-2. Location never goes to a provider's search.
+2. Location goes to a provider's search only after the user allows it on
+   that provider's card, only for nearby questions, and never as
+   coordinates (section 2a).
 3. Nothing new is stored. Availability marks live in memory.
 4. Logs name the provider and the event, never a query or a URL.
 5. OpenAI keeps `store: false`. Claude Code keeps `WebFetch` off. Codex
@@ -457,9 +534,9 @@ CP0 and live in `EnigmaTests/Fixtures/CloudSearch/`, read through
 | --- | --- |
 | `NativeWebSearchTests` (new) | `isAllowed` for each provider, message-text state and availability; Gemini never; `selectSources` order, deduplication, the cap, unsafe links, site-name titles; `links(in:)`; the instruction text |
 | `NativeToolPlanTests` | The search part's backend across provider search, Brave key, automatic search and typed `/search` |
-| `NativeToolRequestTests` | `submitNative` sets `providerSearch`; the fallback runs once and is remembered; the restart: the held-back result never reaches the fake provider, the second run has no provider search, and it happens once; sources saved from provider events |
+| `NativeToolRequestTests` | Section 2a: the card shows only for a nearby question on a provider-search turn; each answer; a grant for one provider doesn't cover another (ChatGPT vs OpenAI, Claude Code vs Anthropic); no card and no location when location is off or unavailable; `submitNative` sets `providerSearch`; the fallback runs once and is remembered; the restart: the held-back result never reaches the fake provider, the second run has no provider search, and it happens once; sources saved from provider events |
 | `CloudToolStreamingTests` | Per provider, recorded streams with search and function calls mixed: activity, sources, replay bodies (OpenAI items, Anthropic server blocks), `pause_turn` continuation and its cap, the unavailable mapping |
-| `CodexSubscriptionTests`, `ClaudeCodeSubscriptionTests` | Thread parameters and arguments with search, events from fixtures, the policy and `init` checks |
+| `CodexSubscriptionTests`, `ClaudeCodeSubscriptionTests` | Thread parameters and arguments with search, with and without a location, events from fixtures, the policy and `init` checks |
 | `RequestLifecycleTests` | Stop during a provider search and during a restart; a failure before and after the reply starts |
 
 **Live checks,** on the owner's Mac, not in CI. `NativeWebSearchLiveTests`
@@ -496,7 +573,7 @@ Enigma's `web_search`. The owner decides what's next.
 - **`docs/Web-Search.md`** gains "Cloud models' own search": which routes,
   when (no message text), sources and fallback, the privacy table, costs
   (about $10 per 1,000 searches on OpenAI and Anthropic API keys, plus
-  tokens, checked in CP6), and limitations (near-me questions until F29).
+  tokens, checked in CP6), the location card (section 2a), and limitations.
   Its "On models that choose their own tools", "How it works" and "Tests"
   sections are updated.
 - **Updated:** `docs/ChatGPT-Setup.md` (live web search on search turns),
@@ -519,7 +596,7 @@ reviewers (at most three rounds), fixes, verifies and commits
 | Checkpoint | Goal | Exit criteria |
 | --- | --- | --- |
 | CP0 Spike | Answer the open questions below with probes on the owner's accounts; record fixtures | A written answer per question; fixtures scrubbed and saved |
-| CP1 Shared plumbing | `NativeWebSearch`, the plan's search backend, `ChatRequest.providerSearch`, availability and fallback, the restart, sources. `nativeWebSearchProviders` stays empty | Tests pass; no visible change |
+| CP1 Shared plumbing | `NativeWebSearch`, the plan's search backend, `ChatRequest.providerSearch`, availability and fallback, the restart, sources, the location card and per-provider grant (section 2a). `nativeWebSearchProviders` stays empty | Tests pass; no visible change |
 | CP2 OpenAI | Request, stream, replay, inline-citation check, error mapping; turn on `.openAI` | Tests pass; the live check passes |
 | CP3 Anthropic | Tool by model, stream, server-block replay, `pause_turn`, error mapping, output budget; turn on `.anthropic` | Tests pass; the live check passes |
 | CP4 ChatGPT (Codex) | The thread setting, events, links, policy check, error mapping; turn on `.chatGPT` | Tests pass; the live check passes |
@@ -560,7 +637,6 @@ documented shapes, and its live check and turn-on wait for the owner.
 ## Out of scope
 
 - Gemini grounding with Google Search (decided against).
-- Sending a location to provider search.
 - Provider search for unflagged models, File Mode and screenshot turns.
 - Page-fetching tools: Claude Code `WebFetch` and Anthropic `web_fetch`.
 - A setting to prefer Enigma's search on cloud routes.

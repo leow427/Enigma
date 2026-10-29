@@ -1,6 +1,6 @@
 # CP1: Shared plumbing — the search backend, fallback, the restart, sources
 
-Read [agent-workflow.md](agent-workflow.md), the spec (§1, §2, §4–§6,
+Read [agent-workflow.md](agent-workflow.md), the spec (§1, §2, §2a, §4–§6,
 "Failure handling", "Privacy"), and [CP0's Hand-off](cp0-spike.md#hand-off).
 
 ## Goal
@@ -12,7 +12,10 @@ Build everything the four providers share, without changing what users see:
 - an unavailable provider falls back once, and is remembered;
 - message text on its way into a provider-search request is held back and
   the turn restarts without provider search;
-- provider sources are selected, merged onto the reply and saved.
+- provider sources are selected, merged onto the reply and saved;
+- a nearby question on a provider-search turn asks, per provider, before
+  the approximate location goes to that provider's search (spec §2a, owner
+  amendment of 2026-10-29).
 
 `CloudProviderID.nativeWebSearchProviders` stays empty, so every route
 still gets F32's behavior. CP1 also opens the branch's draft pull request,
@@ -175,6 +178,12 @@ struct ProviderSearchPart: AgentToolbox {
     F29 supplies them later; the sentence is built now so F29 only passes
     the list).
 - [ ] **Run, implement, run.** Update every `switch` over `NativeToolPart`.
+- [ ] **Amendment (spec §2a, §4):** the instruction's near-me clause comes
+  from the request's location. `testProviderSearchInstructionWithLocation`:
+  with a `ProviderSearchLocation` the clause is exactly "The user's
+  approximate location is ‹City, Region, Country›; your web search tool uses
+  it for places and weather near them", with missing parts left out (no
+  stray commas); without one it's the "ask which city they mean" clause.
 
 ### Task 1.3: `submitNative` with provider search, and the fallback
 
@@ -252,7 +261,73 @@ reply's text and sources, and runs the turn again with the plan made again.
 - [ ] **Run, implement, run.** The check stays in the gate (Swift), never
   in a prompt.
 
-### Task 1.5: The pull request
+### Task 1.5: The location card (spec §2a)
+
+Added on 2026-10-29 by the owner's amendment, after CP1 started. Build it
+after Task 1.4.
+
+**Files:** modify `Enigma/Chat/ChatDomain.swift`,
+`Enigma/Chat/ToolPermissions.swift`, `Enigma/Chat/ToolPermissionCard.swift`
+(copy only), `Enigma/Search/LocationService.swift`,
+`Enigma/LocalInference/LocalChatViewModel.swift`, and the Settings Always
+list if it needs a label for the new kind.
+
+**Interfaces:**
+
+```swift
+// ChatDomain.swift
+struct ProviderSearchLocation: Sendable, Equatable {
+  var city: String?
+  var region: String?
+  var countryCode: String?     // ISO 3166-1 alpha-2
+  var timeZone: String?        // IANA identifier, from the Mac
+  /// "City, Region, Country" with missing parts left out, for the card and the instruction.
+  var displayName: String { get }
+}
+struct ProviderSearch { var location: ProviderSearchLocation? = nil }   // beside blockedDomains
+
+// ToolPermissions.swift
+enum ToolPermission { case shareLocation(provider: CloudProviderID, area: String) }
+// ToolAlwaysGrant.Kind gains .shareLocation, and the grant gains an optional
+// `provider: CloudProviderID?`: location grants are matched by provider, never by
+// ToolDestination. Saved Always grants from F32 still decode.
+
+// LocationService.swift
+// ApproximateLocation gains `providerSearchLocation`: city, region and country code from the
+// reverse geocode the service already makes, and TimeZone.current's identifier. Coordinates stay
+// on the Mac.
+```
+
+**Behavior** is spec §2a. The card is asked in `submitNative` before the
+request is sent (like F32's `.shareMessageText` card), only when the plan's
+search is `.provider`, `LocationIntent.needsLocation` holds for the user's
+own question, the Location setting is on, and this provider has no grant.
+Look up the area first (on the Mac), so the card can name it; no area, no
+card. Stop while the card shows ends the turn like Stop.
+
+- [ ] **Write the failing tests** (`NativeToolRequestTests`, with fakes for
+  the location provider and the permission answer):
+  - `testNearbyQuestionAsksBeforeProviderSearch`: the card shows with the
+    spec's exact title and body, before anything reaches the fake provider;
+    "For this conversation" sends the location in `providerSearch.location`.
+  - `testLocationDeclinedSendsNothing`: Don't allow → no location, the
+    "ask which city" clause, and the card returns for the next nearby
+    question.
+  - `testLocationGrantIsPerProvider`: a grant for `.chatGPT` doesn't cover
+    `.openAI`, and `.claudeCode` doesn't cover `.anthropic` (both
+    directions); Always for one provider shows the card again for another.
+  - `testNoLocationCardWithoutNearbyQuestion`, `…WhenLocationOff`,
+    `…WhenLocationUnavailable`, `…OnEnigmaSearch` (`.enigma` backend keeps
+    today's behavior), `…AfterRestart` (the restart's second run asks
+    nothing).
+  - `testAlwaysLocationGrantSurvivesAndIsListed`: saved with F32's Always
+    grants (in a test suite's defaults), listed with the provider's name,
+    removable; an F32 grant saved before this change still decodes.
+  - `ApproximateLocation` maps a geocoded city, region and country to
+    `ProviderSearchLocation` and never includes coordinates.
+- [ ] **Run, implement, run.** Nothing about the location is logged.
+
+### Task 1.6: The pull request
 
 - [ ] **After the commit is pushed,** open the branch's draft pull request
   (`gh pr create --draft`, title "Native web search for cloud models
@@ -278,6 +353,10 @@ reply's text and sources, and runs the turn again with the plan made again.
 - `isAllowed` and the plan can't offer provider search in a chat that holds
   message text, on Gemini, or for an unavailable pair.
 - The fallback can't run after any text or tool call reached the reply.
+- Location: no card and no location unless every §2a condition holds; a
+  grant never crosses providers (mutation-test: key it by
+  `ToolDestination` and a test must fail); no coordinates in
+  `ProviderSearchLocation`; nothing logged.
 - No location, query, URL or answer text in a log; nothing new on disk.
 - No existing F32 test was weakened.
 

@@ -48,6 +48,11 @@ extension CodexSubscriptionClient {
     beside `dynamicTools`; the developer instructions' tools line gains
     "and web search" and the spec §4 instruction follows.
   - `testCodexThreadWithoutSearchUnchanged`.
+  - `testCodexSearchThreadLocation` (spec §2a): with `providerSearch.location`,
+    `config` also holds `tools.web_search.location` (`{city, region,
+    country, timezone}`, missing parts left out); without it, no location
+    key. Confirm the key with one approved ChatGPT turn before relying on it
+    (the 0.164.0 schema has `WebSearchToolConfig.location`).
   - `testCodexWebSearchModeFromRequirements`: live allowed, only cached,
     neither, and no requirements.
   - `testCodexNoAllowedModeIsUnavailable`: neither mode allowed throws
@@ -90,8 +95,9 @@ extension CodexSubscriptionClient {
 
 ## Reviewer checklist
 
-- The turn keeps F32's read-only sandbox and declined approvals; no
-  location in `config`.
+- The turn keeps F32's read-only sandbox and declined approvals; a
+  location in `config` only from `providerSearch.location` (spec §2a), never
+  coordinates.
 - A thread without provider search is unchanged, including the launch
   arguments unless CP0 required otherwise.
 - Malformed results never become sources.

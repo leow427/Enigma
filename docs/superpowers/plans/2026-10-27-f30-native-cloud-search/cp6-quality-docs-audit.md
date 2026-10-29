@@ -81,7 +81,8 @@ importable module F29 reuses) and `scripts/evaluate-native-search.py`
 - [ ] **`docs/Web-Search.md`:** a "Cloud models' own search" section (which
   routes; only without message text; the restart; sources and fallback; the
   spec's privacy table; costs, checked on the OpenAI and Anthropic pricing
-  pages on the day, with the date; near-me questions until F29; Gemini).
+  pages on the day, with the date; the location card per provider, spec
+  §2a, also in the "Location" section; Gemini).
   Update "On models that choose their own tools" (no key needed on those
   routes), "How it works" and "Tests".
 - [ ] **`docs/ChatGPT-Setup.md`, `docs/Claude-Code-Setup.md`,
@@ -101,7 +102,9 @@ importable module F29 reuses) and `scripts/evaluate-native-search.py`
     activity steps, the sources list, the "web search" footer;
   - a chat that reads Messages, then searches: the restart on screen, then
     gate 3's card (with a Brave key) or no search (without);
-  - "cafes near me" on a shipped route asks which city;
+  - "cafes near me" on a shipped route shows the location card naming that
+    provider; For this conversation sends the area; another provider asks
+    again; Don't allow makes the model ask which city;
   - a Gemini search uses Enigma's `web_search`;
   - Stop during a provider search.
 - [ ] **Merge.** Run the final `build`, `test` and `analyze`, mark the draft

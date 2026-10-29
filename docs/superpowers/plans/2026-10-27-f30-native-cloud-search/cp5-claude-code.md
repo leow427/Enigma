@@ -40,6 +40,10 @@ owner's live check passes, `.claudeCode` joins the provider set.
     WebSearch"; the spec §4 instruction follows. If CP0 found answers add
     their own "Sources:" list, the instruction asks for linked pages only,
     as CP0 recommends.
+  - `testClaudeCodeSearchSystemPromptWithLocation` (spec §2a): Claude Code
+    has no location field, so with `providerSearch.location` the near-me
+    clause names the area in the system prompt; without it, the "ask which
+    city" clause. Nowhere else in the arguments.
 - [ ] **Run, implement, run.**
 
 ### Task 5.2: Parser events and the `init` check

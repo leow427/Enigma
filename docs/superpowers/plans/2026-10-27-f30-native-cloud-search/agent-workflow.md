@@ -102,7 +102,8 @@ worker.
     failure paths.
   - Never log a query, a URL, page text or answer text.
   - Never write search data to disk.
-  - Never add a location field to a provider request.
+  - Never add a location field to a provider request except spec §2a's,
+    after the user's per-provider grant; never coordinates.
 - **Copy and UI.**
   - Use the exact strings in the spec.
   - Follow `docs/design/UI-Style.md`.
@@ -222,7 +223,8 @@ Follow `docs/reviewer.md`, and these rules:
      concurrency mistakes, cancellation that doesn't propagate, streams
      that never finish, a fallback that runs twice.
   2. **Privacy and security,** against spec §5:
-     - no location field in any provider request;
+     - a location only as spec §2a allows (nearby question, per-provider
+       grant, no coordinates);
      - provider search only on the web route, with no source material;
      - Claude Code's `WebFetch` stays off;
      - no query, URL or answer text in logs;

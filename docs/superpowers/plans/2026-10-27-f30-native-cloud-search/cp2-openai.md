@@ -46,7 +46,7 @@ extension OpenAIResponsesClient {
 
 - [ ] **Write the failing tests** in `CloudToolStreamingTests`:
   - `testOpenAIProviderSearchBody`: the step body's `tools` hold F32's
-    functions plus `{"type": "web_search"}` (no `user_location`, no
+    functions plus `{"type": "web_search"}` (`user_location` only from `providerSearch.location`, spec §2a; no
     `filters`); `include` is `["web_search_call.action.sources"]`;
     `max_tool_calls` is 5 only if CP0 confirmed it counts built-in calls
     alone; `store` is false.
@@ -122,7 +122,7 @@ final class NativeWebSearchLiveTests: XCTestCase {
 
 ## Reviewer checklist
 
-- No location field in any OpenAI body; `store: false` kept.
+- `user_location` (`{"type": "approximate", city, region, country, timezone}`, missing parts left out) only when `providerSearch.location` is set, never coordinates; `store: false` kept. Test both cases.
 - Replay matches CP0's recorded body; nothing is replayed that `store:
   false` rejects.
 - The restart posts no function output; mutation-test it.
