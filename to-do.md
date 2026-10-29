@@ -1025,10 +1025,16 @@ gets every must-pass example right. Built first, before the rest of F29.
 ### F29. On-device web search, replacing Brave
 
 **Status:** paused after CP1 (2026-10-27); F32 comes first. F31 is halted,
-so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
-`main` into the branch, and re-plan CP5/CP6 for F32: the engines become
-`web_search`'s backend, places and weather become tools for capable models,
-and today's routing stays for small models.
+so F29 no longer waits for it. CP1's second review ran on 2026-10-28: no
+Blockers, and six Should fixes not yet made. Four are in the weather,
+"local" and named-area routing rules (for example "temperature to bake
+salmon" routes to weather, "progress bars in swiftui" to places). Two are
+untested rules (location wins over a named place; recency comes from the
+typed question). Small models keep this routing under F32, so they still
+apply. On resuming: re-plan CP1's fixes and CP5/CP6 for F32 (the engines
+become `web_search`'s backend, places and weather become tools for capable
+models, and today's routing stays for small models), and fold in the maps
+additions below.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
@@ -1049,6 +1055,20 @@ reviewer)
 - Brave removed only after a quality gate against it passes.
 
 The spec has every decision, and the checkpoints the work runs in.
+
+**Added (owner, 2026-10-28), not yet in the spec or plan:**
+
+- A `/maps` command that always uses the places search, for any model, so
+  small models have a sure way to ask for places.
+- A map card under the reply, with numbered pins that match the reply's
+  numbered places. Clicking a pin opens the place in Apple Maps. It's a live
+  SwiftUI `Map` about 180–200 pt tall, still until clicked, built only when
+  its message scrolls into view, and a placeholder in the test host. Showing
+  an Apple map with Apple's attribution probably also answers CP0's MapKit
+  terms question (Q7).
+- Staged: first pin every place found; then only the places the reply
+  names. So the places tool returns an ID for each place from the start, for
+  the reply to cite and the card to pin.
 
 **Depends on / blocks:** blocks F30.
 
