@@ -12,6 +12,8 @@ struct ToolPermissionCard: View {
   static let buttons: [(title: String, answer: ToolPermissionAnswer)] = [
     ("Don't allow", .deny), ("For this conversation", .conversation), ("Always", .always),
   ]
+  /// The one lasting answer of a card that offers no Always: for this chat.
+  static let allowTitle = "Allow"
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -27,12 +29,18 @@ struct ToolPermissionCard: View {
           .enigmaButtonStyle(.secondary)
           .keyboardShortcut(.cancelAction)
           .enigmaTestMarker(Self.buttons[0].title)
-        Button(Self.buttons[1].title) { answer(.conversation) }
-          .enigmaButtonStyle(.compactPrimary)
-          .enigmaTestMarker(Self.buttons[1].title)
-        Button(Self.buttons[2].title) { answer(.always) }
-          .enigmaButtonStyle(.secondary)
-          .enigmaTestMarker(Self.buttons[2].title)
+        if request.offersAlways {
+          Button(Self.buttons[1].title) { answer(.conversation) }
+            .enigmaButtonStyle(.compactPrimary)
+            .enigmaTestMarker(Self.buttons[1].title)
+          Button(Self.buttons[2].title) { answer(.always) }
+            .enigmaButtonStyle(.secondary)
+            .enigmaTestMarker(Self.buttons[2].title)
+        } else {
+          Button(Self.allowTitle) { answer(.conversation) }
+            .enigmaButtonStyle(.compactPrimary)
+            .enigmaTestMarker(Self.allowTitle)
+        }
       }
     }
     .accessibilityElement(children: .contain)

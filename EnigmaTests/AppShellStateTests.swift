@@ -593,3 +593,75 @@ final class ChatReturnTests: XCTestCase {
     return counter.count
   }
 }
+
+// F32 CP4: which function a send calls on flagged and unflagged routes.
+extension ComposerSubmissionTests {
+  private static let flagged = LocalModel(id: "gemma", displayName: "Gemma", fileURL: URL(fileURLWithPath: "/tmp/gemma.gguf"),
+    catalogDescriptor: BundledLocalModels.models.first { $0.inferenceProfile == .gemma4_12B })
+  private static let unflagged = LocalModel(id: "qwen", displayName: "Qwen", fileURL: URL(fileURLWithPath: "/tmp/qwen.gguf"),
+    catalogDescriptor: BundledLocalModels.models.first { $0.inferenceProfile == .qwen35_2B })
+
+  private func nativeRoute(_ submission: ComposerSubmission, mode: ChatMode, enabled: Bool = true,
+                           local: LocalModel? = flagged, provider: CloudProviderID = .anthropic,
+                           model: String = "claude-sonnet-4-6") -> Route? {
+    ComposerSubmission.nativeRoute(for: submission, mode: mode, nativeToolsEnabled: enabled, localModel: local,
+                                   cloudProvider: provider, cloudModelID: model)
+  }
+
+  func testFlaggedRoutesGoToSubmitNative() {
+    let chat = ComposerSubmission.chat(prompt: "hi", searchEnabled: false)
+    let messages = ComposerSubmission.messages(prompt: "who texted?")
+    // Local with a flagged model.
+    XCTAssertEqual(nativeRoute(chat, mode: .local), Route(mode: .local, providerID: "local", modelID: "gemma", usesNetwork: false))
+    XCTAssertEqual(nativeRoute(messages, mode: .local)?.mode, .local)
+    XCTAssertNil(nativeRoute(chat, mode: .local, local: Self.unflagged), "An unflagged model keeps today's submit")
+    XCTAssertNil(nativeRoute(chat, mode: .local, local: nil))
+    // Cloud.
+    XCTAssertEqual(nativeRoute(chat, mode: .cloud), Route(mode: .cloud, providerID: "anthropic",
+                                                         modelID: "claude-sonnet-4-6", usesNetwork: true))
+    XCTAssertEqual(nativeRoute(messages, mode: .cloud)?.mode, .cloud)
+    XCTAssertNil(nativeRoute(chat, mode: .cloud, model: " "))
+    XCTAssertNil(nativeRoute(chat, mode: .cloud, provider: .openAI, model: "an-unreviewed-model"))
+    // Auto: chat goes to submitAuto, which picks either route; /messages stays on the local model.
+    XCTAssertNil(nativeRoute(chat, mode: .auto))
+    XCTAssertEqual(nativeRoute(messages, mode: .auto)?.mode, .local)
+    XCTAssertNil(nativeRoute(messages, mode: .auto, local: Self.unflagged), "Today's local /messages")
+    // Files and screen captures keep today's paths.
+    for other in [ComposerSubmission.files(prompt: "hi"), .captureScreen, .screenAttachment, .none, .fileConflict, .messagesConflict] {
+      for mode in [ChatMode.local, .cloud, .auto] { XCTAssertNil(nativeRoute(other, mode: mode), "\(other) \(mode)") }
+    }
+  }
+
+  func testSwitchOffKeepsTodaysRouting() {
+    XCTAssertFalse(NativeTools.isEnabled)
+    for submission in [ComposerSubmission.chat(prompt: "hi", searchEnabled: true), .messages(prompt: "hi")] {
+      for mode in [ChatMode.local, .cloud, .auto] {
+        XCTAssertNil(nativeRoute(submission, mode: mode, enabled: false), "\(submission) \(mode)")
+      }
+    }
+    XCTAssertTrue(ComposerSubmission.asksMessagesCloudNotice(mode: .cloud, nativeRoute: nil, hasDisclosed: false))
+  }
+
+  func testCloudMessagesNoticeSkippedOnFlaggedRoutes() {
+    let route = nativeRoute(.messages(prompt: "who texted?"), mode: .cloud)
+    XCTAssertNotNil(route)
+    XCTAssertFalse(ComposerSubmission.asksMessagesCloudNotice(mode: .cloud, nativeRoute: route, hasDisclosed: false),
+                   "The per-chat permission card replaces the one-time notice")
+    XCTAssertTrue(ComposerSubmission.asksMessagesCloudNotice(mode: .cloud, nativeRoute: nil, hasDisclosed: false))
+    XCTAssertFalse(ComposerSubmission.asksMessagesCloudNotice(mode: .cloud, nativeRoute: nil, hasDisclosed: true))
+    XCTAssertFalse(ComposerSubmission.asksMessagesCloudNotice(mode: .local, nativeRoute: nil, hasDisclosed: false))
+  }
+
+  func testChipsFollowTheRoutesFlag() {
+    func chips(_ mode: ChatMode, local: LocalModel?, provider: CloudProviderID = .anthropic, model: String = "claude-sonnet-4-6") -> Bool {
+      NativeTools.isCapable(mode: mode, localModel: local, cloudProvider: provider, cloudModelID: model)
+    }
+    XCTAssertTrue(chips(.local, local: Self.flagged))
+    XCTAssertFalse(chips(.local, local: Self.unflagged))
+    XCTAssertTrue(chips(.cloud, local: Self.unflagged))
+    XCTAssertFalse(chips(.cloud, local: Self.flagged, provider: .openAI, model: "an-unreviewed-model"))
+    XCTAssertTrue(chips(.auto, local: Self.flagged, provider: .openAI, model: "an-unreviewed-model"), "Auto starts local")
+    XCTAssertFalse(chips(.auto, local: Self.unflagged))
+    XCTAssertFalse(chips(.auto, local: nil))
+  }
+}

@@ -417,3 +417,30 @@ final class ComposerIntentChipsTests: XCTestCase {
 }
 
 
+
+// F32 CP4: flagged routes run no recognizers and show no chips; typed commands still parse.
+extension ComposerIntentResolveTests {
+  func testNativeContextInfersNothing() {
+    let drafts = ["what did Sam text me", "think hard about this proof", "fix the grammar", "translate this to Spanish",
+                  "what's the weather today", "latest news"]
+    for draft in drafts {
+      let context = ComposerIntent.Context(draft: draft, hasSelection: true, previousTurnUsedMessages: true,
+                                           infersCommands: true, searchesAutomatically: true)
+      XCTAssertFalse(ComposerIntent.resolve(context).inferred.isEmpty, "\(draft) infers something today")
+      var native = context
+      native.nativeTools = true
+      let intent = ComposerIntent.resolve(native)
+      XCTAssertEqual(intent.inferred, [], draft)
+      XCTAssertFalse(intent.messages || intent.search || intent.think || intent.edit || intent.translate, draft)
+    }
+    var typed = ComposerIntent.Context(draft: "/search /think /edit tighten this", hasSelection: true, searchesAutomatically: true)
+    typed.nativeTools = true
+    let intent = ComposerIntent.resolve(typed)
+    XCTAssertEqual(intent.inferred, [])
+    XCTAssertTrue(intent.search && intent.think && intent.edit)
+    XCTAssertEqual(intent.submissionPrompt, "/think /edit tighten this")
+    var messages = ComposerIntent.Context(draft: "/messages who texted?")
+    messages.nativeTools = true
+    XCTAssertTrue(ComposerIntent.resolve(messages).messages)
+  }
+}

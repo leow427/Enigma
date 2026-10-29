@@ -114,8 +114,11 @@ struct MessagesSearchResult: Sendable, Equatable {
 /// with a `mode=ro` URI, `SQLITE_OPEN_READONLY`, and `query_only`, so Enigma cannot
 /// write to Messages' database even through a bug in a query.
 struct MessagesDatabase: Sendable {
-  static let defaultURL = FileManager.default.homeDirectoryForCurrentUser
-    .appending(path: "Library/Messages/chat.db")
+  /// The unsigned test host shares Enigma's bundle ID, so its opening the real database
+  /// makes macOS replace the user's Full Disk Access grant with a denial. It gets a missing file.
+  static let defaultURL = TestHost.isActive
+    ? FileManager.default.temporaryDirectory.appending(path: "EnigmaTests-no-messages/chat.db")
+    : FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Messages/chat.db")
   static let searchScanLimit = 100_000
 
   let url: URL

@@ -36,12 +36,14 @@ enum ToolPermission: Sendable, Equatable {
   case readChat(chatGUID: String, name: String)
   case searchChats(query: String)
   case searchAfterMessages(query: String)
+  /// Send a chat that holds message text to a destination its text wasn't allowed for.
+  case shareMessageText
 }
 
 enum ToolPermissionAnswer: Sendable { case deny, conversation, always }
 
 struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
-  enum Kind: String, Codable, Sendable { case readChat, searchChats, searchAfterMessages }
+  enum Kind: String, Codable, Sendable { case readChat, searchChats, searchAfterMessages, shareMessageText }
 
   let kind: Kind
   let chatGUID: String?
@@ -76,6 +78,8 @@ struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
       self.init(kind: .searchChats, chatGUID: nil, chatName: nil, destination: destination)
     case .searchAfterMessages:
       self.init(kind: .searchAfterMessages, chatGUID: nil, chatName: nil, destination: nil)
+    case .shareMessageText:
+      self.init(kind: .shareMessageText, chatGUID: nil, chatName: nil, destination: destination)
     }
   }
 }
@@ -90,6 +94,9 @@ final class ToolGrantStore: ObservableObject {
   @Published private(set) var alwaysGrants: [ToolAlwaysGrant]
   private var conversationGrants: [UUID: Set<ToolAlwaysGrant.Key>] = [:]
   private var sessionsWithMessageText: Set<UUID> = []
+  /// The companies all of each session's message text was allowed to go to, so it never moves
+  /// on without asking. This Mac is always allowed.
+  private var messageTextDestinations: [UUID: Set<ToolDestination>] = [:]
   let defaults: UserDefaults
 
   init(defaults: UserDefaults) {
@@ -99,12 +106,18 @@ final class ToolGrantStore: ObservableObject {
   }
 
   func isGranted(_ permission: ToolPermission, destination: ToolDestination, session: UUID) -> Bool {
+    if case .shareMessageText = permission { return messageTextAllowed(session: session, destination: destination) }
     let key = ToolAlwaysGrant(permission, destination: destination).key
     return conversationGrants[session]?.contains(key) == true || alwaysGrants.contains { $0.key == key }
   }
 
   func record(_ answer: ToolPermissionAnswer, for permission: ToolPermission,
               destination: ToolDestination, session: UUID) {
+    if case .shareMessageText = permission {
+      // Asked per chat only: the card offers no Always.
+      if answer != .deny { messageTextDestinations[session, default: []].insert(destination) }
+      return
+    }
     let grant = ToolAlwaysGrant(permission, destination: destination)
     switch answer {
     case .deny: return
@@ -126,9 +139,25 @@ final class ToolGrantStore: ObservableObject {
   func endSession(_ session: UUID) {
     conversationGrants[session] = nil
     sessionsWithMessageText.remove(session)
+    messageTextDestinations[session] = nil
   }
 
-  func markMessageText(session: UUID) { sessionsWithMessageText.insert(session) }
+  /// Message text entered the session, allowed for `destination`. The history may then go only
+  /// where every piece of text was allowed, so a read kept on this Mac takes the companies out.
+  /// Only the share card adds one back.
+  func markMessageText(session: UUID, destination: ToolDestination = .thisMac) {
+    let allowed: Set<ToolDestination> = destination == .thisMac ? [] : [destination]
+    messageTextDestinations[session] = hasMessageText(session: session)
+      ? (messageTextDestinations[session] ?? []).intersection(allowed) : allowed
+    sessionsWithMessageText.insert(session)
+  }
+
+  /// Whether the session's history may go to `destination`: this Mac, a session without message
+  /// text, or a company all of its text was allowed for.
+  func messageTextAllowed(session: UUID, destination: ToolDestination) -> Bool {
+    destination == .thisMac || !hasMessageText(session: session)
+      || messageTextDestinations[session]?.contains(destination) == true
+  }
 
   func hasMessageText(session: UUID) -> Bool { sessionsWithMessageText.contains(session) }
 

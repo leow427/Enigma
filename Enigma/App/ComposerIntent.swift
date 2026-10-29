@@ -21,6 +21,8 @@ struct ComposerIntent: Equatable, Sendable {
     var searchesAutomatically = false
     /// Inferences the person turned off for this draft.
     var dismissed: Set<SlashCommand> = []
+    /// The route's model chooses its own tools (F32): nothing is recognized, and no chip shown.
+    var nativeTools = false
 
     /// `recognizesCommands` is false for the request a typed `/screen` or `/snapshot` sends after
     /// its capture. That request runs only the typed commands: no chip was shown for it, so
@@ -73,7 +75,7 @@ struct ComposerIntent: Equatable, Sendable {
     let text = WebSearchPolicy.questionText(typed.prompt)
     // Screen and Snapshot are never inferred, and a capture never picks up other inferences.
     if !typed.screen {
-      if context.infersCommands {
+      if context.infersCommands && !context.nativeTools {
         if !typed.messages, MessagesIntentPolicy.isRequested(normalized: text)
             || (context.previousTurnUsedMessages && MessagesIntentPolicy.isFollowUpCue(normalized: text)) {
           candidates.insert(.messages)
@@ -96,7 +98,7 @@ struct ComposerIntent: Equatable, Sendable {
 
     // Message contents must never become a web search query, and files can't be combined
     // with search. The search check is skipped when its chip couldn't apply.
-    if context.searchesAutomatically, !typed.screen, !typed.search, !typed.messages,
+    if context.searchesAutomatically, !context.nativeTools, !typed.screen, !typed.search, !typed.messages,
        !candidates.contains(.messages), !context.hasFileSelection, !context.dismissed.contains(.search),
        WebSearchPolicy.needsFreshInformation(normalized: text, now: now) {
       candidates.insert(.search)

@@ -293,3 +293,22 @@ final class AutoRouterTests: XCTestCase {
     )
   }
 }
+
+// F32 CP4: a model that searches with its own tools never blocks or reroutes a lookup.
+extension AutoRouterTests {
+  func testAutoDoesNotBlockSearchWhenModelChooses() {
+    let local = LocalModel(id: "local-model", displayName: "Local Model", fileURL: URL(fileURLWithPath: "/tmp/local-model.gguf"))
+    let cloud = AutoRouter.CloudConfiguration(provider: .openAI, modelID: "cloud-model")
+    for prompt in ["Search the web for the latest news.", "What is the current price of gold?", "Look this up for me: tide times"] {
+      let blocked = AutoRouter.decide(AutoRouter.Request(selectedMode: .auto, prompt: prompt, contextMessages: [],
+                                                         localModel: local, cloud: cloud))
+      XCTAssertEqual(blocked.reason, .requiresWebSearch, prompt)
+      let chosen = AutoRouter.decide(AutoRouter.Request(selectedMode: .auto, prompt: prompt, contextMessages: [],
+                                                        localModel: local, cloud: cloud, modelChoosesSearch: true))
+      XCTAssertNotNil(chosen.route, prompt)
+      XCTAssertNil(chosen.limitation, prompt)
+      XCTAssertNotEqual(chosen.reason, .requiresWebSearch, prompt)
+      XCTAssertEqual(chosen.route?.mode, .local, "\(prompt): nothing else asks for the cloud")
+    }
+  }
+}

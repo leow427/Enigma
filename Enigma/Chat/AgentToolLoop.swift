@@ -118,6 +118,21 @@ struct LocalToolAgent: Sendable {
 }
 
 extension LocalToolAgent {
+  /// Drops older turns so a streamed request fits the model's context, as plain turns do: history
+  /// counts a byte as a token, as there, and the system prompt and tool definitions are reserved at
+  /// about four bytes a token. The server checks the exact count before it answers.
+  static func prepare(_ messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox) throws -> PreparedConversation {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
+    let tools = (try? encoder.encode(CodexValue.array(toolbox.definitions.map(\.llama))))?.count ?? 0
+    let system = ChatResponseStyle.instructions.utf8.count + toolbox.instructions.utf8.count
+      + localInstructions.utf8.count + (ThinkCommand.enabled(in: messages) ? ThinkCommand.guidance.utf8.count : 0)
+    return try ChatContextPreparer.prepare(messages,
+      budget: ContextBudget(contextWindow: model.contextWindow, outputTokens: ThinkCommand.enabled(in: messages) ? 2_048 : 1_024,
+                            overheadTokens: (system + tools) / 4 + 64),
+      countTokens: { $0.reduce(0) { $0 + $1.content.utf8.count + 32 } })
+  }
+
   /// `run` with each step streamed: text reaches `onText` as it arrives, trimmed and with a
   /// blank line between steps as the cloud loops show it, and `toolbox.offeredRequiredTool`
   /// is asked for on the first step. History, `/think` and tool results match `run`.

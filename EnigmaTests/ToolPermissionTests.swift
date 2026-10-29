@@ -113,6 +113,27 @@ final class ToolPermissionTests: XCTestCase {
     XCTAssertTrue(store.isGranted(.searchChats(query: "q"), destination: .thisMac, session: sessionA), "Always stays")
   }
 
+  /// A chat's history may go to a company only if all of its message text was allowed there.
+  func testMessageTextDestinationsOnlyNarrowUntilASharedAllow() {
+    let store = store()
+    XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .anthropic), "No message text yet")
+    store.markMessageText(session: sessionA, destination: .anthropic)
+    XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .anthropic))
+    XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .thisMac))
+    XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .openAI))
+    store.markMessageText(session: sessionA, destination: .thisMac)
+    XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .anthropic),
+                   "Text kept on this Mac takes Anthropic out")
+    store.markMessageText(session: sessionA, destination: .anthropic)
+    XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .anthropic), "A later read doesn't widen it")
+    store.record(.conversation, for: .shareMessageText, destination: .anthropic, session: sessionA)
+    XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .anthropic), "Only the share card widens it")
+    store.markMessageText(session: sessionA, destination: .openAI)
+    XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .anthropic))
+    XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .openAI))
+    XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .thisMac))
+  }
+
   func testCorruptDefaultsLoadEmpty() {
     defaults.set(Data("not json".utf8), forKey: ToolGrantStore.defaultsKey)
     XCTAssertTrue(store().alwaysGrants.isEmpty)

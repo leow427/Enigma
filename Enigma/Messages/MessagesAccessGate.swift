@@ -37,6 +37,6 @@ struct CoordinatorMessagesGate: MessagesAccessGate {
   }
 
   func didReturnMessageText() async {
-    await coordinator.store.markMessageText(session: session)
+    await coordinator.store.markMessageText(session: session, destination: destination)
   }
 }

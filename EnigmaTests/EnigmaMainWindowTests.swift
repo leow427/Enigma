@@ -1679,7 +1679,9 @@ extension EnigmaMainWindowTests {
 
     init(test: XCTestCase, model: LocalModel? = LocalModel(id: "fixture", displayName: "Fixture 8B",
                                                            fileURL: URL(fileURLWithPath: "/tmp/enigma-main-fixture.gguf")),
-         sessions: [ChatSession] = [], messagesAccess: (@Sendable () throws -> Void)? = nil) async throws {
+         sessions: [ChatSession] = [], messagesAccess: (@Sendable () throws -> Void)? = nil,
+         nativeToolsEnabled: Bool = false, toolInference: (any LocalToolInference)? = nil,
+         searchKey: String? = nil) async throws {
       let name = "EnigmaMainWindowTests-\(UUID())"
       defaults = try XCTUnwrap(UserDefaults(suiteName: name))
       root = FileManager.default.temporaryDirectory.appending(path: name)
@@ -1698,6 +1700,8 @@ extension EnigmaMainWindowTests {
       picker = MainWindowTestPicker([folder])
       files = FileModeCoordinator(picker: picker, journalDirectory: root.appending(path: "Recovery"))
       selectionEditing = SelectionEditingSettings(defaults: defaults)
+      let search = WebSearchSettings(credentials: MainWindowTestSearchCredentials(key: searchKey), defaults: defaults)
+      self.search = search
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
         replaceSelection: { [pastes] text, _, automatic in
           pastes.texts.append(text)
@@ -1705,7 +1709,8 @@ extension EnigmaMainWindowTests {
           return true
         },
         files: files, toolPermissions: ToolPermissionCoordinator(store: ToolGrantStore(defaults: defaults)),
-        messagesAccess: messagesAccess, visionEngine: engine, sessionStore: store)
+        messagesAccess: messagesAccess, fileInference: toolInference, visionEngine: engine,
+        searchSettings: searchKey == nil ? nil : search, sessionStore: store, nativeToolsEnabled: nativeToolsEnabled)
       self.chat = chat
       await chat.refreshInstalledModel()
       let credentials = ScreenTestCredentialStore()
@@ -1713,7 +1718,6 @@ extension EnigmaMainWindowTests {
         catalog: CloudModelCatalog(credentialStore: credentials, transport: ScreenTestTransport(), cacheDirectory: root),
         preferences: CloudPreferencesStore(defaults: defaults), codexAvailable: { false },
         claudeCode: ClaudeCodeSubscriptionClient(runtime: ClaudeCodeRuntime(directory: root, executable: { nil })))
-      search = WebSearchSettings(credentials: MainWindowTestSearchCredentials(), defaults: defaults)
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil)
       setup = WelcomeSetup(defaults: defaults)
       start = StartPreferences(defaults: defaults)
@@ -1927,7 +1931,67 @@ final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @uncheck
 }
 
 private struct MainWindowTestSearchCredentials: WebSearchCredentialStore {
-  func apiKey() throws -> String? { nil }
+  var key: String?
+  func apiKey() throws -> String? { key }
   func setAPIKey(_ value: String) throws {}
   func removeAPIKey() throws {}
+}
+
+// F32 CP4: the shell sends flagged routes to submitNative and shows no recognized chips there.
+extension EnigmaMainWindowTests {
+  @MainActor
+  func testFlaggedLocalSendsGoThroughTheNativeToolLoop() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Native answer."), .text("Native Messages answer.")])
+    let fixture = try await Fixture(test: self, model: NativeToolRequestTests.flaggedModel, messagesAccess: {},
+                                    nativeToolsEnabled: true, toolInference: inference, searchKey: "test-key")
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    XCTAssertTrue(fixture.search.canSearchAutomatically, "A draft like this one shows a search chip on other models")
+    XCTAssertTrue(ComposerIntent.resolve(.init(draft: "What's the latest news today?", searchesAutomatically: true)).search)
+    fixture.screen.draft = "What's the latest news today?"
+    try await waitForUI("the draft", in: host.view) { editor.string == "What's the latest news today?" }
+    try await clickTestControl("Send message", in: host.view)
+    try await waitForUI("the native reply", in: host.view) {
+      fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Native answer."
+    }
+    var required = await inference.requiredTools
+    XCTAssertEqual(required, [nil], "No recognized search chip, so nothing is forced")
+    XCTAssertEqual(fixture.engine.requestCount, 0, "Today's plain path never ran")
+    try await waitForUI("the chat free again", in: host.view) { !fixture.chat.isBusy }
+
+    // The queue sends through the shell's own routing, as a message typed during a reply would.
+    XCTAssertTrue(fixture.chat.queueMessage("/messages who texted me?"))
+    try await waitForUI("the native Messages reply; state \(fixture.chat.state), messages \(fixture.chat.messages.map(\.content))",
+                        in: host.view) {
+      fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Native Messages answer."
+    }
+    required = await inference.requiredTools
+    XCTAssertEqual(required.count, 2)
+    let requests = await inference.requests
+    XCTAssertTrue(requests.last?.tools.contains("get_messages") == true)
+    XCTAssertTrue(requests.last?.messages.first?.content?.contains(AssistantToolbox.typedMessagesInstruction) == true)
+  }
+
+  @MainActor
+  func testFlaggedMessagesTypedInTheFieldGoThroughTheGatedToolLoop() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Native Messages answer.")])
+    let fixture = try await Fixture(test: self, model: NativeToolRequestTests.flaggedModel, messagesAccess: {},
+                                    nativeToolsEnabled: true, toolInference: inference)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    fixture.screen.draft = "/messages who texted me?"
+    try await waitForUI("the draft", in: host.view) { editor.string.contains("who texted me?") }
+    try await clickTestControl("Send message", in: host.view)
+    try await waitForUI("the native Messages reply; state \(fixture.chat.state), messages \(fixture.chat.messages.map(\.content))",
+                        in: host.view) {
+      fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Native Messages answer."
+    }
+    let requests = await inference.requests
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertTrue(requests.last?.tools.contains("get_messages") == true)
+    XCTAssertTrue(requests.last?.messages.first?.content?.contains(AssistantToolbox.typedMessagesInstruction) == true)
+    XCTAssertEqual(fixture.engine.requestCount, 0, "Today's ungated Messages loop never ran")
+  }
 }

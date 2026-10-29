@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */; };
+		CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */; };
+		49C4B3DFF2ED966E3F736769 /* EnigmaTests/NativeToolPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */; };
+		B01AA8CBC0947EE31A7140C4 /* EnigmaTests/NativeToolPartsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10FFC42AA94E65BE7FB5915 /* EnigmaTests/NativeToolPartsTests.swift */; };
+		95ED97A60C86B267AB67A2EA /* Enigma/Chat/SelectionTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55AB026516A55E6845207D46 /* Enigma/Chat/SelectionTools.swift */; };
+		008F4070A5265D728FB6B5F5 /* Enigma/Search/WebSearchTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 115566CA9462E2584468EF0B /* Enigma/Search/WebSearchTool.swift */; };
 		EB1EFCD23613AF689238ED53 /* Enigma/Cloud/CloudToolStreaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */; };
 		83AC6B2E447FBF3850DBC916 /* EnigmaTests/CloudToolStreamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */; };
 		C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */; };
@@ -233,6 +239,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolRequestTests.swift"; sourceTree = SOURCE_ROOT; };
+		EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/AssistantToolbox.swift"; sourceTree = SOURCE_ROOT; };
+		E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolPlanTests.swift"; sourceTree = SOURCE_ROOT; };
+		E10FFC42AA94E65BE7FB5915 /* EnigmaTests/NativeToolPartsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolPartsTests.swift"; sourceTree = SOURCE_ROOT; };
+		55AB026516A55E6845207D46 /* Enigma/Chat/SelectionTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/SelectionTools.swift"; sourceTree = SOURCE_ROOT; };
+		115566CA9462E2584468EF0B /* Enigma/Search/WebSearchTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WebSearchTool.swift"; sourceTree = SOURCE_ROOT; };
 		797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/CloudToolStreaming.swift"; sourceTree = SOURCE_ROOT; };
 		EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/CloudToolStreamingTests.swift"; sourceTree = SOURCE_ROOT; };
 		8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeToolsProbeTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -474,6 +486,12 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				18E1E8EEF95B10E61C95D060 /* EnigmaTests/NativeToolRequestTests.swift */,
+				EA6A3698687AF995EAB2F05B /* Enigma/Chat/AssistantToolbox.swift */,
+				E892309DE6D9CBCF6A13F880 /* EnigmaTests/NativeToolPlanTests.swift */,
+				E10FFC42AA94E65BE7FB5915 /* EnigmaTests/NativeToolPartsTests.swift */,
+				55AB026516A55E6845207D46 /* Enigma/Chat/SelectionTools.swift */,
+				115566CA9462E2584468EF0B /* Enigma/Search/WebSearchTool.swift */,
 				797780462626AAB8406DCA20 /* Enigma/Cloud/CloudToolStreaming.swift */,
 				EAE04F9B086A6AB809FE59D6 /* EnigmaTests/CloudToolStreamingTests.swift */,
 				8F0A49A21A84C4E52AB2D366 /* EnigmaTests/NativeToolsProbeTests.swift */,
@@ -872,6 +890,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */,
+				95ED97A60C86B267AB67A2EA /* Enigma/Chat/SelectionTools.swift in Sources */,
+				008F4070A5265D728FB6B5F5 /* Enigma/Search/WebSearchTool.swift in Sources */,
 				EB1EFCD23613AF689238ED53 /* Enigma/Cloud/CloudToolStreaming.swift in Sources */,
 				48390FFD558516F480710091 /* Enigma/Chat/NativeTools.swift in Sources */,
 				D9A80B52E84998C9D6625B07 /* Enigma/Messages/MessagesAccessGate.swift in Sources */,
@@ -1022,6 +1043,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */,
+				49C4B3DFF2ED966E3F736769 /* EnigmaTests/NativeToolPlanTests.swift in Sources */,
+				B01AA8CBC0947EE31A7140C4 /* EnigmaTests/NativeToolPartsTests.swift in Sources */,
 				83AC6B2E447FBF3850DBC916 /* EnigmaTests/CloudToolStreamingTests.swift in Sources */,
 				C939E8E94D079EC36B055D71 /* EnigmaTests/NativeToolsProbeTests.swift in Sources */,
 				D9B1BAE3817B2310FC9685E3 /* EnigmaTests/NativeToolsTests.swift in Sources */,

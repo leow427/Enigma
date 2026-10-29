@@ -16,6 +16,7 @@ struct MessagesSettingsSection: View {
     case .readChat: "Read your chat with \(grant.chatName ?? grant.chatGUID ?? "") · \(destination)"
     case .searchChats: "Search all your messages · \(destination)"
     case .searchAfterMessages: "Search the web after reading messages"
+    case .shareMessageText: "Send text from your messages · \(destination)"
     }
   }
 

@@ -19,12 +19,19 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     case .readChat(_, let name): title = "Allow reading your chat with \(Self.oneLine(name))?"
     case .searchChats(let query): title = "Search all your messages for “\(Self.oneLine(query))”?"
     case .searchAfterMessages(let query): title = "Search the web for “\(Self.oneLine(query))”?"
+    case .shareMessageText: title = "Send text from your messages to \(destination.displayName)?"
     }
     detail = switch (permission, destination) {
-    case (.searchAfterMessages, _): "This chat includes text from your messages."
+    case (.searchAfterMessages, _), (.shareMessageText, _): "This chat includes text from your messages."
     case (_, .thisMac): "It stays on this Mac."
     case (_, let company): "It will be sent to \(company.displayName)."
     }
+  }
+
+  /// Sharing a chat's message text is answered for this chat only.
+  var offersAlways: Bool {
+    if case .shareMessageText = permission { return false }
+    return true
   }
 
   /// Model-written queries and other people's chat names can't add lines to the card, such as a

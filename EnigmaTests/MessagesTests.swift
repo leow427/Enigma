@@ -267,6 +267,18 @@ final class MessagesDatabaseTests: XCTestCase {
       XCTAssertTrue($0.localizedDescription.contains("Full Disk Access"))
     }
   }
+
+  /// The unsigned test host shares Enigma's bundle ID: opening the real chat.db makes macOS
+  /// replace the user's Full Disk Access grant with a denial for the test build.
+  func testTheTestHostNeverOpensTheRealMessagesDatabase() {
+    let real = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Messages/chat.db")
+    guard MessagesDatabase.defaultURL.standardizedFileURL != real.standardizedFileURL else {
+      return XCTFail("The test host must not open the real chat.db")
+    }
+    XCTAssertThrowsError(try MessagesDatabase().checkAccess()) {
+      XCTAssertEqual($0 as? MessagesError, .databaseMissing)
+    }
+  }
 }
 
 final class MessagesSenderTests: XCTestCase {
