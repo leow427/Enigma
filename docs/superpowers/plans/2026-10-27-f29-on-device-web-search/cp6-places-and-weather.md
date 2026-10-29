@@ -1,24 +1,41 @@
 # CP6: Places and weather
 
-Read [agent-workflow.md](agent-workflow.md), the spec (§6, §7), and the
-Hand-offs of [CP0](cp0-spike.md#hand-off), where Q7 covers MapKit and Q8
-covers Open-Meteo, and [CP5](cp5-passages-and-pipeline.md#hand-off).
+Read [agent-workflow.md](agent-workflow.md), the spec (§6 in full, §7, §8,
+"Failure handling"), and the Hand-offs of [CP0](cp0-spike.md#hand-off) (Q7
+MapKit, Q8 Open-Meteo), [CP0b](cp0b-second-probe.md#hand-off) (Q4
+geocoding), [CP1b](cp1b-routing-fixes.md#hand-off) and
+[CP5](cp5-passages-and-pipeline.md#hand-off).
 
 ## Goal
 
-Weather questions are answered from Open-Meteo, and nearby questions from
-Apple Maps together with web search. Saved sources never carry a location.
-This applies however the search started, `/search` included: CP1's routing
-already decides the route from the typed question.
+Weather comes from Open-Meteo, and places from Apple Maps, on both kinds of
+turn:
+
+- **small models:** `SearchRouting`'s weather and places routes, in the
+  provider (places run with web search at the same time);
+- **capable models:** two new tools, `find_places` and `get_weather`,
+  offered with `web_search`;
+- **`/maps`** on both.
+
+A places result carries its places for CP9's map card. Saved sources never
+carry a location. Brave still serves the web route by default; the Debug
+switch reaches all of it.
 
 ## Starting point
 
 - **Routing:** `WebSearchRequest.route`, `.namedPlace`, `.city` and
-  `.coordinate` reach the provider (CP1).
+  `.coordinate` reach the provider (CP1, CP1b).
 - **The provider:** `OnDeviceSearchProvider` handles `.places` and
   `.weather` as web searches (CP5).
-- **Fixtures:** `EnigmaTests/Fixtures/Search/open-meteo-chicago.json` came
-  from CP0.
+- **Capable turns:** `NativeToolPlan` and `AssistantToolbox`
+  (`Enigma/Chat/AssistantToolbox.swift`), `WebSearchTool` with CP5's
+  excerpts, `nativeToolbox` in `LocalChatViewModel`, gate 3 through
+  `mayQuery`, and F30's `ProviderSearchPart` with its near-me clause.
+- **Commands:** `SlashCommand` (`Enigma/App/SlashCommand.swift`) and
+  `ComposerCommands` (`Enigma/Screen/ScreenAttachment.swift`); conflicts in
+  `ComposerSubmission`.
+- **Fixtures:** `open-meteo-chicago.json` (CP0) and
+  `open-meteo-geocoding-paris.json` (CP0b).
 - **MapKit:** `LocationService` already uses `MKReverseGeocodingRequest` and
   `MKMapItem.addressRepresentations` (macOS 26 APIs).
 
@@ -26,16 +43,14 @@ already decides the route from the typed question.
 
 ### Task 6.1: Weather
 
-**Files:**
+**Files:** create `Enigma/Search/WeatherLookup.swift`. Tests in the new
+`EnigmaTests/PlacesAndWeatherTests.swift`.
 
-- Create `Enigma/Search/WeatherLookup.swift`.
-- Test: create `EnigmaTests/PlacesAndWeatherTests.swift`.
-
-**Interfaces.** This task produces:
+**Interfaces:**
 
 ```swift
-enum MeasurementUnits: Equatable, Sendable { case metric, us; static var current: MeasurementUnits { get } }  // Locale.current.measurementSystem == .us
-struct WeatherForecast: Decodable, Equatable, Sendable                 // current, hourly and daily blocks, with their units, as requested
+enum MeasurementUnits: Equatable, Sendable { case metric, us; static var current: MeasurementUnits { get } }
+struct WeatherForecast: Decodable, Equatable, Sendable          // current, hourly, daily, units, utc_offset_seconds, timezone
 protocol WeatherLooking: Sendable {
   func forecast(at coordinate: SearchCoordinate, units: MeasurementUnits) async throws -> WeatherForecast
 }
@@ -44,19 +59,22 @@ struct OpenMeteoWeather: WeatherLooking {
   init(client: any SearchHTTPClient = URLSessionSearchHTTPClient.live)
   static func url(for coordinate: SearchCoordinate, units: MeasurementUnits) -> URL
 }
-protocol Geocoding: Sendable { func locate(_ place: String) async throws -> (coordinate: SearchCoordinate, name: String) }
-struct MapKitGeocoder: Geocoding       // MKGeocodingRequest; coordinate rounded to 2 decimals; 2 s timeout
+protocol Geocoding: Sendable { func locate(_ place: String) async throws -> (coordinate: SearchCoordinate, name: String)? }
+struct OpenMeteoGeocoder: Geocoding {                             // spec §6.4; 2 s; coordinate rounded to 2 decimals
+  init(client: any SearchHTTPClient = URLSessionSearchHTTPClient.live, language: String = <the Mac's>)
+}
 enum WeatherLookup {
-  static func description(forCode code: Int) -> String                 // the WMO code table, in words
-  static func excerpt(_ forecast: WeatherForecast, placeName: String) -> WebSearchResult
+  static func description(forCode code: Int) -> String
+  static func excerpt(_ forecast: WeatherForecast, placeName: String, now: Date) -> WebSearchResult
 }
 ```
 
-**The request** is exactly spec §6's URL. For `.us` it adds
-`temperature_unit=fahrenheit`, `wind_speed_unit=mph` and
-`precipitation_unit=inch`.
+**The request** is exactly spec §6.4's URL, plus the US unit parameters for
+`.us`. **Times** follow spec §6.4 (CP0's Q8): parse with
+`utc_offset_seconds`, show in `timezone`, keep `daily.time` as dates, and
+pick the next 24 hours by comparing with `now`.
 
-**Weather code words**, from Open-Meteo's documentation:
+**Weather code words,** from Open-Meteo's documentation:
 
 | Codes | Words |
 | --- | --- |
@@ -74,52 +92,39 @@ enum WeatherLookup {
 | 96, 99 | "thunderstorm with hail" |
 | Anything else | "unknown conditions" |
 
-**The excerpt:**
+**The excerpt:** `Forecast for <placeName> (local times).`, a `Now:` line
+(temperature, feels-like, words, humidity, wind, precipitation), `Next 24
+hours:` 8 entries at 3-hour steps, and `Next 7 days:` (words, high, low,
+precipitation chance and amount, UV, top wind, sunrise and sunset), with
+Open-Meteo's units. Kind `.weather`; source "Open-Meteo forecast",
+`https://open-meteo.com/`, with no location.
 
-- **Text,** with the units Open-Meteo reports in `current_units` and
-  `daily_units`:
-  - `Forecast for <placeName> (local times).`
-  - a `Now:` line: temperature, feels-like, words, humidity, wind,
-    precipitation;
-  - `Next 24 hours:` 8 entries at 3-hour steps;
-  - `Next 7 days:` one entry per day: words, high, low, precipitation chance
-    and amount, UV, top wind, sunrise and sunset.
-- **Kind:** `.weather`.
-- **Source:** `WebSearchSource(title: "Open-Meteo forecast", url: https://open-meteo.com/)`,
-  with no location in it.
-
-**Steps:**
-
-- [ ] **Write the failing tests:**
-  - `testOpenMeteoURLUsesRoundedCoordinatesAndUSUnits`: every query item,
-    with `latitude=41.88` and `longitude=-87.63`;
-  - `testMetricUnitsOmitUnitParameters`;
-  - `testForecastDecodesFixture`;
-  - `testWeatherCodesReadAsWords`: 0 gives "clear sky", 61 "light rain",
-    95 "thunderstorm", and 1234 "unknown conditions";
-  - `testForecastExcerptReadsInWords`: it contains "Forecast for Chicago",
-    one `Now:` line, 8 hourly entries and 7 daily entries;
-  - `testWeatherSourceCarriesNoLocation`;
-  - `testNamedPlaceIsGeocodedAndStated`. A fake geocoder maps "paris" to
-    48.86, 2.35 and "Paris, Île-de-France, France". The excerpt names it, and
-    the request URL has `latitude=48.86`.
-- [ ] **Run**
-  `scripts/verify-xcode.sh test -only-testing:EnigmaTests/PlacesAndWeatherTests`.
-  Expect failures.
-- [ ] **Implement** `WeatherLookup.swift`.
-- [ ] **Run** the tests. Expect them to pass.
+- [ ] **Write the failing tests:** `testOpenMeteoURLUsesRoundedCoordinatesAndUSUnits`
+  (`latitude=41.88`, `longitude=-87.63`), `testMetricUnitsOmitUnitParameters`,
+  `testForecastDecodesFixture`, `testWeatherCodesReadAsWords`,
+  `testForecastExcerptReadsInWords` (one `Now:`, 8 hourly, 7 daily),
+  `testDailyLabelAfterDaylightSavingChange` (the 2 November label reads 2
+  November), `testWeatherSourceCarriesNoLocation`,
+  `testGeocoderDecodesFixture` ("Paris, Île-de-France, France", 48.86,
+  2.35), `testGeocoderNoResultIsNil`.
+- [ ] **Run** `scripts/verify-xcode.sh test -only-testing:EnigmaTests/PlacesAndWeatherTests`;
+  expect failures. **Implement.** **Run** again.
 
 ### Task 6.2: Places
 
-**Files:** create `Enigma/Search/PlaceSearch.swift`. Tests go in
+**Files:** create `Enigma/Search/PlaceSearch.swift`. Tests in
 `PlacesAndWeatherTests`.
 
-**Interfaces.** This task produces:
+**Interfaces:**
 
 ```swift
+struct MapPlace: Equatable, Sendable, Identifiable {   // for CP9; in memory only
+  let id: String                                        // MKMapItem.identifier, or a stable fallback
+  let name: String; let coordinate: SearchCoordinate; let distanceMeters: Double?
+}
 struct PlaceResult: Equatable, Sendable {
-  let name: String; let category: String?; let address: String?
-  let distanceMeters: Double?; let phone: String?; let website: URL?
+  let place: MapPlace; let category: String?; let address: String?
+  let phone: String?; let website: URL?
 }
 protocol PlaceSearching: Sendable {
   func places(matching query: String, near coordinate: SearchCoordinate?) async throws -> [PlaceResult]
@@ -131,120 +136,162 @@ struct MapKitPlaceSearch: PlaceSearching {
   init(run: @escaping @Sendable (_ query: String, _ center: SearchCoordinate?, _ spanMeters: Double?) async throws -> [PlaceResult] = MapKitPlaceSearch.live)
 }
 enum PlaceSearch {
+  /// The text excerpt, and `places` on the result for the map card.
   static func excerpt(_ places: [PlaceResult], query: String, units: MeasurementUnits) -> WebSearchResult
 }
+// WebSearch.swift: WebSearchResult gains `var places: [MapPlace]? = nil`.
 ```
 
-**Rules, from spec §6:**
+**Rules,** from spec §6.5: `.pointOfInterest` results; near the user a 5 km
+region, widened to 20 km under 3 places; a named area, no region. Each item
+maps to category, `fullAddress(includingRegion: false, singleLine: true)`,
+phone, website and the distance computed on the Mac. The excerpt is a
+numbered list of at most 10, distances in km or mi; kind `.places`; source
+"Apple Maps", `https://maps.apple.com/?q=<percent-encoded query>`.
 
-- **The MapKit query** is `SearchRouting.webQuery(question, city: nil)`, so
-  the nearby words are removed. A named area stays in the text.
-- **The request** is `MKLocalSearch` with `.pointOfInterest` results:
-  - with a coordinate: a 5 km region, widened to 20 km when fewer than 3
-    places come back;
-  - with no coordinate: no region at all.
-- **Mapping each `MKMapItem`:**
-  - the category name from `pointOfInterestCategory`;
-  - the address from `addressRepresentations`;
-  - the phone number, and the website from `url`;
-  - the distance, computed on the Mac.
-- **The excerpt** is a numbered list of at most 10 places, with distances in
-  km or mi. Its kind is `.places`, and its source is
-  `WebSearchSource(title: "Apple Maps", url: https://maps.apple.com/?q=<percent-encoded query>)`.
+- [ ] **Write the failing tests:** `testPlacesExcerptListsUpToTen`,
+  `testPlacesResultCarriesMapPlaces`, `testPlacesSourceCarriesNoLocation`
+  (exactly `https://maps.apple.com/?q=cafes`),
+  `testRegionWidensWhenFewerThanThree`, `testNoRegionForNamedArea`.
+- [ ] **Run, implement, run.**
 
-**Steps:**
+### Task 6.3: The routes in the provider (small models)
 
-- [ ] **Write the failing tests:**
-  - `testPlacesExcerptListsUpToTen`: 12 places in, 10 lines out;
-  - `testPlacesSourceCarriesNoLocation`: the URL is exactly
-    `https://maps.apple.com/?q=cafes`;
-  - `testRegionWidensWhenFewerThanThree`: the seam sees span 5,000, then
-    20,000;
-  - `testNoRegionForNamedArea`: the seam sees a `nil` span.
-- [ ] **Run** `PlacesAndWeatherTests`. Expect failures.
-- [ ] **Implement** `PlaceSearch.swift`.
-- [ ] **Run** `PlacesAndWeatherTests`. Expect them to pass.
-
-### Task 6.3: The routes in the provider
-
-**Files:** modify `Enigma/Search/OnDeviceSearch.swift`. Tests go in
+**Files:** `Enigma/Search/OnDeviceSearch.swift`. Tests in
 `OnDeviceSearchTests` and `WebSearchTests`.
 
-**Interfaces.**
+`OnDeviceSearchProvider.init` gains `places: any PlaceSearching =
+MapKitPlaceSearch()`, `weather: any WeatherLooking = OpenMeteoWeather()`,
+`geocoder: any Geocoding = OpenMeteoGeocoder()` and `units: @escaping
+@Sendable () -> MeasurementUnits = { .current }`; `live()` passes the real
+ones.
 
-- **Consumes:** `request.route`, `.namedPlace`, `.coordinate` and `.city`.
-- **Produces:** `OnDeviceSearchProvider.init` gains four parameters, each
-  with a default, and `live()` passes the real ones:
-  - `places: any PlaceSearching = MapKitPlaceSearch()`;
-  - `weather: any WeatherLooking = OpenMeteoWeather()`;
-  - `geocoder: any Geocoding = MapKitGeocoder()`;
-  - `units: @escaping @Sendable () -> MeasurementUnits = { .current }`.
+- **Weather:** the coordinate is `request.coordinate` or the geocoded
+  `namedPlace`; the name is the geocoder's, the city, or "your area". Only
+  the weather result; no search site is contacted. On any failure, or a
+  place the geocoder can't find, the web route runs "weather <place>".
+- **Places:** MapKit and the web route run at the same time; the places
+  result comes first; a MapKit failure or no places means web results
+  alone. The web query is `webQuery(request.query, city: request.city)`.
 
-**Rules:**
+- [ ] **Write the failing tests:** `testWeatherRouteSkipsWebSearch`,
+  `testWeatherFailureFallsBackToWeb` ("weather Chicago"),
+  `testUnknownPlaceFallsBackToWeb`, `testPlacesRouteRunsMapsAndWeb`,
+  `testPlacesFailureUsesWebOnly`, `testPlacesWithoutCityStillSearchMaps`
+  (Review Focus 4), and in `WebSearchTests`
+  `testSavedSourcesNeverContainLocation` (a weather and a places search
+  through `LocalChatViewModel`; the saved JSON has no `41.88`, `-87.63` or
+  `Chicago`).
+- [ ] **Run, implement, run.**
 
-- **Weather:**
-  - The coordinate is `request.coordinate`, or the geocoded `namedPlace`.
-  - The place name is the geocoder's name, the city, or "your area".
-  - It returns only the weather result, and never contacts a search site.
-  - On any failure, it runs the web route with the query "weather <place>".
-- **Places:**
-  - MapKit and the web route run at the same time. The places result comes
-    first.
-  - A MapKit failure, or no places, means web results alone.
-  - The web query is `webQuery(request.query, city: request.city)`.
+### Task 6.4: The tools (capable models)
 
-**Steps:**
+**Files:** create `Enigma/Search/PlacesAndWeatherTools.swift`; modify
+`Enigma/Chat/AssistantToolbox.swift`, `LocalChatViewModel.swift`
+(`nativeToolPlan`, `nativeToolbox`), `Enigma/Cloud/NativeWebSearch.swift`
+(the near-me clause). Tests in the new
+`EnigmaTests/PlacesAndWeatherToolTests.swift` and `NativeToolPlanTests`.
 
-- [ ] **Write the failing tests:**
-  - `testWeatherRouteSkipsWebSearch`: the fake client gets no requests;
-  - `testWeatherFailureFallsBackToWeb`: the engine sees "weather Chicago";
-  - `testPlacesRouteRunsMapsAndWeb`;
-  - `testPlacesFailureUsesWebOnly`;
-  - `testPlacesWithoutCityStillSearchMaps` (Review Focus 4): with a
-    coordinate and `city == nil`, MapKit gets "cafes" and the coordinate, and
-    the web query is "cafes";
-  - `testSavedSourcesNeverContainLocation`, in `WebSearchTests`. Through
-    `LocalChatViewModel` with fakes and `SearchLocation()`, run a weather
-    search and a places search. The saved store's JSON contains no `41.88`,
-    no `-87.63`, and no `Chicago` in any `searchSources`.
-- [ ] **Run** `OnDeviceSearchTests` and `WebSearchTests`. Expect failures.
-- [ ] **Implement** the routes.
-- [ ] **Run** them again. Expect them to pass.
+```swift
+struct PlaceSearchTool: AgentToolbox {     // find_places(query, area?)
+  init(places: any PlaceSearching, location: @escaping @Sendable () async -> ApproximateLocation?,
+       units: @escaping @Sendable () -> MeasurementUnits, mayQuery: @escaping @Sendable (String) async -> Bool,
+       onSources: @escaping @Sendable ([WebSearchSource]) async -> Void,
+       onPlaces: @escaping @Sendable ([MapPlace]) async -> Void)
+}
+struct WeatherTool: AgentToolbox {         // get_weather(place?)
+  init(weather: any WeatherLooking, geocoder: any Geocoding, location: …, units: …, mayQuery: …, onSources: …)
+}
+enum NativeToolPart { /* … */ case places, weather }
+```
 
-### Task 6.4: Live checks and the notice
+**Rules,** from spec §6.2:
 
-- [ ] **Add to `WebSearchLiveTests`:**
-  - `testLiveOpenMeteo`: Chicago, HTTP 200, and the response decodes;
-  - `testLiveMapKitPlaces`: "coffee" near 41.88, -87.63 returns at least 3
-    places;
-  - `testLiveGeocoder`: "Paris" gives a latitude between 48.7 and 49.0.
-- [ ] **Run the live checks:**
-  `TEST_RUNNER_ENIGMA_LIVE_SEARCH=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchLiveTests`.
-  Expect them to pass.
+- **Schemas and results** exactly as spec §6.2's table; results are JSON
+  with sorted keys. `find_places` returns up to 10 places; `get_weather`
+  the excerpt's content as structured fields (current, next 24 hours, next
+  7 days, place name).
+- **Instructions:** spec §6.2's sentences, added after `web_search`'s.
+- **Near the user:** with no `area`/`place`, ask `location`; without one,
+  return spec §6.2's text and make no MapKit or Open-Meteo request.
+- **Gate 3:** in a chat that holds message text, `mayQuery` shows spec
+  §6.2's card text first; Don't allow returns F32's declined result.
+- **Activity:** **Finding places…** and **Checking the weather…**.
+- **Failures** are tool results ("No places found.", "I couldn't find
+  ‹place›.", the Open-Meteo error); the model carries on.
+- **The plan:** `.places` and `.weather` join `.search` whenever search is
+  offered (automatic search on, `/search` or `/maps`), on either backend:
+  on a provider-search turn (F30) they're offered beside the provider's
+  search. `ProviderSearchPart`'s near-me clause becomes spec §6.2's
+  sentence when they're offered.
+- **Saved sources** carry no location; `onPlaces` reaches the reply for
+  CP9.
+
+- [ ] **Write the failing tests:** `testFindPlacesSchema`,
+  `testFindPlacesNearUser` (rounded coordinate to the fake, distances in the
+  result), `testFindPlacesInArea` (no coordinate, "ramen in Soho, London"),
+  `testFindPlacesWithoutLocationAsksForArea` (Review Focus 6),
+  `testGetWeatherNearUser`, `testGetWeatherUnknownPlace`,
+  `testSearchToolsAskFirstAfterMessageText`, `testToolActivityText`,
+  `testToolSourcesCarryNoLocation`; in `NativeToolPlanTests`,
+  `testPlacesAndWeatherOfferedWithSearch` (both backends, not without
+  search) and `testProviderSearchNearMeClause`.
+- [ ] **Run, implement, run.** F32's and F30's existing tests stay green
+  unchanged.
+
+### Task 6.5: `/maps`
+
+**Files:** `SlashCommand.swift`, `ScreenAttachment.swift`
+(`ComposerCommands.maps`), `ComposerIntent.swift`,
+`ComposerSubmission.swift`, `SearchRouting.swift`, `AssistantToolbox.swift`,
+`LocalChatViewModel.swift`. Tests in `ComposerIntentTests`,
+`SearchRoutingTests`, `NativeToolPlanTests`, `AppShellStateTests`.
+
+Spec §6.3: description "Find places with Apple Maps"; in suggestions, Help
+and the welcome tour (with the key requirement `/search` has until CP8);
+small models take the places route whatever the wording; capable models
+must call `find_places` first; `/maps` wins over `/search`; it conflicts
+with files, `/messages` and a screenshot like `/search`; alone, it keeps the
+draft with "There's nothing to look for."
+
+- [ ] **Write the failing tests:** `testMapsIsACommand`,
+  `testMapsRoutesToPlacesOnSmallModels` ("/maps bookshops", "/maps where
+  can I get a haircut"), `testMapsRequiresFindPlaces`,
+  `testMapsWinsOverSearch` (Review Focus 8), `testMapsAloneKeepsDraft`
+  (Review Focus 8), `testMapsConflicts`.
+- [ ] **Run, implement, run.**
+
+### Task 6.6: Live checks and the notice
+
+- [ ] **Add to `WebSearchLiveTests`:** `testLiveOpenMeteo` (Chicago, decodes),
+  `testLiveGeocoder` ("Paris", latitude 48.7–49.0), `testLiveMapKitPlaces`
+  ("coffee" near 41.88, -87.63, at least 3).
+- [ ] **Run** them with `TEST_RUNNER_ENIGMA_LIVE_SEARCH=1`.
 - [ ] **Add the notice** to `ThirdPartyNotices.txt`: "Weather data by
-  Open-Meteo.com (https://open-meteo.com/), CC BY 4.0."
+  Open-Meteo.com (https://open-meteo.com/), CC BY 4.0." (geocoding
+  included).
 
 ## Exit criteria
 
-- [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass, and the
-  live checks pass.
-- [ ] **A manual Debug-switch check** (as in CP5) of "will it rain
-  tomorrow", "/search weather in Paris this weekend", "/search cafe near me"
-  and "ramen in Soho". Each answers from the right source, and the reply's
-  sources list shows "Open-Meteo forecast" or "Apple Maps" with no location
-  in the link.
+- [ ] `build` and `analyze` pass, the touched test classes pass, the full
+  `test` runs once before the commit, and the live checks pass.
+- [ ] **A manual Debug-switch check** (as in CP5), on a small and a capable
+  model: "will it rain tomorrow", "weather in Paris this weekend", "cafe
+  near me", "ramen in Soho", "/maps bookshops", and "what is the
+  temperature to bake salmon" (no weather lookup). Each answers from the
+  right source; the sources show "Open-Meteo forecast" or "Apple Maps" with
+  no location in the link.
 
 ## Reviewer checklist
 
-- **Who gets the location:** Open-Meteo and MapKit get coordinates rounded to
-  2 decimals; search sites only ever get the city.
-- **Saved sources carry no location.** Run
-  `testSavedSourcesNeverContainLocation` with the assertions mutated, and
-  confirm it fails.
-- **Fallbacks and timeouts:** weather falls back to web on every failure
-  path, including a geocoding timeout, and MapKit gets 3 s.
-- **The terms match CP0's Q7 finding.** Text-only use of MapKit results is
-  allowed, or the owner approved otherwise.
+- **Who gets the location:** Open-Meteo and MapKit get coordinates rounded
+  to 2 decimals; search sites only the city; no provider search ever gets
+  it.
+- **Saved sources carry no location;** mutate the assertions in
+  `testSavedSourcesNeverContainLocation` and confirm it fails.
+- **Fallbacks and timeouts** on every path: geocoding timeout, MapKit 3 s.
+- **Gate 3** covers both new tools; mutation: skip `mayQuery`, a test fails.
+- **No MapKit data in weather:** weather geocodes with Open-Meteo only.
 
 ## Hand-off
 

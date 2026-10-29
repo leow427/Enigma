@@ -5,10 +5,12 @@ Read [agent-workflow.md](agent-workflow.md) and the spec in full. The spec's
 
 ## Goal
 
-Answer the spec's seven open questions with throwaway probes, and check
-F29's names, so later checkpoints build on facts. **No product code comes
-out of this checkpoint.**
+Answer the spec's six open questions with throwaway probes, and check F32's
+names, so later checkpoints build on facts. **No product code comes out of
+this checkpoint.**
 
+- Create the worktree first: branch `feat/f30-native-cloud-search` from
+  `main`, in a folder outside `~/Documents`, beside F29's worktree.
 - Probes live in a scratch folder outside the repository. Python 3
   (standard library) or `curl` suits the HTTP probes, and Python's
   `subprocess` suits the Codex app server and Claude Code.
@@ -17,215 +19,209 @@ out of this checkpoint.**
 
 ## Starting point
 
-- **F29 is merged.** Brave is gone, and `OnDeviceSearchProvider` serves every
-  route.
-- **Cloud clients:**
-  - `OpenAIResponsesClient` and `AnthropicMessagesClient` are in
-    `Enigma/Cloud/CloudProviderClients.swift`;
-  - `CodexSubscriptionClient` is in `CodexSubscriptionClient.swift`.
-    `CodexAppServer.swift` holds `CodexAppServer`, the JSON-RPC process
-    with the `initialize` handshake, and `CodexRuntimeConfiguration`, whose
-    `live` value has the launch `arguments`, `environment(for:)` and the
-    `CODEX_HOME` folder;
-  - `ClaudeCodeSubscriptionClient`, `ClaudeCodeRuntime` and
-    `ClaudeCodeStreamParser` are in `ClaudeCodeSubscriptionClient.swift`.
-- **Facts already checked on 2026-10-27** (recheck only what's marked):
-  - **Pinned Codex 0.164.0 schema,** generated with `codex app-server
-    generate-json-schema --out <folder>`:
-    - `ThreadStartParams.config` accepts any keys;
-    - `TurnStartParams` has no `config`;
-    - the `webSearch` thread item is `{id, query, action?, results?}`, where
-      `action` is `search`, `openPage`, `findInPage` or `other`, and
-      `results` is opaque JSON;
-    - `WebSearchMode` is `disabled`, `cached`, `indexed` or `live`;
-    - the requirements method is `configRequirements/read`;
-    - citations appear only in experimental raw response items.
-  - **Claude Code 2.1.311 on a subscription login:**
-    - `-p --tools WebSearch --allowedTools WebSearch` searches with no
-      prompt;
-    - `init` lists `tools: ["WebSearch"]` and `apiKeySource: "none"`;
-    - results arrive in a `user` message's
-      `tool_use_result.results[].content[]` as `{title, url}`.
-  - **Anthropic** (from its docs):
-    - the tool shapes, the stream events, the `web_search_tool_result`
-      error object, citations, and `pause_turn` ("send the paused assistant
-      message back unchanged");
-    - search costs $10 per 1,000 searches;
-    - an organization admin can turn search off, which gives a 400.
-  - **OpenAI** (from its docs):
-    - the `web_search` tool, `include: ["web_search_call.action.sources"]`,
-      and `url_citation` annotations (url, title, start and end index);
-    - "inline citations must be made clearly visible and clickable";
-    - the streaming event names weren't confirmed.
+- **F32 is on `main`.** Every cloud catalogue model is flagged
+  (`CloudModelCapabilities.supportsNativeTools`), so every cloud turn
+  without files or a screenshot goes through `LocalChatViewModel.submitNative`
+  and the provider's streaming tool loop.
+- **Where the tool loops are:**
+  - `Enigma/Cloud/CloudToolCalling.swift`: `CloudToolLoop`, and the
+    `ToolCallingChatProvider` extensions of `OpenAIResponsesClient`,
+    `AnthropicMessagesClient`, `GeminiContentClient`,
+    `CodexSubscriptionClient` and `ClaudeCodeSubscriptionClient`;
+    `CodexToolMode` (dynamic tools in `thread/start`) and
+    `ClaudeCodeToolMode` (an SDK MCP server named by `ClaudeCodeToolMode.server`);
+  - `Enigma/Cloud/CloudToolStreaming.swift`: the `ToolStreamAssembler`s;
+  - F32's fixtures: `EnigmaTests/Fixtures/F32/` (`openai/`, `anthropic/`,
+    `gemini/`), several written from the docs rather than recorded.
+- **What each route sends today:** OpenAI `tools` of type `function`,
+  `parallel_tool_calls: false`, `store: false`, and `tool_choice` for a
+  required tool on step 1; Anthropic client tools, `tool_choice` except
+  under `/think`; Codex `dynamicTools` with `-c web_search="disabled"` at
+  launch; Claude Code `--tools ""`, `--mcp-config` with the SDK server and
+  `--allowedTools` of the `mcp__…` names.
+- **Facts checked on 2026-10-27** (recheck only what's marked): this
+  brief's first version lists them
+  (`git show 6f2fec4:docs/superpowers/plans/2026-10-27-f30-native-cloud-search/cp0-spike.md`).
+  In short: Codex 0.164.0's `ThreadStartParams.config` accepts any keys and
+  `webSearch` items are `{id, query, action?, results?}`; Claude Code
+  2.1.311's `--tools WebSearch` searches without a prompt and reports
+  `{title, url}` results; Anthropic's and OpenAI's documented shapes. **The
+  pinned Codex may have moved** since (F32 and the daily refresh): recheck
+  the schema against the installed one.
 
 ## Tasks
 
-### Task 0.1: F29 names (Q0)
+### Task 0.1: F32 names (Q0)
 
-- [ ] **Check each name** in the plan's Global Constraints "F29 names" list
-  against `main`, with `grep -rn`. Also check:
-  - `WebSearchContext.prepare`'s current signature;
-  - where F29's Settings note text lives (the `WebSearchSettingsSection`
-    note);
-  - whether a snapshot test covers it.
+- [ ] **Check each name** in the plan's Global Constraints "F32 names" list
+  against `main`, with `grep -rn`. Also find:
+  - where `submitNative` builds the toolbox and where a turn's draft is
+    accepted (the point after which an unavailable error can't fall back);
+  - how `SavingMessagesGate.didReturnMessageText` is called relative to the
+    tool result being returned to the loop (it must be possible to stop
+    before delivery);
+  - the pinned Codex version and its schema's `ThreadStartParams` and
+    `webSearch` item.
 - [ ] **Record** each name as found, or its new name, in the findings table.
 
-### Task 0.2: Codex (Q1, Q2)
-
-**Approval needed:** the owner approves about 6 ChatGPT turns in the
-chat.
-
-- [ ] **Write the probe.** It starts the app server the way Enigma does:
-  - the executable from `CodexRuntime.installedExecutable()`, which is the
-    pinned 0.164.0 in Application Support;
-  - the `CODEX_HOME` and `PATH` from
-    `CodexRuntimeConfiguration.live.environment(for:)`;
-  - every `-c` override in `CodexRuntimeConfiguration.live.arguments`,
-    including `web_search="disabled"`.
-
-  It then sends `initialize` and `initialized` (copy the handshake from
-  `CodexAppServer`), `thread/start` and `turn/start`, and records every
-  notification as JSONL.
-- [ ] **Run these:**
-  1. **Q1, the thread setting.** A thread whose `config` is
-     `{"web_search": "live"}`, plus `CodexSubscriptionClient.threadParameters`'
-     other fields, with the question "What is the latest stable Swift
-     release? Answer in one sentence and link your source." Record whether
-     any `webSearch` item appears.
-  2. **The same question without `config`.** Confirm nothing is searched.
-  3. **If run 1 didn't search,** try the two options in spec §2: launch
-     without `web_search="disabled"` and send `"disabled"` or `"live"` per
-     thread, or launch a second server with `web_search="live"`. Record
-     which works.
-  4. **`configRequirements/read`.** Record the response, and whether it
-     contains `allowedWebSearchModes`.
-  5. **Q2, a multi-search question:** "Compare the current prices of the
-     cheapest MacBook Air and the cheapest MacBook Pro in the US. Link your
-     sources." Record:
-     - the `item/started` and `item/completed` order;
-     - every `action` type;
-     - what `results` holds;
-     - whether the answer contains Markdown links.
-- [ ] **Save the fixtures,** scrubbed, with thread and turn IDs set to
-  `thread-one` and `turn-one`:
-  - `codex-web-search.jsonl`, the notifications from run 5;
-  - `codex-thread-start-error.json`, if any run produced a JSON-RPC error.
-
-### Task 0.3: OpenAI (Q3)
+### Task 0.2: OpenAI (Q1)
 
 **Owner-run.** Write `probe-openai.sh`, which reads `ENIGMA_OPENAI_KEY` from
 the environment and writes raw output to a folder outside the repository.
-Ask the owner to run it: about 4 requests and up to 15
-searches.
+Ask the owner to run it: about 6 requests and up to 15 searches.
 
-- [ ] **The script's requests,** to the `/v1/responses` endpoint with
-  `"stream": true` and `"store": false`:
-  1. **Search on.** Model `gpt-5.6-luna` (or `ENIGMA_OPENAI_MODEL`), with
-     spec §2's `tools`, `include` and `max_tool_calls: 5`. The question:
-     "What is the latest stable Swift release? Link your source."
-  2. **The multi-search question** from Task 0.2.
-  3. **An invalid tool,** `{"type": "web_search", "search_context_size": "huge"}`,
-     to capture a 400 that names `tools`.
-  4. **An older model,** `gpt-4o-mini` with the same tools, to see whether
-     it searches or rejects the tool.
-- [ ] **From the recordings, answer Q3:**
-  - the order of events with search, and the shapes of the
-    `response.output_item.added` and `response.output_item.done` items for
-    `web_search_call` and `message`;
-  - whether `action.sources` has titles;
-  - whether the `output_text` deltas already contain the cited links as
-    Markdown, at the annotation ranges;
-  - whether `max_tool_calls` is accepted;
-  - the exact error JSON for request 3, and for request 4 if it fails.
-- [ ] **Save the fixtures:**
-  - `openai-web-search.sse`, from request 2;
-  - `openai-invalid-tool-error.json`, from request 3;
-  - `openai-model-error.json`, from request 4 if it failed.
+- [ ] **The script's requests,** to `/v1/responses` with `"stream": true`
+  and `"store": false`, model `gpt-5.6-luna` (or `ENIGMA_OPENAI_MODEL`), and
+  F32's body shape:
+  1. **Search beside a function tool.** `tools` holds one function (copy
+     `propose_edit`'s definition from F32) plus `{"type": "web_search"}`;
+     `include: ["web_search_call.action.sources"]`; `max_tool_calls: 5`.
+     Question: "What is the latest stable Swift release? Link your source."
+  2. **Multi-search:** "Compare the current prices of the cheapest MacBook
+     Air and the cheapest MacBook Pro in the US. Link your sources."
+  3. **Forced:** request 1 with `tool_choice: {"type": "web_search"}` on a
+     question that doesn't need search ("What is 2 + 2?").
+  4. **Replay:** a second step whose `input` adds request 1's output items
+     (the `web_search_call` and `message`) and a new user line, to see which
+     items `store: false` accepts back.
+  5. **`max_tool_calls: 1` with a function call needed**, to see whether
+     the limit counts function calls.
+  6. **An invalid tool,** `{"type": "web_search", "search_context_size": "huge"}`,
+     for a 400 that names `tools`; and an older model (`gpt-4o-mini`) with
+     the tool, to see whether it searches or rejects it.
+- [ ] **Answer Q1** from the recordings: the event order and item shapes;
+  whether `action.sources` has titles; whether `output_text` carries the
+  links as Markdown at the annotation ranges; `max_tool_calls`; forced
+  choice; replay; the error JSON.
+- [ ] **Save the fixtures:** `openai-search-and-function.sse` (request 1),
+  `openai-multi-search.sse` (request 2), `openai-replay-request.json` (the
+  body that worked in request 4, scrubbed), `openai-invalid-tool-error.json`,
+  and `openai-model-error.json` if request 6's older model failed.
 
-### Task 0.4: Anthropic (Q4)
+### Task 0.3: Anthropic (Q2)
 
 **Owner-run.** Write `probe-anthropic.sh`, which reads
-`ENIGMA_ANTHROPIC_KEY`. About 12 requests and up to 30 searches.
+`ENIGMA_ANTHROPIC_KEY`. About 14 requests and up to 35 searches.
 
-- [ ] **The script's requests,** to the `/v1/messages` endpoint with
-  `"stream": true`, `anthropic-version: 2023-06-01`, the model
-  `claude-sonnet-4-6` (or `ENIGMA_ANTHROPIC_MODEL`), and `max_tokens` 4096:
-  1. **The new tool.** `web_search_20260318` with `max_uses: 5` and
-     `response_inclusion: "excluded"`, on the multi-search question.
-  2. **The same, with `max_tokens` 1024,** to see whether search blocks
-     count against it (`stop_reason: "max_tokens"` before any text).
-  3. **A paused turn.** Try to cause `pause_turn` with "Find the current
-     price of each of these 12 products and list them with sources: …" (12
-     well-known products). If a pause comes, send the continuation:
-     - first with the paused message's blocks;
-     - and, if a second pause comes, with all blocks so far.
-
-     Record what the API accepts.
-  4. **Blocked domains.** `blocked_domains` lists of 10, 64, 100 and 500
-     made-up domains (`blocked-0001.example`, …). Record the largest size
-     accepted, and the error body above it.
-  5. **The basic tool.** `web_search_20250305` on `claude-haiku-4-5`.
-  6. **The new tool on an older model,** `web_search_20260318` on
-     `claude-haiku-4-5`. Record the error JSON.
-  7. **Each candidate prefix.** One request with `max_uses: 1` per model the
-     owner's account can call, from `claude-opus-4-6`, `claude-sonnet-4-6`,
+- [ ] **The script's requests,** to `/v1/messages` with `"stream": true`,
+  `anthropic-version: 2023-06-01`, model `claude-sonnet-4-6` (or
+  `ENIGMA_ANTHROPIC_MODEL`), `max_tokens` 4096, and F32's client tools:
+  1. **The new tool beside a client tool.** `web_search_20260318` with
+     `max_uses: 5` and `response_inclusion: "excluded"`, plus F32's
+     `propose_edit`, on the multi-search question.
+  2. **The same with `max_tokens` 1024,** to see whether search blocks
+     count against it.
+  3. **A step after a client tool call:** a question that makes the model
+     search, then call `propose_edit` (give it a selection to edit with a
+     fact to check). Answer the call, and send the next step with every
+     block of the assistant message unchanged. Record what the API needs.
+  4. **A paused turn:** "Find the current price of each of these 12
+     products and list them with sources: …" (12 well-known products). If
+     a pause comes, continue with the paused message's blocks, and with all
+     blocks so far on a second pause.
+  5. **Forced:** `tool_choice: {"type": "tool", "name": "web_search"}` on
+     "What is 2 + 2?".
+  6. **Blocked domains:** lists of 10, 64, 100 and 500 made-up domains
+     (`blocked-0001.example`, …): the largest accepted, and the error above
+     it.
+  7. **The basic tool** `web_search_20250305` on `claude-haiku-4-5`, and the
+     new tool on it, for the error JSON.
+  8. **Each candidate prefix,** one request with `max_uses: 1` per model the
+     account can call, from `claude-opus-4-6`, `claude-sonnet-4-6`,
      `claude-opus-4-7`, `claude-opus-4-8`, `claude-opus-5`,
      `claude-opus-5-5`, `claude-sonnet-5`, `claude-sonnet-5-5`,
-     `claude-fable-5`, `claude-fable-5-1` and `claude-haiku-5-5`. Record
-     which accept `web_search_20260318`.
-  8. **Organization off (optional).** If the owner is willing to turn search
-     off for their organization in the Claude Console for a minute, record
-     the 400 body. Otherwise use the docs' wording, and mark it as from the
-     docs.
-- [ ] **Answer Q4,** including the event order with code-execution blocks,
+     `claude-fable-5`, `claude-fable-5-1` and `claude-haiku-5-5`.
+  9. **Organization off (optional),** if the owner is willing to turn search
+     off in the Claude Console for a minute; otherwise use the docs' wording
+     and mark it so.
+- [ ] **Answer Q2,** including the event order with code-execution blocks
   and what `response_inclusion: "excluded"` leaves out.
-- [ ] **Save the fixtures:**
-  - `anthropic-web-search.sse`, from request 1;
-  - `anthropic-pause-turn.sse` and `anthropic-pause-continuation.sse`, if a
-    pause happened;
-  - `anthropic-blocked-domains-error.json`;
-  - `anthropic-tool-version-error.json`, from request 6;
-  - `anthropic-search-disabled-error.json`, if recorded.
+- [ ] **Save the fixtures:** `anthropic-search-and-tool.sse` (request 1),
+  `anthropic-step-replay-request.json` (request 3's second body, scrubbed),
+  `anthropic-pause-turn.sse` and `anthropic-pause-continuation.sse` if a
+  pause happened, `anthropic-blocked-domains-error.json`,
+  `anthropic-tool-version-error.json`, and
+  `anthropic-search-disabled-error.json` if recorded.
 
-### Task 0.5: Claude Code (Q5)
+### Task 0.4: Codex (Q3)
 
-**Approval needed:** about 3 Claude Code runs.
+**Approval needed:** the owner approves about 8 ChatGPT turns.
 
-- [ ] **Run the multi-search question** with Enigma's search arguments: the
-  arguments of `ClaudeCodeRuntime.chatArguments`, with `--tools WebSearch
-  --allowedTools WebSearch` in place of `--tools ""`. Use the environment of
-  `ClaudeCodeRuntime.live.environment` and an empty working folder.
-- [ ] **Answer Q5:**
-  - Does the answer end with a "Sources:" list?
-  - Does `tool_use_result.results` ever hold plain strings?
-  - Which partial-message events mark the start of a `WebSearch` call?
-- [ ] **Save the fixtures:**
-  - `claude-code-web-search.jsonl`, scrubbed of `session_id`, `uuid` and
-    the account fields in `init`;
-  - `claude-code-init-without-websearch.jsonl`, its `init` line with
-    `tools: []`. Mark it **derived** in the README.
+- [ ] **Write the probe.** It starts the app server the way Enigma does
+  (the installed executable, `CodexRuntimeConfiguration.live`'s environment
+  and every `-c` override, including `web_search="disabled"`), sends the
+  `initialize` handshake, then `thread/start` with F32's
+  `CodexToolMode.threadParameters` fields (its `dynamicTools` included) and
+  `turn/start`, answers any dynamic tool call with a fixed result, and
+  records every notification as JSONL.
+- [ ] **Run these:**
+  1. **The thread setting:** `config: {"web_search": "live"}` with the
+     dynamic tools, on the Swift release question. Did a `webSearch` item
+     appear?
+  2. **Without `config`:** confirm nothing is searched.
+  3. **If run 1 didn't search,** try spec §3's two options and record which
+     works.
+  4. **`configRequirements/read`:** the response, and
+     `allowedWebSearchModes`.
+  5. **Multi-search,** recording the `item/started` and `item/completed`
+     order, every `action` type, what `results` holds, and whether the
+     answer has Markdown links.
+  6. **A dynamic tool call in a search thread:** a question that makes the
+     model call the dynamic tool; record the order of `webSearch` items and
+     the tool call.
+- [ ] **Save the fixtures,** with thread and turn IDs set to `thread-one`
+  and `turn-one`: `codex-web-search.jsonl` (run 5),
+  `codex-search-and-dynamic-tool.jsonl` (run 6), and
+  `codex-thread-start-error.json` if any run gave a JSON-RPC error.
 
-### Task 0.6: Compliance and latency (Q6, Q7)
+### Task 0.5: Claude Code (Q4)
 
-**Owner-run and approved runs:** about 10 questions per route.
+**Approval needed:** about 4 Claude Code runs.
 
-- [ ] **Choose 10 web questions** from F29's `scripts/web-search-queries.json`,
-  across the news, facts, docs and reviews categories. List their IDs in the
-  Hand-off.
-- [ ] **For each route** (OpenAI, Anthropic, ChatGPT, Claude Code), record
-  per question:
-  - whether it searched;
-  - the time to first text and the total time;
-  - the number of sources.
+- [ ] **Run the multi-search question** with F32's tool-mode arguments,
+  `--tools WebSearch` in place of `--tools ""`, and `WebSearch` added to
+  `--allowedTools`, answering the SDK MCP server's `tools/list` and any
+  `tools/call` as F32's `ClaudeCodeToolMode.respond` does, with a fixed
+  result. Use F32's environment and an empty working folder.
+- [ ] **Answer Q4:** the `init` tools list (does it show `WebSearch` and the
+  MCP tools?); which events mark a `WebSearch` call; does the answer end
+  with its own "Sources:" list; does `tool_use_result.results` ever hold
+  plain strings.
+- [ ] **Save the fixtures:** `claude-code-web-search.jsonl`, scrubbed of
+  `session_id`, `uuid` and the account fields in `init`; and
+  `claude-code-init-without-websearch.jsonl`, its `init` line without
+  `WebSearch`, marked **derived** in the README.
 
-  The API routes reuse the probe scripts, run by the owner. The subscription
-  routes reuse Task 0.2's and Task 0.5's probes.
-- [ ] **Take on-device latency** for comparison from F29's evaluation report
-  in `docs/history/`.
+### Task 0.6: The restart (Q5)
+
+Use the probes above; no extra searches.
+
+- [ ] **For each route,** show that Enigma can stop a request between a
+  tool call and its result, with nothing delivered:
+  - OpenAI and Anthropic: cancel the stream after the function call
+    arrives, and send nothing more;
+  - Codex: answer nothing to the dynamic tool call, send `turn/interrupt`,
+    and record the notifications that follow;
+  - Claude Code: answer nothing to the MCP `tools/call`, end the process as
+    F32's Stop does, and record what it prints.
+- [ ] **Record** in each case whether the provider could have received the
+  result (it must not), and how long the stop took.
+
+### Task 0.7: Latency (Q6)
+
+**Owner-run and approved runs:** 5 questions per route.
+
+- [ ] **Choose 5 web questions** (news, changing facts, docs, reviews) and
+  list them in the Hand-off. CP6 will put them in
+  `scripts/web-search-queries.json`.
+- [ ] **For each route,** record per question: whether it searched, time to
+  first text, total time, and the number of sources; with provider search,
+  and with Enigma's `web_search` on Brave if the owner runs it with a key
+  (otherwise mark it not measured).
 
 ## Exit criteria
 
-- All eight rows of the findings table below are filled in, and every
+- All seven rows of the findings table below are filled in, and every
   "owner decision needed" is marked.
 - The fixtures and `EnigmaTests/Fixtures/CloudSearch/README.md` are saved,
   scrubbed per the workflow.
@@ -235,10 +231,10 @@ searches.
 ## Reviewer checklist
 
 - **Check the fixtures** for anything the workflow says to scrub: IDs,
-  emails, encrypted fields, keys. Also check that each README line matches
+  emails, encrypted fields, keys, locations. Check each README line matches
   its file.
-- **Check each decision** follows from the recorded evidence. Q1's choice
-  and Q4's prefix list matter most.
+- **Check each decision** follows from the recorded evidence. Q3's thread
+  setting, Q2's replay and prefix list, and Q5's restart matter most.
 - **Never rerun a live probe.** Reason from the recordings.
 
 ## Hand-off
@@ -247,14 +243,13 @@ searches.
 
 | # | Question | Answer | Evidence | Decision for later checkpoints |
 | --- | --- | --- | --- | --- |
-| Q0 | F29 names on `main` | | | |
-| Q1 | Codex thread setting, and `allowedWebSearchModes` | | | |
-| Q2 | Codex events, `results` and answer links | | | |
-| Q3 | OpenAI events, inline links, `max_tool_calls`, error bodies | | | |
-| Q4 | Anthropic events, budget, `pause_turn`, blocked-domains limit, prefixes, error bodies | | | |
-| Q5 | Claude Code fixture, "Sources:" list, plain-string results | | | |
-| Q6 | Compliance per route | | | |
-| Q7 | Latency per route, against on-device | | | |
+| Q0 | F32 names on `main` | | | |
+| Q1 | OpenAI: events beside functions, links, `max_tool_calls`, forced choice, replay, errors | | | |
+| Q2 | Anthropic: events, step replay, budget, `pause_turn`, forced choice, blocked-domains limit, prefixes, errors | | | |
+| Q3 | Codex: thread setting with dynamic tools, `allowedWebSearchModes`, events, links | | | |
+| Q4 | Claude Code: `init` list, events, "Sources:" list, plain-string results | | | |
+| Q5 | The restart on each route | | | |
+| Q6 | Latency per route | | | |
 
 1. **Summary:**
 2. **Files:**

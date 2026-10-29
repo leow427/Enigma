@@ -33,7 +33,7 @@ questions, and makes every decision the brief marks for the owner.
 **Worker:** the chat the owner starts (Opus, medium effort). It:
 
 - sets up the worktree if it doesn't exist yet, which is CP0's job: the
-  branch `feat/f30-native-cloud-search` from `main` (with F29 merged), in a folder
+  branch `feat/f30-native-cloud-search` from `main`, in a folder
   outside `~/Documents`. Test hosts that run inside `~/Documents` set off
   macOS privacy prompts.
 - builds exactly one checkpoint, test-first, in the order its brief gives;
@@ -66,8 +66,9 @@ worker.
   longer matches what the brief says exists, stop and ask the owner.
   Don't improvise a different design. Never edit the spec or another
   checkpoint's brief; propose changes in your Hand-off instead.
-- **F29 may have moved code.** Briefs give line numbers from before F29
-  merged. Find code by its symbol, not its line.
+- **Find code by its symbol.** F32 rewrote the cloud and local tool
+  paths; briefs name symbols, not lines. F32's names are in its spec and its
+  briefs' Hand-offs.
 
 **Tests:**
 
@@ -150,15 +151,24 @@ worker.
   repository:
 
   ```sh
-  scripts/verify-xcode.sh test -only-testing:EnigmaTests/<Class>   # while iterating
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/<Class>   # while iterating and in review
   scripts/verify-xcode.sh build
-  scripts/verify-xcode.sh test
+  scripts/verify-xcode.sh test                                      # once, before the commit
   scripts/verify-xcode.sh analyze
   python3 -I -B -m unittest discover -s scripts/tests               # when scripts change
   ```
 
   Report the build result, the test counts (executed, skipped, failed) and
-  the analyzer result.
+  the analyzer result. While building and between review rounds, run only
+  the checkpoint's test classes and the classes its changes touch: the full
+  suite's hosted UI tests take over the screen and keyboard focus
+  (`AGENTS.md`). The worker runs the full `test` once per checkpoint, right
+  before the commit.
+- **CI.** CI runs on the branch's draft pull request. The first checkpoint
+  that pushes code opens it (`gh pr create --draft`) and turns on Auto-fix
+  for it. After each push, check the result; a failure the checkpoint
+  caused is fixed, tested and pushed before the next checkpoint starts. CI
+  runs Xcode 26.6, and a local Mac may run a newer one.
 - **Unreliable failures.** If key-window UI tests fail with "Timed out
   waiting for … key window" during a full run, another checkout's tests are
   probably running at the same time. Rerun those tests alone before calling
@@ -173,7 +183,7 @@ worker.
   | `TEST_RUNNER_ENIGMA_OPENAI_KEY=<key>` | `ENIGMA_OPENAI_KEY` | OpenAI live check and evaluation; set by the owner |
   | `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY=<key>` | `ENIGMA_ANTHROPIC_KEY` | Anthropic live check and evaluation; set by the owner |
   | `TEST_RUNNER_ENIGMA_OPENAI_MODEL`, `TEST_RUNNER_ENIGMA_ANTHROPIC_MODEL` | `ENIGMA_OPENAI_MODEL`, `ENIGMA_ANTHROPIC_MODEL` | Optional model overrides; defaults in the briefs |
-  | `TEST_RUNNER_ENIGMA_SEARCH_EVAL=<folder>` | `ENIGMA_SEARCH_EVAL` | The CP6 comparison (F29's variable) |
+  | `TEST_RUNNER_ENIGMA_SEARCH_EVAL=<folder>` | `ENIGMA_SEARCH_EVAL` | The CP6 comparison (F29 reuses it) |
 
   ChatGPT and Claude Code live tests use the app's runtimes and the Mac's
   sign-ins, as the app does.
@@ -228,7 +238,8 @@ Follow `docs/reviewer.md`, and these rules:
      `plutil -lint` passes.
   7. **No unrelated changes:** no stray files, private paths, credentials or
      attribution lines.
-- **Run** at least the checkpoint's tests and the full `test` action. Run
+- **Run** the checkpoint's test classes and the classes its changes touch
+  (`-only-testing:`), not the full suite (`AGENTS.md`). Run
   `build` and `analyze` if you doubt the worker's results. Never run a live
   test or probe yourself.
 - **Processes:** never use a broad `pkill -f`. Kill only by PID.
@@ -269,13 +280,15 @@ sends:
    until a round has neither, for at most three rounds. If the third round
    still finds one, fix what you can, then stop and ask the owner before
    committing. Ask the owner about any finding you think is wrong rather
-   than skipping it.
-5. Rerun the brief's exit checks. Read the whole diff. Check `git status`
+   than skipping it. If a round's only finding is one small Should fix, fix
+   it and test it yourself; it needs no further round (owner rule).
+5. Rerun the brief's exit checks, with the full `test` once. Read the whole
+   diff. Check `git status`
    for strays, and check the Hand-off and the fixtures for private data.
 6. Update your row in the plan's progress log: status, review rounds and
    one-line notes.
 7. Make one commit, `<summary> (F30 CP<N>)` on `feat/f30-native-cloud-search`, with the
    checkpoint's changes, the filled-in brief and the progress log. No
-   attribution lines. Push the branch.
+   attribution lines. Push the branch, and check its CI result (see CI).
 8. End with a short report to the owner: the commit hash, the review rounds, and
    anything marked for the owner. The next checkpoint starts in a new chat.

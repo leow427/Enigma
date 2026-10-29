@@ -1,8 +1,8 @@
 # CP5: Passages and the pipeline
 
-Read [agent-workflow.md](agent-workflow.md), the spec (§1, §3.3–§3.5, §5,
-"Failure handling"), and the Hand-offs of CP1 to
-[CP4](cp4-page-reading.md#hand-off).
+Read [agent-workflow.md](agent-workflow.md), the spec (§1, §2 "Query",
+§3.3–§3.5, §5, "Failure handling"), and the Hand-offs of CP1 to
+[CP4](cp4-page-reading.md#hand-off), CP0b and CP1b included.
 
 ## Goal
 
@@ -12,9 +12,12 @@ Read [agent-workflow.md](agent-workflow.md), the spec (§1, §3.3–§3.5, §5,
 - then checks and passages;
 - then `WebSearchResult`s with site, date and kind.
 
-`WebSearchContext` sends the spec's new prompt. A Debug-only switch lets the
-owner try the new provider. Brave stays the default. The places and weather
-routes fall back to the web route until CP6.
+`WebSearchContext` sends the spec's new prompt to small models, and
+capable models get the same excerpts as `web_search`'s result, with an
+optional `recency` argument (spec §5, §2 "Query"). A Debug-only switch lets
+the owner try the new provider on both kinds of turn. Brave stays the
+default. The places and weather routes fall back to the web route until
+CP6.
 
 ## Starting point
 
@@ -29,6 +32,13 @@ routes fall back to the web route until CP6.
 - **`WebSearchContext`** (`Enigma/Search/WebSearchContext.swift`). Its
   envelope still says "Brave Search excerpts", and `Excerpt` has only
   `title`, `url` and `text`.
+- **F32's `WebSearchTool`** (`Enigma/Search/WebSearchTool.swift`) takes a
+  `search: (String) async throws -> [WebSearchResult]` closure, which
+  `LocalChatViewModel.nativeToolbox` builds from `search(…refinesQuery:
+  false)` with 2,048 evidence tokens on local routes and 8,192 on cloud
+  routes. Its result JSON is `{"results": [{"title", "url", "snippets"}]}`.
+  After F30, a provider-search turn has no `WebSearchTool`; nothing here
+  changes that.
 
 ## Tasks
 
@@ -363,16 +373,68 @@ enum WebSearchProviderFactory {
 - [ ] **Implement** the factory.
 - [ ] **Run** `WebSearchTests`. Expect them to pass.
 
+### Task 5.7: `web_search` on capable models
+
+**Files:** modify `Enigma/Search/WebSearchTool.swift`,
+`Enigma/Search/WebSearchContext.swift` and `LocalChatViewModel.swift`
+(`nativeToolbox`). Tests go in `NativeToolPartsTests` and
+`NativeToolRequestTests`.
+
+**Interfaces.** This task produces:
+
+```swift
+/// The excerpt objects of spec §5, shared by the envelope and the tool result.
+enum WebSearchExcerpts {
+  static func json(_ results: [WebSearchResult], timeZone: TimeZone) throws -> String   // sorted keys
+}
+struct WebSearchTool: AgentToolbox {
+  init(search: @escaping @Sendable (_ query: String, _ recency: SearchRecency?) async throws -> [WebSearchResult],
+       mayQuery: …, onSources: …, today: Date = Date(), timeZone: TimeZone = .current)
+}
+```
+
+- `web_search`'s schema gains an optional `recency` string, one of `day`,
+  `week`, `month`, `year`, described as "How recent results must be, when
+  it matters." Any other value is "Invalid tool arguments", as today's
+  check gives.
+- Without `recency`, the request's recency is
+  `WebSearchPolicy.recency(query)`.
+- The result is `{"results": <WebSearchExcerpts>}`.
+- The instructions gain spec §5's two sentences, after F32's.
+- `nativeToolbox` builds a `WebSearchRequest` (route `.web`, the city for a
+  "near me" query as today, the recency) and keeps F32's budgets.
+
+**Steps:**
+
+- [ ] **Write the failing tests:**
+  - `NativeToolPartsTests.testWebSearchResultUsesExcerpts`: the result JSON
+    has `id`, `kind`, `published`, `site`, `text`, `title` and `url`, sorted.
+  - `testWebSearchRecencyArgument`: `"week"` reaches the request; `"soon"`
+    is invalid; none falls back to the query's hint ("latest swift news" →
+    week).
+  - `testWebSearchInstructionsAddSourceGuidance`: F32's text, then the two
+    sentences.
+  - `NativeToolRequestTests.testNativeSearchBuildsWebRequest`: route `.web`,
+    the "near me" city, the budget per route; gate 3 still asks first in a
+    chat with message text (F32's tests stay green unchanged).
+- [ ] **Run** those classes. Expect failures.
+- [ ] **Implement,** sharing the excerpt encoding with Task 5.5.
+- [ ] **Run** them, plus `WebSearchTests`. Expect them to pass.
+
 ## Exit criteria
 
-- [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass.
+- [ ] `scripts/verify-xcode.sh build` and `analyze` pass, the touched test
+  classes pass, and the full `test` runs once before the commit.
 - [ ] **A manual check, by the owner with the worker:**
   1. Run `defaults write com.leow427.AISpotlight webSearch.debugProvider onDevice`.
   2. Run a Debug build from Xcode, with signing.
-  3. Ask five questions with `/search`: news, a software doc, a health
-     question, a product question, and "cafes near me".
-  4. Each answers with sources.
-  5. Afterwards, run
+  3. On a small model (Qwen3.5 2B or 4B), ask five questions with
+     `/search`: news, a software doc, a health question, a product question,
+     and "cafes near me".
+  4. On a capable model (Gemma 4 12B, or a cloud model F30 doesn't serve,
+     such as Gemini), ask the same five without `/search`.
+  5. Each answers with sources.
+  6. Afterwards, run
      `defaults delete com.leow427.AISpotlight webSearch.debugProvider`.
 
 ## Reviewer checklist
@@ -384,6 +446,10 @@ enum WebSearchProviderFactory {
   sources.
 - **The prompt text** is character for character as in the spec.
 - **The Debug switch** can't turn on in Release or in the test host.
+- **Both kinds of turn** reach the same provider; the excerpt JSON is the
+  same object in the envelope and the tool result.
+- **`recency`** accepts only the four values; F32's gate 3 and budgets are
+  unchanged.
 
 ## Hand-off
 

@@ -378,11 +378,166 @@ private `search` method). Tests go in `WebSearchTests`.
 
 ## Hand-off
 
-*Filled in by the CP1 worker. Use the template in agent-workflow.md.*
+*Filled in by the CP1 worker.*
 
-1. **Summary:**
+1. **Summary:** The search interface now takes a `WebSearchRequest`. The
+   shared types and `WebSearchLimits` live in `WebSearch.swift`.
+   `SearchRouting` picks weather, places or web from the typed question.
+   `WebSearchPolicy.recency` gives the date hint. `ApproximateLocation` keeps
+   rounded numeric coordinates and an optional city. `LocalChatViewModel.search`
+   fills in the route, named place, recency, city and coordinate, and no longer
+   appends location to the query. Brave still serves every search: it appends
+   the same location line itself, so its request body is unchanged.
 2. **Files:**
+   - `Enigma/Search/WebSearch.swift` (new): the moved shared types, plus
+     `EvidenceKind`, `SearchRoute`, `SearchRecency`, `SearchCoordinate`,
+     `WebSearchRequest` and `WebSearchLimits`.
+   - `Enigma/Search/SearchRouting.swift` (new): `SearchRouting.decide(question:)`
+     and `webQuery(_:city:)`.
+   - `Enigma/Search/BraveSearchClient.swift`: the shared types moved out;
+     `search(_ request:)` appends the location line and calls the existing
+     string search.
+   - `Enigma/Search/WebSearchContext.swift`: uses `WebSearchLimits`.
+   - `Enigma/Search/WebSearchPolicy.swift`: `recency(_:now:)` and its patterns.
+   - `Enigma/Search/LocationService.swift`: numeric `ApproximateLocation`;
+     `LocationIntent` gains `hasNearbyCue`, `asksAboutWeatherNow` and
+     `weatherPlace`, and its `matches` and `namedPlace` become internal so
+     `SearchRouting` can use them.
+   - `Enigma/LocalInference/LocalChatViewModel.swift`: builds the request; the
+     call sites pass `WebSearchLimits.evidenceTokens`.
+   - `Enigma.xcodeproj/project.pbxproj`: registers the two new app files and
+     `SearchRoutingTests.swift`.
+   - `EnigmaTests/SearchRoutingTests.swift` (new), and the brief's new tests in
+     `WebSearchTests.swift`.
+   - Test doubles in `WebSearchTests`, `SelectionContextTests`,
+     `ScreenNativeSmokeTests`, `ScreenViewTests` and `ScreenPipelineTests`
+     record `requests` and derive `queries` (and `budgets`, and
+     `ScreenPipelineTests`' `Query` values) from them.
+   - `docs/Web-Search.md`: "How it works" names the new files and the request.
+     It's outside the brief, but `AGENTS.md` asks for the feature doc to match
+     the code.
 3. **Decisions:**
-4. **Verification:**
+   - **Brave keeps its string `search(_:maximumTokens:)`,** and
+     `search(_ request:)` calls it. That's how every pre-existing Brave test
+     passes unedited. The method goes with Brave in CP8.
+   - **`testBraveAppendsLocationFromRequest` expects a space, not `"\n"`.**
+     Brave's `query(from:)` collapses whitespace, so the old body always had
+     `"…around me? Approximate current location: Chicago (41.88, -87.63)"`.
+     The brief's literal `"\n"` contradicts its own "byte-for-byte" goal, so
+     the test pins what Brave actually sent before.
+   - **Owner decisions after review round 1 (2026-10-27)** widen spec §6's
+     routing rules, so later checkpoints and the spec should follow them:
+     1. **A weather or forecast word plus a nearby cue is weather:**
+        "weather near me", "weather in my area", "local weather". Snow and
+        umbrella words aren't included, so "snow removal near me" stays a
+        places question.
+     2. **Weather needs somewhere to look up:** the current location or a
+        named place. Otherwise the question falls through to places or web,
+        as Brave handles it today ("what's the forecast for the weekend",
+        "will it snow in december"). A named place starts with a letter, like
+        `LocationIntent`'s `namedDestination`. It may start with "the" ("the
+        uk"), but not with "a" or "an", and a time is never a place: "in 2
+        hours", "at 5pm", "in the morning", months and weekdays. When both
+        the location and a place are found, only the location is kept, so
+        exactly one is set.
+     3. **A named area needs a place word just before it:** a place word, at
+        most two words, then "in", "at" or "near" and an area. The area can't
+        start with a, an, the, home, me, my, this or here, and the question
+        can't be a "how to/do/does/can/should" question. So "caffeine in
+        coffee", "calories in a burger", "best pizza at home recipe" and "how
+        to use bars in matplotlib" stay on the web route; "ramen in Soho" and
+        "best pizza in Brooklyn" are places.
+     4. **"local <place word>"** ("local restaurants", "local cafes") is a
+        nearby question: it routes to places, and `webQuery` makes it
+        "<place word> near <city>", or just "<place word>" without a city.
+   - **Weather also counts "this weekend" and "next week",** but only together
+     with a named place (`LocationIntent.comingDays`). The brief's
+     `asksAboutNow` rule alone can't route its own example, "weather in Paris
+     this weekend": `\bthis week\b` doesn't match "this weekend".
+   - **A nearby cue routes to places only when `needsLocation` is true,** so
+     transformations ("Rewrite: good restaurants around me") and location
+     opt-outs stay on the web route. The weather and named-area rules ignore
+     transformations and offline requests too.
+   - **`hasNearbyCue`** is spec §6's five phrases plus "local <place word>",
+     not `LocationIntent`'s wider private `nearbyCue` ("where am i", "my
+     location", "local events"). Those still need location, but take the web
+     route.
+   - **`webQuery`** matches cues as whole words regardless of case
+     ("locally-sourced" isn't one), and escapes the city as a template. Without
+     a city it removes the cue and the spaces before it, then trims the ends,
+     so "What's open around me?" gives "What's open?" and the rest stays as
+     written.
+   - **`ApproximateLocation`** rounds in its initializer, and builds
+     `coordinates` from the rounded values. `LocationService` already rounds,
+     and rounding twice gives the same value.
+   - **`testRecencyHints`'s "now"** is noon UTC on 2026-10-27, so the year is
+     2026 in every time zone.
+   - **Changed tests,** where behavior changed on purpose:
+     - `testNearbySearchUsesLocationAcrossRoutesWithoutPersistingIt` checks
+       `requests.last?.city` and `.coordinate`, not the location text in the
+       query, as the brief says;
+     - `testEvidenceScalesWithCapacityReservesHalfAndDisplacesOldHistory`
+       now expects 8 sources, not 10 (`WebSearchLimits.maximumSources`). It
+       still checks that the larger windows keep every allowed source.
+     - `testCancelledLocationCannotLeakIntoReplacementRequest` also checks
+       that the replacement request has no city or coordinate, because the
+       location no longer travels in the query.
+   - **Tests added after review round 1:** the routing rows for the owner's
+     decisions, transformations and opt-outs, background words, and the
+     tightened named-area rule; `testWeatherHasExactlyOneWayToFindItsPlace`;
+     more `webQuery` cases; and `testLocationWithoutCitySendsNoCity` (a found
+     location without a city sends `city == nil` with the coordinate).
+     `SearchLocation` can now return a given location.
+4. **Verification** (`scripts/verify-xcode.sh`, from the worktree):
+   - RED: the first run failed to compile (the new files didn't exist); with
+     stubs in place, `WebSearchTests` and `SearchRoutingTests` ran 68 tests
+     with 39 failures, all on the new assertions. After review round 1, the
+     new tests failed 30 assertions before the fixes.
+   - `test -only-testing:EnigmaTests/WebSearchTests -only-testing:EnigmaTests/SearchRoutingTests`:
+     70 executed, 0 failed.
+   - `build`: succeeded.
+   - `test`: 1,350 executed, 20 skipped, 1 failed:
+     `EnigmaMainWindowTests.testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField`
+     timed out waiting for the UI. It passed twice when run alone, touches no
+     search code, and the round-1 reviewer saw the same timeout once.
+   - `analyze`: succeeded, with no warnings in the changed files.
+   - Review: round 1 (Opus, xhigh) found no Blockers, 5 Should fixes and
+     6 Nits. Four Should fixes went to the owner (the decisions above); all
+     five are fixed, along with the Nits except the duplicated
+     `recency`/`recently` naming. Round 2 was stopped early at the owner's
+     request before it reported, so the round-1 fixes weren't reviewed again.
 5. **Limitations:**
+   - The round-1 fixes have had no second review (round 2 was stopped).
+     *Added 2026-10-29:* round 2 ran on 2026-10-28 (Opus, xhigh, against
+     `b5f07c4..421ed81`): no Blockers, 6 Should fixes, none made here.
+     [CP1b](cp1b-routing-fixes.md) lists and makes them.
+   - The routes change nothing yet: Brave ignores `route`, `namedPlace` and
+     `recency` until CP5 and CP6 use them.
+   - Routing and recency read English wording only, like the rest of
+     `WebSearchPolicy`.
+   - `weatherPlace` can catch a non-place ("for work"); CP6's geocoding
+     failure falls back to web search. It needs a Latin letter first, like
+     `needsLocation`, so "weather in Évian today" uses the current location
+     (a limitation of today's `LocationIntent` too).
+   - The named-area rule still sends some non-place questions to places,
+     such as "is coffee bad in pregnancy". CP7's evaluation should watch the
+     places route.
+   - "where am i", "my location" and "local events" need location but take
+     the web route, and `webQuery` doesn't add the city to them.
 6. **For the next checkpoint:**
+   - The names match the Interface block. `WebSearchRequest`'s memberwise
+     initializer takes its arguments in declaration order: `query`, `route`,
+     `city`, `coordinate`, `namedPlace`, `recency`, `maximumTokens`.
+   - `request.query` holds no location. CP5's step 1,
+     `SearchRouting.webQuery(request.query, city: request.city)`, is safe on
+     every request: without a city it only drops the nearby words. A query
+     that was only a cue ("near me" with no city) becomes empty, so CP5 and
+     CP6 should fall back to `request.query` then.
+   - On the weather route, `SearchRouting.decide` sets exactly one of
+     `needsCurrentLocation` and `namedPlace`. So a weather request carries a
+     coordinate or a named place. It has neither only when the view model has
+     no location provider, as in some tests.
+   - `request.city` is `nil` when reverse geocoding found no city, even when
+     `coordinate` is set.
+   - `SearchRecency.rawValue` is the `d/w/m/y` date-filter code.
+   - Test spies record `requests: [WebSearchRequest]`; assert on fields there.

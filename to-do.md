@@ -1036,61 +1036,10 @@ gets every must-pass example right. Built first, before the rest of F29.
 
 **Depends on / blocks:** nothing while halted (it used to block F29).
 
-### F29. On-device web search, replacing Brave
-
-**Status:** paused after CP1 (2026-10-27). F32 is on `main`, so F29 can
-resume; F31 is halted, so F29 no longer waits for it. CP1's second review
-ran on 2026-10-28: no Blockers, and six Should fixes not yet made. Four are
-in the weather, "local" and named-area routing rules (for example
-"temperature to bake salmon" routes to weather, "progress bars in swiftui"
-to places). Two are untested rules (location wins over a named place;
-recency comes from the typed question). Small models keep this routing
-under F32, so they still apply. On resuming: merge `main` into the branch,
-re-plan CP1's fixes and CP5/CP6 for F32 (the engines become `web_search`'s
-backend, places and weather become tools for capable models, and today's
-routing stays for small models), and fold in the maps additions below.
-
-**Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
-
-**Plan:** [docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md](docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md)
-(checkpoints CP0–CP9, each built by a fresh agent and audited by a fresh
-reviewer)
-
-**Today:** web search uses the Brave Search LLM Context API
-(`BraveSearchClient.swift`), and every user needs their own paid Brave key.
-
-**Wanted:** search that runs on the user's Mac with no key or account:
-
-- DuckDuckGo, Mojeek and Wikipedia, with Startpage as the backup;
-- ranking for quality, with bundled blocklists;
-- the top pages read in a sealed WebKit view;
-- Apple Maps for nearby places and Open-Meteo for weather;
-- "Never use this site";
-- Brave removed only after a quality gate against it passes.
-
-The spec has every decision, and the checkpoints the work runs in.
-
-**Added (owner, 2026-10-28), not yet in the spec or plan:**
-
-- A `/maps` command that always uses the places search, for any model, so
-  small models have a sure way to ask for places.
-- A map card under the reply, with numbered pins that match the reply's
-  numbered places. Clicking a pin opens the place in Apple Maps. It's a live
-  SwiftUI `Map` about 180–200 pt tall, still until clicked, built only when
-  its message scrolls into view, and a placeholder in the test host. Showing
-  an Apple map with Apple's attribution probably also answers CP0's MapKit
-  terms question (Q7).
-- Staged: first pin every place found; then only the places the reply
-  names. So the places tool returns an ID for each place from the start, for
-  the reply to cite and the card to pin.
-
-**Depends on / blocks:** blocks F30.
-
 ### F30. Native web search for cloud models
 
-**Status:** to be re-scoped now that F32 is on `main`: a provider's own search
-only in conversations with no message text, Enigma's gated `web_search`
-otherwise.
+**Status:** re-planned for F32 on 2026-10-29 (spec and plan approved); runs
+before F29. Not started: CP0 creates the worktree.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 
@@ -1098,18 +1047,54 @@ otherwise.
 (checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
 reviewer)
 
-**Today:** cloud routes use the same search pipeline as Local: Brave now,
-F29's on-device search next. Each provider's own search is turned off
-(`web_search="disabled"` in `CodexAppServer.swift`, `--tools ""` for Claude
-Code).
+**Today:** flagged cloud models get Enigma's `web_search` tool (F32), which
+runs on Brave, so they can't search without a Brave key. Each provider's own
+search is turned off (`web_search="disabled"` in `CodexAppServer.swift`,
+`--tools ""` for Claude Code).
 
-**Wanted (owner, 2026-10-26 and 2026-10-27):** OpenAI, Anthropic, ChatGPT
-(Codex) and Claude Code models search with their provider's own search when
-a request would search today. F29's search stays the fallback, and still
-handles Gemini, places, weather, screen and selection turns. Codex searches
-the live web. The spec has the details.
+**Wanted (owner, 2026-10-26 to 2026-10-29):** on OpenAI, Anthropic, ChatGPT
+(Codex) and Claude Code, the provider's own search tool replaces
+`web_search` in chats that hold no message text, with no key. If message
+text would enter a provider-search request, the reply restarts without it.
+Gemini keeps Enigma's search; location never goes to a provider's search;
+Codex searches the live web. The spec has the details.
 
-**Depends on:** F29, merged to `main`.
+**Depends on:** F32 (on `main`). Blocks F29.
+
+### F29. On-device web search, replacing Brave
+
+**Status:** CP0 and CP1 done on `feat/f29-on-device-search`; re-planned for
+F32 on 2026-10-29 (spec and plan approved). Resumes after F30 with CP0b (a
+second probe of the search sites from another network, starting with a
+merge of `main`), then CP1b (the six routing fixes from CP1's second
+review).
+
+**Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
+
+**Plan:** [docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md](docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md)
+(checkpoints CP0, CP0b, CP1, CP1b and CP2–CP10, each built by a fresh agent
+and audited by a fresh reviewer)
+
+**Today:** web search uses the Brave Search LLM Context API
+(`BraveSearchClient.swift`), and every user needs their own paid Brave key.
+
+**Wanted:** search that runs on the user's Mac with no key or account, for
+small and capable models:
+
+- DuckDuckGo, Mojeek and Wikipedia, with Startpage as the backup, the
+  lineup to be fixed after CP0b;
+- ranking for quality, with bundled blocklists;
+- the top pages read in a sealed WebKit view;
+- Apple Maps for places and Open-Meteo for weather: `find_places` and
+  `get_weather` tools on capable models, routing on small ones, and `/maps`
+  on both;
+- a map card with numbered pins under places answers, session-only;
+- "Never use this site", passed on to F30's provider search;
+- Brave removed only after a quality gate against it passes.
+
+The spec has every decision, and the checkpoints the work runs in.
+
+**Depends on / blocks:** after F30.
 
 ### F3. Regenerate the latest reply
 

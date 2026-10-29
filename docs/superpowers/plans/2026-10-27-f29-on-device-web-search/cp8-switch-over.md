@@ -10,7 +10,9 @@ report is in `docs/history/`.
 Every route uses on-device search, and Brave is gone: its client, key, Debug
 switch, settings, welcome field and wording. On first launch the old key is
 deleted from the Keychain. Settings gets the new Web search section, and
-sources get "Never use this site".
+sources get "Never use this site". Capable models get `web_search`,
+`find_places` and `get_weather` with no key, and F30's provider search gets
+the blocked sites.
 
 ## Starting point
 
@@ -30,6 +32,18 @@ sources get "Never use this site".
 | `Enigma/Chat/EnigmaConversationLogic.swift:170` | "brave search" in the reply footer |
 | `Enigma/App/EnigmaControls.swift:1990` | The gallery placeholder |
 | `OnDeviceSearch.swift` | `WebSearchProviderFactory` and its Debug key |
+
+**Added since this brief was first written (F32, F30, CP5–CP6):**
+
+| Place | What's there |
+| --- | --- |
+| `Enigma/Chat/AssistantToolbox.swift` | `NativeToolPlan.Inputs.hasSearchKey`, which gates the search part |
+| `LocalChatViewModel.nativeToolPlan(for:…)` | Fills `hasSearchKey` from the settings |
+| `LocalChatViewModel.submitNative` | Builds F30's `ProviderSearch` with empty `blockedDomains` |
+| `Enigma/Cloud/NativeWebSearch.swift` | `ProviderSearchPart(blockedDomains:)`; F30's instruction sentence for blocked sites |
+| `Enigma/Cloud/CloudToolCalling.swift` | `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)` and its limit |
+| `docs/Slash-Commands.md`, `docs/Web-Search.md` | F32's and F30's "without a key" notes (CP10 rewrites them) |
+| `SlashCommand.swift` | `/maps` (CP6), offered under the same key rule as `/search` until now |
 
 **Tests that mention Brave or the key:** `WebSearchTests` (about 20),
 `EnigmaSettingsTests` (24), `EnigmaWelcomeTests` (12), `ScreenViewTests`,
@@ -122,7 +136,10 @@ kept.", as today:
 `KeyboardShortcutsHelpView.swift`, and their tests.
 
 **Interfaces.** This task produces `static func available() -> [SlashCommand]`,
-which always includes `.search`.
+which always includes `.search` and `.maps`. `NativeToolPlan.Inputs` loses
+`hasSearchKey`: the search part (and with it `find_places` and
+`get_weather`) is offered whenever automatic search is on or `/search` or
+`/maps` is typed. Retarget `NativeToolPlanTests`' key rows to that rule.
 
 **Steps:**
 
@@ -234,6 +251,22 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
 - [ ] **Implement** the action, the blocked state and the environment.
 - [ ] **Run** them again. Expect them to pass.
 
+### Task 8.5b: Blocked sites for cloud models' own search (F30)
+
+**Files:** `LocalChatViewModel.swift` (`submitNative`), `WebSearchSettings.swift`,
+`WebSearchSettingsSection.swift`. Tests in `NativeToolRequestTests`,
+`EnigmaSettingsTests`.
+
+- [ ] **Write the failing tests:**
+  - `testProviderSearchCarriesBlockedSites`: with three blocked domains,
+    `request.providerSearch.blockedDomains` lists them most recent first;
+    `ProviderSearchPart`'s instruction names them (OpenAI, Codex, Claude
+    Code) and Anthropic's tool sends them as `blocked_domains` within its
+    limit (F30's existing tests for the cut stay green).
+  - `testBlockedSitesNoteMentionsCloudSearch`: the Settings list shows spec
+    §8's sentence about cloud models' own search.
+- [ ] **Run, implement, run.**
+
 ### Task 8.6: Wording
 
 **Files:** the five places listed in spec §8's wording table, plus
@@ -250,7 +283,10 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
 
 ## Exit criteria
 
-- [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass.
+- [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass (the full
+  `test` once, before the commit).
+- [ ] The Settings note names the sites CP0b's lineup kept, and F30's
+  sentence about cloud models' own search.
 - [ ] `grep -rni brave Enigma EnigmaTests` lists only these:
   - `BraveKeyCleanup` and its tests;
   - the `com.brave.Browser` bundle IDs and their tests;
@@ -258,7 +294,8 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
 - [ ] **A manual check in a signed build**, by the owner with the worker:
   - the welcome shows "Web search · ready";
   - Settings shows the new section;
-  - a search with each route works;
+  - a search with each route works, on a small and a capable model, with no
+    key: web, places and weather;
   - "Never use this site" and Undo work;
   - the old Brave key is gone from Keychain Access after launch.
 
