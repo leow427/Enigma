@@ -1,0 +1,107 @@
+{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 4096,
+  "system": "<F32 system prompt with the F30 search instruction>",
+  "messages": [
+    {
+      "role": "user",
+      "content": "<selection> Fix this sentence so it's accurate today."
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll check the latest release."
+        },
+        {
+          "type": "server_tool_use",
+          "id": "srvtoolu-0",
+          "name": "web_search",
+          "input": {
+            "query": "latest stable Swift release"
+          }
+        },
+        {
+          "type": "web_search_tool_result",
+          "tool_use_id": "srvtoolu-0",
+          "content": [
+            {
+              "type": "web_search_result",
+              "url": "https://www.swift.org/blog/swift-6.4.1-released/",
+              "title": "Swift 6.4.1 Released",
+              "encrypted_content": "REDACTED",
+              "page_age": null
+            },
+            {
+              "type": "web_search_result",
+              "url": "https://forums.swift.org/t/announcing-swift-6-4-1/90029",
+              "title": "Announcing Swift 6.4.1",
+              "encrypted_content": "REDACTED",
+              "page_age": "October 13, 2026"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The latest stable release is Swift 6.4.1.",
+          "citations": [
+            {
+              "type": "web_search_result_location",
+              "url": "https://www.swift.org/blog/swift-6.4.1-released/",
+              "title": "Swift 6.4.1 Released",
+              "encrypted_index": "REDACTED",
+              "cited_text": "We are happy to announce the release of Swift 6.4.1."
+            }
+          ]
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu-0",
+          "name": "propose_edit",
+          "input": {
+            "text": "The latest stable release of the Swift programming language is Swift 6.4.1."
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu-0",
+          "content": "The user saw the revision in a card."
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "propose_edit",
+      "description": "<F32 description>",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "web_search_20260318",
+      "name": "web_search",
+      "max_uses": 5,
+      "response_inclusion": "excluded",
+      "allowed_callers": [
+        "direct"
+      ]
+    }
+  ],
+  "stream": true
+}

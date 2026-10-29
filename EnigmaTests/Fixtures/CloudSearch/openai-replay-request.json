@@ -1,0 +1,94 @@
+{
+  "model": "gpt-5.6-luna",
+  "instructions": "<F32 system prompt with the F30 search instruction>",
+  "input": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "<selection> Fix this sentence so it's accurate today."
+        }
+      ]
+    },
+    {
+      "type": "web_search_call",
+      "id": "ws-0",
+      "status": "completed",
+      "action": {
+        "type": "search",
+        "query": "latest stable Swift release",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://www.swift.org/blog/swift-6.4.1-released/"
+          },
+          {
+            "type": "url",
+            "url": "https://forums.swift.org/t/announcing-swift-6-4-1/90029"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "start_index": 42,
+              "end_index": 103,
+              "url": "https://www.swift.org/blog/swift-6.4.1-released/",
+              "title": "Swift 6.4.1 Released"
+            }
+          ],
+          "text": "The latest stable release is Swift 6.4.1 ([swift.org](https://www.swift.org/blog/swift-6.4.1-released/)). I've proposed the corrected sentence."
+        }
+      ]
+    },
+    {
+      "type": "function_call",
+      "call_id": "call-0",
+      "name": "propose_edit",
+      "arguments": "{\"text\": \"The latest stable release of the Swift programming language is Swift 6.4.1.\"}"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call-0",
+      "output": "The user saw the revision in a card."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "propose_edit",
+      "description": "<F32 description>",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "web_search"
+    }
+  ],
+  "include": [
+    "web_search_call.action.sources"
+  ],
+  "max_tool_calls": 5,
+  "parallel_tool_calls": false,
+  "store": false,
+  "max_output_tokens": 4096,
+  "stream": true
+}

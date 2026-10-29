@@ -247,7 +247,7 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | not started | | |
+| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decisions open: OpenAI `user_location`, Anthropic `response_inclusion` |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |
