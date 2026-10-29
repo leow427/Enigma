@@ -980,6 +980,26 @@ extension CloudToolLoopTests {
     XCTAssertNil(transport.bodies[0]["tool_choice"], "Anthropic allows only auto tool choice with extended thinking")
   }
 
+  func testRequiredToolIsNotForcedOnAnthropicModelsThatRejectForcedToolChoice() async throws {
+    for model in ["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-mythos-5-1", "claude-opus-5-5-20261001",
+                  "claude-sonnet-5-6", "claude-fable-5-2", "claude-mythos-5-3"] {
+      let transport = QueuedTransport([["content": [["type": "text", "text": "42."]]]])
+      let client = AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+      _ = try await collect(client.stream(request(.anthropic, model: model), toolbox: RequiringToolbox()))
+      XCTAssertNil(transport.bodies[0]["tool_choice"], "\(model) returns a 400 for forced tool choice")
+    }
+  }
+
+  func testAnthropicForcedToolChoiceIsAcceptedOnlyBeforeTheFiveFiveGeneration() {
+    for model in ["claude-sonnet-4-6", "claude-opus-4-7", "claude-haiku-4-5", "claude-haiku-5-5", "claude-opus-5"] {
+      XCTAssertTrue(AnthropicMessagesClient.acceptsForcedToolChoice(modelID: model), model)
+    }
+    for model in ["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-mythos-5-1", "claude-opus-5-10",
+                  "claude-sonnet-5-5-20261001"] {
+      XCTAssertFalse(AnthropicMessagesClient.acceptsForcedToolChoice(modelID: model), model)
+    }
+  }
+
   func testRequiredToolIsSentOnFirstStepOnlyOnGemini() async throws {
     let transport = QueuedTransport([
       ["candidates": [["content": ["role": "model", "parts": [["functionCall": ["name": "lookup", "args": [:]]]]], "finishReason": "STOP"]]],

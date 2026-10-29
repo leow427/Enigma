@@ -948,8 +948,8 @@ final class LocalChatViewModel: ObservableObject {
             try Task.checkCancellation()
             guard allowed else { throw NativeToolsError.messageTextStays }
           }
-          // Codex, Claude Code and Anthropic with /think can't force a tool, so the request also
-          // asks in words. The local server adds the same line itself.
+          // Codex, Claude Code, Anthropic with /think and Anthropic's newest models can't force a
+          // tool, so the request also asks in words. The local server adds the same line itself.
           var history = history
           if let required = toolbox.offeredRequiredTool {
             history[history.count - 1].content += "\n\n" + LlamaServerVisionEngine.requiredToolInstruction(required)

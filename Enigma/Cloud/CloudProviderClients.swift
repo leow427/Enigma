@@ -254,6 +254,19 @@ struct AnthropicMessagesClient: ChatProvider {
       : ["thinking": ["type": "adaptive"], "output_config": ["effort": "high"]]
   }
 
+  /// Whether `tool_choice` `tool` (and `any`) is allowed. Claude Opus 5.5, Sonnet 5.5, Fable 5.1
+  /// and Mythos 5.1 return a 400 for it whatever the thinking settings (define-tools docs,
+  /// "Forcing tool use", checked 2026-10-29); later versions of those families are assumed to too.
+  static func acceptsForcedToolChoice(modelID: String) -> Bool {
+    let firstRejecting: [String: (Int, Int)] = ["opus": (5, 5), "sonnet": (5, 5), "fable": (5, 1), "mythos": (5, 1)]
+    let parts = modelID.split(separator: "-")
+    guard parts.count >= 3, parts[0] == "claude", let first = firstRejecting[String(parts[1])],
+          let major = Int(parts[2]) else { return true }
+    // A dated snapshot such as claude-opus-5-20261001 has no minor version.
+    let minor = parts.count > 3 ? Int(parts[3]).flatMap { $0 < 1_000 ? $0 : nil } ?? 0 : 0
+    return (major, minor) < first
+  }
+
   private func consume(
     _ request: URLRequest,
     continuation: AsyncThrowingStream<ChatEvent, Error>.Continuation
