@@ -338,6 +338,15 @@ final class LocalChatViewModel: ObservableObject {
   let toolPermissions: ToolPermissionCoordinator
   /// F32's switch for this chat: flagged routes take `submitNative` only while it's on.
   let nativeToolsEnabled: Bool
+  private var warmUpTask: Task<Void, Never>?
+  /// When the last warm-up started, and the typed commands it read. Other commands change the
+  /// prefix, so they warm again at once.
+  private var lastWarmUp: (at: ContinuousClock.Instant, commands: Set<SlashCommand>)?
+  /// A model whose warm-up failed isn't loaded in the background again until the next send.
+  private var unwarmableModelID: String?
+  /// The latest draft change while a warm-up ran, looked at again once it ends.
+  private var draftDuringWarmUp: (draft: String, mode: ChatMode, hasScreenshot: Bool)?
+  var isWarmingUp: Bool { warmUpTask != nil }
   /// What the selection tools proposed during the running flagged request, for its reply.
   private var nativeProposals: NativeProposals?
   typealias MessagesToolboxFactory = @MainActor (@escaping @Sendable (MessagesSendApproval) async -> Bool) -> any AgentToolbox
@@ -778,6 +787,69 @@ final class LocalChatViewModel: ObservableObject {
       hasSearchKey: searchSettings?.hasAPIKey ?? false, hasFullDiskAccess: (try? messagesAccess()) != nil))
   }
 
+  /// How often typing may warm the local model. Well inside the minute after which an idle
+  /// server unloads, so it stays loaded while the user types.
+  static let warmUpInterval: Duration = .seconds(10)
+
+  /// Warms a flagged local model while the user types (F32): starts its server and reads the next
+  /// turn's system prompt, tools and earlier messages into the prompt cache, so the reply after a
+  /// pause doesn't wait for them. Only where a flagged local turn would run: Local, and Auto, which
+  /// starts local. The draft is read for its typed commands only, which shape that prompt; its text
+  /// is never sent, as it may never be. Returns whether a warm-up started.
+  @discardableResult
+  func warmNativeTurn(draft: String, mode: ChatMode, hasScreenshot: Bool) -> Bool {
+    guard nativeToolsEnabled else { return false }
+    guard warmUpTask == nil else {
+      draftDuringWarmUp = (draft, mode, hasScreenshot)
+      return false
+    }
+    guard mode != .cloud, !hasScreenshot, !isBusy, !files.isWorking, files.selection == nil,
+          !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !Self.endsInPartialCommand(draft),
+          let model = installedModel, model.id != unwarmableModelID else { return false }
+    let route = Route(mode: .local, providerID: "local", modelID: model.id, usesNetwork: false)
+    let typed = ComposerCommands(draft)
+    guard NativeTools.isCapable(route: route, localModel: model), !typed.screen,
+          let destination = ToolDestination(route: route) else { return false }
+    let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
+    if let lastWarmUp, lastWarmUp.commands == commands, lastWarmUp.at.duration(to: .now) < Self.warmUpInterval {
+      return false
+    }
+    // Built as the turn builds it; its tools never run.
+    let toolbox = nativeToolbox(plan: nativeToolPlan(for: typed), destination: destination, sessionID: UUID(),
+                                responseID: UUID(), requestID: UUID(), evidenceTokens: 2_048)
+    // A stand-in prompt, removed again after trimming: the preparer needs one, and the draft is
+    // never read. Whatever the preparer puts before it, such as /think's guidance, stays.
+    let standIn = "."
+    var message = ThinkCommand.message(draft)
+    message.content = standIn
+    guard !toolbox.definitions.isEmpty,
+          var messages = try? LocalToolAgent.prepare(requestMessages.map(ConversationContextPrompt.expand) + [message],
+                                                     model: model, toolbox: toolbox).messages,
+          let last = messages.indices.last, messages[last].content.hasSuffix(standIn) else { return false }
+    messages[last].content.removeLast(standIn.count)
+    lastWarmUp = (.now, commands)
+    warmUpTask = Task { [weak self, fileInference] in
+      let ready = await LocalToolAgent(inference: fileInference).warm(messages: messages, model: model, toolbox: toolbox)
+      guard let self else { return }
+      warmUpTask = nil
+      if !ready { unwarmableModelID = model.id }
+      // The user may have typed a command meanwhile, which needs another prefix.
+      if let later = draftDuringWarmUp {
+        draftDuringWarmUp = nil
+        warmNativeTurn(draft: later.draft, mode: later.mode, hasScreenshot: later.hasScreenshot)
+      }
+    }
+    return true
+  }
+
+  /// Whether the draft ends in a command still being typed, such as "/thi": the finished one may
+  /// change the prefix, so warming waits for it.
+  static func endsInPartialCommand(_ draft: String) -> Bool {
+    guard let character = draft.last, !character.isWhitespace,
+          let word = draft.split(whereSeparator: \.isWhitespace).last, word.hasPrefix("/") else { return false }
+    return SlashCommand(rawValue: String(word.dropFirst()).lowercased()) == nil
+  }
+
   /// A flagged route: the model gets the plan's tools on the route's streaming tool loop and
   /// decides itself when to search, read Messages or propose a selection edit. Cards gate message
   /// text, and searches once a chat holds it. A local turn keeps the server, and its prompt
@@ -796,6 +868,8 @@ final class LocalChatViewModel: ObservableObject {
     }
     let local = route.mode == .local
     let model = installedModel
+    // Sending tries a model whose warm-up failed again; its error, if any, now shows.
+    if local { unwarmableModelID = nil }
     var provider: (any ToolCallingChatProvider)?
     guard let destination = ToolDestination(route: route) else {
       state = .failed(CloudProviderError.invalidResponse.localizedDescription)

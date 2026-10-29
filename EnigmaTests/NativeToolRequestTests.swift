@@ -103,6 +103,136 @@ final class NativeToolRequestTests: XCTestCase {
     }
   }
 
+  private func waitForWarms(_ inference: NativeScriptedInference, count: Int) async throws {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await inference.warms.count < count {
+      guard ContinuousClock.now < deadline else { return XCTFail("Timed out waiting for a warm-up") }
+      try await Task.sleep(for: .milliseconds(5))
+    }
+  }
+
+  // MARK: Warm-up while typing
+
+  func testTypingWarmsAFlaggedLocalModelWithTheTurnsPrefixButNotTheDraft() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Hello there."), .text("Sunny.")])
+    let chat = makeChat(inference: inference)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat)
+    XCTAssertTrue(chat.warmNativeTurn(draft: "What's the weather in Paris", mode: .local, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    try await send("What's the weather in Paris", to: chat)
+    let warms = await inference.warms
+    let requests = await inference.requests
+    let warm = try XCTUnwrap(warms.first), turn = try XCTUnwrap(requests.last)
+    XCTAssertEqual(warm.tools, turn.tools)
+    XCTAssertEqual(Array(warm.messages.dropLast()), Array(turn.messages.dropLast()),
+                   "The system prompt and earlier turns are the turn's own, so the cache holds them")
+    XCTAssertEqual(warm.messages.last?.role, "user")
+    XCTAssertEqual(warm.messages.last?.content, "", "Text not yet sent is never read")
+    XCTAssertFalse(warm.messages.contains { $0.content?.contains("Paris") == true })
+  }
+
+  /// Types `draft` a character at a time, as the composer reports each change.
+  private func type(_ draft: String, into chat: LocalChatViewModel, mode: ChatMode = .local) async throws {
+    var typed = ""
+    for character in draft {
+      typed.append(character)
+      chat.warmNativeTurn(draft: typed, mode: mode, hasScreenshot: false)
+      try await Task.sleep(for: .milliseconds(2))
+    }
+    try await waitUntil { !chat.isWarmingUp }
+  }
+
+  /// A typed command changes the system prompt or the tools, so the cache must hold the turn's own.
+  /// A command typed first is waited for, so it warms once; one typed after the question warms again.
+  func testTypedCommandsWarmTheirTurnsOwnPrefix() async throws {
+    for (draft, count) in [("/think Why is the sky blue?", 1), ("/messages Who texted me?", 1),
+                           ("/search Latest launch news", 1), ("Why is the sky blue? /think", 2)] {
+      let inference = NativeScriptedInference(steps: [.text("Answer.")])
+      let chat = makeChat(inference: inference, automaticSearch: false)
+      await chat.refreshInstalledModel()
+      try await type(draft, into: chat, mode: .auto)
+      try await send(draft, to: chat)
+      let warms = await inference.warms
+      let requests = await inference.requests
+      let warm = try XCTUnwrap(warms.last, draft), turn = try XCTUnwrap(requests.first, draft)
+      XCTAssertEqual(warm.messages.first, turn.messages.first, draft)
+      XCTAssertEqual(warm.tools, turn.tools, draft)
+      XCTAssertEqual(warms.count, count, draft)
+    }
+    let chat = makeChat()
+    await chat.refreshInstalledModel()
+    XCTAssertFalse(chat.warmNativeTurn(draft: "/thi", mode: .local, hasScreenshot: false), "A half-typed command waits")
+  }
+
+  /// A warm-up can take seconds. A command typed meanwhile warms again once it ends.
+  func testACommandTypedDuringAWarmUpWarmsAgainWhenItEnds() async throws {
+    let inference = NativeScriptedInference()
+    await inference.holdWarmUps()
+    let chat = makeChat(inference: inference)
+    await chat.refreshInstalledModel()
+    XCTAssertTrue(chat.warmNativeTurn(draft: "Why", mode: .local, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    for draft in ["Why /", "Why /think", "Why /think is"] {
+      XCTAssertFalse(chat.warmNativeTurn(draft: draft, mode: .local, hasScreenshot: false), draft)
+    }
+    await inference.releaseWarmUp()
+    try await waitForWarms(inference, count: 2)
+    try await waitUntil { !chat.isWarmingUp }
+    let warms = await inference.warms
+    XCTAssertEqual(warms.count, 2)
+    XCTAssertNotEqual(warms.first?.messages.first?.extendedThinking, true)
+    XCTAssertEqual(warms.last?.messages.first?.extendedThinking, true, "The second reads /think's prefix")
+  }
+
+  func testAFailedWarmUpStopsWarmingThatModelUntilTheNextSend() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Answer.")])
+    await inference.failWarmUps()
+    let chat = makeChat(inference: inference)
+    await chat.refreshInstalledModel()
+    XCTAssertTrue(chat.warmNativeTurn(draft: "Hi", mode: .local, hasScreenshot: false))
+    try await waitUntil { !chat.isWarmingUp }
+    XCTAssertFalse(chat.warmNativeTurn(draft: "/think Hi", mode: .local, hasScreenshot: false),
+                   "A model that couldn't load isn't loaded again in the background")
+    try await send("Hi", to: chat)
+    XCTAssertTrue(chat.warmNativeTurn(draft: "/messages Hi", mode: .local, hasScreenshot: false),
+                  "Sending tries the model again")
+  }
+
+  func testNoWarmUpWhereTheTurnWouldNotRunLocalTools() async throws {
+    let inference = NativeScriptedInference()
+    let chat = makeChat(inference: inference)
+    await chat.refreshInstalledModel()
+    XCTAssertFalse(chat.warmNativeTurn(draft: "Hi", mode: .cloud, hasScreenshot: false))
+    XCTAssertFalse(chat.warmNativeTurn(draft: "  \n", mode: .local, hasScreenshot: false))
+    XCTAssertFalse(chat.warmNativeTurn(draft: "What's this?", mode: .local, hasScreenshot: true))
+    XCTAssertFalse(chat.warmNativeTurn(draft: "/screen What's this?", mode: .local, hasScreenshot: false))
+    XCTAssertFalse(chat.warmNativeTurn(draft: "/snapshot", mode: .auto, hasScreenshot: false))
+    let off = makeChat(inference: inference, nativeToolsEnabled: false)
+    await off.refreshInstalledModel()
+    XCTAssertFalse(off.warmNativeTurn(draft: "Hi", mode: .local, hasScreenshot: false), "Switch off: today's path")
+    let small = makeChat(model: Self.unflaggedModel, inference: inference)
+    await small.refreshInstalledModel()
+    XCTAssertFalse(small.warmNativeTurn(draft: "Hi", mode: .local, hasScreenshot: false), "Small models don't change")
+
+    let hanging = NativeScriptedInference(steps: [.hang])
+    let busy = makeChat(inference: hanging)
+    await busy.refreshInstalledModel()
+    busy.submitNative("Hi", route: Self.localRoute, plan: plan("Hi", chat: busy))
+    XCTAssertTrue(busy.isBusy)
+    XCTAssertFalse(busy.warmNativeTurn(draft: "Next", mode: .local, hasScreenshot: false), "Never during a reply")
+    await busy.stopStreaming()?.value
+
+    XCTAssertTrue(chat.warmNativeTurn(draft: "Hi", mode: .auto, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    XCTAssertFalse(chat.warmNativeTurn(draft: "Hi there", mode: .auto, hasScreenshot: false),
+                   "At most one warm-up every few seconds while typing")
+    let hangingWarms = await hanging.warms
+    XCTAssertTrue(hangingWarms.isEmpty)
+    let warms = await inference.warms
+    XCTAssertEqual(warms.count, 1)
+  }
+
   // MARK: Routes
 
   func testFlaggedLocalTurnUsesStreamingAgent() async throws {
@@ -772,10 +902,31 @@ actor NativeScriptedInference: LocalToolInference {
   private(set) var requiredTools: [String?] = []
   private(set) var completeCalls = 0
   private(set) var unloads = 0
+  private(set) var warms: [Request] = []
+  /// What each warm-up reports: false as for a model that can't load.
+  var warmSucceeds = true
 
   init(steps: [Step] = []) { self.steps = steps }
 
   func unload() async { unloads += 1 }
+
+  private var holdsWarmUps = false
+  private var heldWarmUp: CheckedContinuation<Void, Never>?
+
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool {
+    warms.append(Request(messages: messages, tools: tools.map(\.name)))
+    if holdsWarmUps { await withCheckedContinuation { heldWarmUp = $0 } }
+    return warmSucceeds
+  }
+
+  func failWarmUps() { warmSucceeds = false }
+  /// Warm-ups wait until `releaseWarmUp`, as a model loading for seconds does.
+  func holdWarmUps() { holdsWarmUps = true }
+  func releaseWarmUp() {
+    holdsWarmUps = false
+    heldWarmUp?.resume()
+    heldWarmUp = nil
+  }
 
   func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
     completeCalls += 1

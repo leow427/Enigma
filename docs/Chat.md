@@ -325,6 +325,24 @@ their own paths.
   arguments or results.
 - When the request ends, `applyNativeProposals` turns a proposed edit into the
   reply's revision block and appends translations to it.
+- While you type in Local or Auto with a flagged local model, `AppShellView`
+  calls `warmNativeTurn` on each draft change. It builds the next turn's
+  toolbox and history around an empty prompt and calls
+  `LlamaServerVisionEngine.warmTools`: at most every 10 seconds, or at once
+  when the typed commands change, since `/think`, `/messages` and `/search`
+  change the system prompt or the tools. It waits while a command is half
+  typed, and a draft changed during a warm-up is looked at again when it ends.
+  Only the draft's commands are read, never its text.
+- `warmTools` loads a stopped server and reads the system prompt, tools and
+  earlier messages into the prompt cache with a one-token request. A loaded
+  server whose cache starts with the same system prompt and tools only
+  restarts its idle timer, so it stays loaded while you type; one used since
+  for something else reads them again. A request that starts during a warm-up
+  waits for it rather than restarting the server, and stopping that request
+  stops the warm-up. A model whose warm-up failed isn't loaded in the
+  background again until the next send. There's no warm-up with files, a
+  screenshot, a typed `/screen` or `/snapshot`, during a reply, in Cloud, or
+  with the switch off.
 
 ### Presentation
 

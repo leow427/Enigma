@@ -297,6 +297,199 @@ final class LocalToolStreamingTests: XCTestCase {
 
   // MARK: Helpers
 
+  // MARK: Warm-up while typing
+
+  func testWarmUpLoadsTheServerAndReadsTheTurnsPrefix() async throws {
+    let model = try stubModel(serving: "text")
+    let deadline = ControlledLocalIdleSleep()
+    let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
+    addTeardownBlock { await runtime.unload(); await deadline.close() }
+    let ready = await runtime.warmTools(messages: messages(""), tools: [weather], model: model)
+    XCTAssertTrue(ready)
+    let warmed = await runtime.runtimeProcessIdentifier()
+    XCTAssertNotNil(warmed)
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+    _ = try await Self.collect(runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil))
+    let pid = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(pid, warmed, "The turn uses the warmed server")
+
+    let completions = try requestLog().filter { $0["path"].string == "/v1/chat/completions" }.map { $0["body"] }
+    XCTAssertEqual(completions.count, 2)
+    let (warm, turn) = (completions[0], completions[1])
+    XCTAssertEqual(warm["stream"], .bool(false))
+    XCTAssertEqual(warm["max_tokens"], .number(1))
+    XCTAssertEqual(warm["cache_prompt"], .bool(true))
+    XCTAssertEqual(warm["tools"], turn["tools"])
+    XCTAssertEqual(warm["chat_template_kwargs"], turn["chat_template_kwargs"])
+    XCTAssertEqual(warm["messages"].array?.first, turn["messages"].array?.first, "The same system prompt, so the cache holds it")
+  }
+
+  func testWarmUpOnALoadedServerOnlyKeepsItLoaded() async throws {
+    let model = try stubModel(serving: "text")
+    let deadline = ControlledLocalIdleSleep(expectedSleeps: 2)
+    let runtime = LlamaServerVisionEngine(idleSleep: { try await deadline.sleep($0) })
+    addTeardownBlock { await runtime.unload(); await deadline.close() }
+    _ = try await Self.collect(runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil))
+    await fulfillment(of: [deadline.armed[0]], timeout: 2)
+    let pid = await runtime.runtimeProcessIdentifier()
+    await runtime.warmTools(messages: messages(""), tools: [weather], model: model)
+    await fulfillment(of: [deadline.armed[1]], timeout: 2)
+    await deadline.expire(0)
+    try await Task.sleep(for: .milliseconds(100))
+    let kept = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(kept, pid, "Typing restarts the idle timer instead of letting the old one unload the server")
+    let completions = try requestLog().filter { $0["path"].string == "/v1/chat/completions" }
+    XCTAssertEqual(completions.count, 1, "A loaded server isn't sent a warm-up")
+    await deadline.expire(1)
+    try await waitFor { await runtime.runtimeProcessIdentifier() == nil }
+  }
+
+  func testATurnSentDuringAWarmUpWaitsForItInsteadOfRestartingTheServer() async throws {
+    let model = try stubModel(serving: "text")
+    try Data("hold-warm".utf8).write(to: directory.appending(path: "mode"))
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    let started = directory.appending(path: "warm-started")
+    let warming = Task { await runtime.warmTools(messages: heldMessages, tools: [heldTool], model: model) }
+    try await waitFor { FileManager.default.fileExists(atPath: started.path) }
+    let warmed = await runtime.runtimeProcessIdentifier()
+    XCTAssertNotNil(warmed)
+    let turn = Task { try await collectToolEvents(runtime.streamTools(messages: heldMessages, tools: [heldTool],
+                                                                      model: model, requiredTool: nil)) }
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertTrue(try requestLog().filter { $0["body"]["stream"] == .bool(true) }.isEmpty, "The turn waits for the warm-up")
+    let during = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(during, warmed, "The turn never restarts the server under the warm-up")
+    try Data().write(to: directory.appending(path: "release"))
+    let events = try await turn.value
+    await warming.value
+    XCTAssertEqual(events.messages.count, 1)
+    let after = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(after, warmed)
+  }
+
+  func testStoppingATurnThatWaitsForAWarmUpStopsBoth() async throws {
+    let model = try stubModel(serving: "text")
+    try Data("hold-warm".utf8).write(to: directory.appending(path: "mode"))
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    let started = directory.appending(path: "warm-started")
+    let warming = Task { await runtime.warmTools(messages: heldMessages, tools: [heldTool], model: model) }
+    try await waitFor { FileManager.default.fileExists(atPath: started.path) }
+    let identifier = await runtime.runtimeProcessIdentifier()
+    let pid = try XCTUnwrap(identifier)
+    let turn = Task { try await collectToolEvents(runtime.streamTools(messages: heldMessages, tools: [heldTool],
+                                                                      model: model, requiredTool: nil)) }
+    try await Task.sleep(for: .milliseconds(100))
+    turn.cancel()
+    // Promptly, not when the held warm-up's request times out.
+    try await waitFor { await runtime.runtimeProcessIdentifier() == nil }
+    try await waitFor { Darwin.kill(pid, 0) != 0 }
+    _ = try? await turn.value
+    _ = await warming.value
+    XCTAssertTrue(try requestLog().filter { $0["body"]["stream"] == .bool(true) }.isEmpty, "The stopped turn never ran")
+  }
+
+  func testPlainTurnsAndFileModeAlsoWaitForAWarmUp() async throws {
+    let model = try stubModel(serving: "text")
+    try Data("hold-warm".utf8).write(to: directory.appending(path: "mode"))
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    let started = directory.appending(path: "warm-started"), release = directory.appending(path: "release")
+    let requests: [(String, @Sendable () async throws -> Void)] = [
+      ("prepare", { _ = try await runtime.prepare(messages: [ChatMessage(role: .user, content: "Hello")], image: nil, model: model) }),
+      ("a plain turn", {
+        _ = try await ScreenSearchContext.collect(runtime.stream(messages: [ChatMessage(role: .user, content: "Hello")],
+                                                                 image: nil, model: model), maximumBytes: 100)
+      }),
+      ("File Mode", { _ = try await runtime.completeTools(messages: heldMessages, tools: [heldTool], model: model) }),
+    ]
+    for (name, request) in requests {
+      await runtime.unload()
+      try? FileManager.default.removeItem(at: started)
+      try? FileManager.default.removeItem(at: release)
+      let warming = Task { await runtime.warmTools(messages: heldMessages, tools: [heldTool], model: model) }
+      try await waitFor { FileManager.default.fileExists(atPath: started.path) }
+      let warmed = await runtime.runtimeProcessIdentifier()
+      let logged = try requestLog().count
+      let turn = Task { try await request() }
+      try await Task.sleep(for: .milliseconds(300))
+      XCTAssertEqual(try requestLog().count, logged, "\(name) waits for the warm-up")
+      let during = await runtime.runtimeProcessIdentifier()
+      XCTAssertEqual(during, warmed, "\(name) never restarts the server under the warm-up")
+      try Data().write(to: release)
+      try await turn.value
+      _ = await warming.value
+      let after = await runtime.runtimeProcessIdentifier()
+      XCTAssertEqual(after, warmed, name)
+    }
+  }
+
+  func testWarmUpRereadsALoadedServerWhosePrefixChanged() async throws {
+    let model = try stubModel(serving: "text")
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    _ = try await Self.collect(runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil))
+    let pid = await runtime.runtimeProcessIdentifier()
+    func warms() throws -> Int { try requestLog().filter { $0["body"]["max_tokens"] == .number(1) }.count }
+    await runtime.warmTools(messages: messages(""), tools: [weather], model: model)
+    XCTAssertEqual(try warms(), 0, "The cache already starts with this prefix")
+    let clock = AgentToolDefinition(name: "get_time", description: "Get the time.", properties: [:], required: [])
+    await runtime.warmTools(messages: messages(""), tools: [weather, clock], model: model)
+    XCTAssertEqual(try warms(), 1, "Other tools, such as a typed command's: read again on the loaded server")
+    _ = try await ScreenSearchContext.collect(runtime.stream(messages: [ChatMessage(role: .user, content: "Hello")],
+                                                             image: nil, model: model), maximumBytes: 100)
+    await runtime.warmTools(messages: messages(""), tools: [weather, clock], model: model)
+    XCTAssertEqual(try warms(), 2, "A plain turn replaced the cache")
+    let after = await runtime.runtimeProcessIdentifier()
+    XCTAssertEqual(after, pid, "Reading again never restarts the server")
+  }
+
+  func testWarmingTheSamePrefixTwiceReadsItOnce() async throws {
+    let model = try stubModel(serving: "text")
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    await runtime.warmTools(messages: messages(""), tools: [weather], model: model)
+    await runtime.warmTools(messages: messages(""), tools: [weather], model: model)
+    let warms = try requestLog().filter { $0["body"]["max_tokens"] == .number(1) }
+    XCTAssertEqual(warms.count, 1, "The second finds the cache already starting with the prefix")
+  }
+
+  /// An unload that lands between a warm-up taking the server and its task starting must not
+  /// leave a server nothing owns. The window is short, so this tries several timings; a server
+  /// still running afterwards is only right if a warm-up request reached it.
+  func testAWarmUpUnloadedBeforeItStartsLeavesNoServer() async throws {
+    let model = try stubModel(serving: "text")
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    // A long tool list keeps the actor busy comparing prefixes, which widens the window.
+    let tools = (0..<6_000).map { AgentToolDefinition(name: "tool\($0)", description: "A tool.", properties: [:], required: []) }
+    let prefix = messages("")
+    for delay in [0, 1, 2, 4, 8, 16, 32] {
+      _ = try await Self.collect(runtime.streamTools(messages: messages(), tools: [weather], model: model, requiredTool: nil))
+      let logged = try requestLog().count
+      let warming = Task { await runtime.warmTools(messages: prefix, tools: tools, model: model) }
+      try await Task.sleep(for: .milliseconds(delay))
+      await runtime.unload()
+      _ = await warming.value
+      let pid = await runtime.runtimeProcessIdentifier()
+      let warmed = try requestLog().dropFirst(logged).contains { $0["body"]["max_tokens"] == .number(1) }
+      XCTAssertTrue(pid == nil || warmed, "After \(delay) ms: a server is running that no request owns")
+      await runtime.unload()
+    }
+  }
+
+  func testAWarmUpThatCannotLoadSaysSo() async throws {
+    let model = try stubModel(serving: "text")
+    try Data("exit".utf8).write(to: directory.appending(path: "mode"))
+    let runtime = LlamaServerVisionEngine()
+    addTeardownBlock { await runtime.unload() }
+    let ready = await runtime.warmTools(messages: heldMessages, tools: [heldTool], model: model)
+    XCTAssertFalse(ready)
+    let pid = await runtime.runtimeProcessIdentifier()
+    XCTAssertNil(pid)
+  }
+
   private static func collect(_ stream: AsyncThrowingStream<LocalToolStreamEvent, Error>) async throws -> [LocalToolStreamEvent] {
     try await collectToolEvents(stream)
   }
@@ -355,6 +548,7 @@ final class LocalToolStreamingTests: XCTestCase {
     def mode():
         path = root / 'mode'
         return path.read_text() if path.exists() else ''
+    if mode() == 'exit': sys.exit(1)
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args): pass
         def do_GET(self):
@@ -372,6 +566,9 @@ final class LocalToolStreamingTests: XCTestCase {
                 self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers()
                 self.wfile.write(json.dumps(result).encode()); return
             if not body.get('stream'):
+                if body.get('max_tokens') == 1 and mode() == 'hold-warm':
+                    (root / 'warm-started').write_text('ready')
+                    while not (root / 'release').exists(): time.sleep(0.02)
                 self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers()
                 self.wfile.write(json.dumps({'choices': [{'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': 'whole'}}]}).encode())
                 return

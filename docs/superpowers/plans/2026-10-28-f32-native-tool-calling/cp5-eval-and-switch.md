@@ -265,3 +265,75 @@ and `ENIGMA_F32_REPORT` names a folder outside the repository.
    re-scope (a provider's own search only without message text). Possible
    wording work: search with a general query rather than ask for a city
    (search-13, inject-03).
+
+### Follow-up: warm-up while typing (owner)
+
+The owner chose, at the end of review: "On a local model with tools, when the
+composer has text and the server isn't running, start it and read the tool
+descriptions in the background." It lands in its own commit before the merge.
+
+- **Built:** `LocalChatViewModel.warmNativeTurn`, called from `AppShellView` on
+  each draft change, at most every 10 s, in Local and Auto, for a flagged local
+  model only. It builds the next turn's toolbox and history around an empty
+  prompt (the draft is never read) and calls `LocalToolAgent.warm`, which
+  `LlamaServerVisionEngine.warmTools` serves. A stopped server loads, then a
+  one-token, non-streamed request with `cache_prompt` reads the prefix; a loaded
+  one only restarts its idle timer. Plain turns, tool turns and File Mode wait
+  for a running warm-up rather than restarting the server, and stopping them
+  stops it; the benchmark still takes the server, as it measures loading.
+  `LocalToolAgent.history` builds the first step for both the turn and the
+  warm-up. No warm-up with files, a screenshot, `/screen` or `/snapshot`,
+  during a reply, in Cloud, or with the switch off.
+- **Tests:** 4 in `LocalToolStreamingTests` on the stub server (the warm-up's
+  request and prefix, a loaded server only kept, a turn during a warm-up waits
+  without a restart, stopping that turn stops both) and 3 in
+  `NativeToolRequestTests` (the turn's prefix without the draft, `/think`, and
+  every case that doesn't warm). Written first; they failed to compile.
+- **Live (owner-approved), from a stopped server with the load included, to the
+  first answer text:** Gemma 4 12B 1.72 s today, 2.93 s with tools, 0.17 s
+  after a warm-up (the warm-up took 2.65 s); Qwen3.8 27B 2.83 s, 5.94 s and
+  0.25 s (warm-up 5.94 s). Medians of 3. The warm gate was unchanged (0.73×,
+  1.03×). `NativeToolsLatencyTests` gained the three cold conditions and the
+  warm-up's own time.
+- **Review round 1 (3 Should fix):**
+  - Typed commands change the prefix (`/think` the system prompt, `/messages`
+    and `/search` the instructions or tools), but the warm-up read it at the
+    first keystroke. Now it waits while the last word is a half-typed command,
+    warms again at once when the set of typed commands changes, and looks at a
+    draft changed during a warm-up once it ends. The engine remembers the
+    system message and tools its cache starts with (`cachedToolPrefix`, set
+    by a tool turn or a warm-up, cleared by anything else and by a new
+    server), and a loaded server whose prefix differs reads it again.
+  - A failed warm-up (the server exits or can't load) loaded the model again
+    every 10 s. `warmTools` now returns false for a failure, not for a stop
+    or a takeover, and the view model stops warming that model until the
+    next send.
+  - Tests: the Stop test checks the server stops promptly; plain turns,
+    `prepare` and File Mode are shown to wait; the window test checks that
+    typing warms; typing `/think`, `/messages`, `/search` and a trailing
+    `/think` a character at a time warms the turn's own prefix; a loaded
+    server reads a changed prefix again; a server that exits at start
+    reports failure, and the view model then stops warming.
+  - Verified: `NativeToolRequestTests` and `LocalToolStreamingTests` 59 tests,
+    0 failed; the two flagged window tests, `LocalInferenceTests`,
+    `FileModeRuntimeTests`, `LocalVisionTests` and `NativeToolsLatencyTests`
+    64 tests, 5 skipped, 0 failed.
+- **Review round 2 (2 Should fix, small; fixed by the worker, no third
+  reviewer, as the owner allowed):**
+  - An unload landing between a warm-up taking the server and its task
+    starting let the task's `load` start a server nothing owned. `load` now
+    throws for a request that is no longer active, before it closes or starts
+    anything; `testAWarmUpUnloadedBeforeItStartsLeavesNoServer` leaked at 3 of
+    7 timings before the fix and passes after.
+  - Round 1's typing fixes weren't pinned. New tests: a command typed during
+    a held warm-up warms again when it ends; a half-typed command doesn't
+    warm, and a leading command warms once; warming the same prefix twice
+    reads it once.
+  - Verified: the native, streaming, local inference, File Mode runtime and
+    local vision classes plus the two flagged window tests, 125 tests, 4
+    skipped, 0 failed. Then `build` and `analyze` succeeded (no warnings) and
+    the full `test` ran 1,536 tests, 28 skipped, 0 failures.
+- **Limitations:** a question sent before the warm-up finishes waits for the
+  rest of it. In Auto the model can load for a question that goes to the cloud.
+  If the one warm-up that fails was loading when the user sent, the turn waits
+  for it to fail, then tries loading itself.

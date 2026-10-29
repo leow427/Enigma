@@ -1951,6 +1951,12 @@ extension EnigmaMainWindowTests {
     XCTAssertTrue(ComposerIntent.resolve(.init(draft: "What's the latest news today?", searchesAutomatically: true)).search)
     fixture.screen.draft = "What's the latest news today?"
     try await waitForUI("the draft", in: host.view) { editor.string == "What's the latest news today?" }
+    var warms = await inference.warms
+    for _ in 0..<200 where warms.isEmpty {
+      try await Task.sleep(for: .milliseconds(10))
+      warms = await inference.warms
+    }
+    XCTAssertEqual(warms.count, 1, "Typing warmed the local model")
     try await clickTestControl("Send message", in: host.view)
     try await waitForUI("the native reply", in: host.view) {
       fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Native answer."

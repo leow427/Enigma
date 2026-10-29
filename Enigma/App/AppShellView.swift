@@ -347,6 +347,10 @@ struct AppShellView: View {
       if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !dismissedInferences.isEmpty {
         dismissedInferences = []
       }
+      // A local model with tools loads while the question is typed (F32).
+      if !welcomeSetup.isPresented {
+        localChat.warmNativeTurn(draft: new, mode: shell.selectedMode, hasScreenshot: screen.attachment != nil)
+      }
       // A nudge toward the composer for each keystroke that adds text.
       guard !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
       character.key(towards: MainWindowCharacter.composerTarget)

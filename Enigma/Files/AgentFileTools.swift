@@ -232,10 +232,17 @@ protocol LocalToolInference: Sendable {
   /// One streamed step. `requiredTool` asks the model to call that tool, where the runtime can.
   func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
                    requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error>
+  /// Loads the model and reads this prefix into the prompt cache ahead of a turn (F32). False when
+  /// the model failed to load or read it; a warm-up that was stopped or skipped isn't a failure.
+  @discardableResult
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool
 }
 
 extension LocalToolInference {
   func unload() async {}
+
+  /// A runtime without a prompt cache has nothing to warm.
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool { true }
 
   /// A runtime that can't stream answers its step whole.
   func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,

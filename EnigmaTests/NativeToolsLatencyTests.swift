@@ -9,7 +9,9 @@ import XCTest
 /// then five different plain questions (the first is "What is the capital of Australia?"), since
 /// with the prompt cache on, the same question again would come back almost entirely from the cache
 /// and measure nothing. Conditions: today's plain turn (cache off, no tools), `streamTools` without
-/// tools and with them (cache on, as flagged turns send). The gate compares the last two.
+/// tools and with them (cache on, as flagged turns send). The gate compares the last two. Three cold
+/// conditions stop the server before each of three questions, so their times include loading the
+/// model: today's plain turn, a flagged turn, and a flagged turn after `warmTools`.
 ///
 /// Cloud: today's plain client against the flagged turn's tool loop, alternating, one unmeasured
 /// pair first. The gate compares the two.
@@ -85,8 +87,38 @@ final class NativeToolsLatencyTests: XCTestCase {
                                     streamed(system: ChatResponseStyle.instructions, tools: []))
       let with = try await block("streamTools with \(toolbox.definitions.count) tools, cache on",
                                  streamed(system: toolSystem, tools: toolbox.definitions))
+      // After a pause the server has stopped. Each run stops it first, so its time includes
+      // loading the model: today's plain turn, a flagged turn, and a flagged turn the user's
+      // typing warmed first (the warm-up's own time is reported beside it).
+      func cold(_ name: String, _ first: @escaping (String) async throws -> Double?) async throws -> Condition {
+        var runs: [Double?] = []
+        for question in Self.questions.prefix(3) {
+          await engine.unload()
+          runs.append(try await first(question))
+        }
+        return Condition(name: name, firstRequest: nil, runs: runs, median: median(runs))
+      }
+      let todayCold = try await cold("cold: today's plain turn, loading the model") { question in
+        let start = ContinuousClock.now
+        let prepared = try await engine.prepare(messages: [ChatMessage(role: .user, content: question)], image: nil, model: model)
+        let loaded = start.duration(to: .now).evalSeconds
+        return try await firstText(engine.stream(messages: prepared.messages, image: nil, model: model)).map { loaded + $0 }
+      }
+      let flaggedCold = try await cold("cold: flagged turn, loading the model",
+                                       streamed(system: toolSystem, tools: toolbox.definitions))
+      var warmUps: [Double?] = []
+      let warmedCold = try await cold("cold: flagged turn after a warm-up while typing") { question in
+        let start = ContinuousClock.now
+        await engine.warmTools(messages: [AgentInferenceMessage(role: "system", content: toolSystem),
+                                          AgentInferenceMessage(role: "user", content: "")],
+                               tools: toolbox.definitions, model: model)
+        warmUps.append(start.duration(to: .now).evalSeconds)
+        return try await streamed(system: toolSystem, tools: toolbox.definitions)(question)
+      }
+      let warmUp = Condition(name: "the warm-up itself: loading and reading the tools", firstRequest: nil,
+                             runs: warmUps, median: median(warmUps))
       await engine.unload()
-      conditions = [today, without, with]
+      conditions = [today, todayCold, flaggedCold, warmUp, warmedCold, without, with]
     case .cloud(let provider, _):
       let plain = run.providers.provider(for: provider)
       let tools = try run.toolProvider()

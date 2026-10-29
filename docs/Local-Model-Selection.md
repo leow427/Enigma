@@ -210,12 +210,23 @@ as the small models weren't downloaded for the eval.
 
 Measured on Gemma 4 12B Q5_K_M and Qwen3.8 27B IQ3_XXS. With the tools, the
 first answer text came sooner (0.16 s and 0.36 s against 0.51 s and 0.97 s
-for today's plain turn), because flagged turns keep the prompt cache on. The
-server stops after a minute without a request, and the cache goes with it, so
-the first question after a pause reads the tool descriptions in full once the
-model has loaded: 1.4 s on Gemma 4 12B and 4.1 s on Qwen3.8 27B to the first
-answer text, against 0.45 s and 0.86 s for today's plain turn. Loading the
-model takes the same time either way and isn't included.
+for today's plain turn), because flagged turns keep the prompt cache on.
+
+The server stops after a minute without a request, and the cache goes with it.
+So while you type in Local or Auto, Enigma loads a model with tools and reads
+the tool descriptions in the background, and keeps it loaded while you're
+typing. The draft itself isn't read. From a stopped server, loading the model
+included, the first answer text came after:
+
+| | Gemma 4 12B | Qwen3.8 27B |
+|---|---|---|
+| Today's plain turn | 1.7 s | 2.8 s |
+| With tools, no warm-up | 2.9 s | 5.9 s |
+| With tools, warmed while typing | 0.17 s | 0.25 s |
+
+The warm-up itself took 2.6 s and 5.9 s; a question sent before it finishes
+waits for the rest. In Auto, the model can load for a question that then goes
+to the cloud; it unloads a minute later, as after any turn.
 
 Both models answered a question about one named chat by reading that chat
 (Gemma 9 of 10, Qwen 8 of 10) and searched all chats when asked to. Qwen asked

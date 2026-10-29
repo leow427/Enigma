@@ -75,16 +75,22 @@ struct LocalToolAgent: Sendable {
   Make exactly ONE tool call per response, then wait for its result. When you have enough information, answer without calling a tool.
   """
 
-  func run(messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox,
-           onActivity: @Sendable (AssistantActivityEvent) async -> Void = { _ in },
-           onText: @Sendable (String) async -> Void) async throws {
+  /// The first step's messages: the system prompt with the toolbox's instructions, then the chat.
+  static func history(_ messages: [ChatMessage], toolbox: any AgentToolbox) -> [AgentInferenceMessage] {
     var history = [AgentInferenceMessage(role: "system", content:
-      ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + Self.localInstructions)]
+      ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + localInstructions)]
       + messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
     if ThinkCommand.enabled(in: messages) {
       history[0].extendedThinking = true
       history[0].content = ThinkCommand.guidance + "\n\n" + (history[0].content ?? "")
     }
+    return history
+  }
+
+  func run(messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox,
+           onActivity: @Sendable (AssistantActivityEvent) async -> Void = { _ in },
+           onText: @Sendable (String) async -> Void) async throws {
+    var history = Self.history(messages, toolbox: toolbox)
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
     for step in 0..<maximumSteps {
@@ -133,19 +139,19 @@ extension LocalToolAgent {
       countTokens: { $0.reduce(0) { $0 + $1.content.utf8.count + 32 } })
   }
 
+  /// Reads `runStreaming`'s first step for `messages` into the runtime's prompt cache. False when
+  /// the model failed to load or read it.
+  func warm(messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox) async -> Bool {
+    await inference.warmTools(messages: Self.history(messages, toolbox: toolbox), tools: toolbox.definitions, model: model)
+  }
+
   /// `run` with each step streamed: text reaches `onText` as it arrives, trimmed and with a
   /// blank line between steps as the cloud loops show it, and `toolbox.offeredRequiredTool`
   /// is asked for on the first step. History, `/think` and tool results match `run`.
   func runStreaming(messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox,
                     onActivity: @Sendable (AssistantActivityEvent) async -> Void,
                     onText: @Sendable (String) async -> Void) async throws {
-    var history = [AgentInferenceMessage(role: "system", content:
-      ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + Self.localInstructions)]
-      + messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
-    if ThinkCommand.enabled(in: messages) {
-      history[0].extendedThinking = true
-      history[0].content = ThinkCommand.guidance + "\n\n" + (history[0].content ?? "")
-    }
+    var history = Self.history(messages, toolbox: toolbox)
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
     var emittedText = false

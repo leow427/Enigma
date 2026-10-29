@@ -52,6 +52,19 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   private var tokenizerUnavailable = false
   private var idleTask: Task<Void, Never>?
   private var idleID: UUID?
+  private var warmUp: Task<Bool, Never>?
+  /// The system message and tools the prompt cache starts with, once a tool turn or a warm-up
+  /// read them; nil after anything that replaced them, or a new server.
+  private var cachedToolPrefix: ToolPrefix?
+
+  private struct ToolPrefix: Equatable {
+    let system: AgentInferenceMessage?
+    let tools: [CodexValue]
+    init(_ messages: [AgentInferenceMessage], _ tools: [AgentToolDefinition]) {
+      system = messages.first
+      self.tools = tools.map(\.llama)
+    }
+  }
   private let idleDelay: Duration
   private let idleSleep: @Sendable (Duration) async throws -> Void
   private let fileMaximumTokens: Int
@@ -78,6 +91,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     idleID = nil
     activeID = nil
     streamingID = nil
+    cachedToolPrefix = nil
     runtime?.close()
     runtime = nil
   }
@@ -135,10 +149,12 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   func prepare(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) async throws -> PreparedConversation {
     _ = try Self.preparationBudget(messages: messages, image: image, model: model)
     let id = UUID()
+    await finishWarmUp()
     if activeID != nil { await unload() }
     idleTask?.cancel()
     idleID = nil
     activeID = id
+    cachedToolPrefix = nil
     return try await withTaskCancellationHandler {
       do {
         let session = try await load(model, requestID: id)
@@ -196,11 +212,13 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   private func generate(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel,
                         temperature: Float, continuation: AsyncThrowingStream<String, Error>.Continuation) async {
     let id = UUID()
+    await finishWarmUp()
     // Replacing a cancelled consumer cannot race its cleanup into the new child.
     if activeID != nil { await unload() }
     idleTask?.cancel()
     idleID = nil
     activeID = id
+    cachedToolPrefix = nil
     await withTaskCancellationHandler {
       do {
         try Task.checkCancellation()
@@ -233,10 +251,12 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
 
   func benchmark(model: LocalModel) async throws -> LocalBenchmarkMetrics? {
     let id = UUID()
+    // It measures loading, so it takes the server from a warm-up as from any request.
     if activeID != nil { await unload() }
     idleTask?.cancel()
     idleID = nil
     activeID = id
+    cachedToolPrefix = nil
     return try await withTaskCancellationHandler {
       do {
         let loadStart = ProcessInfo.processInfo.systemUptime
@@ -294,10 +314,12 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     let started = ProcessInfo.processInfo.systemUptime
     var diagnostic: [String: CodexValue] = ["limit": .number(Double(fileMaximumTokens)),
       "context": .number(Double(fileContextOverride ?? LocalFileRuntime.contextWindow(for: model)))]
+    await finishWarmUp()
     if activeID != nil { await unload() }
     idleTask?.cancel()
     idleID = nil
     activeID = id
+    cachedToolPrefix = nil
     return try await withTaskCancellationHandler {
       do {
         try Task.checkCancellation()
@@ -376,11 +398,13 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
                              requiredTool: String?, continuation: AsyncThrowingStream<LocalToolStreamEvent, Error>.Continuation) async {
     let maximumTokens = messages.first?.extendedThinking == true ? max(fileMaximumTokens, 2_048) : fileMaximumTokens
     let required = requiredTool.flatMap { name in tools.contains { $0.name == name } ? name : nil }
+    let prefix = ToolPrefix(messages, tools)
     var messages = messages
     if let required, let last = messages.lastIndex(where: { $0.role == "user" }) {
       messages[last].content = (messages[last].content ?? "") + "\n\n" + Self.requiredToolInstruction(required)
     }
     let id = UUID()
+    await finishWarmUp()
     if activeID != nil { await unload() }
     idleTask?.cancel()
     idleID = nil
@@ -414,6 +438,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
         try Task.checkCancellation()
         guard activeID == id else { throw CancellationError() }
         streamingID = id
+        cachedToolPrefix = prefix
         var parser = ServerSentEventParser()
         var assembler = LocalToolStreamAssembler()
         var status: Int?
@@ -456,6 +481,64 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
         continuation.finish(throwing: error)
       }
     } onCancel: { Task { await self.stopTools(id: id) } }
+  }
+
+  /// Loads `model` and reads `messages` and `tools` into the prompt cache, so the flagged turn
+  /// that follows, starting with the same prefix, answers without reading it (F32). It never
+  /// takes the server from a request. A loaded server whose cache already starts with this system
+  /// message and these tools only restarts its idle timer, which keeps it while the user types;
+  /// one whose cache holds something else reads the prefix again. False when the model failed to
+  /// load or read it.
+  @discardableResult
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool {
+    guard activeID == nil, warmUp == nil else { return true }
+    if let runtime, runtime.model == model, runtime.process.isRunning, cachedToolPrefix == ToolPrefix(messages, tools) {
+      if let idleID {
+        idleTask?.cancel()
+        scheduleIdleUnload(id: idleID)
+      }
+      return true
+    }
+    let id = UUID()
+    idleTask?.cancel()
+    idleID = nil
+    activeID = id
+    let task = Task { await self.warm(id: id, messages: messages, tools: tools, model: model) }
+    warmUp = task
+    let ready = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+    if warmUp == task { warmUp = nil }
+    return ready
+  }
+
+  private func warm(id: UUID, messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool {
+    do {
+      let session = try await load(model, requestID: id)
+      // One token: the prompt is read into the cache, and the answer is thrown away.
+      let payload = try LocalFileRuntime.payload(messages: messages, tools: tools, alias: session.alias,
+                                                 maximumTokens: 1, cachePrompt: true)
+      try Task.checkCancellation()
+      guard activeID == id else { throw CancellationError() }
+      cachedToolPrefix = nil
+      _ = try await toolJSON(path: "v1/chat/completions", payload: payload, session: session, task: "warm-up")
+      guard activeID == id else { return true }
+      cachedToolPrefix = ToolPrefix(messages, tools)
+      activeID = nil
+      scheduleIdleUnload(id: id)
+      return true
+    } catch {
+      // Stopped, or the server was taken or unloaded: that says nothing about the model.
+      let stopped = Task.isCancelled || error is CancellationError || activeID != id
+      await cancel(id: id)
+      return stopped
+    }
+  }
+
+  /// A request waits for a warm-up rather than restarting the server under it: the warm-up loads
+  /// the server the request needs and reads the prefix it starts with. Stopping the request
+  /// stops the warm-up.
+  private func finishWarmUp() async {
+    guard let warmUp else { return }
+    _ = await withTaskCancellationHandler { await warmUp.value } onCancel: { warmUp.cancel() }
   }
 
   /// A stopped tool step keeps a server that is already streaming: closing the request ends
@@ -508,9 +591,13 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
   }
 
   private func load(_ model: LocalModel, requestID: UUID) async throws -> LocalModelRuntimeSession {
+    // A request replaced before it got here, such as a warm-up unloaded before its task ran,
+    // must not start a server nothing owns.
+    guard activeID == requestID else { throw CancellationError() }
     if let runtime, runtime.model == model, runtime.process.isRunning { return runtime }
     runtime?.close()
     runtime = nil
+    cachedToolPrefix = nil
     tokenizerUnavailable = false
     if let descriptor = model.catalogDescriptor, descriptor.supportsVision {
       let hardware = LocalHardwareProfile.detect(modelsDirectory: model.fileURL.deletingLastPathComponent())

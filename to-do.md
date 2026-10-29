@@ -985,10 +985,10 @@ and a queue in the compact panel.
 > this conversation** and **Always** (listed in Settings). A tool-use eval of 60
 > invented prompts set the flags: Gemma 4 12B and Qwen3.8 27B got 0.95, ChatGPT
 > via Codex and Claude Code 0.97, and each stayed within the 1.15× gate on time
-> to the first answer text on a warm server. After a pause of more than a minute
-> the local server has stopped, and the first question reads the tool
-> descriptions in full (1.4 s on Gemma 4 12B, 4.1 s on Qwen3.8 27B, against
-> about 0.5 s and 0.9 s today). The small models weren't measured and stay off. See
+> to the first answer text on a warm server. A local model with tools loads and
+> reads the tool descriptions while you type, so after a pause the first answer
+> starts in 0.17 s on Gemma 4 12B and 0.25 s on Qwen3.8 27B, against 1.7 s and
+> 2.8 s for today's plain turn. The small models weren't measured and stay off. See
 > `docs/Slash-Commands.md` and `docs/Local-Model-Selection.md`.
 
 **Spec:** [docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md](docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md)
