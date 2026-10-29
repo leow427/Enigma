@@ -22,6 +22,25 @@
 
 ## Bug fixes
 
+### B17. Escape doesn't hide the chat unless the text box is focused
+
+**Problem:** Pressing Escape hides the chat only while the text box has focus.
+After clicking anywhere else in Enigma (the conversation, a reply, empty space
+in the panel), Escape does nothing and the chat stays on screen.
+
+**Today:** `SpotlightPanel` (`SpotlightPanelController.swift`) handles Escape
+(key code 53) in `keyDown(with:)` and `performKeyEquivalent(with:)`: it closes
+the command list, an open menu or an `EnigmaEscapeDismissal` first, then calls
+`onHide`. The panel is a `.nonactivatingPanel`. Why the key doesn't reach
+these paths once focus leaves `SlashCommandTextView` is not yet confirmed; check
+whether the panel stays key after the click, and whether another view (for
+example the message list's text views) takes Escape first.
+
+**Wanted:** Once the person has clicked anywhere in Enigma, Escape hides the
+chat, whatever has focus. Escape still closes an open menu, the command list
+or the selection details first, as now. Add a regression test that moves focus
+off the text box and checks Escape hides the panel.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -956,7 +975,60 @@ queued messages editable.
 **Out of scope:** editing queued messages, queueing attachments or captures,
 and a queue in the compact panel.
 
+### F32. Native tool calling for capable models
+
+**Spec:** [docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md](docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md)
+
+**Plan:** [docs/superpowers/plans/2026-10-28-f32-native-tool-calling.md](docs/superpowers/plans/2026-10-28-f32-native-tool-calling.md)
+(checkpoints CP0–CP5, each built by a fresh agent and audited by a fresh
+reviewer)
+
+**Today:** hand-written rules read the draft and decide, before the model
+runs, whether to search, use Messages or revise a selection (the `messages`,
+`search`, `think`, `edit` and `translate` chips). Models get tools only after
+a command or chip turns them on.
+
+**Wanted (owner, 2026-10-28, top priority):** capable models (a per-model
+flag: about 9B and up, and cloud models) get Enigma's tools on every turn and
+decide for themselves when to search, read Messages or propose an edit. Small
+models keep today's chips and rules. Reading a chat, searching all chats, and
+searching the web after a Messages read each ask first in the chat, with
+**For this conversation** and **Always**. Replies keep streaming on every
+route. The spec has every decision.
+
+**Depends on / blocks:** comes before F29's remaining checkpoints and F30.
+
+### F31. Trained models for recognizing commands and routing
+
+**Status:** halted (2026-10-28) during CP3. CP0–CP2 are on
+`feat/f31-intent-models` (draft PR #20), not on `main`. Under F32 its models
+could only ever serve small models.
+
+**Spec:** [docs/superpowers/specs/2026-10-27-f31-intent-models-design.md](docs/superpowers/specs/2026-10-27-f31-intent-models-design.md)
+
+**Plan:** [docs/superpowers/plans/2026-10-27-f31-intent-models.md](docs/superpowers/plans/2026-10-27-f31-intent-models.md)
+(checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
+reviewer)
+
+**Today:** automatic search, the `messages`, `think`, `edit` and `translate`
+chips, and Auto's coding and reasoning checks are guessed from the draft's
+wording by hand-written English rules. They have grown into long exception
+lists and still misfire ("who is Taylor Swift dating" counts as coding).
+
+**Wanted (owner, 2026-10-27):** small Create ML classifiers, one per skill,
+bundled and run on the Mac, inside today's privacy rules. A skill switches
+only if its model beats the rules on an independently written test set and
+gets every must-pass example right. Built first, before the rest of F29.
+
+**Depends on / blocks:** nothing while halted (it used to block F29).
+
 ### F29. On-device web search, replacing Brave
+
+**Status:** paused after CP1 (2026-10-27); F32 comes first. F31 is halted,
+so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
+`main` into the branch, and re-plan CP5/CP6 for F32: the engines become
+`web_search`'s backend, places and weather become tools for capable models,
+and today's routing stays for small models.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
@@ -981,6 +1053,9 @@ The spec has every decision, and the checkpoints the work runs in.
 **Depends on / blocks:** blocks F30.
 
 ### F30. Native web search for cloud models
+
+**Status:** to be re-scoped after F32: a provider's own search only in
+conversations with no message text, Enigma's gated `web_search` otherwise.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 
