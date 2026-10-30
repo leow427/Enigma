@@ -13,7 +13,7 @@ works in the code, its limitations, and which tests cover it.
 | [Screen](Screen-Skill.md) | `/screen` and `/snapshot`, screenshot consent, and keeping Enigma out of screen sharing |
 | [Selection Context](Selection-Context.md) | Asking about, editing, or translating text selected in another app |
 | [File Mode](File-Mode.md) | Attaching files and folders, reviewed local edits, and undo |
-| [Web Search](Web-Search.md) | Brave Search, automatic, `/search` and model-chosen lookups, and sources |
+| [Web Search](Web-Search.md) | On-device web search, places and weather, sources and blocked sites |
 | [Messages](Messages.md) | Reading, searching, and sending Apple Messages, with setup, and the cards that ask before a model reads a chat |
 | [Slash commands](Slash-Commands.md) | Every composer command, how commands combine, models that choose their own tools, and commands recognized from your wording |
 | [Welcome and Settings](Welcome-and-Settings.md) | Opening Enigma, first-run setup, the Settings window, and keyboard shortcuts |

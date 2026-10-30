@@ -912,7 +912,7 @@ Under every reply whose evidence included a `.places` result, on any route.
 | Brave *(amended, owner approved 2026-10-30, D128, D136)* | The query and, for nearby questions, the city only; the user's key; the IP address. Web searches only: places and weather stay on Apple Maps and Open-Meteo (D138) | Only while a Brave key is saved |
 | Result sites, up to 6 at a time *(amended, owner approved 2026-10-30)*; more when a read fails or the "enough?" check reads again | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
-| Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region | Places questions |
+| Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region; *(amended, orchestrator, owner to confirm)* the coordinates rounded to about 1 km, reverse-geocoded to find the city | Places questions; *(amended, orchestrator, owner to confirm)* any nearby question (near-me web searches, weather near you, `find_places` near you) |
 | The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today | Every search a cloud model makes |
 
 - **Never sent:** conversation history, attached files, Messages content,

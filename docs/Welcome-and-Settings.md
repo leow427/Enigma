@@ -64,10 +64,9 @@ as `2/4`. Each step has one primary button, which Return presses.
      to save room. Neither needs a command-line tool installed first. See
      [Claude-Code-Setup.md](Claude-Code-Setup.md) and
      [ChatGPT-Setup.md](ChatGPT-Setup.md).
-   - **Brave Search** has a secure key field and **Save key** (Return in the
-     field also saves). The key goes to the Keychain, and the field clears. The
-     status reads **key saved · not tested here** once a key is stored. See
-     [Web-Search.md](Web-Search.md).
+   - **Web search** reads "Used by /search and automatic search, with sources
+     listed" and the status **ready · no setup needed**: search runs on this Mac
+     with no key. See [Web-Search.md](Web-Search.md).
    - **Mac permissions** shows Accessibility and Screen Recording, each with
      **Open Settings…**.
    - **More connection settings** opens Settings on **Cloud and search** in a
@@ -186,7 +185,8 @@ text GGUF…**. A request for the removed Discover page opens Local models. See
 
 Optional cloud models, screenshots, and web search: **Subscriptions** (ChatGPT
 and Claude), **Screen** options for sending screenshots to the cloud,
-**Web search · Brave**, **Advanced cloud settings** (preferred provider, model,
+**Web search** (automatic search, the status, an optional Brave Search key,
+blocked sites and a note on where queries go), **Advanced cloud settings** (preferred provider, model,
 manual model ID, ChatGPT's thinking capacity or Claude's effort, and the model
 list), and **API keys** for OpenAI, Anthropic, and Gemini. See
 [Cloud-Model-Selection.md](Cloud-Model-Selection.md),
@@ -202,15 +202,16 @@ The Accessibility permission, **Automatically replace selected text** for
 ## Location
 
 When you ask about local weather or nearby places, and the question doesn't
-name a place, Enigma can add your approximate location to the web search. This
-only happens as part of a web search, so it requires Brave Search to be set up.
+name a place, Enigma can use your approximate location. This only happens as
+part of a search, places lookup or weather check.
 
 - macOS asks for location permission the first time a qualifying question is
   sent.
 - Enigma requests one location at kilometer accuracy and rounds the
   coordinates to two decimal places before looking up the area name with Apple
-  MapKit or sharing anything. The area goes to Brave Search and into that
-  request's context for the model.
+  MapKit or sharing anything. Search sites get only your city; weather uses
+  coordinates rounded to about 1 km, and Apple Maps gets your approximate area.
+  The area also goes into that request's context for the model.
 - The location isn't saved with your prompt or reused for later requests, and
   there is no background tracking. The answer may name the area and is saved
   like any other chat.
@@ -266,7 +267,7 @@ Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
   open the right pane of System Settings.
 - Setup stores only its own progress and completion. Model files, chats, and
   credentials are untouched by setup and by Replay.
-- API keys and the Brave key are stored in the Keychain. ChatGPT and Claude
+- API keys and the optional Brave Search key are stored in the Keychain. ChatGPT and Claude
   sign-ins are owned by Codex and Claude Code.
 - Location is requested only for qualifying questions, rounded before use, and
   never stored (see above).
@@ -308,7 +309,7 @@ to the defaults. Settings pages can be opened programmatically by posting
 
 - `EnigmaTests/EnigmaWelcomeTests.swift`: the step counter and navigation, the
   character's slots and states, the model step's button and Return behavior,
-  one performance check per setup, saving the Brave key, tour card placement,
+  one performance check per setup, web search ready with no key field, tour card placement,
   rendering every step at minimum and default sizes, and focus returning to the
   chat after every way of leaving.
 - `EnigmaTests/LocalModelSelectionTests.swift`: first-run detection, resume,
@@ -318,7 +319,7 @@ to the defaults. Settings pages can be opened programmatically by posting
   and live switching of windows and the welcome; every page rendered in Paper
   and Ink; deep links to pages; Start mode and switches, including **Recognize
   commands from your wording**; the update switches and **Check Now**; API and
-  Brave key saving; permission status text.
+  Brave key saving; the Web search section and blocked sites; permission status text.
 - `EnigmaTests/AppCommandTests.swift`: the menu bar item's commands, startup
   preference persistence and recovery, in-window and global shortcuts, and the
   temporary setup window size.

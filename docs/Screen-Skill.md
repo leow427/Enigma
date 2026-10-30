@@ -96,10 +96,10 @@ searches only when you also typed `/search`. Without it, the question is
 answered without search, except in Auto with Cloud set up, where a message that
 asks for a web lookup ("latest news", "current price" and similar) asks you to
 add `/search` instead of being sent; see
-[How Auto decides](Cloud-Model-Selection.md#how-auto-decides). Brave Search
-receives only that query, never the image, the full OCR text or your chat
+[How Auto decides](Cloud-Model-Selection.md#how-auto-decides). The search sites
+receive only that query, never the image, the full OCR text or your chat
 history. The same model then answers from the screenshot and the evidence, and
-source links appear under the answer. Without search, Brave is never contacted.
+source links appear under the answer. Without search, no search site is contacted.
 The query can include details from your screen that are relevant to the
 question; the model is asked to leave out unrelated, personal or credential
 details, but this isn't guaranteed.
@@ -307,8 +307,8 @@ scripts/verify-xcode.sh test -only-testing:EnigmaTests/ScreenNativeSmokeTests
 `modelID` must be the model currently selected in that library. The test runs
 seven synthetic screenshots (words, memory figures, HTTP errors) through OCR,
 query planning and an answer, and checks each query and answer. By default search
-returns fixed public evidence; `"liveSearch": true` sends real Brave requests with
-your configured key. It writes a report to
+returns fixed public evidence; `"liveSearch": true` runs real on-device searches
+instead. It writes a report to
 `/tmp/AI-Spotlight-Screen-Search-Smoke-Result.txt`.
 
 ```sh

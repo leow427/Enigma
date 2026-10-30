@@ -9,93 +9,211 @@ The summary at the top is written when the run ends.
 
 ## Summary
 
-*Written when the run stopped. "R" = reversible.*
+*Written when the run ended (after CP10, 2026-10-31). One line per decision, by checkpoint. "R" = reversible; "(owner)" = the owner's own decision.*
 
-**Run setup and all checkpoints**
-- D1 Overnight orchestrator replaces the owner role (owner) — R
-- D2 Speed bar 4.0 s median / 6.0 s p90 (owner) — R
-- D3 Relaxed quality gate (owner) — R
+**Run setup**
+- D1 Overnight process replaces the workflow's owner role (owner) — R
+- D2 Speed bar relaxed (owner) — R
+- D3 Quality gate relaxed (owner) — R
 - D4 If the relaxed gate fails, keep Brave (owner) — R
-- D5 Dependencies and marked spec/brief amendments allowed (owner) — R
+- D5 Dependencies and document amendments allowed (owner) — R
 - D6 Spot-check and live-run rules (owner) — R
-- D25 Hosted UI tests time out with the screen locked; CI checks them — R
-- D31 Full suite runs with a 60 s per-test limit (a UI test hung) — R
+- D25 Hosted UI tests while the screen is locked — R
+- D91 Stop after CP6 instead of starting CP7 at 82% — R
 
-**CP1b — routing (8 review rounds)**
-- D7, D9, D11 Times, parts of the day, "forecast": which weather questions use the location — R
-- D8 "local cafes" with no city stays "local cafes" — R
-- D10, D14 Developer/how-to and language-name exclusions — R
-- D12, D15, D18–D21 "temperature …", "<city> weather", seasons; whole-question patterns — R
-- D13 Weather place ends at the next preposition (long-draft speed) — R
-- D16 From round 3, only location leaks or everyday misroutes are fixed; the rest go to CP7 — R
-- D17, D19, D21, D23, D26, D28, D30 Round details — R
-- D22 Every fix regression-checked against an 830-question probe — R
-- D24, D27, D29 Location-leak fixes ("right now", "forecast", "local forecast for", "forecast for home prices"); stop after round 8 — R
-- D32 81 full-suite failures sorted as environment failures — R
-- D44 A flaky CI screen test re-run, not changed — R
+**CP1b**
+- D7 Which times let a weather question use the current location — R
+- D8 Test pointed at the new "local" query — R
+- D9 Weather place stops before a trailing time; "forecast" stays a "now" word — R
+- D10 Fix all seven round-1 Should fixes, including the pre-existing ones — R
+- D11 Reopen D7: parts of the day use the current location — R
+- D12 "temperature in <named place>" is weather — R
+- D13 Weather candidates end at the next preposition; a loose timing guard — R
+- D14 Word lists for D10 and D12 — R
+- D15 Fix round 2's six routing findings; narrow "outside" and D12 — R
+- D16 Review round 3 runs; later misroutes go to CP7 unless they leak location — R
+- D17 Details of the round-2 fixes — R
+- D18 Fix round 3's findings, plus "<city> weather today"; round 4 runs — R
+- D19 Round-3 details: the city-before-"weather" rule, "temperature like", and a repointed test — R
+- D20 Fix round 4; anchor new weather patterns to the whole question; round 5 runs — R
+- D21 Round-4 details — R
+- D22 Fix round 5; regression-check every fix against the reviewers' 830-question probe; round 6 runs — R
+- D23 Round-5 details and fixes from the regression probe — R
+- D24 Fix round 6's two location leaks and test gaps; round 7 is the last unless it finds a leak — R
+- D26 Round-6 details — R
+- D27 Round 7's leak fix, then a focused round 8 — R
+- D28 Round-7 details — R
+- D29 Apply round 8's verified leak fix without a round 9, then commit — R
+- D30 Round-8 port details — R
+- D31 Stop the hung full-suite run; rerun with per-test time limits — R
+- D32 Full-suite failures sorted as environment failures (D25) — R
+- D44 A flaky CI test re-run, not changed — R
 
-**CP2 — search sites (3 rounds)**
-- D33 Owner lineup: DuckDuckGo + Wikipedia; Mojeek/Startpage tasks skipped — R
-- D34 Header set A split into GET and form-POST headers — R
-- D35, D42 DuckDuckGo `kl` region table from DuckDuckGo's own list — R
-- D36 One extra live request to find the "no results" marker — R (request already sent)
-- D37, D43, D46, D48 Runner/health details — R
-- D38 First results page only; page 2 ported, unused — R
-- D39 The 30 largest Wikipedia editions — R
-- D40 Workaround for an NSXMLNode XPath bug — R
-- D41, D45, D47 Cooldown only on real block signs; a challenged query sits out alone; unexpected statuses are "unrecognized" — R
+**CP2**
+- D33 The owner's lineup applied: what CP2 skips — R
+- D34 Header set A splits `SafariHeaders` into GET and form-POST headers — R
+- D35 DuckDuckGo gets its own region codes — R
+- D36 One extra live request to find DuckDuckGo's "no results" marker — R
+- D37 Runner and health details the brief leaves open — R
+- D38 Result count: DuckDuckGo's first page only, page 2 ported but unused — R
+- D39 Which 30 Wikipedia editions count as "the largest" — R
+- D40 Work around an NSXMLNode XPath bug for `//text()` — R
+- D41 Only real block signs start DuckDuckGo's cooldown; a lone 202 doesn't — R
+- D42 Region codes from DuckDuckGo's own list — R
+- D43 Round-1 fix details — R
+- D45 A challenged query sits out alone; two different challenged queries cool the site down — R
+- D46 Round-2 fix details (the per-query strike) — R
+- D47 Round 3's fixes, then commit without a round 4 — R
+- D48 Round-3 fix details — R
 
-**CP3 — quality and ranking (2 rounds)**
-- D49 Unsafe lists trimmed to 3 MB: scam/fraud/phishing kept, most malware dropped — R
+**CP3**
+- D49 The unsafe lists don't fit 3 MB: a keep order, malware dropped first — R
 - D50 Reading Wikipedia's Perennial sources — R
-- D51 A list shrinking by half is a parse failure — R
-- D52 `authority.txt`, `unreadable.txt` drafted; **owner to approve** — R
-- D53 Ranking weights in `RankingTuning`; ties favour trust — R
-- D54 Authority matched on the host; lists load lazily — R
-- D55–D57 Overrides: Wikipedia/Stack Overflow/Investopedia/arXiv/AWS docs neutral; MSN, Healthline, crowdfunding sites readable; never lifts a security block — R
-- D58, D60 Round details — R
-- D59 Security entries under allowed domains always kept; cut-off and blogspot left for CP7 — R
+- D51 A list that shrinks by more than half counts as a parse failure — R
+- D52 `authority.txt` and `unreadable.txt` drafted without the owner's approval — R
+- D53 Ranking tuning in one place; ties favour trust — R
+- D54 Authority domains match on the host; the settings load the lists lazily — R
+- D55 Keep Wikipedia, Stack Overflow, Healthline and MSN usable — R
+- D56 What blocks MSN and Healthline, and how D55's overrides work — R
+- D57 More overrides: crowdfunding/petition sites readable, preprints and AWS docs not penalised — R
+- D58 Round-1 fix details — R
+- D59 Keep security entries under allowed domains; no round 3; cut-off left for CP7 — R
+- D60 Round-2 fix details — R
 
-**CP4 — page reading (2 rounds)**
-- D61 Readability 0.6.0 bundled outside the lists' budget — R
-- D62 More date sources and a plausibility check — R
-- D63 One sealed view, extractions in turn, named tuning constants — R
-- D64 Guard fails closed; refusal drops page and snippet — R
-- D65, D70, D72 Download details — R
-- D66 Page checks — R
-- D67 → D69 One static, versioned WebKit rule-list file on disk (spec §4/§7 amended) — R
+**CP4**
+- D61 Readability sits in `SearchData/readability/`, outside the lists' 3 MB budget — R
+- D62 More date sources, a modified date, and a plausibility check — R
+- D63 One view, extractions in turn, tuning in named constants — R
+- D64 The local-network guard refuses a little more, fails closed, and a refusal is its own outcome — R
+- D65 Downloading details the brief leaves open — R
+- D66 Page checks: more wall phrases, order, non-readerable long pages kept, CJK word counts — R
+- D67 The block-all rule list is compiled into WebKit's default store — R
 - D68 Extracted text capped at 200,000 characters — R
-- D69 Unresolved lookups aren't refusals; lenient UTF-8; responses from non-public addresses dropped — R
-- D71 Pages over https only; ATS stays strict (spec §4 amended) — R
+- D69 Round-1 fixes: unresolved isn't refused; lenient UTF-8; one static rule-list file; drop responses from non-public addresses — R
+- D70 Round-1 fix details (D69) — R
+- D71 Pages over https only (ATS stays strict); round-2 fixes; no round 3 — R
+- D72 Round-2 fix details (D71) — R
 
-**CP5 — passages and pipeline (2 rounds)**
-- D73 Tuning defaults: 3.0 s window, 6 reads, stop at 5, 800 ms extraction, cut-off 0.08 — R
-- D74 Pipeline details — R
-- D75 `web_search` capped to F32's budget — R
-- D76 Superseded by D77
-- D77, D78 CI fix: content tests use a long timeout; WebKit warmed before the first read; site outages report the site's error — R
-- D79, D80 Warm-up stop race fixed; production timeout pinned — R
+**CP5**
+- D73 Pipeline tuning defaults inside the owner's speed bar — R
+- D74 Pipeline details the brief leaves open — R
+- D75 `web_search` on the on-device provider is capped to F32's budget — R
+- D76 WebKit's own extraction errors become a normal failure, retried once on a fresh view — R
+- D77 Replace D76: CI failures were slow-runner timeouts; warm the WebKit process; site outages aren't "no results" — R
+- D78 How D77's warm-up and fixes are built — R
+- D79 Round-2 fixes, then commit without a round 3 — R
+- D80 Round-2 fix details (D79) — R
 
-**CP6 — places and weather (2 rounds)**
-- D81 Geocoding: 5 results, exact name preferred, names as returned — R
-- D82 Two new activity phases — R
-- D83 Tools in `offeredParts` — R
-- D84 `/maps` handling; welcome-page line left for the owner — R
-- D85 Tool details — R
-- D86 Three F30/F32 assertions follow spec §6.2 — R
-- D87, D89 A declined location stays declined for the rest of the chat (spec §6.2 amended) — R
-- D88, D90 Round details — R
+**CP6**
+- D81 Geocoding asks for 5 results and prefers an exact name match; names as returned — R
+- D82 The tools' activity text is two new phases that count as searching — R
+- D83 Places and weather are in `NativeToolPlan.offeredParts`, not `parts` — R
+- D84 How `/maps` travels and what it conflicts with — R
+- D85 Tool details the brief leaves open — R
+- D86 Three F30/F32 assertions follow spec §6.2's intended changes — R
+- D87 A declined location stays declined for the places and weather tools; round-1 fixes — R
+- D88 How the round-1 fixes (D87) are built — R
+- D89 A declined location lasts for the rest of the chat; round-2 fixes; no round 3 — R
+- D90 How the round-2 fixes (D89) are built — R
 
-**Run end**
-- D91 Stopped after CP6 at 82% weekly usage instead of starting CP7 — R
+**CP7**
+- D92 Haiku worker, Sonnet reviewers, Sonnet judge (owner) — R
+- D93 The usage stop moves from 86% to 92% for CP7 (owner) — R
+- D94 Owner approvals the brief asks for are deferred; judge and models as the orchestrator set — R
+- D95 Answers come from the installed models through the app's llama-server; the evaluator makes them — R
+- D96 Question set, gate reading, and F30's evaluator scoped to its 20 — R
+- D97 Evaluation pacing and one retry for DuckDuckGo's rate limit (harness only) — R
+- D98 Answers come from one model (Gemma 4 12B) with the evidence capped — R
+- D99 Two flaky UI tests left unchanged — R
+- D100 Paused at the owner's request; work saved to a wip branch (owner) — R
+- D101 Answers with the model's thinking turned off — R
+- D102 DuckDuckGo gave much less on-device coverage in later runs with the same code — R
+- D103 Speed-up: parallel judge, early read, cached answers, two-slot test — R
+- D104 Owner adds four search features (owner) — R
+- D105 A Sonnet worker builds D104's features — R
+- D106 Pivot: stop the DuckDuckGo-only evaluation; an Opus worker builds D104's features (owner) — R
+- D107 How the local-model query rewrite is built (D104, feature 1) — R
+- D108 How the "enough?" check and its one retry are built (D104, feature 2) — R
+- D109 How the Wikidata facts source is built (D104, feature 3) — R
+- D110 How Google News RSS is built, and what its links do (D104, feature 4) — R
+- D111 Site-outcome trace finished; step timings traced; two new evidence kinds — R
+- D112 How the features' smoke check runs — R
+- D113 Speed tuning after the first smoke run (features-1) — R
+- D114 The smoke runs' rewrite time was mostly a stale connection; third run — R
+- D115 Two DuckDuckGo queries stay, though the speed bar isn't met yet — R
+- D116 Speed bar relaxed to 5.0 s / 7.0 s; the second query stays if it improves answers (owner) — R
+- D117 Round-1 run: relaxed speed bar, fair evidence cap, head-to-head judge, one-query override, Brave reused — R
+- D118 Task 7.5 (the live tool-use eval) deferred until the owner says the Mac is free — R
+- D119 Opus reviewers, up to three rounds; no tuning round (owner) — R
+- D120 Option A: the rewrite and check stay on the small-model path (owner) — R
+- D121 Evaluation stopped after the typed half (owner) — R
+- D122 Review round 1's fixes, decided on the cautious side — R
+- D123 Review round 2 runs — R
+- D124 How review round 1's fixes are built — R
+- D125 Round 2's fixes; Google News kept under its feed terms; no round 3 (owner) — R
+- D126 How round 2's fixes (D125) are built — R
+- D127 Verification before the commit — R
 
-**Unrun or failed checks**
-- Hosted UI tests (81, nine classes) time out locally with the screen locked; CI passed on 3563716, c094b6c, 5523f78 (CI on fb17df8 was still running at the stop). Rerun `scripts/verify-xcode.sh test` with the screen unlocked.
-- CP6's manual Debug-switch check (on-device provider in a Debug build) is not done.
-- No quality evaluation, judge run, tool-use eval or spot-check yet (CP7).
-- Live checks run: DuckDuckGo/Wikipedia (CP2), six-page reading (CP4), six-question pipeline, median 1.65 s (CP5), Open-Meteo/geocoder/MapKit (CP6).
+**CP8**
+- D128 On-device by default; Brave only with a saved key (owner) — R
+- D129 Where the Brave-or-on-device choice lives, and when it updates — R
+- D130 `missingAPIKey` and the other Brave-only errors — R
+- D131 The footer, gate 3's card and other labels name the provider used — R
+- D132 Blocked sites also filter Brave's results — R
+- D133 Settings and welcome text under D128 — R
+- D134 No launch cleanup; the brief's cleanup tests are not written — R
+- D135 Scope cut for usage: no review round by this worker — R
+- D136 Brave gets only the city; the blocked-sites note names who can't enforce it — R
+- D137 Smaller choices — R
+- D138 With a Brave key, places and weather stay on-device — R
+- D139 Online seam for live tests; offline places and weather defaults in the test host — R
+- D140 One review round; the orchestrator verifies the fixes — R
+- D141 How review round 1's nits are built — R
+- D142 The reading sentence and the "what leaves the Mac" table — R
+- D143 Tests for round 1, and a mutation check — R
+- D144 Commit with one known flaky UI test — R
 
-**What's next:** CP7 (evaluation and tuning) — see the RESUME section of `overnight-report.md`; then CP8 only if the relaxed gate (D3) passes, else D4; then CP9 and CP10.
+**CP9**
+- D145 The live map exists only while the card is on screen — R
+- D146 When places reach the reply — R
+- D147 Pin matching details and the singular label — R
+- D148 The card's look — R
+- D149 Scrolling passes through the map — R
+- D150 Opening Apple Maps — R
+- D151 How the view tests check the card — R
+- D152 Steps left to the owner and the orchestrator — R
+- D153 A stopped reply with text keeps its card; places never attach late — R
+- D154 Owner's Recents check relaunches first; pin names hidden — R
+- D155 A short review round 2 — R
+- D156 No stale places: request-scoped, cleared at every start — R
+- D157 Camera, matching and opening after review — R
+- D158 New route tests use local fakes — R
+- D159 Round 2: Open in Maps' time limit resumes the wait itself; the request guard gets a test — R
+- D160 Accepted limits; no round 3 — R
+- D161 The place lookup's time limit resumes the wait itself — R
+- D162 A late request's places, and the screen fallback — R
+- D163 Commit with one unrelated flaky test — R
+
+**CP10**
+- D164 The docs follow D128, not the brief's "Brave removed" — R
+- D165 How the ddgs watch compares and reports — R
+- D166 The workflow's issue handling — R
+- D167 The stale-lists warning — R
+- D168 Notices: nothing to add for Wikidata or Google News — R
+- D169 Local-Model-Selection gets no new tool-choice scores — R
+- D170 to-do.md and the map card screenshot are left for the owner — R
+- D171 Docs say gate 3's one answer covers search, places and weather; Apple's reverse geocoding is listed — R
+- D172 One review round — R
+- D173 Review round 1's fixes — R
+
+**Checks not run or failed**
+- The relaxed quality gate (D3) failed on the typed judge share: on-device equal or better on 47% (26 on-device, 32 Brave, 2 ties of 60). Hence D128: on-device by default, Brave kept as an option with a saved key.
+- Recency 65% (bar 70%); authority sources 39% / 61% (bar 80%, not blocking).
+- Not run: the model-style half of the evaluation, the one-query vs two-query A/B (D116), the tool-use eval (Task 7.5) — deferred until the owner is away from the Mac (D121).
+- Not run: the live search checks with the network after CP8, and the signed-app checks of CP8, CP9 (map card) and the final audit — the owner's.
+- Full-suite flakes not caused by F29: `EnigmaMainWindowTests.testSendNowDuringAPendingSend…` under load (D144), `ClaudeCodeSubscriptionTests.testClaudeCodeRestartDeliversNothing` (D163).
+
+**What's next (owner):** the signed-app audit in `cp10-docs-and-maintenance.md`'s Hand-off; the map card screenshot; confirm spec §7's amended Apple row (D171); decide whether gate 3 keeps one grant for search, places and weather (D171); the deferred evaluations; the possible llama-server keep-alive issue (D114); then merge the PR, mark F29 done in `to-do.md`, add the release note and run the ddgs watch once.
 
 ## Index by checkpoint
 
@@ -110,7 +228,7 @@ The summary at the top is written when the run ends.
 - **CP7:** D92–D127
 - **CP8:** D128–D144
 - **CP9:** D145–D163
-- **CP10:**
+- **CP10:** D164–D173
 
 ## Entries
 
@@ -2568,4 +2686,74 @@ view is released, not from extraction. The CI failures were most likely the
 - **Decided (orchestrator):** CP9 is committed although the full suite (2050 tests, 40 skipped) had one failure: `ClaudeCodeSubscriptionTests.testClaudeCodeRestartDeliversNothing`, which couldn't open the "input" file its fake Claude Code process writes. CP9 touches neither that class nor the Claude Code client, and the class passes alone (37 tests, 0 failed). The D144 flake didn't occur this time.
 - **Why:** a timing race in F30's test under full-suite load, not caused by CP9. Logs: `/private/tmp/claude-501/f29-cp9/full-suite.log`, `claude-rerun.log`.
 - **Alternatives:** make that test wait for the fake process's file as a separate change; watch it on CI.
+- **Reversible:** yes.
+
+### D164 — 2026-10-30 17:30, CP10 — The docs follow D128, not the brief's "Brave removed"
+
+- **Decided (worker CP10, per the orchestrator's brief update):** the docs describe on-device search as how search works, with no setup, and Brave as an optional alternative in Settings that runs only while a key is saved and only for web searches (D128, D136, D138). No doc describes Brave as required or as the default; the exit check becomes "`grep -i brave` shows Brave only as the optional key, its privacy row, history and the Brave browser". There is no key cleanup to document (D134), and the release note doesn't say the key was removed. CP7's rewrite and "enough?" check (small models only, D120), Wikidata facts and Google News headlines (D104, D109, D110, D125) are documented with what each sends where. Every number in `Web-Search.md` is taken from the code (`OnDeviceSearchTiming`, `SearchAssistTuning`, `RankingTuning`, `WebSearchLimits`, the engines' and lookups' constants), not the brief or spec. The final audit, live network checks, the signed-app check and the merge are left to the owner and listed in the Hand-off.
+- **Why:** owner decisions D128 and D134 supersede the brief's Task 10.1 item 6, Task 10.2's exit check and Task 10.6's release note.
+- **Alternatives:** none; the brief's wording would describe code that doesn't exist.
+- **Reversible:** yes.
+
+### D165 — 2026-10-30 17:30, CP10 — How the ddgs watch compares and reports
+
+- **Decided (worker CP10):** `scripts/check-ddgs-upstream.py` reads the repository (`owner/name`) and the recorded tag and blob SHAs from `UPSTREAM.json`'s real shape (`tag`, `files.<path>.blob`), asks `releases/latest` for the newest tag, then `contents/<path>?ref=<tag>` for each recorded file, and lists a path as changed when its `sha` differs from the recorded `blob` or the file is gone (404). It prints `{"tag", "changed", "compare"}` with `compare` from the recorded tag to the latest. It sends `GITHUB_TOKEN` as a bearer token only when that variable is set (the workflow sets it; locally it runs anonymously), with a fixed User-Agent and the GitHub JSON media type, a 30 s timeout, and only to `api.github.com`. `--api-fixtures <folder>` reads `release.json` and `contents/<path>.json` instead (a missing file is a 404). Any other HTTP error, bad JSON or an unreadable `UPSTREAM.json` exits 1. Fixtures are in two folders: `unchanged/` holds trimmed copies of the real v9.16.1 responses; `changed/` is synthetic (a made-up blob SHA for `duckduckgo.py` and a nonexistent tag, v9.17.0). *(Corrected in review round 1, D173.)*
+- **Why:** blob SHAs are what CP2 recorded and what the contents API returns, so no file body is downloaded; a removed file needs porting attention too.
+- **Alternatives:** compare commits (`compare` API) and filter its file list (one call, but its file list is capped at 300 and includes unrelated files); download and hash file bodies.
+- **Reversible:** yes.
+
+### D166 — 2026-10-30 17:30, CP10 — The workflow's issue handling
+
+- **Decided (worker CP10):** `.github/workflows/ddgs-watch.yml` runs the script on `ubuntu-latest` with `actions/checkout` pinned to ci.yml's SHA and `persist-credentials: false`, a 10-minute limit and workflow-level permissions `contents: read`, `issues: write`. When `changed` isn't empty, `gh` ensures the `ddgs-upstream` label exists (`gh label create --force`, which needs only `issues: write`), then edits the newest open issue with that label (title and body) or creates one, titled "ddgs changed: <files> (<tag>)" and linking the compare URL. Values reach the shell only through `jq` reading the script's output file, never through `${{ }}` interpolation. `actionlint` isn't installed here, so the owner runs the workflow once through `workflow_dispatch` after the merge.
+- **Why:** brief Task 10.4; one issue per drift rather than one per week.
+- **Alternatives:** a comment on each run (noisy); a third-party issue action (another pinned dependency).
+- **Reversible:** yes.
+
+### D167 — 2026-10-30 17:30, CP10 — The stale-lists warning
+
+- **Decided (worker CP10):** `scripts/check-search-lists-age.py` reads `generated` from `Enigma/Resources/SearchData/manifest.json` (or `--manifest`), compares with `--today` or the local date, and prints the brief's warning when the age is over 60 days. An unreadable manifest or date prints a warning naming the problem; it always exits 0. `release.sh` runs it in preflight after the release-notes checks, with its output on stderr and `|| true`, so a missing `python3` can't stop a release either.
+- **Why:** brief Task 10.5; "only warns, never blocks".
+- **Alternatives:** make it a `require` (blocks real releases).
+- **Reversible:** yes.
+
+### D168 — 2026-10-30 17:30, CP10 — Notices: nothing to add for Wikidata or Google News
+
+- **Decided (worker CP10):** `ThirdPartyNotices.txt` already credits every item Task 10.6 lists (ddgs, Readability.js, the Public Suffix List, Phishing.Database, the Block List Project, the three spam lists, Wikipedia's Perennial sources, Open-Meteo with GeoNames). No entry is added for Wikidata or Google News: nothing from either ships in the app; Wikidata's data is CC0 (no attribution required), and Google News headlines are shown at runtime with their publisher and a link, under the feed's own terms, which `Web-Search.md`'s limitations name (D125). The notices file credits bundled code and data, and Open-Meteo only because its licence requires attribution of displayed data.
+- **Why:** the file's existing scope; no licence requires an entry.
+- **Alternatives:** a courtesy line for Wikidata (harmless; add under "Search quality lists" if the owner wants one).
+- **Reversible:** yes.
+
+### D169 — 2026-10-30 17:30, CP10 — Local-Model-Selection gets no new tool-choice scores
+
+- **Decided (worker CP10):** the brief asks for CP7's tool-choice scores, but Task 7.5 (the live tool-use eval with the 12 places and weather prompts) wasn't run (D118, D121). `Local-Model-Selection.md` says the two new tools are offered with `web_search` and that their prompts are in the eval set but not yet measured, instead of quoting numbers that don't exist.
+- **Why:** no invented numbers.
+- **Alternatives:** leave the doc unchanged.
+- **Reversible:** yes; fill in the scores when Task 7.5 runs.
+
+### D170 — 2026-10-30 17:30, CP10 — to-do.md and the map card screenshot are left for the owner
+
+- **Decided (worker CP10):** `to-do.md`'s F29 entry is unchanged: the brief marks F29 done only after the merge (final audit step 4), and AGENTS.md asks for nothing before it. The map card has no screenshot yet (CP9 Task 9.4 is the owner's, from the signed app), so `Web-Search.md` and `Chat.md` describe the card without an image; the Hand-off says where to add it.
+- **Why:** the brief's order; never link an image that doesn't exist.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D171 — 2026-10-31 00:40, CP10 — Docs say gate 3's one answer covers search, places and weather; Apple's reverse geocoding is listed
+
+- **Decided (orchestrator, from review round 1):** (1) The docs describe gate 3 as it works since CP6: one grant covers `web_search`, `find_places` and `get_weather` together, so "For this conversation" or "Always" on any of their cards lets the other two through as well. (2) The privacy table, and spec §7 as an amendment, add that Apple receives your coordinates, rounded to about 1 km, to find your city for any nearby question (`LocationService` reverse geocoding), not only for places questions. (3) The ddgs watch's test checks that each file is read at the latest tag. (4) D165 is corrected: the `changed/` fixtures are synthetic.
+- **Why:** the reviewer found the docs claimed each tool asks separately and the Apple row understated what is sent. A test reading the wrong tag would pass while the live watch never reported a change.
+- **Alternatives:** separate grants per tool (a code change to `ToolPermissions`, for the owner to decide).
+- **Reversible:** yes.
+
+### D172 — 2026-10-31 00:40, CP10 — One review round
+
+- **Decided (orchestrator):** no round 2; the findings are doc wording and small tests, which I check by rerunning the Python tests and the two `ref` mutants.
+- **Why:** owner's review rule.
+- **Alternatives:** a round 2 reviewer.
+- **Reversible:** yes.
+
+### D173 — 2026-10-31 00:55, CP10 — Review round 1's fixes
+
+- **Decided (worker CP10):** (1) `FixtureAPI` raises unless a contents request carries the latest release's tag as its ref; the mutants "no ref" and "ref = recorded tag" each fail the watch tests now (3 failures and 1 error; 1 failure and 1 error) and were restored. (2) New offline tests: `LiveAPI` with `urlopen` patched (404 is None, other errors raise, no `Authorization` header without `GITHUB_TOKEN`, a bearer header with it, the exact API URL), an empty `files` map and non-GitHub repositories rejected. (3) Docs per D171: gate 3's one answer covers web searches, places lookups and weather checks in the chat, and Always covers them in every chat (`Web-Search.md`, `Messages.md`), with all four places and weather card titles; Apple's row lists the rounded coordinates reverse-geocoded for any nearby question, in `Web-Search.md` and in spec §7, marked "amended, orchestrator, owner to confirm". (4) Nits: Wikipedia isn't asked for today or this-week questions and keeps the first usable article among its top 3 hits; result sites read more when a read fails or the check reads again, following up to 5 redirects; "search adds only the blocked sites to preferences"; the Maintenance section notes that an issue edit sends no notification and that GitHub turns off scheduled workflows after 60 days without repository activity; D165's fixture description corrected.
+- **Why:** review round 1 (no Blocker).
+- **Alternatives:** per-ref fixture folders, or a recording fake that asserts each ref.
 - **Reversible:** yes.

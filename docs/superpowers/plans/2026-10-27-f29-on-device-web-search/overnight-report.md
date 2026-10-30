@@ -1,20 +1,21 @@
 # F29 overnight run — report (2026-10-30)
 
-## RESUME (after CP9, 2026-10-30 night)
+## Status (after CP10, 2026-10-31): done, PR ready for review
 
-- **State:** CP7, CP8 and CP9 are committed (see the table below). The owner
-  is present and steering; the run continues with CP10 (docs and
-  maintenance), then the PR is marked ready, never merged.
-- **CP8, owner decision D128:** the relaxed gate failed (typed: on-device
-  equal or better on 47%), so on-device is the default for everyone and Brave
-  runs only while a Brave key is saved, and only for web searches (D138).
-- **Deferred until the owner is away from the Mac (it loads the local
-  model):** the model-style half of the evaluation, the one-query vs
-  two-query A/B (D116), and the tool-use eval (Task 7.5). See D121.
-- **Owner checks:** CP8 in a signed build (welcome, Settings, keyless
-  searches, blocking and Undo, Brave with a key); CP9's map card in a signed
-  build and its screenshot (cp9-map-card.md Hand-off); the possible
-  llama-server keep-alive issue (D114).
+- **State:** CP1b to CP10 are committed and pushed on
+  `feat/f29-on-device-search`; PR leow427/Enigma#25 is marked ready for
+  review and is not merged. `main` is untouched.
+- **Owner decision D128:** the relaxed gate failed (typed: on-device equal
+  or better on 47%), so on-device search is the default for everyone with no
+  setup, and Brave runs only while a key is saved, only for web searches
+  (D138).
+- **Left for the owner** (details in the decision log's summary and the
+  CP10 Hand-off): the signed-app audit, including CP8's Settings and
+  blocking and CP9's map card; the map card screenshot; confirming spec
+  §7's amended Apple row and gate 3's shared grant (D171); the deferred
+  evaluations (model-style half, the one- vs two-query A/B, the tool-use
+  eval; D121); the possible llama-server keep-alive issue (D114); then the
+  merge, `to-do.md`, the release note and one run of the ddgs watch.
 - **Review rule now:** reviewers are always Opus at effort xhigh; big changes
   get up to three rounds, stopping when a round finds only small fixes.
 
@@ -30,7 +31,8 @@
 | CP6 places and weather | `fb17df8` | 2 | D81–D90 | Open-Meteo weather and geocoding, Apple Maps places, `find_places`, `get_weather` and `/maps`. A declined location card holds for the rest of the chat. |
 | CP7 evaluation and search features | `82e5fb3` | 2 | D92–D127 | Evaluation harness and 60 questions; owner-added query rewrite, "enough?" check, Wikidata facts and Google News headlines. Typed verdict: on-device 26, Brave 32, tie 2 (was 13 to 27 of 40). Both gates fail on the judge share. |
 | CP8 switch-over | `3fc315c` | 1 | D128–D143 | Owner's D128: on-device search by default with no key or setup; Brave only while a key is saved, and only for web searches (places and weather stay on Apple Maps and Open-Meteo). "Never use this site" with Undo; blocked sites filter Brave and go to ChatGPT's and Claude Code's own search. Brave gets the city only. |
-| CP9 map card | (this commit) | 2 | D145–D163 | A still Apple map under replies that used places, with numbered pins for the places the reply names (all places when it names none); pins and Open in Maps open Apple Maps; never saved. Round 1 fixed places attaching to the wrong reply after Stop; round 2 fixed Open in Maps hanging on a stalled lookup. |
+| CP9 map card | `670e105` | 2 | D145–D163 | A still Apple map under replies that used places, with numbered pins for the places the reply names (all places when it names none); pins and Open in Maps open Apple Maps; never saved. Round 1 fixed places attaching to the wrong reply after Stop; round 2 fixed Open in Maps hanging on a stalled lookup. |
+| CP10 docs and maintenance | (this commit) | 1 | D164–D173 | Docs describe on-device search with Brave as an option (D128), with numbers checked against the code; the privacy table lists every recipient, including Apple's reverse geocoding (D171). Settings screenshot regenerated; weekly ddgs upstream watch; stale-lists warning in `release.sh`; notices already complete. |
 
 The PR stays a draft: CP8–CP10 remain, and the branch merges only after CP10.
 
