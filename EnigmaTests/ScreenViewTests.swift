@@ -499,7 +499,8 @@ final class ScreenViewTests: XCTestCase {
         $0.flatMap(\.messages).last?.content == "The answer is values.count." + suffix
       }.prefix(1).sink { _ in burst.fulfill() }
       for _ in 0..<80 { stream.continuation.yield(" More detail.") }
-      await fulfillment(of: [burst, bottom], timeout: 5)
+      // 80 fragments with a layout each: 5 s was too short on CI's runners (failed on F29 and F30).
+      await fulfillment(of: [burst, bottom], timeout: 15)
       XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0,
                            "Expected a scroll, visible: \(scroll.documentVisibleRect), document: \(String(describing: scroll.documentView?.bounds))")
       burstToken.cancel()
