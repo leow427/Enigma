@@ -1805,8 +1805,8 @@ final class NativeToolRequestTests: XCTestCase {
 
   /// Gate 3 for find_places and get_weather, on Enigma's backend (a local turn) and the provider's.
   func testPlacesAndWeatherAskFirstAfterMessageText() async throws {
-    let lookUps: [ToolPermission] = [.lookUpAfterMessages(title: "Find coffee in Soho?", service: "Apple Maps"),
-                                     .lookUpAfterMessages(title: "Check the weather for Paris?", service: "Open-Meteo")]
+    let lookUps: [ToolPermission] = [.placesAfterMessages(title: "Find coffee in Soho?"),
+                                     .weatherAfterMessages(title: "Check the weather for Paris?")]
     let calls: [(String, String)] = [("get_messages", Self.aliceRead), ("find_places", #"{"query":"coffee","area":"Soho"}"#),
                                      ("get_weather", #"{"place":"Paris"}"#)]
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
@@ -1838,6 +1838,26 @@ final class NativeToolRequestTests: XCTestCase {
       XCTAssertTrue(geocoder.calls.isEmpty, "\(backend): no geocoding")
       XCTAssertTrue(weather.calls.isEmpty, "\(backend): no Open-Meteo request")
     }
+  }
+
+  /// Allowing web search for the chat doesn't let places or weather through: each asks on its own card
+  /// (owner, 2026-10-31).
+  func testAllowingSearchStillAsksForPlacesAndWeather() async throws {
+    let calls: [(String, String)] = [("get_messages", Self.aliceRead), ("web_search", #"{"query":"coffee"}"#),
+                                     ("find_places", #"{"query":"coffee","area":"Soho"}"#), ("get_weather", #"{"place":"Paris"}"#)]
+    let places = FakePlaces([Self.placeResult()]), weather = FakeWeather()
+    let geocoder = FakeGeocoder((PlacesAndWeatherFixtures.paris, "Paris, France"))
+    let chat = makeChat(inference: NativeScriptedInference(steps: calls.map { .call($0.0, $0.1) } + [.text("Done.")]),
+                        messagesDatabase: MessagesDatabase(url: try MessagesFixture(directory: root).url))
+    chat.placeSearch = places
+    chat.weatherLookup = weather
+    chat.weatherGeocoder = geocoder
+    await chat.refreshInstalledModel()
+    var cards: [ToolPermissionRequest] = []
+    try await send("Read Alice", to: chat, answers: [.conversation, .conversation, .deny, .deny], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat, .searchAfterMessages, .placesAfterMessages, .weatherAfterMessages])
+    XCTAssertTrue(places.calls.isEmpty, "Declined: no MapKit request")
+    XCTAssertTrue(weather.calls.isEmpty, "Declined: no Open-Meteo request")
   }
 
   /// D89: after a decline, the fallback to Enigma's web_search sends no city and no coordinate.

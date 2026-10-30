@@ -1151,24 +1151,24 @@ final class LocalChatViewModel: ObservableObject {
         guard !locationDeclined, let provider = self?.locationProvider else { return nil }
         return try? await provider.currentLocation()
       }
-      let mayLookUp: @Sendable (String, String) async -> Bool = { title, service in
+      // Each tool has its own grant: allowing web search never lets places or weather through (gate 3).
+      let mayLookUp: @Sendable (ToolPermission) async -> Bool = { permission in
         guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
-        return await coordinator.authorize(.lookUpAfterMessages(title: title, service: service), destination: destination,
-                                           session: sessionID)
+        return await coordinator.authorize(permission, destination: destination, session: sessionID)
       }
       let onSources: @Sendable ([WebSearchSource]) async -> Void = { [weak self] sources in
         await self?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: requestID)
       }
       if plan.offeredParts.contains(.places) {
         parts.append(PlaceSearchTool(places: placeSearch, location: location, units: { .current },
-                                     mayQuery: { await mayLookUp($0, "Apple Maps") }, onSources: onSources,
+                                     mayQuery: { await mayLookUp(.placesAfterMessages(title: $0)) }, onSources: onSources,
                                      onPlaces: { @MainActor [weak self] places in
                                        self?.addReplyPlaces(places, messageID: responseID, requestID: requestID)
                                      }))
       }
       if plan.offeredParts.contains(.weather) {
         parts.append(WeatherTool(weather: weatherLookup, geocoder: weatherGeocoder, location: location, units: { .current },
-                                 mayQuery: { await mayLookUp($0, "Open-Meteo") }, onSources: onSources))
+                                 mayQuery: { await mayLookUp(.weatherAfterMessages(title: $0)) }, onSources: onSources))
       }
     }
     if plan.parts.contains(.messages),

@@ -12,10 +12,12 @@
 - **Left for the owner** (details in the decision log's summary and the
   CP10 Hand-off): the signed-app audit, including CP8's Settings and
   blocking and CP9's map card; the map card screenshot; confirming spec
-  §7's amended Apple row and gate 3's shared grant (D171); the deferred
+  §7's amended Apple row (D171); the deferred
   evaluations (model-style half, the one- vs two-query A/B, the tool-use
   eval; D121); the possible llama-server keep-alive issue (D114); then the
   merge, `to-do.md`, the release note and one run of the ddgs watch.
+- **After CP10 (owner, D174):** web search, places and weather each have
+  their own gate 3 grant.
 - **Review rule now:** reviewers are always Opus at effort xhigh; big changes
   get up to three rounds, stopping when a round finds only small fixes.
 

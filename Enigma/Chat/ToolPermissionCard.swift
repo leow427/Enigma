@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Asks before a model reads a chat, searches all chats, searches the web after reading messages, or
-/// a provider's web search gets the approximate location.
+/// Asks before a model reads a chat, searches all chats, searches the web, finds places or checks the
+/// weather after reading messages, or a provider's web search gets the approximate location.
 /// The reply waits until a button is chosen. Escape is Don't allow; For this conversation is the
 /// one `accent` button, so the lasting answer is never the easy one.
 struct ToolPermissionCard: View {
@@ -51,7 +51,8 @@ struct ToolPermissionCard: View {
 
   private var isMessages: Bool {
     switch request.permission {
-    case .searchAfterMessages, .lookUpAfterMessages, .shareLocation, .providerSearchAfterMessages: return false
+    case .searchAfterMessages, .placesAfterMessages, .weatherAfterMessages, .shareLocation, .providerSearchAfterMessages:
+      return false
     default: return true
     }
   }

@@ -181,10 +181,10 @@ search sites.* (to Brave, while a Brave key is saved), with **Don't allow**,
 line, and the search goes out exactly as the card showed it. Places and weather
 calls ask with **Find ‹what› near you?** or **Find ‹what› in ‹area›?**, and
 **Check the weather for ‹place›?** or **Check the weather for your area?**,
-naming Apple Maps or Open-Meteo. The three share one permission: **For this
-conversation** covers web searches, places lookups and weather checks for the
-rest of that chat, and **Always** covers them in every chat. Don't allow tells
-the model "The user declined." See [Messages](Messages.md#permission-cards).
+naming Apple Maps or Open-Meteo. Each of the three has its own permission:
+allowing web searches, for the chat or always, doesn't allow places lookups or
+weather checks, which ask on their own cards. Don't allow tells the model "The
+user declined." See [Messages](Messages.md#permission-cards).
 
 ## Cloud models' own search
 
@@ -352,10 +352,9 @@ and the answer.
   search always shows its chip before you send. On models that choose their own
   tools, the model decides and writes the query, and could be steered by text in
   the chat; once message text is in the chat, no search, places or weather call
-  leaves without your answer on a card. One **For this conversation** answer
-  covers all three kinds of call in that chat, and **Always** covers them in
-  every chat; a provider's own search has one card for its searches in that
-  chat.
+  leaves without your answer on a card. Web searches, places lookups and
+  weather checks are each allowed on their own card, for the chat or always; a
+  provider's own search has one card for its searches in that chat.
 - **Where the answer comes from:** search controls retrieval, not the model. In
   Local mode the answer is written on this Mac, but the queries still go to the
   recipients above.

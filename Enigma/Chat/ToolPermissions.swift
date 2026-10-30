@@ -38,9 +38,11 @@ enum ToolPermission: Sendable, Equatable {
   /// `service` names who receives the query on the card: Brave with a saved key, otherwise the
   /// search sites (D131).
   case searchAfterMessages(query: String, service: String = ToolPermission.searchSitesService)
-  /// `find_places` or `get_weather` in a chat that holds message text (F29, spec §6.2): `title` is the
-  /// card's question, such as "Find ramen in Soho?", and `service` who gets it. Answered with gate 3's grant.
-  case lookUpAfterMessages(title: String, service: String)
+  /// `find_places` in a chat that holds message text (F29, spec §6.2): `title` is the card's question,
+  /// such as "Find ramen in Soho?". Each of gate 3's tools has its own grant (owner, 2026-10-31).
+  case placesAfterMessages(title: String)
+  /// `get_weather` in a chat that holds message text, such as "Check the weather for Paris?".
+  case weatherAfterMessages(title: String)
   /// Send a chat that holds message text to a destination its text wasn't allowed for.
   case shareMessageText
   /// Give a provider's own web search the approximate area (F30, spec §2a). Granted per provider,
@@ -54,20 +56,24 @@ enum ToolPermission: Sendable, Equatable {
 extension ToolPermission {
   /// Who gets `web_search`'s query on gate 3's card when it runs on this Mac (D131).
   static let searchSitesService = "search sites"
+  /// Who gets `find_places`' and `get_weather`'s questions on gate 3's cards.
+  static let placesService = "Apple Maps"
+  static let weatherService = "Open-Meteo"
 }
 
 enum ToolPermissionAnswer: Sendable { case deny, conversation, always }
 
 struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
   enum Kind: String, Codable, Sendable {
-    case readChat, searchChats, searchAfterMessages, shareMessageText, shareLocation, providerSearchAfterMessages
+    case readChat, searchChats, searchAfterMessages, placesAfterMessages, weatherAfterMessages, shareMessageText,
+         shareLocation, providerSearchAfterMessages
   }
 
   let kind: Kind
   let chatGUID: String?
   /// The chat's name when it was granted, for the Settings list.
   let chatName: String?
-  /// Nil for `searchAfterMessages`, which covers every destination, and for the per-provider kinds.
+  /// Nil for gate 3's kinds, which cover every destination, and for the per-provider kinds.
   let destination: ToolDestination?
   /// Only `shareLocation`'s and `providerSearchAfterMessages`'s provider: ChatGPT and the OpenAI API
   /// share a destination, but not these grants (F30). Grants saved before it decode with none.
@@ -99,8 +105,12 @@ struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
       self.init(kind: .readChat, chatGUID: guid, chatName: name, destination: destination)
     case .searchChats:
       self.init(kind: .searchChats, chatGUID: nil, chatName: nil, destination: destination)
-    case .searchAfterMessages, .lookUpAfterMessages:
+    case .searchAfterMessages:
       self.init(kind: .searchAfterMessages, chatGUID: nil, chatName: nil, destination: nil)
+    case .placesAfterMessages:
+      self.init(kind: .placesAfterMessages, chatGUID: nil, chatName: nil, destination: nil)
+    case .weatherAfterMessages:
+      self.init(kind: .weatherAfterMessages, chatGUID: nil, chatName: nil, destination: nil)
     case .shareMessageText:
       self.init(kind: .shareMessageText, chatGUID: nil, chatName: nil, destination: destination)
     case .shareLocation(let provider, _):

@@ -202,9 +202,12 @@ The summary at the top is written when the run ends.
 - D168 Notices: nothing to add for Wikidata or Google News — R
 - D169 Local-Model-Selection gets no new tool-choice scores — R
 - D170 to-do.md and the map card screenshot are left for the owner — R
-- D171 Docs say gate 3's one answer covers search, places and weather; Apple's reverse geocoding is listed — R
+- D171 Docs say gate 3's one answer covers search, places and weather; Apple's reverse geocoding is listed — R (gate 3 part superseded by D174)
 - D172 One review round — R
 - D173 Review round 1's fixes — R
+
+**After CP10**
+- D174 Gate 3: web search, places and weather each have their own grant (owner) — R
 
 **Checks not run or failed**
 - The relaxed quality gate (D3) failed on the typed judge share: on-device equal or better on 47% (26 on-device, 32 Brave, 2 ties of 60). Hence D128: on-device by default, Brave kept as an option with a saved key.
@@ -213,7 +216,7 @@ The summary at the top is written when the run ends.
 - Not run: the live search checks with the network after CP8, and the signed-app checks of CP8, CP9 (map card) and the final audit — the owner's.
 - Full-suite flakes not caused by F29: `EnigmaMainWindowTests.testSendNowDuringAPendingSend…` under load (D144), `ClaudeCodeSubscriptionTests.testClaudeCodeRestartDeliversNothing` (D163).
 
-**What's next (owner):** the signed-app audit in `cp10-docs-and-maintenance.md`'s Hand-off; the map card screenshot; confirm spec §7's amended Apple row (D171); decide whether gate 3 keeps one grant for search, places and weather (D171); the deferred evaluations; the possible llama-server keep-alive issue (D114); then merge the PR, mark F29 done in `to-do.md`, add the release note and run the ddgs watch once.
+**What's next (owner):** the signed-app audit in `cp10-docs-and-maintenance.md`'s Hand-off; the map card screenshot; confirm spec §7's amended Apple row (D171); the deferred evaluations; the possible llama-server keep-alive issue (D114); then merge the PR, mark F29 done in `to-do.md`, add the release note and run the ddgs watch once.
 
 ## Index by checkpoint
 
@@ -229,6 +232,7 @@ The summary at the top is written when the run ends.
 - **CP8:** D128–D144
 - **CP9:** D145–D163
 - **CP10:** D164–D173
+- **After CP10:** D174
 
 ## Entries
 
@@ -1908,7 +1912,7 @@ view is released, not from extraction. The CI failures were most likely the
   sent) before the gate-3 card, so a Mac with location off never shows a card
   for a lookup that can't run; (3) the gate-3 card is a new
   `ToolPermission.lookUpAfterMessages(title:service:)` whose grant is
-  `searchAfterMessages`'s, with the detail "…It will be sent to Apple Maps."
+  `searchAfterMessages`'s, with the detail "…It will be sent to Apple Maps." (*grant superseded by D174*)
   or "…to Open-Meteo."; (4) `get_weather` with no place asks "Check the
   weather for your area?"; (5) the shared instructions sit on `find_places`,
   and `AssistantToolbox` skips empty instruction strings; (6) `onPlaces`
@@ -2739,7 +2743,7 @@ view is released, not from extraction. The CI failures were most likely the
 
 ### D171 — 2026-10-31 00:40, CP10 — Docs say gate 3's one answer covers search, places and weather; Apple's reverse geocoding is listed
 
-- **Decided (orchestrator, from review round 1):** (1) The docs describe gate 3 as it works since CP6: one grant covers `web_search`, `find_places` and `get_weather` together, so "For this conversation" or "Always" on any of their cards lets the other two through as well. (2) The privacy table, and spec §7 as an amendment, add that Apple receives your coordinates, rounded to about 1 km, to find your city for any nearby question (`LocationService` reverse geocoding), not only for places questions. (3) The ddgs watch's test checks that each file is read at the latest tag. (4) D165 is corrected: the `changed/` fixtures are synthetic.
+- **Decided (orchestrator, from review round 1):** (1) *(Superseded by D174.)* The docs describe gate 3 as it works since CP6: one grant covers `web_search`, `find_places` and `get_weather` together, so "For this conversation" or "Always" on any of their cards lets the other two through as well. (2) The privacy table, and spec §7 as an amendment, add that Apple receives your coordinates, rounded to about 1 km, to find your city for any nearby question (`LocationService` reverse geocoding), not only for places questions. (3) The ddgs watch's test checks that each file is read at the latest tag. (4) D165 is corrected: the `changed/` fixtures are synthetic.
 - **Why:** the reviewer found the docs claimed each tool asks separately and the Apple row understated what is sent. A test reading the wrong tag would pass while the live watch never reported a change.
 - **Alternatives:** separate grants per tool (a code change to `ToolPermissions`, for the owner to decide).
 - **Reversible:** yes.
@@ -2756,4 +2760,11 @@ view is released, not from extraction. The CI failures were most likely the
 - **Decided (worker CP10):** (1) `FixtureAPI` raises unless a contents request carries the latest release's tag as its ref; the mutants "no ref" and "ref = recorded tag" each fail the watch tests now (3 failures and 1 error; 1 failure and 1 error) and were restored. (2) New offline tests: `LiveAPI` with `urlopen` patched (404 is None, other errors raise, no `Authorization` header without `GITHUB_TOKEN`, a bearer header with it, the exact API URL), an empty `files` map and non-GitHub repositories rejected. (3) Docs per D171: gate 3's one answer covers web searches, places lookups and weather checks in the chat, and Always covers them in every chat (`Web-Search.md`, `Messages.md`), with all four places and weather card titles; Apple's row lists the rounded coordinates reverse-geocoded for any nearby question, in `Web-Search.md` and in spec §7, marked "amended, orchestrator, owner to confirm". (4) Nits: Wikipedia isn't asked for today or this-week questions and keeps the first usable article among its top 3 hits; result sites read more when a read fails or the check reads again, following up to 5 redirects; "search adds only the blocked sites to preferences"; the Maintenance section notes that an issue edit sends no notification and that GitHub turns off scheduled workflows after 60 days without repository activity; D165's fixture description corrected.
 - **Why:** review round 1 (no Blocker).
 - **Alternatives:** per-ref fixture folders, or a recording fake that asserts each ref.
+- **Reversible:** yes.
+
+### D174 — 2026-10-31 01:10, after CP10 — Gate 3: each tool has its own grant
+
+- **Decided (owner, 2026-10-31):** "they should each obviously have their own card". `web_search`, `find_places` and `get_weather` each have their own gate 3 grant (`ToolPermission.searchAfterMessages`, `.placesAfterMessages`, `.weatherAfterMessages`; `ToolAlwaysGrant.Kind` gains `placesAfterMessages` and `weatherAfterMessages`). Allowing one, for the chat or always, never allows the other two. Settings lists the new Always grants as "Find places after reading messages" and "Check the weather after reading messages". An Always grant saved before this as "Search the web after reading messages" now covers web searches only. This replaces CP6's shared grant, which D171 had documented. An old "Search the web after reading messages" row, even one saved from a places or weather card, keeps allowing web search; places and weather ask again. Known limitation: an older build that shares these preferences, such as main's installed app, can't read the new kinds and loads no Always grants at all, and its next Always answer replaces the saved list. It fails safe (more cards, never fewer), as F30's kinds already did.
+- **Why:** owner's decision; each tool sends something different to a different company.
+- **Alternatives:** the shared grant (map both new cases to `.searchAfterMessages` in `ToolAlwaysGrant.init(_:destination:)`).
 - **Reversible:** yes.

@@ -148,13 +148,17 @@ final class PlacesAndWeatherToolTests: XCTestCase {
     XCTAssertTrue(geocoder.calls.isEmpty, "Nothing is sent before the card is answered")
     XCTAssertTrue(weather.calls.isEmpty)
     // The card's question and who gets it.
-    let request = ToolPermissionRequest(permission: .lookUpAfterMessages(title: "Find coffee near you?", service: "Apple Maps"),
+    let request = ToolPermissionRequest(permission: .placesAfterMessages(title: "Find coffee near you?"),
                                         destination: .thisMac, session: UUID())
     XCTAssertEqual(request.title, "Find coffee near you?")
     XCTAssertEqual(request.detail, "This chat includes text from your messages. It will be sent to Apple Maps.")
-    // Remembered with gate 3's answer.
-    XCTAssertEqual(ToolAlwaysGrant(.lookUpAfterMessages(title: "x", service: "Open-Meteo"), destination: .thisMac).key,
-                   ToolAlwaysGrant(.searchAfterMessages(query: "y"), destination: .thisMac).key)
+    let weatherCard = ToolPermissionRequest(permission: .weatherAfterMessages(title: "Check the weather for Paris?"),
+                                            destination: .thisMac, session: UUID())
+    XCTAssertEqual(weatherCard.detail, "This chat includes text from your messages. It will be sent to Open-Meteo.")
+    // Each of gate 3's tools is remembered on its own (owner, 2026-10-31).
+    let keys = [ToolPermission.searchAfterMessages(query: "y"), .placesAfterMessages(title: "x"), .weatherAfterMessages(title: "z")]
+      .map { ToolAlwaysGrant($0, destination: .thisMac).key }
+    XCTAssertEqual(Set(keys).count, 3)
   }
 
   func testToolActivityText() {

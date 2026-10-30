@@ -766,7 +766,9 @@ coordinate rounded to about 1 km is used.
 **Gate 3.** In a chat that holds message text, `find_places` and
 `get_weather` ask first, like `web_search`: the card shows "Find ‹query›
 near you?", "Find ‹query› in ‹area›?" or "Check the weather for
-‹place›?", with F32's three answers. The answer is remembered with gate 3's.
+‹place›?", with F32's three answers. *Amended (owner, 2026-10-31):* each
+tool's answer is remembered on its own, so allowing `web_search` never
+allows `find_places` or `get_weather`, and the reverse.
 
 **Activity.** `find_places` shows **Finding places…** and `get_weather`
 **Checking the weather…**, both as `.searching` phases with their own text.
