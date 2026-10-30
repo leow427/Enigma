@@ -8,14 +8,14 @@ works in the code, its limitations, and which tests cover it.
 | Page | What it covers |
 | --- | --- |
 | [Chat](Chat.md) | The main window, composer, streaming replies, activity and sources, chat history, and how much context each request carries |
-| [Local models](Local-Model-Selection.md) | The bundled model catalogue, how Enigma picks the model for this Mac, and installing and managing it |
+| [Local models](Local-Model-Selection.md) | The bundled model catalogue, how Enigma picks the model for this Mac, which models choose their own tools, and installing and managing it |
 | [Cloud models](Cloud-Model-Selection.md) | Auto, Local, and Cloud modes, cloud providers, model compatibility, and context budgets |
 | [Screen](Screen-Skill.md) | `/screen` and `/snapshot`, screenshot consent, and keeping Enigma out of screen sharing |
 | [Selection Context](Selection-Context.md) | Asking about, editing, or translating text selected in another app |
 | [File Mode](File-Mode.md) | Attaching files and folders, reviewed local edits, and undo |
-| [Web Search](Web-Search.md) | Brave Search, automatic and `/search` lookups, and sources |
-| [Messages](Messages.md) | `/messages`: reading, searching, and sending Apple Messages, with setup |
-| [Slash commands](Slash-Commands.md) | Every composer command, how commands combine, and commands recognized from your wording |
+| [Web Search](Web-Search.md) | Brave Search, automatic, `/search` and model-chosen lookups, and sources |
+| [Messages](Messages.md) | Reading, searching, and sending Apple Messages, with setup, and the cards that ask before a model reads a chat |
+| [Slash commands](Slash-Commands.md) | Every composer command, how commands combine, models that choose their own tools, and commands recognized from your wording |
 | [Welcome and Settings](Welcome-and-Settings.md) | Opening Enigma, first-run setup, the Settings window, and keyboard shortcuts |
 
 ## Guides

@@ -734,3 +734,323 @@ private final class ShellCalls: @unchecked Sendable {
   var count: Int { lock.withLock { calls } }
   func record() { lock.withLock { calls += 1 } }
 }
+
+// MARK: - Provider search (F30 CP5)
+
+extension ClaudeCodeSubscriptionTests {
+  func testClaudeCodeSearchArguments() {
+    let toolbox = RecordingToolbox()
+    let plain = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: toolbox)
+    let search = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: toolbox,
+                                                 providerSearch: ProviderSearch())
+    XCTAssertEqual(value(after: "--tools", in: search), "WebSearch")
+    XCTAssertEqual(value(after: "--allowedTools", in: search), "WebSearch,mcp__enigma__lookup")
+    for flag in ["-p", "--safe-mode", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence",
+                 "--include-partial-messages", "--verbose"] {
+      XCTAssertTrue(search.contains(flag), flag)
+    }
+    for flag in ["--mcp-config", "--input-format", "--output-format", "--model"] {
+      XCTAssertEqual(value(after: flag, in: search), value(after: flag, in: plain), flag)
+    }
+    XCTAssertFalse(search.contains("--dangerously-skip-permissions"))
+    XCTAssertFalse(search.joined(separator: " ").contains("WebFetch"), "WebFetch stays off")
+    // Only the tools and their permission list change.
+    XCTAssertEqual(search.count, plain.count)
+    let changed = search.indices.filter { search[$0] != plain[$0] }.map { plain[$0 - 1] }
+    XCTAssertEqual(Set(changed), ["--tools", "--allowedTools", "--system-prompt"])
+  }
+
+  func testClaudeCodeArgumentsWithoutSearchUnchanged() {
+    let toolbox = RecordingToolbox()
+    let arguments = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .high, toolbox: toolbox)
+    XCTAssertEqual(arguments, ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .high, toolbox: toolbox,
+                                                              providerSearch: nil))
+    XCTAssertEqual(value(after: "--tools", in: arguments), "")
+    XCTAssertEqual(value(after: "--allowedTools", in: arguments), "mcp__enigma__lookup")
+    XCTAssertEqual(value(after: "--system-prompt", in: arguments), ClaudeCodeToolMode.systemPrompt(toolbox))
+    XCTAssertTrue(ClaudeCodeToolMode.systemPrompt(toolbox).contains(
+      "Use only the Enigma tools. You cannot read local files, run commands, or browse."))
+    XCTAssertFalse(arguments.joined(separator: " ").contains("WebSearch"))
+  }
+
+  func testClaudeCodeSearchSystemPrompt() throws {
+    let toolbox = AssistantToolbox(parts: [RecordingToolbox(), ProviderSearchPart()], requiredTool: nil, extraInstructions: [])
+    let arguments = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: toolbox,
+                                                    providerSearch: ProviderSearch())
+    let prompt = try XCTUnwrap(value(after: "--system-prompt", in: arguments))
+    XCTAssertEqual(prompt, ClaudeCodeToolMode.systemPrompt(toolbox, providerSearch: true))
+    XCTAssertTrue(prompt.contains("Use only the Enigma tools and WebSearch. You cannot read local files or run commands."))
+    XCTAssertFalse(prompt.contains("or browse"), "Browsing would contradict web search")
+    // Spec §4's instruction, from the toolbox, before the tools line.
+    let instruction = try XCTUnwrap(prompt.range(of: "You can search the web with your web search tool."))
+    let tools = try XCTUnwrap(prompt.range(of: "Use only the Enigma tools and WebSearch."))
+    XCTAssertLessThan(instruction.lowerBound, tools.lowerBound)
+    XCTAssertTrue(prompt.contains("Search at most 5 times."))
+    XCTAssertTrue(prompt.contains("Link the pages you rely on."))
+    XCTAssertTrue(prompt.contains("ask which city they mean"), "No location: ask which city")
+  }
+
+  func testClaudeCodeSearchSystemPromptWithLocation() throws {
+    let location = ProviderSearchLocation(city: "Springfield", region: "IL", countryCode: "US", timeZone: "America/Chicago")
+    let toolbox = AssistantToolbox(parts: [RecordingToolbox(), ProviderSearchPart(location: location)],
+                                   requiredTool: nil, extraInstructions: [])
+    let arguments = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: toolbox,
+                                                    providerSearch: ProviderSearch(location: location))
+    let prompt = try XCTUnwrap(value(after: "--system-prompt", in: arguments))
+    XCTAssertTrue(prompt.contains(
+      "The user's approximate location is Springfield, IL, United States; your web search tool uses it for places and weather near them."))
+    XCTAssertFalse(prompt.contains("ask which city they mean"))
+    // Claude Code has no location field: the area goes only in the system prompt, never coordinates or the time zone.
+    let others = arguments.filter { $0 != prompt }.joined(separator: " ")
+    XCTAssertFalse(others.contains("Springfield"))
+    XCTAssertFalse(arguments.joined(separator: " ").contains("America/Chicago"))
+  }
+
+  func testParserSearchEventsFromFixture() throws {
+    var parser = ClaudeCodeStreamParser()
+    let events = try parser.consume(Data(contentsOf: CloudSearchFixture.url("claude-code-web-search.jsonl")))
+    XCTAssertEqual(events.first { if case .toolsListed = $0 { true } else { false } },
+                   .toolsListed(["WebSearch", "mcp__enigma__propose_edit"]))
+    XCTAssertEqual(events.filter { $0 == .searchStarted }.count, 2, "Two WebSearch calls")
+    let batches = events.compactMap { event -> [WebSearchSource]? in
+      if case .searchResults(let sources) = event { sources } else { nil }
+    }
+    XCTAssertEqual(batches.count, 2)
+    XCTAssertTrue(batches.allSatisfy { !$0.isEmpty })
+    XCTAssertEqual(batches.first?.first?.title, "Grab Huge Savings Today on Apple MacBook Air From $799")
+    XCTAssertTrue(batches.joined().allSatisfy(\.isSafeWebLink))
+    // The toolsListed event comes before any search, and the searches before the answer.
+    let listed = try XCTUnwrap(events.firstIndex { if case .toolsListed = $0 { true } else { false } })
+    let started = try XCTUnwrap(events.firstIndex(of: .searchStarted))
+    let text = try XCTUnwrap(events.firstIndex { if case .token = $0 { true } else { false } })
+    XCTAssertLessThan(listed, started)
+    XCTAssertLessThan(started, text)
+    XCTAssertEqual(events.last.map { if case .completed = $0 { true } else { false } }, true)
+  }
+
+  func testParserSkipsMalformedSearchResults() throws {
+    var parser = ClaudeCodeStreamParser()
+    let start = #"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu-9","name":"WebSearch","input":{}}}}"#
+    let results = #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-9","type":"tool_result","content":"…"}]},"tool_use_result":{"query":"q","results":["A prose summary.",{"tool_use_id":"srvtoolu-1"},{"tool_use_id":"srvtoolu-2","content":"not a list"},{"tool_use_id":"srvtoolu-3","content":[{"title":"Script","url":"javascript:alert(1)"},{"title":"Login","url":"https://user:pass@example.com/"},{"title":"Relative","url":"/path"},{"title":"No URL"},{"title":7,"url":"https://numbers.example/"},{"title":"Good","url":"https://example.com/good"},{"url":"https://untitled.example/page"}]}]}}"#
+    let failed = #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-9","type":"tool_result","content":"Error","is_error":true}]},"tool_use_result":"Error: API Error: 400"}"#
+    // Another tool's result never becomes sources.
+    let other = #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-other","type":"tool_result","content":"x"}]},"tool_use_result":{"results":[{"content":[{"title":"Mine","url":"https://other.example/"}]}]}}"#
+    // An Enigma tool's call is not a search, even with a search-shaped result.
+    let mcpStart = #"{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu-mcp","name":"mcp__enigma__lookup","input":{}}}}"#
+    let mcpResult = #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-mcp","type":"tool_result","content":"x"}]},"tool_use_result":{"results":[{"content":[{"title":"Tool","url":"https://tool.example/"}]}]}}"#
+    let lines = [start, results, failed, other, mcpStart, mcpResult]
+    let events = try parser.consume(Data((lines.joined(separator: "\n") + "\n").utf8))
+    XCTAssertEqual(events, [
+      .searchStarted,
+      .searchResults([
+        WebSearchSource(title: "numbers.example", url: URL(string: "https://numbers.example/")!),
+        WebSearchSource(title: "Good", url: URL(string: "https://example.com/good")!),
+        WebSearchSource(title: "untitled.example", url: URL(string: "https://untitled.example/page")!),
+      ]),
+      .searchResults([]),
+    ])
+  }
+
+  func testInitWithoutWebSearchIsUnavailable() async throws {
+    let root = try temporaryDirectory()
+    let pidFile = root.appending(path: "pid")
+    let fixture = CloudSearchFixture.url("claude-code-init-without-websearch.jsonl")
+    let text = #"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Too early"}}}"#
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      echo $$ > '\(pidFile.path)'
+      /usr/bin/printf '%s\\n' '\(text)'
+      /bin/cat '\(fixture.path)'
+      exec /bin/sleep 10
+      """)
+    var received: [ChatEvent] = []
+    do {
+      for try await event in client.stream(searchRequest(), toolbox: RecordingToolbox()) { received.append(event) }
+      XCTFail("Expected web search to be unavailable")
+    } catch {
+      XCTAssertEqual(error as? CloudProviderError, .webSearchUnavailable(.claudeCode))
+    }
+    XCTAssertFalse(received.contains { if case .token = $0 { true } else { false } }, "No text before the check")
+    let pid = try await waitForPID(at: pidFile)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while kill(pid, 0) == 0, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+    XCTAssertNotEqual(kill(pid, 0), 0, "Claude Code kept running")
+
+    // Without provider search the same start-up is fine: no WebSearch was asked for.
+    let plain = try self.client(root: root, name: "plain", script: """
+      #!/bin/sh
+      /bin/cat '\(fixture.path)'
+      /usr/bin/printf '%s\\n' '{"type":"result","subtype":"success","is_error":false,"result":"Fine"}'
+      exec /bin/sleep 10
+      """)
+    let events = try await events(plain.stream(request(), toolbox: RecordingToolbox()))
+    XCTAssertEqual(events.filter { if case .activity = $0 { false } else { true } }, [.token("Fine"), .completed])
+  }
+
+  func testClaudeCodeSourcesFromAnswerLinks() async throws {
+    let root = try temporaryDirectory()
+    let fixture = CloudSearchFixture.url("claude-code-web-search.jsonl")
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      /bin/cat '\(fixture.path)'
+      exec /bin/sleep 10
+      """)
+    let received = try await events(client.stream(searchRequest(), toolbox: RecordingToolbox()))
+    XCTAssertEqual(received.filter { $0 == .activity(.phase(.searching)) }.count, 2)
+    let discovered = received.compactMap { event -> [WebSearchSource]? in
+      if case .activity(.sourcesDiscovered(let sources)) = event { sources } else { nil }
+    }
+    XCTAssertEqual(discovered.count, 2)
+    let selected = received.compactMap { event -> [WebSearchSource]? in
+      if case .activity(.sourcesSelected(let sources)) = event { sources } else { nil }
+    }
+    XCTAssertEqual(selected.count, 1)
+    let sources = try XCTUnwrap(selected.first)
+    // The answer's links, in order, as the citations; capped at 8.
+    XCTAssertEqual(sources.map(\.url.absoluteString), [
+      "https://www.apple.com/macbook-air/",
+      "https://9to5mac.com/2026/10/29/you-can-now-spend-between-1999-and-14549-on-a-macbook-pro/",
+      "https://www.macprices.net/15-macbook-air/",
+      "https://www.macrumors.com/2026/10/28/new-macbook-pro-maxed-out-cost/",
+      "https://tech-insider.org/macbook-20-years-history-lineup-prices-2026/",
+      "https://appleinsider.com/deals/best-macbook-air-deals",
+      "https://www.theapplepost.com/2026/10/28/73731/new-macbook-pro-starts-at-2899-as-apple-opens-pre-orders/",
+    ])
+    XCTAssertTrue(sources.allSatisfy { !$0.title.isEmpty && $0.isSafeWebLink })
+    // Selected before completing, after the last text.
+    let selectedIndex = try XCTUnwrap(received.firstIndex { if case .activity(.sourcesSelected) = $0 { true } else { false } })
+    XCTAssertEqual(received.last, .completed)
+    XCTAssertEqual(selectedIndex, received.count - 2)
+    let answer = received.compactMap { if case .token(let text) = $0 { text } else { nil } }.joined()
+    XCTAssertTrue(answer.hasSuffix("as-apple-opens-pre-orders/)"), "The closing Sources: list stays in the reply")
+
+    // Without provider search, no search events are reported.
+    let plain = try self.client(root: root, name: "plain", script: """
+      #!/bin/sh
+      /bin/cat '\(fixture.path)'
+      exec /bin/sleep 10
+      """)
+    let plainEvents = try await events(plain.stream(request(), toolbox: RecordingToolbox()))
+    XCTAssertFalse(plainEvents.contains { if case .activity(.sourcesSelected) = $0 { true } else { false } })
+    XCTAssertFalse(plainEvents.contains(.activity(.phase(.searching))))
+  }
+
+  func testClaudeCodeRestartDeliversNothing() async throws {
+    let root = try temporaryDirectory()
+    let pidFile = root.appending(path: "pid")
+    let inputLog = root.appending(path: "input")
+    let initLine = #"{"type":"system","subtype":"init","tools":["WebSearch","mcp__enigma__lookup"]}"#
+    let call = #"{"type":"control_request","request_id":"req-call","request":{"subtype":"mcp_message","server_name":"enigma","message":{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"lookup","arguments":{"query":"x"}}}}}"#
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      echo $$ > '\(pidFile.path)'
+      /usr/bin/printf '%s\\n' '\(initLine)'
+      /usr/bin/printf '%s\\n' '\(call)'
+      exec /bin/cat > '\(inputLog.path)'
+      """)
+    let toolbox = RestartingToolbox()
+    do {
+      _ = try await events(client.stream(searchRequest(), toolbox: toolbox))
+      XCTFail("Expected a restart")
+    } catch {
+      XCTAssertEqual(error as? ProviderSearchRestart, ProviderSearchRestart())
+    }
+    XCTAssertEqual(toolbox.callCount, 1)
+    let pid = try await waitForPID(at: pidFile)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while kill(pid, 0) == 0, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+    XCTAssertNotEqual(kill(pid, 0), 0, "Claude Code kept running after the restart")
+    let written = try String(contentsOf: inputLog, encoding: .utf8)
+    XCTAssertFalse(written.contains("req-call"), "The held-back call is never answered")
+    XCTAssertFalse(written.contains("The request was restarted."))
+    XCTAssertFalse(written.contains("control_response"))
+  }
+
+  func testClaudeCodeFailureAfterSearchKeepsSources() async throws {
+    let root = try temporaryDirectory()
+    let lines = [
+      #"{"type":"system","subtype":"init","tools":["WebSearch","mcp__enigma__lookup"]}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu-1","name":"WebSearch","input":{}}}}"#,
+      #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-1","type":"tool_result","content":"…"}]},"tool_use_result":{"query":"q","results":[{"tool_use_id":"srvtoolu-1","content":[{"title":"Found","url":"https://example.com/found"}]},"Summary."]}}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Partly "}}}"#,
+      #"{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Overloaded"}"#,
+    ]
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      \(lines.map { "/usr/bin/printf '%s\\n' '\($0)'" }.joined(separator: "\n"))
+      exec /bin/sleep 10
+      """)
+    var received: [ChatEvent] = []
+    do {
+      for try await event in client.stream(searchRequest(), toolbox: RecordingToolbox()) { received.append(event) }
+      XCTFail("Expected the failure")
+    } catch {
+      XCTAssertEqual(error as? ClaudeCodeError, .server("Overloaded"))
+    }
+    let found = [WebSearchSource(title: "Found", url: URL(string: "https://example.com/found")!)]
+    XCTAssertEqual(received, [
+      .activity(.phase(.searching)), .activity(.sourcesDiscovered(found)), .token("Partly "),
+      .activity(.sourcesSelected(found)),
+    ])
+  }
+
+  /// Every search failed (CP0 Q4: the model chose domains it couldn't reach), but the answer still links
+  /// pages: the failed search counts, so the links become sources.
+  func testClaudeCodeFailedSearchStillSelectsAnswerLinks() async throws {
+    let lines = [
+      #"{"type":"system","subtype":"init","tools":["WebSearch","mcp__enigma__lookup"]}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu-1","name":"WebSearch","input":{}}}}"#,
+      #"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu-1","type":"tool_result","content":"Error","is_error":true}]},"tool_use_result":"Error: API Error: 400"}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"See [Example](https://example.com/page)."}}}"#,
+      #"{"type":"result","subtype":"success","is_error":false,"result":"See [Example](https://example.com/page)."}"#,
+    ]
+    let client = try client(root: try temporaryDirectory(), script: """
+      #!/bin/sh
+      \(lines.map { "/usr/bin/printf '%s\\n' '\($0)'" }.joined(separator: "\n"))
+      exec /bin/sleep 10
+      """)
+    let received = try await events(client.stream(searchRequest(), toolbox: RecordingToolbox()))
+    XCTAssertEqual(received, [
+      .activity(.phase(.searching)), .token("See [Example](https://example.com/page)."),
+      .activity(.sourcesSelected([WebSearchSource(title: "example.com", url: URL(string: "https://example.com/page")!)])),
+      .completed,
+    ])
+  }
+
+  /// A CLI whose `init` has no tools list can't be checked; its text is released at the result, once.
+  func testClaudeCodeTextWithoutInitToolsIsReleasedAtTheResult() async throws {
+    let lines = [
+      #"{"type":"system","subtype":"init","model":"claude"}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello "}}}"#,
+      #"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"there"}}}"#,
+      #"{"type":"result","subtype":"success","is_error":false,"result":"Hello there"}"#,
+    ]
+    let client = try client(root: try temporaryDirectory(), script: """
+      #!/bin/sh
+      \(lines.map { "/usr/bin/printf '%s\\n' '\($0)'" }.joined(separator: "\n"))
+      exec /bin/sleep 10
+      """)
+    let received = try await events(client.stream(searchRequest(), toolbox: RecordingToolbox()))
+    XCTAssertEqual(received, [.token("Hello "), .token("there"), .completed])
+  }
+
+  private func searchRequest() -> ChatRequest {
+    var request = request()
+    request.providerSearch = ProviderSearch()
+    return request
+  }
+}
+
+/// A Messages-like tool whose result the gate held back from a provider-search request (F30).
+private final class RestartingToolbox: AgentToolbox, @unchecked Sendable {
+  private let lock = NSLock()
+  private var count = 0
+  var callCount: Int { lock.withLock { count } }
+  let instructions = "Use lookup for facts."
+  let definitions = RecordingToolbox().definitions
+
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    lock.withLock { count += 1 }
+    return AgentToolResult(text: "The request was restarted.", success: false, terminal: true, stop: .restart)
+  }
+}

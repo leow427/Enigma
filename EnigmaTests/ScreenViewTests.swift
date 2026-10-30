@@ -1442,10 +1442,11 @@ final class ScreenViewTests: XCTestCase {
     let search = WebSearchSettings(credentials: hasSearchKey ? PresenceOnlyCredentials() as any WebSearchCredentialStore
       : PanelSearchCredentials(), defaults: defaults)
     let webSearch = PanelSearch()
+    // Today's plain cloud request: `ComposerScreenProvider` records `stream` only, not a tool loop.
     let chat = LocalChatViewModel(engine: engine,
       cloudProviders: CloudProviderRegistry(openAI: cloudProvider, anthropic: cloudProvider, chatGPT: cloudProvider, gemini: cloudProvider),
       webSearch: webSearch, searchSettings: search, sessionStore: ChatSessionStore(applicationSupportDirectory: directory),
-      sessionWriter: sessionWriter)
+      sessionWriter: sessionWriter, nativeToolsEnabled: false)
     addTeardownBlock { @MainActor in
       await chat.stopStreaming()?.value
       await chat.sessionWriter.waitForPendingWrites()

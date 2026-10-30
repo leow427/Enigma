@@ -18,6 +18,7 @@ struct AppShellView: View {
   @ObservedObject private var modelAdvisor: LocalModelAdvisor
   @ObservedObject private var files: FileModeCoordinator
   @ObservedObject private var messages: MessagesCoordinator
+  @ObservedObject private var toolPermissions: ToolPermissionCoordinator
   /// Whether a selection chat stays private when opened in the window.
   @ObservedObject private var selectionEditing: SelectionEditingSettings
   @State private var isFileCloudConsentPresented = false
@@ -81,6 +82,7 @@ struct AppShellView: View {
     _localChat = StateObject(wrappedValue: chat)
     self.files = chat.files
     self.messages = chat.appleMessages
+    self.toolPermissions = chat.toolPermissions
     self.selectionEditing = chat.selectionEditingSettings
   }
 
@@ -135,6 +137,9 @@ struct AppShellView: View {
       }
       if let approval = messages.pendingSend {
         MessagesSendApprovalCard(approval: approval) { messages.answer($0) }
+      }
+      if let request = toolPermissions.pending {
+        ToolPermissionCard(request: request) { toolPermissions.answer($0) }
       }
       if let issue = messages.issue {
         MessagesIssueCard(issue: issue, openSettings: messages.openPrivacySettings) { messages.issue = nil }
@@ -341,6 +346,10 @@ struct AppShellView: View {
       // Sending or clearing the draft brings back dismissed recognized commands.
       if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !dismissedInferences.isEmpty {
         dismissedInferences = []
+      }
+      // A local model with tools loads while the question is typed (F32).
+      if !welcomeSetup.isPresented {
+        localChat.warmNativeTurn(draft: new, mode: shell.selectedMode, hasScreenshot: screen.attachment != nil)
       }
       // A nudge toward the composer for each keystroke that adds text.
       guard !welcomeSetup.isPresented, shell.isComposerFocused, new.count > old.count else { return }
@@ -935,11 +944,26 @@ struct AppShellView: View {
 
   private func intentContext(draft: String, hasFileSelection: Bool, hasScreenshot: Bool,
                              dismissed: Set<SlashCommand>) -> ComposerIntent.Context {
-    ComposerIntent.Context(
+    var context = ComposerIntent.Context(
       draft: draft, hasSelection: localChat.attachedContexts.contains { $0.kind == .selectedText },
       hasFileSelection: hasFileSelection, hasScreenshot: hasScreenshot,
       previousTurnUsedMessages: localChat.previousTurnUsedMessages, infersCommands: infersCommands,
       searchesAutomatically: searchSettings.canSearchAutomatically, dismissed: dismissed)
+    context.nativeTools = composerChoosesTools
+    return context
+  }
+
+  /// The selected mode's model chooses its own tools (F32), so the composer recognizes nothing.
+  private var composerChoosesTools: Bool {
+    localChat.nativeToolsEnabled && NativeTools.isCapable(mode: shell.selectedMode, localModel: localChat.installedModel,
+      cloudProvider: cloudSettings.preferredProvider, cloudModelID: cloudSettings.preferredModelID)
+  }
+
+  /// The route a chat or Messages send takes through `submitNative`, or nil for today's path.
+  private func nativeRoute(for submission: ComposerSubmission) -> Route? {
+    ComposerSubmission.nativeRoute(for: submission, mode: shell.selectedMode, nativeToolsEnabled: localChat.nativeToolsEnabled,
+      localModel: localChat.installedModel, cloudProvider: cloudSettings.preferredProvider,
+      cloudModelID: cloudSettings.preferredModelID)
   }
 
   private var composerIntent: ComposerIntent { composerIntent(recognizesCommands: true) }
@@ -1009,6 +1033,11 @@ struct AppShellView: View {
   /// Sends a chat message on the selected route. The resolved draft already
   /// decided search, including a dismissed search chip.
   private func submitChat(_ prompt: String, searchEnabled: Bool, onAccepted accepted: @escaping @MainActor () -> Void) {
+    if let route = nativeRoute(for: .chat(prompt: prompt, searchEnabled: searchEnabled)) {
+      let typed = ComposerCommands((searchEnabled ? "/search " : "") + prompt)
+      localChat.submitNative(prompt, route: route, plan: localChat.nativeToolPlan(for: typed), onAccepted: accepted)
+      return
+    }
     switch shell.selectedMode {
     case .local:
       localChat.submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: accepted)
@@ -1042,8 +1071,14 @@ struct AppShellView: View {
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)
     case .messages(let prompt):
+      if let route = nativeRoute(for: .messages(prompt: prompt)) {
+        localChat.submitNative(prompt, route: route, plan: localChat.nativeToolPlan(for: ComposerCommands("/messages " + prompt)),
+                               onAccepted: onAccepted)
+        return
+      }
       // The one-time cloud disclosure is answered from the field, never for a message sent unseen.
-      if shell.selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
+      if ComposerSubmission.asksMessagesCloudNotice(mode: shell.selectedMode, nativeRoute: nil,
+                                                    hasDisclosed: messages.hasDisclosed(cloudSettings.preferredProvider)) {
         messages.report(ComposerSubmission.queuedMessagesDisclosureMessage)
         return
       }
@@ -1056,11 +1091,20 @@ struct AppShellView: View {
 
   private func submitMessages(_ prompt: String) {
     defer { finishSendFromPanel() }
-    if shell.selectedMode == .cloud, !messages.hasDisclosed(cloudSettings.preferredProvider) {
+    let originalDraft = draft
+    let route = nativeRoute(for: .messages(prompt: prompt))
+    if ComposerSubmission.asksMessagesCloudNotice(mode: shell.selectedMode, nativeRoute: route,
+                                                  hasDisclosed: messages.hasDisclosed(cloudSettings.preferredProvider)) {
       messages.requestDisclosure(for: cloudSettings.preferredProvider, prompt: prompt)
       return
     }
-    let originalDraft = draft
+    if let route {
+      // The permission card asks before any chat is read, so the one-time notice isn't needed.
+      localChat.submitNative(prompt, route: route, plan: localChat.nativeToolPlan(for: ComposerCommands("/messages " + prompt))) {
+        draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
+      }
+      return
+    }
     localChat.submitMessages(prompt, mode: shell.selectedMode, cloudProvider: cloudSettings.preferredProvider,
       cloudModelID: cloudSettings.preferredModelID) {
         draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
@@ -1090,7 +1134,8 @@ struct AppShellView: View {
     let request = ScreenRoutingPolicy.Request(
       prompt: prompt, ocr: ScreenOCRResult(text: attachment.ocrText, confidence: attachment.ocrConfidence),
       mode: shell.selectedMode, localText: localChat.installedModel?.screenModel, cloudText: cloudText,
-      autoRoute: automatic?.route,
+      // Auto keeps a chat holding message text on this Mac, as submitAuto does.
+      autoRoute: automatic?.route.flatMap { localChat.messageTextMayGo(to: $0) ? $0 : nil },
       allowCloudScreenshots: screenSettings.allowCloudScreenshots,
       hasExplainedCloudPermission: screenSettings.hasExplainedCloudPermission, isOffline: connectivity.isOffline
     )

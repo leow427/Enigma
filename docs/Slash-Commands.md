@@ -9,7 +9,7 @@ work anywhere in a message and are highlighted as you type.
 
 | Command | Shown description | What it does |
 | --- | --- | --- |
-| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved. See [Web Search](Web-Search.md). |
+| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved; typed anyway on ChatGPT or Claude Code, it uses the provider's own search. See [Web Search](Web-Search.md). |
 | `/screen` | Capture all displays | Captures every display, then asks about it. See [Screen](Screen-Skill.md). |
 | `/snapshot` | Select a screen region to capture | Lets you drag out a region of the screen, then asks about it. |
 | `/think` | Think more deeply for this answer | Asks the model to reason more carefully for this answer, with a larger answer allowance on local models and a higher reasoning effort on cloud models that support it. Works with File Mode and `/messages` too. |
@@ -20,9 +20,14 @@ work anywhere in a message and are highlighted as you type.
 Every command applies to the message it's in. The next message goes back to
 normal behavior, including the automatic-search setting.
 
-You don't always have to type the command. Once you turn on **Recognize commands
-from your wording**, Enigma also recognizes some commands from the wording of your
-message and shows them as chips before you send. See
+Capable models don't need commands at all: they get Enigma's tools on every
+message and decide for themselves when to search, read Messages or propose an
+edit. Typed commands still work there, as firm requests. See
+[Models that choose their own tools](#models-that-choose-their-own-tools).
+
+On other models you don't always have to type the command either. Once you turn
+on **Recognize commands from your wording**, Enigma also recognizes some commands
+from the wording of your message and shows them as chips before you send. See
 [Recognized commands](#recognized-commands).
 
 ## Typing and completing commands
@@ -85,10 +90,52 @@ before anything is sent:
 - `/messages` can't be combined with `/screen`, `/snapshot`, `/search` or an
   attached screenshot, so message contents never become a web search query.
 
+## Models that choose their own tools
+
+Some models call tools well enough to decide for themselves: local models of
+about 9B parameters and up, both mixture-of-experts models, and the cloud models.
+Each has a **native tools** flag; see
+[Local models](Local-Model-Selection.md#native-tools) for the list. On a flagged
+route, every message offers the model the tools that apply:
+
+- a web search tool, when automatic search is on: `web_search` when a Brave key
+  is saved, or on ChatGPT and Claude Code the provider's own search, with no key
+  (see [Web Search](Web-Search.md#cloud-models-own-search));
+- the Messages tools, while Enigma has Full Disk Access;
+- `propose_edit` and `propose_translation`, when Selection Context is attached.
+
+The model picks a tool, writes its own arguments, or answers without one.
+Nothing is recognized from your wording and no chips are shown. Reading a chat,
+searching all your chats, and a web search once message text is in the chat each
+ask you first in a card (for ChatGPT's or Claude Code's own search, one card per
+chat); see [Messages](Messages.md#permission-cards).
+
+Typed commands still work, and turn a choice into a request:
+
+| Command | On a flagged route |
+| --- | --- |
+| `/search` | `web_search` is offered even with automatic search off, and the model must call it first |
+| `/messages` | The model is told you asked to use Messages. In Auto it still goes to the local model |
+| `/edit` | The model must call `propose_edit`. Only a typed `/edit` replaces the selection automatically when **Automatically replace selected text** is on |
+| `/translate` | The model must call `propose_translation`; the translation appears in the reply |
+| `/think` | Unchanged |
+| `/screen`, `/snapshot` | Unchanged: the capture is sent with no tools, as on other models |
+
+"Must call" uses the provider's forced tool choice where it has one (OpenAI,
+Anthropic without `/think`, Gemini, and `llama-server`'s `required`), and an
+instruction at the end of your message everywhere, since Codex, Claude Code and
+some local models don't always obey the forced choice.
+
+Files attached keep File Mode's own tools, and a screenshot attached keeps
+today's screen path with no tools. The conflicts in
+[Combining commands](#combining-commands) apply to typed commands on every route.
+
 ## Recognized commands
 
-With **Recognize commands from your wording** on (it's off until you turn it on,
-see [The setting](#the-setting)), Enigma reads the wording of the message you're
+This section applies to models without native tools, such as Qwen3.5 2B; a
+flagged model chooses its own tools instead. With **Recognize commands from your
+wording** on (it's off until you turn it on, see [The setting](#the-setting)),
+Enigma reads the wording of the message you're
 typing and turns on the matching command for you, as if you'd typed it. It checks fixed English rules on this
 Mac, with no extra model call. Rather than whole sentences, the rules look for
 signals that together mark a request, so ordinary rewordings still count.
@@ -128,6 +175,11 @@ with the hint "Turns it off for this message".
 
 The chips and Send use the same rules, so what the chips show is what Send does.
 
+Chips appear only when the selected model has no native tools. In Local and Auto
+they follow the local model, because Auto starts local; in Cloud, the cloud
+model. If Auto then sends a message with chips to a flagged cloud model, the
+chips count as typed commands there.
+
 ### Conflicts
 
 A command you type always wins, and a recognized command never causes an error.
@@ -147,7 +199,7 @@ The conflicts between typed commands still show the errors described in
 ### The setting
 
 **Settings → General → Commands → Recognize commands from your wording** controls
-`messages`, `think`, `edit` and `translate`. It's off by default, so a new user's
+`messages`, `think`, `edit` and `translate` on models without native tools. It's off by default, so a new user's
 wording never turns on a command by surprise; turn it on to get these chips. With
 it off, only `search` can still be recognized, and that follows the
 automatic-search setting in **Settings → Cloud and search**.
@@ -169,7 +221,10 @@ literal. The Messages follow-up reads only an in-memory note that the chat's
 previous request used Messages, never the earlier text. Every recognized command
 is shown as a chip before anything runs, and a recognized `messages` keeps every
 safeguard of `/messages`: the Full Disk Access check, the one-time cloud notice,
-Auto staying on this Mac, and your approval for each message sent. `/search` sends a query to Brave;
+Auto staying on this Mac, and your approval for each message sent. On a flagged
+route the model chooses its own tools, but Enigma's permission cards, not the
+model, decide whether message text is read or a search leaves after a read; text
+in a tool result can't answer a card. `/search` sends a query to Brave;
 `/messages` reads your local Messages database and needs your approval to send.
 
 ## How it works
@@ -197,6 +252,12 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
   commands with the recognized ones, applies the setting, dismissals and
   conflicts, and gives the chips (`inferred`) and the prompt to send. Matchers
   run on `WebSearchPolicy.questionText`, which drops quoted and code text.
+  `Context.nativeTools` turns recognition off for a flagged route.
+- `Enigma/Chat/NativeTools.swift`: `NativeTools.isCapable` answers whether a
+  route's model chooses its own tools; `isCapable(mode:…)` decides the chips.
+- `Enigma/Chat/AssistantToolbox.swift`: `NativeToolPlan.make` turns the typed
+  commands, attachments and settings into the turn's tool parts and required
+  tool; `AssistantToolbox` merges them.
 - `Enigma/Messages/MessagesIntentPolicy.swift`: recognizes Messages requests and
   follow-up cues.
 - `Enigma/App/ComposerIntentChips.swift`: the chips. `AppShellView` holds the
@@ -254,6 +315,9 @@ Auto staying on this Mac, and your approval for each message sent. `/search` sen
 - `EnigmaTests/ComposerIntentPhrasingTests.swift`: a corpus of realistic
   phrasings, each with the one chip it should get, and phrasings that get none.
 - `EnigmaTests/AppShellStateTests.swift`: `ComposerSubmissionTests` plans
-  recognized commands like typed ones.
+  recognized commands like typed ones, and routes flagged models to
+  `submitNative`.
+- `EnigmaTests/NativeToolPlanTests.swift`: the tools and required tool for every
+  combination of typed command, attachment and setting on a flagged route.
 
 Run them with `scripts/verify-xcode.sh test`. See [Testing](Testing.md).

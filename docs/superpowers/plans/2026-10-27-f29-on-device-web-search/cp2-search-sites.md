@@ -1,22 +1,47 @@
 # CP2: Search sites
 
 Read [agent-workflow.md](agent-workflow.md), the spec (§2, plus §7 for
-logging), and the Hand-offs of [CP0](cp0-spike.md#hand-off) and
-[CP1](cp1-foundations.md#hand-off). CP0's findings decide the parser: Q1, and
-Q4–Q6 for site behavior.
+logging), and the Hand-offs of [CP0](cp0-spike.md#hand-off),
+[CP0b](cp0b-second-probe.md#hand-off), [CP1](cp1-foundations.md#hand-off)
+and [CP1b](cp1b-routing-fixes.md#hand-off). CP0's and CP0b's findings decide
+the parser (Q1, and CP0b's Q3) and site behavior (Q4–Q6, and CP0b's Q1–Q2).
+
+## The owner's lineup comes first
+
+This brief was written for the full lineup: DuckDuckGo, Mojeek and
+Wikipedia, with Startpage as the backup. **CP0b's Hand-off records the
+owner's decision**, and it overrides this brief:
+
+- **A dropped site:** skip its task (2.3 Mojeek, 2.4 Startpage), its
+  `SearchEngineID` case, its fixtures' tests, its live check, its
+  `UPSTREAM.json` entry and its weight in spec §3.3. If Startpage is
+  dropped, Task 2.7's Startpage rule goes too: the runner queries the
+  primaries only.
+- **A replaced site:** stop and ask the owner for the brief changes before
+  building it.
+- **The header set** (A or B from CP0b) replaces `SafariHeaders.standard`'s
+  fields in Task 2.1 if the owner chose A.
+- **`kl`:** if the owner chose it, DuckDuckGo's form sends `kl=<region>`
+  instead of `l=<region>` (Task 2.2), and the live check confirms the echoed
+  value.
+
+Record in the Hand-off which tasks you skipped or changed, and why.
 
 ## Goal
 
-Enigma can query DuckDuckGo, Mojeek, Startpage and Wikipedia itself. It
+Enigma can query the sites the owner kept, plus Wikipedia, itself. It
 parses their pages, notices blocks and layout changes, backs off, and
-applies spec §2's Startpage rule. Nothing calls this yet. CP5 wires it in.
+applies spec §2's Startpage rule if Startpage stays. Nothing calls this yet.
+CP5 wires it in.
 
 ## Starting point
 
 - CP1's `WebSearchRequest`, `SearchRecency` and `WebSearchLimits` are in
   `Enigma/Search/WebSearch.swift`.
-- Sanitized fixtures from CP0 are in `EnigmaTests/Fixtures/Search/`, listed
-  in their README.
+- Sanitized fixtures from CP0 and CP0b are in `EnigmaTests/Fixtures/Search/`,
+  listed in their README. CP0b may have added Mojeek and Startpage results
+  pages; without them, a kept site's parsing tests wait for a capture from
+  the live check (Task 2.8), saved through `ENIGMA_SEARCH_FIXTURE_DIR`.
 - The existing `CloudNetworkTransport` (`Enigma/Cloud/CloudDomain.swift:169`)
   returns no headers and follows redirects, so search gets its own client.
 
@@ -456,7 +481,8 @@ struct SearchSiteRunner: Sendable {
 
 ## Exit criteria
 
-- [ ] `scripts/verify-xcode.sh build`, `test` and `analyze` pass. The live
+- [ ] `scripts/verify-xcode.sh build` and `analyze` pass, the engine test
+  classes pass, and the full `test` runs once before the commit. The live
   tests skip in a normal run.
 - [ ] The live checks pass on this Mac. Rerun them before
   committing.

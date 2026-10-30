@@ -5,6 +5,11 @@ your Apple Messages (iMessage, SMS, and RCS) for that one request. Enigma reads
 the Messages history on this Mac read-only, and sends only after you approve the
 exact recipient and text.
 
+Models that choose their own tools don't need the command: they have the
+Messages tools on every message and use them when you ask about your messages,
+behind a card that asks before any chat is read. See
+[On models that choose their own tools](#on-models-that-choose-their-own-tools).
+
 ## Using `/messages`
 
 Type `/messages` anywhere in your message, followed or preceded by what you want:
@@ -105,6 +110,81 @@ the one-time cloud notice, Auto staying on this Mac, and your approval for each
 send. Recognition only happens with **Settings → General → Recognize commands
 from your wording** on, and it's off by default. See [Slash commands](Slash-Commands.md#recognized-commands).
 
+### On models that choose their own tools
+
+Local models of about 9B and up, both mixture-of-experts models, and the cloud
+models have a **native tools** flag (see
+[Slash commands](Slash-Commands.md#models-that-choose-their-own-tools)). With
+one of them selected, every message offers the Messages tools while Enigma has
+Full Disk Access, and no files or screenshot are attached. Just ask: "what did
+Sam say about Saturday?" Nothing is recognized from your wording and no chip is
+shown; the model decides. Typing `/messages` still works: the model is told you
+asked for Messages, and in Auto the request stays on the local model, as above.
+
+Listing chats and looking up contacts are free: names, participants and times,
+never message text. A chat's last-message preview appears in the list only
+once that chat is allowed for where the reply goes. Message text is read only
+after you answer a card.
+
+#### Permission cards
+
+The reply pauses on a card in the chat, in the style of the send card:
+
+| Before | Card | Remembered |
+| --- | --- | --- |
+| Reading a chat (`get_messages`) | **Allow reading your chat with ‹name›?** | Per chat and destination |
+| Searching all chats (`search_messages`) | **Search all your messages for “‹query›”?** | Per destination |
+| A web search once message text is in the chat | **Search the web for “‹query›”?** *This chat includes text from your messages. It will be sent to Brave.* | Once, for every destination |
+| ChatGPT's or Claude Code's own web search once message text is in the chat, or on a typed `/messages` turn | **Let ‹provider› search the web in this chat?** *This chat includes text from your messages. ‹provider›'s web search runs its own queries on ‹company›'s servers, and Enigma can't check each one.* | Per provider |
+
+For the first two, the detail line names where the text goes: **It stays on
+this Mac.** on a local route, or **It will be sent to OpenAI** (the OpenAI API
+and ChatGPT via Codex), **Anthropic** (the Anthropic API and Claude Code) or
+**Google** (Gemini). The answers are:
+
+- **Don't allow** (Escape): the tool tells the model "The user declined." and it
+  carries on without the data. Stop or a new chat while a card is open counts
+  as Don't allow; other chats can't be opened while a card waits.
+- **For this conversation:** kept in memory for this chat, never saved. It
+  lasts until you delete the chat or quit Enigma, including when you go back
+  to the chat from Recents; after Enigma restarts, the chat asks again.
+- **Always:** saved in Enigma's settings (not the Keychain; it isn't a secret)
+  and listed under **Settings → General → Messages → Always allowed**, one row
+  per grant with a **Remove** button.
+
+A card shows a query on one line, with hidden characters shown as `�`, and the
+web search sends exactly what the card showed. Only your click answers a card:
+nothing a model, a web page, a message or a file says can grant access.
+
+#### Message text in a chat
+
+Once any message text is in a chat (a read, a search hit, an allowed preview, or
+an earlier typed `/messages` turn), Enigma marks the chat, saves the mark with
+it, and from then on:
+
+- each web search asks first with the third card;
+- ChatGPT and Claude Code use their provider's own web search, which runs on
+  the provider's servers where no card can ask for each query, only after the
+  fourth card; declined, the reply has no search. If a read happens partway
+  through a reply that has the provider's search before you've allowed it,
+  its text is held back, never reaching that request, and the reply starts
+  again after the card (see
+  [Web search](Web-Search.md#cloud-models-own-search));
+- in Auto the chat stays on the local model;
+- a flagged cloud model asks **Send text from your messages to ‹company›?**
+  (**Don't allow**, **Allow**, for this chat only) when the text was allowed for
+  somewhere else, such as this Mac. Don't allow keeps your draft and sends
+  nothing;
+- routes that can't ask (a model without native tools in Cloud, a screenshot
+  sent to the cloud, Codex File Mode) refuse with "This chat includes text from
+  your messages, so it wasn't sent. Continue it with Local, or start a new
+  chat."
+
+Each read narrows the companies the chat may go to: text allowed only on this
+Mac never reaches a company that saw earlier text in the chat, unless you choose
+Allow. On these models the per-chat cards replace the one-time **Use Messages
+with ‹provider›?** notice.
+
 ### Approving a send
 
 Before anything is sent, a **Send this message?** card appears in the chat. It
@@ -187,10 +267,12 @@ different signing identity, such as the unsigned product of
 
 ### Choosing a model
 
-- **Local** and **Auto** keep Messages on this Mac. They need an installed
-  local model and the `llama-server` runtime: **Settings → Local models →
-  Files → Local file tools → Install**. Auto never sends Messages data to a
-  cloud provider, even when cloud is configured.
+- **Local** keeps Messages on this Mac, and so does **Auto** for a typed
+  `/messages` or a chat that already holds message text. They need an
+  installed local model and the `llama-server` runtime: **Settings → Local
+  models → Files → Local file tools → Install**. When Auto picks the cloud for
+  a message (a coding request, say), a model that chooses its own tools can
+  read a chat there, after a card that names the company the text goes to.
 - **Cloud** uses the preferred cloud provider and model from
   **Settings → Cloud and search**. Every provider is supported: OpenAI,
   Anthropic, and Gemini API keys, ChatGPT through Codex, and Claude through
@@ -198,13 +280,22 @@ different signing identity, such as the unsigned product of
 
 ## Privacy
 
-- **Local and Auto:** Messages data stays on this Mac.
+- **Local:** Messages data stays on this Mac.
+- **Auto:** a typed `/messages`, and a chat that already holds message text,
+  stay on this Mac. A read that a model choosing its own tools starts goes to
+  whichever model Auto picked, after its card.
 - **Cloud:** the tool results the model asks for (message text, names, phone
   numbers, and email addresses, plus companies and Contacts labels when telling
   apart people who share a name with each other or with a group) are sent to the selected provider, the same
   place your chat already goes. Before the first cloud `/messages` request to
   each provider, Enigma asks **Use Messages with \<provider\>?**. Choosing
   **Continue** is remembered for that provider; **Cancel** sends nothing.
+- **Models that choose their own tools:** no message text reaches any model,
+  local or cloud, without a card answered for that chat (or for searching all
+  chats) and that destination, and no web query leaves the Mac after message
+  text entered the chat without its own card. A provider's own search runs
+  after message text only once you've allowed it for that provider. The cards run in Enigma before a
+  tool returns anything; see [Permission cards](#permission-cards).
 
 | Provider | Destination |
 | --- | --- |
@@ -222,7 +313,11 @@ Other safeguards:
   to send only when you asked in this request, to the recipient you named.
 - Assistant text is never parsed for commands. Only structured tool calls run.
 - Tool results are not saved in chat history. Your prompt and the model's
-  answer are saved like any other chat.
+  answer are saved like any other chat, with a mark (no text) when the chat
+  holds message text. **Always** grants are saved in settings; conversation
+  grants never are.
+- The system prompt on flagged routes marks every tool result as data from
+  outside sources, never instructions.
 
 ## How it works
 
@@ -238,13 +333,20 @@ The capability lives in `Enigma/Messages/`:
 | `MessagesTools.swift` | The tool definitions, instructions, argument validation, recipient resolution, and the send ledger. Shared by every model route. |
 | `MessagesCoordinator.swift` | Holds the pending send approval, the problem shown in chat, and the per-provider cloud consent. |
 | `MessagesCards.swift`, `MessagesControls.swift` | The approval and problem cards, the cloud consent alert, and the permission status text. |
-| `MessagesSettingsSection.swift` | The Messages rows in Settings → General. |
+| `MessagesSettingsSection.swift` | The Messages rows in Settings → General, and the **Always allowed** list. |
+| `MessagesAccessGate.swift` | `MessagesAccessGate`, which `MessagesTools` asks before returning message text on flagged routes, and `CoordinatorMessagesGate`, which answers it with the permission cards. |
+
+The permission cards live in `Enigma/Chat/`: `ToolPermissions.swift`
+(`ToolDestination`, `ToolPermission`, `ToolGrantStore`, which keeps conversation
+grants in memory, Always grants under `tools.alwaysGrants`, and each chat's
+message-text mark), `ToolPermissionCoordinator.swift` (one open card at a time;
+a second request is answered Don't allow) and `ToolPermissionCard.swift`.
 
 ### Tools
 
 | Tool | Behavior |
 | --- | --- |
-| `list_conversations(limit, sort)` | Conversations by latest message (`recent` or `oldest`, up to 50), with participants, a last-message preview, and its time. |
+| `list_conversations(limit, sort)` | Conversations by latest message (`recent` or `oldest`, up to 50), with participants, a last-message preview, and its time. On flagged routes the preview's text is left out for chats not yet allowed. |
 | `get_messages(chat_id, limit, before)` | Up to 100 messages from one conversation, oldest first within the page. `before` takes the `next_before` cursor from the previous page. |
 | `search_messages(query, limit)` | Case- and diacritic-insensitive text search across all conversations, newest first, up to 20 matches with two messages of context on each side. Scans at most the newest 100,000 messages and reports when it stopped early. |
 | `search_contacts(query)` | Name, phone, or email lookup across Contacts and known Messages handles. |
@@ -269,6 +371,9 @@ the selected route before starting:
 
 - **Local and Auto** run `LocalToolAgent` over `llama-server`, the same runtime
   as local File Mode.
+- **Flagged routes** go to `LocalChatViewModel.submitNative` instead (see
+  [Chat](Chat.md#native-tool-turns)), with `MessagesTools` gated by
+  `CoordinatorMessagesGate`, alongside web search and the selection tools.
 - **Cloud** runs the provider's native tool calling
   (`Enigma/Cloud/CloudToolCalling.swift`): OpenAI Responses function calls,
   Anthropic `tool_use`, and Gemini function calls through `CloudToolLoop`
@@ -298,13 +403,16 @@ card, whose button is named after the pane.
 - Search decodes message bodies in Enigma rather than using an index, so very
   large histories are searched newest first up to the scan limit.
 - Local and Auto need a local model and the `llama-server` runtime.
-- Answers from the OpenAI, Anthropic, and Gemini API routes appear as each
-  model turn finishes rather than streaming token by token.
 - Enigma doesn't watch for new messages.
 - Recognizing a Messages request without `/messages` follows English wording
   only and needs a messaging word, and a follow-up needs a cue in the new
   message. A chat reopened from
   history starts without the follow-up.
+- Chats saved before native tools that used `/messages` carry no message-text
+  mark, so their web searches don't ask first.
+- Which companies a chat's message text was allowed for is kept in memory. A
+  chat reopened after Enigma restarts counts it as allowed on this Mac only, so
+  a cloud model asks again.
 
 ## Tests
 
@@ -333,4 +441,14 @@ card, whose button is named after the pane.
   must resolve as tagged, including the hard negatives above. Messages drafts
   must never get the `search` chip. A miss found later becomes a line in it.
 
-No test reads the real `chat.db` or sends a message.
+- `EnigmaTests/ToolPermissionTests.swift` covers the grant store, each card's
+  copy, asking once then honoring For this conversation and Always, Always kept
+  per destination, Don't allow and Stop, previews only for allowed chats, the
+  message-text mark, and the Always list's rows.
+- `EnigmaTests/NativeToolRequestTests.swift` covers flagged turns: the gated
+  tools, the search-after-messages card, the share card, Auto keeping a chat
+  with message text local, and the routes that refuse it.
+
+No test reads the real `chat.db` or sends a message. In the test host,
+`MessagesDatabase.defaultURL` points at a missing file, so a test can't open it
+by accident.

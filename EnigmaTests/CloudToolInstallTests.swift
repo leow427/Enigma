@@ -292,6 +292,11 @@ final class CloudToolInstallTests: XCTestCase {
   func testConnectionStatusesFollowTheFlowInOrder() {
     XCTAssertEqual(ChatGPTConnectionControls.status(isConnected: true, isSigningIn: true, isDownloading: true,
                                                     isInstalling: true).1, "connected")
+    // Like Claude's row, ChatGPT's says when it's the provider Cloud uses.
+    XCTAssertEqual(ChatGPTConnectionControls.status(isConnected: true, isSelected: true, isSigningIn: false).1,
+                   "connected · selected for cloud")
+    XCTAssertEqual(ChatGPTConnectionControls.status(isConnected: false, isSelected: true, isSigningIn: false).1,
+                   "not connected", "Selected but signed out isn't in use")
     XCTAssertEqual(ChatGPTConnectionControls.status(isConnected: false, isSigningIn: true, isDownloading: true,
                                                     isInstalling: true).1, "installing Codex")
     XCTAssertEqual(ChatGPTConnectionControls.status(isConnected: false, isSigningIn: true, isDownloading: true).1,

@@ -175,8 +175,11 @@ headers, so they need no network:
 python3 -I -B -m unittest discover -s scripts/tests
 ```
 
+`test_evaluate_native_search.py` covers F30's comparison script and its blind
+judge with fixture folders and a fake judge command.
+
 `-B` keeps Python from writing `__pycache__` folders into the checkout. CI does
-not run these tests; run them after changing either catalogue script.
+not run these tests; run them after changing any of these scripts.
 
 ## Opt-in real-model and CLI checks
 
@@ -203,6 +206,64 @@ environment variable, and they never run in CI.
   `TEST_RUNNER_ENIGMA_BANDWIDTH_PROBE=1 scripts/verify-xcode.sh test -only-testing:EnigmaTests/LocalBandwidthProbeTests/testMetalProbeOnThisMac`.
   It prints the measured bandwidth and checks it is in range and quick. See
   [Local-Model-Selection.md](Local-Model-Selection.md).
+- **Native tools:** `NativeToolsEvalTests/testEval` runs the 60 invented prompts
+  in `EnigmaTests/Fixtures/F32/eval.jsonl` on one route, with a stub web search,
+  invented Messages chats, every card allowed and nothing sent, and writes
+  `report.json`: the share of right tool decisions per category and overall (the
+  pass mark is 0.90). `NativeToolsLatencyTests/testFirstToken` writes
+  `latency.json`: time to first answer text without and with the tool
+  descriptions (the gate is 1.15×). Both need a route and a report folder
+  outside the repository:
+
+  ```sh
+  TEST_RUNNER_ENIGMA_F32_EVAL=local:gemma-4-12b-q5_k_m \
+  TEST_RUNNER_ENIGMA_F32_REPORT=/tmp/f32-eval \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/NativeToolsEvalTests/testEval \
+    -only-testing:EnigmaTests/NativeToolsLatencyTests/testFirstToken
+  ```
+
+  A route is `local:<installed model id>` or `<provider id>:<model id>`, such as
+  `chatgpt-codex:gpt-5.6-luna` or `claude-code:sonnet`. The API providers
+  (`openai`, `anthropic`, `gemini`) take their key from
+  `TEST_RUNNER_ENIGMA_OPENAI_KEY`, `TEST_RUNNER_ENIGMA_ANTHROPIC_KEY` or
+  `TEST_RUNNER_ENIGMA_GEMINI_KEY`, as the probes do, and skip without it; the
+  test host never reads the keys saved in Enigma. See
+  [Local-Model-Selection.md](Local-Model-Selection.md#native-tools).
+  `NativeToolsProbeTests` holds F32's earlier probes, which record raw provider
+  streams into a folder named by `TEST_RUNNER_ENIGMA_F32_PROBE`.
+
+  On a route whose provider has its own search (ChatGPT and Claude Code, F30),
+  the eval uses the provider's real search instead of the stub, counts each of
+  its searches as a `web_search` call, and ends a request whose Messages read
+  would return text, as the app's restart does; `report.json` then has
+  `providerSearch: true`, and injections never arrive.
+- **Providers' own search (F30):** `NativeWebSearchLiveTests` asks one search
+  question on ChatGPT and one on Claude Code through `submitNative`, with no
+  Brave key, using the Mac's sign-ins, when
+  `TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1` is set
+  (`TEST_RUNNER_ENIGMA_CHATGPT_MODEL` and `TEST_RUNNER_ENIGMA_CLAUDE_CODE_MODEL`
+  choose the models). `NativeWebSearchEvaluationTests/testCompare`, the quality
+  check, also needs `TEST_RUNNER_ENIGMA_SEARCH_EVAL`, a folder outside the
+  repository. It asks the 20 questions in `scripts/web-search-queries.json` on
+  each provider-search route (`TEST_RUNNER_ENIGMA_SEARCH_EVAL_ROUTES`, such as
+  `claude-code`, narrows them), and again with Enigma's `web_search` when
+  `TEST_RUNNER_ENIGMA_BRAVE_KEY` holds a Brave key, and writes one file per run.
+  `scripts/evaluate-native-search.py` then applies the gate over the whole
+  question set (missing runs make a check `incomplete`, never `pass`). It
+  checks the eval report for provider search and for F32's search and none
+  counts minus one (`F32_BASELINE`, or `--eval-baseline` for another route), and
+  asks Claude Code for a blind side-by-side judgment of each question that has
+  both answers (`scripts/search_judge.py`):
+
+  ```sh
+  TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1 TEST_RUNNER_ENIGMA_SEARCH_EVAL=/tmp/f30-compare \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/NativeWebSearchEvaluationTests/testCompare
+  python3 -I -B scripts/evaluate-native-search.py /tmp/f30-compare \
+    --eval claude-code=/tmp/f32-eval/claude-code-sonnet/report.json
+  ```
+
+  The folder keeps the answers; `summary.json` and the printed summary keep
+  only numbers and verdicts. See [Web search](Web-Search.md#cloud-models-own-search).
 
 ## Permissions need a stable signed build
 

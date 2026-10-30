@@ -27,8 +27,9 @@ alternative; neither route falls back to the other.
 3. Your browser opens OpenAI's sign-in page; finish there. While you do, the
    row reads **signing in** and offers **Cancel**.
 4. When the row reads **connected** with your account email, ChatGPT becomes
-   the preferred cloud provider and its model list loads. If you later choose
-   another provider, **Use ChatGPT** switches back.
+   the preferred cloud provider and its model list loads; the row then reads
+   **connected · selected for cloud**. If you later choose another provider,
+   **Use ChatGPT** switches back.
 5. Choose **Cloud** in the mode and model menu (**⌘K**). Auto can also send
    requests to the preferred cloud provider; see
    [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
@@ -197,6 +198,17 @@ until you sign in again or choose another provider.
   part of your message, not a tool), memories, and multi-agent features are
   turned off. The thread is closed when
   the response ends, and **Stop** interrupts generation on the server.
+- Web search is the one exception: when a model that chooses its own tools may
+  search (automatic search on, or `/search` typed), and, once the chat holds
+  message text or you've typed `/messages`, you've allowed it on the card **Let ChatGPT search the web in
+  this chat?**, its thread turns on Codex's own web search in `live` mode,
+  beside Enigma's tools. OpenAI runs the searches on its servers; they count
+  toward your ChatGPT plan, and no Brave key is needed. If your workspace
+  allows only `cached`, that's used; if it allows neither, Enigma asks again
+  with its own `web_search` when a Brave key is saved, and without search
+  otherwise. Your approximate area goes with the thread
+  (`tools.web_search.location`) only after you allow it for ChatGPT on the
+  location card. See [Web search](Web-Search.md#cloud-models-own-search).
 - Downloading the built-in Codex sends only the HTTPS request to GitHub; no
   chats or account details. Nothing new is saved besides the package itself
   and, after a failed quiet upgrade, the failed version and time (so it waits

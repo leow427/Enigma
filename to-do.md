@@ -41,6 +41,84 @@ chat, whatever has focus. Escape still closes an open menu, the command list
 or the selection details first, as now. Add a regression test that moves focus
 off the text box and checks Escape hides the panel.
 
+### B18. Without Full Disk Access, a Messages question gets "I don't have access" instead of the settings card
+
+**Problem:** When Enigma doesn't have Full Disk Access, asking about Messages
+(for example "what did Sam send me?", or a typed `/messages`) gets a reply in
+which the model says it can't access Messages. Nothing offers to fix it: the
+person isn't told that Full Disk Access is missing or shown how to turn it on.
+
+**Today:** On a native-tools turn (F32), `LocalChatViewModel.nativeToolPlan`
+passes `hasFullDiskAccess: (try? messagesAccess()) != nil`, and
+`NativeToolPlan.make` (`AssistantToolbox.swift`) only adds the `.messages` part
+when that is true. So without Full Disk Access the model gets no Messages
+tools at all, never reaches `MessagesError.fullDiskAccessRequired`, and answers
+from its own knowledge. A typed `/messages` still sets `messagesRequested`, so
+the model is told the user asked for Messages but has no tool for it. The card
+with the "Open Full Disk Access Settings…" button (`MessagesCards.swift`,
+shown through `appleMessages.report` when a tool fails with an error that has
+a `privacyPane`) only appears when a Messages tool actually runs and fails.
+Check the small-model chip path as well, to confirm it already shows the card.
+
+**Wanted:** When Full Disk Access is missing and the request needs Messages
+(a typed `/messages`, or the model tries to use Messages), Enigma shows the
+Messages card asking the person to turn on Full Disk Access, with the
+"Open Full Disk Access Settings…" button and the quit-and-reopen note, instead
+of a model reply saying it has no access. Requests that don't involve Messages
+are unchanged and don't show the card. One approach to weigh: keep the
+Messages tools in the toolbox without Full Disk Access and have them fail with
+`fullDiskAccessRequired`, which already ends the turn with the card (check this
+doesn't change the tool prefix in a way that hurts the warm-up, F32). Add
+tests for a typed `/messages` and for a model's Messages tool call without
+Full Disk Access, on both a local and a cloud route.
+
+### B19. Replies about a text show "\n" where the message had a line break
+
+**Problem:** When Enigma reads a text message and quotes or summarizes it,
+the reply sometimes shows a literal `\n` where the original message had a new
+line, instead of a line break.
+
+**Today:** `MessagesDatabase` decodes each message's text (from `text` or
+`attributedBody` via `AttributedBodyDecoder`) with real newlines and trims it.
+`MessagesTools` then returns tool results as JSON (`JSONEncoder`), which writes
+each newline as the two characters `\n`. The likely cause, not yet confirmed,
+is that the model copies that escape into its reply. Reproduce first: note the
+route and model, and check whether the `\n` is in the model's reply text or
+introduced by Enigma's own formatting.
+
+**Wanted:** A message's line breaks never appear as a literal `\n` in the
+chat. Where a quoted message had a new line, the reply shows a line break (or
+a space, if that reads better in a summary). Fix it where the escape comes
+from, for example by giving the model message text in a form it won't copy as
+an escape. Don't strip `\n` from replies across the board: code blocks and
+answers about escapes need it. Add a regression test with a multi-line
+message.
+
+### B20. Picking a model with Command-K in Auto mode keeps Auto and ignores the pick
+
+**Problem:** With Auto selected, opening the mode and model menu with
+Command-K and choosing a model, local or cloud, leaves the mode on Auto. The
+next request is still routed by Auto, so the chosen model isn't what answers.
+
+**Today:** Command-K (`PanelShortcut.modePalette`) posts
+`.modePaletteRequested`, which toggles `shell.isModePalettePresented` in
+`AppShellView`. The menu's items come from `ModeAndModelMenu.sections`
+(`EnigmaMainWindowLogic.swift`): in Auto it lists both the "On this Mac" and
+the cloud provider's models. Their actions, `modeAndModelActions` in
+`AppShellView`, only change the model: `selectLocalModel` calls
+`localChat.selectModel(id:)` and `selectCloudModel` sets
+`cloudSettings.preferredModelID`. Neither calls `shell.chooseMode`, so
+`shell.selectedMode` stays `.auto` and `AutoRouter` keeps deciding the route.
+
+**Wanted:** Choosing a model by hand switches to that model's mode: a local
+model switches to Local, a cloud model to Cloud, and Auto is no longer
+selected. The same applies wherever the menu is shown (Command-K and the
+mode button), and a pick during a request in flight applies to the next
+request, as the menu's "Next request" title already says. Choosing Auto
+itself is unchanged. Add tests in `EnigmaMainWindowTests` (or wherever
+`ModeAndModelMenu` actions are covered) that pick a local and a cloud model
+from Auto and check the mode and the model both change.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -975,7 +1053,21 @@ queued messages editable.
 **Out of scope:** editing queued messages, queueing attachments or captures,
 and a queue in the compact panel.
 
-### F32. Native tool calling for capable models
+### F32. ✅ Done: Native tool calling for capable models
+
+> **Solved:** Flagged models (local families from about 9B up, and the cloud
+> catalogue) get web search, Messages and the selection tools on every message
+> and choose them themselves, streaming on every route; small models keep the
+> chips and rules. Reading a chat, searching all chats, and a web search once
+> message text is in the chat each ask first on a card in the chat, with **For
+> this conversation** and **Always** (listed in Settings). A tool-use eval of 60
+> invented prompts set the flags: Gemma 4 12B and Qwen3.8 27B got 0.95, ChatGPT
+> via Codex and Claude Code 0.97, and each stayed within the 1.15× gate on time
+> to the first answer text on a warm server. A local model with tools loads and
+> reads the tool descriptions while you type, so after a pause the first answer
+> starts in 0.17 s on Gemma 4 12B and 0.25 s on Qwen3.8 27B, against 1.7 s and
+> 2.8 s for today's plain turn. The small models weren't measured and stay off. See
+> `docs/Slash-Commands.md` and `docs/Local-Model-Selection.md`.
 
 **Spec:** [docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md](docs/superpowers/specs/2026-10-28-f32-native-tool-calling-design.md)
 
@@ -1022,40 +1114,21 @@ gets every must-pass example right. Built first, before the rest of F29.
 
 **Depends on / blocks:** nothing while halted (it used to block F29).
 
-### F29. On-device web search, replacing Brave
+### F30. ✅ Done: Native web search for cloud models
 
-**Status:** paused after CP1 (2026-10-27); F32 comes first. F31 is halted,
-so F29 no longer waits for it. On resuming: CP1's unfinished review, merge
-`main` into the branch, and re-plan CP5/CP6 for F32: the engines become
-`web_search`'s backend, places and weather become tools for capable models,
-and today's routing stays for small models.
-
-**Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
-
-**Plan:** [docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md](docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md)
-(checkpoints CP0–CP9, each built by a fresh agent and audited by a fresh
-reviewer)
-
-**Today:** web search uses the Brave Search LLM Context API
-(`BraveSearchClient.swift`), and every user needs their own paid Brave key.
-
-**Wanted:** search that runs on the user's Mac with no key or account:
-
-- DuckDuckGo, Mojeek and Wikipedia, with Startpage as the backup;
-- ranking for quality, with bundled blocklists;
-- the top pages read in a sealed WebKit view;
-- Apple Maps for nearby places and Open-Meteo for weather;
-- "Never use this site";
-- Brave removed only after a quality gate against it passes.
-
-The spec has every decision, and the checkpoints the work runs in.
-
-**Depends on / blocks:** blocks F30.
-
-### F30. Native web search for cloud models
-
-**Status:** to be re-scoped after F32: a provider's own search only in
-conversations with no message text, Enigma's gated `web_search` otherwise.
+> **Solved:** On ChatGPT (Codex) and Claude Code, a cloud model searches with
+> its provider's own search, with no Brave key; its sources are shown and
+> saved, and the reply says **web search**. In a chat that holds text from
+> your messages, or on a `/messages` turn, it asks first, per provider: **Let
+> ‹provider› search the web in this chat?** (declined: no search). A nearby
+> question asks before your approximate area goes to that provider's search.
+> When the provider's search isn't available, Enigma's Brave search takes
+> over. Quality check: F32's tool-use eval 58/60 on both routes; on 20 web
+> questions ChatGPT searched 20/20 with 2+ sources on 19/20, Claude Code 19/20
+> and 19/20, no unsafe source; the comparison with Brave wasn't run (owner).
+> The OpenAI and Anthropic API routes (CP2, CP3) are deferred and keep
+> Enigma's search. Merged in leow427/Enigma#23. See `docs/Web-Search.md` and
+> `docs/history/2026-10-29-native-search-evaluation.md`.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 
@@ -1063,18 +1136,90 @@ conversations with no message text, Enigma's gated `web_search` otherwise.
 (checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
 reviewer)
 
-**Today:** cloud routes use the same search pipeline as Local: Brave now,
-F29's on-device search next. Each provider's own search is turned off
-(`web_search="disabled"` in `CodexAppServer.swift`, `--tools ""` for Claude
-Code).
+**Today:** flagged cloud models get Enigma's `web_search` tool (F32), which
+runs on Brave, so they can't search without a Brave key. Each provider's own
+search is turned off (`web_search="disabled"` in `CodexAppServer.swift`,
+`--tools ""` for Claude Code).
 
-**Wanted (owner, 2026-10-26 and 2026-10-27):** OpenAI, Anthropic, ChatGPT
-(Codex) and Claude Code models search with their provider's own search when
-a request would search today. F29's search stays the fallback, and still
-handles Gemini, places, weather, screen and selection turns. Codex searches
-the live web. The spec has the details.
+**Wanted (owner, 2026-10-26 to 2026-10-29):** on ChatGPT (Codex) and Claude
+Code, the provider's own search tool replaces `web_search`, with no key; in a
+chat with message text, only after a per-provider card (amended during the
+in-app audit). If message text would enter a provider-search request the
+user hasn't allowed, the reply restarts after the card. Gemini and the
+OpenAI and Anthropic API routes (deferred) keep Enigma's search; the
+approximate location goes to a provider's search only after that
+provider's card; Codex searches the live web. The spec has the details.
 
-**Depends on:** F29, merged to `main`.
+**Depends on:** F32 (on `main`). Blocks F29.
+
+### F29. On-device web search, replacing Brave
+
+**Status:** CP0 and CP1 done on `feat/f29-on-device-search`; re-planned for
+F32 on 2026-10-29 (spec and plan approved). Next, now that F30 is done:
+CP0b (a second probe of the search sites from another network, starting
+with a merge of `main`), then CP1b (the six routing fixes from CP1's second
+review).
+
+**Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
+
+**Plan:** [docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md](docs/superpowers/plans/2026-10-27-f29-on-device-web-search.md)
+(checkpoints CP0, CP0b, CP1, CP1b and CP2–CP10, each built by a fresh agent
+and audited by a fresh reviewer)
+
+**Today:** web search uses the Brave Search LLM Context API
+(`BraveSearchClient.swift`), and every user needs their own paid Brave key.
+
+**Wanted:** search that runs on the user's Mac with no key or account, for
+small and capable models:
+
+- DuckDuckGo, Mojeek and Wikipedia, with Startpage as the backup, the
+  lineup to be fixed after CP0b;
+- ranking for quality, with bundled blocklists;
+- the top pages read in a sealed WebKit view;
+- Apple Maps for places and Open-Meteo for weather: `find_places` and
+  `get_weather` tools on capable models, routing on small ones, and `/maps`
+  on both;
+- a map card with numbered pins under places answers, session-only;
+- "Never use this site", passed on to F30's provider search;
+- Brave removed only after a quality gate against it passes.
+
+The spec has every decision, and the checkpoints the work runs in.
+
+**Depends on / blocks:** after F30 (done).
+
+### F33. Show "Update available" on the menu bar icon and quietly in the app
+
+**Today:** Enigma already checks for updates once a day through Sparkle
+(`SUScheduledCheckInterval` 86400 in `Info.plist`). Daily is Sparkle's default
+and the usual interval for Mac apps, so keep it. A found update only shows in
+the status item's menu (`MenuBarController`): **Restart to Update to X** once
+it has downloaded, or **Update to X Available…** when Sparkle left it to
+Enigma, both from `AppUpdater.pendingUpdate`. The menu bar icon itself looks
+the same either way, and nothing inside the app says an update is waiting, so
+it goes unnoticed until the user happens to open the menu. See
+`docs/Updates.md`.
+
+**Wanted:**
+
+- Keep the daily check, plus Sparkle's check at launch when a day has passed.
+  Don't check more often.
+- While `pendingUpdate` is set, the menu bar icon carries a small badge (for
+  example a dot drawn into the template image, so it still follows the menu
+  bar's light and dark appearance). Its tooltip and VoiceOver label say
+  "Enigma, update available". The badge goes when `pendingUpdate` clears.
+- In the app, a quiet **Update available** item, quieter than the
+  What's new? button: small secondary text, perhaps with a dot, in
+  `EnigmaTopBar`'s top-right slot (`EnigmaSidebar.swift`), which then shows
+  even with the sidebar visible (`EnigmaTopBar.isShown`). Clicking it does
+  what the menu item does (`AppUpdater.performPendingUpdate`). Owner to
+  confirm the spot and whether the compact panel shows it too (default: main
+  window only).
+- No alerts, sounds or notifications beyond what Sparkle already shows.
+
+**Tests:** `AppUpdaterTests` for the badge and label following
+`pendingUpdate`. Add a main-window test that the item shows only with a
+pending update and calls `performPendingUpdate`. Update `docs/Updates.md` →
+What users see, with a screenshot.
 
 ### F3. Regenerate the latest reply
 

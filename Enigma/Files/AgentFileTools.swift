@@ -219,12 +219,47 @@ struct AgentInferenceMessage: Codable, Sendable, Equatable {
   }
 }
 
+/// One streamed inference step: answer text as it arrives, then the finished message.
+enum LocalToolStreamEvent: Sendable {
+  case text(String)
+  /// The finished assistant message, with any tool calls. Sent only after a complete stream.
+  case message(AgentInferenceMessage)
+}
+
 protocol LocalToolInference: Sendable {
   func unload() async
   func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage
+  /// One streamed step. `requiredTool` asks the model to call that tool, where the runtime can.
+  func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                   requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error>
+  /// Loads the model and reads this prefix into the prompt cache ahead of a turn (F32). False when
+  /// the model failed to load or read it; a warm-up that was stopped or skipped isn't a failure.
+  @discardableResult
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool
 }
 
-extension LocalToolInference { func unload() async {} }
+extension LocalToolInference {
+  func unload() async {}
+
+  /// A runtime without a prompt cache has nothing to warm.
+  func warmTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async -> Bool { true }
+
+  /// A runtime that can't stream answers its step whole.
+  func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                   requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          let message = try await completeTools(messages: messages, tools: tools, model: model)
+          if let content = message.content, !content.isEmpty { continuation.yield(.text(content)) }
+          continuation.yield(.message(message))
+          continuation.finish()
+        } catch { continuation.finish(throwing: error) }
+      }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+}
 
 /// Inference stays behind a protocol. Only this controller interprets function calls and dispatches
 /// file tools. Assistant text is never parsed for commands or embedded JSON.

@@ -508,6 +508,9 @@ private `search` method). Tests go in `WebSearchTests`.
      request before it reported, so the round-1 fixes weren't reviewed again.
 5. **Limitations:**
    - The round-1 fixes have had no second review (round 2 was stopped).
+     *Added 2026-10-29:* round 2 ran on 2026-10-28 (Opus, xhigh, against
+     `b5f07c4..421ed81`): no Blockers, 6 Should fixes, none made here.
+     [CP1b](cp1b-routing-fixes.md) lists and makes them.
    - The routes change nothing yet: Brave ignores `route`, `namedPlace` and
      `recency` until CP5 and CP6 use them.
    - Routing and recency read English wording only, like the rest of

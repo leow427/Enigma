@@ -97,6 +97,23 @@ rewrite request such as "make this more formal" turns on **/edit** for you,
 shown as a chip you can remove before sending. See
 [Slash commands](Slash-Commands.md#recognized-commands).
 
+**On models that choose their own tools** (local models of about 9B and up, both
+mixture-of-experts models, and the cloud models; see
+[Slash commands](Slash-Commands.md#models-that-choose-their-own-tools)), a
+selection adds two tools, and the model decides:
+
+- `propose_edit(text)` when you ask for any change: "make this more formal",
+  "fix the grammar", "shorten it". The revision appears in the same **Revised
+  text** card as an **/edit** reply's, and replacing the selection still takes
+  your click on **Replace text**.
+- `propose_translation(text, language)` when you ask for a translation. The
+  translation is added to the reply as text, never a card.
+
+A question about the selection gets an ordinary answer. Typing **/edit** or
+**/translate** still works, and makes the model call that tool; a typed
+**/translate** withholds `propose_edit`, so the request stays read-only. With
+**/edit** and **/search** together, the model searches first and then proposes.
+
 **Removing** the selection (the **×** on the line or the selected-text card) takes
 it, its place in earlier turns and any edited draft out of every later request, and
 turns off **Replace text** for this chat.
@@ -143,7 +160,9 @@ invoke Enigma again.
 
 **Settings → Selection → Automatically replace selected text** (off by default)
 skips the card: a completed **/edit** revision is pasted straight away. It applies
-only to **/edit** requests that start while it's on. It never applies to ordinary
+only to **/edit** requests that start while it's on. On models that choose their
+own tools, only a typed **/edit** (or an `edit` chip in Auto) pastes on its own; a
+revision the model proposed without one waits for your click. It never applies to ordinary
 answers, translations, failed, stopped or incomplete replies, or a reply whose
 selection was removed. Turning it off cancels any pending automatic paste and
 shows the card instead.
@@ -318,6 +337,10 @@ that isn't guaranteed. Your slash commands are removed before the query is
 written. Only your own question decides whether automatic search runs. See
 [Web search](Web-Search.md) and [Chat](Chat.md).
 
+On models that choose their own tools, the model writes any search query itself,
+from your question and the selection, without Enigma's query-writing prompt; the
+selection may shape the query.
+
 ## How it works
 
 - **Shortcuts.** `SelectionShortcutMonitor` and `OptionDoubleTap`
@@ -467,7 +490,13 @@ written. Only your own question decides whether automatic search runs. See
   instructions, `ConversationContextPrompt.expand` adds the selection to request
   copies as JSON marked as untrusted source material, and `SelectionRevisionResponse`
   parses the `<enigma-revision>` payload; only an **/edit** request with the
-  selection attached can produce a card. Messages store contexts in memory only;
+  selection attached can produce a card. On flagged routes, `SelectionTools`
+  (`Enigma/Chat/SelectionTools.swift`) defines `propose_edit` and
+  `propose_translation`; `submitNative` turns a proposed edit into the same
+  revision block, so the card, the saved chat and later **/edit** requests read
+  it as they read a typed **/edit**'s, and appends translations to the reply.
+  `NativeToolPlan.editRequested` marks a typed **/edit**, the only kind that may
+  paste automatically. Messages store contexts in memory only;
   they aren't part of the saved chat format. `SelectionEditingSettings` holds the
   two Selection settings.
 - **Replacement.** `SelectionContextService.replace(with:contextID:automatic:)` runs
@@ -522,7 +551,9 @@ written. Only your own question decides whether automatic search runs. See
   Use a stably signed build run from Xcode for that, not the unsigned build from
   `scripts/verify-xcode.sh`, which can invalidate macOS consent.
 - Translation quality and how well a model follows **/edit** depend on the model;
-  the permission to replace text is enforced by Enigma.
+  the permission to replace text is enforced by Enigma. On models that choose
+  their own tools, whether an edit request calls `propose_edit` also depends on
+  the model; its wording was tuned on Gemma 4 12B.
 - Moving the panel by dragging doesn't move it between Spaces.
 
 ## App support
@@ -610,6 +641,11 @@ documents.
   hidden after an automatic paste and coming back after a manual or failed one.
 - `EnigmaTests/ScreenViewTests.swift` covers screenshots captured from the panel,
   and an Auto limitation opening the panel's details on every send.
+- `EnigmaTests/NativeToolPartsTests.swift` and `NativeToolRequestTests.swift`
+  cover the selection tools: a proposal becomes the revision card, a translation
+  is shown in the reply without a card, a proposal for a question never pastes
+  on its own, a typed **/edit** does when the setting is on, and your changes to
+  the card reach the model.
 
 Run one class with
 `scripts/verify-xcode.sh test -only-testing:EnigmaTests/SelectionContextTests`.

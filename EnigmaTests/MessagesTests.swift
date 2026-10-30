@@ -267,6 +267,18 @@ final class MessagesDatabaseTests: XCTestCase {
       XCTAssertTrue($0.localizedDescription.contains("Full Disk Access"))
     }
   }
+
+  /// The unsigned test host shares Enigma's bundle ID: opening the real chat.db makes macOS
+  /// replace the user's Full Disk Access grant with a denial for the test build.
+  func testTheTestHostNeverOpensTheRealMessagesDatabase() {
+    let real = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Messages/chat.db")
+    guard MessagesDatabase.defaultURL.standardizedFileURL != real.standardizedFileURL else {
+      return XCTFail("The test host must not open the real chat.db")
+    }
+    XCTAssertThrowsError(try MessagesDatabase().checkAccess()) {
+      XCTAssertEqual($0 as? MessagesError, .databaseMissing)
+    }
+  }
 }
 
 final class MessagesSenderTests: XCTestCase {
@@ -932,5 +944,181 @@ final class MessagesCoordinatorTests: XCTestCase {
     XCTAssertEqual(commands.prompt, "who texted me last?")
     XCTAssertFalse(ComposerCommands("see ~/messages folder").messages)
     XCTAssertNotNil(NSImage(named: "MessagesTool"))
+  }
+}
+
+/// Records what `MessagesTools` asks, and answers from fixed lists.
+actor RecordingMessagesGate: MessagesAccessGate {
+  private let allowsReads: Bool
+  private let allowsSearch: Bool
+  private let allowedChats: Set<String>
+  private(set) var reads: [(chatGUID: String, name: String)] = []
+  private(set) var searches: [String] = []
+  private(set) var previewChecks: [String] = []
+  private(set) var messageTextMarks = 0
+
+  init(allowsReads: Bool = true, allowsSearch: Bool = true, allowedChats: Set<String> = []) {
+    self.allowsReads = allowsReads
+    self.allowsSearch = allowsSearch
+    self.allowedChats = allowedChats
+  }
+
+  func mayRead(chatGUID: String, name: String) async -> Bool {
+    reads.append((chatGUID, name))
+    return allowsReads
+  }
+
+  func maySearch(query: String) async -> Bool {
+    searches.append(query)
+    return allowsSearch
+  }
+
+  func isAllowed(chatGUID: String) async -> Bool {
+    previewChecks.append(chatGUID)
+    return allowedChats.contains(chatGUID)
+  }
+
+  func didReturnMessageText() async { messageTextMarks += 1 }
+}
+
+/// Holds every read back, as F30's gate does on a provider-search request.
+private struct RestartingMessagesGate: MessagesAccessGate {
+  func mayRead(chatGUID: String, name: String) async -> Bool { true }
+  func maySearch(query: String) async -> Bool { true }
+  func isAllowed(chatGUID: String) async -> Bool { true }
+  func didReturnMessageText() async throws { throw ProviderSearchRestart() }
+}
+
+// MARK: Gated tools (F32)
+
+extension MessagesToolsTests {
+  /// F30: every tool that returns message text hands back the restart, never the text.
+  func testProviderSearchRestartHoldsEveryReadBack() async {
+    var tools = tools()
+    tools.gate = RestartingMessagesGate()
+    let calls: [(String, [String: CodexValue])] = [("list_conversations", [:]),
+      ("get_messages", ["chat_id": .string(MessagesFixture.aliceChat)]), ("search_messages", ["query": .string("Luna")])]
+    for (name, arguments) in calls {
+      let result = await tools.execute(name: name, arguments: .object(arguments))
+      XCTAssertTrue(result.terminal, name)
+      XCTAssertEqual(result.stop, .restart, name)
+      XCTAssertEqual(result.text, "The request was restarted.", name)
+    }
+  }
+
+  private func gated(_ gate: RecordingMessagesGate) -> MessagesTools {
+    var tools = tools()
+    tools.gate = gate
+    return tools
+  }
+
+  private func read(_ chatID: String, with tools: MessagesTools) async -> AgentToolResult {
+    await tools.execute(name: "get_messages", arguments: .object(["chat_id": .string(chatID)]))
+  }
+
+  func testUngatedToolsAreUnchanged() async throws {
+    XCTAssertNil(tools().gate)
+    let list = try json(await tools().execute(name: "list_conversations", arguments: .object([:])))
+    XCTAssertEqual(list["conversations"].array?.first?["last_message"]["text"].string, "Bringing snacks 🍿")
+  }
+
+  func testReadAsksWithChatName() async throws {
+    let gate = RecordingMessagesGate()
+    let output = try json(await read(MessagesFixture.groupChat, with: gated(gate)))
+    XCTAssertEqual(output["messages"].array?.first?["text"].string, "Who's bringing the tent?")
+    let reads = await gate.reads
+    XCTAssertEqual(reads.map(\.chatGUID), [MessagesFixture.groupChat])
+    XCTAssertEqual(reads.map(\.name), ["Weekend Trip"])
+    let direct = RecordingMessagesGate()
+    _ = try json(await read(MessagesFixture.aliceChat, with: gated(direct)))
+    let directNames = await direct.reads.map(\.name)
+    XCTAssertEqual(directNames, ["Alice Smith"], "A direct chat is named as summary(of:) names it")
+  }
+
+  func testDeclinedReadReturnsNoText() async {
+    let gate = RecordingMessagesGate(allowsReads: false)
+    let result = await read(MessagesFixture.aliceChat, with: gated(gate))
+    XCTAssertFalse(result.success)
+    XCTAssertFalse(result.terminal, "The model carries on without the data")
+    XCTAssertEqual(result.text, "The user declined.")
+    let marks = await gate.messageTextMarks
+    XCTAssertEqual(marks, 0)
+  }
+
+  func testUnknownChatIDFailsWithoutAsking() async {
+    let gate = RecordingMessagesGate()
+    let result = await read("iMessage;-;+19999999999", with: gated(gate))
+    XCTAssertFalse(result.success)
+    XCTAssertEqual(result.text, MessagesError.chatNotFound.localizedDescription)
+    let reads = await gate.reads
+    XCTAssertTrue(reads.isEmpty)
+  }
+
+  func testSearchAsksWithQuery() async throws {
+    let gate = RecordingMessagesGate()
+    let output = try json(await gated(gate).execute(name: "search_messages", arguments: .object(["query": .string("café")])))
+    XCTAssertEqual(output["results"].array?.count, 1)
+    let searches = await gate.searches
+    XCTAssertEqual(searches, ["café"])
+  }
+
+  func testDeclinedSearchReturnsNoText() async {
+    let gate = RecordingMessagesGate(allowsSearch: false)
+    let result = await gated(gate).execute(name: "search_messages", arguments: .object(["query": .string("café")]))
+    XCTAssertFalse(result.success)
+    XCTAssertEqual(result.text, "The user declined.")
+    XCTAssertFalse(result.text.contains("Luna"))
+    let marks = await gate.messageTextMarks
+    XCTAssertEqual(marks, 0)
+  }
+
+  func testListHidesPreviewsOfChatsNotAllowed() async throws {
+    let gate = RecordingMessagesGate(allowedChats: [MessagesFixture.aliceChat])
+    let result = await gated(gate).execute(name: "list_conversations", arguments: .object([:]))
+    let output = try json(result)
+    let conversations = try XCTUnwrap(output["conversations"].array)
+    let byID = Dictionary(uniqueKeysWithValues: conversations.compactMap { c in c["chat_id"].string.map { ($0, c) } })
+    let group = try XCTUnwrap(byID[MessagesFixture.groupChat])
+    XCTAssertEqual(group["name"].string, "Weekend Trip", "Names stay free")
+    XCTAssertEqual(group["last_message"]["text"], .null)
+    XCTAssertEqual(group["last_message"]["reaction"], .null)
+    XCTAssertNotEqual(group["last_message"]["date"], .null, "Times stay free")
+    let carol = try XCTUnwrap(byID[MessagesFixture.carolChat])
+    XCTAssertEqual(carol["last_message"]["text"], .null)
+    let alice = try XCTUnwrap(byID[MessagesFixture.aliceChat])
+    XCTAssertEqual(alice["last_message"]["text"].string, "Yes! 7pm at Café Luna")
+    let checked = await gate.previewChecks
+    XCTAssertEqual(Set(checked), [MessagesFixture.aliceChat, MessagesFixture.groupChat, MessagesFixture.carolChat])
+    for hidden in ["snacks", "Package delivered"] {
+      XCTAssertFalse(result.text.contains(hidden), "No hidden preview leaks anywhere in the result")
+    }
+  }
+
+  func testPreviewAndSearchHitsMarkMessageText() async throws {
+    let shown = RecordingMessagesGate(allowedChats: [MessagesFixture.aliceChat])
+    _ = try json(await gated(shown).execute(name: "list_conversations", arguments: .object([:])))
+    let shownMarks = await shown.messageTextMarks
+    XCTAssertEqual(shownMarks, 1, "A shown preview is message text")
+
+    let hidden = RecordingMessagesGate()
+    _ = try json(await gated(hidden).execute(name: "list_conversations", arguments: .object([:])))
+    let hiddenMarks = await hidden.messageTextMarks
+    XCTAssertEqual(hiddenMarks, 0, "A list with no previews")
+
+    let hit = RecordingMessagesGate()
+    _ = try json(await gated(hit).execute(name: "search_messages", arguments: .object(["query": .string("tent")])))
+    let hitMarks = await hit.messageTextMarks
+    XCTAssertEqual(hitMarks, 1)
+
+    let miss = RecordingMessagesGate()
+    let none = try json(await gated(miss).execute(name: "search_messages", arguments: .object(["query": .string("zebra")])))
+    XCTAssertEqual(none["results"].array?.count, 0)
+    let missMarks = await miss.messageTextMarks
+    XCTAssertEqual(missMarks, 0, "A search with no hits")
+
+    let read = RecordingMessagesGate()
+    _ = try json(await self.read(MessagesFixture.aliceChat, with: gated(read)))
+    let readMarks = await read.messageTextMarks
+    XCTAssertEqual(readMarks, 1)
   }
 }

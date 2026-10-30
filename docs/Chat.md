@@ -29,7 +29,9 @@ character, and the conversation is saved to the sidebar's **Recents**.
   conversation fills the space above it. Your messages are right-aligned bubbles
   in the system font. Replies are set in a serif, with a monospace meta line
   underneath: the model, where it ran (**on this mac** or the cloud provider),
-  **brave search** if web sources were used, and the time (date and time for
+  **brave search** if Brave's web sources were used (**web search** for a
+  provider's own search on ChatGPT or Claude Code, and for any searched reply
+  reopened after Enigma restarts), and the time (date and time for
   replies from an earlier day). The character sits beside the latest reply;
   earlier replies show the outline mark instead.
 - **Over the composer.** The route's status line, plus any notices and cards:
@@ -159,6 +161,21 @@ request runs it shows the current step, such as **Analyzing query…**,
 response…**. When it ends it reads **Activity**, **Stopped** or **Request
 failed**, with the source count if web search was used.
 
+On a model that chooses its own tools, the status line also shows each tool as
+it runs (**Searching…** for a web search, a Messages step for a read), and the
+reply's sources gather every search it made. See
+[Slash commands](Slash-Commands.md#models-that-choose-their-own-tools).
+
+On ChatGPT and Claude Code the search may be the provider's own. In a chat
+that holds message text, it runs only after you allow it on a card for that
+provider. If the model reads a chat partway through such a reply before you
+have, the reply restarts: its text and sources so far are cleared, the card
+asks, and the same question runs again with the provider's search (allowed) or
+without search (declined), so the chat's text never reaches a search you
+didn't allow. This happens at most once per reply, and Stop during it ends the
+turn. See
+[Web search](Web-Search.md#cloud-models-own-search).
+
 Click it to see the steps and, for searched replies, the **web sources**: each
 row shows the page title, the site, whether its excerpt was **Included in
 context**, and the address, and opens the page in your browser. The list scrolls
@@ -166,6 +183,21 @@ when it's long. Only excerpts that fit in the model's context are listed; a
 listed source means its excerpt was sent, not that the full page was read.
 
 ![Activity with its sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
+
+### Permission cards
+
+On a model that chooses its own tools, a reply can pause on a card in the chat
+before a tool reads private data: **Allow reading your chat with ‹name›?**,
+**Search all your messages for “‹query›”?**, or, once message text is in the
+chat, **Search the web for “‹query›”?** (Enigma's search, on Brave) or **Let
+‹provider› search the web in this chat?** (ChatGPT's or Claude Code's own
+search). The detail line says where the data goes (**It stays on this Mac.**,
+**It will be sent to ‹company›.** or **It will be sent to Brave.**), and the
+buttons are **Don't allow** (Escape), **For this conversation** and **Always**.
+One card is open at a time; the reply carries on once you answer, and Stop or
+a new chat answers Don't allow. Other chats can't be opened while it waits. A chat holding message text
+can also ask **Send text from your messages to ‹company›?** before a cloud
+model gets it. See [Messages](Messages.md#permission-cards).
 
 ### Attachments in the chat
 
@@ -234,6 +266,11 @@ sends the conversation context to the chosen provider, and **Auto** decides per
 request. See [Local-Model-Selection.md](Local-Model-Selection.md) and
 [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
 
+A chat also saves whether it holds text from your messages (a mark, never the
+text), so a web search in it still asks first after a relaunch. Permission
+grants for this conversation are never saved; **Always** grants are kept in
+settings. See [Messages](Messages.md#permission-cards).
+
 ## How it works
 
 ### Request lifecycle
@@ -270,6 +307,75 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   `sessions` or the session writer.
 - Fragments append to the assistant message; `stopStreaming()` revokes ownership,
   cancels the task, and flushes history.
+
+### Native tool turns
+
+A route whose model has the native tools flag (`NativeTools.isCapable`) goes to
+`submitNative` instead of `submit`, `submitCloud` or `submitMessages`: from
+`AppShellView` for Local and Cloud, from `submitAuto` once Auto has picked a
+flagged route, and from the queue. Requests with files or a screenshot keep
+their own paths.
+
+- `nativeToolPlan(for:)` makes a `NativeToolPlan` (`Enigma/Chat/AssistantToolbox.swift`)
+  from the typed commands, the attached selection and the settings (automatic
+  search, the Brave key, Full Disk Access). `submitNative` remakes it for the
+  route: the search part is `.search(.provider)` when
+  `NativeWebSearch.isAllowed` says so (ChatGPT or Claude Code, the pair not
+  marked unavailable), and `.search(.enigma)` with a Brave key otherwise. When
+  the chat holds message text, or `/messages` was typed, a `.provider` search
+  first asks `ToolPermission.providerSearchAfterMessages`; declined, the plan
+  is remade with `withoutSearch()`, and allowed, the toolbox's gate delivers
+  reads without a restart. `nativeToolbox` builds the
+  plan's parts in a fixed order, `WebSearchTool` or `ProviderSearchPart` (the
+  provider-search instruction, with `ChatRequest.providerSearch` set), the
+  gated `MessagesTools` and `SelectionTools`, and merges them into an
+  `AssistantToolbox`, whose instructions add the untrusted-data line.
+- A provider-search turn may run twice, each at most once: when the provider
+  throws `CloudProviderError.webSearchUnavailable` before the first text or
+  tool call (the pair is marked unavailable in memory and the plan remade), and
+  when `SavingMessagesGate` throws `ProviderSearchRestart` because a Messages
+  tool is about to return message text into a provider search the user
+  hasn't allowed for this chat (the result is held back, the reply is
+  cleared with `restartNativeReply`, and the provider-search card asked:
+  allowed keeps provider search for the second run, declined remakes the plan
+  without search). Before the first run, a nearby question asks the per-provider
+  location card. Provider `.sourcesSelected` events merge onto the reply,
+  capped at 8.
+- Local turns trim the history with `LocalToolAgent.prepare` and run
+  `LocalToolAgent.runStreaming` on the same `llama-server` plain turns use,
+  without unloading it after the turn. Cloud turns run the provider's streaming
+  tool loop (`ToolCallingChatProvider.stream(_:toolbox:)`); Codex uses its File
+  Mode client. A required tool (typed `/search`, `/edit` or `/translate`) is also
+  asked for in words at the end of the last message, for the routes that can't
+  force one.
+- As on plain turns, the question shows as pending and the draft clears only
+  once the request is under way: a cloud turn once it's prepared, a local turn
+  at the model's first text or tool call. A failure before that keeps the draft.
+- Permission cards come from `toolPermissions`, a `ToolPermissionCoordinator`
+  that `AppShellView` renders as a `ToolPermissionCard` after the send approval
+  card. `NativeTools.logger` (category `NativeTools`) logs each flagged turn's
+  route, the tools offered and each tool called, never text, queries,
+  arguments or results.
+- When the request ends, `applyNativeProposals` turns a proposed edit into the
+  reply's revision block and appends translations to it.
+- While you type in Local or Auto with a flagged local model, `AppShellView`
+  calls `warmNativeTurn` on each draft change. It builds the next turn's
+  toolbox and history around an empty prompt and calls
+  `LlamaServerVisionEngine.warmTools`: at most every 10 seconds, or at once
+  when the typed commands change, since `/think`, `/messages` and `/search`
+  change the system prompt or the tools. It waits while a command is half
+  typed, and a draft changed during a warm-up is looked at again when it ends.
+  Only the draft's commands are read, never its text.
+- `warmTools` loads a stopped server and reads the system prompt, tools and
+  earlier messages into the prompt cache with a one-token request. A loaded
+  server whose cache starts with the same system prompt and tools only
+  restarts its idle timer, so it stays loaded while you type; one used since
+  for something else reads them again. A request that starts during a warm-up
+  waits for it rather than restarting the server, and stopping that request
+  stops the warm-up. A model whose warm-up failed isn't loaded in the
+  background again until the next send. There's no warm-up with files, a
+  screenshot, a typed `/screen` or `/snapshot`, during a reply, in Cloud, or
+  with the switch off.
 
 ### Presentation
 
@@ -407,7 +513,9 @@ A `ContextBudget` gives the input allowance as the smaller of an input cap and
   `tokenize` endpoints, using the same system message and thinking settings as
   generation. If those endpoints aren't available, it falls back to a byte
   estimate (UTF-8 bytes plus 32 per message) until the runtime reloads. Context
-  shifting and prompt caching are off.
+  shifting is off, and so is prompt caching, except on a flagged model's tool
+  turns, which reuse the cached system prompt and tool definitions (see
+  [Local models](Local-Model-Selection.md#runtimes)).
 
 **Cloud** (`ModelContextPolicy.cloud` and `CloudContext`): input is counted as one
 token per UTF-8 byte of the serialized messages, which deliberately overestimates,
@@ -498,3 +606,8 @@ evidence fits. See [Web-Search.md](Web-Search.md).
   chats, and the 5-minute return through the hosted window.
 - `EnigmaTests/SelectionContextTests.swift`: selection revisions, including
   which count as unsent work in `ChatReturnState`.
+- `EnigmaTests/NativeToolRequestTests.swift`: flagged turns on the local and
+  cloud tool loops, the server kept warm, the draft kept until a turn is under
+  way, trimming, cards answered and Stop while one is open, and Auto sending
+  flagged routes to `submitNative`; `EnigmaTests/ToolPermissionTests.swift` and
+  `EnigmaConversationTests` cover the card itself and its buttons in the window.

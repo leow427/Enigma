@@ -139,6 +139,11 @@ checkpoints build on facts. **No product code comes out of this checkpoint.**
 
 *Filled in by the CP0 worker.*
 
+*Added 2026-10-29:* Q4 and Q6 (and Q1 for Mojeek and Startpage) are probed
+again from another network in [CP0b](cp0b-second-probe.md). Q7 is settled:
+places on every route with the map card (owner, 2026-10-29), and weather
+geocodes with Open-Meteo rather than MapKit (spec §6.4).
+
 All probes ran on 2026-10-27 on one Mac (macOS 27.0.1, Safari 27.0.1, Xcode
 with the macOS 27.0 SDK) on a single shared network. The app targets 26.0;
 nothing here was run on 26.

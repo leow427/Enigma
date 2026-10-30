@@ -1,0 +1,40 @@
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"role":"assistant","content":null}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"I"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"'ll"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" check"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" the"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" weather"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" in"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" Paris"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" for"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":" you"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"."}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"content":"\n\n"}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-0","type":"function","function":{"name":"get_weather","arguments":"{"}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"city\":\""}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Paris"}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\""}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":null,"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[{"finish_reason":"tool_calls","index":0,"delta":{}}],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk"}
+
+data: {"choices":[],"created":0,"id":"chatcmpl-0","model":"local","system_fingerprint":"b11734-f3fb2fcdb","object":"chat.completion.chunk","usage":{"completion_tokens":37,"prompt_tokens":520,"total_tokens":557,"prompt_tokens_details":{"cached_tokens":0}},"timings":{"cache_n":0,"prompt_n":520,"prompt_ms":1740.854,"prompt_per_token_ms":3.347796153846154,"prompt_per_second":298.70396943109535,"predicted_n":37,"predicted_ms":1765.285,"predicted_per_token_ms":49.035694444444445,"predicted_per_second":20.39330759622384}}
+
+data: [DONE]
+

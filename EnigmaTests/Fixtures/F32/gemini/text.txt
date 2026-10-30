@@ -1,0 +1,4 @@
+data: {"candidates":[{"content":{"parts":[{"text":"Hello there,"}],"role":"model"},"index":0}],"modelVersion":"gemini-2.5-flash","responseId":"response-0","usageMetadata":{"promptTokenCount":40,"totalTokenCount":40}}
+
+data: {"candidates":[{"content":{"parts":[{"text":" nice to meet you!"}],"role":"model"},"index":0,"finishReason":"STOP"}],"modelVersion":"gemini-2.5-flash","responseId":"response-0","usageMetadata":{"promptTokenCount":40,"candidatesTokenCount":8,"totalTokenCount":48}}
+

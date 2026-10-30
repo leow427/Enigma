@@ -155,7 +155,7 @@ final class WebSearchTests: XCTestCase {
   }
 
   func testApproximateLocationKeepsRoundedCoordinates() {
-    let location = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")
+    let location = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago", city: "Chicago")
     XCTAssertEqual(location.latitude, 41.88)
     XCTAssertEqual(location.longitude, -87.63)
     XCTAssertEqual(location.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
@@ -1620,7 +1620,8 @@ private final class SearchLocation: LocationProviding {
   let gate: SearchGate?
   let location: ApproximateLocation
   init(error: Error? = nil, gate: SearchGate? = nil,
-       location: ApproximateLocation = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")) {
+       location: ApproximateLocation = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago",
+         city: "Chicago")) {
     self.error = error; self.gate = gate; self.location = location
   }
   func currentLocation() async throws -> ApproximateLocation {

@@ -1,8 +1,8 @@
-# CP9: Docs, maintenance and the final audit
+# CP10: Docs, maintenance and the final audit
 
 Read [agent-workflow.md](agent-workflow.md), the spec ("Docs",
-"Maintenance", §7), and the Hand-offs of CP2 to
-[CP8](cp8-switch-over.md#hand-off). Use the tuned values from CP7's report
+"Maintenance", §6, §7), and the Hand-offs of CP2 to
+[CP9](cp9-map-card.md#hand-off). Use the tuned values from CP7's report
 wherever the docs give numbers.
 
 ## Goal
@@ -27,7 +27,7 @@ app, and merge it.
 
 ## Tasks
 
-### Task 9.1: `docs/Web-Search.md`
+### Task 10.1: `docs/Web-Search.md`
 
 - [ ] **Rewrite it** in the existing feature-doc shape: what it does, how to
   use it, what it sends where, how it works, limitations, tests. The
@@ -35,8 +35,12 @@ app, and merge it.
   1. **Set up:** none.
   2. **Automatic search and the chip:** keep today's rules, minus the key.
   3. **`/search`.**
-  4. **Places and weather:** the routing, with the `/search cafe near me`
-     example.
+  4. **Places and weather:** small models' routing (with the
+     `/search cafe near me` example), capable models' `find_places` and
+     `get_weather`, `/maps`, and the map card (session-only). Keep the
+     section "On models that choose their own tools" from F32 and F30, now
+     without a key: the three tools, gate 3 on each, and F30's provider
+     search beside the places and weather tools.
   5. **Sources:** the activity panel, the "web search" footer, "Never use
      this site", and blocked sites in Settings.
   6. **Privacy:** spec §7's recipients table, what's never sent, what's
@@ -56,15 +60,18 @@ app, and merge it.
 - [ ] **Check every number against the code,** after CP7's tuning: timings,
   limits, weights.
 
-### Task 9.2: The other docs
+### Task 10.2: The other docs
 
 - [ ] **Update the docs:**
   - `docs/README.md`'s Web Search row: "On-device web search, places and
     weather, sources and blocked sites";
   - `Welcome-and-Settings.md`: the new Settings section and welcome row;
-  - `Slash-Commands.md`: `/search` needs no key;
-  - `Chat.md`, `Screen-Skill.md` and `Selection-Context.md`: their Brave
-    mentions;
+  - `Slash-Commands.md`: `/search` needs no key; `/maps`; the native-tools
+    table gains `find_places` and `get_weather`;
+  - `Messages.md`: gate 3 covers places and weather too;
+  - `Local-Model-Selection.md`: CP7's tool-choice scores;
+  - `Chat.md`: the map card, and its Brave mention; `Screen-Skill.md` and
+    `Selection-Context.md`: their Brave mentions;
   - `Cloud-Model-Selection.md`: Auto's message;
   - `Testing.md`: the `ENIGMA_LIVE_SEARCH`, `ENIGMA_SEARCH_FIXTURE_DIR` and
     `ENIGMA_SEARCH_EVAL` checks, and the new script tests;
@@ -74,16 +81,17 @@ app, and merge it.
   `grep -rni "brave" docs/*.md docs/design/UI-Style.md` lists only history
   and the Brave browser.
 
-### Task 9.3: The screenshot
+### Task 10.3: The screenshot
 
 - [ ] **Find the snapshot test** that renders the Cloud and search Settings
   page.
 - [ ] **Run it** with
   `TEST_RUNNER_ENIGMA_SNAPSHOT_DIR=<folder> scripts/verify-xcode.sh test -only-testing:EnigmaTests/<Class>/<test>`.
-- [ ] **Replace** `docs/design/ui-revamp/screenshots/phase-5/settings-cloud-full-paper.png`.
+- [ ] **Replace** `docs/design/ui-revamp/screenshots/phase-5/settings-cloud-full-paper.png`,
+  and place CP9's map card screenshot in `Web-Search.md` and `Chat.md`.
 - [ ] **Look at it,** with the image reader, before handing off.
 
-### Task 9.4: The upstream watch
+### Task 10.4: The upstream watch
 
 **Files:**
 
@@ -128,7 +136,7 @@ app, and merge it.
 - [ ] **Run the tests,** then the script live. With today's tag it should
   print `"changed": []`, unless ddgs changed after CP2.
 
-### Task 9.5: Warning about stale lists
+### Task 10.5: Warning about stale lists
 
 **Files:**
 
@@ -155,7 +163,7 @@ app, and merge it.
 - [ ] **Implement** the script and the `release.sh` call.
 - [ ] **Run** the Python tests. Expect them to pass.
 
-### Task 9.6: Notices and release notes
+### Task 10.6: Notices and release notes
 
 - [ ] **Check the notices.** `ThirdPartyNotices.txt` must credit:
   - ddgs;
@@ -182,7 +190,7 @@ app, and merge it.
 
 ## Final audit and merge (worker, with the owner)
 
-After CP9 is committed:
+After CP10 is committed:
 
 1. **Verify everything.** Run `scripts/verify-xcode.sh build`, `test` and
    `analyze`; the Python tests; and the live checks with
@@ -191,23 +199,28 @@ After CP9 is committed:
    `scripts/install-app.sh`. With the owner:
    - first launch shows search ready, and the old Brave key is gone;
    - searches work on Local, Cloud, Auto and Screen;
-   - "/search cafe near me" uses Apple Maps; "will it rain tomorrow" uses
-     Open-Meteo;
+   - on a small and a capable model: "cafe near me" and `/maps bookshops`
+     use Apple Maps and show the map card; "will it rain tomorrow" uses
+     Open-Meteo; "what is the temperature to bake salmon" doesn't;
+   - after a Messages read, a search, a places lookup and a weather check
+     each ask first;
+   - on a cloud route F30 serves, a web question uses the provider's search
+     and a nearby question uses `find_places`;
    - "Never use this site" and Undo work, and Settings lists and removes
      blocked sites;
    - Console (category `search`) shows no queries or URLs;
    - Stop during a search cancels at once.
-3. **Open a pull request** from `feat/f29-on-device-search` to `main`. It
+3. **Mark the draft pull request ready** (CP1b opened it). Its description
    explains the behavior change, the decisions, the verification, the known
    limitations and the evaluation report, with screenshots of the new
-   Settings section and a blocked source row. Wait for CI to pass, then
-   merge.
+   Settings section, a blocked source row and the map card. Wait for CI to
+   pass, then merge.
 4. **Finish up:**
    - leave the checkout on the updated `main`;
    - mark F29 done in `to-do.md`;
    - put the release-note text in the version file the owner chooses;
    - run the ddgs watch once through `workflow_dispatch`.
-5. **Next:** start the F30 design (native cloud search).
+5. **Next:** none; F30 shipped first.
 
 ## Reviewer checklist
 
@@ -220,7 +233,7 @@ After CP9 is committed:
 
 ## Hand-off
 
-*Filled in by the CP9 worker, including the draft release-note text.*
+*Filled in by the CP10 worker, including the draft release-note text.*
 
 1. **Summary:**
 2. **Files:**

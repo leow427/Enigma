@@ -60,6 +60,32 @@ enum ComposerSubmission: Equatable {
     return .chat(prompt: intent.submissionPrompt, searchEnabled: intent.search)
   }
 
+  /// The route `submitNative` runs a chat or Messages send on (F32), or nil for today's function.
+  /// Auto picks its route in `submitAuto`, except that Messages in Auto stays on the local model,
+  /// as it does today.
+  static func nativeRoute(for submission: ComposerSubmission, mode: ChatMode, nativeToolsEnabled: Bool,
+                          localModel: LocalModel?, cloudProvider: CloudProviderID, cloudModelID: String) -> Route? {
+    guard nativeToolsEnabled else { return nil }
+    let route: Route?
+    switch (submission, mode) {
+    case (.chat, .local), (.messages, .local), (.messages, .auto):
+      route = localModel.map { Route(mode: .local, providerID: "local", modelID: $0.id, usesNetwork: false) }
+    case (.chat, .cloud), (.messages, .cloud):
+      let modelID = cloudModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+      route = modelID.isEmpty ? nil : Route(mode: .cloud, providerID: cloudProvider.rawValue, modelID: modelID, usesNetwork: true)
+    default:
+      route = nil
+    }
+    guard let route, NativeTools.isCapable(route: route, localModel: localModel) else { return nil }
+    return route
+  }
+
+  /// Whether a cloud Messages send first asks the one-time notice. On a flagged route the
+  /// per-chat permission card asks instead.
+  static func asksMessagesCloudNotice(mode: ChatMode, nativeRoute: Route?, hasDisclosed: Bool) -> Bool {
+    mode == .cloud && nativeRoute == nil && !hasDisclosed
+  }
+
   /// The draft once a request sent from `sent` is accepted: cleared, unless it was
   /// edited meanwhile. Compare with the draft as it was when sent, never with the
   /// prompt, which can carry recognized commands the draft doesn't show.

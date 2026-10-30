@@ -13,6 +13,7 @@ behavior in them may no longer match. For how Enigma works now, start at
 | [File Mode reliability](File-Mode-Reliability.md) | Live-model evaluation of local File Mode, with raw attempts in [evaluations/](evaluations/) |
 | [Test reliability](Test-Reliability.md) | Fixes for intermittent screenshot, streaming, welcome, and focus tests |
 | [CI test reliability](CI-Test-Reliability.md) | Measured failure rates on GitHub's runners, and the causes and fixes of each failure |
+| [Native search evaluation](2026-10-29-native-search-evaluation.md) | F30's quality check of ChatGPT's and Claude Code's own web search: the tool-use eval, 20 web questions, and latency |
 
 The UI revamp's design record, briefs, mockups, and per-phase screenshots are
 in [design/ui-revamp/](../design/ui-revamp/README.md).

@@ -143,14 +143,17 @@ struct ClaudeCodeRuntime: Sendable {
   /// Tool mode streams JSON lines both ways: Enigma answers MCP requests for its own
   /// in-process server over the CLI's control protocol, so no helper process or network
   /// listener exists. Built-in tools stay disabled; only the named Enigma tools are allowed.
-  static func toolArguments(model: String, effort: ClaudeCodeEffort, toolbox: any AgentToolbox) -> [String] {
+  /// A provider-search request (F30) also enables and allows `WebSearch`, never `WebFetch`.
+  static func toolArguments(model: String, effort: ClaudeCodeEffort, toolbox: any AgentToolbox,
+                            providerSearch: ProviderSearch? = nil) -> [String] {
     let server = #"{"mcpServers":{"\#(ClaudeCodeToolMode.server)":{"type":"sdk","name":"\#(ClaudeCodeToolMode.server)"}}}"#
+    let builtIn = providerSearch == nil ? [] : [ClaudeCodeToolMode.webSearch]
     var arguments = [
       "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-      "--safe-mode", "--tools", "", "--strict-mcp-config", "--mcp-config", server, "--disable-slash-commands",
-      "--no-session-persistence",
-      "--allowedTools", toolbox.definitions.map { ClaudeCodeToolMode.qualifiedName($0.name) }.joined(separator: ","),
-      "--model", model, "--system-prompt", ClaudeCodeToolMode.systemPrompt(toolbox),
+      "--safe-mode", "--tools", builtIn.joined(separator: ","), "--strict-mcp-config", "--mcp-config", server,
+      "--disable-slash-commands", "--no-session-persistence",
+      "--allowedTools", (builtIn + toolbox.definitions.map { ClaudeCodeToolMode.qualifiedName($0.name) }).joined(separator: ","),
+      "--model", model, "--system-prompt", ClaudeCodeToolMode.systemPrompt(toolbox, providerSearch: providerSearch != nil),
     ]
     if effort != .automatic { arguments += ["--effort", effort.rawValue] }
     return arguments
@@ -372,9 +375,17 @@ struct ClaudeCodeStreamParser {
     case completed(result: String?)
     case failed(String)
     case controlRequest(id: String, request: CodexValue)
+    /// The `init` message's tools (F30): a provider-search request checks `WebSearch` is there.
+    case toolsListed([String])
+    /// The model called `WebSearch`.
+    case searchStarted
+    /// One `WebSearch` call's results; empty when the search failed or returned none.
+    case searchResults([WebSearchSource])
   }
 
   private var buffer = Data()
+  /// The tool-use IDs of `WebSearch` calls, so only their results become sources.
+  private var searchIDs: Set<String> = []
 
   mutating func consume(_ data: Data) throws -> [Event] {
     buffer.append(data)
@@ -390,9 +401,23 @@ struct ClaudeCodeStreamParser {
       switch message["type"].string {
       case "stream_event":
         let event = message["event"]
+        if event["type"].string == "content_block_start" {
+          let block = event["content_block"]
+          guard block["type"].string == "tool_use", block["name"].string == ClaudeCodeToolMode.webSearch else { continue }
+          if let id = block["id"].string { searchIDs.insert(id) }
+          events.append(.searchStarted)
+          continue
+        }
         guard event["type"].string == "content_block_delta", event["delta"]["type"].string == "text_delta",
               let text = event["delta"]["text"].string, !text.isEmpty else { continue }
         events.append(.token(text))
+      case "system" where message["subtype"].string == "init":
+        guard let tools = message["tools"].array else { continue }
+        events.append(.toolsListed(tools.compactMap(\.string)))
+      case "user":
+        let answers = (message["message"]["content"].array ?? []).compactMap { $0["tool_use_id"].string }
+        guard answers.contains(where: searchIDs.contains) else { continue }
+        events.append(.searchResults(Self.searchSources(in: message["tool_use_result"])))
       case "control_request":
         guard let id = message["request_id"].string else { throw ClaudeCodeError.invalidResponse }
         events.append(.controlRequest(id: id, request: message["request"]))
@@ -407,6 +432,18 @@ struct ClaudeCodeStreamParser {
       }
     }
     return events
+  }
+
+  /// A `WebSearch` result's pages: `results` holds `{content: [{title, url}]}` objects beside prose
+  /// strings, and a failed search is a bare string. Only safe web links, titled by the site if untitled.
+  static func searchSources(in result: CodexValue) -> [WebSearchSource] {
+    (result["results"].array ?? []).flatMap { $0["content"].array ?? [] }.compactMap { page in
+      guard let url = page["url"].string.flatMap(URL.init(string:)) else { return nil }
+      let title = page["title"].string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let source = WebSearchSource(title: title, url: url)
+      guard source.isSafeWebLink else { return nil }
+      return title.isEmpty ? WebSearchSource(title: source.siteName, url: url) : source
+    }
   }
 }
 
@@ -518,7 +555,7 @@ struct ClaudeCodeSubscriptionClient: ChatProvider {
               case .failed(let message):
                 throw message.localizedCaseInsensitiveContains("not logged in")
                   ? ClaudeCodeError.notSignedIn : ClaudeCodeError.server(message)
-              case .controlRequest:
+              case .controlRequest, .toolsListed, .searchStarted, .searchResults:
                 continue // Ordinary chat declares no tools or MCP servers.
               }
             }

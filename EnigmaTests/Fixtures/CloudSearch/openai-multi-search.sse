@@ -1,0 +1,42 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"response-0","object":"response","status":"in_progress","model":"gpt-5.6-luna","output":[]},"sequence_number":0}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":0,"item":{"id":"ws-0","type":"web_search_call","status":"in_progress"},"sequence_number":1}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","output_index":0,"item":{"id":"ws-0","type":"web_search_call","status":"completed","action":{"type":"search","query":"cheapest MacBook Air price US","queries":["cheapest MacBook Air price US","cheapest MacBook Pro price US"],"sources":[{"type":"url","url":"https://www.apple.com/macbook-air/"},{"type":"url","url":"https://www.apple.com/macbook-pro/"},{"type":"url","url":"https://www.apple.com/shop/buy-mac"}]}},"sequence_number":2}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":1,"item":{"id":"ws-1","type":"web_search_call","status":"in_progress"},"sequence_number":3}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","output_index":1,"item":{"id":"ws-1","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://www.apple.com/macbook-pro/"}},"sequence_number":4}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","output_index":2,"item":{"id":"message-0","type":"message","status":"in_progress","role":"assistant","content":[]},"sequence_number":5}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","item_id":"message-0","output_index":2,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""},"sequence_number":6}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","item_id":"message-0","output_index":2,"content_index":0,"delta":"The cheapest MacBook Air start","sequence_number":7}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","item_id":"message-0","output_index":2,"content_index":0,"delta":"s at $1,299 ([apple.com](https://www.apple.com/macbook-air/)","sequence_number":8}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","item_id":"message-0","output_index":2,"content_index":0,"delta":"), and the cheapest MacBook Pro at $1,999 ([apple.com](https://www.apple.com/macbook-pro/)).","sequence_number":9}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","item_id":"message-0","output_index":2,"content_index":0,"text":"The cheapest MacBook Air starts at $1,299 ([apple.com](https://www.apple.com/macbook-air/)), and the cheapest MacBook Pro at $1,999 ([apple.com](https://www.apple.com/macbook-pro/)).","sequence_number":10}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","item_id":"message-0","output_index":2,"content_index":0,"part":{"type":"output_text","annotations":[{"type":"url_citation","start_index":43,"end_index":90,"url":"https://www.apple.com/macbook-air/","title":"MacBook Air - Apple"},{"type":"url_citation","start_index":133,"end_index":180,"url":"https://www.apple.com/macbook-pro/","title":"MacBook Pro - Apple"}],"text":"The cheapest MacBook Air starts at $1,299 ([apple.com](https://www.apple.com/macbook-air/)), and the cheapest MacBook Pro at $1,999 ([apple.com](https://www.apple.com/macbook-pro/))."},"sequence_number":11}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","output_index":2,"item":{"id":"message-0","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","annotations":[{"type":"url_citation","start_index":43,"end_index":90,"url":"https://www.apple.com/macbook-air/","title":"MacBook Air - Apple"},{"type":"url_citation","start_index":133,"end_index":180,"url":"https://www.apple.com/macbook-pro/","title":"MacBook Pro - Apple"}],"text":"The cheapest MacBook Air starts at $1,299 ([apple.com](https://www.apple.com/macbook-air/)), and the cheapest MacBook Pro at $1,999 ([apple.com](https://www.apple.com/macbook-pro/))."}]},"sequence_number":12}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"response-0","object":"response","status":"completed","model":"gpt-5.6-luna","output":[{"id":"ws-0","type":"web_search_call","status":"completed","action":{"type":"search","query":"cheapest MacBook Air price US","queries":["cheapest MacBook Air price US","cheapest MacBook Pro price US"],"sources":[{"type":"url","url":"https://www.apple.com/macbook-air/"},{"type":"url","url":"https://www.apple.com/macbook-pro/"},{"type":"url","url":"https://www.apple.com/shop/buy-mac"}]}},{"id":"ws-1","type":"web_search_call","status":"completed","action":{"type":"open_page","url":"https://www.apple.com/macbook-pro/"}},{"id":"message-0","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","annotations":[{"type":"url_citation","start_index":43,"end_index":90,"url":"https://www.apple.com/macbook-air/","title":"MacBook Air - Apple"},{"type":"url_citation","start_index":133,"end_index":180,"url":"https://www.apple.com/macbook-pro/","title":"MacBook Pro - Apple"}],"text":"The cheapest MacBook Air starts at $1,299 ([apple.com](https://www.apple.com/macbook-air/)), and the cheapest MacBook Pro at $1,999 ([apple.com](https://www.apple.com/macbook-pro/))."}]}],"usage":{"input_tokens":0,"output_tokens":0,"total_tokens":0}},"sequence_number":13}
+

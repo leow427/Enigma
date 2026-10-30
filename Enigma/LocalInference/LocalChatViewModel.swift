@@ -1,10 +1,12 @@
 import AppKit
 import Combine
 import Foundation
+import Synchronization
 
 @MainActor
 final class LocalChatViewModel: ObservableObject {
-  static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared, searchSettings: .shared, locationProvider: LocationService.shared)
+  static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared, searchSettings: .shared,
+                                         locationProvider: LocationService.shared, nativeToolsEnabled: NativeTools.isEnabled)
 
   /// The chat's request lifecycle. Model installs report through `modelOperation`.
   enum State: Equatable {
@@ -249,10 +251,14 @@ final class LocalChatViewModel: ObservableObject {
     replacementTask?.cancel(); replacementTask = nil
     selectionEditRequest = nil
     selectionRevisions = [:]
-    if let temporarySessionID { sessions.removeAll { $0.id == temporarySessionID } }
+    if let temporarySessionID {
+      sessions.removeAll { $0.id == temporarySessionID }
+      endToolSessions([temporarySessionID])
+    }
     if let selectionSessionID, selectionSessionID != temporarySessionID,
        sessions.first(where: { $0.id == selectionSessionID })?.messages.isEmpty == true {
       sessions.removeAll { $0.id == selectionSessionID }
+      endToolSessions([selectionSessionID])
     }
     temporarySessionID = nil
     selectionSessionID = nil
@@ -329,6 +335,25 @@ final class LocalChatViewModel: ObservableObject {
 
   let files: FileModeCoordinator
   let appleMessages: MessagesCoordinator
+  /// The open permission card for tools a capable model calls on its own (F32).
+  let toolPermissions: ToolPermissionCoordinator
+  /// F32's switch for this chat: flagged routes take `submitNative` only while it's on.
+  let nativeToolsEnabled: Bool
+  private var warmUpTask: Task<Void, Never>?
+  /// When the last warm-up started, and the typed commands it read. Other commands change the
+  /// prefix, so they warm again at once.
+  private var lastWarmUp: (at: ContinuousClock.Instant, commands: Set<SlashCommand>)?
+  /// A model whose warm-up failed isn't loaded in the background again until the next send.
+  private var unwarmableModelID: String?
+  /// The latest draft change while a warm-up ran, looked at again once it ends.
+  private var draftDuringWarmUp: (draft: String, mode: ChatMode, hasScreenshot: Bool)?
+  var isWarmingUp: Bool { warmUpTask != nil }
+  /// What the selection tools proposed during the running flagged request, for its reply.
+  private var nativeProposals: NativeProposals?
+  /// The providers whose own web search flagged cloud turns may use (F30). Tests pin either backend.
+  private let nativeWebSearchProviders: Set<CloudProviderID>
+  /// Providers and models whose search was unavailable this run. Never saved.
+  private var nativeWebSearchAvailability = NativeWebSearchAvailability()
   typealias MessagesToolboxFactory = @MainActor (@escaping @Sendable (MessagesSendApproval) async -> Bool) -> any AgentToolbox
   private let makeMessagesToolbox: MessagesToolboxFactory
   private let messagesAccess: @Sendable () throws -> Void
@@ -358,6 +383,7 @@ final class LocalChatViewModel: ObservableObject {
     },
     files: FileModeCoordinator? = nil,
     appleMessages: MessagesCoordinator? = nil,
+    toolPermissions: ToolPermissionCoordinator? = nil,
     messagesToolbox: MessagesToolboxFactory? = nil,
     messagesAccess: (@Sendable () throws -> Void)? = nil,
     localToolRuntime: (@Sendable (LocalModel) -> Bool)? = nil,
@@ -373,13 +399,18 @@ final class LocalChatViewModel: ObservableObject {
     sessionStore: ChatSessionStore = ChatSessionStore(),
     sessionWriter: ChatSessionWriter? = nil,
     idleUnloadDelay: Duration = LocalModelIdlePolicy.unloadDelay,
-    sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) }
+    sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) },
+    nativeToolsEnabled: Bool = NativeTools.isEnabled,
+    nativeWebSearchProviders: Set<CloudProviderID> = CloudProviderID.nativeWebSearchProviders
   ) {
     self.selectionEditingSettings = selectionEditingSettings
     self.replaceSelection = replaceSelection
     self.engine = engine
     self.files = files ?? FileModeCoordinator()
     self.appleMessages = appleMessages ?? MessagesCoordinator()
+    self.toolPermissions = toolPermissions ?? ToolPermissionCoordinator(store: .shared)
+    self.nativeToolsEnabled = nativeToolsEnabled
+    self.nativeWebSearchProviders = nativeWebSearchProviders
     makeMessagesToolbox = messagesToolbox ?? { confirm in MessagesTools(confirmSend: confirm) }
     self.messagesAccess = messagesAccess ?? { try MessagesDatabase().checkAccess() }
     self.localToolRuntime = localToolRuntime ?? { LocalFileRuntime.executable(for: $0) != nil }
@@ -403,6 +434,10 @@ final class LocalChatViewModel: ObservableObject {
     // is made, and written, only once something needs it.
     // A chat with no messages is never saved; one left by an older version goes.
     sessions = sessionStore.load().filter { !$0.messages.isEmpty }
+    // Gate 3 keeps asking in a chat that held message text before a relaunch.
+    for session in sessions where session.holdsMessageText == true {
+      self.toolPermissions.store.markMessageText(session: session.id)
+    }
     self.files.onSelectionChange = { [weak self] selection in
       guard let self else { return }
       let sessionID = self.ensureSelectedSession()
@@ -593,14 +628,18 @@ final class LocalChatViewModel: ObservableObject {
       return
     }
     let model = installedModel
+    let route = Route(mode: local ? .local : .cloud,
+      providerID: local ? "llama.cpp" : CloudProviderID.chatGPT.rawValue,
+      modelID: local ? model!.id : cloudModelID, usesNetwork: !local)
+    guard messageTextMayGo(to: route) else {
+      files.error = NativeToolsError.messageTextStays.localizedDescription
+      return
+    }
     let level: FileAccessLevel = SelectionResponseMode(prompt: prompt) == .translate ? .readOnly
       : local ? model.map { LocalFileCapabilities.production.access(for: $0) } ?? .readOnly : .readWrite
     let fileTools: AgentFileTools
     do { fileTools = try files.begin(access: level, isLocal: local, prompt: prompt, cloudAvailability: fileCloudAvailability) }
     catch { files.error = error.localizedDescription; return }
-    let route = Route(mode: local ? .local : .cloud,
-      providerID: local ? "llama.cpp" : CloudProviderID.chatGPT.rawValue,
-      modelID: local ? model!.id : cloudModelID, usesNetwork: !local)
     var userMessage = contextualMessage(prompt)
     userMessage.attachments = files.selection?.attachments.map { MessageAttachment(name: $0.name, isDirectory: $0.isDirectory) }
     let history = requestMessages + [userMessage]
@@ -687,6 +726,10 @@ final class LocalChatViewModel: ObservableObject {
     }
     let route = Route(mode: local ? .local : .cloud, providerID: local ? "llama.cpp" : cloudProvider.rawValue,
       modelID: local ? model!.id : cloudModelID, usesNetwork: !local)
+    guard messageTextMayGo(to: route) else {
+      appleMessages.report(NativeToolsError.messageTextStays.localizedDescription)
+      return
+    }
     let userMessage = contextualMessage(prompt)
     let history = (requestMessages + [userMessage]).map(ConversationContextPrompt.expand)
     let toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
@@ -697,6 +740,8 @@ final class LocalChatViewModel: ObservableObject {
     contextNotice = nil
     autoRouteDecision = nil
     screenRouteDecision = nil
+    // A typed /messages reads freely, so later searches by a capable model ask first (gate 3).
+    markMessageText(in: sessionID, destination: ToolDestination(route: route) ?? .thisMac)
     append(userMessage, to: sessionID)
     append(ChatMessage(id: responseID, role: .assistant, content: ""), to: sessionID)
     generationTask = Task { [weak self, fileInference, engine] in
@@ -737,6 +782,508 @@ final class LocalChatViewModel: ObservableObject {
     }
     messagesFollowUpSessionID = sessionID
     onAccepted()
+  }
+
+  // MARK: Native tool calling (F32)
+
+  /// The commands and attachments a flagged turn's tools follow, with this Mac's settings.
+  func nativeToolPlan(for typed: ComposerCommands, hasFiles: Bool = false, hasScreenshot: Bool = false) -> NativeToolPlan {
+    guard !hasFiles, !hasScreenshot else { return .empty }
+    return NativeToolPlan.make(.init(typed: typed, hasSelection: attachedContexts.contains { $0.kind == .selectedText },
+      hasFiles: false, hasScreenshot: false, searchesAutomatically: searchSettings?.automaticallySearch ?? false,
+      hasSearchKey: searchSettings?.hasAPIKey ?? false, hasFullDiskAccess: (try? messagesAccess()) != nil))
+  }
+
+  /// How often typing may warm the local model. Well inside the minute after which an idle
+  /// server unloads, so it stays loaded while the user types.
+  static let warmUpInterval: Duration = .seconds(10)
+
+  /// Warms a flagged local model while the user types (F32): starts its server and reads the next
+  /// turn's system prompt, tools and earlier messages into the prompt cache, so the reply after a
+  /// pause doesn't wait for them. Only where a flagged local turn would run: Local, and Auto, which
+  /// starts local. The draft is read for its typed commands only, which shape that prompt; its text
+  /// is never sent, as it may never be. Returns whether a warm-up started.
+  @discardableResult
+  func warmNativeTurn(draft: String, mode: ChatMode, hasScreenshot: Bool) -> Bool {
+    guard nativeToolsEnabled else { return false }
+    guard warmUpTask == nil else {
+      draftDuringWarmUp = (draft, mode, hasScreenshot)
+      return false
+    }
+    guard mode != .cloud, !hasScreenshot, !isBusy, !files.isWorking, files.selection == nil,
+          !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !Self.endsInPartialCommand(draft),
+          let model = installedModel, model.id != unwarmableModelID else { return false }
+    let route = Route(mode: .local, providerID: "local", modelID: model.id, usesNetwork: false)
+    let typed = ComposerCommands(draft)
+    guard NativeTools.isCapable(route: route, localModel: model), !typed.screen,
+          let destination = ToolDestination(route: route) else { return false }
+    let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
+    if let lastWarmUp, lastWarmUp.commands == commands, lastWarmUp.at.duration(to: .now) < Self.warmUpInterval {
+      return false
+    }
+    // Built as the turn builds it; its tools never run.
+    let toolbox = nativeToolbox(plan: nativeToolPlan(for: typed), destination: destination, sessionID: UUID(),
+                                responseID: UUID(), requestID: UUID(), evidenceTokens: 2_048)
+    // A stand-in prompt, removed again after trimming: the preparer needs one, and the draft is
+    // never read. Whatever the preparer puts before it, such as /think's guidance, stays.
+    let standIn = "."
+    var message = ThinkCommand.message(draft)
+    message.content = standIn
+    guard !toolbox.definitions.isEmpty,
+          var messages = try? LocalToolAgent.prepare(requestMessages.map(ConversationContextPrompt.expand) + [message],
+                                                     model: model, toolbox: toolbox).messages,
+          let last = messages.indices.last, messages[last].content.hasSuffix(standIn) else { return false }
+    messages[last].content.removeLast(standIn.count)
+    lastWarmUp = (.now, commands)
+    warmUpTask = Task { [weak self, fileInference] in
+      let ready = await LocalToolAgent(inference: fileInference).warm(messages: messages, model: model, toolbox: toolbox)
+      guard let self else { return }
+      warmUpTask = nil
+      if !ready { unwarmableModelID = model.id }
+      // The user may have typed a command meanwhile, which needs another prefix.
+      if let later = draftDuringWarmUp {
+        draftDuringWarmUp = nil
+        warmNativeTurn(draft: later.draft, mode: later.mode, hasScreenshot: later.hasScreenshot)
+      }
+    }
+    return true
+  }
+
+  /// Whether the draft ends in a command still being typed, such as "/thi": the finished one may
+  /// change the prefix, so warming waits for it.
+  static func endsInPartialCommand(_ draft: String) -> Bool {
+    guard let character = draft.last, !character.isWhitespace,
+          let word = draft.split(whereSeparator: \.isWhitespace).last, word.hasPrefix("/") else { return false }
+    return SlashCommand(rawValue: String(word.dropFirst()).lowercased()) == nil
+  }
+
+  /// A flagged route: the model gets the plan's tools on the route's streaming tool loop and
+  /// decides itself when to search, read Messages or propose a selection edit. Cards gate message
+  /// text, and searches once a chat holds it. A local turn keeps the server, and its prompt
+  /// cache, for the next turn.
+  func submitNative(_ prompt: String, route: Route, plan: NativeToolPlan,
+                    onAccepted: @escaping @MainActor () -> Void = {}) {
+    let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !isBusy, !files.isWorking, !ThinkCommand.message(prompt).content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    appleMessages.issue = nil
+    screenRouteDecision = nil
+    if plan.messagesRequested {
+      do { try messagesAccess() } catch {
+        appleMessages.report(error)
+        return
+      }
+    }
+    let local = route.mode == .local
+    let model = installedModel
+    // Sending tries a model whose warm-up failed again; its error, if any, now shows.
+    if local { unwarmableModelID = nil }
+    var provider: (any ToolCallingChatProvider)?
+    guard let destination = ToolDestination(route: route) else {
+      state = .failed(CloudProviderError.invalidResponse.localizedDescription)
+      return
+    }
+    if local {
+      guard let model, model.id == route.modelID else {
+        state = .failed(LocalInferenceError.noModelInstalled.localizedDescription)
+        return
+      }
+    } else {
+      guard let providerID = CloudProviderID(rawValue: route.providerID) else {
+        state = .failed(CloudProviderError.invalidResponse.localizedDescription)
+        return
+      }
+      provider = providerID == .chatGPT ? fileCodex : cloudProviders.provider(for: providerID) as? any ToolCallingChatProvider
+      guard provider != nil else {
+        state = .failed("\(providerID.displayName) can't use tools. Choose another provider or a local model.")
+        return
+      }
+    }
+    // The selection tools replace the revision-block instructions a typed /edit gets today. The
+    // latest draft still goes along, since it can hold the user's own changes to the card.
+    let selection = plan.parts.contains(.selection) ? attachedContexts.first { $0.kind == .selectedText } : nil
+    let userMessage = contextualMessage(prompt, responseInstructions: selection == nil)
+    var requestMessage = ConversationContextPrompt.expand(userMessage)
+    if selection != nil, let draft = userMessage.selectionDraft, let note = ConversationContextPrompt.draftNote(draft) {
+      requestMessage.content += note
+    }
+    let history = requestMessages.map(ConversationContextPrompt.expand) + [requestMessage]
+    let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : route.modelID, userMessage: userMessage)
+    let sessionID = ensureSelectedSession()
+    let responseID = UUID()
+    let plan = local ? plan : plan.remade(providerSearch: providerSearchAllowed(route: route))
+    if let selection {
+      nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
+                                        contextID: selection.id, editRequested: plan.editRequested)
+    }
+    let evidenceTokens = local ? 2_048 : BraveSearchClient.evidenceTokens
+    // Shared by every run of this turn, so a run that starts again can't send the same text twice.
+    let sendLedger = MessagesSendLedger()
+    let toolbox = nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
+                                requestID: active.id, evidenceTokens: evidenceTokens, sendLedger: sendLedger)
+    let toolNames = toolbox.definitions.map(\.name).joined(separator: ",")
+    NativeTools.logger.info("Native turn: \(route.mode.rawValue, privacy: .public) \(route.providerID, privacy: .public); tools \(toolNames, privacy: .public); required \(toolbox.offeredRequiredTool ?? "none", privacy: .public); provider search \(plan.searchBackend == .provider, privacy: .public)")
+    state = .preparing
+    contextNotice = nil
+    // Shown at once; it lands in the chat, and the draft clears, only once the request is under
+    // way, as on plain turns. A failure before that keeps the draft.
+    pendingUserMessage = userMessage
+    generationTask = Task { [weak self, fileInference, engine] in
+      var failure: Error?
+      do {
+        try Task.checkCancellation()
+        self?.receiveActivity(.phase(.thinking), requestID: active.id)
+        let owner = self
+        let accept = { @MainActor in
+          owner?.acceptNative(userMessage, responseID: responseID, sessionID: sessionID, requestID: active.id,
+                              onAccepted: onAccepted)
+        }
+        if local, let model {
+          let prepared = try LocalToolAgent.prepare(history, model: model, toolbox: toolbox)
+          owner?.contextNotice = prepared.notice
+          // The inference-only bridge lets go of its model; the server plain turns use stays loaded.
+          await engine.unload()
+          // A local request is under way at the model's first text or tool call.
+          try await LocalToolAgent(inference: fileInference).runStreaming(messages: prepared.messages, model: model,
+            toolbox: toolbox, onActivity: { event in
+              await accept()
+              await owner?.receiveActivity(event, requestID: active.id)
+            }) { text in
+            await accept()
+            await owner?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
+          }
+        } else if let provider {
+          // A chat whose message text was allowed somewhere else asks before it goes to this company.
+          guard let permissions = owner?.toolPermissions else { throw CancellationError() }
+          if !permissions.store.messageTextAllowed(session: sessionID, destination: destination) {
+            let allowed = await permissions.authorize(.shareMessageText, destination: destination, session: sessionID)
+            try Task.checkCancellation()
+            guard allowed else { throw NativeToolsError.messageTextStays }
+          }
+          var plan = plan, toolbox = toolbox
+          // In a chat holding message text, or on a typed /messages turn, the provider's search runs
+          // only once the user allows it for this provider; declined, the turn doesn't search
+          // (owner, 2026-10-29). Allowed, a Messages read no longer restarts the request.
+          var searchApproved = false, asked = false
+          if plan.searchBackend == .provider, let owner {
+            if plan.messagesRequested || owner.chatHoldsMessageText(sessionID) {
+              asked = true
+              searchApproved = try await owner.allowsProviderSearch(route: route, destination: destination,
+                                                                    sessionID: sessionID)
+              if !searchApproved {
+                plan = plan.withoutSearch()
+                NativeTools.logger.info("Provider search declined: \(route.providerID, privacy: .public)")
+              }
+            } else {
+              // A grant already given lets a read partway through go to the provider, with no card.
+              searchApproved = owner.providerSearchGranted(route: route, destination: destination, sessionID: sessionID)
+            }
+          }
+          // F30, spec §2a: a nearby question asks, per provider, before the area goes to its search.
+          let location = plan.searchBackend == .provider
+            ? try await owner?.providerSearchLocation(for: prompt, route: route, destination: destination, sessionID: sessionID)
+            : nil
+          if location != nil || asked || searchApproved, let owner {
+            toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
+                                          requestID: active.id, evidenceTokens: evidenceTokens, location: location,
+                                          providerSearchApproved: searchApproved, sendLedger: sendLedger)
+          }
+          // A turn runs again at most once for each reason (F30): its provider search was
+          // unavailable before the reply started (made again with Enigma's search), or message text
+          // was about to enter its request (made again after asking whether the provider may search).
+          var fellBack = false, restarted = false
+          while true {
+            let providerSearch = plan.searchBackend == .provider ? ProviderSearch(location: location) : nil
+            // Codex, Claude Code and Anthropic with /think can't force a tool, so the request also
+            // asks in words. The local server adds the same line itself. On provider search,
+            // `web_search` names the provider's own tool, which isn't among the definitions.
+            var history = history
+            if let required = toolbox.offeredRequiredTool ?? (providerSearch == nil ? nil : toolbox.requiredTool) {
+              history[history.count - 1].content += "\n\n" + LlamaServerVisionEngine.requiredToolInstruction(required)
+            }
+            let prepared = try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: history, route: route))
+            owner?.contextNotice = prepared.notice
+            // As on plain cloud turns, a prepared request is under way.
+            accept()
+            owner?.recordReplySearch(provider: providerSearch != nil, messageID: responseID, sessionID: sessionID,
+                                     requestID: active.id)
+            var request = ChatRequest(sessionID: sessionID, messages: prepared.messages, route: route)
+            request.providerSearch = providerSearch
+            // The reply starts at its first text or tool call; only before that may it fall back.
+            let started = NativeReplyStart()
+            toolbox.onCall = started.mark
+            do {
+              for try await event in provider.stream(request, toolbox: toolbox) {
+                try Task.checkCancellation()
+                switch event {
+                case .activity(.sourcesSelected(let sources)) where providerSearch != nil:
+                  owner?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: active.id,
+                                          limit: NativeWebSearch.maximumSources)
+                case .activity(let update): owner?.receiveActivity(update, requestID: active.id)
+                case .token(let text):
+                  started.mark()
+                  owner?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
+                case .completed: break
+                }
+              }
+              break
+            } catch {
+              try Task.checkCancellation()
+              guard providerSearch != nil, let providerID = CloudProviderID(rawValue: route.providerID) else { throw error }
+              let unavailable = if case CloudProviderError.webSearchUnavailable = error { true } else { false }
+              // Remembered either way, so later turns skip it; only a reply not yet started falls back.
+              if unavailable { owner?.nativeWebSearchAvailability.markUnavailable(providerID, modelID: route.modelID) }
+              let restarting: Bool
+              if unavailable, !fellBack, !started.isStarted {
+                fellBack = true
+                restarting = false
+                NativeTools.logger.info("Provider search unavailable: \(providerID.rawValue, privacy: .public); falling back")
+              } else if error is ProviderSearchRestart, !restarted {
+                restarted = true
+                restarting = true
+                NativeTools.logger.info("Provider search restart: \(providerID.rawValue, privacy: .public)")
+              } else {
+                throw error
+              }
+              owner?.restartNativeReply(messageID: responseID, sessionID: sessionID, requestID: active.id)
+              try Task.checkCancellation()
+              guard let owner else { throw CancellationError() }
+              if restarting {
+                // The chat now holds message text: the provider searches again only if allowed.
+                searchApproved = try await owner.allowsProviderSearch(route: route, destination: destination,
+                                                                      sessionID: sessionID)
+                if !searchApproved { plan = plan.withoutSearch() }
+              } else {
+                plan = plan.remade(providerSearch: false)
+              }
+            }
+            toolbox = owner?.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
+                                           responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
+                                           location: plan.searchBackend == .provider ? location : nil,
+                                           providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
+          }
+        }
+        try Task.checkCancellation()
+      } catch is CancellationError { }
+      catch { failure = error }
+      // A request that ends while a send approval is open never sends.
+      self?.appleMessages.answer(false)
+      let settingsError = (failure as? MessagesError).flatMap { $0.privacyPane == nil ? nil : $0 }
+      if let settingsError, self?.activeRequest?.id == active.id { self?.appleMessages.report(settingsError) }
+      await self?.finishGeneration(id: active.id, error: failure, showsProblem: settingsError == nil)
+    }
+  }
+
+  /// The question and an empty reply land in the chat, once per request.
+  private func acceptNative(_ userMessage: ChatMessage, responseID: UUID, sessionID: UUID, requestID: UUID,
+                            onAccepted: @MainActor () -> Void) {
+    guard activeRequest?.id == requestID,
+          sessions.first(where: { $0.id == sessionID })?.messages.contains(where: { $0.id == responseID }) == false else { return }
+    append(userMessage, to: sessionID)
+    append(ChatMessage(id: responseID, role: .assistant, content: ""), to: sessionID)
+    messagesFollowUpSessionID = nil
+    onAccepted()
+  }
+
+  /// The plan's parts, in a fixed order so a chat's tool prefix stays the same turn after turn.
+  private func nativeToolbox(plan: NativeToolPlan, destination: ToolDestination, sessionID: UUID, responseID: UUID,
+                             requestID: UUID, evidenceTokens: Int,
+                             location: ProviderSearchLocation? = nil, providerSearchApproved: Bool = false,
+                             sendLedger: MessagesSendLedger? = nil) -> AssistantToolbox {
+    let coordinator = toolPermissions
+    var parts: [any AgentToolbox] = []
+    if plan.parts.contains(.search(.provider)) { parts.append(ProviderSearchPart(location: location)) }
+    if plan.parts.contains(.search(.enigma)) {
+      parts.append(WebSearchTool(
+        search: { [weak self] query in
+          guard let self else { throw CancellationError() }
+          return try await self.search(query, writtenQuery: query, maximumTokens: evidenceTokens,
+                                       requestID: requestID, refinesQuery: false)
+        },
+        mayQuery: { query in
+          guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
+          return await coordinator.authorize(.searchAfterMessages(query: query), destination: destination, session: sessionID)
+        },
+        onSources: { [weak self] sources in
+          await self?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: requestID)
+        }))
+    }
+    if plan.parts.contains(.messages),
+       var messages = makeMessagesToolbox({ [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false })
+         as? MessagesTools {
+      // Flagged routes always gate message text; a toolbox that can't take the gate isn't offered.
+      messages.gate = SavingMessagesGate(gate: CoordinatorMessagesGate(coordinator: coordinator, destination: destination,
+                                                                      session: sessionID),
+                                         restartsProviderSearch: plan.searchBackend == .provider && !providerSearchApproved) {
+        [weak self] in
+        await self?.saveMessageTextMark(sessionID)
+      }
+      if let sendLedger { messages.ledger = sendLedger }
+      parts.append(messages)
+    }
+    if plan.parts.contains(.selection) {
+      parts.append(SelectionTools(allowsEdit: plan.selectionAllowsEdit) { [weak self] proposal in
+        await self?.receiveNativeProposal(proposal, requestID: requestID)
+      })
+    }
+    return AssistantToolbox(parts: parts, requiredTool: plan.requiredTool, extraInstructions: plan.extraInstructions)
+  }
+
+  /// Merges a search's sources onto the reply and saves them; a provider's are capped at `limit` (F30).
+  private func addNativeSources(_ sources: [WebSearchSource], messageID: UUID, sessionID: UUID, requestID: UUID,
+                                limit: Int? = nil) {
+    guard activeRequest?.id == requestID, let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
+          let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
+    var all = sessions[sessionIndex].messages[messageIndex].searchSources ?? []
+    for source in sources where !all.contains(where: { $0.url == source.url }) { all.append(source) }
+    if let limit { all = Array(all.prefix(limit)) }
+    sessions[sessionIndex].messages[messageIndex].searchSources = all
+    receiveActivity(.sourcesSelected(all), requestID: requestID)
+    persistSessions(immediately: false)
+  }
+
+  /// The area a provider-search turn may send, looked up on the Mac (F30, spec §2a): only for a nearby
+  /// question in the user's own words, with Location on and an area found, once this provider is
+  /// allowed on its card. Nil otherwise, and the instruction says to ask which city. Stop ends the turn.
+  private func providerSearchLocation(for prompt: String, route: Route, destination: ToolDestination,
+                                      sessionID: UUID) async throws -> ProviderSearchLocation? {
+    guard let provider = CloudProviderID(rawValue: route.providerID), let locationProvider,
+          LocationIntent.needsLocation(ScreenSearchContext.question(prompt)) else { return nil }
+    let found: ApproximateLocation
+    do {
+      found = try await locationProvider.currentLocation()
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      return nil
+    }
+    try Task.checkCancellation()
+    let location = found.providerSearchLocation
+    guard !location.displayName.isEmpty else { return nil }
+    let allowed = await toolPermissions.authorize(.shareLocation(provider: provider, area: location.displayName),
+                                                  destination: destination, session: sessionID)
+    try Task.checkCancellation()
+    return allowed ? location : nil
+  }
+
+  /// Whether a flagged cloud turn may use its provider's own web search (F30). In a chat holding
+  /// message text, `allowsProviderSearch` asks first.
+  private func providerSearchAllowed(route: Route) -> Bool {
+    guard route.mode == .cloud, let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    return NativeWebSearch.isAllowed(provider: provider, modelID: route.modelID,
+                                     enabledProviders: nativeWebSearchProviders, availability: nativeWebSearchAvailability)
+  }
+
+  private func chatHoldsMessageText(_ sessionID: UUID) -> Bool {
+    toolPermissions.store.hasMessageText(session: sessionID) || sessions.first { $0.id == sessionID }?.holdsMessageText == true
+  }
+
+  /// The provider-search card (owner, 2026-10-29): the provider's queries run on its servers, where
+  /// no card can ask, so in a chat with message text the user allows the search itself, per
+  /// provider. A grant answers without a card; Stop while it shows ends the turn.
+  private func allowsProviderSearch(route: Route, destination: ToolDestination, sessionID: UUID) async throws -> Bool {
+    guard let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    let allowed = await toolPermissions.authorize(.providerSearchAfterMessages(provider: provider),
+                                                  destination: destination, session: sessionID)
+    try Task.checkCancellation()
+    return allowed
+  }
+
+  private func providerSearchGranted(route: Route, destination: ToolDestination, sessionID: UUID) -> Bool {
+    guard let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    return toolPermissions.store.isGranted(.providerSearchAfterMessages(provider: provider), destination: destination,
+                                           session: sessionID)
+  }
+
+  /// Which search the reply's footer names (F30): the provider's own, or Brave.
+  private func recordReplySearch(provider: Bool, messageID: UUID, sessionID: UUID, requestID: UUID) {
+    guard activeRequest?.id == requestID, let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
+          let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
+    sessions[sessionIndex].messages[messageIndex].origin?.providerSearch = provider
+  }
+
+  /// Clears a reply whose request runs again (F30): its text, sources, proposals and activity
+  /// belong to the request that stopped.
+  private func restartNativeReply(messageID: UUID, sessionID: UUID, requestID: UUID) {
+    guard activeRequest?.id == requestID else { return }
+    if let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
+       let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) {
+      sessions[sessionIndex].messages[messageIndex].content = ""
+      sessions[sessionIndex].messages[messageIndex].searchSources = nil
+      persistSessions(immediately: false)
+    }
+    if nativeProposals?.requestID == requestID {
+      nativeProposals?.edit = nil
+      nativeProposals?.translations = []
+    }
+    hasReceivedResponse = false
+    state = .preparing
+    activity = AssistantActivity(id: requestID)
+    receiveActivity(.phase(.thinking), requestID: requestID)
+  }
+
+  private func receiveNativeProposal(_ proposal: SelectionProposal, requestID: UUID) {
+    guard activeRequest?.id == requestID, nativeProposals?.requestID == requestID else { return }
+    if proposal.language == nil {
+      nativeProposals?.edit = proposal.text
+    } else {
+      nativeProposals?.translations.append(proposal.text)
+    }
+  }
+
+  /// Puts a finished flagged request's proposals in its reply: a translation as text after it,
+  /// and an edit as today's revision block, so the card, the saved chat and later edits read it
+  /// as they read a typed /edit's revision. Replacing the selection still takes a click, or
+  /// the automatic-replace setting.
+  private func applyNativeProposals(requestID: UUID) {
+    guard let proposals = nativeProposals, proposals.requestID == requestID,
+          let sessionIndex = sessions.firstIndex(where: { $0.id == proposals.sessionID }),
+          let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == proposals.messageID }) else { return }
+    var content = sessions[sessionIndex].messages[messageIndex].content.trimmingCharacters(in: .whitespacesAndNewlines)
+    for translation in proposals.translations { content += (content.isEmpty ? "" : "\n\n") + translation }
+    if let edit = proposals.edit, attachedContexts.contains(where: { $0.id == proposals.contextID }) {
+      let acknowledgement = content.isEmpty || content.contains("```") || content.contains("<enigma-") ? "Revision ready." : content
+      content = SelectionRevisionResponse(acknowledgement: acknowledgement, text: edit).formatted
+      // Only a typed /edit pastes on its own; a proposal the model made unasked waits for a click.
+      let automatic = proposals.editRequested && selectionEditingSettings.automaticallyReplace
+      selectionRevisions[proposals.messageID] = SelectionRevision(id: proposals.messageID, contextID: proposals.contextID,
+                                                                  text: edit, automatic: automatic)
+      if automatic {
+        replacementTask = Task { [weak self] in await self?.applySelectionRevision(messageID: proposals.messageID) }
+      }
+    }
+    guard content != sessions[sessionIndex].messages[messageIndex].content else { return }
+    sessions[sessionIndex].messages[messageIndex].content = content
+    persistSessions(immediately: false)
+  }
+
+  /// F32: whether the selected chat's history may go to `route`. A chat holding message text
+  /// goes only to a company all of that text was allowed for, and never to one Enigma can't name.
+  func messageTextMayGo(to route: Route) -> Bool {
+    guard nativeToolsEnabled, route.mode == .cloud, let session = selectedSessionID else { return true }
+    guard let destination = ToolDestination(route: route) else {
+      return !toolPermissions.store.hasMessageText(session: session)
+    }
+    return toolPermissions.store.messageTextAllowed(session: session, destination: destination)
+  }
+
+  /// Marks that a chat holds message text allowed for `destination`, in memory and with the saved chat.
+  private func markMessageText(in sessionID: UUID, destination: ToolDestination) {
+    toolPermissions.store.markMessageText(session: sessionID, destination: destination)
+    if let index = sessions.firstIndex(where: { $0.id == sessionID }) { sessions[index].holdsMessageText = true }
+  }
+
+  /// Saves that a chat holds message text as soon as a tool returns some, before any reply can
+  /// quote it, so gate 3 still asks after a relaunch.
+  private func saveMessageTextMark(_ sessionID: UUID) {
+    guard toolPermissions.store.hasMessageText(session: sessionID),
+          let index = sessions.firstIndex(where: { $0.id == sessionID }), sessions[index].holdsMessageText != true else { return }
+    sessions[index].holdsMessageText = true
+    if !isUnsaved(sessions[index]) { persistSessions() }
+  }
+
+  /// Ends what the permission cards granted for chats that are gone.
+  private func endToolSessions(_ ids: [UUID]) {
+    for id in ids { toolPermissions.store.endSession(id) }
   }
 
   private func appendFileText(_ text: String, messageID: UUID, sessionID: UUID, requestID: UUID) {
@@ -859,6 +1406,10 @@ final class LocalChatViewModel: ObservableObject {
     }
     if decision.sendsImage && !model.canUseVision {
       state = .failed(ScreenRequestError.textOnlyModel.localizedDescription)
+      return
+    }
+    if !messageTextMayGo(to: model.route) {
+      state = .failed(NativeToolsError.messageTextStays.localizedDescription)
       return
     }
     let userMessage = contextualMessage(prompt)
@@ -1079,6 +1630,12 @@ final class LocalChatViewModel: ObservableObject {
       modelID: trimmedModelID,
       usesNetwork: true
     )
+    // F32: a cloud model without native tools can't show the card, so it doesn't take a chat whose
+    // message text wasn't allowed for its company.
+    if !messageTextMayGo(to: route) {
+      state = .failed(NativeToolsError.messageTextStays.localizedDescription)
+      return
+    }
     let userMessage = contextualMessage(trimmedPrompt)
     let prepared: PreparedConversation
     contextNotice = nil
@@ -1199,17 +1756,32 @@ final class LocalChatViewModel: ObservableObject {
     guard !isBusy, !ThinkCommand.message(prompt).content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     state = .idle
     contextNotice = nil
-    let searchEnabled = shouldSearch(prompt, explicitlyEnabled: searchEnabled, allowsAutomaticSearch: allowsAutomaticSearch)
-    let decision = (searchEnabled || AutoRouter.shouldRun(for: .auto, cloud: cloud))
+    // Auto starts local: with a flagged local model, its own tools decide about search.
+    let localFlagged = nativeToolsEnabled && installedModel.map {
+      NativeTools.isCapable(route: Route(mode: .local, providerID: "local", modelID: $0.id, usesNetwork: false), localModel: $0)
+    } == true
+    let searchEnabled = localFlagged ? searchEnabled
+      : shouldSearch(prompt, explicitlyEnabled: searchEnabled, allowsAutomaticSearch: allowsAutomaticSearch)
+    var decision = (searchEnabled || AutoRouter.shouldRun(for: .auto, cloud: cloud))
       ? AutoRouter.decide(AutoRouter.Request(
         selectedMode: .auto, webSearchEnabled: searchEnabled,
         prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content,
         webSearchPrompt: prompt, contextMessages: autoRoutingContextMessages,
-        localModel: installedModel, cloud: cloud
+        localModel: installedModel, cloud: cloud, modelChoosesSearch: localFlagged
       ))
       : AutoRouter.localFallback(localModel: installedModel)
+    // A chat holding message text stays where that text was allowed, as Auto /messages stays on this Mac.
+    if let route = decision.route, !messageTextMayGo(to: route) {
+      decision = AutoRouter.localFallback(localModel: installedModel)
+    }
     autoRouteDecision = decision
     guard let route = decision.route else { return }
+    if nativeToolsEnabled, NativeTools.isCapable(route: route, localModel: installedModel) {
+      // A search chip shown for an unflagged local model counts as a typed /search here.
+      let typed = ComposerCommands((searchEnabled ? "/search " : "") + prompt)
+      submitNative(prompt, route: route, plan: nativeToolPlan(for: typed), onAccepted: onAccepted)
+      return
+    }
     switch route.mode {
     // The search decision is made; the route it picked must not make it again.
     case .local:
@@ -1276,6 +1848,7 @@ final class LocalChatViewModel: ObservableObject {
     guard let id = selectedSessionID, id != next, id != temporarySessionID, id != selectionSessionID,
           let index = sessions.firstIndex(where: { $0.id == id }), sessions[index].messages.isEmpty else { return }
     sessions.remove(at: index)
+    endToolSessions([id])
   }
 
   func selectSession(id: UUID) {
@@ -1397,7 +1970,9 @@ final class LocalChatViewModel: ObservableObject {
     sessions.sort { $0.lastActivityAt > $1.lastActivityAt }
     let retained = Set(sessions.filter { !isUnsaved($0) }
       .prefix(ChatSessionStore.maximumRetainedSessions).map(\.id))
+    let evicted = sessions.filter { !isUnsaved($0) && !retained.contains($0.id) }.map(\.id)
     sessions.removeAll { !isUnsaved($0) && !retained.contains($0.id) }
+    endToolSessions(evicted)
     persistSessions()
   }
 
@@ -1452,8 +2027,9 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   /// `prompt` is the user's text; `writtenQuery`, a query the screen path's model already wrote from it.
+  /// `refinesQuery` is false for a query a capable model wrote with its tools: it's searched as written.
   private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
-                      requestID: UUID) async throws -> [WebSearchResult] {
+                      requestID: UUID, refinesQuery: Bool = true) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
     // The user's text loses its slash commands here on every route, before refining, routing
     // and the provider. A model-written query is used as written.
@@ -1461,7 +2037,7 @@ final class LocalChatViewModel: ObservableObject {
     var contextualQuery = question
     // Only the source material this request carries refines its query.
     let source = requestSource
-    if !source.contexts.isEmpty || source.draft != nil, let active = activeRequest, active.id == requestID {
+    if refinesQuery, !source.contexts.isEmpty || source.draft != nil, let active = activeRequest, active.id == requestID {
       state = .refiningSearch
       receiveActivity(.phase(.refiningSearch), requestID: requestID)
       var contexts = source.contexts
@@ -1548,6 +2124,7 @@ final class LocalChatViewModel: ObservableObject {
     hasReceivedResponse = false
     activeRequest = request
     requestSource = (userMessage.contexts ?? [], userMessage.selectionDraft)
+    nativeProposals = nil
     // The note that a chat opened in the window is saved, or private, is said
     // once, under its first exchange: the next message ends it.
     if messages.contains(where: { $0.role == .user }) { openedSelectionChat = nil }
@@ -1661,6 +2238,8 @@ final class LocalChatViewModel: ObservableObject {
       }
     }
     guard activeRequest?.id == id else { return }
+    if error == nil, !Task.isCancelled { applyNativeProposals(requestID: id) }
+    nativeProposals = nil
     if error == nil, !Task.isCancelled, let editing = selectionEditRequest, editing.id == id,
        attachedContexts.contains(where: { $0.id == editing.contextID }), let message = messages.last, message.role == .assistant {
       if let response = SelectionRevisionResponse.parse(message.content) {
@@ -1761,5 +2340,50 @@ final class LocalChatViewModel: ObservableObject {
   private func clearQueue() {
     messageQueue.clear()
     queuedInFlight = nil
+  }
+}
+
+/// A flagged request's selection proposals, applied to its reply when it finishes.
+private struct NativeProposals {
+  let requestID: UUID
+  let messageID: UUID
+  let sessionID: UUID
+  let contextID: UUID
+  let editRequested: Bool
+  var edit: String?
+  var translations: [String] = []
+}
+
+enum NativeToolsError: LocalizedError, Equatable {
+  /// The user kept a chat's message text from a company its text wasn't allowed for.
+  case messageTextStays
+
+  var errorDescription: String? {
+    "This chat includes text from your messages, so it wasn't sent. Continue it with Local, or start a new chat."
+  }
+}
+
+/// Whether a flagged reply has started: its first text or tool call (F30).
+private final class NativeReplyStart: Sendable {
+  private let started = Mutex(false)
+  var isStarted: Bool { started.withLock { $0 } }
+  @Sendable func mark() { started.withLock { $0 = true } }
+}
+
+/// Saves the chat's message-text mark as soon as a tool returns message text. On a provider-search
+/// request the user hasn't allowed, it then holds the text back and restarts the turn (F30, spec §2):
+/// the provider's search runs on its servers, where no card can ask for each query.
+private struct SavingMessagesGate: MessagesAccessGate {
+  let gate: CoordinatorMessagesGate
+  let restartsProviderSearch: Bool
+  let onMessageText: @Sendable () async -> Void
+
+  func mayRead(chatGUID: String, name: String) async -> Bool { await gate.mayRead(chatGUID: chatGUID, name: name) }
+  func maySearch(query: String) async -> Bool { await gate.maySearch(query: query) }
+  func isAllowed(chatGUID: String) async -> Bool { await gate.isAllowed(chatGUID: chatGUID) }
+  func didReturnMessageText() async throws {
+    await gate.didReturnMessageText()
+    await onMessageText()
+    if restartsProviderSearch { throw ProviderSearchRestart() }
   }
 }
