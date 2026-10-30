@@ -127,17 +127,18 @@ final class WebSearchTests: XCTestCase {
     let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: Any])
     // `query(from:)` collapses whitespace, so the appended line arrives joined by a space, as it always has.
     XCTAssertEqual(json["q"] as? String,
-      "What are some good restaurants around me? Approximate current location: Chicago (41.88, -87.63)")
+      "What are some good restaurants around me? Approximate current location: Chicago")
   }
 
-  func testBraveUsesUnknownAreaWithoutCity() async throws {
+  /// Retargeted (D136): Brave gets the city only, never coordinates, like the search sites.
+  func testBraveSendsNoCoordinatesWithoutCity() async throws {
     let transport = SearchTransport(data: Data(#"{"grounding":{"generic":[{"url":"https://example.com/a","snippets":["Fact"]}]}}"#.utf8))
     let client = BraveSearchClient(credentials: SearchCredentials("fixture"), transport: transport)
     _ = try await client.search(WebSearchRequest(query: "cafes near me",
       coordinate: SearchCoordinate(latitude: 41.88, longitude: -87.63), maximumTokens: 8_192))
     let requests = await transport.requests
     let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: Any])
-    XCTAssertTrue(try XCTUnwrap(json["q"] as? String).contains("Approximate current location: current area (41.88, -87.63)"))
+    XCTAssertEqual(json["q"] as? String, "cafes near me")
   }
 
   func testWebSearchContextCapsAtEightSources() async throws {
@@ -511,12 +512,13 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(blockSettings(defaults).blockedSites, ["a.example", "b.example"])
   }
 
-  func testAutomaticSearchSettingsPersistAndRequireAKey() throws {
+  /// Retargeted (CP8): automatic search persists and needs no key; a key changes nothing here.
+  func testAutomaticSearchSettingsPersistAndNeedNoKey() throws {
     let defaults = makeDefaults()
     let credentials = SearchCredentials(nil)
     let settings = WebSearchSettings(credentials: credentials, defaults: defaults)
     XCTAssertTrue(settings.automaticallySearch)
-    XCTAssertFalse(settings.canSearchAutomatically)
+    XCTAssertTrue(settings.canSearchAutomatically)
     try settings.saveAPIKey("fixture")
     XCTAssertTrue(settings.canSearchAutomatically)
     settings.automaticallySearch = false
@@ -525,7 +527,36 @@ final class WebSearchTests: XCTestCase {
     XCTAssertFalse(restored.canSearchAutomatically)
     restored.automaticallySearch = true
     try restored.removeAPIKey()
-    XCTAssertFalse(restored.canSearchAutomatically)
+    XCTAssertTrue(restored.canSearchAutomatically)
+  }
+
+  /// CP8: a fresh install searches with no setup, and /search reaches the (on-device) provider.
+  func testSearchWorksWithoutAnySetup() async {
+    let settings = WebSearchSettings(credentials: SearchCredentials(nil), defaults: makeDefaults())
+    XCTAssertTrue(settings.canSearchAutomatically)
+    XCTAssertTrue(SlashCommand.available().contains(.search))
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, settings: settings)
+    model.submitCloud("tide times", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let queries = await search.queries
+    XCTAssertEqual(queries, ["tide times"])
+    XCTAssertEqual(model.messages.last?.origin?.braveSearch, false)
+  }
+
+  /// CP8: the brief's on-device messages, exactly; Brave keeps its key errors (D130).
+  func testErrorMessages() {
+    let kept = " Your draft has been kept."
+    XCTAssertEqual(WebSearchError.unavailable.localizedDescription,
+                   "Search sites couldn't be reached. Check your connection and try again." + kept)
+    XCTAssertEqual(WebSearchError.rateLimited.localizedDescription,
+                   "Search sites are limiting requests right now. Try again shortly." + kept)
+    XCTAssertEqual(WebSearchError.noResults.localizedDescription,
+                   "No usable sources were found. Try a more specific question." + kept)
+    XCTAssertTrue(WebSearchError.invalidAPIKey.localizedDescription.hasPrefix("Brave rejected the API key."))
+    for error in [WebSearchError.unavailable, .rateLimited, .noResults, .invalidResponse, .missingAPIKey, .invalidAPIKey] {
+      XCTAssertFalse(error.localizedDescription.contains("Web search · Brave"), "\(error)")
+    }
   }
 
   func testAutomaticSearchGroundsLocalCloudAndAutoWithoutChangingQuestionOrBudget() async throws {
@@ -586,10 +617,11 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
-  func testAutomaticSearchOffAndMissingKeyStillAllowForcedSearch() async {
-    for (enabled, hasKey) in [(false, true), (true, false)] {
+  /// Retargeted (CP8): only the setting turns automatic search off; a missing key no longer does.
+  func testAutomaticSearchOffStillAllowsForcedSearch() async {
+    for hasKey in [true, false] {
       let settings = WebSearchSettings(credentials: SearchCredentials(hasKey ? "fixture" : nil), defaults: makeDefaults())
-      settings.automaticallySearch = enabled
+      settings.automaticallySearch = false
       let search = SearchSpy(results: fixtureResults)
       let model = makeModel(search: search, settings: settings)
       model.submitCloud("What happened today?", provider: .chatGPT, modelID: "model")
@@ -601,6 +633,14 @@ final class WebSearchTests: XCTestCase {
       let forced = await search.queries
       XCTAssertEqual(forced, ["Explain photosynthesis"])
     }
+    // With the setting on and no key, a fresh-facts question searches automatically.
+    let settings = WebSearchSettings(credentials: SearchCredentials(nil), defaults: makeDefaults())
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, settings: settings)
+    model.submitCloud("What happened today?", provider: .chatGPT, modelID: "model")
+    await finish(model)
+    let automatic = await search.queries
+    XCTAssertEqual(automatic.count, 1, "No key: automatic search still runs")
   }
 
   func testAutomaticSearchDoesNotBecomeStickyOrReadOldConversation() async {
@@ -869,37 +909,37 @@ final class WebSearchTests: XCTestCase {
     }
   }
 
-  func testActualComposersRequireKeyForAutomaticSearchAndSearchSuggestions() async throws {
+  /// Retargeted (CP8): with no key, both composers offer /search and /maps and search automatically;
+  /// saving or removing a Brave key leaves the suggestions alone.
+  func testActualComposersNeedNoKeyForAutomaticSearchAndSearchSuggestions() async throws {
     for compact in [false, true] {
       let composer = try await makeComposer(automatic: nil, hasKey: false)
       defer { composer.window.orderOut(nil); composer.window.contentView = nil }
       await showComposer(composer, compact: compact)
       XCTAssertTrue(composer.settings.automaticallySearch)
-      XCTAssertFalse(composer.settings.canSearchAutomatically)
+      XCTAssertTrue(composer.settings.canSearchAutomatically)
       let editor = try composer.editor()
       let completion = try XCTUnwrap(editor.completion)
       try await editComposer(editor, text: "/", in: composer)
-      XCTAssertEqual(completion.commands, [.screen, .snapshot, .think, .edit, .translate, .messages])
-      completion.accept(.search)
-      XCTAssertEqual(editor.string, "/", "An unavailable search suggestion cannot be selected")
+      XCTAssertEqual(completion.commands, SlashCommand.allCases)
       try await editComposer(editor, text: "/se", in: composer)
-      XCTAssertTrue(completion.commands.isEmpty)
+      XCTAssertEqual(completion.commands, [.search])
 
       try composer.settings.saveAPIKey("fixture")
       await waitForCommands([.search], in: completion)
-      XCTAssertTrue(composer.settings.canSearchAutomatically)
-      XCTAssertEqual(editor.string, "/se", "Saving a key updates suggestions without editing the draft")
+      XCTAssertEqual(editor.string, "/se", "Saving a key changes nothing in the draft")
       try composer.settings.removeAPIKey()
-      await waitForCommands([], in: completion)
-      XCTAssertFalse(composer.settings.canSearchAutomatically)
-      XCTAssertEqual(editor.string, "/se", "Removing a key hides an already open search suggestion")
+      await waitForCommands([.search], in: completion)
+      XCTAssertEqual(editor.string, "/se", "Removing a key keeps the search suggestion")
 
-      for question in ["What happened today?", "What does this mean?"] {
+      var expected = 0
+      for (question, searches) in [("What happened today?", true), ("What does this mean?", false)] {
         try await editComposer(editor, text: question, in: composer)
         editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
         await finish(composer.model)
+        if searches { expected += 1 }
         let queries = await composer.search.queries
-        XCTAssertTrue(queries.isEmpty, "Without a key, normal chat continues without retrieval")
+        XCTAssertEqual(queries.count, expected, "\(question): no key needed to search automatically")
         XCTAssertEqual(composer.model.messages.last?.content, "Answer")
       }
     }
@@ -1159,19 +1199,138 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(WebSearchExcerpts.fitted(results, maximumTokens: 8_192), results)
   }
 
-  func testDebugSwitchSelectsOnDeviceProvider() {
-    let defaults = makeDefaults()
-    defaults.set("onDevice", forKey: WebSearchProviderFactory.debugProviderKey)
-    XCTAssertTrue(WebSearchProviderFactory.makeDefault(defaults: defaults, isTestHost: false) is OnDeviceSearchProvider)
-    // Never in the test host, whatever the preference says.
-    XCTAssertTrue(WebSearchProviderFactory.makeDefault(defaults: defaults, isTestHost: true) is BraveSearchClient)
-    XCTAssertTrue(WebSearchProviderFactory.makeDefault(defaults: defaults) is BraveSearchClient)
-    defaults.set("brave", forKey: WebSearchProviderFactory.debugProviderKey)
-    XCTAssertTrue(WebSearchProviderFactory.makeDefault(defaults: defaults, isTestHost: false) is BraveSearchClient)
+  /// Replaces the Debug switch's tests (CP8, D129): a saved key selects Brave, otherwise on-device,
+  /// and the choice follows saving and removing the key with no relaunch. The footer names Brave.
+  func testBraveRunsOnlyWithASavedKey() async throws {
+    let settings = WebSearchSettings(credentials: SearchCredentials(nil), defaults: makeDefaults())
+    let onDevice = SearchSpy(results: fixtureResults), brave = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: onDevice, settings: settings, brave: brave)
+    model.submitCloud("one", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    XCTAssertFalse(model.usesBraveSearch)
+    XCTAssertEqual(model.messages.last?.origin?.braveSearch, false)
+    try settings.saveAPIKey("fixture")
+    XCTAssertTrue(model.usesBraveSearch)
+    model.submitCloud("two", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    XCTAssertEqual(model.messages.last?.origin?.braveSearch, true)
+    let footer = ReplyMetaLine.text(origin: model.messages.last?.origin, searched: true, date: .now)
+    XCTAssertTrue(footer.contains("brave search"), footer)
+    try settings.removeAPIKey()
+    model.submitCloud("three", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let onDeviceQueries = await onDevice.queries, braveQueries = await brave.queries
+    XCTAssertEqual(onDeviceQueries, ["one", "three"])
+    XCTAssertEqual(braveQueries, ["two"])
+    // The default provider is the on-device one, offline in the test host.
+    XCTAssertTrue(OnDeviceSearchProvider.live() is OnDeviceSearchProvider)
+    let offline = OnDeviceSearchProvider.live()
+    do {
+      _ = try await offline.search(WebSearchRequest(query: "anything", maximumTokens: 1_024))
+      XCTFail("The test host's default provider must not reach the network")
+    } catch {
+      XCTAssertNotNil(error as? WebSearchError, "\(error)")
+    }
   }
 
-  func testBraveRemainsDefault() {
-    XCTAssertTrue(WebSearchProviderFactory.makeDefault(defaults: makeDefaults(), isTestHost: false) is BraveSearchClient)
+  /// CP8 (D132): blocked sites also filter Brave's results, which never see the list.
+  func testBlockedSitesFilterBravesResults() async throws {
+    let defaults = makeDefaults()
+    let settings = blockSettings(defaults)
+    settings.block(URL(string: "https://news.example.com/x")!)
+    try settings.saveAPIKey("fixture")
+    let brave = SearchSpy(results: [
+      WebSearchResult(source: WebSearchSource(title: "Blocked", url: URL(string: "https://www.example.com/a")!), snippets: ["A"]),
+      WebSearchResult(source: WebSearchSource(title: "Kept", url: URL(string: "https://kept.org/b")!), snippets: ["B"]),
+    ])
+    let model = makeModel(search: SearchSpy(results: fixtureResults), settings: settings, brave: brave)
+    model.submitCloud("q", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    XCTAssertEqual(model.messages.last?.searchSources?.map(\.url.host), ["kept.org"])
+
+    let allBlocked = SearchSpy(results: [
+      WebSearchResult(source: WebSearchSource(title: "Blocked", url: URL(string: "https://example.com/a")!), snippets: ["A"]),
+    ])
+    let other = makeModel(search: SearchSpy(results: fixtureResults), settings: settings, brave: allBlocked)
+    other.submitCloud("q", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(other)
+    XCTAssertEqual(other.state, .failed(WebSearchError.noResults.localizedDescription))
+  }
+
+  /// CP8 (D138): places and weather stay on Apple Maps and Open-Meteo with a Brave key saved.
+  func testPlacesAndWeatherNeverReachBrave() async throws {
+    let settings = WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: makeDefaults())
+    let onDevice = SearchSpy(results: fixtureResults), brave = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: onDevice, settings: settings, brave: brave)
+    XCTAssertTrue(model.usesBraveSearch)
+    model.submitCloud("/maps coffee", provider: .chatGPT, modelID: "model")
+    await finish(model)
+    model.submitCloud("What's the weather in Paris tomorrow?", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let braveRequests = await brave.requests, onDeviceRoutes = await onDevice.requests.map(\.route)
+    XCTAssertTrue(braveRequests.isEmpty)
+    XCTAssertEqual(onDeviceRoutes, [.places, .weather])
+  }
+
+  /// CP8 (D141): Brave's failures name Brave; a missing key also clears the saved-key state.
+  func testBraveFailuresNameBraveAndMissingKeyRefreshesState() async throws {
+    let settings = WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: makeDefaults())
+    let model = makeModel(search: SearchSpy(results: fixtureResults), settings: settings,
+                          brave: SearchSpy(error: .rateLimited))
+    model.submitCloud("q", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    XCTAssertEqual(model.state, .failed(WebSearchError.braveRateLimited.localizedDescription))
+    XCTAssertEqual(WebSearchError.braveRateLimited.localizedDescription,
+                   "Brave Search is limiting requests right now. Try again shortly. Your draft has been kept.")
+    XCTAssertEqual(WebSearchError.unavailable.namingBrave, .braveUnavailable)
+    XCTAssertEqual(WebSearchError.invalidResponse.namingBrave, .braveInvalidResponse)
+    XCTAssertEqual(WebSearchError.noResults.namingBrave, .noResults)
+
+    let credentials = SearchCredentials("fixture")
+    let stale = WebSearchSettings(credentials: credentials, defaults: makeDefaults())
+    credentials.removeAPIKey()
+    let other = makeModel(search: SearchSpy(results: fixtureResults), settings: stale, brave: SearchSpy(error: .missingAPIKey))
+    other.submitCloud("q", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(other)
+    XCTAssertFalse(stale.hasAPIKey)
+    XCTAssertFalse(other.usesBraveSearch)
+  }
+
+  /// CP8 (D130): a key deleted outside Enigma makes Brave report it missing; the search runs on-device.
+  func testBraveMissingKeyFallsBackToOnDevice() async throws {
+    let settings = WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: makeDefaults())
+    let onDevice = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: onDevice, settings: settings, brave: SearchSpy(error: .missingAPIKey))
+    model.submitCloud("q", provider: .chatGPT, modelID: "model", searchEnabled: true)
+    await finish(model)
+    let queries = await onDevice.queries
+    XCTAssertEqual(queries, ["q"])
+    XCTAssertEqual(model.messages.last?.origin?.braveSearch, false)
+  }
+
+  /// CP8 (Task 8.5): "Never use <domain>" names the registrable domain, as `block(_:)` stores it.
+  func testNeverUseLabel() {
+    let blocking = SourceBlocking(settings: blockSettings(makeDefaults()))
+    XCTAssertEqual(blocking.neverUseLabel(for: URL(string: "https://news.bbc.co.uk/x")!), "Never use bbc.co.uk")
+  }
+
+  func testNoBlockActionForAppleMapsOrOpenMeteo() {
+    for url in ["https://maps.apple.com/?q=cafes", "https://open-meteo.com/", "https://api.open-meteo.com/v1/forecast"] {
+      XCTAssertFalse(WebSearchSource(title: "", url: URL(string: url)!).allowsBlocking, url)
+    }
+    XCTAssertTrue(WebSearchSource(title: "", url: URL(string: "https://news.bbc.co.uk/x")!).allowsBlocking)
+  }
+
+  func testBlockThenUndoRestores() {
+    let settings = blockSettings(makeDefaults())
+    let blocking = SourceBlocking(settings: settings)
+    let url = URL(string: "https://news.bbc.co.uk/x")!
+    blocking.block(url)
+    XCTAssertEqual(settings.blockedSites, ["bbc.co.uk"])
+    XCTAssertTrue(settings.isBlocked(url))
+    blocking.unblock(blocking.domain(url))
+    XCTAssertEqual(settings.blockedSites, [])
+    XCTAssertFalse(settings.isBlocked(url))
   }
 
   func testNoRoomForEvidenceFailsInsteadOfSilentlyAnsweringWithoutSearch() async {
@@ -1675,13 +1834,14 @@ final class WebSearchTests: XCTestCase {
   private func makeModel(
     engine: SearchLocalEngine = SearchLocalEngine(), search: any WebSearchProvider,
     cloud: SearchCloudProvider = SearchCloudProvider(), store: ChatSessionStore? = nil,
-    automatic: Bool = false, settings: WebSearchSettings? = nil, location: (any LocationProviding)? = nil
+    automatic: Bool = false, settings: WebSearchSettings? = nil, location: (any LocationProviding)? = nil,
+    brave: (any WebSearchProvider)? = nil
   ) -> LocalChatViewModel {
     let searchSettings = settings ?? WebSearchSettings(credentials: SearchCredentials("fixture"), defaults: makeDefaults())
     if settings == nil { searchSettings.automaticallySearch = automatic }
     return LocalChatViewModel(
       engine: engine, cloudProviders: CloudProviderRegistry(openAI: cloud, anthropic: cloud, chatGPT: cloud),
-      webSearch: search, searchSettings: searchSettings, locationProvider: location, sessionStore: store ?? makeStore()
+      webSearch: search, braveSearch: brave, searchSettings: searchSettings, locationProvider: location, sessionStore: store ?? makeStore()
     )
   }
 

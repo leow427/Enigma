@@ -42,6 +42,7 @@ final class NativeToolRequestTests: XCTestCase {
                         nativeToolsEnabled: Bool = true,
                         hasFullDiskAccess: Bool = true, automaticSearch: Bool = true, hasSearchKey: Bool = true,
                         nativeWebSearchProviders: Set<CloudProviderID> = [],
+                        braveSearch: (any WebSearchProvider)? = nil,
                         fileCodex: CodexSubscriptionClient = .fileMode,
                         locationProvider: (any LocationProviding)? = nil, sendRunner: RecordingRunner? = nil,
                         replace: (@MainActor (String) -> Void)? = nil) -> LocalChatViewModel {
@@ -71,6 +72,7 @@ final class NativeToolRequestTests: XCTestCase {
       fileCodex: fileCodex,
       cloudProviders: registry,
       webSearch: search ?? NativeSearchProvider(results: Self.searchResults),
+      braveSearch: braveSearch,
       searchSettings: settings,
       locationProvider: locationProvider,
       sessionStore: sessionStore ?? ChatSessionStore(applicationSupportDirectory: root),
@@ -485,6 +487,28 @@ final class NativeToolRequestTests: XCTestCase {
     await chat.sessionWriter.waitForPendingWrites()
   }
 
+  /// CP8 (D131): gate 3's card names Brave when a saved key would send the query there, and the
+  /// search sites otherwise.
+  func testSearchAfterMessagesCardNamesTheProviderUsed() async throws {
+    for hasKey in [true, false] {
+      let directory = root.appending(path: "gate3-\(hasKey)")
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let database = MessagesDatabase(url: try MessagesFixture(directory: directory).url)
+      let chat = makeChat(inference: NativeScriptedInference(steps: [
+        .call("get_messages", #"{"chat_id":"\#(MessagesFixture.aliceChat)"}"#),
+        .call("web_search", #"{"query":"q"}"#), .text("Done."),
+      ]), messagesDatabase: database, hasSearchKey: hasKey,
+        braveSearch: NativeSearchProvider(results: Self.searchResults))
+      await chat.refreshInstalledModel()
+      var cards: [ToolPermissionRequest] = []
+      try await send("Read Alice, then search", to: chat, answers: [.conversation, .deny], cards: &cards)
+      let card = try XCTUnwrap(cards.last, "key \(hasKey)")
+      XCTAssertEqual(card.permission.kind, .searchAfterMessages, "key \(hasKey)")
+      XCTAssertEqual(card.detail, "This chat includes text from your messages. It will be sent to "
+                     + (hasKey ? "Brave." : "search sites."), "key \(hasKey)")
+    }
+  }
+
   func testMessageTextMarkSurvivesRelaunch() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
@@ -882,7 +906,21 @@ final class NativeToolRequestTests: XCTestCase {
     let other = makeChat(cloud: none, hasSearchKey: false, nativeWebSearchProviders: [])
     try await send("Hi", to: other, route: Self.cloudRoute)
     XCTAssertNil(none.runs.first?.request.providerSearch)
-    XCTAssertFalse(none.runs.first?.toolNames.contains("web_search") == true, "No key and no provider search: no search")
+    // Retargeted (CP8): with no key and no provider search, Enigma's own keyless web_search is offered.
+    XCTAssertTrue(none.runs.first?.toolNames.contains("web_search") == true, "No key: Enigma's own search")
+  }
+
+  /// F29 CP8 (Task 8.5b): the user's blocked sites reach the provider's own search, most recent
+  /// first, in the request and in the instruction sentence.
+  func testProviderSearchCarriesBlockedSites() async throws {
+    defaults.set(["old.com", "middle.org", "new.net"], forKey: WebSearchSettings.blockedSitesKey)
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertEqual(run.request.providerSearch?.blockedDomains, ["new.net", "middle.org", "old.com"])
+    XCTAssertTrue(run.instructions.contains("Don't use results from these sites: new.net, middle.org, old.com."),
+                  run.instructions)
   }
 
   /// Owner, 2026-10-29: a turn the user asked to use Messages asks before the provider's search, so
@@ -952,7 +990,7 @@ final class NativeToolRequestTests: XCTestCase {
       let run = try XCTUnwrap(provider.runs.first)
       XCTAssertEqual(run.request.providerSearch != nil, answer == .conversation, label)
       XCTAssertEqual(run.instructions.contains(Self.providerSearchText), answer == .conversation, label)
-      XCTAssertFalse(run.toolNames.contains("web_search"), "Never Brave on a provider-search route: \(label)")
+      XCTAssertFalse(run.toolNames.contains("web_search"), "Never Enigma's search on a provider-search route: \(label)")
       UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(hasSearchKey)-\(answer)")
     }
   }
@@ -1059,13 +1097,14 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertNotNil(other.runs.first?.request.providerSearch, "Only this run of the app remembers")
   }
 
-  func testUnavailableFallbackWithoutKeyHasNoSearch() async throws {
+  /// Retargeted (CP8): without a key the fallback still gets Enigma's own search, which needs none.
+  func testUnavailableFallbackWithoutKeyUsesOnDeviceSearch() async throws {
     let provider = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Answer.")]])
     let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
     try await send("Hi", to: chat, route: Self.cloudRoute)
     XCTAssertEqual(provider.runs.count, 2)
     XCTAssertNil(provider.runs[1].request.providerSearch)
-    XCTAssertFalse(provider.runs[1].toolNames.contains("web_search"))
+    XCTAssertTrue(provider.runs[1].toolNames.contains("web_search"))
     XCTAssertEqual(chat.messages.last?.content, "Answer.")
   }
 

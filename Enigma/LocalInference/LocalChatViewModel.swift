@@ -6,7 +6,8 @@ import Synchronization
 @MainActor
 final class LocalChatViewModel: ObservableObject {
   static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared,
-                                         webSearch: WebSearchProviderFactory.makeDefault(), searchSettings: .shared,
+                                         webSearch: OnDeviceSearchProvider.live(), braveSearch: BraveSearchClient(),
+                                         searchSettings: .shared,
                                          locationProvider: LocationService.shared, nativeToolsEnabled: NativeTools.isEnabled)
 
   /// The chat's request lifecycle. Model installs report through `modelOperation`.
@@ -368,15 +369,22 @@ final class LocalChatViewModel: ObservableObject {
   private let locationProvider: (any LocationProviding)?
   private var requestLocationContext: String?
   /// `find_places` and `get_weather` on capable turns (F29 CP6); replaceable in tests.
-  var placeSearch: any PlaceSearching = MapKitPlaceSearch()
-  var weatherLookup: any WeatherLooking = OpenMeteoWeather()
-  var weatherGeocoder: any Geocoding = OpenMeteoGeocoder()
+  /// Offline in the test host, so a default-built chat never reaches Apple Maps or Open-Meteo (D139).
+  var placeSearch: any PlaceSearching = TestHost.isActive ? MapKitPlaceSearch.offline : MapKitPlaceSearch()
+  var weatherLookup: any WeatherLooking = TestHost.isActive ? OpenMeteoWeather(client: OfflineSearchHTTPClient())
+    : OpenMeteoWeather()
+  var weatherGeocoder: any Geocoding = TestHost.isActive ? OpenMeteoGeocoder(client: OfflineSearchHTTPClient())
+    : OpenMeteoGeocoder()
   /// A reply's places for CP9's map card, by message. In memory only: never saved.
   /// Chats and providers whose share-location card was declined (D89): their places, weather and
   /// web_search tools get no location until a later Allow. In memory only: never saved.
   private var declinedLocations: Set<String> = []
   private(set) var replyPlaces: [UUID: [MapPlace]] = [:]
+  /// On-device search, the default for everyone (D128).
   private let webSearch: any WebSearchProvider
+  /// Brave, used only while a Brave key is saved (D128, D129). Nil in tests unless one injects it,
+  /// so a test can't reach Brave's network.
+  private let braveSearch: (any WebSearchProvider)?
   private let cloudProviders: CloudProviderRegistry
   let sessionWriter: ChatSessionWriter
   private let idleUnloadDelay: Duration
@@ -403,7 +411,8 @@ final class LocalChatViewModel: ObservableObject {
     visionEngine: any LocalVisionServing = LlamaServerVisionEngine(),
     modelAdvisor: LocalModelAdvisor? = nil,
     cloudProviders: CloudProviderRegistry = .live,
-    webSearch: any WebSearchProvider = BraveSearchClient(),
+    webSearch: any WebSearchProvider = OnDeviceSearchProvider.live(),
+    braveSearch: (any WebSearchProvider)? = nil,
     searchSettings: WebSearchSettings? = nil,
     locationProvider: (any LocationProviding)? = nil,
     sessionStore: ChatSessionStore = ChatSessionStore(),
@@ -434,6 +443,7 @@ final class LocalChatViewModel: ObservableObject {
     self.visionEngine = visionEngine
     self.modelAdvisor = modelAdvisor
     self.webSearch = webSearch
+    self.braveSearch = braveSearch
     self.searchSettings = searchSettings
     self.locationProvider = locationProvider
     self.cloudProviders = cloudProviders
@@ -801,7 +811,7 @@ final class LocalChatViewModel: ObservableObject {
     guard !hasFiles, !hasScreenshot else { return .empty }
     return NativeToolPlan.make(.init(typed: typed, hasSelection: attachedContexts.contains { $0.kind == .selectedText },
       hasFiles: false, hasScreenshot: false, searchesAutomatically: searchSettings?.automaticallySearch ?? false,
-      hasSearchKey: searchSettings?.hasAPIKey ?? false, hasFullDiskAccess: (try? messagesAccess()) != nil))
+      hasFullDiskAccess: (try? messagesAccess()) != nil))
   }
 
   /// How often typing may warm the local model. Well inside the minute after which an idle
@@ -925,7 +935,7 @@ final class LocalChatViewModel: ObservableObject {
       nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
                                         contextID: selection.id, editRequested: plan.editRequested)
     }
-    let evidenceTokens = local ? 2_048 : BraveSearchClient.evidenceTokens
+    let evidenceTokens = local ? 2_048 : WebSearchLimits.evidenceTokens
     // Shared by every run of this turn, so a run that starts again can't send the same text twice.
     let sendLedger = MessagesSendLedger()
     let toolbox = nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
@@ -1006,7 +1016,9 @@ final class LocalChatViewModel: ObservableObject {
           // was about to enter its request (made again after asking whether the provider may search).
           var fellBack = false, restarted = false
           while true {
-            let providerSearch = plan.searchBackend == .provider ? ProviderSearch(location: location) : nil
+            let providerSearch = plan.searchBackend == .provider
+              ? ProviderSearch(blockedDomains: owner?.searchSettings?.blockedDomainsMostRecentFirst ?? [], location: location)
+              : nil
             // Codex, Claude Code and Anthropic with /think can't force a tool, so the request also
             // asks in words. The local server adds the same line itself. On provider search,
             // `web_search` names the provider's own tool, which isn't among the definitions.
@@ -1107,24 +1119,26 @@ final class LocalChatViewModel: ObservableObject {
     let coordinator = toolPermissions
     var parts: [any AgentToolbox] = []
     if plan.parts.contains(.search(.provider)) {
-      parts.append(ProviderSearchPart(location: location,
+      parts.append(ProviderSearchPart(blockedDomains: searchSettings?.blockedDomainsMostRecentFirst ?? [],
+                                      location: location,
                                       offersPlacesAndWeather: plan.offersPlacesAndWeather && !locationDeclined))
     }
     if plan.parts.contains(.search(.enigma)) {
       parts.append(WebSearchTool(
         search: { [weak self] query, recency in
           guard let self else { throw CancellationError() }
-          let results = try await self.search(query, writtenQuery: query, maximumTokens: evidenceTokens,
+          let found = try await self.searchReportingProvider(query, writtenQuery: query, maximumTokens: evidenceTokens,
                                               requestID: requestID, refinesQuery: false, toolRecency: .some(recency),
                                               skipsLocation: locationDeclined)
           // The on-device provider collects 1.5 × the budget for the envelope to trim; a tool
-          // result isn't trimmed again, so it keeps F32's budget here (D75).
-          return self.webSearch is OnDeviceSearchProvider
-            ? WebSearchExcerpts.fitted(results, maximumTokens: evidenceTokens) : results
+          // result isn't trimmed again, so it keeps F32's budget here (D75). Brave's fits already.
+          return found.usedBrave ? found.results : WebSearchExcerpts.fitted(found.results, maximumTokens: evidenceTokens)
         },
-        mayQuery: { query in
+        mayQuery: { [weak self] query in
           guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
-          return await coordinator.authorize(.searchAfterMessages(query: query), destination: destination, session: sessionID)
+          let service = await self?.usesBraveSearch == true ? "Brave" : ToolPermission.searchSitesService
+          return await coordinator.authorize(.searchAfterMessages(query: query, service: service), destination: destination,
+                                             session: sessionID)
         },
         onSources: { [weak self] sources in
           await self?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: requestID)
@@ -1260,7 +1274,7 @@ final class LocalChatViewModel: ObservableObject {
                                            session: sessionID)
   }
 
-  /// Which search the reply's footer names (F30): the provider's own, or Brave.
+  /// Whether the reply's searches ran on the provider's own search (F30).
   private func recordReplySearch(provider: Bool, messageID: UUID, sessionID: UUID, requestID: UUID) {
     guard activeRequest?.id == requestID, let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
           let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
@@ -1552,7 +1566,7 @@ final class LocalChatViewModel: ObservableObject {
                   route: route, image: image, allowsCloudImages: request.allowsCloudImages))
               }
             }
-            // Validate the full question and screenshot budget before contacting Brave.
+            // Validate the full question and screenshot budget before contacting a search provider.
             var prepared = try await prepare(requestHistory, requestImage)
             var sources: [WebSearchSource]?
             if searchEnabled {
@@ -1579,7 +1593,7 @@ final class LocalChatViewModel: ObservableObject {
                 }
                 owner.state = .searching
                 // Screen queries resolve the user's references with relevant observed facts.
-                // Pixels, raw OCR, and conversation history are never attached to Brave.
+                // Pixels, raw OCR, and conversation history are never attached to a search.
                 searchResults = try await owner.search(prompt, writtenQuery: searchQuery, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
               }
               try Task.checkCancellation()
@@ -2005,7 +2019,8 @@ final class LocalChatViewModel: ObservableObject {
       activityMessageID = message.id
       message.activity = activity
       message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
-                                   modelName: activeRequest.modelDisplayName)
+                                   modelName: activeRequest.modelDisplayName,
+                                   braveSearch: braveSearchRequest == activeRequest.id)
     }
     sessions[index].append(message)
     if pendingUserMessage?.id == message.id { pendingUserMessage = nil }
@@ -2104,6 +2119,17 @@ final class LocalChatViewModel: ObservableObject {
                       requestID: UUID, refinesQuery: Bool = true,
                       toolRecency: SearchRecency?? = nil, skipsLocation: Bool = false,
                       assistantModel: LocalModel? = nil) async throws -> [WebSearchResult] {
+    try await searchReportingProvider(prompt, writtenQuery: writtenQuery, maximumTokens: maximumTokens,
+                                      requestID: requestID, refinesQuery: refinesQuery, toolRecency: toolRecency,
+                                      skipsLocation: skipsLocation, assistantModel: assistantModel).results
+  }
+
+  /// `search`, also saying whether Brave answered (D131, D141).
+  private func searchReportingProvider(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
+                                       requestID: UUID, refinesQuery: Bool = true,
+                                       toolRecency: SearchRecency?? = nil, skipsLocation: Bool = false,
+                                       assistantModel: LocalModel? = nil) async throws
+    -> (results: [WebSearchResult], usedBrave: Bool) {
     receiveActivity(.phase(.searching), requestID: requestID)
     // The user's text loses its slash commands here on every route, before refining, routing
     // and the provider. A model-written query is used as written.
@@ -2177,15 +2203,56 @@ final class LocalChatViewModel: ObservableObject {
     let assistant = assistantModel.flatMap {
       $0.supportsVision ? nil : LocalModelSearchAssistant(engine: engine) as any SearchModelAssistant
     }
-    let results = try await webSearch.search(request, assistant: assistant) { [weak self] event in
+    let onActivity: AssistantActivitySink = { [weak self] event in
       // Retrieval candidates are not citation sources until context fitting selects them.
       if case .sourcesDiscovered = event {
         await self?.receiveActivity(.phase(.readingSources), requestID: requestID)
       }
     }
+    var results: [WebSearchResult]
+    var usedBrave = false
+    // Brave answers web searches only: places and weather stay on Apple Maps and Open-Meteo (D138).
+    if request.route == .web, usesBraveSearch, let braveSearch {
+      do {
+        results = try await braveSearch.search(request, assistant: nil, onActivity: onActivity)
+        // Brave never sees the blocked sites, so they're dropped here (D132).
+        results = results.filter { searchSettings?.isBlocked($0.source.url) != true }
+        guard !results.isEmpty else { throw WebSearchError.noResults }
+        usedBrave = true
+        recordBraveSearch(requestID: requestID)
+      } catch WebSearchError.missingAPIKey {
+        // The key went outside Enigma, as in Keychain Access: no key means on-device (D130), and
+        // Settings and gate 3 stop naming Brave (D141).
+        try Task.checkCancellation()
+        searchSettings?.refreshKeyState()
+        results = try await webSearch.search(request, assistant: assistant, onActivity: onActivity)
+      } catch let error as WebSearchError {
+        throw error.namingBrave
+      }
+    } else {
+      results = try await webSearch.search(request, assistant: assistant, onActivity: onActivity)
+    }
     try Task.checkCancellation()
     receiveActivity(.phase(.readingSources), requestID: requestID)
-    return results
+    return (results, usedBrave)
+  }
+
+  /// Brave runs the next search while a Brave key is saved; otherwise on-device (D128, D129).
+  var usesBraveSearch: Bool { braveSearch != nil && searchSettings?.hasAPIKey == true }
+
+  /// The current request, once Brave answered one of its searches, for the reply's footer (D131).
+  /// One request at a time, so it never grows (D141).
+  private var braveSearchRequest: UUID?
+
+  private func recordBraveSearch(requestID: UUID) {
+    guard activeRequest?.id == requestID else { return }
+    braveSearchRequest = requestID
+    for sessionIndex in sessions.indices {
+      for messageIndex in sessions[sessionIndex].messages.indices
+      where sessions[sessionIndex].messages[messageIndex].id == activityMessageID {
+        sessions[sessionIndex].messages[messageIndex].origin?.braveSearch = true
+      }
+    }
   }
 
   private func receiveActivity(_ event: AssistantActivityEvent, requestID: UUID) {
@@ -2224,6 +2291,7 @@ final class LocalChatViewModel: ObservableObject {
       selectionEditRequest = (request.id, context.id, selectionEditingSettings.automaticallyReplace)
     }
     activityMessageID = nil
+    braveSearchRequest = nil
     activity = AssistantActivity(id: request.id)
     return request
   }

@@ -25,12 +25,12 @@ struct BraveSearchClient: WebSearchProvider {
     String(prompt.split(whereSeparator: \.isWhitespace).prefix(50).joined(separator: " ").prefix(400))
   }
 
-  /// Brave reads location as a line appended to the query, as it did before `WebSearchRequest`.
+  /// Brave reads location as a line appended to the query. It gets only the city, like the
+  /// search sites: coordinates never go to a search provider (spec §7, D136).
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
     var query = request.query
-    if let coordinate = request.coordinate {
-      query += "\n" + ApproximateLocation(latitude: coordinate.latitude, longitude: coordinate.longitude,
-        area: request.city ?? ApproximateLocation.unknownArea).searchContext
+    if request.coordinate != nil, let city = request.city?.trimmingCharacters(in: .whitespacesAndNewlines), !city.isEmpty {
+      query += "\nApproximate current location: " + city
     }
     return try await search(query, maximumTokens: request.maximumTokens)
   }

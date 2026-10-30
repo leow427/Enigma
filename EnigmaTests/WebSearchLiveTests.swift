@@ -110,7 +110,7 @@ final class WebSearchLiveTests: XCTestCase {
       ("python json load vs loads", nil),
       ("population of tokyo", nil),
     ]
-    let provider = OnDeviceSearchProvider.live()
+    let provider = OnDeviceSearchProvider.live(offline: false)
     var times: [Duration] = []
     var withPages = 0
     for (index, question) in questions.enumerated() {

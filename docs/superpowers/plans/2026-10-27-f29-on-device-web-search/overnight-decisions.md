@@ -108,7 +108,7 @@ The summary at the top is written when the run ends.
 - **CP6:** D81–D90
 - **Run end:** D91
 - **CP7:** D92–D127
-- **CP8:**
+- **CP8:** D128–D144
 - **CP9:**
 - **CP10:**
 
@@ -2303,4 +2303,136 @@ view is released, not from extraction. The CI failures were most likely the
   test loader.
 - **Alternatives:** a second full suite (about 10 minutes of the owner's
   screen).
+- **Reversible:** yes.
+
+### D128 — 2026-10-30 15:34, CP8 — On-device by default; Brave only with a saved key
+
+- **Decided (owner, 2026-10-30):** CP7's relaxed gate failed (typed: on-device
+  equal or better on 47%, bar 65%), so D4 would keep Brave as the default.
+  The owner chose instead: on-device search becomes the default for
+  everyone, so search, `/search`, `/maps` and the models' search tools work
+  with no key; Brave is used only when a Brave key is saved, and isn't
+  removed. Changes to CP8's brief: the Brave client and key storage stay;
+  the launch-time Keychain cleanup is dropped (the key now selects Brave);
+  the Debug-only provider switch is replaced by the key rule; Settings'
+  Web search section shows on-device as the default with the Brave key as an
+  optional extra; the welcome screen's Brave field goes. "Never use this
+  site", F30's blocked domains, the new error messages and `/search` always
+  available stay as the brief says.
+- **Why:** keyless search by default while key holders keep Brave's
+  stronger answers on news, docs and reviews.
+- **Alternatives:** keep Brave the default (D4); remove Brave (the original
+  CP8).
+- **Reversible:** yes.
+
+### D129 — 2026-10-30 15:37, CP8 — Where the Brave-or-on-device choice lives, and when it updates
+
+- **Decided (worker CP8):** `LocalChatViewModel` holds two providers: `webSearch` (on-device by default, `OnDeviceSearchProvider.live()`) and an optional `braveSearch` (`BraveSearchClient()` in `.shared` only). Each search, and each `web_search` call, picks Brave when `braveSearch` is set and `WebSearchSettings.hasAPIKey` is true, otherwise on-device. `hasAPIKey` is published and changes on save and remove, so the next search after a key is added or removed uses the new provider, with no relaunch. `WebSearchProviderFactory` and its Debug key `webSearch.debugProvider` are removed. Tests that inject only `webSearch` never reach Brave, even with a key in their settings, so no test can call Brave's network by accident.
+- **Why:** the view model already reads the settings on the main actor and needs to know which provider ran (footer, budget fitting, Brave's blocked-site filter); one rule in one place.
+- **Alternatives:** a composite provider in `Search/` that reads the key at each search (the caller would still need to ask which one it used). Switch: `LocalChatViewModel.searchProvider`.
+- **Reversible:** yes.
+
+### D130 — 2026-10-30 15:37, CP8 — `missingAPIKey` and the other Brave-only errors
+
+- **Decided (worker CP8):** `invalidAPIKey`, `requestFailed` and `missingAPIKey` stay, for the Brave path only, with wording that names Brave and the renamed section ("Settings → Cloud and search → Web search"). When Brave reports `missingAPIKey` (the key was deleted outside Enigma, for example in Keychain Access, while the setting still says it's saved), the search runs on-device instead, since no key means on-device (D128). `unavailable`, `rateLimited` and `noResults` take the brief's exact messages, which are written for on-device search and also read correctly for Brave; `invalidResponse` becomes "A search site returned an invalid response. Try again."
+- **Why:** D128 keeps Brave; its key and server errors still need messages.
+- **Alternatives:** remove `missingAPIKey` and show nothing (the fallback makes it unreachable from search apart from saving an empty key, which the UI already disables).
+- **Reversible:** yes.
+
+### D131 — 2026-10-30 15:37, CP8 — The footer, gate 3's card and other labels name the provider used
+
+- **Decided (worker CP8):** `ReplyOrigin` gains `braveSearch` (session-only, like the rest of the origin), set when Brave answered one of the reply's searches; the footer says "brave search" then and "web search" otherwise (on-device or the provider's own). Gate 3's card for `web_search` after message text says "It will be sent to Brave." when Brave would run and "It will be sent to search sites." otherwise (`searchAfterMessages` gains a `service` with that default). `AutoRouter`, `searchNote`, `locationExplanation` and the gallery placeholder take spec §8's text; `locationExplanation` adds no Brave clause, since Brave gets only what the search sites get (the city), as before.
+- **Why:** D128: show the provider actually used.
+- **Alternatives:** always "web search" (the original brief).
+- **Reversible:** yes.
+
+### D132 — 2026-10-30 15:37, CP8 — Blocked sites also filter Brave's results
+
+- **Decided (worker CP8):** Brave's results are filtered in the view model after the search: a result whose host is a blocked domain or under it is dropped, and nothing left gives `noResults`. Checked first: Brave's client never saw the list. F30's provider search gets the list as the brief says (Task 8.5b).
+- **Why:** "Never use this site" must hold whichever provider runs.
+- **Alternatives:** ask Brave to exclude them in the query (`-site:`), which leaks the list to Brave and is capped by query length.
+- **Reversible:** yes.
+
+### D133 — 2026-10-30 15:37, CP8 — Settings and welcome text under D128
+
+- **Decided (worker CP8):** the Settings section keeps the brief's rows and adds, after the status row, an optional Brave row: "Use Brave Search instead", subtitle "Optional. With a saved key, searches go to Brave instead of running on this Mac. Needs a Brave Search API key with LLM Context access; Brave bills it separately. Stored in macOS Keychain.", with the key field, Save key and Remove key, and the status `key saved` or `not used`. The status row reads "ready" with no key, and "Brave in use" (`.on`) with one. The note names CP0b's and CP7's lineup (DuckDuckGo and Wikipedia, Wikidata for facts, Google News headlines for news) rather than Mojeek and Startpage, which aren't used. The welcome row is the brief's, with no Brave field.
+- **Why:** D128; spec §8 says CP8 adjusts the site names to the lineup.
+- **Alternatives:** keep the key in an advanced disclosure.
+- **Reversible:** yes.
+
+### D134 — 2026-10-30 15:37, CP8 — No launch cleanup; the brief's cleanup tests are not written
+
+- **Decided (worker CP8):** `BraveKeyCleanup`, its launch call and its three tests (`testBraveKeyCleanupRunsOnce`, `…RetriesAfterFailure`) are dropped (D128). Brave's own tests (wire format, key storage, redirect blocker) stay, since the client stays. The exit criterion "`grep -i brave` lists only the cleanup" no longer applies.
+- **Why:** D128.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D135 — 2026-10-30 15:37, CP8 — Scope cut for usage: no review round by this worker
+
+- **Decided (worker CP8):** weekly usage was 87% at the start against the 92% stop; the worker builds and tests the change and leaves the review rounds to the orchestrator.
+- **Why:** agent-rules usage stop.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D136 — 2026-10-30 15:53, CP8 — Brave gets only the city; the blocked-sites note names who can't enforce it
+
+- **Decided (worker CP8):** (1) Brave's query used to carry "Approximate current location: <area> (<lat>, <lon>)"; it now carries only the city, as the search sites do, and nothing without one. Spec §7 says coordinates never go to a search provider, and Brave is one again (D128). `testBraveAppendsLocationFromRequest` expects the city alone; `testBraveUsesUnknownAreaWithoutCity` became `testBraveSendsNoCoordinatesWithoutCity`. (2) Spec §8's sentence "…but only Anthropic enforces it" is wrong for the merged code: only ChatGPT and Claude Code use their provider's search (`CloudProviderID.nativeWebSearchProviders`), and the Anthropic API's `blocked_domains` tool isn't in the code. The note reads "ChatGPT and Claude Code, when they use their own search, are asked to avoid these sites, but Enigma can't enforce it." `ProviderSearch.blockedDomains` is filled anyway for when a provider can enforce it. (3) `locationExplanation` takes spec §8's text unchanged, which is now true for Brave too.
+- **Why:** never send more than the spec allows; the code, not the spec's assumption.
+- **Alternatives:** keep Brave's coordinates and add a Brave clause to `locationExplanation` (`BraveSearchClient.search(_:)`).
+- **Reversible:** yes.
+
+### D137 — 2026-10-30 15:53, CP8 — Smaller choices
+
+- **Decided (worker CP8):** `OnDeviceSearchProvider.live()` in the test host uses `OfflineSearchHTTPClient` (every request fails at once) and a MapKit search that fails, so a default-constructed view model never reaches the network. `KeyboardShortcutsHelpView` loses its `searchSettings` parameter (it only gated the search rows). `WelcomeSetup.Activity.isEnteringKey` and the welcome's key-field state go, since no welcome field takes a key. The Settings empty-list note gets the test marker "No blocked sites". Source rows keep their link and show **Undo** beside it after blocking; "Never use <domain>" is a context-menu item and an accessibility action. `docs/Web-Search.md` and `docs/Slash-Commands.md` are left for CP10, as the brief's starting-point table says.
+- **Why:** the brief's interfaces and "no dead key UI or plumbing".
+- **Alternatives:** none needed.
+- **Reversible:** yes.
+
+### D138 — 2026-10-30 21:10, CP8 — With a Brave key, places and weather stay on-device
+
+- **Decided (reviewer CP8, round 1):** Brave answers only `.web` requests. `.places` and `.weather` (from `/maps`, typed questions, screen, selection and attachments) stay on Apple Maps and Open-Meteo even when a Brave key is saved.
+- **Why:** with a key, `search()` sent every route to Brave as a text query, so `/maps coffee` or "weather in Paris" on a small model lost CP6's places and weather answers, and the Settings note and `locationExplanation` became untrue.
+- **Alternatives:** send all routes to Brave (the CP8 build before this fix) in `LocalChatViewModel.search`.
+- **Reversible:** yes.
+
+### D139 — 2026-10-30 21:10, CP8 — Online seam for live tests; offline places and weather defaults in the test host
+
+- **Decided (reviewer CP8, round 1):** `OnDeviceSearchProvider.live()` gains an explicit online switch so `WebSearchLiveTests` and F30's evaluation keep reaching the network when opted in, while the test host's default stays offline. F30's evaluation injects `braveSearch` for its "brave" backend. The view model's default `placeSearch`, `weatherLookup` and `weatherGeocoder` are offline in the test host, which makes D137's claim true.
+- **Why:** D137's offline guard silently broke the opt-in live tests, and the places and weather defaults still reached MapKit and Open-Meteo.
+- **Alternatives:** keep the live defaults and rely on every test replacing them.
+- **Reversible:** yes.
+
+### D140 — 2026-10-30 21:10, CP8 — One review round; the orchestrator verifies the fixes
+
+- **Decided (orchestrator):** no round 2. Round 1 found no Blocker and four small Should fixes (one route condition, test seams, one new test, one sentence), and the reviewer judged round 2 unnecessary. Per the owner's rule ("only 1 or 2 if reviewer 1 or 2 comes back with only small fixes"), I check the fixes with targeted test runs and a mutant for the gate 3 label. The nits are fixed too, except the Undo state living in the row (it can vanish if the sources list collapses), which is left as a known limitation. Brave's own errors now name Brave, superseding that part of D130.
+- **Why:** owner's review rule; usage at 88%.
+- **Alternatives:** run round 2 with a fresh Opus reviewer.
+- **Reversible:** yes.
+
+### D141 — 2026-10-30 16:11, CP8 — How review round 1's nits are built
+
+- **Decided (worker CP8):** (1) `search` is a wrapper over `searchReportingProvider`, which returns whether Brave answered; `web_search`'s fitting uses that, not a value read before the search. (2) On `missingAPIKey`, `WebSearchSettings.refreshKeyState()` rereads the Keychain, so Settings, gate 3 and the next search stop naming Brave. (3) New cases `braveRateLimited`, `braveUnavailable`, `braveInvalidResponse` with Brave-named messages; the view model maps Brave's errors through `namingBrave`, so `BraveSearchClient` and its tests keep the shared cases, and the on-device messages stay the brief's. (4) The footer's record is one `braveSearchRequest: UUID?`, reset in `beginGeneration`, not a set that grows. (5) `NativeToolPlanTests`' dead key loops are removed (counts 6 × 8 and 8). (6) `ScreenNativeSmokeTests`' live mode uses `OnDeviceSearchProvider.live(offline: false)`. (7) `MapKitPlaceSearch.offline` is shared by `live()` and the view model's test-host defaults.
+- **Why:** review round 1.
+- **Alternatives:** have `BraveSearchClient` throw the Brave cases itself (changes its tests and the evaluation's).
+- **Reversible:** yes.
+
+### D142 — 2026-10-30 16:11, CP8 — The reading sentence and the "what leaves the Mac" table
+
+- **Decided (worker CP8):** Settings' note says "Result pages are read on this Mac, up to six at a time, without scripts or images." Spec §7's table gains a Brave row (only with a saved key: query, city only, the key, the IP address; web searches only) and says result sites are read up to 6 at a time; §8's note and the Goals line are marked amended. The plan's goal and CP8 row say Brave stays with a saved key.
+- **Why:** review round 1; six is the reading concurrency, not a total.
+- **Alternatives:** state a total cap (none exists in the code).
+- **Reversible:** yes.
+
+### D143 — 2026-10-30 16:11, CP8 — Tests for round 1, and a mutation check
+
+- **Decided (worker CP8):** new `WebSearchTests.testPlacesAndWeatherNeverReachBrave` and `testBraveFailuresNameBraveAndMissingKeyRefreshesState`, `NativeToolRequestTests.testSearchAfterMessagesCardNamesTheProviderUsed` (with `makeChat(braveSearch:)`), and an offline assertion on the test host's default provider in `testBraveRunsOnlyWithASavedKey`. Mutants "Brave for every route" and "gate 3 always says search sites" each fail their test; the code was restored from a copy.
+- **Why:** review round 1, item 3.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D144 — 2026-10-30 22:05, CP8 — Commit with one known flaky UI test
+
+- **Decided (orchestrator):** CP8 is committed although the full suite had one failure, `EnigmaMainWindowTests.testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField` (timeout at "the held message pending, the stopped draft back in the field"). The full suite ran 2022 tests: 40 skipped, 1 failure.
+- **Why:** the same seven UI classes run back to back fail this test the same way on CP7's commit `82e5fb3` (242 tests, 1 failure) and on CP8 (245 tests, 1 failure). It passes alone and in its class alone. So it is an existing timing flake under load, not caused by CP8. Logs: `/private/tmp/claude-501/f29-cp8/ui-base.log`, `ui-cp8.log`, `full-suite.log`.
+- **Alternatives:** fix the test's timing as a separate change (it isn't F29's); watch it on CI.
 - **Reversible:** yes.

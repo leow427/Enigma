@@ -28,10 +28,8 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     let commands: [SlashCommand]
   }
 
-  static func available(hasSearchKey: Bool) -> [SlashCommand] {
-    // /maps needs the key as /search does, until the keyless search replaces Brave (CP8).
-    allCases.filter { ($0 != .search && $0 != .maps) || hasSearchKey }
-  }
+  /// Every command, /search and /maps included: search needs no setup (spec §8).
+  static func available() -> [SlashCommand] { allCases }
 
   // Quoted examples and code are literal. Requiring whitespace before a slash
   // avoids interpreting URLs, paths, and escaped commands as tool requests.

@@ -17,9 +17,8 @@ struct NativeToolPlan: Equatable, Sendable {
     var hasFiles: Bool
     var hasScreenshot: Bool
     var searchesAutomatically: Bool
-    var hasSearchKey: Bool
     var hasFullDiskAccess: Bool
-    /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). It needs no Brave key.
+    /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). Enigma's own search needs no key either (spec §8).
     var providerSearch: Bool = false
     /// The user declined the provider's search in a chat holding message text: no search at all,
     /// not even Enigma's (owner, 2026-10-29).
@@ -78,14 +77,13 @@ struct NativeToolPlan: Equatable, Sendable {
     plan.inputs = inputs
     // A typed /messages turn keeps provider search; `submitNative` asks before it (owner, 2026-10-29).
     let searchOffered = inputs.searchesAutomatically || inputs.typed.search || inputs.typed.maps
-    if !inputs.searchDeclined, searchOffered,
-       let backend: SearchBackend = inputs.providerSearch ? .provider : inputs.hasSearchKey ? .enigma : nil {
-      plan.parts.insert(.search(backend))
+    if !inputs.searchDeclined, searchOffered {
+      plan.parts.insert(.search(inputs.providerSearch ? .provider : .enigma))
       plan.offersPlacesAndWeather = true
       // On provider routes `web_search` names the provider's own tool.
       if inputs.typed.search { plan.requiredTool = "web_search" }
     }
-    // /maps needs no search key: find_places is Apple Maps. It wins over /search (spec §6.3).
+    // find_places is Apple Maps. /maps wins over /search (spec §6.3).
     if !inputs.searchDeclined, inputs.typed.maps {
       plan.offersPlacesAndWeather = true
       plan.requiredTool = "find_places"

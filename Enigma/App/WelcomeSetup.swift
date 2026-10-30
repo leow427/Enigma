@@ -116,12 +116,11 @@ extension WelcomeSetup {
     var isInstalling = false
     var installFailed = false
     var connectionFailed = false
-    var isEnteringKey = false
   }
 
   /// It thinks while the Mac is checked or a model downloads and verifies, shows
-  /// the error state when an install or connection fails, and listens while
-  /// someone types an API key.
+  /// the error state when an install or connection fails. The welcome has no key
+  /// field to listen to since search needs no setup (F29 CP8).
   static func characterState(for step: Step, _ activity: Activity) -> EnigmaCharacterState {
     switch step {
     case .welcome, .walkthrough:
@@ -131,7 +130,7 @@ extension WelcomeSetup {
       return activity.isDetectingHardware || activity.isInstalling ? .thinking : .idle
     case .connections:
       if activity.connectionFailed { return .error }
-      return activity.isEnteringKey ? .listening : .idle
+      return .idle
     }
   }
 

@@ -1,5 +1,13 @@
 # CP8: Switch-over — on-device by default, Brave removed
 
+> *Amended (owner approved 2026-10-30), D128:* CP7's gate failed, and the owner chose on-device
+> search as the default for everyone, with Brave used **only when a Brave key is saved**. Brave's
+> client and key storage stay; the Debug switch is replaced by the key rule (D129); the launch-time
+> Keychain cleanup is dropped (D134); Settings shows on-device as the default with Brave as an
+> optional extra (D133); the welcome's Brave field goes. Labels name the provider actually used
+> (D131); blocked sites also filter Brave's results (D132); Brave gets only the city (D136). The
+> exit criterion on `grep -i brave` no longer applies. Tasks below are amended where they differ.
+
 Read [agent-workflow.md](agent-workflow.md), the spec (§7 "Brave key
 cleanup", §8, "Failure handling"), and the Hand-offs of CP5 to
 [CP7](cp7-evaluation.md#hand-off). **Start only if CP7's gate passed.** Its
@@ -99,7 +107,12 @@ kept.", as today:
 | `rateLimited` | "Search sites are limiting requests right now. Try again shortly." |
 | `noResults` | "No usable sources were found. Try a more specific question." |
 
-**The cleanup at launch:**
+*Amended (owner approved 2026-10-30), D128, D130, D134:* the client, `WebSearchCredentialStore`,
+`KeychainSearchCredentialStore` and the key API stay; `missingAPIKey`, `invalidAPIKey` and
+`requestFailed` stay for Brave only, and `BraveKeyCleanup` isn't built. A saved key selects
+Brave at each search (`LocalChatViewModel.braveSearch`, D129).
+
+**The cleanup at launch** (*dropped, D134*):
 
 - It's skipped when `TestHost.isActive`.
 - It calls
@@ -153,6 +166,11 @@ which always includes `.search` and `.maps`. `NativeToolPlan.Inputs` loses
 - [ ] **Run** those classes. Expect them to pass.
 
 ### Task 8.3: The Settings section
+
+*Amended (owner approved 2026-10-30), D133, D136:* after the status row, an optional
+"Use Brave Search instead" row with the key field, Save key and Remove key; the status row reads
+"Brave in use" when a key is saved. The note names the kept lineup, and the cloud-search sentence
+names ChatGPT and Claude Code.
 
 **Files:** rewrite `Enigma/Search/WebSearchSettingsSection.swift`. Tests go
 in `EnigmaSettingsTests`.
@@ -269,6 +287,9 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
 
 ### Task 8.6: Wording
 
+*Amended (owner approved 2026-10-30), D131:* the footer says "brave search" when Brave answered
+(a key was saved) and "web search" otherwise; gate 3's card names Brave or "search sites".
+
 **Files:** the five places listed in spec §8's wording table, plus
 `EnigmaConversationLogic.swift:170`, and their tests (`AutoRouterTests`,
 `EnigmaConversationTests`, `EnigmaMainWindowTests`).
@@ -313,12 +334,141 @@ extension EnvironmentValues { @Entry var sourceBlocking: SourceBlocking? = nil }
 
 ## Hand-off
 
-*Filled in by the CP8 worker, including the old test → replacement mapping
-table.*
+*Filled in by the CP8 worker, 2026-10-30. Decisions D128–D137 in
+[overnight-decisions.md](overnight-decisions.md).*
 
-1. **Summary:**
+1. **Summary:** built under the owner's D128, not the original removal. On-device search is
+   the default for everyone: `/search`, `/maps`, automatic search and capable models'
+   `web_search`, `find_places` and `get_weather` need no key (`hasSearchKey`,
+   `available(hasSearchKey:)` and the Help gate are gone; `canSearchAutomatically ==
+   automaticallySearch`). Brave runs only while a Brave key is saved: `LocalChatViewModel`
+   holds `webSearch` (on-device) and an optional `braveSearch` (set in `.shared` only) and
+   picks per search, so saving or removing a key takes effect on the next search (D129).
+   `WebSearchProviderFactory` and its Debug key are gone; no Keychain cleanup (D134). Brave's
+   results are filtered by the blocked sites (D132), Brave gets only the city (D136), and a key
+   deleted outside Enigma falls back to on-device (D130). Settings' Web search section, the
+   welcome row, "Never use this site" with Undo, blocked sites for F30's provider search, the
+   brief's error messages and the wording are in. Labels name the provider used: footer
+   "brave search" or "web search", gate 3 "Brave" or "search sites" (D131).
+   Review round 1 (no Blocker): Brave answers web searches only, places and weather stay on
+   Apple Maps and Open-Meteo (D138); `live(offline:)` is the seam for live tests, and the view
+   model's places and weather defaults are offline in the test host (D139); F30's evaluation
+   injects Brave with its key; Brave's own failures name Brave; a missing key refreshes the
+   saved-key state; the search reports which provider ran (D141); the Settings note reads
+   "up to six at a time" (D142).
 2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+   - Search: `WebSearch.swift` (messages), `WebSearchSettings.swift` (`canSearchAutomatically`,
+     `domain(of:)`, `isBlocked(_:)`, `blockedDomainsMostRecentFirst`),
+     `WebSearchSettingsSection.swift` (rewritten), `OnDeviceSearch.swift` (factory removed,
+     `OfflineSearchHTTPClient`, test-host `live()`), `BraveSearchClient.swift` (city only).
+   - Chat: `AssistantToolbox.swift` (no `hasSearchKey`), `AssistantActivity.swift`
+     (`allowsBlocking`, `SourceBlocking`), `AssistantActivityView.swift` (`sourceBlocking`
+     environment; the row's action, blocked state and Undo), `ChatDomain.swift`
+     (`ReplyOrigin.braveSearch`), `EnigmaConversationLogic.swift` (footer), `AutoRouter.swift`,
+     `ToolPermissions.swift` / `ToolPermissionCoordinator.swift` (gate 3's service).
+   - App: `SlashCommand.swift` (`available()`), `AppShellView.swift` (environment, commands,
+     Help), `KeyboardShortcutsHelpView.swift`, `WelcomeSetupView.swift` / `WelcomeSetup.swift`
+     (row; key field and listening state removed), `SettingsView.swift`
+     (`locationExplanation`), `EnigmaMainWindowLogic.swift` (`searchNote`),
+     `EnigmaControls.swift` (gallery placeholder).
+   - `LocalInference/LocalChatViewModel.swift`: two providers and the choice, Brave filter and
+     fallback, footer record, blocked domains to `ProviderSearch` and `ProviderSearchPart`,
+     gate 3's service, `WebSearchLimits.evidenceTokens`.
+   - `Screen/ScreenPromptContext.swift`: comments only.
+   - Tests: `WebSearchTests`, `NativeToolPlanTests`, `NativeToolRequestTests`,
+     `EnigmaSettingsTests`, `EnigmaWelcomeTests`, `EnigmaConversationTests`,
+     `EnigmaMainWindowTests`, `ScreenViewTests`, `ScreenCaptureTests`,
+     `EnigmaCompactPanelTests`, `ComposerIntentTests`, `ToolPermissionTests`,
+     `ScreenNativeSmokeTests`.
+   - Docs: this brief, the spec (§7, §8) and the plan (interface map, progress) amended;
+     decisions D129–D137.
+3. **Decisions:** D128 (owner), D129 (the choice in the view model), D130 (errors;
+   `missingAPIKey` stays for Brave, falls back to on-device), D131 (labels), D132 (Brave
+   filter), D133 (Settings and welcome text), D134 (no cleanup), D135 (no worker review
+   round), D136 (Brave city only; the cloud-search sentence), D137 (smaller choices); review
+   round 1: D138 (Brave for web searches only), D139 (online seam, offline defaults),
+   D140 (one round), D141 (nits), D142 (reading sentence, spec table), D143 (tests).
+   `WebSearchEvaluationTests` keeps its opt-in Brave comparison, unchanged.
+
+   **Test mapping (old → replacement):**
+
+   | Old test | Replacement |
+   | --- | --- |
+   | `WebSearchTests.testAutomaticSearchSettingsPersistAndRequireAKey` | `testAutomaticSearchSettingsPersistAndNeedNoKey` (+ new `testSearchWorksWithoutAnySetup`) |
+   | `WebSearchTests.testAutomaticSearchOffAndMissingKeyStillAllowForcedSearch` | `testAutomaticSearchOffStillAllowsForcedSearch` (no key now searches automatically) |
+   | `WebSearchTests.testActualComposersRequireKeyForAutomaticSearchAndSearchSuggestions` | `testActualComposersNeedNoKeyForAutomaticSearchAndSearchSuggestions` |
+   | `WebSearchTests.testDebugSwitchSelectsOnDeviceProvider`, `testBraveRemainsDefault` | `testBraveRunsOnlyWithASavedKey`, `testBraveMissingKeyFallsBackToOnDevice` |
+   | `WebSearchTests.testBraveAppendsLocationFromRequest` | same name, city only (D136) |
+   | `WebSearchTests.testBraveUsesUnknownAreaWithoutCity` | `testBraveSendsNoCoordinatesWithoutCity` |
+   | Brave wire format, key storage, HTTP errors (`testBraveRequestAndGenericPOIMapResponse`, `testMissingCredential…`, `testEmptyMalformedAndOfflineResponses`, `testCredentialSaveAndRemoval`) | unchanged: Brave stays |
+   | `NativeToolPlanTests.testPlanTable`, `testSearchBackend` | key loops kept; the plan no longer depends on the key |
+   | `NativeToolPlanTests.testRemadeWithoutProviderSearch` (keyless remake has no search) | remake with nothing asking for search has none; keyless remake gets `.search(.enigma)` |
+   | `NativeToolPlanTests.testPlacesAndWeatherOfferedWithSearch` (no key → nothing) | no key → search, places and weather |
+   | `NativeToolPlanTests.testMapsRequiresFindPlaces` (`key: false`) | key parameter removed |
+   | `NativeToolRequestTests.testProviderSearchNeedsNoKey` (no key → no `web_search`) | no key → Enigma's `web_search` |
+   | `NativeToolRequestTests.testUnavailableFallbackWithoutKeyHasNoSearch` | `testUnavailableFallbackWithoutKeyUsesOnDeviceSearch` |
+   | `ScreenCaptureTests` (`available(hasSearchKey:)`) | a list without `/search` stands in for the changed menu |
+   | `ComposerIntentTests` (`/maps` only with a key) | `/maps` and `/search` always |
+   | `EnigmaMainWindowTests.testCommandExamplesFollowTheAvailableCommands`, the `/` button test | `available()`; the no-search examples use an explicit list |
+   | `EnigmaCompactPanelTests:48`, `EnigmaWelcomeTests` tour card | `available()` |
+   | `EnigmaWelcomeTests.testReturnInTheKeyFieldSavesTheKeyAndStaysOnConnections`, `testFailedKeySaveShowsTheErrorAndTheCharactersErrorState` | `testConnectionsStepShowsWebSearchReadyWithNoKeyField` (key-save errors stay covered by `EnigmaSettingsTests.testFailedBraveKeySaveShowsTheError`) |
+   | `EnigmaWelcomeTests.testCharacterThinksListensAndShowsErrorsOnTheRightSteps` (listening) | idle on connections; errors still outrank |
+   | `EnigmaSettingsTests.testFailedBraveKeySaveShowsTheError` ("no key") | "not used", and on-device stays "ready" |
+   | `EnigmaConversationTests` footer ("brave search" without provider search) | "web search"; "brave search" only with `braveSearch` |
+   | `ScreenViewTests.testRepeatedScreenSubmissionsKeepFullPanelInsideWindow` (no search without a key) | every command offered; "search the web" visible |
+   | `ScreenViewTests.testAutoLimitationInThePanelOpensTheDetailsWithTheProblem` | automatic search off, the pre-CP8 condition |
+   | `ToolPermissionTests.testCardCopy` ("sent to Brave") | "sent to search sites"; "Brave" with the service |
+   | `ScreenNativeSmokeTests` (opt-in) footer | "web search" |
+
+   **New tests:** `WebSearchTests.testErrorMessages`, `testSearchWorksWithoutAnySetup`,
+   `testBraveRunsOnlyWithASavedKey`, `testBlockedSitesFilterBravesResults`,
+   `testBraveMissingKeyFallsBackToOnDevice`, `testNeverUseLabel`,
+   `testNoBlockActionForAppleMapsOrOpenMeteo`, `testBlockThenUndoRestores`;
+   `NativeToolRequestTests.testProviderSearchCarriesBlockedSites`;
+   `EnigmaSettingsTests.testWebSearchSectionText`, `testBlockedSitesListAndRemove`,
+   `testBlockedSitesNoteMentionsCloudSearch`, `testSaveWebSearchSectionScreenshots` (Paper
+   and Ink, empty and two sites; skipped without `ENIGMA_SNAPSHOT_DIR`).
+4. **Verification** (logs in `/private/tmp/claude-501/f29-cp8/`):
+   - `scripts/verify-xcode.sh build`: succeeded. `analyze`: succeeded.
+   - Non-UI classes (`WebSearchTests`, `NativeToolPlanTests`, `NativeToolRequestTests`,
+     `NativeWebSearchTests`, `NativeToolsTests`, `ComposerIntentTests`, `ToolPermissionTests`,
+     `PlacesAndWeatherToolTests`, `NativeToolsEvalTests`, `OnDeviceSearchTests`,
+     `ScreenPipelineTests`, `ScreenNativeSmokeTests`, `CodexSubscriptionTests`,
+     `ClaudeCodeSubscriptionTests`, `LocalModelSelectionTests`): 475 executed, 4 skipped; the
+     12 failures (gate 3 copy and the new view-model tests' submit form) fixed, then
+     `WebSearchTests` + `ToolPermissionTests` 109 executed, 0 failed.
+   - Hosted UI classes (`EnigmaSettingsTests`, `EnigmaWelcomeTests`, `ScreenViewTests`,
+     `EnigmaMainWindowTests`, `ScreenCaptureTests`, `EnigmaCompactPanelTests`,
+     `EnigmaConversationTests`): 245 executed, 6 skipped, 7 failed (6 `ScreenViewTests`
+     assertions on "no search without a key", retargeted; 1 `EnigmaMainWindowTests` send-now
+     wait); then `ScreenViewTests` with that `EnigmaMainWindowTests` test: 36 executed,
+     0 failed. `ScreenViewTests`' 15 s burst wait (8626f32) is unchanged.
+   - Further classes (`AutoRouterTests`, `EnigmaControlsTests`, `ScreenNativeSmokeTests`,
+     `ScreenPipelineTests`, `EnigmaConversationTests`, `SourceQualityTests`,
+     `MessagesToolCallingTests`, `RequestLifecycleTests`, `SubscriptionModelRefreshTests`,
+     `CloudModeTests`, `WebSearchEvaluationTests`, `NativeWebSearchEvaluationTests`,
+     `PlacesAndWeatherTests`, `SearchFactsAndNewsTests`): 251 executed, 5 skipped, 0 failed.
+   - Not run: the full suite (the orchestrator's), live runs (none needed).
+   - **After review round 1** (D138–D143): `WebSearchTests`, `ToolPermissionTests`,
+     `NativeToolRequestTests`, `NativeToolPlanTests`, `WebSearchLiveTests`,
+     `NativeWebSearchEvaluationTests`, `NativeWebSearchLiveTests`, `ScreenNativeSmokeTests`,
+     `SearchAssistTests`, `PlacesAndWeatherToolTests`, `OnDeviceSearchTests`: 306 executed,
+     12 skipped (opt-in live), 0 failed. Mutants "Brave for every route" and "gate 3 always
+     says search sites" each fail their new test. No UI class rerun (only the Settings note
+     string changed).
 5. **Limitations:**
+   - No review round yet (D135). The manual check in a signed build (welcome "Web search ·
+     ready", Settings section, keyless searches on small and capable models, "Never use this
+     site" and Undo, Brave with a saved key) is the owner's.
+   - "Never use this site" is a context-menu item and an accessibility action; the hosted
+     tests check the model (`SourceBlocking`), not the context menu itself.
+   - `docs/Web-Search.md` and `docs/Slash-Commands.md` still describe the key; CP10 rewrites
+     them.
+   - Snapshot images weren't generated or looked at (no `ENIGMA_SNAPSHOT_DIR`).
+   - The row's Undo state lives in its `@State` (known, not fixed, per the review).
 6. **For the next checkpoint:**
+   - `LocalChatViewModel(webSearch:braveSearch:)`: tests inject only `webSearch` and never
+     reach Brave; inject `braveSearch` to test the key rule.
+   - `ReplyOrigin.braveSearch` is session-only, like `providerSearch`.
+   - `SourceBlocking(settings:)` is set once in `AppShellView.body`; CP9's map card rows
+     shouldn't offer blocking (Apple Maps, `allowsBlocking` false).

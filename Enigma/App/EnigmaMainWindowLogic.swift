@@ -517,7 +517,7 @@ enum KeyboardShortcutsHelp {
 
   static let search = Shortcut("Search for this message only", "/search")
   static let maps = Shortcut("Find places with Apple Maps", "/maps")
-  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search · Brave."
+  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search."
 
   static let commands: [Shortcut] = [
     Shortcut("Capture the full desktop", "/screen"),

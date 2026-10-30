@@ -73,8 +73,10 @@ struct ReplyOrigin: Sendable, Equatable {
   let mode: ChatMode
   let providerID: String
   let modelName: String
-  /// The provider's own web search ran the reply's searches, not Brave (F30).
+  /// The provider's own web search ran the reply's searches (F30).
   var providerSearch = false
+  /// Brave answered one of the reply's searches: a Brave key was saved (D128, D131).
+  var braveSearch = false
 }
 
 struct ChatMessage: Codable, Sendable, Equatable, Identifiable {

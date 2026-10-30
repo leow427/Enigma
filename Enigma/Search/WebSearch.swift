@@ -75,6 +75,8 @@ extension WebSearchProvider {
 
 enum WebSearchError: LocalizedError, Equatable {
   case missingAPIKey, invalidAPIKey, rateLimited, unavailable, invalidResponse, noResults, contextTooSmall
+  /// Brave's own failures, worded with its name (D141); the on-device ones above name search sites.
+  case braveRateLimited, braveUnavailable, braveInvalidResponse
   /// The message had only slash commands and nothing was attached to write a query from.
   case emptyQuery
   case requestFailed(Int)
@@ -82,17 +84,33 @@ enum WebSearchError: LocalizedError, Equatable {
   var errorDescription: String? {
     let detail: String
     switch self {
-    case .missingAPIKey: detail = "Add your Brave Search API key in Settings → Cloud and search → Web search · Brave."
-    case .invalidAPIKey: detail = "Brave rejected the API key. Check its LLM Context access in Settings → Cloud and search → Web search · Brave."
-    case .rateLimited: detail = "Brave Search is rate limiting this account. Try again shortly."
-    case .unavailable: detail = "Brave Search could not be reached. Check your connection and try again."
-    case .invalidResponse: detail = "Brave Search returned an invalid response. Try again."
-    case .noResults: detail = "Brave Search found no relevant sources. Try a more specific question."
+    // Brave only (D128, D130): a saved key selects Brave; without one, search runs on this Mac.
+    case .missingAPIKey: detail = "Enter a Brave Search API key in Settings → Cloud and search → Web search."
+    case .invalidAPIKey: detail = "Brave rejected the API key. Check its LLM Context access in Settings → Cloud and search → Web search, or remove it to search on this Mac."
+    case .rateLimited: detail = "Search sites are limiting requests right now. Try again shortly."
+    case .unavailable: detail = "Search sites couldn't be reached. Check your connection and try again."
+    case .invalidResponse: detail = "A search site returned an invalid response. Try again."
+    case .noResults: detail = "No usable sources were found. Try a more specific question."
     case .emptyQuery: detail = "There's nothing to search for: the message has only commands. Add a question and send again."
     case .contextTooSmall: detail = "There isn’t enough room for web sources. Shorten your question or choose a larger model."
+    case .braveRateLimited: detail = "Brave Search is limiting requests right now. Try again shortly."
+    case .braveUnavailable: detail = "Brave Search couldn't be reached. Check your connection and try again."
+    case .braveInvalidResponse: detail = "Brave Search returned an invalid response. Try again."
     case .requestFailed(let status): detail = "Brave Search failed (\(status)). Try again."
     }
     return detail + " Your draft has been kept."
+  }
+}
+
+extension WebSearchError {
+  /// The same failure from Brave, in words that name it (D141).
+  var namingBrave: WebSearchError {
+    switch self {
+    case .rateLimited: .braveRateLimited
+    case .unavailable: .braveUnavailable
+    case .invalidResponse: .braveInvalidResponse
+    default: self
+    }
   }
 }
 

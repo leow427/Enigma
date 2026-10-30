@@ -7,7 +7,8 @@ This plan drives **F29** in `to-do.md`.
 **Goal:** Replace Brave web search with search that runs on the user's Mac.
 It needs no key, ranks for quality, and adds Apple Maps places and
 Open-Meteo weather, with a `/maps` command and a map card. Capable models
-reach it through three tools; small models through today's routing. Brave
+reach it through three tools; small models through today's routing. *Amended (owner approved
+2026-10-30), D128:* Brave isn't removed; it runs only while a Brave key is saved. Brave
 is removed once a quality gate against it passes.
 
 **Architecture:** `OnDeviceSearchProvider` implements the existing
@@ -215,7 +216,7 @@ dependency stops the line until the owner decides.
 | CP5 | [Passages and pipeline](2026-10-27-f29-on-device-web-search/cp5-passages-and-pipeline.md) | CP4 | `PassageRanker`, `OnDeviceSearchProvider` for the web route, the new prompt, `web_search`'s excerpt result and `recency`, the Debug switch |
 | CP6 | [Places and weather](2026-10-27-f29-on-device-web-search/cp6-places-and-weather.md) | CP5 | `WeatherLookup` with Open-Meteo geocoding, `PlaceSearch`, the small-model routes, `find_places` and `get_weather`, `/maps` |
 | CP7 | [Evaluation](2026-10-27-f29-on-device-web-search/cp7-evaluation.md) | CP6 | The 60-question set with model-style queries, evaluation test and script, the tool-use prompts, tuning, the gate report |
-| CP8 | [Switch-over](2026-10-27-f29-on-device-web-search/cp8-switch-over.md) | CP7 gate passed | On-device default, Brave removed, key cleanup, new Settings and welcome, "Never use this site" with F30's blocked domains |
+| CP8 | [Switch-over](2026-10-27-f29-on-device-web-search/cp8-switch-over.md) | CP7 gate (owner's D128 instead) | On-device default, Brave only with a saved key (*amended, D128*: not removed, no key cleanup), new Settings and welcome, "Never use this site" with F30's blocked domains |
 | CP9 | [Map card](2026-10-27-f29-on-device-web-search/cp9-map-card.md) | CP8 | `MapCard`, `ChatMessage.mapPlaces`, the pin choice, the test-host placeholder |
 | CP10 | [Docs and maintenance](2026-10-27-f29-on-device-web-search/cp10-docs-and-maintenance.md) | CP9 | Docs, screenshots, notices check, upstream watch, `release.sh` warning, final audit and merge |
 
@@ -250,7 +251,7 @@ that use it.
 | `WeatherLooking`, `OpenMeteoWeather`, `OpenMeteoGeocoder`, `MeasurementUnits`, `WeatherForecast` | `Enigma/Search/WeatherLookup.swift` | CP6 | CP6, CP7 |
 | `PlaceSearchTool`, `WeatherTool`; `NativeToolPart.places`, `.weather`; `ComposerCommands.maps`, `SlashCommand.maps` | `Enigma/Search/PlacesAndWeatherTools.swift`, `Enigma/Chat/AssistantToolbox.swift`, `Enigma/App/` | CP6 | CP7–CP9 |
 | `SearchTraceEvent`, `SearchTracing` | `Enigma/Search/OnDeviceSearch.swift` | CP7 | CP7 |
-| `BraveKeyCleanup` | `Enigma/Search/WebSearchSettings.swift` | CP8 | CP8 |
+| `LocalChatViewModel.braveSearch`, `.usesBraveSearch` (a saved key selects Brave, D129); `WebSearchSettings.isBlocked(_:)`, `.domain(of:)`, `.blockedDomainsMostRecentFirst`; `OfflineSearchHTTPClient` (`BraveKeyCleanup` dropped, D134) | `Enigma/LocalInference/LocalChatViewModel.swift`, `Enigma/Search/WebSearchSettings.swift`, `OnDeviceSearch.swift` | CP8 | CP8–CP10 |
 | `WebSearchSource.allowsBlocking`, `SourceBlocking`, `EnvironmentValues.sourceBlocking` | `Enigma/Chat/AssistantActivity.swift`, `AssistantActivityView.swift` | CP8 | CP8 |
 | `ChatMessage.mapPlaces`, `MapCard`, `MapCard.pins(for:reply:)` | `Enigma/Chat/ChatDomain.swift`, `Enigma/Chat/MapCard.swift` | CP9 | CP10 |
 
@@ -273,6 +274,6 @@ stays in its brief.
 | CP5 | done | 2 | Passages (BM25 on lemmas), the on-device web pipeline with reading window, checks, snippet fallback and budget, spec §5 envelope and excerpts, `web_search` recency, Debug-only `webSearch.debugProvider` (Brave stays default); tuning in `OnDeviceSearchTiming` (3.0 s window, stop at 5, 800 ms extraction, cut-off 0.08); live median 1.65 s; overnight decisions D73–D80 (D77, D79 the orchestrator's) |
 | CP6 | done | 2 | Open-Meteo weather and geocoding (5 matches, exact name, name and country stated), Apple Maps places (5 km widened to 20 km), the small-model weather and places routes, `find_places` and `get_weather` with gate 3, `/maps`; a declined location card holds for the chat and every tool; saved links carry no location; live Open-Meteo 0.17 s, geocoder 0.64 s, MapKit 0.63 s (10 places); overnight decisions D81–D90 (D87, D89 the orchestrator's) |
 | CP7 | done | 2 | Harness, 60 questions and gate report; D104's rewrite, "enough?" check, Wikidata and Google News; round 1 stopped after the typed half (on-device 26, Brave 32, tie 2 of 60); both gates fail on the judge share; decisions D92–D126 |
-| CP8 | not started | | |
+| CP8 | done | 1 (orchestrator's reviewer; fixes D138–D143) | Owner's D128: on-device default for everyone, Brave only with a saved key (choice per search in the view model, D129); no key gates, `/search` and `/maps` always; Settings Web search section with optional Brave row and blocked sites; welcome row; "Never use this site" with Undo; blocked sites to F30's provider search and filtering Brave; footer and gate 3 name the provider used; Brave gets only the city (D136); Brave answers web searches only (D138); decisions D128–D143 |
 | CP9 | not started | | |
 | CP10 | not started | | |

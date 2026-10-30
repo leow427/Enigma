@@ -128,7 +128,8 @@ enum NativeSearchEvaluation {
   }
 
   /// Runs one question in a new chat through `submitNative`, with automatic search on: provider
-  /// search when `braveKey` is nil, Enigma's `web_search` on Brave otherwise.
+  /// search when `braveKey` is nil, Enigma's `web_search` on Brave otherwise (the key selects
+  /// Brave, D128).
   @MainActor
   static func run(_ question: Question, provider: CloudProviderID, model: String, braveKey: String?) async -> Record {
     let route = Route(mode: .cloud, providerID: provider.rawValue, modelID: model, usesNetwork: true)
@@ -170,6 +171,10 @@ enum NativeSearchTurn {
     }
     let settings = WebSearchSettings(credentials: NativeSearchCredentials(key: braveKey), defaults: defaults)
     settings.automaticallySearch = true
+    // Opt-in and live: Brave with the given key, and an online on-device search otherwise (D139).
+    let brave: (any WebSearchProvider)? = braveKey.map {
+      BraveSearchClient(credentials: NativeSearchCredentials(key: $0))
+    }
     let chat = LocalChatViewModel(
       engine: NativeTestEngine(model: NativeToolRequestTests.flaggedModel),
       selectionEditingSettings: SelectionEditingSettings(defaults: defaults),
@@ -179,6 +184,8 @@ enum NativeSearchTurn {
                       confirmSend: confirm)
       },
       messagesAccess: {},
+      webSearch: OnDeviceSearchProvider.live(offline: false),
+      braveSearch: brave,
       searchSettings: settings,
       sessionStore: ChatSessionStore(applicationSupportDirectory: root),
       nativeToolsEnabled: true,

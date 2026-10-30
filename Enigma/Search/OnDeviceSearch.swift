@@ -116,8 +116,11 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     self.maximumSiteQueries = maximumSiteQueries
   }
 
-  @MainActor static func live(trace: (any SearchTracing)? = nil) -> OnDeviceSearchProvider {
-    let client = URLSessionSearchHTTPClient.live
+  /// The app's provider, the default for everyone (D128). `offline` (the test host's default)
+  /// fails every request at once and never asks Apple Maps; opt-in live tests pass false (D139).
+  @MainActor static func live(trace: (any SearchTracing)? = nil,
+                              offline: Bool = TestHost.isActive) -> OnDeviceSearchProvider {
+    let client: any SearchHTTPClient = offline ? OfflineSearchHTTPClient() : URLSessionSearchHTTPClient.live
     let sites = SearchSiteRunner(engines: [.duckDuckGo: DuckDuckGoEngine()], wikipedia: WikipediaSearch(),
                                  client: client, health: .shared, log: OSSearchLog())
     let quality: @Sendable () async throws -> SourceQuality = {
@@ -132,7 +135,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       let current = try await quality()
       blockedCheck.set(current)
       return current
-    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client),
+    }, places: offline ? MapKitPlaceSearch.offline : MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client),
        trace: trace, extras: ExtraSearchSources(facts: WikidataFacts(), news: GoogleNewsSearch(), client: client))
   }
 
@@ -895,22 +898,15 @@ private final class BlockedCheck: @unchecked Sendable {
   func isBlocked(_ url: URL) -> Bool { lock.withLock { quality?.isBlocked(url) ?? true } }
 }
 
-/// Picks the provider for both kinds of turn. Brave stays the default until CP8; the on-device
-/// provider is reachable only in Debug builds, through `webSearch.debugProvider`.
-enum WebSearchProviderFactory {
-  static let debugProviderKey = "webSearch.debugProvider"
+extension MapKitPlaceSearch {
+  /// Fails at once, for the test host (D139).
+  static let offline = MapKitPlaceSearch(run: { _, _, _ in throw URLError(.notConnectedToInternet) })
+}
 
-  @MainActor static func makeDefault(defaults: UserDefaults = .standard) -> any WebSearchProvider {
-    makeDefault(defaults: defaults, isTestHost: TestHost.isActive)
-  }
-
-  /// `isTestHost` is the seam for tests, whose host always has `TestHost.isActive`.
-  @MainActor static func makeDefault(defaults: UserDefaults, isTestHost: Bool) -> any WebSearchProvider {
-    #if DEBUG
-    if !isTestHost, defaults.string(forKey: debugProviderKey) == "onDevice" {
-      return OnDeviceSearchProvider.live()
-    }
-    #endif
-    return BraveSearchClient()
+/// The test host's network for `OnDeviceSearchProvider.live()`: every request fails at once,
+/// so no test reaches a search site, a page, Open-Meteo or Apple Maps by accident (CP8).
+struct OfflineSearchHTTPClient: SearchHTTPClient {
+  func send(_ request: URLRequest, maximumBytes: Int) async throws -> SearchHTTPResponse {
+    throw URLError(.notConnectedToInternet)
   }
 }

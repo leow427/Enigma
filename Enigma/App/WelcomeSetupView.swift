@@ -21,12 +21,6 @@ struct WelcomeSetupView: View {
   @State private var selectedID: String?
   @State private var skipLocal = false
   @State private var showConnections = false
-  @State private var braveAPIKey = ""
-  @State private var connectionError: String?
-  @State private var isEnteringKey = false
-
-  /// The Brave key field, which the character watches while someone types.
-  static let keyFieldTarget: EnigmaCharacterTargetID = "welcome.keyField"
   /// Matches the window's corners, so the welcome covers the whole window.
   static let windowRadius: CGFloat = EnigmaWindowChrome.cornerRadius
   private static let columnWidth: CGFloat = 560
@@ -54,8 +48,7 @@ struct WelcomeSetupView: View {
       isDetectingHardware: advisor.isDetecting,
       isInstalling: WelcomeSetup.isInstalling(chat.modelOperation),
       installFailed: WelcomeSetup.installFailed(chat.modelFailure),
-      connectionFailed: cloud.accountError != nil || cloud.claudeCodeError != nil || connectionError != nil,
-      isEnteringKey: isEnteringKey))
+      connectionFailed: cloud.accountError != nil || cloud.claudeCodeError != nil))
   }
 
   private var stepTransition: AnyTransition {
@@ -89,7 +82,6 @@ struct WelcomeSetupView: View {
     .task { await advisor.detectHardware() }
     .onAppear(perform: placeCharacter)
     .onChange(of: setup.step) { old, new in
-      isEnteringKey = false
       if let transition = WelcomeSetup.characterTransition(from: old, to: new) {
         character.move(to: WelcomeSetup.characterSlot(for: new).id, transition)
       }
@@ -97,13 +89,6 @@ struct WelcomeSetupView: View {
     }
     .onChange(of: chat.modelOperation) { _, operation in if operation == .benchmarking { setup.performanceCheckRan() } }
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
-    .onChange(of: isEnteringKey) { _, entering in character.attention = entering ? Self.keyFieldTarget : nil }
-    .onChange(of: braveAPIKey) { _, _ in if isEnteringKey { character.key() } }
-    // The window owns the character once the welcome leaves and sets its
-    // state there, so only let go of the key field it was watching.
-    .onDisappear {
-      if character.attention == Self.keyFieldTarget { character.attention = nil }
-    }
   }
 
   /// Puts the character in this step's slot. Arriving fresh on the welcome, it
@@ -302,7 +287,7 @@ struct WelcomeSetupView: View {
       }
     }
     .enigmaButtonStyle(.primary)
-    .keyboardShortcut(isDefault && !isEnteringKey ? .defaultAction : nil)
+    .keyboardShortcut(isDefault ? .defaultAction : nil)
     .disabled(!isEnabled)
     .enigmaTestMarker(title)
   }
@@ -402,24 +387,9 @@ struct WelcomeSetupView: View {
       ClaudeCodeConnectionControls(settings: cloud, showsAPIKeyNote: false)
       ChatGPTConnectionControls(settings: cloud)
       EnigmaSectionHeader("Search")
-      EnigmaRow("Brave Search", subtitle: "Used by /search, with sources cited.") {
-        EnigmaStatusLine(search.hasAPIKey ? .on : .off, search.hasAPIKey ? "key saved · not tested here" : "not connected")
-      }
-      EnigmaConnectionDetails {
-        EnigmaConnectionNote("Get a Brave Search API key with LLM Context access, then paste it here. Brave usage is billed separately.")
-        HStack(spacing: 10) {
-          EnigmaTextField("Brave Search API key", text: $braveAPIKey, isSecure: true,
-                          onFocusChange: { isEnteringKey = $0 }, onSubmit: saveBraveKey)
-            .enigmaCharacterTarget(Self.keyFieldTarget)
-          Button("Save key", action: saveBraveKey)
-            .enigmaButtonStyle(.secondary)
-            .enigmaTestMarker("Save key")
-            .disabled(braveAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        Link("Get a Brave API key", destination: URL(string: "https://brave.com/search/api/")!)
-          .enigmaButtonStyle(.text)
-          .padding(.leading, -8)
-        if let connectionError { EnigmaStatusLine(.problem, connectionError) }
+      // Search needs no setup (spec §8). A Brave key, if wanted, is in Settings (D128).
+      EnigmaRow("Web search", subtitle: "Used by /search and automatic search, with sources listed.") {
+        EnigmaStatusLine(.on, "ready · no setup needed")
       }
       EnigmaSectionHeader("Mac permissions")
       MacPermissionRows()
@@ -427,17 +397,6 @@ struct WelcomeSetupView: View {
         .enigmaButtonStyle(.text)
         .padding(.leading, -8)
         .padding(.top, 14)
-    }
-  }
-
-  private func saveBraveKey() {
-    guard !braveAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-    do {
-      try search.saveAPIKey(braveAPIKey)
-      braveAPIKey = ""
-      connectionError = nil
-    } catch {
-      connectionError = error.localizedDescription
     }
   }
 

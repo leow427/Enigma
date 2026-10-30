@@ -522,13 +522,15 @@ final class SlashCommandTests: XCTestCase {
     editor.setSelectedRange(NSRange(location: 3, length: 0))
     model.refresh()
     XCTAssertEqual(model.commands, [.search])
-    model.availableCommands = SlashCommand.available(hasSearchKey: false)
+    // Retargeted (CP8): /search is always available now, so a list without it stands in for a
+    // menu whose commands changed under it.
+    model.availableCommands = SlashCommand.available().filter { $0 != .search }
     // A queued click or key event cannot use the old menu before its refresh.
     model.accept(.search)
     XCTAssertEqual(editor.string, "/se")
     model.refresh()
     XCTAssertTrue(model.commands.isEmpty)
-    model.availableCommands = SlashCommand.available(hasSearchKey: true)
+    model.availableCommands = SlashCommand.available()
     model.refresh()
     XCTAssertEqual(model.commands, [.search])
     model.accept(.search)

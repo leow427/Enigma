@@ -29,7 +29,7 @@ struct AutoRouter: Sendable {
       case .noLocalModel:
         "Choose a local model or connect Cloud before using Auto."
       case .unavailableCapability(.webSearch):
-        "Use /search in your message to look this up with Brave."
+        "Use /search in your message to look this up on the web."
       case .unavailableCapability(.coding):
         "No available model is configured for this coding request."
       case .unavailableCapability(.advancedReasoning):

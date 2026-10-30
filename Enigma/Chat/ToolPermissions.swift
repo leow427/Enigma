@@ -35,7 +35,9 @@ enum ToolDestination: String, Codable, Sendable, CaseIterable {
 enum ToolPermission: Sendable, Equatable {
   case readChat(chatGUID: String, name: String)
   case searchChats(query: String)
-  case searchAfterMessages(query: String)
+  /// `service` names who receives the query on the card: Brave with a saved key, otherwise the
+  /// search sites (D131).
+  case searchAfterMessages(query: String, service: String = ToolPermission.searchSitesService)
   /// `find_places` or `get_weather` in a chat that holds message text (F29, spec §6.2): `title` is the
   /// card's question, such as "Find ramen in Soho?", and `service` who gets it. Answered with gate 3's grant.
   case lookUpAfterMessages(title: String, service: String)
@@ -47,6 +49,11 @@ enum ToolPermission: Sendable, Equatable {
   /// Let a provider's own web search run in a chat that holds message text (owner, 2026-10-29). Its
   /// queries run on the provider's servers, where no card can ask, so this asks once, per provider.
   case providerSearchAfterMessages(provider: CloudProviderID)
+}
+
+extension ToolPermission {
+  /// Who gets `web_search`'s query on gate 3's card when it runs on this Mac (D131).
+  static let searchSitesService = "search sites"
 }
 
 enum ToolPermissionAnswer: Sendable { case deny, conversation, always }

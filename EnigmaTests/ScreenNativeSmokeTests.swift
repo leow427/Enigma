@@ -174,7 +174,7 @@ final class ScreenSearchNativeSmokeTests: XCTestCase {
       renderer.scale = 2
       let rendered = try XCTUnwrap(renderer.cgImage)
       let renderedText = try await ScreenOCRService().recognize(rendered).text.lowercased()
-      XCTAssertTrue(renderedText.contains("sources") && renderedText.contains("brave search"))
+      XCTAssertTrue(renderedText.contains("sources") && renderedText.contains("web search"), "On-device search is web search (CP8)")
       let png = try XCTUnwrap(NSBitmapImageRep(cgImage: rendered).representation(using: .png, properties: [:]))
       let preview = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
       preview.name = "Screen search · \(visible)"
@@ -216,7 +216,8 @@ private actor NativeSmokeSearch: WebSearchProvider {
   init(result: WebSearchResult, live: Bool) { self.result = result; self.live = live }
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
     requests.append(request)
-    let results = live ? try await BraveSearchClient().search(request) : [result]
+    // Live mode uses the app's default, on-device search, not Brave's Keychain key (CP8).
+    let results = live ? try await OnDeviceSearchProvider.live(offline: false).search(request) : [result]
     sources = results.map(\.source)
     return results
   }

@@ -92,3 +92,30 @@ extension WebSearchSource {
     return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
   }
 }
+
+extension WebSearchSource {
+  /// "Never use this site" isn't offered on Apple Maps or Open-Meteo sources (spec §8).
+  var allowsBlocking: Bool {
+    guard isSafeWebLink, let host = url.host(percentEncoded: false)?.lowercased() else { return false }
+    return !["maps.apple.com", "open-meteo.com"].contains { host == $0 || host.hasSuffix("." + $0) }
+  }
+}
+
+/// What a source row's "Never use this site" does (spec §8). The shell sets it for the main window
+/// and the compact panel; without it, rows offer no action.
+struct SourceBlocking {
+  /// The registrable domain, by the same rule as `WebSearchSettings.block(_:)`.
+  var domain: @MainActor (URL) -> String
+  var block: @MainActor (URL) -> Void
+  var unblock: @MainActor (String) -> Void
+
+  /// The context-menu item and accessibility action, such as "Never use bbc.co.uk".
+  @MainActor func neverUseLabel(for url: URL) -> String { "Never use \(domain(url))" }
+}
+
+extension SourceBlocking {
+  @MainActor init(settings: WebSearchSettings) {
+    self.init(domain: { settings.domain(of: $0) ?? WebSearchSource(title: "", url: $0).siteName },
+              block: { settings.block($0) }, unblock: { settings.unblock($0) })
+  }
+}

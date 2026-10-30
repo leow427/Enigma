@@ -77,7 +77,9 @@ search keeps recognizing English wording only, as today.
   on capable and small models;
 - capable models still choose well: F32's tool-use eval stays at 0.90 or
   more with the places and weather tools added;
-- Brave's code, settings and stored key are gone;
+- Brave's code, settings and stored key are gone; *amended (owner approved 2026-10-30), D128:*
+  Brave stays as an option used only while a Brave key is saved, and every search works with no
+  key;
 - maintenance averages one to two hours a month.
 
 ## Decisions
@@ -907,7 +909,8 @@ Under every reply whose evidence included a `.places` result, on any route.
 | Wikipedia | The query, Enigma's user agent, the IP address | Every web search |
 | Wikidata *(amended, owner approved 2026-10-30)* | The entity name the query rewrite wrote, or the Wikipedia article's title; Enigma's user agent; the IP address | Web searches that name an entity |
 | Google *(amended, owner approved 2026-10-30)* | The first keyword query, the language and region codes, Enigma's user agent, the IP address. No cookies, no location (skipped when the request carries a city); no article link is followed; nothing when the user blocked Google News | News and recency questions |
-| Result sites, up to about 6 | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
+| Brave *(amended, owner approved 2026-10-30, D128, D136)* | The query and, for nearby questions, the city only; the user's key; the IP address. Web searches only: places and weather stay on Apple Maps and Open-Meteo (D138) | Only while a Brave key is saved |
+| Result sites, up to 6 at a time *(amended, owner approved 2026-10-30)*; more when a read fails or the "enough?" check reads again | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
 | Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region | Places questions |
 | The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today | Every search a cloud model makes |
@@ -940,7 +943,11 @@ Under every reply whose evidence included a `.places` result, on any route.
     file per rule version holding only the rule's text (§4, D69);
   - Console entries carry the site name, status and size, never the query
     or a URL.
-- **Brave key cleanup.** On first launch after the update, the Keychain item
+- *Amended (owner approved 2026-10-30), D128, D134, D136:* Brave stays as an option: a saved
+  Brave key sends searches to Brave instead of the search sites, and the key stays in the
+  Keychain, so the cleanup below is not built. Brave gets the query and, for nearby questions,
+  only the city, never coordinates. Blocked sites filter its results on the Mac (D132).
+- *(Superseded by D128)* **Brave key cleanup.** On first launch after the update, the Keychain item
   (service `com.leow427.AISpotlight.web-search`, account `brave`) is
   deleted. The defaults key `webSearch.braveKeyRemoved` records that it ran.
 
@@ -978,6 +985,13 @@ Under every reply whose evidence included a `.places` result, on any route.
     whenever automatic search is on, with no key (`NativeToolPlan` loses
     `hasSearchKey`).
 - **The map card** under places answers (section 6.6).
+- *Amended (owner approved 2026-10-30), D128, D133:* the section also holds an optional
+  "Use Brave Search instead" row (key field, Save key, Remove key; status `key saved` or
+  `not used`), and the status row reads `Brave in use` while a key is saved. The note names
+  DuckDuckGo, Wikipedia, Wikidata and Google News (the kept lineup), and the cloud-search
+  sentence reads "ChatGPT and Claude Code, when they use their own search, are asked to avoid
+  these sites, but Enigma can't enforce it." (D136). The reply footer and gate 3's card name
+  Brave when it ran, and "web search" or "search sites" otherwise (D131).
 - **Settings → Cloud and search → Web search**, formerly "Web search ·
   Brave":
   1. **The automatic switch**, with the subtitle "On by default. Questions
@@ -993,7 +1007,9 @@ Under every reply whose evidence included a `.places` result, on any route.
      read on this Mac without scripts or images. Weather comes from
      Open-Meteo and nearby places from Apple Maps." CP8 adjusts the site
      names to CP0b's lineup, and adds F30's sentence about cloud models'
-     own search.
+     own search. *Amended (owner approved 2026-10-30):* the reading sentence is "Result pages
+     are read on this Mac, up to six at a time, without scripts or images.", since six is the
+     number read at once, not the total.
 - **Welcome, under "Connect what you use".** The search row becomes "Web
   search", with "Used by /search and automatic search, with sources listed"
   and the status `ready · no setup needed`. The key field, the link and the
@@ -1024,7 +1040,9 @@ Under every reply whose evidence included a `.places` result, on any route.
   | `AutoRouter` | "Use /search in your message to look this up on the web." |
   | `EnigmaControls` gallery | The "Brave API key" placeholder becomes "API key" |
 
-- **Removed:**
+- **Removed** (*amended, owner approved 2026-10-30, D128:* only the Debug switch, the key gates,
+  the welcome's key field and the Brave wording are removed; Brave's client, redirect blocker and
+  key storage stay):
   - `BraveSearchClient.swift`, once its shared types have moved;
   - `BraveRedirectBlocker`;
   - `WebSearchCredentialStore` and `KeychainSearchCredentialStore`, apart

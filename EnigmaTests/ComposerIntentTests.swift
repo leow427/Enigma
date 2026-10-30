@@ -299,8 +299,9 @@ final class ComposerIntentResolveTests: XCTestCase {
     XCTAssertEqual(intent.submissionPrompt, "/maps bookshops")
     XCTAssertEqual(resolve("/think /maps bookshops").submissionPrompt, "/think /maps bookshops")
     XCTAssertEqual(SlashCommand.completion(in: "/ma", selection: NSRange(location: 3, length: 0))?.commands, [.maps])
-    XCTAssertFalse(SlashCommand.available(hasSearchKey: false).contains(.maps))
-    XCTAssertTrue(SlashCommand.available(hasSearchKey: true).contains(.maps))
+    // Retargeted (CP8): /maps and /search are always offered, with no key (spec §8).
+    XCTAssertTrue(SlashCommand.available().contains(.maps))
+    XCTAssertTrue(SlashCommand.available().contains(.search))
     XCTAssertTrue(SlashCommandExample.order.contains(.maps))
   }
 }

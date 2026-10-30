@@ -244,7 +244,10 @@ final class ToolPermissionTests: XCTestCase {
     for destination in ToolDestination.allCases {
       XCTAssertEqual(copy(.searchAfterMessages(query: "pizza near me"), destination),
                      ["Search the web for “pizza near me”?",
-                      "This chat includes text from your messages. It will be sent to Brave."])
+                      "This chat includes text from your messages. It will be sent to search sites."])
+      // A saved Brave key names Brave instead (D131).
+      XCTAssertEqual(copy(.searchAfterMessages(query: "pizza near me", service: "Brave"), destination).last,
+                     "This chat includes text from your messages. It will be sent to Brave.")
     }
     XCTAssertEqual(copy(.providerSearchAfterMessages(provider: .chatGPT), .openAI),
                    ["Let ChatGPT search the web in this chat?",
