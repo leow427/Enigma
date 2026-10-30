@@ -1289,13 +1289,22 @@ provider's card; Codex searches the live web. The spec has the details.
 
 **Depends on:** F32 (on `main`). Blocks F29.
 
-### F29. On-device web search, replacing Brave
+### F29. ✅ Done: On-device web search, replacing Brave
 
-**Status:** CP0 and CP1 done on `feat/f29-on-device-search`; re-planned for
-F32 on 2026-10-29 (spec and plan approved). Next, now that F30 is done:
-CP0b (a second probe of the search sites from another network, starting
-with a merge of `main`), then CP1b (the six routing fixes from CP1's second
-review).
+> **Solved:** Web search runs on your Mac with no key or setup: DuckDuckGo
+> and Wikipedia, plus Wikidata for facts and Google News for headlines, with
+> result pages read on the Mac and ranked into passages. Apple Maps answers
+> places and Open-Meteo the weather, with `find_places`, `get_weather`,
+> `/maps` and a map card with numbered pins. "Never use this site" blocks a
+> source, with Undo and a list in Settings. Brave stays as an option: with a
+> key saved, web searches go to Brave (owner, D128), since the quality gate
+> against Brave wasn't met (on-device equal or better on 47% of typed
+> questions). After message text enters a chat, web search, places and
+> weather each ask on their own card (D174). The answering model gets your
+> exact location; everything that leaves the Mac stays rounded or city-only
+> (D175). Merged in leow427/Enigma#25. See `docs/Web-Search.md` and the
+> decision log in the plan folder. Left for later: the model-style half of
+> the evaluation, the one- vs two-query A/B and the tool-use eval (D121).
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
 
