@@ -230,7 +230,7 @@ that use it.
 | `WebSearchRequest`, `SearchRoute`, `SearchRecency`, `SearchCoordinate`, `EvidenceKind`, `WebSearchLimits` | `Enigma/Search/WebSearch.swift` | CP1 | CP2–CP9 |
 | `SearchRouting.decide(question:)`, `SearchRouting.webQuery(_:city:)` | `Enigma/Search/SearchRouting.swift` | CP1 (CP1b fixes) | CP5, CP6 |
 | `WebSearchPolicy.recency(_:now:)` | `Enigma/Search/WebSearchPolicy.swift` | CP1 | CP1, CP2, CP5 |
-| `ApproximateLocation.coordinate`, `.city`; `LocationIntent` | `Enigma/Search/LocationService.swift` | CP1 (CP1b fixes) | CP1, CP6 |
+| `ApproximateLocation.coordinate`, `.searchCity` (the area for search sites, such as "Austin, TX"; nil for an unknown area); `LocationIntent`. `.city`, `.region`, `.countryCode` and `.providerSearchLocation` are F30's, for provider search | `Enigma/Search/LocationService.swift` | CP1 (CP1b fixes); `.searchCity` CP0b | CP1, CP6 |
 | `SearchHTTPClient`, `SearchHTTPResponse`, `URLSessionSearchHTTPClient`, `SafariHeaders` | `Enigma/Search/SearchHTTPClient.swift` | CP2 | CP2, CP4, CP6 |
 | `SearchEngine`, `SearchEngineID`, `EngineQuery`, `EngineResult`, `EngineOutcome`, `SearchRegion` | `Enigma/Search/Engines/SearchEngine.swift` | CP2 | CP2, CP3, CP5 |
 | `WikipediaSearch`, `WikipediaArticle` | `Enigma/Search/Engines/WikipediaSearch.swift` | CP2 | CP5 |
@@ -264,7 +264,7 @@ stays in its brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 4 | Spike done. Q4 (sites), Q1 (parser if Startpage stays) carried into CP0b; Q7 (MapKit terms) answered by the map card and the owner's 2026-10-29 decision |
-| CP0b | not started | | |
+| CP0b | done | 2 | Home network. Owner: drop Mojeek and Startpage (both blocked on two networks), header set A, DuckDuckGo `kl`; ChatGPT and Claude Code always use their provider's search, and F30's Don't-allow and fallback behavior stays. Open-Meteo geocoding works; typos and Japanese names are its gaps |
 | CP1 | done | 2 | Request, shared types, limits, routing and recency in place; Brave unchanged. Owner widened spec §6 routing; see the CP1 Hand-off. Round 2 (2026-10-28) found 6 Should fixes, not made in CP1; CP1b makes them |
 | CP1b | not started | | |
 | CP2 | not started | | |

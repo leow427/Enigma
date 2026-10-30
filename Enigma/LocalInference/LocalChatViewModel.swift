@@ -2084,7 +2084,7 @@ final class LocalChatViewModel: ObservableObject {
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }
       requestLocationContext = location.searchContext
-      request.city = location.city
+      request.city = location.searchCity
       request.coordinate = location.coordinate
     }
     let results = try await webSearch.search(request) { [weak self] event in

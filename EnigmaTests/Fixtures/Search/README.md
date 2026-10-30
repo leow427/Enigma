@@ -1,9 +1,10 @@
 # Search fixtures
 
-Captured on 2026-10-27 by the F29 CP0 spike. The search pages came from an
-ephemeral `URLSession` sending Safari 27.0.1 headers and ddgs's region field
-`l=us-en` (DuckDuckGo still served `kl=wt-wt`, All regions), with no
-redirects followed; the Open-Meteo file came from `curl`.
+Captured on 2026-10-27 by the F29 CP0 spike, except where the table says
+otherwise. The search pages came from an ephemeral `URLSession` sending
+Safari 27.0.1 headers and ddgs's region field `l=us-en` (DuckDuckGo still
+served `kl=wt-wt`, All regions), with no redirects followed; the Open-Meteo
+files came from `curl`.
 Tests read these files through `#filePath`. They contain no personal data:
 the network's public IP address, the `vqd` and `sc` session tokens and
 Startpage's session values were replaced with `REDACTED`, and the geo-IP
@@ -25,6 +26,7 @@ same as the `us-en` region the request sent.
 | `startpage-home.html` | `GET https://www.startpage.com/` (HTTP 200), holding the `sc` input | — | every copy of the `sc` token (four inputs, two links, three script values), `session_id`, `bds_session_id`, `feedback_token`, `impressionToken`, `thash`, `page_id`; `request_time` and the `req_loc` coordinates set to `0` |
 | `startpage-challenge.html` | `POST https://www.startpage.com/sp/search` (HTTP 200, JavaScript proof-of-work challenge, no results) | swift concurrency actors | `X-Real-Ip` address |
 | `open-meteo-chicago.json` | `GET https://api.open-meteo.com/v1/forecast` for 41.88, -87.63 with US units, spec §6's fields | — | nothing found (Chicago is the fixed test location, not the user's) |
+| `open-meteo-geocoding-paris.json` | `GET https://geocoding-api.open-meteo.com/v1/search?name=Paris&count=1&language=en&format=json` (HTTP 200), captured 2026-10-29 by F29 CP0b with `curl` | — | nothing found (a public place record; no request data is echoed) |
 
 ## Expected values
 

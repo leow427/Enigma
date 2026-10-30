@@ -82,6 +82,9 @@ struct ApproximateLocation: Equatable, Sendable {
   var region: String?
   /// ISO 3166-1 alpha-2.
   var countryCode: String?
+  /// What search sites get for "near me" (F29): the area with its context, such as "Austin, TX", since they
+  /// never get coordinates. Nil when reverse geocoding found nothing.
+  var searchCity: String? { area == Self.unknownArea ? nil : area }
   var searchContext: String { "Approximate current location: \(area) (\(coordinates))" }
 
   /// What a provider's own web search gets once the user allows it (spec §2a): the area and this

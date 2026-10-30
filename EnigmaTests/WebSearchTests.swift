@@ -155,17 +155,18 @@ final class WebSearchTests: XCTestCase {
   }
 
   func testApproximateLocationKeepsRoundedCoordinates() {
-    let location = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago", city: "Chicago")
+    let location = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")
     XCTAssertEqual(location.latitude, 41.88)
     XCTAssertEqual(location.longitude, -87.63)
     XCTAssertEqual(location.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
-    XCTAssertEqual(location.city, "Chicago")
+    XCTAssertEqual(location.searchCity, "Chicago")
     XCTAssertEqual(location.coordinates, "41.88, -87.63")
   }
 
   func testUnknownAreaHasNoCity() {
     let location = ApproximateLocation(latitude: 41.88, longitude: -87.63)
     XCTAssertNil(location.city)
+    XCTAssertNil(location.searchCity)
     XCTAssertEqual(location.area, ApproximateLocation.unknownArea)
     XCTAssertEqual(location.searchContext, "Approximate current location: current area (41.88, -87.63)")
   }
@@ -206,6 +207,21 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(request.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
     XCTAssertEqual(request.query, "cafe near me")
     XCTAssertNil(request.namedPlace)
+    XCTAssertEqual(location.calls, 1)
+  }
+
+  func testNearbySearchSendsTheAreaWithItsState() async throws {
+    // Search sites never get coordinates, so the state is what tells Springfield, MO from Springfield, IL.
+    let location = SearchLocation(location: ApproximateLocation(latitude: 30.27, longitude: -97.74, area: "Austin, TX",
+      city: "Austin", region: "TX", countryCode: "US"))
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/search cafe near me", searchEnabled: true)
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.city, "Austin, TX")
     XCTAssertEqual(location.calls, 1)
   }
 
@@ -1620,8 +1636,7 @@ private final class SearchLocation: LocationProviding {
   let gate: SearchGate?
   let location: ApproximateLocation
   init(error: Error? = nil, gate: SearchGate? = nil,
-       location: ApproximateLocation = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago",
-         city: "Chicago")) {
+       location: ApproximateLocation = ApproximateLocation(latitude: 41.8781136, longitude: -87.6297982, area: "Chicago")) {
     self.error = error; self.gate = gate; self.location = location
   }
   func currentLocation() async throws -> ApproximateLocation {
