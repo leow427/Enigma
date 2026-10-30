@@ -6,8 +6,9 @@ struct WebSearchSource: Codable, Equatable, Sendable, Identifiable {
   var id: URL { url }
 }
 
-/// What a result's text is: a read page, a search snippet, or a places or weather excerpt.
-enum EvidenceKind: String, Codable, Sendable { case article, snippet, wikipedia, places, weather }
+/// What a result's text is: a read page, a search snippet, a places or weather excerpt, Wikidata's
+/// facts or Google News's headlines (D111).
+enum EvidenceKind: String, Codable, Sendable { case article, snippet, wikipedia, places, weather, facts, news }
 
 struct WebSearchResult: Equatable, Sendable {
   let source: WebSearchSource
@@ -39,6 +40,9 @@ struct WebSearchRequest: Equatable, Sendable {
   var namedPlace: String? = nil
   var recency: SearchRecency? = nil
   var maximumTokens: Int
+  /// The query is the user's typed question, not one a model wrote: the on-device provider turns
+  /// it into keyword queries (D107).
+  var isTypedQuestion = false
 }
 
 typealias AssistantActivitySink = @Sendable (AssistantActivityEvent) async -> Void
@@ -46,6 +50,10 @@ typealias AssistantActivitySink = @Sendable (AssistantActivityEvent) async -> Vo
 protocol WebSearchProvider: Sendable {
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult]
   func search(_ request: WebSearchRequest,
+              onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult]
+  /// With the chat's local model for the on-device provider's helper calls (D107, D108); other
+  /// providers ignore it.
+  func search(_ request: WebSearchRequest, assistant: (any SearchModelAssistant)?,
               onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult]
 }
 
@@ -57,6 +65,11 @@ extension WebSearchProvider {
     try Task.checkCancellation()
     await onActivity(.sourcesDiscovered(results.map(\.source)))
     return results
+  }
+
+  func search(_ request: WebSearchRequest, assistant: (any SearchModelAssistant)?,
+              onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
+    try await search(request, onActivity: onActivity)
   }
 }
 

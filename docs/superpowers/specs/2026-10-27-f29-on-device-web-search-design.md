@@ -234,6 +234,20 @@ title lookup returns nothing for question wording. The top hit is the first
 of the 3 that isn't a disambiguation page. Its language is the Mac's first
 preferred language when that Wikipedia edition exists, otherwise English.
 
+*Amended (owner approved 2026-10-30):* two more keyless sources (D104,
+D109, D110), each beside the sites within its own time limit, through the
+search HTTP client (ephemeral, no cookies), with Wikipedia's user agent:
+
+| Source | Role | Request | When | Evidence |
+| --- | --- | --- | --- | --- |
+| Wikidata | Structured facts | `GET https://www.wikidata.org/w/api.php`: `wbsearchentities` for the entity the query rewrite named (or `wbgetentities` by sitelink for a Wikipedia-style title, or for the Wikipedia article this search found), then `wbgetentities` for its claims and for the labels of their values | Any web search with an entity; any recency (facts carry their dates); 2.5 s | One `facts` excerpt placed first: a whitelist of properties (versions, population, winners, office holders, heights, dates…), deprecated values dropped, newest first with their dates, the preferred value marked "current"; kept only when the entity's label shares a content word with the question |
+| Google News | Headlines | `GET https://news.google.com/rss/search?q=<query>&hl=<lang>-<CC>&gl=<CC>&ceid=<CC>:<lang>` | Day, week or month questions, or a news cue ("headlines", "announced", "election", "who won", "winner of"); never when the request carries a city; 2 s | One `news` excerpt after the facts: up to 8 headlines, newest first, each with its publisher and date. Item links only resolve through more Google requests, so none is followed and no publisher page is read from it. The excerpt links to `https://news.google.com/`, never to a link holding the query; headlines from blocked publishers are dropped (§3.2) |
+
+On the small-model path the sites get one or two keyword queries instead
+of the typed question (section 6.1); their results are merged by summing
+each query's scores per page (reciprocal-rank fusion with k = 0, so one
+query ranks exactly as before). Wikipedia gets the first query.
+
 **When Startpage runs:**
 
 - right away, if DuckDuckGo fails, blocks, or returns a page the parser
@@ -367,6 +381,13 @@ registrable domain comes from Mozilla's
 `news.bbc.co.uk` counts as `bbc.co.uk`. Only domain-level entries are
 imported from uBlacklist-format lists. Path and regex entries are skipped,
 and the manifest counts them.
+
+*Amended (owner approved 2026-10-30), D125:* the same lists cover the new
+sources: Wikidata's facts are left out when `wikidata.org` is blocked;
+Google News isn't asked when `news.google.com` is blocked; a headline is
+dropped when its publisher's home page is blocked. A news excerpt's
+citation is Google News's home page, so blocking it from there blocks
+Google News.
 
 **3.3 Scoring**
 
@@ -625,6 +646,34 @@ screenshot or selection never picks a route, because only the typed
 question may ask for location (unchanged from today). A typed `/maps`
 always picks places (section 6.3).
 
+*Amended (owner approved 2026-10-30), D104, D107, D108, D120:* on the
+small-model path — models without native tools, answering through the
+embedded text engine — the typed question isn't sent as a sentence. Models
+with native tools (the installed Gemma 4 12B and Qwen 3.8 27B among them)
+write their own `web_search` query and get neither step; they still get
+the Wikidata and Google News sources:
+
+1. **Query rewrite.** The chat's own loaded model (never a second one)
+   writes one to three `query:` lines and an `entity:` line, at
+   temperature 0, at most 64 tokens, within 2.5 s. The engines have no
+   grammar hook, so a strict parser stands in: anything outside the format
+   is junk. At most two queries go to DuckDuckGo (its 1 s pacing). Junk, a
+   failure or a timeout, and every route without a local model (cloud
+   models searching through Enigma), use a code-only clean-up instead: the
+   question without question words, auxiliaries, "please" and punctuation,
+   keeping names, numbers, years and words such as "latest". Only the typed
+   question is rewritten: a query a capable model wrote with `web_search`,
+   or one written from a screenshot, selection or attachment, goes as
+   written. The places route's "near <city>" query isn't rewritten.
+2. **"Enough?" check.** After the passages are picked, the same model reads
+   the question and the best passages (at most 350 words, page passages
+   first, then the facts and headlines) and answers `yes`
+   or `no: <missing words>` (24 tokens, 2.5 s). On `no`, DuckDuckGo is asked
+   once more with the first query plus those words, its new pages are read
+   within 1.5 s and join the others. At most one retry; junk, a failure or a
+   timeout means no retry. Capable models don't get the check: they can
+   call `web_search` again themselves.
+
 CP1 built these rules, with the owner's widening of 2026-10-27 (CP1's
 Hand-off, owner decisions 1–4). CP1's second review (2026-10-28) found
 misroutes, and CP1b fixes them as listed:
@@ -856,6 +905,8 @@ Under every reply whose evidence included a `.places` result, on any route.
 | DuckDuckGo, Mojeek | The query (commands removed, 50 words at most, the city for nearby questions), region and language, Safari's user agent, the IP address | Every web search |
 | Startpage | The same, plus one homepage request for its token | Only when DuckDuckGo fails |
 | Wikipedia | The query, Enigma's user agent, the IP address | Every web search |
+| Wikidata *(amended, owner approved 2026-10-30)* | The entity name the query rewrite wrote, or the Wikipedia article's title; Enigma's user agent; the IP address | Web searches that name an entity |
+| Google *(amended, owner approved 2026-10-30)* | The first keyword query, the language and region codes, Enigma's user agent, the IP address. No cookies, no location (skipped when the request carries a city); no article link is followed; nothing when the user blocked Google News | News and recency questions |
 | Result sites, up to about 6 | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
 | Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region | Places questions |
@@ -877,6 +928,10 @@ Under every reply whose evidence included a `.places` result, on any route.
   A capable model may look up places or weather near the user without the
   user's wording asking for it (owner, 2026-10-29); the city, or a
   coordinate rounded to about 1 km, is all that's used.
+- *Amended (owner approved 2026-10-30):* the query rewrite and the
+  "enough?" check (section 6.1) run on the Mac with the chat's own loaded
+  model; only the keyword queries they produce, and the entity name, leave
+  the Mac.
 - **Stored on the Mac:**
   - the blocked-sites list (domains only, in preferences);
   - site health, in memory only;

@@ -359,6 +359,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(paris.route, .web, "Not weather")
     XCTAssertNil(paris.namedPlace)
     XCTAssertEqual(paris.recency, .week)
+    XCTAssertEqual(search.requests.map(\.isTypedQuestion), [false, false], "web_search queries go as written (D107)")
 
     let cloudSearch = NativeSearchProvider(results: Self.searchResults)
     let provider = NativeToolProvider(steps: [[.call("web_search", #"{"query":"tide times"}"#)], [.token("High at noon.")]])
@@ -367,6 +368,7 @@ final class NativeToolRequestTests: XCTestCase {
     try await send("Tide times?", to: cloud, route: Self.cloudRoute)
     XCTAssertEqual(cloudSearch.requests.map(\.maximumTokens), [BraveSearchClient.evidenceTokens])
     XCTAssertEqual(cloudSearch.requests.map(\.route), [.web])
+    XCTAssertEqual(cloudSearch.requests.map(\.isTypedQuestion), [false])
   }
 
   func testDeclinedSearchAfterMessagesNeverQueries() async throws {

@@ -321,6 +321,7 @@ final class WebSearchTests: XCTestCase {
     let requests = await search.requests
     let request = try XCTUnwrap(requests.last)
     XCTAssertEqual(request.query, "latest cafes near me", "The query was written from the selection")
+    XCTAssertFalse(request.isTypedQuestion, "A written query isn't rewritten (D107)")
     XCTAssertEqual(request.route, .web)
     XCTAssertNil(request.recency, "Recency comes from the typed question, not the written query")
     XCTAssertNil(request.city)
@@ -338,6 +339,7 @@ final class WebSearchTests: XCTestCase {
     let request = try XCTUnwrap(requests.last)
     XCTAssertEqual(request.recency, .week)
     XCTAssertEqual(request.route, .web)
+    XCTAssertTrue(request.isTypedQuestion, "The small model's typed question is rewritten on device (D107)")
   }
 
   func testAutomaticSearchRecognizesFreshFactsWithoutACommand() {
@@ -794,6 +796,8 @@ final class WebSearchTests: XCTestCase {
       XCTAssertFalse(refinement.contains("screenshot"), route)
       let queries = await search.queries
       XCTAssertEqual(queries, ["Answer"], route)
+      let typed = await search.requests.map(\.isTypedQuestion)
+      XCTAssertEqual(typed, [false], "A query refined from attached text isn't rewritten (D107), \(route)")
     }
   }
 

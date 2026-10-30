@@ -1,55 +1,20 @@
 # F29 overnight run — report (2026-10-30)
 
-## RESUME (CP7 paused, 2026-10-30 10:38)
+## RESUME (after CP7, 2026-10-30 afternoon)
 
-- **Why it stopped:** the owner had to turn the computer off (D100). Weekly
-  usage was 82%; for CP7 the hard stop is 92% and no new review round or live
-  run starts from 90% (D93).
-- **Models for CP7 (D92):** worker on Haiku (effort high), each review round
-  a fresh Sonnet reviewer (effort xhigh), the evaluation's judge
-  `claude -p --model sonnet`.
-- **Where CP7 stopped:** the worker had written the evaluation harness and
-  was running the first full baseline when it was stopped.
-  - Done, uncommitted on the feature branch: the 60-question set
-    (`scripts/web-search-queries.json`, 40 new questions written by the
-    worker, not yet reviewed by the owner, D94, D96), `WebSearchEvaluationTests`
-    with the on-device trace, `scripts/evaluate-web-search.py` with its tests
-    and fixtures, the 12 new tool-use prompts and their offline scoring test,
-    F30's evaluator scoped to its 20 questions, test pacing for DuckDuckGo's
-    rate limit (D97), answers from Gemma 4 12B with evidence capped (D98).
-    Python tests passed when it stopped.
-  - Not done: the full baseline (`baseline-2` was cut off mid-run), the judge
-    run, any tuning, Task 7.5's live tool-use eval, the gate report, the
-    spot-check, the Hand-off, and every review round.
-- **wip branch:** `wip/f29-cp7-20261030-1037` (commit `9f02355`) holds all of
-  the above. The feature branch has only this report and the decision log.
-- **Live run cut off:** `baseline-2` in
-  `/private/tmp/claude-501/f29-cp7/runs/` (incomplete; rerun it). `baseline-1`
-  ran without pacing and isn't used for the gate (D97).
-- **Full suite** on `bf4d115`, screen unlocked: 1957 tests, 1 flaky UI
-  failure that passes alone (D99). CI on `bf4d115` hit the known
-  `ScreenViewTests` flake; the failed job was rerun.
-- **Next 3 steps:**
-  1. In `/private/tmp/claude-501/enigma-f29`, bring the wip work back onto
-     the feature branch as uncommitted changes, keeping the feature branch's
-     decision log (it already has every entry, D92–D100):
-     `git diff feat/f29-on-device-search wip/f29-cp7-20261030-1037 -- . ':!docs/superpowers/plans/2026-10-27-f29-on-device-web-search/overnight-*' | git apply --index`
-  2. Resume CP7 with a new Haiku worker: give it the CP7 brief, this RESUME,
-     D92–D100 and `/private/tmp/claude-501/f29-overnight/agent-rules.md`, and
-     tell it to rerun the baseline (`baseline-3`), then judge, tune, run the
-     tool-use eval, write the gate report, the spot-check (outside the repo)
-     and the Hand-off. Optional first: the owner reviews the 40 new questions
-     and 12 tool prompts (D94), since changing them later means rerunning.
-  3. **Investigate the `ScreenViewTests` CI failure before CP7's commit.**
-     `testLongScreenSearchConversationSettlesAtBottom` (its 5 s waits at
-     `EnigmaTests/ScreenViewTests.swift:502`) failed on CI at `c90ecf3`,
-     `bf4d115` (twice) and `d5286b5`, and passed on the other branch runs;
-     `main` passed its last 6 runs. F29 only renamed the test's fake search
-     provider, so suspect something F29 adds to the test host's load (for
-     example WebKit warm-up or the search lists loading) rather than the
-     test. Find the cause; don't just lengthen the wait (D99).
-  4. Then the review rounds (fresh Sonnet reviewer each), the full suite,
-     build and analyze, and the `(F29 CP7)` commit; then CP8–CP10.
+- **State:** CP7 is committed (see the table below). The owner is present and
+  steering; the run continues with CP8, CP9 and CP10.
+- **CP8 (next), owner decision:** the relaxed gate failed (typed: on-device
+  equal or better on 47%), so instead of removing Brave, on-device becomes
+  the default and Brave is used only when a Brave key is saved. CP8 also
+  ships "Never use this site", the Settings and welcome changes, and F30's
+  blocked domains. The brief `cp8-switch-over.md` assumes Brave's removal;
+  its worker follows the owner's decision instead.
+- **Deferred until the owner is away from the Mac (it loads the local
+  model):** the model-style half of the evaluation, the one-query vs
+  two-query A/B (D116), and the tool-use eval (Task 7.5). See D121.
+- **Review rule now:** reviewers are always Opus at effort xhigh; big changes
+  get up to three rounds, stopping when a round finds only small fixes.
 
 ## What's done
 
@@ -61,19 +26,28 @@
 | CP4 page reading | `44e4711` | 2 | D61–D72 | Local-network guard, plus a check of the address actually reached. Pages are fetched over https only. Extraction happens in a sealed WebKit view with Readability 0.6.0. |
 | CP5 passages and pipeline | `5523f78` | 2 | D73–D80 | The on-device provider sits behind the Debug-only switch; Brave stays the default. Live median 1.65 s. Also fixes CP4's macOS 26 CI failure (D77); CI passed. |
 | CP6 places and weather | `fb17df8` | 2 | D81–D90 | Open-Meteo weather and geocoding, Apple Maps places, `find_places`, `get_weather` and `/maps`. A declined location card holds for the rest of the chat. |
+| CP7 evaluation and search features | (this commit) | 2 | D92–D127 | Evaluation harness and 60 questions; owner-added query rewrite, "enough?" check, Wikidata facts and Google News headlines. Typed verdict: on-device 26, Brave 32, tie 2 (was 13 to 27 of 40). Both gates fail on the judge share. |
 
-The PR stays a draft: CP7–CP10 remain, and the branch merges only after CP10.
+The PR stays a draft: CP8–CP10 remain, and the branch merges only after CP10.
 
 ## Gate results
 
-Not measured. The quality evaluation, judge run, tool-use eval and
-authority-source check are CP7's job, and CP7 hasn't started. For CP8 the bars
-are the relaxed gate in D3, with the original bars and the authority-source
-check measured and logged but not blocking.
+From CP7's round 1 (typed half only; D121). Full table in the CP7 Hand-off.
+
+- **Passed:** clean sources; 2+ sources (100% typed, 98% model); a page read
+  (100%); 3+ domains; speed against the relaxed bar (median 2.27 s, p90
+  6.51 s across both styles; typed alone 5.45 s and 7.57 s).
+- **Failed:** on-device equal or better on 47% of typed questions (relaxed bar
+  65%, original 80%); Brave wins more than half of news, docs and reviews;
+  recency equal or better 65% (bar 70%).
+- **Measured, not blocking:** authority sources 39% typed, 61% model (bar
+  80%).
+- **Not run:** the model-style judge, the A/B and the tool-use eval.
 
 ## Spot-check pairs
 
-None yet. The blind spot-check of about 15 pairs is part of CP7 (D6).
+`spot-check.md` for round 1 is in `/private/tmp/claude-501/f29-cp7/runs/round-1/`
+(outside the repo), with no owner picks yet.
 
 ## Things done outside the worktree that the owner may want to know
 

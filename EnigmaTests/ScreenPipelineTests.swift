@@ -199,6 +199,8 @@ final class ScreenPipelineTests: XCTestCase {
     // Only the user's text loses its commands; the model's query reaches Brave as written.
     let queries = await fixture.search.queries
     XCTAssertEqual(queries.map(\.prompt), [written])
+    let typed = await fixture.search.requests.map(\.isTypedQuestion)
+    XCTAssertEqual(typed, [false], "A screen-written query isn't rewritten (D107)")
   }
 
   func testAnInstalledButUnselectedVisionModelCannotHandleTheRequest() async throws {

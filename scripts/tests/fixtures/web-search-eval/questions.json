@@ -1,0 +1,26 @@
+[
+  {
+    "id": "news-t1",
+    "category": "news",
+    "question": "Fixture news question?",
+    "query": "fixture news"
+  },
+  {
+    "id": "facts-t1",
+    "category": "facts",
+    "question": "Fixture facts question?",
+    "query": "fixture facts"
+  },
+  {
+    "id": "docs-t1",
+    "category": "docs",
+    "question": "Fixture docs question?",
+    "query": "fixture docs"
+  },
+  {
+    "id": "health-t1",
+    "category": "health-finance",
+    "question": "Fixture health question?",
+    "query": "fixture health"
+  }
+]

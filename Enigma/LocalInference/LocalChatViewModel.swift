@@ -1411,7 +1411,8 @@ final class LocalChatViewModel: ObservableObject {
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
           owner.state = .searching
-          let results = try await owner.search(trimmedPrompt, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
+          let results = try await owner.search(trimmedPrompt, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id,
+                                               assistantModel: model)
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
           owner.state = .preparing
@@ -2097,14 +2098,18 @@ final class LocalChatViewModel: ObservableObject {
   /// `refinesQuery` is false for a query a capable model wrote with its tools: it's searched as written.
   /// `toolRecency` is set for `web_search` (F29 CP5): the web route with the tool's recency, never
   /// a route the recognizers chose from the model's query.
+  /// `assistantModel` is the small-model path's loaded model: the on-device provider asks it to
+  /// rewrite the typed question and check the passages (D107, D108).
   private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
                       requestID: UUID, refinesQuery: Bool = true,
-                      toolRecency: SearchRecency?? = nil, skipsLocation: Bool = false) async throws -> [WebSearchResult] {
+                      toolRecency: SearchRecency?? = nil, skipsLocation: Bool = false,
+                      assistantModel: LocalModel? = nil) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
     // The user's text loses its slash commands here on every route, before refining, routing
     // and the provider. A model-written query is used as written.
     let question = writtenQuery ?? ScreenSearchContext.question(prompt)
     var contextualQuery = question
+    var refined = false
     // Only the source material this request carries refines its query.
     let source = requestSource
     if refinesQuery, !source.contexts.isEmpty || source.draft != nil, let active = activeRequest, active.id == requestID {
@@ -2135,6 +2140,7 @@ final class LocalChatViewModel: ObservableObject {
       do {
         contextualQuery = try ScreenSearchContext.query(from:
           await ScreenSearchContext.collect(stream, maximumBytes: 1_024), source: .attachedText)
+        refined = true
       } catch ScreenSearchError.outputTooLong {
         throw ScreenSearchError.outputTooLong(.attachedText)
       }
@@ -2155,6 +2161,8 @@ final class LocalChatViewModel: ObservableObject {
       request.namedPlace = nil
       request.recency = toolRecency
     }
+    // Only the typed question itself is rewritten; a query a model wrote goes as written (D107).
+    request.isTypedQuestion = writtenQuery == nil && toolRecency == nil && !refined
     // A declined share-location card keeps web_search from the location too (D89).
     if decision.needsCurrentLocation, !skipsLocation, let locationProvider {
       let location = try await locationProvider.currentLocation()
@@ -2164,7 +2172,12 @@ final class LocalChatViewModel: ObservableObject {
       request.city = location.searchCity
       request.coordinate = location.coordinate
     }
-    let results = try await webSearch.search(request) { [weak self] event in
+    // Only the embedded text engine's models: a vision model on this path gets the code-only
+    // clean-up and no check (D120, D124).
+    let assistant = assistantModel.flatMap {
+      $0.supportsVision ? nil : LocalModelSearchAssistant(engine: engine) as any SearchModelAssistant
+    }
+    let results = try await webSearch.search(request, assistant: assistant) { [weak self] event in
       // Retrieval candidates are not citation sources until context fitting selects them.
       if case .sourcesDiscovered = event {
         await self?.receiveActivity(.phase(.readingSources), requestID: requestID)
@@ -2462,5 +2475,19 @@ private struct SavingMessagesGate: MessagesAccessGate {
     await gate.didReturnMessageText()
     await onMessageText()
     if restartsProviderSearch { throw ProviderSearchRestart() }
+  }
+}
+
+/// The small-model path's own loaded model for the on-device search's helper calls (D107, D108,
+/// D120): the embedded text engine the answer uses; nothing new is loaded.
+private struct LocalModelSearchAssistant: SearchModelAssistant {
+  let engine: any LocalModelEngine
+
+  func complete(_ prompt: String, maximumTokens: Int) async throws -> String {
+    let message = ChatMessage(role: .user, content: prompt)
+    let prepared = try await engine.prepare(LocalModelRequest(messages: [message], maximumTokenCount: maximumTokens))
+    let stream = engine.stream(LocalModelRequest(messages: prepared.messages, maximumTokenCount: maximumTokens,
+                                                 temperature: 0))
+    return try await ScreenSearchContext.collect(stream, maximumBytes: 4_096)
   }
 }

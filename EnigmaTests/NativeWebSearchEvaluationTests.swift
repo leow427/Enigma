@@ -109,10 +109,12 @@ enum NativeSearchEvaluation {
     return encoder
   }()
 
+  /// F30's 20 questions (`web-` IDs). F29 CP7 adds 40 more to the same file for its own evaluation,
+  /// as `scripts/evaluate-native-search.py` also skips.
   static func questions() throws -> [Question] {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
       .appending(path: "scripts/web-search-queries.json")
-    return try JSONDecoder().decode([Question].self, from: Data(contentsOf: url))
+    return try JSONDecoder().decode([Question].self, from: Data(contentsOf: url)).filter { $0.id.hasPrefix("web-") }
   }
 
   /// The model the live checks use: `ENIGMA_CHATGPT_MODEL` or `ENIGMA_CLAUDE_CODE_MODEL`, else the

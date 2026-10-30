@@ -27,6 +27,47 @@ enum OnDeviceSearchTiming {
   static let maximumQueryCharacters = 400
 }
 
+/// One candidate's outcome in a search, for the evaluation (F29 CP7). Production passes no
+/// recorder, so nothing is recorded or kept.
+struct SearchTraceEvent: Codable, Equatable, Sendable {
+  let url: String
+  let domain: String
+  /// The engine's best position, by engine ID.
+  let positions: [String: Int]
+  /// The merged score before the trust factor, and the trust factor.
+  let score: Double
+  let trustFactor: Double
+  /// "read", "snippet", "blocked", "cutoff", "notArticle", "wall", "offTopic", "duplicate",
+  /// "wrongLanguage" or "unread".
+  let verdict: String
+}
+
+protocol SearchTracing: Sendable {
+  func record(_ event: SearchTraceEvent)
+  /// What each lane answered, merged into what earlier calls recorded: "duckDuckGo",
+  /// "duckDuckGo#2" (the second query), "retry", "wikipedia", "wikidata", "googleNews" →
+  /// "results:N" or the outcome's name. No query or result text (D111).
+  func recordSites(_ outcomes: [String: String])
+  /// A helper step's time and outcome: "rewrite" (model, fallback, timeout, junk, failed,
+  /// asWritten) and "check" (yes, no, junk, timeout, failed, skipped). No query text (D111).
+  func recordStep(_ step: String, milliseconds: Int, outcome: String)
+}
+
+extension SearchTracing {
+  func recordSites(_ outcomes: [String: String]) {}
+  func recordStep(_ step: String, milliseconds: Int, outcome: String) {}
+}
+
+/// Wikidata's facts and Google News's headlines, with the client they use (D109, D110).
+struct ExtraSearchSources: Sendable {
+  let facts: WikidataFacts
+  let news: GoogleNewsSearch
+  let client: any SearchHTTPClient
+  /// Wikidata's lookup takes up to four requests.
+  var factsTimeout: Duration = .milliseconds(2_500)
+  var newsTimeout: Duration = SearchSiteRunner.primaryTimeout
+}
+
 /// Searches the web from the Mac (spec §1, §3, §5): the search sites, ranking, reading pages
 /// within a window, the checks after reading, and passages. Weather comes from Open-Meteo alone,
 /// and places from Apple Maps with a web search beside it (spec §6.4, §6.5).
@@ -42,6 +83,11 @@ struct OnDeviceSearchProvider: WebSearchProvider {
   private let weather: any WeatherLooking
   private let geocoder: any Geocoding
   private let units: @Sendable () -> MeasurementUnits
+  private let trace: (any SearchTracing)?
+  private let extras: ExtraSearchSources?
+  /// Queries the model's rewrite may send to DuckDuckGo. The product value is the default; the
+  /// evaluation overrides it to measure one query against two (D116).
+  private let maximumSiteQueries: Int
 
   init(sites: SearchSiteRunner, reader: PageReader, extractor: any ArticleExtracting,
        quality: @escaping @Sendable () async throws -> SourceQuality,
@@ -51,7 +97,9 @@ struct OnDeviceSearchProvider: WebSearchProvider {
        places: any PlaceSearching = MapKitPlaceSearch(),
        weather: any WeatherLooking = OpenMeteoWeather(),
        geocoder: any Geocoding = OpenMeteoGeocoder(),
-       units: @escaping @Sendable () -> MeasurementUnits = { .current }) {
+       units: @escaping @Sendable () -> MeasurementUnits = { .current },
+       trace: (any SearchTracing)? = nil, extras: ExtraSearchSources? = nil,
+       maximumSiteQueries: Int = SearchAssistTuning.maximumSiteQueries) {
     self.sites = sites
     self.reader = reader
     self.extractor = extractor
@@ -63,9 +111,12 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     self.weather = weather
     self.geocoder = geocoder
     self.units = units
+    self.trace = trace
+    self.extras = extras
+    self.maximumSiteQueries = maximumSiteQueries
   }
 
-  @MainActor static func live() -> OnDeviceSearchProvider {
+  @MainActor static func live(trace: (any SearchTracing)? = nil) -> OnDeviceSearchProvider {
     let client = URLSessionSearchHTTPClient.live
     let sites = SearchSiteRunner(engines: [.duckDuckGo: DuckDuckGoEngine()], wikipedia: WikipediaSearch(),
                                  client: client, health: .shared, log: OSSearchLog())
@@ -81,19 +132,25 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       let current = try await quality()
       blockedCheck.set(current)
       return current
-    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client))
+    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client),
+       trace: trace, extras: ExtraSearchSources(facts: WikidataFacts(), news: GoogleNewsSearch(), client: client))
   }
 
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
-    try await search(request, onActivity: { _ in })
+    try await search(request, assistant: nil, onActivity: { _ in })
   }
 
   func search(_ request: WebSearchRequest,
               onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
+    try await search(request, assistant: nil, onActivity: onActivity)
+  }
+
+  func search(_ request: WebSearchRequest, assistant: (any SearchModelAssistant)?,
+              onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
     switch request.route {
-    case .web: return try await searchWeb(request, onActivity: onActivity)
+    case .web: return try await searchWeb(request, assistant: assistant, onActivity: onActivity)
     case .weather: return try await searchWeather(request, onActivity: onActivity)
-    case .places: return try await searchPlaces(request, onActivity: onActivity)
+    case .places: return try await searchPlaces(request, assistant: assistant, onActivity: onActivity)
     }
   }
 
@@ -108,6 +165,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     fallback.route = .web
     fallback.namedPlace = nil
     fallback.query = place.map { "weather " + $0 } ?? request.query
+    fallback.isTypedQuestion = place == nil && request.isTypedQuestion
     do {
       let coordinate: SearchCoordinate
       let name: String
@@ -118,7 +176,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
         coordinate = found.coordinate
         name = found.name
       } else {
-        return try await searchWeb(fallback, onActivity: onActivity)
+        return try await searchWeb(fallback, assistant: nil, onActivity: onActivity)
       }
       let forecast = try await weather.forecast(at: coordinate, units: units())
       try Task.checkCancellation()
@@ -129,14 +187,14 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       throw CancellationError()
     } catch {
       try Task.checkCancellation()
-      return try await searchWeb(fallback, onActivity: onActivity)
+      return try await searchWeb(fallback, assistant: nil, onActivity: onActivity)
     }
   }
 
   /// Apple Maps and the web route at the same time; the places result comes first. MapKit gets the
   /// question without its nearby cues and the rounded location, or the named area in the query;
   /// the search sites get only the city. A MapKit failure or no places leaves the web results.
-  private func searchPlaces(_ request: WebSearchRequest,
+  private func searchPlaces(_ request: WebSearchRequest, assistant: (any SearchModelAssistant)?,
                             onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
     let mapQuery = SearchRouting.webQuery(request.query, city: nil)
     var web = request
@@ -147,7 +205,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     }()
     let webResults: Result<[WebSearchResult], any Error>
     do {
-      webResults = .success(try await searchWeb(web, onActivity: onActivity))
+      webResults = .success(try await searchWeb(web, assistant: assistant, onActivity: onActivity))
     } catch {
       webResults = .failure(error)
     }
@@ -161,7 +219,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
 
   // MARK: The web route
 
-  private func searchWeb(_ request: WebSearchRequest,
+  private func searchWeb(_ request: WebSearchRequest, assistant: (any SearchModelAssistant)?,
                          onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
     await extractor.warmUp()
     let quality = try await self.quality()
@@ -169,25 +227,84 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     let text = Self.siteQuery(SearchRouting.webQuery(request.query, city: request.city))
     guard !text.isEmpty else { throw WebSearchError.emptyQuery }
 
-    // 1–2. The sites. Wikipedia isn't asked for day or week questions.
-    let run = await sites.run(EngineQuery(text: text, region: .current(), recency: request.recency),
-                              includeWikipedia: request.recency != .day && request.recency != .week,
-                              preferredLanguages: languages)
+    // 0. The queries: the typed question as keywords, by the model or the clean-up (D107).
+    let plan = await queryPlan(request, siteText: text, assistant: assistant)
+    // A stop during the rewrite sends nothing further (D124).
     try Task.checkCancellation()
-    let found = run.outcomes.values.flatMap { outcome -> [EngineResult] in
-      if case .results(let results) = outcome { return results }
-      return []
+    let region = SearchRegion.current()
+    var siteOutcomes: [String: String] = [:]
+
+    // Wikidata and Google News run beside the sites (D109, D110); Wikidata starts now when the
+    // rewrite named an entity, or after the sites from Wikipedia's article.
+    var factsTask: Task<WikidataEntityFacts?, Never>?
+    if let entity = plan.entity { factsTask = startFacts(entity: entity, wikipediaTitle: nil, languages: languages) }
+    let newsTask: Task<[NewsHeadline]?, Never>? = extras.flatMap { extras in
+      // Google never receives a location: a request with a city skips the headlines (D122).
+      // A user who blocked Google News never has it asked (D125).
+      guard request.city == nil, !quality.isBlocked(GoogleNewsSearch.homeURL),
+            GoogleNewsSearch.applies(question: request.query, recency: request.recency) else {
+        return nil
+      }
+      let query = plan.queries[0]
+      return Task { [clock] in
+        await Self.withTimeout(extras.newsTimeout, clock: clock) {
+          await extras.news.search(query, region: region, using: extras.client)
+        } ?? nil
+      }
     }
+    defer {
+      factsTask?.cancel()
+      newsTask?.cancel()
+    }
+
+    // 1–2. The sites, one run per query at once (the sites pace themselves). Wikipedia gets the
+    // first query, and isn't asked for day or week questions.
+    let runs = await withTaskGroup(of: (Int, SiteRunResult).self) { group in
+      for (index, query) in plan.queries.enumerated() {
+        group.addTask { [sites] in
+          (index, await sites.run(EngineQuery(text: query, region: region, recency: request.recency),
+                                  includeWikipedia: index == 0 && request.recency != .day && request.recency != .week,
+                                  preferredLanguages: languages))
+        }
+      }
+      var results: [Int: SiteRunResult] = [:]
+      for await (index, run) in group { results[index] = run }
+      return plan.queries.indices.compactMap { results[$0] }
+    }
+    try Task.checkCancellation()
+    let run = runs[0]
+    for (index, eachRun) in runs.enumerated() {
+      for (engine, outcome) in eachRun.outcomes {
+        siteOutcomes[engine.rawValue + (index == 0 ? "" : "#\(index + 1)")] = Self.outcomeName(outcome)
+      }
+    }
+    switch run.wikipedia {
+    case .article: siteOutcomes["wikipedia"] = "results:1"
+    case WikipediaOutcome.none:
+      siteOutcomes["wikipedia"] = request.recency == .day || request.recency == .week ? "skipped" : "noResults"
+    case .failed: siteOutcomes["wikipedia"] = "failed"
+    }
+    trace?.recordSites(siteOutcomes)
+    let foundLists = runs.map { eachRun in
+      eachRun.outcomes.values.flatMap { outcome -> [EngineResult] in
+        if case .results(let results) = outcome { return results }
+        return []
+      }
+    }
+    let found = foundLists.flatMap { $0 }
     var wikipedia: WikipediaArticle?
     if case .article(let article) = run.wikipedia { wikipedia = article }
-    if found.isEmpty, wikipedia == nil { throw Self.failure(run) }
 
     // 3–4. Ranking, and Wikipedia's lane when it shares a content word with the question.
-    let selection = ResultRanking.select(ResultRanking.merge(found, weights: RankingTuning.engineWeights, quality: quality),
-                                         quality: quality, cutoff: OnDeviceSearchTiming.rankingCutoff)
+    let merged = Self.fuse(foundLists.map { ResultRanking.merge($0, weights: RankingTuning.engineWeights, quality: quality) })
+    let selection = ResultRanking.select(merged, quality: quality, cutoff: OnDeviceSearchTiming.rankingCutoff)
     let questionLemmas = PassageRanker.contentLemmas(request.query)
     if let article = wikipedia,
        quality.isBlocked(article.url) || !Self.shares(article, questionLemmas) { wikipedia = nil }
+    if factsTask == nil, let article = wikipedia {
+      factsTask = startFacts(entity: nil, wikipediaTitle: article.title, languages: languages)
+    }
+    if found.isEmpty, wikipedia == nil, factsTask == nil, newsTask == nil { throw Self.failure(run) }
 
     // 5. Report.
     let toRead = selection.readQueue
@@ -197,7 +314,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
 
     // 6. Read within the window.
     let allowed = Self.allowedLanguages(question: request.query, preferred: languages)
-    let outcomes = await read(toRead, allowedLanguages: allowed)
+    let outcomes = await read(toRead, allowedLanguages: allowed, window: OnDeviceSearchTiming.readingWindow)
     try Task.checkCancellation()
 
     var sources: [Source] = toRead.indices.compactMap { index in
@@ -208,31 +325,311 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       sources.append(Source(kind: .wikipedia, candidate: nil, page: page))
     }
 
+    // Wikidata's facts when the entity shares a content word with the question; the headlines.
+    var excerpts: [WebSearchResult] = []
+    if let factsTask {
+      let facts = await Self.value(of: factsTask)
+      siteOutcomes["wikidata"] = facts.map { "results:\($0.facts.count)" } ?? "noResults"
+      if let facts, !quality.isBlocked(facts.url),
+         !PassageRanker.contentLemmas(facts.label).isDisjoint(with: questionLemmas) {
+        excerpts.append(WikidataFacts.excerpt(facts))
+      }
+    }
+    if let newsTask {
+      let headlines = await Self.value(of: newsTask)
+      siteOutcomes["googleNews"] = headlines.map { $0.isEmpty ? "noResults" : "results:\($0.count)" } ?? "failed"
+      // Headlines from a blocked or unsafe publisher are dropped (D125).
+      let kept = (headlines ?? []).filter { headline in headline.publisherURL.map { !quality.isBlocked($0) } ?? true }
+      if !kept.isEmpty { excerpts.append(GoogleNewsSearch.excerpt(kept)) }
+    }
+    trace?.recordSites(siteOutcomes)
+    try Task.checkCancellation()
+
+    // 7–9. Near-duplicates, passages, the off-topic check, the order and the snippet fallback.
+    var assembled = assemble(sources, toRead: toRead, outcomes: outcomes, snippetOnly: selection.snippetOnly,
+                             request: request, questionLemmas: questionLemmas, quality: quality)
+
+    // The "enough?" check and its one retry, on the small-model path only (D108).
+    if let assistant, request.isTypedQuestion {
+      if let missing = await check(request.query, ordered: assembled.ordered, excerpts: excerpts, assistant: assistant) {
+        let retryQuery = Self.siteQuery(plan.queries[0] + " " + missing)
+        let retryRun = await sites.run(EngineQuery(text: retryQuery, region: region, recency: request.recency),
+                                       includeWikipedia: false, preferredLanguages: languages)
+        try Task.checkCancellation()
+        for (_, outcome) in retryRun.outcomes { siteOutcomes["retry"] = Self.outcomeName(outcome) }
+        trace?.recordSites(siteOutcomes)
+        let retryFound = retryRun.outcomes.values.flatMap { outcome -> [EngineResult] in
+          if case .results(let results) = outcome { return results }
+          return []
+        }
+        let seen = Set(merged.map { URLNormalizer.key($0.url) })
+        let fresh = ResultRanking.select(ResultRanking.merge(retryFound, weights: RankingTuning.engineWeights,
+                                                             quality: quality),
+                                         quality: quality, cutoff: OnDeviceSearchTiming.rankingCutoff)
+          .readQueue.filter { !seen.contains(URLNormalizer.key($0.url)) }
+        if !fresh.isEmpty {
+          await onActivity(.sourcesDiscovered(fresh.prefix(OnDeviceSearchTiming.readLimit).map(Self.source)))
+          let freshOutcomes = await read(fresh, allowedLanguages: allowed, window: SearchAssistTuning.retryReadingWindow)
+          try Task.checkCancellation()
+          let added: [Source] = fresh.indices.compactMap { index in
+            guard case .passed(let page)? = freshOutcomes[index] else { return nil }
+            return Source(kind: .article, candidate: fresh[index], page: page)
+          }
+          if !added.isEmpty {
+            assembled = assemble(sources + added, toRead: toRead, outcomes: outcomes,
+                                 snippetOnly: selection.snippetOnly, request: request, questionLemmas: questionLemmas,
+                                 quality: quality)
+          }
+        }
+      }
+    }
+    let ordered = assembled.ordered
+
+    // Nothing left: when the sites themselves failed, say so rather than "no results" (D77).
+    guard !ordered.isEmpty || !excerpts.isEmpty else { throw found.isEmpty ? Self.failure(run) : WebSearchError.noResults }
+    if !excerpts.isEmpty { await onActivity(.sourcesDiscovered(excerpts.map(\.source))) }
+
+    // 10. Results within the budget; Wikidata's facts and the headlines first.
+    if let trace {
+      let kept = Set(ordered.compactMap { entry -> String? in
+        guard entry.source.kind == .article, let candidate = entry.source.candidate else { return nil }
+        return URLNormalizer.key(candidate.url)
+      })
+      let snippets = Set(ordered.compactMap { entry -> String? in
+        guard entry.source.kind == .snippet, let candidate = entry.source.candidate else { return nil }
+        return URLNormalizer.key(candidate.url)
+      })
+      Self.record(trace, merged: merged, quality: quality, selection: selection, toRead: toRead, outcomes: outcomes,
+                  deduplicated: assembled.deduplicated, kept: kept, snippets: snippets)
+    }
+    return excerpts + Self.collect(ordered, maximumTokens: request.maximumTokens)
+  }
+
+  // MARK: The helper calls (D107, D108)
+
+  /// The typed question's keyword queries; any other query as written.
+  private func queryPlan(_ request: WebSearchRequest, siteText: String,
+                         assistant: (any SearchModelAssistant)?) async -> SearchQueryPlan {
+    // A query a model wrote, and the places route's "near <city>" query, go as written.
+    guard request.isTypedQuestion, request.city == nil else {
+      return SearchQueryPlan(queries: [siteText], entity: nil, outcome: "asWritten")
+    }
+    let cleaned = Self.siteQuery(SearchQueryRewrite.keywords(siteText))
+    let fallback = cleaned.isEmpty ? siteText : cleaned
+    guard let assistant else {
+      trace?.recordStep("rewrite", milliseconds: 0, outcome: "fallback")
+      return SearchQueryPlan(queries: [fallback], entity: nil, outcome: "fallback")
+    }
+    let started = ContinuousClock.now
+    let reply = await SearchAssistCall.run(assistant, prompt: SearchQueryRewrite.prompt(question: siteText, today: now()),
+                                           maximumTokens: SearchAssistTuning.rewriteTokens,
+                                           timeout: SearchAssistTuning.rewriteTimeout, clock: clock)
+    let milliseconds = Self.milliseconds(since: started)
+    switch reply {
+    case .value(let output):
+      guard let parsed = SearchQueryRewrite.parse(output) else {
+        trace?.recordStep("rewrite", milliseconds: milliseconds, outcome: "junk")
+        return SearchQueryPlan(queries: [fallback], entity: nil, outcome: "junk")
+      }
+      trace?.recordStep("rewrite", milliseconds: milliseconds, outcome: "model")
+      let queries = parsed.queries.prefix(maximumSiteQueries).map(Self.siteQuery)
+        .filter { !$0.isEmpty }
+      return SearchQueryPlan(queries: queries.isEmpty ? [fallback] : Array(queries), entity: parsed.entity,
+                             outcome: "model")
+    case .timeout:
+      trace?.recordStep("rewrite", milliseconds: milliseconds, outcome: "timeout")
+      return SearchQueryPlan(queries: [fallback], entity: nil, outcome: "timeout")
+    case .failed:
+      trace?.recordStep("rewrite", milliseconds: milliseconds, outcome: "failed")
+      return SearchQueryPlan(queries: [fallback], entity: nil, outcome: "failed")
+    }
+  }
+
+  /// The missing words when the model says the passages don't answer the question; nil otherwise.
+  private func check(_ question: String, ordered: [(source: Source, passages: [Passage])], excerpts: [WebSearchResult],
+                     assistant: any SearchModelAssistant) async -> String? {
+    // Page passages fill the word budget first, then the facts and headlines (D122).
+    var shown: [(title: String, text: String)] = ordered.map { entry in
+      (entry.source.page?.article.title ?? entry.source.candidate?.title ?? "",
+       entry.passages.prefix(2).map(\.text).joined(separator: " "))
+    }
+    shown += excerpts.map { ($0.source.title, $0.snippets.joined(separator: " ")) }
+    guard !shown.isEmpty else {
+      trace?.recordStep("check", milliseconds: 0, outcome: "skipped")
+      return nil
+    }
+    let started = ContinuousClock.now
+    let reply = await SearchAssistCall.run(assistant, prompt: SearchSufficiencyCheck.prompt(question: question, sources: shown),
+                                           maximumTokens: SearchAssistTuning.checkTokens,
+                                           timeout: SearchAssistTuning.checkTimeout, clock: clock)
+    let milliseconds = Self.milliseconds(since: started)
+    switch reply {
+    case .value(let output):
+      switch SearchSufficiencyCheck.parse(output) {
+      case .enough?:
+        trace?.recordStep("check", milliseconds: milliseconds, outcome: "yes")
+        return nil
+      case .missing(let words)?:
+        trace?.recordStep("check", milliseconds: milliseconds, outcome: "no")
+        return words
+      case nil:
+        trace?.recordStep("check", milliseconds: milliseconds, outcome: "junk")
+        return nil
+      }
+    case .timeout:
+      trace?.recordStep("check", milliseconds: milliseconds, outcome: "timeout")
+      return nil
+    case .failed:
+      trace?.recordStep("check", milliseconds: milliseconds, outcome: "failed")
+      return nil
+    }
+  }
+
+  private func startFacts(entity: String?, wikipediaTitle: String?, languages: [String]) -> Task<WikidataEntityFacts?, Never>? {
+    guard let extras else { return nil }
+    return Task { [clock] in
+      await Self.withTimeout(extras.factsTimeout, clock: clock) {
+        await extras.facts.lookup(entity: entity, wikipediaTitle: wikipediaTitle, preferredLanguages: languages,
+                                  using: extras.client)
+      } ?? nil
+    }
+  }
+
+  /// Steps 7–9 over the read sources: near-duplicates, passages and order, and snippets when fewer
+  /// than 2 pages pass.
+  private func assemble(_ sources: [Source], toRead: [RankedCandidate], outcomes: [Int: ReadOutcome],
+                        snippetOnly: [RankedCandidate], request: WebSearchRequest, questionLemmas: Set<String>,
+                        quality: SourceQuality)
+    -> (ordered: [(source: Source, passages: [Passage])], deduplicated: Set<String>) {
     // 7. Near-duplicates: the less trusted copy goes, or the lower score; Wikipedia stays.
-    sources = dropDuplicates(sources, quality: quality)
+    let kept = dropDuplicates(sources, quality: quality)
+    let deduplicated = Set(kept.compactMap { $0.candidate.map { URLNormalizer.key($0.url) } })
 
     // 8. Passages, the off-topic check and the order.
-    var ordered = order(sources, question: request.query, questionLemmas: questionLemmas, recency: request.recency)
+    var ordered = order(kept, question: request.query, questionLemmas: questionLemmas, recency: request.recency)
 
     // 9. Snippets when fewer than 2 pages pass.
     let passingPages = ordered.filter { $0.source.kind == .article }.count
     if passingPages < 2 {
       let excluded = Set(ordered.compactMap { $0.source.candidate.map { URLNormalizer.key($0.url) } })
-      let snippets = Self.snippetCandidates(toRead, outcomes: outcomes, snippetOnly: selection.snippetOnly)
+      let snippets = Self.snippetCandidates(toRead, outcomes: outcomes, snippetOnly: snippetOnly)
         .filter { !excluded.contains(URLNormalizer.key($0.url)) }
       for candidate in snippets.prefix(max(0, OnDeviceSearchTiming.snippetFallbackSources - ordered.count)) {
         ordered.append((source: Source(kind: .snippet, candidate: candidate, page: nil),
                         passages: [Passage(text: candidate.snippet, order: 0)]))
       }
     }
-    // Nothing left: when the sites themselves failed, say so rather than "no results" (D77).
-    guard !ordered.isEmpty else { throw found.isEmpty ? Self.failure(run) : WebSearchError.noResults }
+    return (ordered, deduplicated)
+  }
 
-    // 10. Results within the budget.
-    return Self.collect(ordered, maximumTokens: request.maximumTokens)
+  /// Several queries' merged lists as one: positions merged, scores summed per URL — reciprocal-rank
+  /// fusion with k = 0, matching each list's own `weight / position` score — so one list keeps its
+  /// order and scores exactly (D107).
+  static func fuse(_ lists: [[RankedCandidate]]) -> [RankedCandidate] {
+    guard lists.count > 1 else { return lists.first ?? [] }
+    var order: [String] = []
+    var fused: [String: RankedCandidate] = [:]
+    for list in lists {
+      for candidate in list {
+        let key = URLNormalizer.key(candidate.url)
+        guard var existing = fused[key] else {
+          fused[key] = candidate
+          order.append(key)
+          continue
+        }
+        existing.score += candidate.score
+        if candidate.title.count > existing.title.count { existing.title = candidate.title }
+        if candidate.snippet.count > existing.snippet.count { existing.snippet = candidate.snippet }
+        for (engine, position) in candidate.positions {
+          existing.positions[engine] = min(existing.positions[engine] ?? .max, position)
+        }
+        fused[key] = existing
+      }
+    }
+    return order.enumerated().compactMap { offset, key in fused[key].map { (offset, $0) } }
+      .sorted { $0.1.score != $1.1.score ? $0.1.score > $1.1.score : $0.0 < $1.0 }
+      .map(\.1)
+  }
+
+  /// The task's value; cancelling the search cancels the task too (D124).
+  private static func value<T: Sendable>(of task: Task<T, Never>) async -> T {
+    await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+  }
+
+  private static func outcomeName(_ outcome: EngineOutcome) -> String {
+    if case .results(let results) = outcome { return "results:\(results.count)" }
+    return "\(outcome)"
+  }
+
+  private static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+    let elapsed = start.duration(to: .now).components
+    return Int(elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000)
+  }
+
+  /// The operation's value, or nil once `timeout` passes; the loser is cancelled.
+  private static func withTimeout<T: Sendable>(_ timeout: Duration, clock: any Clock<Duration>,
+                                               _ operation: @escaping @Sendable () async -> T) async -> T? {
+    await withTaskGroup(of: T?.self) { group in
+      group.addTask { await operation() }
+      group.addTask {
+        try? await clock.sleep(for: timeout)
+        return nil
+      }
+      let first = await group.next() ?? nil
+      group.cancelAll()
+      return first
+    }
   }
 
   // MARK: Steps
+
+  /// One event per candidate the ranking saw. Verdicts are the pipeline's own outcomes.
+  private static func record(_ trace: any SearchTracing, merged: [RankedCandidate], quality: SourceQuality,
+                             selection: ResultRanking.Selection, toRead: [RankedCandidate],
+                             outcomes: [Int: ReadOutcome], deduplicated: Set<String>, kept: Set<String>,
+                             snippets: Set<String>) {
+    var readIndex: [String: Int] = [:]
+    for (index, candidate) in toRead.enumerated() { readIndex[URLNormalizer.key(candidate.url)] = index }
+    let snippetOnly = Set(selection.snippetOnly.map { URLNormalizer.key($0.url) })
+    for candidate in merged {
+      let key = URLNormalizer.key(candidate.url)
+      let verdict: String
+      if quality.isBlocked(candidate.url) {
+        verdict = "blocked"
+      } else if let index = readIndex[key] {
+        switch outcomes[index] {
+        case .passed?:
+          verdict = kept.contains(key) ? "read" : (deduplicated.contains(key) ? "offTopic" : "duplicate")
+        case .rejected(let page)?:
+          verdict = verdictName(page)
+        case .refused?:
+          verdict = "blocked"
+        case .unread?, nil:
+          verdict = snippets.contains(key) ? "snippet" : "unread"
+        }
+      } else if snippetOnly.contains(key) {
+        verdict = snippets.contains(key) ? "snippet" : "unread"
+      } else {
+        verdict = "cutoff"
+      }
+      var positions: [String: Int] = [:]
+      for (engine, position) in candidate.positions { positions[engine.rawValue] = position }
+      trace.record(SearchTraceEvent(url: candidate.url.absoluteString, domain: candidate.domain, positions: positions,
+                                    score: candidate.score, trustFactor: quality.trustFactor(for: candidate.url),
+                                    verdict: verdict))
+    }
+  }
+
+  private static func verdictName(_ verdict: PageVerdict) -> String {
+    switch verdict {
+    case .keep: "read"
+    case .notArticle: "notArticle"
+    case .wall: "wall"
+    case .wrongLanguage: "wrongLanguage"
+    case .offTopic: "offTopic"
+    case .duplicate: "duplicate"
+    }
+  }
 
   /// A read page or Wikipedia's article, ready for passages.
   struct ReadPage: Sendable {
@@ -264,11 +661,12 @@ struct OnDeviceSearchProvider: WebSearchProvider {
 
   /// Keeps up to `readLimit` reads running, within `readingWindow`. A failure starts the next
   /// candidate; `earlyStopPages` passes, the window's end or cancellation stops every read.
-  private func read(_ queue: [RankedCandidate], allowedLanguages: Set<String>) async -> [Int: ReadOutcome] {
+  private func read(_ queue: [RankedCandidate], allowedLanguages: Set<String>,
+                    window: Duration) async -> [Int: ReadOutcome] {
     guard !queue.isEmpty else { return [:] }
     return await withTaskGroup(of: ReadEvent.self) { group in
       group.addTask { [clock] in
-        try? await clock.sleep(for: OnDeviceSearchTiming.readingWindow)
+        try? await clock.sleep(for: window)
         return .windowEnded
       }
       var outcomes: [Int: ReadOutcome] = [:]

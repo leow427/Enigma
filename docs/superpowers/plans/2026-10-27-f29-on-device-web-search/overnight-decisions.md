@@ -107,7 +107,7 @@ The summary at the top is written when the run ends.
 - **CP5:** D73–D80
 - **CP6:** D81–D90
 - **Run end:** D91
-- **CP7:** D92–D100
+- **CP7:** D92–D127
 - **CP8:**
 - **CP9:**
 - **CP10:**
@@ -1985,7 +1985,14 @@ view is released, not from extraction. The CI failures were most likely the
   them belongs in its own fix. *Update 10:50:* the `ScreenViewTests` test
   then failed again at `d5286b5` (failures at `c90ecf3`, `bf4d115` twice and
   `d5286b5`; `main` passed its last 6 runs), so it may be caused by F29
-  after all. It is now step 3 of the RESUME in `overnight-report.md`.
+  after all. It is now step 3 of the RESUME in `overnight-report.md`. *Update (CP7):* it wasn't F29. The F30 branch failed the
+  same test on CI, and `main`'s passing runs took 8.5 s against the 5 s wait;
+  the burst wait was raised to 15 s in `8626f32`, after which it passed on
+  CI (9.3 s). That run then failed
+  `ComposerIntentResolveTests.testResolvingIsFast` by 5 ms over its 5 s
+  bound on a slow runner; locally F29 doesn't slow that draft (1.39–1.43 s
+  on `main`, 1.39–1.40 s on the branch per 1,000 runs), so the job was
+  re-run and the test left unchanged.
 - **Alternatives:** lengthen `ScreenViewTests`' 5 s wait in a separate change
   (it has now flaked twice on CI).
 - **Reversible:** yes.
@@ -1999,3 +2006,301 @@ view is released, not from extraction. The CI failures were most likely the
 - **Why:** owner request.
 - **Alternatives:** none.
 - **Reversible:** yes (resume from the RESUME steps).
+
+### D101 — 11:58, CP7 — Answers with the model's thinking turned off
+
+- **Decided (worker CP7):** `evaluate-web-search.py` sends `chat_template_kwargs: {enable_thinking: false}` with each answer request. Gemma 4 on the bundled llama-server otherwise spends the 400-token budget on reasoning, and a timed test with thinking off took about 20 s per answer (2.9k prompt tokens, 400 generated). The first attempt, with thinking on, produced no answer in seven minutes and was stopped.
+- **Why:** the evidence; answers need the answer text, not the reasoning.
+- **Alternatives:** raise the token budget (slower); `--reasoning-budget 0` on the server (same effect, one place).
+- **Reversible:** yes (one line).
+
+### D102 — 11:58, CP7 — DuckDuckGo gave much less on-device coverage in later runs with the same code
+
+- **Decided (worker CP7):** no product change. The runs differ in how many sources DuckDuckGo returned for the same question in the same code path: model-style questions such as "men's marathon world record" had 5 sources in `baseline-1` and 1 in `baseline-3` and in `recheck-1` (a rerun of the 20 short questions). Typed style recovered in the recheck. A plain curl request (GET and POST, same query) returned normal results. The cause isn't known; the app's engine doesn't log the site outcome (`unrecognized`, `blocked` or no results), so this can't be split further without a probe that the brief doesn't cover.
+- **Why:** the gate's two-source and variety checks depend on this, so the report must say so.
+- **Alternatives:** retry an empty site page once (a product change; not tried, since it only treats symptoms); pace the requests further (not tried in time).
+- **Reversible:** yes. Reported as a limitation in the CP7 Hand-off.
+
+### D103 — 12:36, CP7 — Speed-up: parallel judge, early read, cached answers, two-slot test
+
+- **Decided (orchestrator, owner asked to speed up CP7):** (1) The judge runs up to 6 `claude -p --model sonnet` calls at once (same prompt, same hash-based order, same JSON check); a failed or unparseable call is tried once more, then counts as missing, which never passes. (2) Early read: the first 40 judged pairs (typed style) went to the orchestrator at 12:36, from `--judge-limit 40`; `early-read.md` in the run folder. (3) Answers are cached in `runs/answer-cache.jsonl`, keyed by a hash of the model, the exact prompt and the settings (temperature 0.2, 400 tokens, thinking off). Answers already in a folder are skipped; cached answers are copied; the 121 earlier answers were backfilled with keys. Brave answers are shared across rounds through the same cache. Judge results are also resumed from `judgments.jsonl`. (4) Two parallel answer slots were measured on the same model, with the same settings for both providers: about 16.4 s per answer against about 16.8 s for one slot. That's far under the 30% bar, so the run uses one slot.
+- **Why:** owner asked for speed; the cache makes tuning rounds regenerate only the on-device answers whose evidence changed.
+- **Alternatives:** two slots (not kept, measured); a second model in parallel (not allowed: one local model at a time).
+- **Reversible:** yes (`--answer-workers`, `--workers`, `--judge-limit`, the cache file).
+
+### D104 — 2026-10-30 12:42, CP7 — Owner adds four search features
+
+- **Decided (owner, 2026-10-30):** after the early read (typed style: on-device
+  13, Brave 27; news and facts 0 of 12), CP7 adds:
+  1. **Local-model query rewrite** on the small-model path: the chat's local
+     model turns a typed question into 1–3 keyword queries, searched and
+     merged;
+  2. **An "enough?" check with one retry:** after reading, the local model
+     judges whether the passages answer the question and, if not, searches
+     once more with the missing term;
+  3. **Wikidata** as a keyless facts source (Wikimedia, already a third party
+     through Wikipedia);
+  4. **Google News RSS** for news questions. This adds Google as a third party
+     that sees news queries; the owner accepted that.
+  The spec is amended for each, marked "*Amended (owner approved 2026-10-30)*".
+- **Why:** typed questions search badly as whole sentences; news and facts
+  lose every judged question; a keyword rewrite, specialised sources first
+  and a sufficiency check target exactly these.
+- **Alternatives:** code-only keyword clean-up only (already in tuning round
+  1); keep news on DuckDuckGo only.
+- **Reversible:** yes; each is a separate engine or step behind the
+  on-device provider, and Brave stays the default until CP8.
+
+### D105 — 2026-10-30 12:42, CP7 — A Sonnet worker builds D104's features
+
+- **Decided (orchestrator):** the Haiku worker finishes tuning round 1 and
+  its report, then stops. A Sonnet worker (effort high) builds D104's four
+  features with tests, since they are design work (local-model calls in the
+  search path, two new sources, privacy review). The Haiku worker then runs
+  round 2's evaluation. One worker writes code at a time.
+- **Why:** D92 allows a Sonnet worker for design questions Haiku shouldn't
+  settle alone.
+- **Alternatives:** Haiku builds them (cheaper, riskier).
+- **Reversible:** yes.
+
+### D106 — 2026-10-30 12:44, CP7 — Pivot: stop the DuckDuckGo-only evaluation; an Opus worker builds D104's features
+
+- **Decided (owner, 2026-10-30):** rather than spend more time and tokens
+  measuring the DuckDuckGo-only version, build D104's four features now on the
+  current code, with an Opus worker at effort high (replacing D105's Sonnet
+  worker). The Haiku worker was stopped mid-way through baseline-3's
+  model-style answers and tuning round 1; its eval run and llama-server were
+  stopped by PID. Its uncommitted harness and the started site-outcome trace
+  (`SearchTracing.recordSites`) stay in the worktree for the new worker.
+  The full evaluation (judge, tuning, tool-use eval, gate report) runs after
+  the features land.
+- **Why:** the early read showed the DuckDuckGo-only version losing for
+  reasons the features target; measuring it fully first would cost hours.
+- **Alternatives:** finish round 1 first (D105).
+- **Reversible:** yes.
+
+### D107 — 2026-10-30 12:49, CP7 — How the local-model query rewrite is built (D104, feature 1)
+
+- **Decided (worker CP7):** (1) A new `isTypedQuestion` flag on `WebSearchRequest` marks a query that is the user's typed question (set by `LocalChatViewModel.search` only when no query was written or refined from attached text). Only those are rewritten. A capable model's `web_search` query and a screen- or attachment-written query are searched as written: the model already wrote keywords, and rewriting them would cost a second model call for no evidence of gain. (2) On the small-model local path the chat's own installed model (the same `engine.installedModel()` and engine the answer uses, as the existing attached-text refine does; nothing new is loaded) writes 1–3 `query:` lines and one `entity:` line, temperature 0, at most 64 tokens, within 2.0 s. The engines have no grammar or JSON-schema hook (the embedded llama.cpp bridge and the llama-server client take only messages, tokens and temperature), and adding one means C++ bridge changes, so the output is constrained by a short line format with few-shot examples and a strict parser: each query 1–10 words, at most 80 characters, no URL, no newline junk; anything else is junk. (3) Fallback when there is no assistant (cloud route, test host), the model fails, times out or returns junk: a code-only clean-up of the typed question (drops question words, auxiliaries, "please", filler and punctuation; keeps entities, numbers, years and qualifiers such as "latest"). (4) At most 2 queries go to DuckDuckGo (its 1 s per-site pacing and D97's rate limits make a third cost a second more and raise the block risk); Wikipedia gets the first query. (5) Merge: each query's results are merged and scored as today, then the per-query scores are summed per URL — reciprocal-rank fusion with k = 0, matching the existing `weight / position` scoring — so a single query ranks exactly as before and the 0.08 cutoff keeps its meaning (the common k = 60 would flatten scores so the cutoff drops nothing).
+- **Why:** baseline-3: typed whole-sentence queries searched badly; model-style keyword queries did better. Spec privacy unchanged: the rewrite runs on the Mac and only keywords derived from the question are sent.
+- **Alternatives:** grammar-constrained output (needs bridge work; switch in `SearchQueryRewrite`); rewrite for capable models too (set `isTypedQuestion` in the tool path); 3 DuckDuckGo queries (`SearchAssistTuning.maximumSiteQueries`); RRF k = 60.
+- **Reversible:** yes.
+
+### D108 — 2026-10-30 12:49, CP7 — How the "enough?" check and its one retry are built (D104, feature 2)
+
+- **Decided (worker CP7):** small-model local path only (an assistant is passed only there; capable models can call `web_search` again). After passages are ordered, the model sees the question and each source's best passages, capped at 600 words (*superseded by D113: 350 words*), and answers `yes` or `no: <missing words>` (temperature 0, at most 24 tokens, within 2.5 s). Junk, a timeout, a failure or `yes` means no retry. On `no`, one more DuckDuckGo search runs with the first query plus the missing words (at most 6 words, cleaned like a query), its new candidates (not read or seen before) are read within a 2.0 s window (*superseded by D113: 1.5 s*), and the new sources join the old before the off-topic check, ordering and collection. At most one retry. A retry that finds nothing keeps the first results.
+- **Why:** Nobel literature: the right pages were read but the answer missed the fact; a sufficiency check targets this. Bounded so the worst case stays near the p90 bar.
+- **Alternatives:** capable models too; a longer passage cap (slower prefill); no retry, only the judgment (cheaper).
+- **Reversible:** yes (`SearchAssistTuning`, the assistant parameter).
+- **Update (D122, D124):** the check and its retry may also run on the places route's web search: the retry query holds only what DuckDuckGo already receives. A timed-out call can overrun its limit by one prefill the engine can't interrupt. Page text in the passages can steer the one retry's words, which are capped at 6, carry no URL, and the prompt holds nothing private. The word budget goes to page passages first, then facts and headlines.
+
+### D109 — 2026-10-30 12:49, CP7 — How the Wikidata facts source is built (D104, feature 3)
+
+- **Decided (worker CP7):** `WikidataFacts` uses Wikidata's keyless action API on `https://www.wikidata.org/w/api.php`, with Wikipedia's headers (Wikimedia User-Agent policy: app name, version, project URL; `Accept: application/json`) through the search HTTP client (ephemeral, no cookies). The entity comes from the rewrite's `entity:` line (`wbsearchentities`, first hit) or, without one, from the Wikipedia article this search found (`wbgetentities` by sitelink). Then one `wbgetentities` call for the claims and one for the labels of the values, units and qualifiers. Live probes: full-text search on keyword queries finds nothing useful (keyword queries about the latest Swift release and a Nobel winner returned no items or unrelated ones), while `wbsearchentities` on the entity name found Rust, Swift, Japan, Mount Everest and the Nobel Prize in Literature first. Only a whitelist of properties is shown (versions, population, area, height, elevation, heads of state and government, CEO, capital, currency, founders, inception, dates of birth and death, winners, GDP, employees, headquarters, official website); deprecated statements are dropped; values are ordered newest first by their point-in-time, publication or start date and shown with that date, the preferred value marked "current"; at most 3 values per property (5 for winners). Hosts are fixed and https, so like Wikipedia it doesn't go through `NetworkGuard`, which checks arbitrary result URLs. It runs whatever the recency, since its facts carry dates (Wikipedia skips day and week questions, and "latest" makes a week question). The facts become one `facts` excerpt placed first, kept only when the entity's label shares a content word with the question, within a 2.5 s limit that runs beside the sites and the reading.
+- **Why:** facts questions lost 0 of 6; Wikidata holds versions (Rust 1.99.1 preferred, Swift 6.4.2), populations, prize winners with dates.
+- **Alternatives:** SPARQL (one query, harder to keep safe and fast); full-text item search (probed, poor); the full claim list (Japan is 1.5 MB, 421 properties).
+- **Reversible:** yes; one lane in `OnDeviceSearchProvider`.
+
+### D110 — 2026-10-30 12:49, CP7 — How Google News RSS is built, and what its links do (D104, feature 4)
+
+- **Decided (worker CP7):** trigger: the request's recency is day, week or month (`WebSearchPolicy.recency`: "today", "latest", "recent", "news", "breaking", "this week", "yesterday", "this month") or the question has a news cue ("headline(s)", "announced", "announcement", "election(s)", "who won", "won the", "winner of"). Request: `https://news.google.com/rss/search?q=<query>&hl=<lang>-<COUNTRY>&gl=<COUNTRY>&ceid=<COUNTRY>:<lang>` from the Mac's region, through the search HTTP client (no cookies are stored or sent), with the app's API-style headers (Wikipedia's User-Agent, `Accept: application/rss+xml`). Live probe: the response sets no cookie; each item's `<link>` is `news.google.com/rss/articles/<opaque token>`, which answers 302 to another `news.google.com` URL, and the token is an encoded ID, not the publisher URL (decoding needs Google's own `batchexecute` call). The item's `<source url>` is only the publisher's home page. So no further Google request is made and no publisher page is read: each item's headline, publisher and date are the evidence, up to 8 items newest first, as one `news` excerpt linked to Google News's search page, placed after the facts excerpt.
+- **Why:** news lost 0 of 6; headlines with dates make recency visible; following the links would send more requests to Google than the owner approved.
+- **Alternatives:** decode links with Google's batchexecute (more Google calls; refused); a wider trigger (more queries to Google).
+- **Reversible:** yes; one lane in `OnDeviceSearchProvider`.
+
+### D111 — 2026-10-30 12:49, CP7 — Site-outcome trace finished; step timings traced; two new evidence kinds
+
+- **Decided (worker CP7):** the Haiku worker's `SearchTracing.recordSites` is kept; it now records every lane of a search ("duckDuckGo", "duckDuckGo#2" for the second query, "retry", "wikipedia", "wikidata", "googleNews") with `results:N` or the outcome's name (`noResults`, `blocked`, `rateLimited`, `unrecognized`, `failed`). A new `recordStep(_:milliseconds:outcome:)` (default no-op) records the rewrite's and the check's time and outcome (`model`, `fallback`, `timeout`, `junk`; `yes`, `no`, `skipped`) with no query text, so the evaluation can measure each local-model call. `EvidenceKind` gains `facts` and `news`; the envelope already carries the kind as text.
+- **Why:** D102's empty DuckDuckGo answers can't be told apart without it; the speed bar needs each call's latency.
+- **Alternatives:** none needed.
+- **Reversible:** yes.
+
+### D112 — 2026-10-30 13:01, CP7 — How the features' smoke check runs
+
+- **Decided (worker CP7):** `WebSearchEvaluationTests` gains three switches: `ENIGMA_SEARCH_EVAL_STYLES` (only `typed` here), `ENIGMA_SEARCH_MODEL_URL` (typed style's rewrite and check go to a llama-server the worker starts, as the app's vision path asks Gemma: thinking off, temperature 0), and typed requests now carry `isTypedQuestion`. Each run row gets `steps` (the rewrite's and check's outcome and milliseconds). The provider gets the Wikidata and Google News lanes. The smoke run is `features-1`: the 20 news and facts questions (web-01–08, news-01–06, facts-01–06), typed style, on-device only, no Brave, no answers, no judge. The model is Gemma 4 12B Q5_K_M (D98's answer model, the chat's model for typed style) through the app's own bundled `llama-server` binary, started by the worker and stopped by its PID. The installed app's idle llama-server (not the worker's) already maps the same file; no other model is loaded.
+- **Why:** the brief asks for a light live check against baseline-3 with latency per helper call.
+- **Alternatives:** the full evaluation (runs after the features land).
+- **Reversible:** yes.
+
+### D113 — 2026-10-30 13:07, CP7 — Speed tuning after the first smoke run (features-1)
+
+- **Decided (worker CP7):** features-1 (20 news and facts questions, typed, Gemma 4 12B) measured median 5.90 s and p90 7.63 s against baseline-3's 1.37 s and 2.18 s on the same questions; the rewrite timed out on 10 of 20 at 2.0 s (server time 0.9–1.9 s: about 250 prompt tokens at ~650 tokens/s, then 15–28 output tokens at ~28 tokens/s), and the check took a median 1.75 s (about 1,060 prompt tokens). Changes: the rewrite's limit goes to 2.5 s and its prompt asks for one query unless the answer could take another form; the check sees at most 350 words of passages (from 600); the retry's reading window goes to 1.5 s (from 2.0 s). Then a second smoke run, features-2.
+- **Why:** a rewrite that times out half the time costs 2 s and gives nothing; the check's time is mostly prefill, which scales with the passage words.
+- **Alternatives:** start DuckDuckGo with the clean-up's query while the model writes its own (hides the rewrite, but sends more queries to DuckDuckGo, D97's rate-limit risk); skip the check when Wikidata answered; a smaller model for the helper calls (would load a second model; not allowed).
+- **Reversible:** yes (`SearchAssistTuning`).
+
+### D114 — 2026-10-30 13:13, CP7 — The smoke runs' rewrite time was mostly a stale connection; third run
+
+- **Decided (worker CP7):** features-2 still measured the rewrite at a median 2.33 s (7 of 20 over 2.5 s) while llama-server's own log put each rewrite at 0.7–1.4 s. A keep-alive probe showed llama-server closing an idle connection after about 5 s; the harness pauses 5 s between questions, so every rewrite (the first call after the pause) went out on a dead pooled connection, while the check, about 2 s later, did not (its client time matched the server's). The harness's `ServerAssistant` now opens a fresh connection per call, and a third smoke run (features-3) measures the features. No product change: in the app the rewrite and the check run only on the small-model path (models without native tools), with the embedded text engine (no HTTP). *Corrected (D120, D124):* the installed Gemma and Qwen are native-tools models, so they never run the rewrite or check; but the app's own llama-server session for vision models may meet the same stale connection after 5 s idle on its ordinary requests; that is outside this change and is reported for the owner.
+- **Why:** the harness, not the model, was adding the time.
+- **Alternatives:** a longer server keep-alive (`--timeout` is the read timeout, not keep-alive).
+- **Reversible:** yes.
+
+### D115 — 2026-10-30 13:28, CP7 — Two DuckDuckGo queries stay, though the speed bar isn't met yet
+
+- **Decided (worker CP7):** features-3 (20 news and facts questions, typed, Gemma 4 12B, fresh connections) measured median 4.81 s and p90 6.65 s, over D2's 4.0 s and 6.0 s (baseline-3: 1.37 s and 2.18 s, with fewer sources). The rewrite took a median 1.27 s (p90 1.53 s, all 20 from the model) and the check 1.12 s (p90 1.44 s; 6 of 20 said "no" and retried). Searches that sent a second DuckDuckGo query (10 of 20; it waits 1 s for the site's pacing) took about 4.8–8.0 s; single-query searches without a retry took 2.9–4.5 s. The second query stays (`SearchAssistTuning.maximumSiteQueries = 2`) until the full evaluation's judge shows whether it earns its time; setting it to 1 is the first lever if CP7 keeps the bar, then a shorter retry or skipping the check when Wikidata answered.
+- **Why:** the brief asks for distinct queries for different answer shapes; there's no judged evidence yet on their worth; the bar is the owner's and is reported as missed.
+- **Alternatives:** `maximumSiteQueries = 1` now (estimated median about 4 s).
+- **Reversible:** yes (one constant).
+
+### D116 — 2026-10-30 13:31, CP7 — Speed bar relaxed to 5.0 s / 7.0 s; the second query stays if it improves answers
+
+- **Decided (owner, 2026-10-30):** with D104's features, on-device search
+  measured a median 4.81 s and p90 6.65 s (features-3) against D2's 4.0 s and
+  6.0 s. The owner relaxes the speed bar to a median of 5.0 s and a 90th
+  percentile of 7.0 s, and keeps the second DuckDuckGo query (D115) as long
+  as it gives better answers; it is not to be dropped just to save about a
+  second. The full evaluation therefore also judges, on the questions where a
+  second query runs, one query against two; the second query is dropped only
+  if it doesn't improve the answers.
+- **Why:** owner preference: better information over about a second.
+- **Alternatives:** one query only (estimated median about 4.0 s, D115).
+- **Reversible:** yes (the gate's speed constants; `maximumSiteQueries`).
+
+### D117 — 13:33, CP7 — Round-1 run: relaxed speed bar, fair evidence cap, head-to-head judge, one-query override, Brave reused
+
+- **Decided (worker CP7):** (1) `evaluate-web-search.py`'s relaxed speed bar is now median 5.0 s and p90 7.0 s (D116); the original 3.0 s and 4.5 s bars are still reported. (2) The evidence cap (D98) is now a fair share per source (water-filling: a short source keeps all of its text, the rest is shared among the longer ones), so one long page can't take the cap. Brave's contexts are under the cap, so their prompts, and cached answers, don't change; on-device prompts with long sources do. (3) `run_head_to_head` judges two folders' on-device answers blind (order hashed from the question). (4) The one-query A/B uses a test-only parameter, `maximumSiteQueries` on `OnDeviceSearchProvider.init` (default: `SearchAssistTuning.maximumSiteQueries`), set by `ENIGMA_SEARCH_MAX_SITE_QUERIES`; the product default stays at 2. (5) Round 1 runs on-device for all 60 questions in both styles, with the Gemma helper server for the typed rewrite and check, into `runs/round-1`; Brave rows and contexts are copied from `baseline-3`, the cached run.
+- **Why:** the owner's bar and the orchestrator's read; a cap that favours short sources would hide the facts a long page holds.
+- **Alternatives:** keep the cap per document order (drops late passages); run Brave again (same answers, 120 more searches).
+- **Reversible:** yes (each is one constant or one parameter).
+
+### D118 — 14:25, CP7 — Task 7.5 (the live tool-use eval) deferred until the owner says the Mac is free
+
+- **Decided (orchestrator, owner asked to use the Mac):** the tool-use eval on the two installed flagged models is not run now. It needs the local models loaded, and the owner needs the Mac. The eval command and the new prompts are ready (`EnigmaTests/Fixtures/F32/eval.jsonl`, 12 new prompts; `testNewPromptsScoreFromFixtureTranscript` and `testEvalSetIsWellFormed` pass offline). Round-1's gate reports the tool-use row as not run.
+- **Why:** owner request.
+- **Alternatives:** run it on Gemma only now (still local: not allowed while the owner needs the Mac).
+- **Reversible:** yes.
+
+### D119 — 2026-10-30 14:30, CP7 — Opus reviewers, up to three rounds; no tuning round
+
+- **Decided (owner, 2026-10-30):** every review round uses a fresh Opus
+  reviewer at effort xhigh (replacing D92's Sonnet reviewers). CP7 is now a
+  big change (four features), so it gets up to three rounds: round 2 runs
+  unless round 1 finds only small fixes, round 3 only if round 2 still finds
+  real issues. The owner judged the early read good enough (typed: on-device
+  19, Brave 21, up from 13 to 27), so there is no tuning round: product code
+  is frozen for review while round-1's evaluation finishes, and the owner may
+  stop the evaluation early, with the report written from the results so far.
+  The tool-use eval (Task 7.5) and the full suite wait until the owner is
+  away from the Mac.
+- **Why:** owner instructions.
+- **Alternatives:** Sonnet reviewers (D92); one tuning round.
+- **Reversible:** yes.
+
+### D120 — 2026-10-30 14:53, CP7 — Option A: the rewrite and check stay on the small-model path
+
+- **Decided (owner, 2026-10-30):** review round 1 found that the installed
+  models (Gemma 4 12B, Qwen 3.8 27B) are native-tools models: they search
+  through `web_search` with their own query, so the rewrite and the
+  "enough?" check (D107, D108) never run for them in the app. The owner chose
+  option A: keep the rewrite and the check for small models without native
+  tools; capable models keep their own queries and still get the Wikidata
+  and Google News lanes. The unused vision-model branch of the app's
+  assistant is removed, and D113's sentence about Gemma's app path is
+  corrected. Round-1's typed results therefore describe small models with a
+  capable helper, not the installed models' path.
+- **Why:** owner choice; the alternative adds about 1.1 s to every capable
+  search before there's evidence it helps.
+- **Alternatives:** B, also run the "enough?" check for capable models'
+  `web_search`; wire the assistant into the vision path's typed search.
+- **Reversible:** yes.
+
+### D121 — 2026-10-30 14:53, CP7 — Evaluation stopped after the typed half
+
+- **Decided (owner, 2026-10-30):** the owner stopped the evaluation to move
+  on with F29. Round 1 has all typed answers (judged in the cloud to finish
+  the typed verdict); the model-style answers (3 of 60 on-device), the
+  one-query vs two-query A/B (D116), and the tool-use eval (Task 7.5) are not
+  run. The CP7 report and Hand-off are written from these results, and the
+  missing checks are listed as not run. The second DuckDuckGo query stays
+  (D115, D116) since the A/B didn't run.
+- **Why:** owner request; the early read was judged good enough.
+- **Alternatives:** finish the model-style half (about 45 minutes of local
+  model time).
+- **Reversible:** yes (the harness and caches can resume the run).
+
+### D122 — 2026-10-30 14:53, CP7 — Review round 1's fixes, decided on the cautious side
+
+- **Decided (orchestrator):** the worker fixes all of round 1's findings.
+  Choices the owner would otherwise make: (1) the Google News lane is skipped
+  whenever the request carries a city, so Google never receives a location
+  (spec §7 unchanged); (2) a Google News citation links to the item's
+  publisher home page (its `<source url>`), or to `https://news.google.com/`
+  with no query when there is none, so a click never sends the question to
+  Google with the user's cookies; (3) the "enough?" check's word budget gives
+  page passages priority, with facts and headlines filling what is left;
+  (4) the check and retry may run on the places route (the retry query holds
+  only what DuckDuckGo already receives), noted in D108; (5) D108 also notes
+  that a timed-out call can overrun by one uninterruptible prefill, and that
+  page text can steer the one retry's words (at most 6, no URLs, nothing
+  private in the prompt).
+- **Why:** never send more off the Mac than the spec allows; the reviewer's
+  scenarios.
+- **Alternatives:** amend §7 to allow the city and the query link instead.
+- **Reversible:** yes.
+
+### D123 — 2026-10-30 14:53, CP7 — Review round 2 runs
+
+- **Decided (orchestrator):** round 1 found two Blockers, so a fresh Opus
+  reviewer (effort xhigh) checks the fixes in round 2 (D119).
+- **Why:** owner rule for big changes.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D124 — 2026-10-30 14:54, CP7 — How review round 1's fixes are built
+
+- **Decided (worker CP7):** (1) Cancellation: the search checks for cancellation right after the query plan, so a stop during the rewrite sends nothing to Google or Wikidata; the news and facts tasks are awaited through a cancellation handler that cancels them with the search, are cancelled when the search ends either way, and Wikidata's lookup stops between its requests once cancelled. Unstructured tasks stay (the facts task may start after the sites, from Wikipedia's title) rather than restructuring the pipeline into one task group. (2) Google News is skipped whenever the request has a city (D122.1). (3) The news excerpt links to the newest headline's publisher home page (its `<source url>`, https or http only), else `https://news.google.com/`; its title is "Google News headlines", without the query (D122.2). (4) Wikidata times carry their precision (9 year, 10 month, 11 day; coarser shows the year), and statements sort by a signed numeric date, so BCE dates order correctly. (5) The check's word budget goes to page passages first, then facts and headlines (D122.3). (6) The vision branch of the app's search assistant is removed (D120): the small-model path runs only the embedded text engine, and a vision model there gets no assistant (code-only clean-up, no check). (7) Tests added for each finding, including view-model tests for the typed-question flag.
+- **Why:** review round 1, D120, D122.
+- **Alternatives:** one task group for every lane (larger change during review).
+- **Reversible:** yes.
+
+### D125 — 2026-10-30 15:11, CP7 — Round 2's fixes; Google News kept under its feed terms; no round 3
+
+- **Decided (owner and orchestrator, 2026-10-30):** review round 2 found no
+  Blocker and four Should fixes. (1) Blocked sites apply to the new lanes:
+  the facts excerpt is skipped when its URL is blocked, the news lane when
+  `news.google.com` is blocked, and headlines whose publisher is blocked or
+  on the unsafe lists are dropped. The news citation links to
+  `https://news.google.com/` with no query (revising D122.2), because one
+  excerpt holds several publishers' headlines, so blocking from it
+  blocks Google News. (2) The code-only clean-up keeps proper nouns: a
+  capitalized stop-word is dropped only as the first word, "I" after a
+  capitalized word stays, and "how to" stays. (3) Tests for the facts and
+  news lanes' cancellation. (4) **Owner:** keep Google News RSS despite its
+  feed terms ("a personal feed reader for personal, non-commercial use"),
+  accepting the terms risk as F29 already does for the search sites. Also
+  noted: D122's "Google never receives a location" covers the request's
+  city; a query the model wrote with a place name in it is sent as written,
+  as spec §7 says. The round-2 reviewer judged these small, so per the
+  owner's rule there is no round 3; the orchestrator checks the fixes by
+  re-running the affected tests and the three surviving mutants.
+- **Why:** reviewer round 2; owner choices.
+- **Alternatives:** drop the Google News lane; a round 3.
+- **Reversible:** yes.
+
+### D126 — 2026-10-30 15:12, CP7 — How round 2's fixes (D125) are built
+
+- **Decided (worker CP7):** (1) Blocked sites use `SourceQuality.isBlocked` (the user's list, unsafe, spam, Perennial and Enigma's own): the facts excerpt is dropped when its Wikidata URL is blocked; the news lane isn't asked at all when `https://news.google.com/` is blocked; a headline whose publisher home page is blocked is dropped, and an excerpt left empty is dropped. The news citation is always `https://news.google.com/` (D125). (2) The clean-up: a stop-word is dropped anywhere when lowercase; a capitalized one only as the first word, except "Will" or "May" followed by a capitalized word ("Will Smith"); "I" stays after a capitalized word ("World War I"); "how to" stays. (3) Domain-like words: both the rewrite's and the check's parsers reject a word starting with `www.` or ending in a common top-level domain (`.com`, `.org`, `.net` and others), not version numbers such as "3.12" or "node.js". (4) The optional `withTaskCancellationHandler` around the whole body isn't added: the lanes are already cancelled at the point they're awaited and on exit, and the new tests pin both.
+- **Why:** D125; the reviewer's cases.
+- **Alternatives:** a capitalization rule with no name exceptions (loses "Will Smith").
+- **Reversible:** yes.
+
+### D127 — 2026-10-30 15:33, CP7 — Verification before the commit
+
+- **Decided (orchestrator):** the orchestrator checked round 2's fixes itself
+  (no round 3, D125): with the `!Task.isCancelled` guard in
+  `WikidataFacts` removed, `testStoppingWhileWikidataAnswersEndsTheSearchAndSendsNoMore`
+  fails, and with it restored `SearchAssistTests`, `SearchFactsAndNewsTests`,
+  `OnDeviceSearchTests` and `NativeToolsEvalTests` pass (96 tests). The full
+  suite (screen unlocked) ran 2009 tests with 39 skipped and one failing
+  test: F30's `NativeWebSearchEvaluationTests.testQuestionSetIsWellFormed`,
+  which read all 60 questions after CP7 grew the shared file. Like D96's
+  Python change, F30's Swift loader now reads only its 20 `web-` questions;
+  that class and `WebSearchEvaluationTests` pass. The full suite isn't run
+  again for this test-only change. Build and analyze succeed with no
+  warnings.
+- **Why:** AGENTS.md's one full suite per change; the fix touches only F30's
+  test loader.
+- **Alternatives:** a second full suite (about 10 minutes of the owner's
+  screen).
+- **Reversible:** yes.

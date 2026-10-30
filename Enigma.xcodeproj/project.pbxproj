@@ -74,10 +74,15 @@
 		1AA2DE5B22546F1F13910754 /* Enigma/Search/Engines/SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */; };
 		E3532B75952D574791938129 /* Enigma/Search/Engines/DuckDuckGoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */; };
 		D239BEE26998EC74732B6FDC /* Enigma/Search/Engines/WikipediaSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */; };
+		23B87D88B4E3ACCF5C988741 /* Enigma/Search/Engines/GoogleNewsSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */; };
+		A12103FED58ACAFEDB338E8A /* Enigma/Search/Engines/WikidataFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */; };
+		734E39C71E0112EFEBC0A605 /* Enigma/Search/SearchAssist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */; };
 		4975AE439C41CCACE99A3560 /* Enigma/Search/Engines/SearchSiteRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */; };
 		4D8641AFF40A286B7F6BADFA /* EnigmaTests/SearchTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */; };
 		78B14594ECB34E43B03D3077 /* EnigmaTests/SearchHTTPClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */; };
 		E8E7B1D926DADEE0DD4B92DD /* EnigmaTests/SearchEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */; };
+		CAC4871B198B7910C3C30B5B /* EnigmaTests/SearchFactsAndNewsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */; };
+		7BFEE28FB28F631DC1A4E876 /* EnigmaTests/SearchAssistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */; };
 		7F54DF03C0F7AADB5EE55DC8 /* EnigmaTests/SearchSiteRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */; };
 		E3DF04E89D51CB0535B6BF8B /* Enigma/Search/PublicSuffixList.swift in Sources */ = {isa = PBXBuildFile; fileRef = E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */; };
 		C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */; };
@@ -265,6 +270,7 @@
 		836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */; };
 		65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */; };
 		2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */; };
+		5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -344,10 +350,15 @@
 		92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/SearchEngine.swift"; sourceTree = SOURCE_ROOT; };
 		4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/DuckDuckGoEngine.swift"; sourceTree = SOURCE_ROOT; };
 		52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/WikipediaSearch.swift"; sourceTree = SOURCE_ROOT; };
+		D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/GoogleNewsSearch.swift"; sourceTree = SOURCE_ROOT; };
+		BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/WikidataFacts.swift"; sourceTree = SOURCE_ROOT; };
+		48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SearchAssist.swift"; sourceTree = SOURCE_ROOT; };
 		7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/SearchSiteRunner.swift"; sourceTree = SOURCE_ROOT; };
 		10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchTestSupport.swift"; sourceTree = SOURCE_ROOT; };
 		20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchHTTPClientTests.swift"; sourceTree = SOURCE_ROOT; };
 		D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchEngineTests.swift"; sourceTree = SOURCE_ROOT; };
+		9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchFactsAndNewsTests.swift"; sourceTree = SOURCE_ROOT; };
+		858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchAssistTests.swift"; sourceTree = SOURCE_ROOT; };
 		61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchSiteRunnerTests.swift"; sourceTree = SOURCE_ROOT; };
 		E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PublicSuffixList.swift"; sourceTree = SOURCE_ROOT; };
 		97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PageReader.swift"; sourceTree = SOURCE_ROOT; };
@@ -539,6 +550,7 @@
 		4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlacesAndWeatherTools.swift"; sourceTree = SOURCE_ROOT; };
 		DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherTests.swift"; sourceTree = SOURCE_ROOT; };
 		64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherToolTests.swift"; sourceTree = SOURCE_ROOT; };
+		5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WebSearchEvaluationTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -570,6 +582,7 @@
 				DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */,
 				64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */,
 				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
+				5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */,
 				50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */,
 				BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */,
 				265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */,
@@ -634,6 +647,8 @@
 				D640FECBEE932EF4F6A290CD /* EnigmaTests/WebSearchLiveTests.swift */,
 				61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */,
 				D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */,
+				9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */,
+				858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */,
 				20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */,
 				10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */,
 				7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */,
@@ -644,6 +659,9 @@
 				A8275DF5F44CEE22A587BB41 /* EnigmaTests/SearchRankingTests.swift */,
 				9D80E17741BE7384963D469D /* SearchData */,
 				52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */,
+				D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */,
+				BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */,
+				48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */,
 				4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */,
 				92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */,
 				81374D1A1B4EBA2AB486D3CF /* Enigma/Search/SearchHTTPClient.swift */,
@@ -1059,6 +1077,9 @@
 				76E9F80B6E604650D8E4A68E /* Enigma/Search/SourceQuality.swift in Sources */,
 				3EB564C48DDDC9F8202CAFEB /* Enigma/Search/ResultRanking.swift in Sources */,
 				D239BEE26998EC74732B6FDC /* Enigma/Search/Engines/WikipediaSearch.swift in Sources */,
+				23B87D88B4E3ACCF5C988741 /* Enigma/Search/Engines/GoogleNewsSearch.swift in Sources */,
+				A12103FED58ACAFEDB338E8A /* Enigma/Search/Engines/WikidataFacts.swift in Sources */,
+				734E39C71E0112EFEBC0A605 /* Enigma/Search/SearchAssist.swift in Sources */,
 				E3532B75952D574791938129 /* Enigma/Search/Engines/DuckDuckGoEngine.swift in Sources */,
 				1AA2DE5B22546F1F13910754 /* Enigma/Search/Engines/SearchEngine.swift in Sources */,
 				E86F8DCE2E662B18B920B14A /* Enigma/Search/SearchHTTPClient.swift in Sources */,
@@ -1182,6 +1203,7 @@
 				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
 				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
 				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
+				5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */,
 				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,
 				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,
 				87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */,
@@ -1240,6 +1262,8 @@
 				0ADFF0883A89DCC9C165E22A /* EnigmaTests/WebSearchLiveTests.swift in Sources */,
 				7F54DF03C0F7AADB5EE55DC8 /* EnigmaTests/SearchSiteRunnerTests.swift in Sources */,
 				E8E7B1D926DADEE0DD4B92DD /* EnigmaTests/SearchEngineTests.swift in Sources */,
+				CAC4871B198B7910C3C30B5B /* EnigmaTests/SearchFactsAndNewsTests.swift in Sources */,
+				7BFEE28FB28F631DC1A4E876 /* EnigmaTests/SearchAssistTests.swift in Sources */,
 				673F90A438CD654A073B188E /* EnigmaTests/SourceQualityTests.swift in Sources */,
 				C07683DF43509AB226A25D49 /* EnigmaTests/SearchRankingTests.swift in Sources */,
 				78B14594ECB34E43B03D3077 /* EnigmaTests/SearchHTTPClientTests.swift in Sources */,

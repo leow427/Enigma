@@ -31,6 +31,10 @@ same as the `us-en` region the request sent.
 | `duckduckgo-changed.html` | Made by CP2 from `duckduckgo-results.html`, with `body` renamed to `main` in every class, standing in for a layout change | swift concurrency actors | as `duckduckgo-results.html` |
 | `duckduckgo-ads.html` | Synthetic (CP2), in DuckDuckGo's result markup: two `result--ad` items (one `y.js` link, one direct), three organic results (one `uddg=` wrapped), one `javascript:` link | — | — |
 | `wikipedia-search.json`, `wikipedia-extract.json` | Synthetic (CP2), in the shape of the MediaWiki API's `list=search` and `prop=extracts` JSON (`format=json`), about a made-up article | — | — |
+| `wikidata-search.json` | `GET https://www.wikidata.org/w/api.php?action=wbsearchentities` (HTTP 200), captured 2026-10-30 by F29 CP7 with `curl` and trimmed to its first hit | Rust | nothing found (no request data beyond the entity name is echoed) |
+| `wikidata-entity-rust.json`, `wikidata-entity-nobel.json`, `wikidata-entity-everest.json` | `GET …?action=wbgetentities&props=labels\|descriptions\|claims&languages=en` for Q575650, Q37922 and Q513 (HTTP 200), captured 2026-10-30 by F29 CP7 and trimmed to a few statements of P348/P571, P1346/P571 and P2044 (statement IDs, references and other qualifiers dropped) | — | `pageid`, `lastrevid`, `modified` and statement IDs dropped while trimming |
+| `wikidata-labels.json` | `GET …?action=wbgetentities&props=labels&languages=en` for the items those statements name (HTTP 200), captured 2026-10-30 by F29 CP7 | — | nothing found |
+| `google-news.xml` | `GET https://news.google.com/rss/search?q=…&hl=en-US&gl=US&ceid=US:en` (HTTP 200, no cookie set), captured 2026-10-30 by F29 CP7 with `curl` and cut to 4 items | nobel prize literature | each item's article token (in `link`, `guid` and `description`) replaced with `CBMiFIXTURE<n>`; the feed's `lastBuildDate` kept |
 
 ## Expected values
 
