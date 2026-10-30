@@ -300,3 +300,116 @@ importable module F29 reuses) and `scripts/evaluate-native-search.py`
    `query` field; extra keys are ignored by the tests and the script) and the
    script, and can run the judge with its own two backends through
    `search_judge.judge_pair`.
+7. **Task 6.6, the in-app audit (owner, 2026-10-29):**
+   - **Results:** steps 1 (a plain search question), 3 and 5 passed on the
+     installed copy; no Gemini model was used for step 4. Step 2 (a ChatGPT
+     turn that reads a chat and then searches) worked as the spec then said:
+     the restart's second run used Enigma's search on Brave, and the reply
+     said "brave search", with no card naming Brave.
+   - **Rule change (owner, 2026-10-29):** "If a user is actively sending an
+     'okay' with a title card to use chatgpt or claudes search as it is now,
+     then they should use chatgpt and claudes search engine, not our in
+     house made one or brave." The owner approved the design: in a chat that
+     holds message text, and on a typed `/messages` turn, ChatGPT's and
+     Claude Code's own search runs after a per-provider card, **Let
+     ‹provider› search the web in this chat?**; declined, the turn has no
+     search; the restart's second run asks the same card; the fallback when
+     provider search is unavailable stays Enigma's search on Brave; and
+     Enigma's own search card now says "It will be sent to Brave." ("Fix it
+     now"). The spec carries the amendment (status line, Decisions,
+     §1, §2, the privacy table and rules, Success, Docs).
+   - **Files:**
+     - `Enigma/Chat/ToolPermissions.swift`:
+       `ToolPermission.providerSearchAfterMessages(provider:)` and its
+       Always-grant kind, keyed by provider like the location grant (ChatGPT
+       ≠ the OpenAI API, Claude Code ≠ the Anthropic API).
+     - `Enigma/Chat/ToolPermissionCoordinator.swift`: the new card's title
+       and detail; the Brave card's detail names Brave.
+     - `Enigma/Chat/ToolPermissionCard.swift` (globe icon) and
+       `Enigma/Messages/MessagesSettingsSection.swift` (the Always row).
+     - `Enigma/Cloud/NativeWebSearch.swift`: `isAllowed` no longer checks
+       message text.
+     - `Enigma/Chat/AssistantToolbox.swift`: the typed `/messages` exclusion
+       is gone; `NativeToolPlan.withoutSearch()` (a declined card, kept when
+       the plan is remade).
+     - `Enigma/LocalInference/LocalChatViewModel.swift` (`submitNative`):
+       asks the card before the location card when the plan has provider
+       search and the chat holds message text or `/messages` was typed;
+       allowed, the gate delivers reads without a restart
+       (`restartsProviderSearch` off); on a restart, asks the card before the
+       second run. `allowsProviderSearch` checks for Stop after the card.
+     - Tests: `NativeToolRequestTests` (the card on a `/messages` turn and in
+       a chat holding message text, per-provider grants and the Settings row,
+       Stop while the card shows, the restart allowed and declined, the
+       location kept after an allowed restart), `NativeToolPlanTests`
+       (`/messages` keeps provider search, `withoutSearch()`),
+       `NativeWebSearchTests.testIsAllowed`, `ToolPermissionTests` (copy).
+       Tests that encoded the old rule were changed on purpose:
+       `testRestartRunsOnceWithoutProviderSearch` became
+       `testRestartAsksThenSearchesWithTheProvider`, and
+       `testRestartWithoutKeyHasNoSearch` became
+       `testRestartDeclinedHasNoSearch`.
+     - Docs: `Web-Search.md`, `Messages.md`, `Chat.md`, `ChatGPT-Setup.md`,
+       `Claude-Code-Setup.md`, `Cloud-Model-Selection.md`,
+       `Slash-Commands.md`, the plan's names table and progress log. The
+       history report stays as measured.
+   - **Outside F30 (owner):** the ChatGPT connection row now says
+     "connected · selected for cloud" when ChatGPT is the cloud provider, as
+     Claude Code's does (eabd97a).
+   - **Review round 1 (Opus, xhigh):** no Blocker; no path found where
+     message text reaches a provider search the user hasn't allowed. Fixed:
+     - Should fix: the Stop test was stopping the "Send text from your
+       messages" card, not the provider-search card, so removing the
+       cancellation check after the card went unnoticed. It now stops only
+       the provider-search card, and a second test stops the restart's card.
+     - Should fix: a provider already allowed (an Always grant, or For this
+       conversation) still restarted when a read came partway through a
+       reply. `submitNative` now checks the grant without a card
+       (`providerSearchGranted`), so the read goes through, as the docs say.
+       New `testGrantedProviderSearchDoesNotRestart`.
+     - Nits: stale spec, plan and code-comment lines about the second run
+       having no provider search; the setup docs now mention a typed
+       `/messages`; the Settings row reads "Let ‹provider› search the web
+       after reading messages"; `providerSearchAllowed` lost an unused
+       parameter; new `testRestartThenUnavailableFallsBack` (allowed on the
+       restart, then unavailable: the third run uses Enigma's search);
+       `testRestartKeepsTheReadGrant` asserts the exact cards.
+     - Left for the owner: on a typed `/messages` turn in a new chat, the
+       card says "This chat includes text from your messages." before any
+       is in it. The owner approved that copy; a second wording would need
+       a flag on the permission.
+     - Not added: a ChatGPT-vs-OpenAI-API grant test; the key is the
+       provider, and the Claude Code-vs-Anthropic API test covers it.
+     Mutations checked after the fixes: no cancellation check after the card
+     (2 tests fail), no grant check (`testGrantedProviderSearchDoesNotRestart`
+     fails).
+   - **Verification:**
+     - 14 affected classes before review: 390 executed, 3 skipped, 1 failure,
+       `ClaudeCodeSubscriptionTests/testClaudeCodeRestartDeliversNothing`
+       (its stand-in process can die before creating the file the test
+       reads; neither it nor its client changed here; 5/5 runs alone pass).
+     - After round 1's fixes: `NativeToolRequestTests`,
+       `ToolPermissionTests`, `NativeToolPlanTests`, `NativeWebSearchTests`:
+       130 executed, 0 failed.
+   - **Review round 2 (Opus, xhigh):** no Blocker or Should fix; it found no
+     path to an unallowed provider search, and caught 8 of 9 mutations. Its
+     four Nits, fixed by the worker without a third round:
+     - stale "never delivered" and "in chats that hold no message text"
+       lines in the spec (§2), the plan (Goal, Architecture), the
+       `SavingMessagesGate` comment and `docs/Chat.md`;
+     - the two Stop tests now await the task `stopStreaming()` returns, so
+       they don't rely on job order;
+     - the surviving mutation (only Always grants honoured) is now caught by
+       `testConversationGrantSkipsTheRestartInItsChatOnly`, which also
+       checks that another chat's grant doesn't count;
+     - a declined card is now logged, since the turn's first log line is
+       written before the card.
+     After: `NativeToolRequestTests`, `ToolPermissionTests`,
+     `NativeToolPlanTests`, `NativeWebSearchTests`: 131 executed, 0 failed.
+     `scripts/verify-xcode.sh build` and `analyze`: succeeded, no warnings in
+     the changed files.
+     - Full suite (`scripts/verify-xcode.sh test`, once, before the commit):
+       1634 executed, 31 skipped, 0 failed.
+   - **Next:** the owner checks step 2 again on the reinstalled copy, then
+     the rest of Task 6.6 (mark PR leow427/Enigma#23 ready, merge once CI
+     passes, tick F30 in `to-do.md`).

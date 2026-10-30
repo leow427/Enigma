@@ -50,8 +50,8 @@ enum AgentToolStop: Sendable, Equatable {
   case cancelled
   /// macOS withheld a permission Messages needs.
   case messages(MessagesError)
-  /// Message text was about to enter a provider-search request, so the turn runs again
-  /// without provider search (F30). The result is never delivered.
+  /// Message text was about to enter a provider-search request the user hasn't allowed, so the
+  /// turn runs again after asking (F30). The result is never delivered.
   case restart
 
   var error: Error {

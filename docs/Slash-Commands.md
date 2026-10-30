@@ -107,7 +107,8 @@ route, every message offers the model the tools that apply:
 The model picks a tool, writes its own arguments, or answers without one.
 Nothing is recognized from your wording and no chips are shown. Reading a chat,
 searching all your chats, and a web search once message text is in the chat each
-ask you first in a card; see [Messages](Messages.md#permission-cards).
+ask you first in a card (for ChatGPT's or Claude Code's own search, one card per
+chat); see [Messages](Messages.md#permission-cards).
 
 Typed commands still work, and turn a choice into a request:
 

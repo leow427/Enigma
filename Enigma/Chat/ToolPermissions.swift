@@ -41,21 +41,26 @@ enum ToolPermission: Sendable, Equatable {
   /// Give a provider's own web search the approximate area (F30, spec §2a). Granted per provider,
   /// never per destination; the area is for the card and never saved.
   case shareLocation(provider: CloudProviderID, area: String)
+  /// Let a provider's own web search run in a chat that holds message text (owner, 2026-10-29). Its
+  /// queries run on the provider's servers, where no card can ask, so this asks once, per provider.
+  case providerSearchAfterMessages(provider: CloudProviderID)
 }
 
 enum ToolPermissionAnswer: Sendable { case deny, conversation, always }
 
 struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
-  enum Kind: String, Codable, Sendable { case readChat, searchChats, searchAfterMessages, shareMessageText, shareLocation }
+  enum Kind: String, Codable, Sendable {
+    case readChat, searchChats, searchAfterMessages, shareMessageText, shareLocation, providerSearchAfterMessages
+  }
 
   let kind: Kind
   let chatGUID: String?
   /// The chat's name when it was granted, for the Settings list.
   let chatName: String?
-  /// Nil for `searchAfterMessages`, which covers every destination, and for `shareLocation`.
+  /// Nil for `searchAfterMessages`, which covers every destination, and for the per-provider kinds.
   let destination: ToolDestination?
-  /// Only `shareLocation`'s provider: ChatGPT and the OpenAI API share a destination, but not a
-  /// location grant (F30). Grants saved before it decode with none.
+  /// Only `shareLocation`'s and `providerSearchAfterMessages`'s provider: ChatGPT and the OpenAI API
+  /// share a destination, but not these grants (F30). Grants saved before it decode with none.
   var provider: CloudProviderID? = nil
 
   var id: Key { key }
@@ -90,6 +95,8 @@ struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
       self.init(kind: .shareMessageText, chatGUID: nil, chatName: nil, destination: destination)
     case .shareLocation(let provider, _):
       self.init(kind: .shareLocation, chatGUID: nil, chatName: nil, destination: nil, provider: provider)
+    case .providerSearchAfterMessages(let provider):
+      self.init(kind: .providerSearchAfterMessages, chatGUID: nil, chatName: nil, destination: nil, provider: provider)
     }
   }
 }

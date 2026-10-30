@@ -121,7 +121,8 @@ or network listener is involved. Built-in tools stay off and only Enigma's
 Messages tools are allowed. See [Messages.md](Messages.md).
 
 When a model that chooses its own tools may search (automatic search on, or
-`/search` typed) and the chat holds no message text, the process gets
+`/search` typed), and, once the chat holds message text or you've typed
+`/messages`, you've allowed it on the card **Let Claude Code search the web in this chat?**, the process gets
 `--tools WebSearch` instead of `--tools ""`, and `WebSearch` joins the allowed
 tools beside Enigma's. `WebFetch`, which would download pages from this Mac,
 stays off. Anthropic runs the searches; they count toward your Claude plan, and

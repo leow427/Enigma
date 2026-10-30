@@ -69,14 +69,30 @@ final class NativeToolPlanTests: XCTestCase {
       hasScreenshot: false, searchesAutomatically: true, hasSearchKey: true, hasFullDiskAccess: true, providerSearch: true))
     XCTAssertEqual(files.parts, [], "Files keep today's path, with no provider search")
 
-    // A typed /messages turn reads a chat, which would restart provider search: Enigma's search or none.
+    // A typed /messages turn keeps provider search (owner, 2026-10-29): `submitNative` asks first.
     for hasSearchKey in [true, false] {
       let messages = NativeToolPlan.make(.init(typed: ComposerCommands("/messages /search who texted?"), hasSelection: false,
         hasFiles: false, hasScreenshot: false, searchesAutomatically: true, hasSearchKey: hasSearchKey,
         hasFullDiskAccess: true, providerSearch: true))
-      XCTAssertEqual(messages.parts, hasSearchKey ? [.search(.enigma), .messages] : [.messages])
-      XCTAssertEqual(messages.requiredTool, hasSearchKey ? "web_search" : nil)
+      XCTAssertEqual(messages.parts, [.search(.provider), .messages])
+      XCTAssertEqual(messages.requiredTool, "web_search")
     }
+  }
+
+  /// A declined provider-search card leaves the turn with no search at all, and a later remake keeps
+  /// it that way; the other parts and required tools stay.
+  func testWithoutSearch() {
+    let inputs = NativeToolPlan.Inputs(typed: ComposerCommands("/search /edit fix this"), hasSelection: true,
+      hasFiles: false, hasScreenshot: false, searchesAutomatically: true, hasSearchKey: true, hasFullDiskAccess: true,
+      providerSearch: true)
+    let plan = NativeToolPlan.make(inputs)
+    XCTAssertEqual(plan.requiredTool, "web_search")
+    let none = plan.withoutSearch()
+    XCTAssertEqual(none.parts, [.messages, .selection])
+    XCTAssertEqual(none.requiredTool, "propose_edit", "/edit no longer gives way to a search")
+    XCTAssertNil(none.searchBackend)
+    XCTAssertEqual(none.remade(providerSearch: false).parts, [.messages, .selection], "Not Brave either")
+    XCTAssertEqual(NativeToolPlan.empty.withoutSearch(), .empty)
   }
 
   /// The plan is made again for a fallback or a restart from the inputs it was made from.

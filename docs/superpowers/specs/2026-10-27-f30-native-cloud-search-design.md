@@ -11,7 +11,14 @@ approximate location once the user allows it for that provider
 ([section 2a](#2a-location-with-the-users-consent)).
 Amended 2026-10-29 after CP1 (owner): the API-key routes (OpenAI and
 Anthropic) are deferred; F30 ships on ChatGPT (Codex) and Claude Code.
-A typed `/messages` turn never gets provider search.
+~~A typed `/messages` turn never gets provider search.~~
+Amended 2026-10-29 during CP6's in-app audit (owner), replacing "no provider
+search in a chat that holds message text" and the `/messages` exclusion: in a
+chat that holds message text, and on a typed `/messages` turn, the provider's
+search runs once the user allows it on a card for that provider; declined, the
+turn doesn't search at all. The restart stays, and its second run asks the same
+card ([section 2](#2-keeping-message-text-out-of-provider-search)). Enigma's
+own search card now says the query goes to Brave.
 
 ## Goal and users
 
@@ -26,8 +33,9 @@ model chooses. F30 offers the provider's own search tool in place of
 Enigma's `web_search` on ChatGPT (Codex) and Claude Code, the runtimes
 Enigma's users are expected to use, whenever privacy allows. Enigma's
 `web_search` stays for everything else: Gemini, the OpenAI and Anthropic
-API-key routes (deferred, see [Decisions](#decisions)), chats that hold
-message text, and the fallback.
+API-key routes (deferred, see [Decisions](#decisions)), and the fallback.
+In a chat that holds message text, the provider's search runs only after the
+user allows it on a card (amended 2026-10-29).
 
 **What the owner asked for:**
 
@@ -42,8 +50,10 @@ message text, and the fallback.
     after the user allows it for that provider;
   - Codex searches the live web.
 - Decisions made on 2026-10-28 and 2026-10-29:
-  - a provider's own search only in conversations with no message text,
-    Enigma's gated `web_search` otherwise (F32 spec, Related items);
+  - ~~a provider's own search only in conversations with no message text,
+    Enigma's gated `web_search` otherwise (F32 spec, Related items)~~,
+    replaced on 2026-10-29: in a chat with message text, the provider's
+    search runs after the user allows it on a per-provider card;
   - F30 runs before F29.
 - Built in checkpoints like F29 and F32.
 
@@ -53,7 +63,9 @@ message text, and the fallback.
   can search with nothing set up, Brave key or not. Its sources are shown
   and saved as today.
 - **Message text stays put.** No provider search runs in a chat that holds
-  message text, and no provider search request ever carries message text.
+  message text unless the user allowed it on that provider's card, and no
+  provider search request carries message text the user hasn't allowed this
+  way (amended 2026-10-29).
 - **Silent fallback.** When provider search isn't available (the model, an
   organization policy, or the plan), the request carries on with Enigma's
   `web_search`, or without search if that isn't available either. Later
@@ -72,7 +84,7 @@ message text, and the fallback.
 | Providers | ChatGPT (Codex) and Claude Code. OpenAI and Anthropic (API key) are deferred (owner, 2026-10-29): they keep Enigma's `web_search`, and their sections in §3 stay as the design for later | These have a search tool Enigma can turn on per request. The app's users are expected to use the Codex and Claude Code runtimes, and the owner has no API key to check the API routes live. |
 | Gemini | Enigma's `web_search` (owner, 2026-10-27) | Google's terms require showing Google's "Search suggestions" chip, which is Google's own HTML, with every grounded answer. That doesn't fit `docs/design/UI-Style.md`. |
 | Unflagged cloud models | Unchanged: today's path | F30 builds on the tool loop. |
-| Message text | Never in a chat that holds message text (`ChatSession.holdsMessageText`). If message text would enter a provider-search request mid-reply, that request stops and runs again without provider search | F32 privacy rule 2: no query leaves without gate 3 once message text is in a chat. A provider's search runs on its servers, where Enigma can't show a card. |
+| Message text | In a chat that holds message text (`ChatSession.holdsMessageText`), or on a typed `/messages` turn, only after the user allows it on a per-provider card (owner, 2026-10-29; it was "never"). Declined: no search. If message text would enter a provider-search request the user hasn't allowed this way, that request stops and runs again, asking the card first | F32 privacy rule 2 wants a card before a query leaves once message text is in a chat. A provider's search runs on its servers, where Enigma can't show a card per query, so the card asks for the provider's search itself. |
 | Location | Sent to a provider's search only after the user allows it on a card, per provider: Don't allow, For this conversation, or Always (owner, 2026-10-29, replacing "never"). City, region, country and time zone; never coordinates. Only for a question about places or weather near the user | Nearby questions need it, and the card tells the user exactly what goes where. A grant for one provider never covers another. |
 | Selection attached | Provider search allowed | The provider already has the selection, and F32's `web_search` already lets the model put selection text in a query. |
 | Codex search mode | `live` (owner, 2026-10-27) | People search for fresh information, and the cached index can be days old. |
@@ -101,12 +113,19 @@ these hold:
   `CloudProviderID.nativeWebSearchProviders` (empty until a checkpoint turns
   its provider on; never `.gemini`);
 - this provider and model aren't marked unavailable this run;
-- the chat doesn't hold message text;
-- `/messages` wasn't typed (owner, 2026-10-29): such a turn reads a chat,
-  which would restart a provider-search request (section 2), so it gets
-  `.enigma` behind gate 3, or no search;
-- the Messages tools haven't returned message text earlier in this reply
-  (see section 2).
+- the Messages tools haven't returned message text earlier in this reply,
+  unless the user allowed the provider's search on the card below (see
+  section 2).
+
+*Amended 2026-10-29 (owner):* it no longer requires a chat without message
+text, or no typed `/messages`. In those cases `submitNative` first asks
+**Let ‹provider› search the web in this chat?** *This chat includes text from
+your messages. ‹provider›'s web search runs its own queries on ‹company›'s
+servers, and Enigma can't check each one.* (Don't allow, For this
+conversation, Always), keyed by `CloudProviderID` like the location card
+(`ToolPermission.providerSearchAfterMessages`). Allowed: provider search, and a
+Messages read in that request is delivered with no restart. Declined: the turn
+has no search part (`NativeToolPlan.withoutSearch()`), not even Enigma's.
 
 **The search part** is offered when automatic search is on or `/search` is
 typed, and then either:
@@ -148,24 +167,29 @@ F32 tracks message text per chat: the gated `MessagesTools` calls
 `didReturnMessageText()` the moment a tool returns message text (a read, a
 search hit or an allowed preview), and `SavingMessagesGate` marks the chat.
 
-**On a provider-search request, the result is never delivered.** When a
-Messages tool is about to return message text into a request whose
-`providerSearch` is set:
+**On a provider-search request the user hasn't allowed, the result is never
+delivered.** When a Messages tool is about to return message text into a
+request whose `providerSearch` is set, and the user hasn't allowed that
+provider's search for this chat (no card this turn, no grant; amended
+2026-10-29):
 
 1. the tool's result is held back: it never reaches the provider;
 2. the chat is marked, as today;
 3. the request stops (`ProviderSearchRestart`, a cancellation the loop
    reports as a restart, not as Stop);
 4. `submitNative` runs the same turn again from the start, with the plan
-   made again. The chat now holds message text, so the search part is
-   `.enigma` behind gate 3 when a Brave key is saved, and absent otherwise.
+   made again. The chat now holds message text, so it asks section 1's
+   provider-search card first (amended 2026-10-29; it was `.enigma` behind
+   gate 3): allowed, the second run has provider search and its read is
+   delivered; declined, it has no search.
    The read's grant still applies (For this conversation or Always), so the
    model reads the chat again without a second card.
 
 The reply on screen restarts too: text written before the restart is
 cleared, and the sources found so far are dropped, since they belong to the
 stopped request. A restart happens at most once per turn: the second run
-can't have provider search.
+either has the user's go-ahead for provider search, so its reads are
+delivered, or has no search (amended 2026-10-29).
 
 The check lives in the host, in the gate, not in the prompt: no model text
 can skip it. It works the same on all four routes, because Enigma runs every
@@ -238,7 +262,8 @@ search tool uses it for places and weather near them." Without one, it
 stays "ask which city they mean".
 
 **Not changed.** Enigma's own `web_search` keeps today's location handling;
-the restart's second run (no provider search) asks nothing new; Gemini,
+the restart's second run keeps the location only if it still has provider
+search; Gemini,
 File Mode and screenshot turns are unchanged. Nothing about the location is
 logged or saved, except the grant itself.
 
@@ -464,7 +489,7 @@ Unchanged format, so older chats load as before.
 | `NativeWebSearch.maximumSearches` | 5 |
 | `ProviderSearch`, `SearchBackend` | Section 1's types |
 | `ProviderSearchPart` | The instruction (section 4) as an `AgentToolbox` part with no definitions |
-| `NativeWebSearch.isAllowed(provider:modelID:holdsMessageText:availability:)` | Section 1's rule, a pure function |
+| `NativeWebSearch.isAllowed(provider:modelID:enabledProviders:availability:)` | Section 1's rule, a pure function (no message-text check since the 2026-10-29 amendment; `submitNative` asks the card) |
 | `NativeWebSearch.selectSources(cited:linked:discovered:)` | Section 5 |
 | `NativeWebSearch.links(in:)` | Markdown links and bare `http`/`https` URLs in an answer, in order |
 | `NativeWebSearchAvailability` | `markUnavailable(_:modelID:)` and `isAvailable(_:modelID:)`; held by `LocalChatViewModel`, never saved |
@@ -524,12 +549,14 @@ Unchanged format, so older chats load as before.
 | Who sees the queries | Brave (F29: the search sites) | The provider and its search backend |
 | Who sees the IP address | Brave (F29: the search sites and pages read) | Only the provider, as for any cloud request |
 | Location | The area, for "near me" queries | City, region, country and time zone, only after the user allows it for that provider (section 2a); never coordinates |
-| After message text enters the chat | Every query asks first (gate 3) | Not offered |
+| After message text enters the chat | Every query asks first (gate 3), naming Brave | Only after the user allows the provider's search on its card, per provider (amended 2026-10-29) |
 
 **Rules:**
 
-1. No provider search in a chat that holds message text, and no message
-   text in a provider-search request (section 2).
+1. *Amended 2026-10-29 (owner):* no provider search in a chat that holds
+   message text unless the user allowed it on that provider's card, and no
+   message text in a provider-search request the user hasn't allowed this
+   way (section 2).
 2. Location goes to a provider's search only after the user allows it on
    that provider's card, only for nearby questions, and never as
    coordinates (section 2a).
@@ -546,9 +573,9 @@ CP0 and live in `EnigmaTests/Fixtures/CloudSearch/`, read through
 
 | Test class | Covers |
 | --- | --- |
-| `NativeWebSearchTests` (new) | `isAllowed` for each provider, message-text state and availability; Gemini never; `selectSources` order, deduplication, the cap, unsafe links, site-name titles; `links(in:)`; the instruction text |
+| `NativeWebSearchTests` (new) | `isAllowed` for each provider and availability; Gemini never; `selectSources` order, deduplication, the cap, unsafe links, site-name titles; `links(in:)`; the instruction text |
 | `NativeToolPlanTests` | The search part's backend across provider search, Brave key, automatic search and typed `/search` |
-| `NativeToolRequestTests` | Section 2a: the card shows only for a nearby question on a provider-search turn; each answer; a grant for one provider doesn't cover another (ChatGPT vs OpenAI, Claude Code vs Anthropic); no card and no location when location is off or unavailable; `submitNative` sets `providerSearch`; the fallback runs once and is remembered; the restart: the held-back result never reaches the fake provider, the second run has no provider search, and it happens once; sources saved from provider events |
+| `NativeToolRequestTests` | Section 2a: the card shows only for a nearby question on a provider-search turn; each answer; a grant for one provider doesn't cover another (ChatGPT vs OpenAI, Claude Code vs Anthropic); no card and no location when location is off or unavailable; `submitNative` sets `providerSearch`; the fallback runs once and is remembered; the restart: the held-back result never reaches the fake provider, the second run asks the provider-search card (allowed: provider search; declined: none), and it happens once; the provider-search card in a chat with message text and on a typed `/messages` turn, per provider, and Stop while it shows; sources saved from provider events |
 | `CloudToolStreamingTests` | Per provider, recorded streams with search and function calls mixed: activity, sources, replay bodies (OpenAI items, Anthropic server blocks), `pause_turn` continuation and its cap, the unavailable mapping |
 | `CodexSubscriptionTests`, `ClaudeCodeSubscriptionTests` | Thread parameters and arguments with search, with and without a location, events from fixtures, the policy and `init` checks |
 | `RequestLifecycleTests` | Stop during a provider search and during a restart; a failure before and after the reply starts |
@@ -585,7 +612,7 @@ Enigma's `web_search`. The owner decides what's next.
 ## Docs
 
 - **`docs/Web-Search.md`** gains "Cloud models' own search": which routes,
-  when (no message text), sources and fallback, the privacy table, costs
+  when (with a card once message text is in the chat), sources and fallback, the privacy table, costs
   (plan usage on the ChatGPT and Claude subscriptions; no Brave key), the
   location card (section 2a), and limitations.
   Its "On models that choose their own tools", "How it works" and "Tests"
@@ -593,7 +620,7 @@ Enigma's `web_search`. The owner decides what's next.
 - **Updated:** `docs/ChatGPT-Setup.md` (live web search on search turns),
   `docs/Claude-Code-Setup.md` (`WebSearch`), `docs/Cloud-Model-Selection.md`
   (which providers search natively; Gemini), `docs/Messages.md` (provider
-  search stops once message text is in a chat), `docs/Chat.md` (the
+  search asks first once message text is in a chat), `docs/Chat.md` (the
   restart), `docs/Testing.md` (live checks and the quality check).
 - **Release notes:** cloud models can search without a Brave key.
 - **The report:** CP6 adds `docs/history/<date>-native-search-evaluation.md`,

@@ -58,7 +58,7 @@ Every cloud model in the catalogue calls tools natively, so in Cloud, or when
 Auto picks the cloud, the model gets Enigma's tools on every message (web
 search, Messages, the selection tools) and decides when to use them. On
 ChatGPT via Codex and Claude Code the web search is the provider's own, with no
-Brave key, in chats without message text; Gemini and the OpenAI and Anthropic
+Brave key (in a chat with message text, after a card); Gemini and the OpenAI and Anthropic
 API keys use Enigma's `web_search` on Brave (see
 [Web search](Web-Search.md#cloud-models-own-search)); see
 [Slash commands](Slash-Commands.md#models-that-choose-their-own-tools). The

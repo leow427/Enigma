@@ -117,7 +117,8 @@ needed ([below](#cloud-models-own-search)); everywhere else it's Enigma's
 - Automatic search off: the search tool is offered only when you type `/search`.
 - `/search` typed: the model must search first.
 - No key: `web_search` is never offered. On ChatGPT and Claude Code the
-  provider's search still is, unless the chat holds message text.
+  provider's search still is (after a card once the chat holds message text,
+  [below](#cloud-models-own-search)).
 - Files or a screenshot attached: today's File Mode and screen paths, without
   `web_search`.
 - In Auto, a question that needs a lookup no longer stops with "Use /search…",
@@ -130,9 +131,9 @@ Results are fitted to 2,048 tokens on local routes and 8,192 on cloud routes.
 **After message text enters a chat** (a Messages read, a search hit, an allowed
 preview, or an earlier `/messages` turn), each web search in that chat asks
 first: **Search the web for “‹query›”?** *This chat includes text from your
-messages.*, with **Don't allow**, **For this conversation** and **Always**. The
-card shows the exact query on one line, and Brave gets exactly what the card
-showed. Don't allow tells the model "The user declined." See
+messages. It will be sent to Brave.*, with **Don't allow**, **For this
+conversation** and **Always**. The card shows the exact query on one line, and
+Brave gets exactly what the card showed. Don't allow tells the model "The user declined." See
 [Messages](Messages.md#permission-cards).
 
 ## Cloud models' own search
@@ -146,19 +147,27 @@ in a reply; its instructions ask it to search at most 5 times, which Enigma
 can't enforce on these routes. No Brave key is needed; the searches count toward your
 ChatGPT or Claude plan. The same switch and `/search` apply as above.
 
-**Only in chats without message text.** A chat that holds text from your
-messages (a Messages read, a search hit, an allowed preview, or a `/messages`
-turn, including one reopened from Recents) never gets the provider's search,
-since no card could ask before each of its queries. It gets Enigma's
-`web_search` behind the search card above when a Brave key is saved, and no
-search otherwise. A typed `/messages` turn never gets it either.
+**In chats with message text, after a card.** The provider writes and runs its
+own queries on its servers, so no card can show each one. In a chat that holds
+text from your messages (a Messages read, a search hit, an allowed preview, or
+an earlier `/messages` turn, including one reopened from Recents), and on a
+typed `/messages` turn, Enigma asks once before the request: **Let ‹provider›
+search the web in this chat?** *This chat includes text from your messages.
+‹provider›'s web search runs its own queries on ‹company›'s servers, and Enigma
+can't check each one.*, with **Don't allow**, **For this conversation** and
+**Always**. ‹provider› is ChatGPT or Claude Code; a grant covers that provider
+only, and **Always** grants are listed, and removable, under **Settings →
+General → Messages → Always allowed**. **Don't allow** sends the question with
+no search at all, not even Enigma's. With a grant, a read in that reply goes
+straight to the provider.
 
 **The restart.** If the model reads a chat partway through a reply that has the
-provider's search, Enigma holds the chat's text back before it reaches the
-provider, clears the reply, and runs the same question again without the
-provider's search. The read's grant still applies, so the chat isn't asked
-for twice. This happens at most once per reply, and Stop during it ends the
-turn. See [Messages](Messages.md) and [Chat](Chat.md).
+provider's search and you haven't allowed it yet, Enigma holds the chat's text
+back before it reaches the provider, clears the reply, and asks the card
+above. Allowed, the same question runs again with the provider's search;
+declined, it runs again without search. The read's grant still applies, so the
+chat isn't asked for twice. This happens at most once per reply, and Stop
+during it ends the turn. See [Messages](Messages.md) and [Chat](Chat.md).
 
 **Sources.** The reply's sources are the pages the answer links, in order; if
 it links none, the results the provider found. Only safe `http`/`https` links
@@ -196,9 +205,10 @@ mean.
 | Who sees the queries | Brave | The provider and its search backend |
 | Who sees your IP address | Brave | Only the provider, as for any cloud request |
 | Location | The approximate area, for "near me" queries | City, region, country and time zone, only after you allow it for that provider; never coordinates |
-| After message text enters the chat | Every query asks first | Not offered |
+| After message text enters the chat | Every query asks first, naming Brave | Asks once per chat (or Always) for that provider, then the provider runs its own queries |
 
-Nothing new is saved except an **Always** location grant: the availability
+Nothing new is saved except **Always** grants for location and for searching
+after message text: the availability
 marks live in memory, and logs name the provider and the event, never a query
 or a link.
 
@@ -259,7 +269,8 @@ model's context for sources. **Stop** cancels both the search and the answer.
   but can't cause a search on their own. An automatic search always shows its
   chip before you send. On models that choose their own tools, the model
   decides and writes the query, and could be steered by text in the chat; once
-  message text is in the chat, no query leaves without your click on a card.
+  message text is in the chat, no query leaves without your click on a card
+  (for a provider's own search, one card for its searches in that chat).
 - **Where the answer comes from:** search controls retrieval, not the model. In
   Local mode the answer is written on this Mac, but the query still goes to
   Brave.
@@ -342,7 +353,8 @@ you allow it on that provider's card; see
   (`CodexToolMode`): Codex's thread `web_search` setting, its workspace policy,
   `webSearch` items and the restart. `ClaudeCodeSubscriptionClient.swift` and
   `ClaudeCodeToolMode`: `--tools WebSearch`, the `init` check and search
-  events. `submitNative` runs the location card, the fallback and the restart.
+  events. `submitNative` runs the location card, the provider-search card
+  (`ToolPermission.providerSearchAfterMessages`), the fallback and the restart.
 
 API reference: [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
 
@@ -393,7 +405,8 @@ fixtures and need no Brave key or network.
 For the providers' own search, `EnigmaTests/NativeWebSearchTests.swift` covers
 when it's allowed, source selection and the instruction;
 `NativeToolPlanTests` and `NativeToolRequestTests` cover the plan's search
-backend, the location card per provider, the fallback and the restart;
+backend, the location card per provider, the provider-search card after
+message text, the fallback and the restart;
 `CodexSubscriptionTests` and `ClaudeCodeSubscriptionTests` replay recorded
 searches from `EnigmaTests/Fixtures/CloudSearch/`. The opt-in live checks
 (`NativeWebSearchLiveTests`) and the quality check

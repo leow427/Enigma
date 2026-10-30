@@ -7,12 +7,11 @@ enum NativeWebSearch {
   static let maximumSources = 8
 
   /// Whether a flagged cloud turn may use the provider's search: a provider that's on (never
-  /// Gemini), in a chat without message text, with a provider and model not marked unavailable.
-  static func isAllowed(provider: CloudProviderID, modelID: String, holdsMessageText: Bool,
-                        enabledProviders: Set<CloudProviderID>,
+  /// Gemini), with a provider and model not marked unavailable. In a chat that holds message text,
+  /// or on a typed /messages turn, `submitNative` also asks the user first (owner, 2026-10-29).
+  static func isAllowed(provider: CloudProviderID, modelID: String, enabledProviders: Set<CloudProviderID>,
                         availability: NativeWebSearchAvailability) -> Bool {
-    provider != .gemini && enabledProviders.contains(provider) && !holdsMessageText
-      && availability.isAvailable(provider, modelID: modelID)
+    provider != .gemini && enabledProviders.contains(provider) && availability.isAvailable(provider, modelID: modelID)
   }
 
   /// The sources a reply shows and saves (spec §5): the cited pages, then the answer's other
@@ -158,7 +157,7 @@ struct NativeWebSearchSources: Sendable {
 }
 
 /// Raised by the Messages gate to stop a provider-search request before message text reaches it,
-/// so the turn runs again without provider search (spec §2). Never shown as Stop or as an error.
+/// so the turn runs again after the user is asked whether the provider may search (spec §2). Never shown as Stop or as an error.
 struct ProviderSearchRestart: Error, Equatable {}
 
 /// The provider-search instruction (spec §4) as a toolbox part with no definitions: the provider's

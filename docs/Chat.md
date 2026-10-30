@@ -166,11 +166,14 @@ it runs (**Searching…** for a web search, a Messages step for a read), and the
 reply's sources gather every search it made. See
 [Slash commands](Slash-Commands.md#models-that-choose-their-own-tools).
 
-On ChatGPT and Claude Code the search may be the provider's own. If the model
-reads a chat partway through such a reply, the reply restarts: its text and
-sources so far are cleared, and the same question runs again without the
-provider's search, so the chat's text never reaches it. This happens at most
-once per reply, and Stop during it ends the turn. See
+On ChatGPT and Claude Code the search may be the provider's own. In a chat
+that holds message text, it runs only after you allow it on a card for that
+provider. If the model reads a chat partway through such a reply before you
+have, the reply restarts: its text and sources so far are cleared, the card
+asks, and the same question runs again with the provider's search (allowed) or
+without search (declined), so the chat's text never reaches a search you
+didn't allow. This happens at most once per reply, and Stop during it ends the
+turn. See
 [Web search](Web-Search.md#cloud-models-own-search).
 
 Click it to see the steps and, for searched replies, the **web sources**: each
@@ -186,8 +189,10 @@ listed source means its excerpt was sent, not that the full page was read.
 On a model that chooses its own tools, a reply can pause on a card in the chat
 before a tool reads private data: **Allow reading your chat with ‹name›?**,
 **Search all your messages for “‹query›”?**, or, once message text is in the
-chat, **Search the web for “‹query›”?** The detail line says where the data
-goes (**It stays on this Mac.** or **It will be sent to ‹company›.**), and the
+chat, **Search the web for “‹query›”?** (Enigma's search, on Brave) or **Let
+‹provider› search the web in this chat?** (ChatGPT's or Claude Code's own
+search). The detail line says where the data goes (**It stays on this Mac.**,
+**It will be sent to ‹company›.** or **It will be sent to Brave.**), and the
 buttons are **Don't allow** (Escape), **For this conversation** and **Always**.
 One card is open at a time; the reply carries on once you answer, and Stop or
 a new chat answers Don't allow. Other chats can't be opened while it waits. A chat holding message text
@@ -315,9 +320,12 @@ their own paths.
   from the typed commands, the attached selection and the settings (automatic
   search, the Brave key, Full Disk Access). `submitNative` remakes it for the
   route: the search part is `.search(.provider)` when
-  `NativeWebSearch.isAllowed` says so (ChatGPT or Claude Code, no message text
-  in the chat, no typed `/messages`, the pair not marked unavailable), and
-  `.search(.enigma)` with a Brave key otherwise. `nativeToolbox` builds the
+  `NativeWebSearch.isAllowed` says so (ChatGPT or Claude Code, the pair not
+  marked unavailable), and `.search(.enigma)` with a Brave key otherwise. When
+  the chat holds message text, or `/messages` was typed, a `.provider` search
+  first asks `ToolPermission.providerSearchAfterMessages`; declined, the plan
+  is remade with `withoutSearch()`, and allowed, the toolbox's gate delivers
+  reads without a restart. `nativeToolbox` builds the
   plan's parts in a fixed order, `WebSearchTool` or `ProviderSearchPart` (the
   provider-search instruction, with `ChatRequest.providerSearch` set), the
   gated `MessagesTools` and `SelectionTools`, and merges them into an
@@ -326,9 +334,11 @@ their own paths.
   throws `CloudProviderError.webSearchUnavailable` before the first text or
   tool call (the pair is marked unavailable in memory and the plan remade), and
   when `SavingMessagesGate` throws `ProviderSearchRestart` because a Messages
-  tool is about to return message text (the result is held back, the reply is
-  cleared with `restartNativeReply`, and the plan remade without provider
-  search). Before the first run, a nearby question asks the per-provider
+  tool is about to return message text into a provider search the user
+  hasn't allowed for this chat (the result is held back, the reply is
+  cleared with `restartNativeReply`, and the provider-search card asked:
+  allowed keeps provider search for the second run, declined remakes the plan
+  without search). Before the first run, a nearby question asks the per-provider
   location card. Provider `.sourcesSelected` events merge onto the reply,
   capped at 8.
 - Local turns trim the history with `LocalToolAgent.prepare` and run

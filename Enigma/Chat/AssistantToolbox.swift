@@ -19,6 +19,9 @@ struct NativeToolPlan: Equatable, Sendable {
     var hasFullDiskAccess: Bool
     /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). It needs no Brave key.
     var providerSearch: Bool = false
+    /// The user declined the provider's search in a chat holding message text: no search at all,
+    /// not even Enigma's (owner, 2026-10-29).
+    var searchDeclined = false
   }
 
   var parts: Set<NativeToolPart>
@@ -46,6 +49,13 @@ struct NativeToolPlan: Equatable, Sendable {
     return Self.make(inputs)
   }
 
+  /// The plan made again with no search: a declined provider-search card. Remaking it later keeps it so.
+  func withoutSearch() -> NativeToolPlan {
+    guard var inputs else { return self }
+    inputs.searchDeclined = true
+    return Self.make(inputs)
+  }
+
   /// The search backend, if the plan searches.
   var searchBackend: SearchBackend? {
     parts.contains(.search(.provider)) ? .provider : parts.contains(.search(.enigma)) ? .enigma : nil
@@ -55,11 +65,9 @@ struct NativeToolPlan: Equatable, Sendable {
     guard !inputs.hasFiles, !inputs.hasScreenshot else { return .empty }
     var plan = NativeToolPlan(parts: [], requiredTool: nil, messagesRequested: inputs.typed.messages)
     plan.inputs = inputs
-    // A turn the user asked to use Messages reads a chat, which would restart a provider-search
-    // request, so it gets Enigma's search behind gate 3 (owner, 2026-10-29).
-    let providerSearch = inputs.providerSearch && !inputs.typed.messages
-    if inputs.searchesAutomatically || inputs.typed.search,
-       let backend: SearchBackend = providerSearch ? .provider : inputs.hasSearchKey ? .enigma : nil {
+    // A typed /messages turn keeps provider search; `submitNative` asks before it (owner, 2026-10-29).
+    if !inputs.searchDeclined, inputs.searchesAutomatically || inputs.typed.search,
+       let backend: SearchBackend = inputs.providerSearch ? .provider : inputs.hasSearchKey ? .enigma : nil {
       plan.parts.insert(.search(backend))
       // On provider routes `web_search` names the provider's own tool.
       if inputs.typed.search { plan.requiredTool = "web_search" }

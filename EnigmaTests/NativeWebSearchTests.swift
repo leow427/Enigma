@@ -43,21 +43,19 @@ final class NativeWebSearchTests: XCTestCase {
     var checked = 0
     for provider in CloudProviderID.allCases {
       for enabled in [false, true] {
-        for holdsMessageText in [false, true] {
-          for available in [false, true] {
-            var availability = NativeWebSearchAvailability()
-            if !available { availability.markUnavailable(provider, modelID: "model") }
-            let allowed = NativeWebSearch.isAllowed(provider: provider, modelID: "model",
-              holdsMessageText: holdsMessageText, enabledProviders: enabled ? Set(CloudProviderID.allCases) : [],
-              availability: availability)
-            let expected = provider != .gemini && enabled && !holdsMessageText && available
-            XCTAssertEqual(allowed, expected, "\(provider) enabled \(enabled) text \(holdsMessageText) available \(available)")
-            checked += 1
-          }
+        for available in [false, true] {
+          var availability = NativeWebSearchAvailability()
+          if !available { availability.markUnavailable(provider, modelID: "model") }
+          // Message text no longer rules it out: `submitNative` asks first (owner, 2026-10-29).
+          let allowed = NativeWebSearch.isAllowed(provider: provider, modelID: "model",
+            enabledProviders: enabled ? Set(CloudProviderID.allCases) : [], availability: availability)
+          let expected = provider != .gemini && enabled && available
+          XCTAssertEqual(allowed, expected, "\(provider) enabled \(enabled) available \(available)")
+          checked += 1
         }
       }
     }
-    XCTAssertEqual(checked, CloudProviderID.allCases.count * 8)
+    XCTAssertEqual(checked, CloudProviderID.allCases.count * 4)
   }
 
   func testAvailabilityIsPerProviderAndModel() {

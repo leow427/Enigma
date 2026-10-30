@@ -199,8 +199,9 @@ until you sign in again or choose another provider.
   turned off. The thread is closed when
   the response ends, and **Stop** interrupts generation on the server.
 - Web search is the one exception: when a model that chooses its own tools may
-  search (automatic search on, or `/search` typed) and the chat holds no
-  message text, its thread turns on Codex's own web search in `live` mode,
+  search (automatic search on, or `/search` typed), and, once the chat holds
+  message text or you've typed `/messages`, you've allowed it on the card **Let ChatGPT search the web in
+  this chat?**, its thread turns on Codex's own web search in `live` mode,
   beside Enigma's tools. OpenAI runs the searches on its servers; they count
   toward your ChatGPT plan, and no Brave key is needed. If your workspace
   allows only `cached`, that's used; if it allows neither, Enigma asks again

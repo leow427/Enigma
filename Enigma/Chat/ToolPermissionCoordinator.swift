@@ -21,11 +21,16 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     case .searchAfterMessages(let query): title = "Search the web for “\(Self.oneLine(query))”?"
     case .shareMessageText: title = "Send text from your messages to \(destination.displayName)?"
     case .shareLocation(let provider, _): title = "Share your location with \(provider.shortName)?"
+    case .providerSearchAfterMessages(let provider): title = "Let \(provider.shortName) search the web in this chat?"
     }
     detail = switch (permission, destination) {
     case (.shareLocation(let provider, let area), _):
       "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Enigma never sends your exact position."
-    case (.searchAfterMessages, _), (.shareMessageText, _): "This chat includes text from your messages."
+    case (.providerSearchAfterMessages(let provider), let company):
+      "This chat includes text from your messages. \(provider.shortName)'s web search runs its own queries on \(company.displayName)'s servers, and Enigma can't check each one."
+    // Enigma's own `web_search` runs on Brave (F29 replaces it).
+    case (.searchAfterMessages, _): "This chat includes text from your messages. It will be sent to Brave."
+    case (.shareMessageText, _): "This chat includes text from your messages."
     case (_, .thisMac): "It stays on this Mac."
     case (_, let company): "It will be sent to \(company.displayName)."
     }

@@ -910,7 +910,7 @@ final class LocalChatViewModel: ObservableObject {
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : route.modelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
-    let plan = local ? plan : plan.remade(providerSearch: providerSearchAllowed(route: route, sessionID: sessionID))
+    let plan = local ? plan : plan.remade(providerSearch: providerSearchAllowed(route: route))
     if let selection {
       nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
                                         contextID: selection.id, editRequested: plan.editRequested)
@@ -960,18 +960,36 @@ final class LocalChatViewModel: ObservableObject {
             guard allowed else { throw NativeToolsError.messageTextStays }
           }
           var plan = plan, toolbox = toolbox
+          // In a chat holding message text, or on a typed /messages turn, the provider's search runs
+          // only once the user allows it for this provider; declined, the turn doesn't search
+          // (owner, 2026-10-29). Allowed, a Messages read no longer restarts the request.
+          var searchApproved = false, asked = false
+          if plan.searchBackend == .provider, let owner {
+            if plan.messagesRequested || owner.chatHoldsMessageText(sessionID) {
+              asked = true
+              searchApproved = try await owner.allowsProviderSearch(route: route, destination: destination,
+                                                                    sessionID: sessionID)
+              if !searchApproved {
+                plan = plan.withoutSearch()
+                NativeTools.logger.info("Provider search declined: \(route.providerID, privacy: .public)")
+              }
+            } else {
+              // A grant already given lets a read partway through go to the provider, with no card.
+              searchApproved = owner.providerSearchGranted(route: route, destination: destination, sessionID: sessionID)
+            }
+          }
           // F30, spec §2a: a nearby question asks, per provider, before the area goes to its search.
           let location = plan.searchBackend == .provider
             ? try await owner?.providerSearchLocation(for: prompt, route: route, destination: destination, sessionID: sessionID)
             : nil
-          if location != nil, let owner {
+          if location != nil || asked || searchApproved, let owner {
             toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
                                           requestID: active.id, evidenceTokens: evidenceTokens, location: location,
-                                          sendLedger: sendLedger)
+                                          providerSearchApproved: searchApproved, sendLedger: sendLedger)
           }
-          // A turn runs again at most once for each reason, with the plan made again without
-          // provider search (F30): its search was unavailable before the reply started, or
-          // message text was about to enter its request.
+          // A turn runs again at most once for each reason (F30): its provider search was
+          // unavailable before the reply started (made again with Enigma's search), or message text
+          // was about to enter its request (made again after asking whether the provider may search).
           var fellBack = false, restarted = false
           while true {
             let providerSearch = plan.searchBackend == .provider ? ProviderSearch(location: location) : nil
@@ -1014,23 +1032,34 @@ final class LocalChatViewModel: ObservableObject {
               let unavailable = if case CloudProviderError.webSearchUnavailable = error { true } else { false }
               // Remembered either way, so later turns skip it; only a reply not yet started falls back.
               if unavailable { owner?.nativeWebSearchAvailability.markUnavailable(providerID, modelID: route.modelID) }
+              let restarting: Bool
               if unavailable, !fellBack, !started.isStarted {
                 fellBack = true
+                restarting = false
                 NativeTools.logger.info("Provider search unavailable: \(providerID.rawValue, privacy: .public); falling back")
               } else if error is ProviderSearchRestart, !restarted {
                 restarted = true
+                restarting = true
                 NativeTools.logger.info("Provider search restart: \(providerID.rawValue, privacy: .public)")
               } else {
                 throw error
               }
+              owner?.restartNativeReply(messageID: responseID, sessionID: sessionID, requestID: active.id)
+              try Task.checkCancellation()
+              guard let owner else { throw CancellationError() }
+              if restarting {
+                // The chat now holds message text: the provider searches again only if allowed.
+                searchApproved = try await owner.allowsProviderSearch(route: route, destination: destination,
+                                                                      sessionID: sessionID)
+                if !searchApproved { plan = plan.withoutSearch() }
+              } else {
+                plan = plan.remade(providerSearch: false)
+              }
             }
-            owner?.restartNativeReply(messageID: responseID, sessionID: sessionID, requestID: active.id)
-            try Task.checkCancellation()
-            guard let owner else { throw CancellationError() }
-            plan = plan.remade(providerSearch: false)
-            toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
-                                          responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
-                                          sendLedger: sendLedger)
+            toolbox = owner?.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
+                                           responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
+                                           location: plan.searchBackend == .provider ? location : nil,
+                                           providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
           }
         }
         try Task.checkCancellation()
@@ -1058,7 +1087,7 @@ final class LocalChatViewModel: ObservableObject {
   /// The plan's parts, in a fixed order so a chat's tool prefix stays the same turn after turn.
   private func nativeToolbox(plan: NativeToolPlan, destination: ToolDestination, sessionID: UUID, responseID: UUID,
                              requestID: UUID, evidenceTokens: Int,
-                             location: ProviderSearchLocation? = nil,
+                             location: ProviderSearchLocation? = nil, providerSearchApproved: Bool = false,
                              sendLedger: MessagesSendLedger? = nil) -> AssistantToolbox {
     let coordinator = toolPermissions
     var parts: [any AgentToolbox] = []
@@ -1084,7 +1113,8 @@ final class LocalChatViewModel: ObservableObject {
       // Flagged routes always gate message text; a toolbox that can't take the gate isn't offered.
       messages.gate = SavingMessagesGate(gate: CoordinatorMessagesGate(coordinator: coordinator, destination: destination,
                                                                       session: sessionID),
-                                         restartsProviderSearch: plan.searchBackend == .provider) { [weak self] in
+                                         restartsProviderSearch: plan.searchBackend == .provider && !providerSearchApproved) {
+        [weak self] in
         await self?.saveMessageTextMark(sessionID)
       }
       if let sendLedger { messages.ledger = sendLedger }
@@ -1135,13 +1165,33 @@ final class LocalChatViewModel: ObservableObject {
     return allowed ? location : nil
   }
 
-  /// Whether a flagged cloud turn may use its provider's own web search (F30).
-  private func providerSearchAllowed(route: Route, sessionID: UUID) -> Bool {
+  /// Whether a flagged cloud turn may use its provider's own web search (F30). In a chat holding
+  /// message text, `allowsProviderSearch` asks first.
+  private func providerSearchAllowed(route: Route) -> Bool {
     guard route.mode == .cloud, let provider = CloudProviderID(rawValue: route.providerID) else { return false }
-    let holdsMessageText = toolPermissions.store.hasMessageText(session: sessionID)
-      || sessions.first { $0.id == sessionID }?.holdsMessageText == true
-    return NativeWebSearch.isAllowed(provider: provider, modelID: route.modelID, holdsMessageText: holdsMessageText,
+    return NativeWebSearch.isAllowed(provider: provider, modelID: route.modelID,
                                      enabledProviders: nativeWebSearchProviders, availability: nativeWebSearchAvailability)
+  }
+
+  private func chatHoldsMessageText(_ sessionID: UUID) -> Bool {
+    toolPermissions.store.hasMessageText(session: sessionID) || sessions.first { $0.id == sessionID }?.holdsMessageText == true
+  }
+
+  /// The provider-search card (owner, 2026-10-29): the provider's queries run on its servers, where
+  /// no card can ask, so in a chat with message text the user allows the search itself, per
+  /// provider. A grant answers without a card; Stop while it shows ends the turn.
+  private func allowsProviderSearch(route: Route, destination: ToolDestination, sessionID: UUID) async throws -> Bool {
+    guard let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    let allowed = await toolPermissions.authorize(.providerSearchAfterMessages(provider: provider),
+                                                  destination: destination, session: sessionID)
+    try Task.checkCancellation()
+    return allowed
+  }
+
+  private func providerSearchGranted(route: Route, destination: ToolDestination, sessionID: UUID) -> Bool {
+    guard let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    return toolPermissions.store.isGranted(.providerSearchAfterMessages(provider: provider), destination: destination,
+                                           session: sessionID)
   }
 
   /// Which search the reply's footer names (F30): the provider's own, or Brave.
@@ -2315,8 +2365,8 @@ private final class NativeReplyStart: Sendable {
 }
 
 /// Saves the chat's message-text mark as soon as a tool returns message text. On a provider-search
-/// request it then holds the text back and restarts the turn (F30, spec §2): the provider's search
-/// runs on its servers, where no card can ask.
+/// request the user hasn't allowed, it then holds the text back and restarts the turn (F30, spec §2):
+/// the provider's search runs on its servers, where no card can ask for each query.
 private struct SavingMessagesGate: MessagesAccessGate {
   let gate: CoordinatorMessagesGate
   let restartsProviderSearch: Bool
