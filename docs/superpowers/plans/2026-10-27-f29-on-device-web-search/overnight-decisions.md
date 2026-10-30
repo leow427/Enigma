@@ -14,8 +14,8 @@ The summary at the top is written when the run ends.
 ## Index by checkpoint
 
 - **Run setup:** D1–D6, D25 (all checkpoints)
-- **CP1b:** D7–D24, D26–D32
-- **CP2:**
+- **CP1b:** D7–D24, D26–D32, D44 (CI)
+- **CP2:** D33–D43, D45–D48
 - **CP3:**
 - **CP4:**
 - **CP5:**
@@ -656,3 +656,309 @@ The summary at the top is written when the run ends.
 - **Alternatives:** rerun `scripts/verify-xcode.sh test` with the screen
   unlocked in the morning.
 - **Reversible:** yes.
+
+### D33 — 2026-10-30 04:25, CP2 — The owner's lineup applied: what CP2 skips
+
+- **Decided (worker CP2):** following CP0b's owner row, CP2 skips Task 2.3
+  (Mojeek) and Task 2.4 (Startpage) entirely: no `MojeekEngine.swift` or
+  `StartpageEngine.swift`, no `.mojeek` or `.startpage` case in
+  `SearchEngineID` (it keeps only `.duckDuckGo`), none of their tests, live
+  checks (`testLiveMojeek`, `testLiveStartpage`) or `UPSTREAM.json` entries.
+  Task 2.7 drops the Startpage rule and `SearchSiteRunner.startpageBudget`:
+  the runner queries DuckDuckGo and, when asked, Wikipedia, and nothing else.
+  Its three Startpage tests are replaced by tests of the same rules that still
+  apply (a cooling-down site is skipped, a timeout is a failure, enough
+  results need no backup). Without the live variable, 2 tests skip, not 4.
+- **Why:** owner decision of 2026-10-29 (CP0b Hand-off): both sites refused
+  every request on two networks; the brief says to skip a dropped site's
+  tasks.
+- **Alternatives:** if a second index is found later, add its `SearchEngineID`
+  case, its engine file and its `UPSTREAM.json` entry; the runner already
+  runs every engine it is given at once.
+- **Reversible:** yes.
+
+### D34 — 2026-10-30 04:25, CP2 — Header set A splits `SafariHeaders` into GET and form-POST headers
+
+- **Decided (worker CP2):** header set A (owner, CP0b) differs between GET
+  and POST, so `SafariHeaders.standard(acceptLanguage:)` gives the GET set
+  (User-Agent, Accept, Accept-Language, `Sec-Fetch-Dest: document`,
+  `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Site: none`, `Priority: u=0, i`),
+  and a new `SafariHeaders.formPost(to:acceptLanguage:)` adds
+  `Sec-Fetch-Site: same-origin`, `Origin: <scheme>://<host>` and
+  `Referer: <scheme>://<host>/`, exactly the values CP0 and CP0b measured for
+  DuckDuckGo (`https://html.duckduckgo.com`, `https://html.duckduckgo.com/`).
+  DuckDuckGo's form sends `kl`, not `l` (owner, CP0b).
+- **Why:** the brief's interface has one `standard` set (set B's fields);
+  set A needs the method-specific fields. No header beyond set A is sent
+  (owner rule).
+- **Alternatives:** set B is `standard` without `Priority` and with
+  `Sec-Fetch-Site: none` everywhere (in `SearchHTTPClient.swift`).
+- **Reversible:** yes.
+
+### D35 — 2026-10-30 04:25, CP2 — DuckDuckGo gets its own region codes
+
+- **Decided (worker CP2):** `SearchRegion.code` stays `<country>-<language>`
+  ("us-en") as the brief says, but DuckDuckGo's `kl` comes from
+  `DuckDuckGoEngine.regionCode(for:)`, a table of DuckDuckGo's own region
+  values (the list `duckduckgo_search` documented): Britain is `uk-en`, Japan
+  `jp-jp`, Korea `kr-kr`, Taiwan `tw-tzh`, Canada `ca-en`/`ca-fr` by
+  language, and so on. A country DuckDuckGo doesn't list sends `wt-wt` (all
+  regions), which is what every search got before `kl` (CP0b Q2).
+- **Why:** `kl` only localizes when the value is one DuckDuckGo knows; plain
+  ISO codes such as `gb-en` or `ja-jp` aren't. For a US user nothing changes
+  (`us-en`).
+- **Alternatives:** send `SearchRegion.code` as is (one line in
+  `DuckDuckGoEngine.request`).
+- **Amended by D42:** the table is now rebuilt from DuckDuckGo's own
+  region menu, so the codes and examples above are partly superseded.
+- **Reversible:** yes.
+
+### D36 — 2026-10-30 04:25, CP2 — One extra live request to find DuckDuckGo's "no results" marker
+
+- **Decided (worker CP2):** besides the brief's live check, send DuckDuckGo
+  one search for a quoted nonsense phrase, at least 30 s after the live
+  check, to see the page it returns when nothing matches. The parser treats
+  a `no-results` class or the text "No results." as `.noResults`; if the
+  probe returns such a page, a sanitized copy becomes the
+  `duckduckgo-no-results.html` fixture, otherwise the fixture is synthetic
+  and this stays unverified.
+- **Why:** CP0 found no real marker (its nonsense query got fuzzy results).
+  With DuckDuckGo the only web index, mistaking an empty search for a layout
+  change would log a false alarm and put DuckDuckGo in a 1-minute cooldown,
+  leaving the next searches with Wikipedia alone.
+- **Alternatives:** skip the probe and keep the synthetic fixture.
+- **Reversible:** yes.
+- **Outcome (worker CP2, 04:37):** the probe ran once, about 13 s after the
+  live check's DuckDuckGo request rather than the planned 30 s (the script
+  started sooner than expected); HTTP 200, 9.4 KB, 722 ms, no challenge. The
+  page has one `result--no-result` item holding a `no-results` message and
+  no link; neither "No results." spelling appears. It is saved as
+  `duckduckgo-no-results.html` (it holds only the nonsense query; no token,
+  address or region data). So the parser reads `no-results` /
+  `result--no-result` as an empty search, and a page whose items all lack a
+  usable link is `.unrecognized` (a layout change), not `.noResults`; a page
+  of nothing but ads is `.noResults`.
+
+### D37 — 2026-10-30 04:25, CP2 — Runner and health details the brief leaves open
+
+- **Decided (worker CP2):**
+  1. A site skipped because it is cooling down is not recorded again, and a
+     run cancelled from outside (Stop) records nothing, so neither lengthens
+     the cooldown.
+  2. A failure recorded while the site is already cooling down doesn't climb
+     the ladder (two searches failing together count once).
+  3. `EngineHealth.reservePacingSlot(_:)` (new) returns the wait and books
+     the slot in one actor call, so two searches started together are still
+     paced; `pacingDelay(_:)` stays as the read-only query. The pacing wait
+     happens before the 2.0 s request timeout starts.
+  4. Wikipedia isn't tracked by `EngineHealth` (it has no `SearchEngineID`,
+     as in the brief); it gets the same 2.0 s timeout.
+  5. An unrecognized page's status and size reach `SearchLogging` through a
+     small wrapper around the HTTP client, so `EngineOutcome` stays as the
+     brief defines it.
+- **Why:** these keep the backoff from punishing DuckDuckGo for things that
+  aren't its fault, which matters more now it is the only web index.
+- **Alternatives:** record every outcome literally (edit `SearchSiteRunner.run`
+  and `EngineHealth.recordFailure`).
+- **Reversible:** yes.
+
+### D38 — 2026-10-30 04:25, CP2 — Result count: DuckDuckGo's first page only, page 2 ported but unused
+
+- **Decided (worker CP2):** a search asks DuckDuckGo for its first page
+  (about 10 results) and Wikipedia for 3 hits (`srlimit=3`), as the brief
+  says. `DuckDuckGoEngine.request(for:page:)` also ports ddgs's page field
+  (`s = 10 + (page − 2) × 15`), default page 1, so CP3 or CP7 can try a
+  second page if the evaluation shows more results help. Nothing calls it
+  with page 2 yet.
+- **Why:** owner allows more results if they measurably help, but a second
+  page doubles DuckDuckGo requests per search and the bot check (HTTP 202)
+  already answers about 1 in 4; that needs measuring, not guessing.
+- **Alternatives:** call page 2 from the runner (one more request per search,
+  log it first).
+- **Reversible:** yes.
+
+### D39 — 2026-10-30 04:35, CP2 — Which 30 Wikipedia editions count as "the largest"
+
+- **Decided (worker CP2):** `WikipediaSearch.editions` is 30 large editions
+  by article count, leaving out the mostly bot-generated ones (Cebuano,
+  Waray, Egyptian Arabic, Chechen, Tatar, South Azerbaijani) and adding the
+  next largest instead (Hebrew, Romanian, Danish, Basque, Armenian). macOS's
+  Norwegian Bokmål and Nynorsk (`nb`, `nn`) use the `no` edition. Any other
+  language uses English, as the brief says.
+- **Why:** the brief says "the 30 largest editions"; a bot-generated edition
+  is large but mostly stub articles, so a user of that language gets better
+  facts from English.
+- **Alternatives:** edit the set in `WikipediaSearch.swift`.
+- **Reversible:** yes.
+
+### D40 — 2026-10-30 04:35, CP2 — Work around an NSXMLNode XPath bug for `//text()`
+
+- **Decided (worker CP2):** `SERPDocument.text` keeps ddgs's XPath strings
+  verbatim, but for a path ending in `//text()` it lets XPath select the
+  elements (`./a`, `.//h2`) and collects their descendant text nodes itself.
+- **Why:** found while testing, on the synthetic `duckduckgo-ads.html`:
+  there `./a//text()` evaluated on one result also returns the text of every
+  later result's links (`./a/descendant::text()` too, even after re-parsing
+  without tidy), so each snippet ran on into the next results. *Corrected
+  after review round 1:* on the real `duckduckgo-results.html`, plain XPath
+  and the workaround give identical text, so the bug doesn't show on that
+  page, and only `testDuckDuckGoDropsAds` guards the workaround. It is kept
+  because the cause isn't understood and a real page could trigger it.
+- **Alternatives:** none that keep `XMLDocument`; a different parser
+  (SwiftSoup) would be a new dependency.
+- **Reversible:** yes.
+
+
+### D41 — 2026-10-30 04:48, CP2 — Only real block signs start DuckDuckGo's cooldown; a lone 202 doesn't
+
+- **Decided (orchestrator):** amends D37 and overrides brief Task 2.7's
+  "timeouts included" (marked "Amended overnight" in the brief): a timeout or
+  transport error (`.failed`) records nothing in `EngineHealth`; only
+  `.blocked`, `.unrecognized` and a **second consecutive** `.rateLimited`
+  (HTTP 202 challenge) start or climb the 60 s → 3,600 s ladder. A single 202
+  marks a pending strike that the next success clears.
+- **Why:** spec §2's block signs don't include timeouts. DuckDuckGo is the
+  only web index, so a wake-from-sleep network error or a slow network would
+  otherwise leave searches on Wikipedia alone for 1–60 minutes. CP0 and CP0b
+  saw HTTP 202 on one query every time (5 of 5, two networks) and never on
+  the other queries (0 of 15), so one 202 is usually about that query, not the
+  network; at most one more request reaches DuckDuckGo before the ladder
+  starts (reviewer round 1, finding 1).
+- **Alternatives:** brief Task 2.7 as written (every failure climbs the
+  ladder), or a 202 starting it at once — in `SearchSiteRunner.swift` /
+  `EngineHealth`.
+- **Reversible:** yes.
+
+### D42 — 2026-10-30 04:48, CP2 — Region codes from DuckDuckGo's own list
+
+- **Decided (orchestrator):** DuckDuckGo's `kl` table is rebuilt from the
+  `<select name="kl">` options in the captured `duckduckgo-no-results.html`
+  (replacing ten codes DuckDuckGo doesn't list, adding `is-is` and
+  `pk-en`), with a test that every code the table sends is in that list.
+  Amends D35.
+- **Why:** codes DuckDuckGo doesn't know give unlocalized or odd results
+  (reviewer round 1, finding 4).
+- **Alternatives:** D35's table as first built (`DuckDuckGoEngine.swift`).
+- **Reversible:** yes.
+
+### D43 — 2026-10-30 04:50, CP2 — Round-1 fix details
+
+- **Decided (worker CP2):**
+  1. D41's strike is `EngineHealth.recordRateLimited(_:)`: a pending strike
+     per site, cleared by `recordSuccess`, turned into a `recordFailure`
+     by the next `.rateLimited`. A strike has no time limit: two 202s an
+     hour apart with no success between them still start the ladder.
+  2. The client exposes `configuration` (the session's own copy) so
+     `testSessionStoresNothing` can check the cookie, cache and credential
+     settings.
+  3. After the pacing wait the runner checks `isCoolingDown` again and, if
+     so, returns `.failed` and records nothing.
+  4. D42's table (63 codes in DuckDuckGo's menu): the ten codes it doesn't
+     list are replaced or dropped. United Arab Emirates and Venezuela now
+     get `wt-wt`. Indonesia, Israel, Malaysia, the Philippines, Thailand and
+     Vietnam get their only listed code, the English one. Spain's Catalan
+     is `es-ca`, and the US's Spanish is `us-es`. Iceland (`is-is`) and
+     Pakistan (`pk-en`) are added; Catalonia's separate `ct-ca` isn't a
+     country, so it isn't used.
+- **Why:** D41 and D42's scope.
+- **Alternatives:** a strike that expires after a set time
+  (`EngineHealth`); the table in `DuckDuckGoEngine.swift`.
+- **Reversible:** yes.
+
+
+### D44 — 2026-10-30 04:51, CP1b (CI) — A flaky CI test re-run, not changed
+
+- **Decided (orchestrator):** CI on c90ecf3 failed one test,
+  `ScreenViewTests.testLongScreenSearchConversationSettlesAtBottom` (a
+  5 s UI wait timed out); every other test passed and `main`'s last three
+  runs passed. The failed job was re-run once and passed, so the test was
+  treated as flaky and left unchanged. Log:
+  `/private/tmp/claude-501/f29-overnight/ci-c90ecf3.log` (outside the repo).
+- **Why:** a re-run passing on the same commit shows a timing flake, not a
+  CP1b regression; CP1b doesn't touch that view.
+- **Alternatives:** lengthen that test's wait in `EnigmaTests/ScreenViewTests.swift:502`
+  if it flakes again.
+- **Reversible:** yes.
+
+### D45 — 2026-10-30 05:00, CP2 — A challenged query sits out alone; two different challenged queries cool the site down
+
+- **Decided (orchestrator):** amends D41/D43. A 202 (or 429) for a query puts
+  that query's in-memory fingerprint (`query.text.hashValue`, seeded per
+  launch, never logged or stored) in a short per-query skip for the first
+  ladder step (60 s): retrying the same query in that window skips DuckDuckGo
+  without sending a request and without climbing the ladder. A 202/429 for a
+  **different** query while a strike is pending starts the site-wide ladder. A
+  success clears the strike. 429 shares the 202 rule.
+- **Why:** round 2 showed that retrying the challenged query (a regenerate, or
+  a model calling `web_search` again) gave the second 202 in a row and cooled
+  DuckDuckGo down for every query. Skipping the challenged query alone keeps
+  other searches on DuckDuckGo and stops re-sending a request DuckDuckGo just
+  challenged (more polite than the reviewer's "retry it anyway").
+- **Alternatives:** D41 as built (any second 202 cools down), or the
+  reviewer's version (same-query 202s never climb) — `EngineHealth` in
+  `SearchEngine.swift`.
+- **Reversible:** yes.
+
+### D46 — 2026-10-30 05:02, CP2 — Round-2 fix details (the per-query strike)
+
+- **Decided (worker CP2):**
+  1. `EngineHealth.recordRateLimited(_:query:)` takes the fingerprint, and
+     the new `isSkipped(_:query:)` is true while that query sits out. The
+     runner computes `query.text.hashValue` once and checks the skip before
+     booking a pacing slot, so a skipped query neither waits nor sends.
+  2. The same query challenged again after its minute renews its own
+     strike and skip without climbing the ladder. Only a different query's
+     challenge, while a strike is pending, starts the ladder. A strike has
+     no expiry for that rule (as D43).
+  3. Only one strike is kept per site: a new challenge replaces it.
+  4. The tests drive time through `TestInstant`, which is `EngineHealth`'s
+     injected clock, not `ManualClock`: the minute is measured by
+     `EngineHealth`, which never sleeps.
+- **Why:** D45's scope.
+- **Alternatives:** expire the strike after the skip window; `EngineHealth`
+  in `SearchEngine.swift`.
+- **Reversible:** yes.
+
+
+### D47 — 2026-10-30 05:08, CP2 — Round 3's fixes, then commit without a round 4
+
+- **Decided (orchestrator):** the worker fixes round 3's three findings:
+  (1) after the pacing wait the runner re-checks the per-query skip as well as
+  the cooldown; (2) an unexpected 3xx, 400, 403, 404, 405 or 410 from
+  DuckDuckGo is `.unrecognized` (logged with status and size, climbs the
+  ladder) — a sign the port needs updating — while 413/414 (query too long)
+  and 5xx stay `.failed` but are logged with their status; (3) a per-query
+  skip returns `.rateLimited` (recording nothing), so CP5 shows "limiting
+  requests" rather than a connection error. Amends the brief's "anything else
+  → `.failed`" row (marked "Amended overnight") and D41. Rows also kill the
+  two surviving mutants. No round 4: each fix is small and comes with the
+  reviewer's own failing test; the worker reruns the CP2 classes, the live
+  check, build, analyze and the full suite before the commit.
+- **Why:** concrete failures from round 3; three rounds done; usage budget
+  for CP3–CP10.
+- **Alternatives:** a round 4 on these fixes.
+- **Reversible:** yes.
+
+### D48 — 2026-10-30 05:11, CP2 — Round-3 fix details
+
+- **Decided (worker CP2):**
+  1. D47 lists 403 among the statuses that become `.unrecognized`, but the
+     brief's outcome table and spec §2 make 403 and 503 a block (`.blocked`)
+     and `testDuckDuckGoBotCheckIsBlocked` pins it. 403 and 503 stay
+     `.blocked`. That climbs the ladder too; the only difference is that
+     they aren't logged as unrecognized. All 3xx, plus 400, 404, 405 and
+     410, are `.unrecognized`. Every other non-200 status (413, 414, 5xx,
+     other 4xx) is `.failed` and logged.
+  2. The status of a `.failed` page is logged through a new
+     `SearchLogging.failedPage(engine:status:bytes:)`, at error level like
+     `unrecognizedPage`, with site, status and size only. It is logged only
+     when a response arrived; a thrown error or timeout logs nothing.
+  3. Both skip checks (before booking the pacing slot, and after the wait)
+     return `.rateLimited` and record nothing. A cooldown found after the
+     wait still returns `.failed`.
+- **Why:** D47's scope, without weakening the brief's block rows or their
+  test.
+- **Alternatives:** treat 403 as `.unrecognized` too (one `case` in
+  `DuckDuckGoEngine.parse`, and the test changed with the owner).
+- **Reversible:** yes.
+

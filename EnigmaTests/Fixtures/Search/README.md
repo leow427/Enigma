@@ -27,6 +27,10 @@ same as the `us-en` region the request sent.
 | `startpage-challenge.html` | `POST https://www.startpage.com/sp/search` (HTTP 200, JavaScript proof-of-work challenge, no results) | swift concurrency actors | `X-Real-Ip` address |
 | `open-meteo-chicago.json` | `GET https://api.open-meteo.com/v1/forecast` for 41.88, -87.63 with US units, spec §6's fields | — | nothing found (Chicago is the fixed test location, not the user's) |
 | `open-meteo-geocoding-paris.json` | `GET https://geocoding-api.open-meteo.com/v1/search?name=Paris&count=1&language=en&format=json` (HTTP 200), captured 2026-10-29 by F29 CP0b with `curl` | — | nothing found (a public place record; no request data is echoed) |
+| `duckduckgo-no-results.html` | `POST https://html.duckduckgo.com/html/` (HTTP 200) with header set A and `kl=us-en`, captured 2026-10-30 by F29 CP2: one `result--no-result` item holding the `no-results` message, no link | "zqxjvbw ploqmzrtk yhvndkwq fjzxqpl" (quoted) | nothing found (the page has no `vqd` token) |
+| `duckduckgo-changed.html` | Made by CP2 from `duckduckgo-results.html`, with `body` renamed to `main` in every class, standing in for a layout change | swift concurrency actors | as `duckduckgo-results.html` |
+| `duckduckgo-ads.html` | Synthetic (CP2), in DuckDuckGo's result markup: two `result--ad` items (one `y.js` link, one direct), three organic results (one `uddg=` wrapped), one `javascript:` link | — | — |
+| `wikipedia-search.json`, `wikipedia-extract.json` | Synthetic (CP2), in the shape of the MediaWiki API's `list=search` and `prop=extracts` JSON (`format=json`), about a made-up article | — | — |
 
 ## Expected values
 
@@ -40,6 +44,9 @@ same as the `us-en` region the request sent.
 `duckduckgo-results-japanese.html`: 10 items; the first title is
 `東京の天気予報(1時間・今日明日・週間) - ウェザーニュース`, its URL
 `https://weathernews.jp/onebox/tenki/tokyo/13100/`.
+
+`duckduckgo-ads.html` gives 3 results: `https://organic.example/a`,
+`https://example.com/a` (unwrapped) and `https://second.example/b`.
 
 Block pages give 0 items. Their markers: `id="challenge-form"` and "bots use
 DuckDuckGo too" (DuckDuckGo; this copy was served with HTTP 202); `<title>Captcha` (Mojeek, HTTP 200);
