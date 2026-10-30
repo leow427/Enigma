@@ -266,7 +266,7 @@ stays in its brief.
 | CP0 | done | 4 | Spike done. Q4 (sites), Q1 (parser if Startpage stays) carried into CP0b; Q7 (MapKit terms) answered by the map card and the owner's 2026-10-29 decision |
 | CP0b | done | 2 | Home network. Owner: drop Mojeek and Startpage (both blocked on two networks), header set A, DuckDuckGo `kl`; ChatGPT and Claude Code always use their provider's search, and F30's Don't-allow and fallback behavior stays. Open-Meteo geocoding works; typos and Japanese names are its gaps |
 | CP1 | done | 2 | Request, shared types, limits, routing and recency in place; Brave unchanged. Owner widened spec §6 routing; see the CP1 Hand-off. Round 2 (2026-10-28) found 6 Should fixes, not made in CP1; CP1b makes them |
-| CP1b | not started | | |
+| CP1b | done | 8 | Routing fixes per spec §6.1 plus overnight amendments; capable models unchanged; overnight decisions D7–D30 and D32 (D25 and D31 cover the full-suite environment failures) |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

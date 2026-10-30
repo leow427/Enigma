@@ -16,6 +16,8 @@ enum WebSearchPolicy {
       return false
     }
     if LocationIntent.needsLocation(normalized: text) { return true }
+    // A weather question about a named place ("nyc weather today") needs no location but is still current.
+    if LocationIntent.asksAboutWeatherNow(normalized: text) && !LocationIntent.isAboutWeatherSoftware(text) { return true }
     return needsFreshFacts(text, now: now)
   }
 

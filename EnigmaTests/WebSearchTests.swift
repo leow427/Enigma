@@ -259,15 +259,16 @@ final class WebSearchTests: XCTestCase {
   func testWrittenQueryCannotChooseRoute() async throws {
     let location = SearchLocation()
     let search = SearchSpy(results: fixtureResults)
-    let cloud = SearchCloudProvider(output: "cafes near me")
+    let cloud = SearchCloudProvider(output: "latest cafes near me")
     let model = makeModel(search: search, cloud: cloud, location: location)
     model.startTemporaryChat(context: ConversationContext(sourceName: "Selection", text: "cafes near me"))
     model.submitCloud("/search what is this?", provider: .chatGPT, modelID: "model", searchEnabled: true)
     await finish(model)
     let requests = await search.requests
     let request = try XCTUnwrap(requests.last)
-    XCTAssertEqual(request.query, "cafes near me", "The query was written from the selection")
+    XCTAssertEqual(request.query, "latest cafes near me", "The query was written from the selection")
     XCTAssertEqual(request.route, .web)
+    XCTAssertNil(request.recency, "Recency comes from the typed question, not the written query")
     XCTAssertNil(request.city)
     XCTAssertNil(request.coordinate)
     XCTAssertEqual(location.calls, 0)
@@ -612,14 +613,15 @@ final class WebSearchTests: XCTestCase {
 
   func testLocationCheckReadsTheQuestionWithoutCommands() async throws {
     // A command in front hides that this asks what weather is, not what it's like here.
-    XCTAssertTrue(LocationIntent.needsLocation("/edit What is the weather?"))
-    XCTAssertFalse(LocationIntent.needsLocation("What is the weather?"))
+    // ("What is the weather?" asks about here and now since D18, so the conceptual question is "What is weather?".)
+    XCTAssertTrue(LocationIntent.needsLocation("/edit What is weather?"))
+    XCTAssertFalse(LocationIntent.needsLocation("What is weather?"))
     for route in ["cloud", "screen"] {
       let location = SearchLocation()
       let search = SearchSpy(results: fixtureResults)
       let model = makeModel(search: search, location: location)
       await model.refreshInstalledModel()
-      let prompt = "/edit What is the weather?"
+      let prompt = "/edit What is weather?"
       if route == "cloud" {
         model.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: true)
       } else {
@@ -629,7 +631,7 @@ final class WebSearchTests: XCTestCase {
       await finish(model)
       XCTAssertEqual(location.calls, 0, route)
       let queries = await search.queries
-      XCTAssertEqual(queries, ["What is the weather?"], route)
+      XCTAssertEqual(queries, ["What is weather?"], route)
     }
   }
 

@@ -636,6 +636,39 @@ found, only the location is kept.
 `webQuery` makes it "<place word> near <City>", or keeps "local <place
 word>" when there's no city.
 
+*Amended overnight (orchestrator, owner to confirm):* "temperature in
+<named place>" is weather ("what's the temperature in denver") only when
+the question starts with it; units ("in fahrenheit"), "the …" places ("in
+the oven") and pronouns ("in your bedroom", "at which") aren't (decision log
+D12, D15). "Outside" counts as a time word only next to the topic word
+("temperature outside", "raining outside"), not anywhere ("too cold to
+sleep outside"). The weather verbs include "is it gonna / supposed to /
+expected to rain" and "chance(s) of rain/snow" (D15). "What's the current temperature",
+"what temperature is it (now)", "what's the temperature now/like" and
+"what's the weather" use the current location, but only as the whole
+question ("my cpu's current temperature" is web; D20). "This weekend", "right now" and "this morning/afternoon/evening"
+make a bare topic word weather only as the whole question ("rain this
+weekend") or with a named place ("rain in seattle this weekend"). "Forecast"
+is a weather word only after a topic word, "local" or a day ("weather
+forecast", "local forecast", "tomorrow's forecast") or leading the question
+("what's the forecast for…", "10 day forecast", "check the forecast"), so
+"sales forecast" is web; "local forecast for boston" names Boston (D24,
+D27). "What is weather" stays
+conceptual. A month or season after in/during ("paris in may", "rome in
+the summer") is a background word, so the question goes to web. A city
+just before "weather", followed only by time words ("nyc weather today",
+"paris weather"), is the named place; a descriptive first word
+("local weather", "hourly weather") means it isn't (D18, D22). A language on its own is never a named area or a weather place
+("restaurant in spanish" is web; "spanish harlem" and "dutch harbor" are
+places, D23), and "local" with an ambiguous place word (bar, park, atm,
+library, pub) isn't a nearby cue in a how-to or developer question ("best
+local library for python") (D10), and no "local <place word>" is one in
+"how to open/start/run/own/market a local …" (D15). Parts of the day ("in the afternoon",
+"this evening") use the current location like noon; months, weekdays and
+"the weekend" don't (D11). Easter, christmas, sunrise, sunset and dinner are
+times only on their own or with "eve"/"day", so "easter island" and
+"sunrise florida" stay places (D10).
+
 When the current location is needed but location is off, denied or
 unavailable, the existing "include a city" message appears. A named place
 needs no location.
