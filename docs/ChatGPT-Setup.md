@@ -27,8 +27,9 @@ alternative; neither route falls back to the other.
 3. Your browser opens OpenAI's sign-in page; finish there. While you do, the
    row reads **signing in** and offers **Cancel**.
 4. When the row reads **connected** with your account email, ChatGPT becomes
-   the preferred cloud provider and its model list loads. If you later choose
-   another provider, **Use ChatGPT** switches back.
+   the preferred cloud provider and its model list loads; the row then reads
+   **connected · selected for cloud**. If you later choose another provider,
+   **Use ChatGPT** switches back.
 5. Choose **Cloud** in the mode and model menu (**⌘K**). Auto can also send
    requests to the preferred cloud provider; see
    [Cloud-Model-Selection.md](Cloud-Model-Selection.md).
