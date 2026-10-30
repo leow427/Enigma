@@ -1114,11 +1114,21 @@ gets every must-pass example right. Built first, before the rest of F29.
 
 **Depends on / blocks:** nothing while halted (it used to block F29).
 
-### F30. Native web search for cloud models
+### F30. ✅ Done: Native web search for cloud models
 
-**Status:** in progress on `feat/f30-native-cloud-search` (draft PR
-leow427/Enigma#23): CP0 and CP1 done; CP2 and CP3 (API-key routes)
-deferred by the owner on 2026-10-29; CP4 (ChatGPT) next. Runs before F29.
+> **Solved:** On ChatGPT (Codex) and Claude Code, a cloud model searches with
+> its provider's own search, with no Brave key; its sources are shown and
+> saved, and the reply says **web search**. In a chat that holds text from
+> your messages, or on a `/messages` turn, it asks first, per provider: **Let
+> ‹provider› search the web in this chat?** (declined: no search). A nearby
+> question asks before your approximate area goes to that provider's search.
+> When the provider's search isn't available, Enigma's Brave search takes
+> over. Quality check: F32's tool-use eval 58/60 on both routes; on 20 web
+> questions ChatGPT searched 20/20 with 2+ sources on 19/20, Claude Code 19/20
+> and 19/20, no unsafe source; the comparison with Brave wasn't run (owner).
+> The OpenAI and Anthropic API routes (CP2, CP3) are deferred and keep
+> Enigma's search. Merged in leow427/Enigma#23. See `docs/Web-Search.md` and
+> `docs/history/2026-10-29-native-search-evaluation.md`.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 
@@ -1132,9 +1142,10 @@ search is turned off (`web_search="disabled"` in `CodexAppServer.swift`,
 `--tools ""` for Claude Code).
 
 **Wanted (owner, 2026-10-26 to 2026-10-29):** on ChatGPT (Codex) and Claude
-Code, the provider's own search tool replaces `web_search` in chats that
-hold no message text, with no key. If message text would enter a
-provider-search request, the reply restarts without it. Gemini and the
+Code, the provider's own search tool replaces `web_search`, with no key; in a
+chat with message text, only after a per-provider card (amended during the
+in-app audit). If message text would enter a provider-search request the
+user hasn't allowed, the reply restarts after the card. Gemini and the
 OpenAI and Anthropic API routes (deferred) keep Enigma's search; the
 approximate location goes to a provider's search only after that
 provider's card; Codex searches the live web. The spec has the details.
@@ -1144,9 +1155,9 @@ provider's card; Codex searches the live web. The spec has the details.
 ### F29. On-device web search, replacing Brave
 
 **Status:** CP0 and CP1 done on `feat/f29-on-device-search`; re-planned for
-F32 on 2026-10-29 (spec and plan approved). Resumes after F30 with CP0b (a
-second probe of the search sites from another network, starting with a
-merge of `main`), then CP1b (the six routing fixes from CP1's second
+F32 on 2026-10-29 (spec and plan approved). Next, now that F30 is done:
+CP0b (a second probe of the search sites from another network, starting
+with a merge of `main`), then CP1b (the six routing fixes from CP1's second
 review).
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md](docs/superpowers/specs/2026-10-27-f29-on-device-web-search-design.md)
@@ -1174,7 +1185,7 @@ small and capable models:
 
 The spec has every decision, and the checkpoints the work runs in.
 
-**Depends on / blocks:** after F30.
+**Depends on / blocks:** after F30 (done).
 
 ### F33. Show "Update available" on the menu bar icon and quietly in the app
 
