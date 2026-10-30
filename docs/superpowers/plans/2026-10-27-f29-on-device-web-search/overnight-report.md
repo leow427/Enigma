@@ -31,10 +31,9 @@
   `ScreenViewTests` flake; the failed job was rerun.
 - **Next 3 steps:**
   1. In `/private/tmp/claude-501/enigma-f29`, bring the wip work back onto
-     the feature branch without committing it:
-     `git merge --squash wip/f29-cp7-20261030-1037` (the decision log on both
-     branches is identical up to D98, so it merges cleanly or keeps the
-     feature branch's copy, which has D99–D100).
+     the feature branch as uncommitted changes, keeping the feature branch's
+     decision log (it already has every entry, D92–D100):
+     `git diff feat/f29-on-device-search wip/f29-cp7-20261030-1037 -- . ':!docs/superpowers/plans/2026-10-27-f29-on-device-web-search/overnight-*' | git apply --index`
   2. Resume CP7 with a new Haiku worker: give it the CP7 brief, this RESUME,
      D92–D100 and `/private/tmp/claude-501/f29-overnight/agent-rules.md`, and
      tell it to rerun the baseline (`baseline-3`), then judge, tune, run the
