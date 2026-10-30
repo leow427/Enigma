@@ -265,6 +265,7 @@
 		836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */; };
 		65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */; };
 		2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */; };
+		5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -539,6 +540,7 @@
 		4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlacesAndWeatherTools.swift"; sourceTree = SOURCE_ROOT; };
 		DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherTests.swift"; sourceTree = SOURCE_ROOT; };
 		64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherToolTests.swift"; sourceTree = SOURCE_ROOT; };
+		5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WebSearchEvaluationTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -570,6 +572,7 @@
 				DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */,
 				64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */,
 				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
+				5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */,
 				50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */,
 				BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */,
 				265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */,
@@ -1182,6 +1185,7 @@
 				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
 				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
 				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
+				5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */,
 				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,
 				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,
 				87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */,

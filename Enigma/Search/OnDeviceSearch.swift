@@ -27,6 +27,25 @@ enum OnDeviceSearchTiming {
   static let maximumQueryCharacters = 400
 }
 
+/// One candidate's outcome in a search, for the evaluation (F29 CP7). Production passes no
+/// recorder, so nothing is recorded or kept.
+struct SearchTraceEvent: Codable, Equatable, Sendable {
+  let url: String
+  let domain: String
+  /// The engine's best position, by engine ID.
+  let positions: [String: Int]
+  /// The merged score before the trust factor, and the trust factor.
+  let score: Double
+  let trustFactor: Double
+  /// "read", "snippet", "blocked", "cutoff", "notArticle", "wall", "offTopic", "duplicate",
+  /// "wrongLanguage" or "unread".
+  let verdict: String
+}
+
+protocol SearchTracing: Sendable {
+  func record(_ event: SearchTraceEvent)
+}
+
 /// Searches the web from the Mac (spec §1, §3, §5): the search sites, ranking, reading pages
 /// within a window, the checks after reading, and passages. Weather comes from Open-Meteo alone,
 /// and places from Apple Maps with a web search beside it (spec §6.4, §6.5).
@@ -42,6 +61,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
   private let weather: any WeatherLooking
   private let geocoder: any Geocoding
   private let units: @Sendable () -> MeasurementUnits
+  private let trace: (any SearchTracing)?
 
   init(sites: SearchSiteRunner, reader: PageReader, extractor: any ArticleExtracting,
        quality: @escaping @Sendable () async throws -> SourceQuality,
@@ -51,7 +71,8 @@ struct OnDeviceSearchProvider: WebSearchProvider {
        places: any PlaceSearching = MapKitPlaceSearch(),
        weather: any WeatherLooking = OpenMeteoWeather(),
        geocoder: any Geocoding = OpenMeteoGeocoder(),
-       units: @escaping @Sendable () -> MeasurementUnits = { .current }) {
+       units: @escaping @Sendable () -> MeasurementUnits = { .current },
+       trace: (any SearchTracing)? = nil) {
     self.sites = sites
     self.reader = reader
     self.extractor = extractor
@@ -63,9 +84,10 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     self.weather = weather
     self.geocoder = geocoder
     self.units = units
+    self.trace = trace
   }
 
-  @MainActor static func live() -> OnDeviceSearchProvider {
+  @MainActor static func live(trace: (any SearchTracing)? = nil) -> OnDeviceSearchProvider {
     let client = URLSessionSearchHTTPClient.live
     let sites = SearchSiteRunner(engines: [.duckDuckGo: DuckDuckGoEngine()], wikipedia: WikipediaSearch(),
                                  client: client, health: .shared, log: OSSearchLog())
@@ -81,7 +103,8 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       let current = try await quality()
       blockedCheck.set(current)
       return current
-    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client))
+    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client),
+       trace: trace)
   }
 
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
@@ -183,8 +206,8 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     if found.isEmpty, wikipedia == nil { throw Self.failure(run) }
 
     // 3–4. Ranking, and Wikipedia's lane when it shares a content word with the question.
-    let selection = ResultRanking.select(ResultRanking.merge(found, weights: RankingTuning.engineWeights, quality: quality),
-                                         quality: quality, cutoff: OnDeviceSearchTiming.rankingCutoff)
+    let merged = ResultRanking.merge(found, weights: RankingTuning.engineWeights, quality: quality)
+    let selection = ResultRanking.select(merged, quality: quality, cutoff: OnDeviceSearchTiming.rankingCutoff)
     let questionLemmas = PassageRanker.contentLemmas(request.query)
     if let article = wikipedia,
        quality.isBlocked(article.url) || !Self.shares(article, questionLemmas) { wikipedia = nil }
@@ -210,6 +233,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
 
     // 7. Near-duplicates: the less trusted copy goes, or the lower score; Wikipedia stays.
     sources = dropDuplicates(sources, quality: quality)
+    let deduplicated = Set(sources.compactMap { $0.candidate.map { URLNormalizer.key($0.url) } })
 
     // 8. Passages, the off-topic check and the order.
     var ordered = order(sources, question: request.query, questionLemmas: questionLemmas, recency: request.recency)
@@ -229,10 +253,70 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     guard !ordered.isEmpty else { throw found.isEmpty ? Self.failure(run) : WebSearchError.noResults }
 
     // 10. Results within the budget.
+    if let trace {
+      let kept = Set(ordered.compactMap { entry -> String? in
+        guard entry.source.kind == .article, let candidate = entry.source.candidate else { return nil }
+        return URLNormalizer.key(candidate.url)
+      })
+      let snippets = Set(ordered.compactMap { entry -> String? in
+        guard entry.source.kind == .snippet, let candidate = entry.source.candidate else { return nil }
+        return URLNormalizer.key(candidate.url)
+      })
+      Self.record(trace, merged: merged, quality: quality, selection: selection, toRead: toRead, outcomes: outcomes,
+                  deduplicated: deduplicated, kept: kept, snippets: snippets)
+    }
     return Self.collect(ordered, maximumTokens: request.maximumTokens)
   }
 
   // MARK: Steps
+
+  /// One event per candidate the ranking saw. Verdicts are the pipeline's own outcomes.
+  private static func record(_ trace: any SearchTracing, merged: [RankedCandidate], quality: SourceQuality,
+                             selection: ResultRanking.Selection, toRead: [RankedCandidate],
+                             outcomes: [Int: ReadOutcome], deduplicated: Set<String>, kept: Set<String>,
+                             snippets: Set<String>) {
+    var readIndex: [String: Int] = [:]
+    for (index, candidate) in toRead.enumerated() { readIndex[URLNormalizer.key(candidate.url)] = index }
+    let snippetOnly = Set(selection.snippetOnly.map { URLNormalizer.key($0.url) })
+    for candidate in merged {
+      let key = URLNormalizer.key(candidate.url)
+      let verdict: String
+      if quality.isBlocked(candidate.url) {
+        verdict = "blocked"
+      } else if let index = readIndex[key] {
+        switch outcomes[index] {
+        case .passed?:
+          verdict = kept.contains(key) ? "read" : (deduplicated.contains(key) ? "offTopic" : "duplicate")
+        case .rejected(let page)?:
+          verdict = verdictName(page)
+        case .refused?:
+          verdict = "blocked"
+        case .unread?, nil:
+          verdict = snippets.contains(key) ? "snippet" : "unread"
+        }
+      } else if snippetOnly.contains(key) {
+        verdict = snippets.contains(key) ? "snippet" : "unread"
+      } else {
+        verdict = "cutoff"
+      }
+      var positions: [String: Int] = [:]
+      for (engine, position) in candidate.positions { positions[engine.rawValue] = position }
+      trace.record(SearchTraceEvent(url: candidate.url.absoluteString, domain: candidate.domain, positions: positions,
+                                    score: candidate.score, trustFactor: quality.trustFactor(for: candidate.url),
+                                    verdict: verdict))
+    }
+  }
+
+  private static func verdictName(_ verdict: PageVerdict) -> String {
+    switch verdict {
+    case .keep: "read"
+    case .notArticle: "notArticle"
+    case .wall: "wall"
+    case .wrongLanguage: "wrongLanguage"
+    case .offTopic: "offTopic"
+    case .duplicate: "duplicate"
+    }
+  }
 
   /// A read page or Wikipedia's article, ready for passages.
   struct ReadPage: Sendable {

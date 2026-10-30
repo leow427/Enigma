@@ -38,6 +38,24 @@ final class OnDeviceSearchTests: XCTestCase {
                  position: position, engine: .duckDuckGo)
   }
 
+  /// Keeps the trace events of one search, in the order they were recorded.
+  final class SearchTraceRecorder: SearchTracing, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [SearchTraceEvent] = []
+
+    func record(_ event: SearchTraceEvent) {
+      lock.lock()
+      defer { lock.unlock() }
+      recorded.append(event)
+    }
+
+    var events: [SearchTraceEvent] {
+      lock.lock()
+      defer { lock.unlock() }
+      return recorded
+    }
+  }
+
   final class Harness: @unchecked Sendable {
     let client = FakeSearchHTTPClient()
     let clock = ManualClock()
@@ -62,7 +80,7 @@ final class OnDeviceSearchTests: XCTestCase {
       }
     }
 
-    func provider() -> OnDeviceSearchProvider {
+    func provider(trace: (any SearchTracing)? = nil) -> OnDeviceSearchProvider {
       let quality = self.quality
       let sites = SearchSiteRunner(engines: [.duckDuckGo: engine], wikipedia: WikipediaSearch(), client: client,
                                    health: EngineHealth(), log: RecordingSearchLog())
@@ -70,7 +88,7 @@ final class OnDeviceSearchTests: XCTestCase {
                               isBlocked: { quality.isBlocked($0) })
       return OnDeviceSearchProvider(sites: sites, reader: reader, extractor: extractor, quality: { quality },
                                     preferredLanguages: { ["en-US"] }, clock: clock, now: { OnDeviceSearchTests.now },
-                                    places: places, weather: weather, geocoder: geocoder, units: { .us })
+                                    places: places, weather: weather, geocoder: geocoder, units: { .us }, trace: trace)
     }
 
     func search(_ query: String = OnDeviceSearchTests.question, route: SearchRoute = .web, recency: SearchRecency? = nil,
@@ -91,6 +109,23 @@ final class OnDeviceSearchTests: XCTestCase {
       client.stub(search, .response(status: 200, body: searchBody))
       client.stub(extract, .response(status: 200, body: extractBody))
     }
+  }
+
+  /// The verdict of every candidate the ranking saw (F29 CP7). A wall page's verdict is "wall"
+  /// even when its snippet is used, and a blocked site is never read.
+  func testTraceRecordsVerdicts() async throws {
+    let recorder = SearchTraceRecorder()
+    let harness = Harness([("read", .article(Self.article("read"))), ("wall", .article(Self.wall)),
+                           ("blocked", .article(Self.article("blocked")))])
+    harness.quality = SourceQualityFixture.quality(userBlocked: [Self.host("blocked")])
+    let request = WebSearchRequest(query: OnDeviceSearchTests.question, route: .web,
+                                   maximumTokens: WebSearchLimits.evidenceTokens)
+    _ = try await harness.provider(trace: recorder).search(request)
+    let verdicts = Dictionary(uniqueKeysWithValues: recorder.events.map { ($0.domain, $0.verdict) })
+    XCTAssertEqual(verdicts[Self.host("read")], "read")
+    XCTAssertEqual(verdicts[Self.host("wall")], "wall")
+    XCTAssertEqual(verdicts[Self.host("blocked")], "blocked")
+    XCTAssertEqual(recorder.events.first { $0.domain == Self.host("read") }?.positions, ["duckDuckGo": 1])
   }
 
   private func names(_ results: [WebSearchResult]) -> [String] {

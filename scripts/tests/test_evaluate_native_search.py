@@ -28,7 +28,9 @@ def load(name, file):
 evaluate = load("evaluate_native_search", "evaluate-native-search.py")
 judge_module = evaluate.search_judge  # the same module the script imports
 
-QUESTIONS = json.loads((SCRIPTS / "web-search-queries.json").read_text(encoding="utf-8"))
+# F30's 20 questions; F29 CP7 adds 40 more to the same file, which this comparison doesn't use.
+QUESTIONS = [entry for entry in json.loads((SCRIPTS / "web-search-queries.json").read_text(encoding="utf-8"))
+             if entry["id"].startswith("web-")]
 
 
 def record(question, backend, searched=True, sources=2, unsafe=0, error=None, first=2.0, total=5.0, answer=None):
