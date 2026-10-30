@@ -46,6 +46,9 @@ final class OnDeviceSearchTests: XCTestCase {
     var quality = SourceQualityFixture.quality()
     var resolver = FakeHostResolver()
     let activity = LockedEvents()
+    var places = FakePlaces(error: URLError(.notConnectedToInternet))
+    var weather = FakeWeather(error: URLError(.notConnectedToInternet))
+    var geocoder = FakeGeocoder(error: URLError(.notConnectedToInternet))
 
     /// `pages` in search order: each is read, then extracted with its behavior.
     init(_ pages: [(name: String, behavior: FakeExtractor.Behavior)], engineOutcome: EngineOutcome? = nil) {
@@ -66,14 +69,15 @@ final class OnDeviceSearchTests: XCTestCase {
       let reader = PageReader(client: client, networkGuard: NetworkGuard(resolver: resolver),
                               isBlocked: { quality.isBlocked($0) })
       return OnDeviceSearchProvider(sites: sites, reader: reader, extractor: extractor, quality: { quality },
-                                    preferredLanguages: { ["en-US"] }, clock: clock, now: { OnDeviceSearchTests.now })
+                                    preferredLanguages: { ["en-US"] }, clock: clock, now: { OnDeviceSearchTests.now },
+                                    places: places, weather: weather, geocoder: geocoder, units: { .us })
     }
 
-    func search(_ query: String = OnDeviceSearchTests.question, recency: SearchRecency? = nil, city: String? = nil,
-                coordinate: SearchCoordinate? = nil, maximumTokens: Int = WebSearchLimits.evidenceTokens)
-      async throws -> [WebSearchResult] {
-      let request = WebSearchRequest(query: query, city: city, coordinate: coordinate, recency: recency,
-                                     maximumTokens: maximumTokens)
+    func search(_ query: String = OnDeviceSearchTests.question, route: SearchRoute = .web, recency: SearchRecency? = nil,
+                city: String? = nil, coordinate: SearchCoordinate? = nil, namedPlace: String? = nil,
+                maximumTokens: Int = WebSearchLimits.evidenceTokens) async throws -> [WebSearchResult] {
+      let request = WebSearchRequest(query: query, route: route, city: city, coordinate: coordinate, namedPlace: namedPlace,
+                                     recency: recency, maximumTokens: maximumTokens)
       let events = activity
       return try await provider().search(request) { events.append($0) }
     }
@@ -431,6 +435,127 @@ final class OnDeviceSearchTests: XCTestCase {
 }
 
 // MARK: Fakes
+
+// MARK: Places and weather (F29 CP6)
+
+extension OnDeviceSearchTests {
+  private static let chicago = PlacesAndWeatherFixtures.chicago
+
+  private static func place(_ name: String) -> PlaceResult {
+    PlaceResult(place: MapPlace(id: name, name: name, coordinate: chicago, distanceMeters: nil), category: "Cafe",
+                address: nil, phone: nil, website: nil)
+  }
+
+  func testWeatherRouteSkipsWebSearch() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha")))])
+    harness.weather = FakeWeather()
+    let results = try await harness.search("will it rain tomorrow", route: .weather, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertEqual(results.map(\.kind), [.weather])
+    XCTAssertEqual(results.first?.source.title, "Open-Meteo forecast")
+    XCTAssertTrue(results.first?.snippets.first?.hasPrefix("Forecast for Chicago (local times).") == true)
+    XCTAssertEqual(harness.weather.calls.map(\.coordinate), [Self.chicago])
+    XCTAssertEqual(harness.weather.calls.map(\.units), [.us])
+    XCTAssertTrue(harness.engine.queries.isEmpty)
+    XCTAssertTrue(harness.client.requests.isEmpty)
+    XCTAssertTrue(harness.geocoder.calls.isEmpty)
+  }
+
+  func testWeatherWithoutCityIsYourArea() async throws {
+    let harness = Harness([])
+    harness.weather = FakeWeather()
+    let results = try await harness.search("will it rain tomorrow", route: .weather, coordinate: Self.chicago)
+    XCTAssertTrue(results.first?.snippets.first?.hasPrefix("Forecast for your area (local times).") == true)
+  }
+
+  func testNamedPlaceIsGeocodedWithOpenMeteo() async throws {
+    let harness = Harness([])
+    harness.weather = FakeWeather()
+    harness.geocoder = FakeGeocoder((PlacesAndWeatherFixtures.paris, "Paris, Île-de-France Region, France"))
+    let results = try await harness.search("weather in paris this weekend", route: .weather, namedPlace: "paris")
+    XCTAssertEqual(harness.geocoder.calls, ["paris"])
+    XCTAssertEqual(harness.weather.calls.map(\.coordinate), [PlacesAndWeatherFixtures.paris])
+    XCTAssertTrue(results.first?.snippets.first?.hasPrefix("Forecast for Paris, Île-de-France Region, France") == true)
+    XCTAssertTrue(harness.places.calls.isEmpty, "Weather never asks MapKit")
+  }
+
+  func testWeatherFailureFallsBackToWeb() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha")))])
+    let results = try await harness.search("will it rain tomorrow", route: .weather, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertEqual(harness.weather.calls.count, 1)
+    XCTAssertEqual(harness.engine.queries.map(\.text), ["weather Chicago"])
+    XCTAssertFalse(results.contains { $0.kind == .weather })
+    XCTAssertFalse(results.isEmpty)
+  }
+
+  func testUnknownPlaceFallsBackToWeb() async throws {
+    for geocoder in [FakeGeocoder(), FakeGeocoder(error: WeatherLookupError.timedOut)] {
+      let harness = Harness([("alpha", .article(Self.article("alpha")))])
+      harness.weather = FakeWeather()
+      harness.geocoder = geocoder
+      _ = try await harness.search("weather in atlantis tomorrow", route: .weather, namedPlace: "atlantis")
+      XCTAssertTrue(harness.weather.calls.isEmpty)
+      XCTAssertEqual(harness.engine.queries.map(\.text), ["weather atlantis"])
+    }
+  }
+
+  func testPlacesRouteRunsMapsAndWeb() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha", topic: "cafes near Chicago")))])
+    harness.places = FakePlaces([Self.place("Blue Bottle"), Self.place("Intelligentsia")])
+    let results = try await harness.search("cafes near me", route: .places, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertEqual(results.first?.kind, .places)
+    XCTAssertEqual(results.first?.places?.map(\.name), ["Blue Bottle", "Intelligentsia"])
+    XCTAssertEqual(results.first?.source.url.absoluteString, "https://maps.apple.com/?q=cafes")
+    XCTAssertTrue(results.dropFirst().contains { $0.kind == .article })
+    XCTAssertEqual(harness.places.calls.map(\.query), ["cafes"])
+    XCTAssertEqual(harness.places.calls.map(\.coordinate), [Self.chicago])
+    XCTAssertEqual(harness.engine.queries.map(\.text), ["cafes near Chicago"])
+  }
+
+  func testNamedAreaPlacesHaveNoRegion() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha", topic: "ramen in soho")))])
+    harness.places = FakePlaces([Self.place("Ramen House")])
+    _ = try await harness.search("ramen in soho", route: .places)
+    XCTAssertEqual(harness.places.calls.map(\.query), ["ramen in soho"])
+    XCTAssertNil(harness.places.calls.first?.coordinate ?? nil)
+  }
+
+  func testPlacesFailureUsesWebOnly() async throws {
+    for places in [FakePlaces(error: PlaceSearchError.timedOut), FakePlaces([])] {
+      let harness = Harness([("alpha", .article(Self.article("alpha", topic: "cafes near Chicago")))])
+      harness.places = places
+      let results = try await harness.search("cafes near me", route: .places, city: "Chicago", coordinate: Self.chicago)
+      XCTAssertFalse(results.isEmpty)
+      XCTAssertFalse(results.contains { $0.kind == .places })
+    }
+  }
+
+  func testPlacesSurviveAWebFailure() async throws {
+    let harness = Harness([], engineOutcome: .failed)
+    harness.places = FakePlaces([Self.place("Blue Bottle")])
+    let results = try await harness.search("cafes near me", route: .places, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertEqual(results.map(\.kind), [.places])
+  }
+
+  func testPlacesWithoutCityStillSearchMaps() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha", topic: "cafes")))])
+    harness.places = FakePlaces([Self.place("Blue Bottle")])
+    _ = try? await harness.search("cafes near me", route: .places, coordinate: Self.chicago)
+    XCTAssertEqual(harness.places.calls.map(\.query), ["cafes"])
+    XCTAssertEqual(harness.places.calls.map(\.coordinate), [Self.chicago])
+    // No "near current area" for the search sites: the cue is dropped.
+    XCTAssertEqual(harness.engine.queries.map(\.text), ["cafes"])
+    for request in harness.client.requests {
+      XCTAssertFalse(request.url?.absoluteString.contains("41.88") == true)
+    }
+  }
+
+  func testWeatherTimeoutFallsBackToWeb() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha")))])
+    harness.weather = FakeWeather(error: WeatherLookupError.timedOut)
+    _ = try await harness.search("will it rain tomorrow", route: .weather, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertEqual(harness.engine.queries.map(\.text), ["weather Chicago"])
+  }
+}
 
 final class FakeExtractor: ArticleExtracting, @unchecked Sendable {
   enum Behavior: Sendable { case article(ExtractedArticle), fail(ArticleExtractorError), hang }

@@ -271,7 +271,7 @@ stays in its brief.
 | CP3 | done | 2 | Quality lists (3 MB: unsafe trimmed by a keep order, malware first), Public Suffix List, trust factors, SearXNG merge, selection and blocked sites; reviewed `overrides.tsv` (never lifts a security block); `authority.txt`/`unreadable.txt`/`overrides.tsv` await owner review; overnight decisions D49–D60 |
 | CP4 | done | 2 | Network guard (also checks the reached address), https-only page download, sealed WebKit extraction with Readability 0.6.0 and dates, checks after reading; pages over ~1 MB can near the 500 ms extraction limit (CP7 tunes); overnight decisions D61–D72 (D69, D71 the orchestrator's); the macOS 26 CI fix (slow-runner timeouts, WebKit warm-up) landed in CP5 (D77, D78) |
 | CP5 | done | 2 | Passages (BM25 on lemmas), the on-device web pipeline with reading window, checks, snippet fallback and budget, spec §5 envelope and excerpts, `web_search` recency, Debug-only `webSearch.debugProvider` (Brave stays default); tuning in `OnDeviceSearchTiming` (3.0 s window, stop at 5, 800 ms extraction, cut-off 0.08); live median 1.65 s; overnight decisions D73–D80 (D77, D79 the orchestrator's) |
-| CP6 | not started | | |
+| CP6 | done | 2 | Open-Meteo weather and geocoding (5 matches, exact name, name and country stated), Apple Maps places (5 km widened to 20 km), the small-model weather and places routes, `find_places` and `get_weather` with gate 3, `/maps`; a declined location card holds for the chat and every tool; saved links carry no location; live Open-Meteo 0.17 s, geocoder 0.64 s, MapKit 0.63 s (10 places); overnight decisions D81–D90 (D87, D89 the orchestrator's) |
 | CP7 | not started | | |
 | CP8 | not started | | |
 | CP9 | not started | | |

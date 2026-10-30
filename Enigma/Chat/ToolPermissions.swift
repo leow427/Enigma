@@ -36,6 +36,9 @@ enum ToolPermission: Sendable, Equatable {
   case readChat(chatGUID: String, name: String)
   case searchChats(query: String)
   case searchAfterMessages(query: String)
+  /// `find_places` or `get_weather` in a chat that holds message text (F29, spec §6.2): `title` is the
+  /// card's question, such as "Find ramen in Soho?", and `service` who gets it. Answered with gate 3's grant.
+  case lookUpAfterMessages(title: String, service: String)
   /// Send a chat that holds message text to a destination its text wasn't allowed for.
   case shareMessageText
   /// Give a provider's own web search the approximate area (F30, spec §2a). Granted per provider,
@@ -89,7 +92,7 @@ struct ToolAlwaysGrant: Codable, Hashable, Identifiable, Sendable {
       self.init(kind: .readChat, chatGUID: guid, chatName: name, destination: destination)
     case .searchChats:
       self.init(kind: .searchChats, chatGUID: nil, chatName: nil, destination: destination)
-    case .searchAfterMessages:
+    case .searchAfterMessages, .lookUpAfterMessages:
       self.init(kind: .searchAfterMessages, chatGUID: nil, chatName: nil, destination: nil)
     case .shareMessageText:
       self.init(kind: .shareMessageText, chatGUID: nil, chatName: nil, destination: destination)

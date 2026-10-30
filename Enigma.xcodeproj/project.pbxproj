@@ -260,6 +260,11 @@
 		AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */; };
 		0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */; };
 		FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */; };
+		1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */; };
+		D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */; };
+		836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */; };
+		65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */; };
+		2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -529,6 +534,11 @@
 		BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/OnDeviceSearch.swift"; sourceTree = SOURCE_ROOT; };
 		50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PassageRankerTests.swift"; sourceTree = SOURCE_ROOT; };
 		A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/OnDeviceSearchTests.swift"; sourceTree = SOURCE_ROOT; };
+		C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WeatherLookup.swift"; sourceTree = SOURCE_ROOT; };
+		000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlaceSearch.swift"; sourceTree = SOURCE_ROOT; };
+		4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlacesAndWeatherTools.swift"; sourceTree = SOURCE_ROOT; };
+		DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherTests.swift"; sourceTree = SOURCE_ROOT; };
+		64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherToolTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -554,6 +564,11 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */,
+				000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */,
+				4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */,
+				DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */,
+				64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */,
 				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
 				50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */,
 				BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */,
@@ -993,6 +1008,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */,
+				D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */,
+				836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */,
 				AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */,
 				E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */,
 				0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */,
@@ -1161,6 +1179,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
+				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
 				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
 				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,
 				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,

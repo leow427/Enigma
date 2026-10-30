@@ -367,6 +367,15 @@ final class LocalChatViewModel: ObservableObject {
   private let searchSettings: WebSearchSettings?
   private let locationProvider: (any LocationProviding)?
   private var requestLocationContext: String?
+  /// `find_places` and `get_weather` on capable turns (F29 CP6); replaceable in tests.
+  var placeSearch: any PlaceSearching = MapKitPlaceSearch()
+  var weatherLookup: any WeatherLooking = OpenMeteoWeather()
+  var weatherGeocoder: any Geocoding = OpenMeteoGeocoder()
+  /// A reply's places for CP9's map card, by message. In memory only: never saved.
+  /// Chats and providers whose share-location card was declined (D89): their places, weather and
+  /// web_search tools get no location until a later Allow. In memory only: never saved.
+  private var declinedLocations: Set<String> = []
+  private(set) var replyPlaces: [UUID: [MapPlace]] = [:]
   private let webSearch: any WebSearchProvider
   private let cloudProviders: CloudProviderRegistry
   let sessionWriter: ChatSessionWriter
@@ -980,12 +989,16 @@ final class LocalChatViewModel: ObservableObject {
             }
           }
           // F30, spec §2a: a nearby question asks, per provider, before the area goes to its search.
-          let location = plan.searchBackend == .provider
+          let locationAnswer = plan.searchBackend == .provider
             ? try await owner?.providerSearchLocation(for: prompt, route: route, destination: destination, sessionID: sessionID)
             : nil
-          if location != nil || asked || searchApproved, let owner {
+          let location = locationAnswer?.location
+          // Declined on the card, this turn or earlier in this chat: no tool gets the location (D87, D89).
+          let locationDeclined = locationAnswer?.declined ?? owner?.isLocationDeclined(route: route, sessionID: sessionID) ?? false
+          if location != nil || asked || searchApproved || locationDeclined, let owner {
             toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
                                           requestID: active.id, evidenceTokens: evidenceTokens, location: location,
+                                          locationDeclined: locationDeclined,
                                           providerSearchApproved: searchApproved, sendLedger: sendLedger)
           }
           // A turn runs again at most once for each reason (F30): its provider search was
@@ -1060,7 +1073,7 @@ final class LocalChatViewModel: ObservableObject {
             toolbox = owner?.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
                                            responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
                                            location: plan.searchBackend == .provider ? location : nil,
-                                           providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
+                                           locationDeclined: locationDeclined, providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
           }
         }
         try Task.checkCancellation()
@@ -1088,17 +1101,22 @@ final class LocalChatViewModel: ObservableObject {
   /// The plan's parts, in a fixed order so a chat's tool prefix stays the same turn after turn.
   private func nativeToolbox(plan: NativeToolPlan, destination: ToolDestination, sessionID: UUID, responseID: UUID,
                              requestID: UUID, evidenceTokens: Int,
-                             location: ProviderSearchLocation? = nil, providerSearchApproved: Bool = false,
+                             location: ProviderSearchLocation? = nil, locationDeclined: Bool = false,
+                             providerSearchApproved: Bool = false,
                              sendLedger: MessagesSendLedger? = nil) -> AssistantToolbox {
     let coordinator = toolPermissions
     var parts: [any AgentToolbox] = []
-    if plan.parts.contains(.search(.provider)) { parts.append(ProviderSearchPart(location: location)) }
+    if plan.parts.contains(.search(.provider)) {
+      parts.append(ProviderSearchPart(location: location,
+                                      offersPlacesAndWeather: plan.offersPlacesAndWeather && !locationDeclined))
+    }
     if plan.parts.contains(.search(.enigma)) {
       parts.append(WebSearchTool(
         search: { [weak self] query, recency in
           guard let self else { throw CancellationError() }
           let results = try await self.search(query, writtenQuery: query, maximumTokens: evidenceTokens,
-                                              requestID: requestID, refinesQuery: false, toolRecency: .some(recency))
+                                              requestID: requestID, refinesQuery: false, toolRecency: .some(recency),
+                                              skipsLocation: locationDeclined)
           // The on-device provider collects 1.5 × the budget for the envelope to trim; a tool
           // result isn't trimmed again, so it keeps F32's budget here (D75).
           return self.webSearch is OnDeviceSearchProvider
@@ -1111,6 +1129,32 @@ final class LocalChatViewModel: ObservableObject {
         onSources: { [weak self] sources in
           await self?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: requestID)
         }))
+    }
+    if plan.offeredParts.contains(.places) || plan.offeredParts.contains(.weather) {
+      // Location never goes to a provider's search: these tools look it up on the Mac (spec §6.2).
+      let location: @Sendable () async -> ApproximateLocation? = { @MainActor [weak self] in
+        guard !locationDeclined, let provider = self?.locationProvider else { return nil }
+        return try? await provider.currentLocation()
+      }
+      let mayLookUp: @Sendable (String, String) async -> Bool = { title, service in
+        guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
+        return await coordinator.authorize(.lookUpAfterMessages(title: title, service: service), destination: destination,
+                                           session: sessionID)
+      }
+      let onSources: @Sendable ([WebSearchSource]) async -> Void = { [weak self] sources in
+        await self?.addNativeSources(sources, messageID: responseID, sessionID: sessionID, requestID: requestID)
+      }
+      if plan.offeredParts.contains(.places) {
+        parts.append(PlaceSearchTool(places: placeSearch, location: location, units: { .current },
+                                     mayQuery: { await mayLookUp($0, "Apple Maps") }, onSources: onSources,
+                                     onPlaces: { @MainActor [weak self] places in
+                                       self?.replyPlaces[responseID, default: []] += places
+                                     }))
+      }
+      if plan.offeredParts.contains(.weather) {
+        parts.append(WeatherTool(weather: weatherLookup, geocoder: weatherGeocoder, location: location, units: { .current },
+                                 mayQuery: { await mayLookUp($0, "Open-Meteo") }, onSources: onSources))
+      }
     }
     if plan.parts.contains(.messages),
        var messages = makeMessagesToolbox({ [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false })
@@ -1149,25 +1193,42 @@ final class LocalChatViewModel: ObservableObject {
   /// The area a provider-search turn may send, looked up on the Mac (F30, spec §2a): only for a nearby
   /// question in the user's own words, with Location on and an area found, once this provider is
   /// allowed on its card. Nil otherwise, and the instruction says to ask which city. Stop ends the turn.
+  /// `declined` is true when the user answered Don't allow on the card.
   private func providerSearchLocation(for prompt: String, route: Route, destination: ToolDestination,
-                                      sessionID: UUID) async throws -> ProviderSearchLocation? {
+                                      sessionID: UUID) async throws -> (location: ProviderSearchLocation?, declined: Bool) {
     guard let provider = CloudProviderID(rawValue: route.providerID), let locationProvider,
-          LocationIntent.needsLocation(ScreenSearchContext.question(prompt)) else { return nil }
+          LocationIntent.needsLocation(ScreenSearchContext.question(prompt)) else {
+      return (nil, isLocationDeclined(route: route, sessionID: sessionID))
+    }
+    let declinedBefore = isLocationDeclined(route: route, sessionID: sessionID)
     let found: ApproximateLocation
     do {
       found = try await locationProvider.currentLocation()
     } catch is CancellationError {
       throw CancellationError()
     } catch {
-      return nil
+      return (nil, declinedBefore)
     }
     try Task.checkCancellation()
     let location = found.providerSearchLocation
-    guard !location.displayName.isEmpty else { return nil }
+    guard !location.displayName.isEmpty else { return (nil, declinedBefore) }
     let allowed = await toolPermissions.authorize(.shareLocation(provider: provider, area: location.displayName),
                                                   destination: destination, session: sessionID)
     try Task.checkCancellation()
-    return allowed ? location : nil
+    // Remembered for this chat and provider until a later Allow (D89).
+    let key = Self.locationDeclineKey(provider: provider, sessionID: sessionID)
+    if allowed { declinedLocations.remove(key) } else { declinedLocations.insert(key) }
+    return allowed ? (location, false) : (nil, true)
+  }
+
+  private static func locationDeclineKey(provider: CloudProviderID, sessionID: UUID) -> String {
+    "\(sessionID.uuidString)|\(provider.rawValue)"
+  }
+
+  /// Whether this chat declined sharing its location with the route's provider (D89).
+  private func isLocationDeclined(route: Route, sessionID: UUID) -> Bool {
+    guard route.mode == .cloud, let provider = CloudProviderID(rawValue: route.providerID) else { return false }
+    return declinedLocations.contains(Self.locationDeclineKey(provider: provider, sessionID: sessionID))
   }
 
   /// Whether a flagged cloud turn may use its provider's own web search (F30). In a chat holding
@@ -1301,7 +1362,8 @@ final class LocalChatViewModel: ObservableObject {
   /// from its resolved draft: a dismissed search chip must stay off.
   func shouldSearch(_ prompt: String, explicitlyEnabled: Bool, allowsAutomaticSearch: Bool = true) -> Bool {
     // Source material may refine an authorized query, but cannot authorize network access.
-    explicitlyEnabled || (allowsAutomaticSearch && searchSettings?.canSearchAutomatically == true
+    // A typed /maps searches like /search (spec §6.3).
+    explicitlyEnabled || ComposerCommands(prompt).maps || (allowsAutomaticSearch && searchSettings?.canSearchAutomatically == true
       && WebSearchPolicy.needsFreshInformation(prompt))
   }
 
@@ -2037,7 +2099,7 @@ final class LocalChatViewModel: ObservableObject {
   /// a route the recognizers chose from the model's query.
   private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
                       requestID: UUID, refinesQuery: Bool = true,
-                      toolRecency: SearchRecency?? = nil) async throws -> [WebSearchResult] {
+                      toolRecency: SearchRecency?? = nil, skipsLocation: Bool = false) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
     // The user's text loses its slash commands here on every route, before refining, routing
     // and the provider. A model-written query is used as written.
@@ -2084,7 +2146,8 @@ final class LocalChatViewModel: ObservableObject {
     guard !contextualQuery.isEmpty else { throw WebSearchError.emptyQuery }
     // The route, location and recency come from the typed question, never from a written query.
     let typedQuestion = ScreenSearchContext.question(prompt)
-    let decision = SearchRouting.decide(question: typedQuestion)
+    // /maps picks places on small models; a capable model's web_search keeps the question's own route.
+    let decision = SearchRouting.decide(question: typedQuestion, maps: toolRecency == nil && ComposerCommands(prompt).maps)
     var request = WebSearchRequest(query: contextualQuery, route: decision.route, namedPlace: decision.namedPlace,
       recency: WebSearchPolicy.recency(typedQuestion), maximumTokens: maximumTokens)
     if let toolRecency {
@@ -2092,7 +2155,8 @@ final class LocalChatViewModel: ObservableObject {
       request.namedPlace = nil
       request.recency = toolRecency
     }
-    if decision.needsCurrentLocation, let locationProvider {
+    // A declined share-location card keeps web_search from the location too (D89).
+    if decision.needsCurrentLocation, !skipsLocation, let locationProvider {
       let location = try await locationProvider.currentLocation()
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }

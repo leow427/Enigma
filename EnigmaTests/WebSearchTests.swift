@@ -256,6 +256,60 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(location.calls, 0)
   }
 
+  /// Saved sources never carry the user's location (spec §6.5): a weather and a places search on
+  /// the on-device provider, with the location in Chicago.
+  func testSavedSourcesNeverContainLocation() async throws {
+    let client = FakeSearchHTTPClient()
+    let sites = SearchSiteRunner(engines: [.duckDuckGo: RecordingEngine(.noResults)], wikipedia: WikipediaSearch(),
+                                 client: client, health: EngineHealth(), log: RecordingSearchLog())
+    let reader = PageReader(client: client, networkGuard: NetworkGuard(resolver: FakeHostResolver()), isBlocked: { _ in false })
+    let cafe = PlaceResult(place: MapPlace(id: "cafe", name: "Blue Bottle", coordinate: PlacesAndWeatherFixtures.chicago,
+                                           distanceMeters: nil), category: "Cafe", address: "1 Main St", phone: nil, website: nil)
+    let provider = OnDeviceSearchProvider(sites: sites, reader: reader, extractor: FakeExtractor([:]),
+                                          quality: { SourceQualityFixture.quality() }, places: FakePlaces([cafe]),
+                                          weather: FakeWeather(), geocoder: FakeGeocoder(), units: { .us })
+    let store = makeStore()
+    let location = SearchLocation()
+    let model = makeModel(search: provider, store: store, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/search will it rain tomorrow", searchEnabled: true)
+    await finish(model)
+    model.submit("/search cafes near me", searchEnabled: true)
+    await finish(model)
+    XCTAssertEqual(location.calls, 2)
+    let sources = model.messages.compactMap(\.searchSources).flatMap { $0 }.map(\.title)
+    XCTAssertEqual(sources, ["Open-Meteo forecast", "Apple Maps"])
+    await model.sessionWriter.waitForPendingWrites()
+    let saved = String(decoding: try JSONEncoder().encode(store.load()), as: UTF8.self)
+    XCTAssertTrue(saved.contains("Apple Maps"))
+    for secret in ["41.88", "-87.63", "87.63", "Chicago"] {
+      XCTAssertFalse(saved.contains(secret), secret)
+    }
+  }
+
+  func testMapsSearchesPlacesNearTheUser() async throws {
+    let location = SearchLocation()
+    let search = SearchSpy(results: fixtureResults)
+    let model = makeModel(search: search, location: location)
+    await model.refreshInstalledModel()
+    model.submit("/maps where can I get a haircut")
+    await finish(model)
+    let requests = await search.requests
+    let request = try XCTUnwrap(requests.last)
+    XCTAssertEqual(request.route, .places)
+    XCTAssertEqual(request.query, "where can I get a haircut")
+    XCTAssertEqual(request.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
+    XCTAssertEqual(location.calls, 1)
+    // A named area needs no location.
+    model.submit("/maps ramen in Soho, London")
+    await finish(model)
+    let namedRequests = await search.requests
+    let named = try XCTUnwrap(namedRequests.last)
+    XCTAssertEqual(named.route, .places)
+    XCTAssertNil(named.coordinate)
+    XCTAssertEqual(location.calls, 1)
+  }
+
   func testWrittenQueryCannotChooseRoute() async throws {
     let location = SearchLocation()
     let search = SearchSpy(results: fixtureResults)

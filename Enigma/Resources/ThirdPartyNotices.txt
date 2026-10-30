@@ -303,3 +303,8 @@ Wikipedia: Reliable sources/Perennial sources (reliability.tsv)
 reliability.tsv contains data derived from Wikipedia: Reliable sources/Perennial
 sources, licensed CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
 https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Perennial_sources
+
+Open-Meteo
+Weather data by Open-Meteo.com (https://open-meteo.com/), CC BY 4.0.
+Place names for weather come from Open-Meteo's geocoding API, under the same terms. It is built on
+GeoNames (https://www.geonames.org/), licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).

@@ -180,6 +180,51 @@ final class NativeToolPlanTests: XCTestCase {
                                    requiredTool: "propose_edit", extraInstructions: [])
     XCTAssertNil(missing.offeredRequiredTool)
   }
+
+  private func plan(_ draft: String, automatic: Bool = false, key: Bool = true, provider: Bool = false) -> NativeToolPlan {
+    NativeToolPlan.make(.init(typed: ComposerCommands(draft), hasSelection: false, hasFiles: false, hasScreenshot: false,
+                              searchesAutomatically: automatic, hasSearchKey: key, hasFullDiskAccess: false,
+                              providerSearch: provider))
+  }
+
+  /// F29 CP6: `find_places` and `get_weather` come with search on either backend, and not without it.
+  func testPlacesAndWeatherOfferedWithSearch() {
+    for provider in [false, true] {
+      for draft in ["/search cafes", "cafes"] {
+        let offered = plan(draft, automatic: true, provider: provider).offeredParts
+        XCTAssertTrue(offered.isSuperset(of: [.places, .weather]), "\(draft) provider \(provider)")
+        XCTAssertTrue(offered.contains(.search(provider ? .provider : .enigma)))
+      }
+    }
+    XCTAssertTrue(plan("cafes").offeredParts.isDisjoint(with: [.places, .weather]))
+    XCTAssertTrue(plan("cafes", automatic: true, key: false).offeredParts.isEmpty)
+    XCTAssertTrue(plan("/search cafes", automatic: true).withoutSearch().offeredParts.isDisjoint(with: [.places, .weather]))
+    // `parts` stays F32's and F30's.
+    XCTAssertEqual(plan("/search cafes").parts, [.search(.enigma)])
+  }
+
+  func testMapsRequiresFindPlaces() {
+    let maps = plan("/maps bookshops")
+    XCTAssertEqual(maps.requiredTool, "find_places")
+    XCTAssertTrue(maps.offeredParts.isSuperset(of: [.places, .weather, .search(.enigma)]))
+    // Even with automatic search off and no search key.
+    XCTAssertEqual(plan("/maps bookshops", key: false).requiredTool, "find_places")
+    XCTAssertTrue(plan("/maps bookshops", key: false).offeredParts.contains(.places))
+    XCTAssertEqual(plan("/maps bookshops", provider: true).requiredTool, "find_places")
+  }
+
+  func testMapsWinsOverSearch() {
+    XCTAssertEqual(plan("/search /maps bookshops").requiredTool, "find_places")
+    XCTAssertEqual(plan("/maps /search bookshops").requiredTool, "find_places")
+  }
+
+  func testProviderSearchNearMeClause() {
+    let plain = ProviderSearchPart(offersPlacesAndWeather: false).instructions
+    XCTAssertTrue(plain.contains("ask which city they mean"))
+    let withTools = ProviderSearchPart(offersPlacesAndWeather: true).instructions
+    XCTAssertFalse(withTools.contains("ask which city they mean"))
+    XCTAssertTrue(withTools.contains("use find_places or get_weather, which know the user's approximate location"))
+  }
 }
 
 private struct StubPart: AgentToolbox {

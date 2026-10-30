@@ -729,6 +729,12 @@ offered beside it, since location never goes to a provider's search. F30's
 instruction clause "ask which city they mean" becomes "use find_places or
 get_weather, which know the user's approximate location".
 
+*Amended overnight (orchestrator, owner to confirm):* when the user taps
+"Don't allow" on F30's share-location card, that turn's `find_places` and
+`get_weather` get no location (they answer "The user's location isn't
+available…"), and F30's "ask which city they mean" clause stays for that
+turn (decision log D87, D88).
+
 #### 6.3 `/maps`
 
 A new typed command, in suggestions, Help and the welcome tour, described as

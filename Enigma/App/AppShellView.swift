@@ -1011,6 +1011,10 @@ struct AppShellView: View {
         }
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)
+    case .nothingToFind:
+      messages.report(ComposerSubmission.nothingToFindMessage)
+    case .mapsConflict:
+      messages.report(ComposerSubmission.mapsConflictMessage)
     case .messages(let prompt):
       submitMessages(prompt)
     case .captureScreen:
@@ -1066,7 +1070,7 @@ struct AppShellView: View {
     let intent = ComposerIntent.resolve(intentContext(draft: message.text, hasFileSelection: false, hasScreenshot: false,
                                                       dismissed: message.dismissed))
     switch ComposerSubmission.plan(intent, hasFileSelection: false, hasScreenshot: false, canSubmit: canSubmit) {
-    case .none, .captureScreen, .screenAttachment, .fileConflict, .files:
+    case .none, .captureScreen, .screenAttachment, .fileConflict, .files, .nothingToFind, .mapsConflict:
       return
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)

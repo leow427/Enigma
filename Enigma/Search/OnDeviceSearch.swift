@@ -28,8 +28,8 @@ enum OnDeviceSearchTiming {
 }
 
 /// Searches the web from the Mac (spec §1, §3, §5): the search sites, ranking, reading pages
-/// within a window, the checks after reading, and passages. Places and weather requests use the
-/// web route until CP6.
+/// within a window, the checks after reading, and passages. Weather comes from Open-Meteo alone,
+/// and places from Apple Maps with a web search beside it (spec §6.4, §6.5).
 struct OnDeviceSearchProvider: WebSearchProvider {
   private let sites: SearchSiteRunner
   private let reader: PageReader
@@ -38,12 +38,20 @@ struct OnDeviceSearchProvider: WebSearchProvider {
   private let preferredLanguages: @Sendable () -> [String]
   private let clock: any Clock<Duration>
   private let now: @Sendable () -> Date
+  private let places: any PlaceSearching
+  private let weather: any WeatherLooking
+  private let geocoder: any Geocoding
+  private let units: @Sendable () -> MeasurementUnits
 
   init(sites: SearchSiteRunner, reader: PageReader, extractor: any ArticleExtracting,
        quality: @escaping @Sendable () async throws -> SourceQuality,
        preferredLanguages: @escaping @Sendable () -> [String] = { Locale.preferredLanguages },
        clock: any Clock<Duration> = ContinuousClock(),
-       now: @escaping @Sendable () -> Date = Date.init) {
+       now: @escaping @Sendable () -> Date = Date.init,
+       places: any PlaceSearching = MapKitPlaceSearch(),
+       weather: any WeatherLooking = OpenMeteoWeather(),
+       geocoder: any Geocoding = OpenMeteoGeocoder(),
+       units: @escaping @Sendable () -> MeasurementUnits = { .current }) {
     self.sites = sites
     self.reader = reader
     self.extractor = extractor
@@ -51,6 +59,10 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     self.preferredLanguages = preferredLanguages
     self.clock = clock
     self.now = now
+    self.places = places
+    self.weather = weather
+    self.geocoder = geocoder
+    self.units = units
   }
 
   @MainActor static func live() -> OnDeviceSearchProvider {
@@ -69,7 +81,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       let current = try await quality()
       blockedCheck.set(current)
       return current
-    })
+    }, places: MapKitPlaceSearch(), weather: OpenMeteoWeather(client: client), geocoder: OpenMeteoGeocoder(client: client))
   }
 
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
@@ -78,6 +90,79 @@ struct OnDeviceSearchProvider: WebSearchProvider {
 
   func search(_ request: WebSearchRequest,
               onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
+    switch request.route {
+    case .web: return try await searchWeb(request, onActivity: onActivity)
+    case .weather: return try await searchWeather(request, onActivity: onActivity)
+    case .places: return try await searchPlaces(request, onActivity: onActivity)
+    }
+  }
+
+  // MARK: Weather and places
+
+  /// Open-Meteo only, for the location's coordinate or the geocoded named place; no search site is
+  /// contacted. Any failure, or a place the geocoder can't find, web-searches "weather <place>".
+  private func searchWeather(_ request: WebSearchRequest,
+                             onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
+    let place = request.namedPlace ?? request.city
+    var fallback = request
+    fallback.route = .web
+    fallback.namedPlace = nil
+    fallback.query = place.map { "weather " + $0 } ?? request.query
+    do {
+      let coordinate: SearchCoordinate
+      let name: String
+      if let known = request.coordinate {
+        coordinate = known
+        name = request.city ?? "your area"
+      } else if let namedPlace = request.namedPlace, let found = try await geocoder.locate(namedPlace) {
+        coordinate = found.coordinate
+        name = found.name
+      } else {
+        return try await searchWeb(fallback, onActivity: onActivity)
+      }
+      let forecast = try await weather.forecast(at: coordinate, units: units())
+      try Task.checkCancellation()
+      let result = WeatherLookup.excerpt(forecast, placeName: name, now: now())
+      await onActivity(.sourcesDiscovered([result.source]))
+      return [result]
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      try Task.checkCancellation()
+      return try await searchWeb(fallback, onActivity: onActivity)
+    }
+  }
+
+  /// Apple Maps and the web route at the same time; the places result comes first. MapKit gets the
+  /// question without its nearby cues and the rounded location, or the named area in the query;
+  /// the search sites get only the city. A MapKit failure or no places leaves the web results.
+  private func searchPlaces(_ request: WebSearchRequest,
+                            onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
+    let mapQuery = SearchRouting.webQuery(request.query, city: nil)
+    var web = request
+    web.route = .web
+    async let found: [PlaceResult]? = { [places] in
+      guard !mapQuery.isEmpty else { return nil }
+      return try? await places.places(matching: mapQuery, near: request.coordinate)
+    }()
+    let webResults: Result<[WebSearchResult], any Error>
+    do {
+      webResults = .success(try await searchWeb(web, onActivity: onActivity))
+    } catch {
+      webResults = .failure(error)
+    }
+    let mapResults = await found ?? []
+    try Task.checkCancellation()
+    guard !mapResults.isEmpty else { return try webResults.get() }
+    let excerpt = PlaceSearch.excerpt(mapResults, query: mapQuery, units: units())
+    await onActivity(.sourcesDiscovered([excerpt.source]))
+    return [excerpt] + ((try? webResults.get()) ?? [])
+  }
+
+  // MARK: The web route
+
+  private func searchWeb(_ request: WebSearchRequest,
+                         onActivity: @escaping AssistantActivitySink) async throws -> [WebSearchResult] {
     await extractor.warmUp()
     let quality = try await self.quality()
     let languages = preferredLanguages()

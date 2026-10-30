@@ -410,4 +410,30 @@ final class SearchRoutingTests: XCTestCase {
       XCTAssertFalse(SearchRouting.webQuery(query, city: nil).contains("  "), query)
     }
   }
+
+  /// F29 CP6: a typed /maps always picks places; without a nearby cue or a named area it's near the user.
+  func testMapsRoutesToPlacesOnSmallModels() {
+    for question in ["bookshops", "where can I get a haircut", "what is the temperature to bake salmon"] {
+      let decision = SearchRouting.decide(question: question, maps: true)
+      XCTAssertEqual(decision.route, .places, question)
+      XCTAssertTrue(decision.needsCurrentLocation, question)
+      XCTAssertNil(decision.namedPlace, question)
+    }
+    XCTAssertTrue(SearchRouting.decide(question: "cafes near me", maps: true).needsCurrentLocation)
+    let named = SearchRouting.decide(question: "ramen in soho", maps: true)
+    XCTAssertEqual(named.route, .places)
+    XCTAssertFalse(named.needsCurrentLocation)
+    XCTAssertEqual(SearchRouting.decide(question: "bookshops").route, .web)
+  }
+
+  /// D87: times, home, work and school aren't named areas for /maps.
+  func testMapsTimesAndWorkAreNotAreas() {
+    for question in ["pharmacy open at night", "bars open at midnight", "lunch at noon", "coffee near work",
+                     "gym near home", "tacos in the morning"] {
+      let decision = SearchRouting.decide(question: question, maps: true)
+      XCTAssertEqual(decision.route, .places, question)
+      XCTAssertTrue(decision.needsCurrentLocation, question)
+    }
+    XCTAssertFalse(SearchRouting.decide(question: "bars open at midnight in soho", maps: true).needsCurrentLocation)
+  }
 }

@@ -288,6 +288,21 @@ final class ComposerIntentResolveTests: XCTestCase {
       XCTAssertLessThan(Date().timeIntervalSince(start), 5, sentence)
     }
   }
+
+  func testMapsIsACommand() {
+    XCTAssertEqual(SlashCommand.maps.token, "/maps")
+    XCTAssertEqual(SlashCommand.maps.description, "Find places with Apple Maps")
+    XCTAssertTrue(ComposerCommands("/maps bookshops").maps)
+    XCTAssertEqual(ComposerCommands("/maps bookshops").prompt, "bookshops")
+    let intent = resolve("/maps bookshops")
+    XCTAssertTrue(intent.search)
+    XCTAssertEqual(intent.submissionPrompt, "/maps bookshops")
+    XCTAssertEqual(resolve("/think /maps bookshops").submissionPrompt, "/think /maps bookshops")
+    XCTAssertEqual(SlashCommand.completion(in: "/ma", selection: NSRange(location: 3, length: 0))?.commands, [.maps])
+    XCTAssertFalse(SlashCommand.available(hasSearchKey: false).contains(.maps))
+    XCTAssertTrue(SlashCommand.available(hasSearchKey: true).contains(.maps))
+    XCTAssertTrue(SlashCommandExample.order.contains(.maps))
+  }
 }
 
 /// The chips, rendered in both composers and in the real shell.

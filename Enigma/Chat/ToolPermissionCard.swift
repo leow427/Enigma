@@ -51,7 +51,7 @@ struct ToolPermissionCard: View {
 
   private var isMessages: Bool {
     switch request.permission {
-    case .searchAfterMessages, .shareLocation, .providerSearchAfterMessages: return false
+    case .searchAfterMessages, .lookUpAfterMessages, .shareLocation, .providerSearchAfterMessages: return false
     default: return true
     }
   }

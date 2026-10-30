@@ -72,6 +72,8 @@ struct ComposerCommands: Equatable {
   let translate: Bool
   /// Applies to this message only, like search.
   let messages: Bool
+  /// Find places with Apple Maps (F29): wins over /search.
+  let maps: Bool
 
   init(_ draft: String) {
     let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
@@ -83,11 +85,12 @@ struct ComposerCommands: Equatable {
     translate = commands.contains(.translate)
     edit = commands.contains(.edit) && !translate
     messages = commands.contains(.messages)
+    maps = commands.contains(.maps)
   }
 
   var hasPrompt: Bool { !prompt.isEmpty || edit || translate }
   var submissionPrompt: String {
-    (think ? "/think " : "") + (translate ? "/translate " : edit ? "/edit " : "") + prompt
+    (think ? "/think " : "") + (maps ? "/maps " : "") + (translate ? "/translate " : edit ? "/edit " : "") + prompt
   }
   var captureDraft: String { (snapshot ? "/snapshot" : "/screen") + (submissionPrompt.isEmpty ? "" : " " + submissionPrompt) }
 }

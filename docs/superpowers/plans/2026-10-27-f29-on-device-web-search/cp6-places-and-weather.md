@@ -297,9 +297,153 @@ draft with "There's nothing to look for."
 
 *Filled in by the CP6 worker.*
 
-1. **Summary:**
+1. **Summary:** Tasks 6.1–6.6 are done (no review round yet). Weather comes
+   from Open-Meteo (`OpenMeteoWeather`, 3 s) with Open-Meteo geocoding
+   (`OpenMeteoGeocoder`, 2 s, 5 matches, exact name preferred, name and
+   country stated, D81); places from Apple Maps (`MapKitPlaceSearch`, 5 km
+   widened to 20 km under 3 places, 3 s, distances computed on the Mac).
+   On small models `OnDeviceSearchProvider` answers the weather route from
+   Open-Meteo alone (web "weather <place>" on any failure or unknown place) and
+   runs MapKit beside the web route for places (places first; web alone when
+   MapKit fails or finds nothing). Capable models get `find_places` and
+   `get_weather` whenever search is offered, on either backend, or with `/maps`
+   (D83), with gate 3 (D85), their own activity text (D82) and F30's new
+   near-me clause. `/maps` is a command: places route on small models,
+   `find_places` required on capable ones, wins over `/search`, conflicts with
+   files, `/messages` and a screenshot, and alone keeps the draft (D84). Saved
+   sources never carry the location. Brave stays the default; the Debug switch
+   reaches all of it.
 2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+   - New: `Enigma/Search/WeatherLookup.swift` (`MeasurementUnits`,
+     `WeatherForecast`, `WeatherLooking`, `OpenMeteoWeather`, `Geocoding`,
+     `OpenMeteoGeocoder`, `WeatherReport`, `WeatherLookup`, `WeatherLookupError`,
+     `LookupTimeLimit`), `Enigma/Search/PlaceSearch.swift` (`MapPlace`,
+     `PlaceResult`, `PlaceSearching`, `MapKitPlaceSearch`, `PlaceSearch`,
+     `PlaceSearchError`), `Enigma/Search/PlacesAndWeatherTools.swift`
+     (`PlaceSearchTool`, `WeatherTool`, `PlacesAndWeatherTools`),
+     `EnigmaTests/PlacesAndWeatherTests.swift` (with the shared fakes
+     `FakeWeather`, `FakeGeocoder`, `FakePlaces`),
+     `EnigmaTests/PlacesAndWeatherToolTests.swift`; all five registered in the
+     Xcode project.
+   - Search: `WebSearch.swift` (`WebSearchResult.places`),
+     `WebSearchContext.swift` (`fitted` keeps `places`), `OnDeviceSearch.swift`
+     (the two routes, new `init` parameters, `live()`), `SearchRouting.swift`
+     (`decide(question:maps:)`).
+   - Chat: `AssistantToolbox.swift` (`NativeToolPart.places/.weather`,
+     `offersPlacesAndWeather`, `offeredParts`, `/maps`; empty instructions
+     skipped), `AssistantActivity.swift`/`AssistantActivityView.swift` (phases),
+     `ToolPermissions.swift`, `ToolPermissionCoordinator.swift`,
+     `ToolPermissionCard.swift` (`lookUpAfterMessages`), `NativeWebSearch.swift`
+     (`ProviderSearchPart.offersPlacesAndWeather`), `LocalChatViewModel.swift`
+     (`nativeToolbox` tools, `replyPlaces`, `shouldSearch` and `search` read
+     `/maps`).
+   - App: `SlashCommand.swift`, `ScreenAttachment.swift` (`ComposerCommands.maps`),
+     `ComposerIntent.swift`, `ComposerSubmission.swift` (`.nothingToFind`,
+     `.mapsConflict`), `AppShellView.swift`, `EnigmaMainWindowLogic.swift`,
+     `KeyboardShortcutsHelpView.swift`.
+   - `Enigma/Resources/ThirdPartyNotices.txt`: the Open-Meteo notice.
+   - Tests extended: `OnDeviceSearchTests` (harness gains the fakes and
+     `route`/`namedPlace`), `WebSearchTests`, `SearchRoutingTests`,
+     `ComposerIntentResolveTests`, `ComposerSubmissionTests`,
+     `NativeToolPlanTests`, `WebSearchLiveTests`; `NativeToolRequestTests`
+     changed on purpose (D86).
+3. **Decisions:** D81 (geocoding count 5, exact name, names as returned, so the
+   Paris fixture reads "Paris, Île-de-France Region, France", 48.85), D82
+   (two activity phases), D83 (`offeredParts`), D84 (how `/maps` travels; its
+   conflicts; Help and welcome), D85 (tool details: source without the area,
+   location before the card, `lookUpAfterMessages`, `replyPlaces`), D86
+   (three F30/F32 assertions follow spec §6.2).
+   Beyond the brief: `testForecastLookupSendsTheURLAndDecodes`,
+   `testForecastFailureThrows`, `testGeocoderPrefersExactNameAndQualifier`,
+   `testGeocoderFailureThrows`, `testPlaceDistanceIsComputedOnTheMac`,
+   `testPlaceCategoryReadsAsWords`, `testWeatherWithoutCityIsYourArea`,
+   `testNamedPlaceIsGeocodedWithOpenMeteo`, `testNamedAreaPlacesHaveNoRegion`,
+   `testPlacesSurviveAWebFailure`, `testMapsSearchesPlacesNearTheUser`.
+4. **Verification** (`scripts/verify-xcode.sh`, logs outside the repo):
+   - Task 6.1–6.2: the tests were written before the code but first run
+     after it: `PlacesAndWeatherTests` 20 executed, 0 failed. Task 6.3: RED
+     (compile failure: the provider had no `places:`/`weather:` parameters),
+     then `OnDeviceSearchTests` 37 executed, 0 failed. Tasks 6.3–6.5 together:
+     `PlacesAndWeatherToolTests`, `NativeToolPlanTests`, `SearchRoutingTests`,
+     `ComposerIntentResolveTests`, `ComposerSubmissionTests`, `WebSearchTests`,
+     `PlacesAndWeatherTests`, `OnDeviceSearchTests`: 214 executed, 0 skipped,
+     0 failed (`WebSearchTests` 81).
+   - Wider classes (27 non-UI classes touching the changed names, with the
+     D31 time-limit flags): 512 executed, 3 skipped, 5 failed, all in
+     `NativeToolRequestTests` and all from the intended changes (D86); after
+     D86, `NativeToolRequestTests` 83 executed, 0 failed.
+   - Live (`TEST_RUNNER_ENIGMA_LIVE_SEARCH=1`, Chicago test coordinates):
+     `testLiveOpenMeteo` 0.17 s, 168 hours, 7 days; `testLiveGeocoder` 0.64 s,
+     "Paris, Île-de-France Region, France"; `testLiveMapKitPlaces` 0.63 s,
+     10 places, all with addresses. 3 executed, 0 failed.
+   - `build`: succeeded.
+   - Final, after review round 2: the CP6 classes plus
+     `NativeToolRequestTests`, `SearchRoutingTests` and `WebSearchTests`
+     (`PlacesAndWeatherTests`, `PlacesAndWeatherToolTests`,
+     `OnDeviceSearchTests`, `NativeToolPlanTests`, `ComposerIntentResolveTests`,
+     `ComposerSubmissionTests`): 306 executed, 0 skipped, 0 failed.
+   - `build` and `analyze` succeeded.
+   - Full suite (`-test-timeouts-enabled YES
+     -default-test-execution-time-allowance 60`, screen locked): 1,957 test
+     cases, 1,838 passed, 38 skipped, 81 failed. The 81 are the same classes
+     and counts as D32's and CP5's environment failures (D25): AppCommandTests 2,
+     ChatCopyTests 2, ComposerIntentChipsTests 2, EnigmaCompactPanelTests 15,
+     EnigmaConversationTests 18, EnigmaMainWindowTests 29, FileModeUITests 1,
+     ScreenCaptureTests 1, ScreenViewTests 11. Each one is a key-window or UI
+     wait, and none is in Search. CI is the check for them.
+   - Not run: the manual Debug-switch check (exit criteria).
 5. **Limitations:**
-6. **For the next checkpoint:**
+   - Mutation checks from the reviewer checklist (saved-source assertions,
+     skipping `mayQuery`) weren't run; `testSavedSourcesNeverContainLocation`
+     and `testSearchToolsAskFirstAfterMessageText` are where they'd fail.
+   - `MKLocalSearch` is cancelled on the main actor when the 3 s limit ends;
+     the limit waits for the search to stop, which MapKit does promptly but
+     isn't measured.
+   - The places excerpt's link carries a named area the user typed ("ramen in
+     soho") on small models, as the brief's URL rule says; `find_places`
+     leaves the area out (D85).
+   - `docs/Web-Search.md` isn't updated: places and weather stay behind the
+     Debug switch until CP8/CP9, and CP10 owns the docs.
+   - The welcome page's command line doesn't mention `/maps` (D84).
+6. **Review round 1 (1 Blocker, 4 Should fixes, plus the notice; all six fixed; D87, D88):**
+   - Blocker: "Don't allow" on F30's location card now also keeps that
+     turn's `find_places`/`get_weather` from the location (they answer "The
+     user's location isn't available…"), and the "ask which city they mean"
+     clause stays; spec §6.2 is marked amended. `testLocationDeclinedSendsNothing`
+     checks the original clause again (`askClause` is F30's; the location-off
+     and unavailable tests use the new `toolsClause`). New
+     `testLocationDeclinedKeepsPlacesToolsFromTheLocation`.
+   - `/maps` no longer counts times, home, work or school as named areas
+     (`LocationIntent.mapsArea`; `testMapsTimesAndWorkAreNotAreas`).
+   - `find_places`'s saved link drops the city's words near the user, or is
+     bare `https://maps.apple.com/` (`testFindPlacesSourceDropsTheCity`).
+   - Gate 3 on both tools and both backends, through the view model
+     (`testPlacesAndWeatherAskFirstAfterMessageText`).
+   - Time limits on a test clock (`testLookupsTimeOut`), and the provider's
+     fallback on a weather timeout (`testWeatherTimeoutFallsBackToWeb`).
+   - GeoNames (CC BY 4.0) credited beside Open-Meteo.
+   - The fixes were written before their tests this round, so no failing run
+     was seen first. After the fixes: `PlacesAndWeatherTests`,
+     `PlacesAndWeatherToolTests`, `OnDeviceSearchTests`, `NativeToolPlanTests`,
+     `ComposerIntentResolveTests`, `ComposerSubmissionTests`,
+     `NativeToolRequestTests`, `SearchRoutingTests`, `WebSearchTests`:
+     303 executed, 0 skipped, 0 failed (`NativeToolRequestTests` 85).
+7. **Review round 2 (no Blockers, 4 Should fixes, all fixed test-first; D89, D90; no round 3):**
+   - A declined location card is remembered in memory for the chat and
+     provider until a later Allow, and it now covers `web_search` too: the
+     fallback after a decline sends no city or coordinate
+     (`testDeclinedLocationFallbackWebSearchSendsNoLocation`,
+     `testLocationDeclineLastsForTheChat`).
+   - `find_places`'s link strips `near?.searchCity ?? area`, and a city word
+     inside an unspaced query gives the bare link
+     (`testFindPlacesSourceDropsTheAreaAndUnspacedCities`).
+   - `MapKitPlaceSearch.timeout` is pinned at 3 s.
+   - RED: the 3 new tests failed (9 assertions) before the fixes; after them,
+     306 executed, 0 failed.
+8. **For the next checkpoint:**
+   - CP9: `WebSearchResult.places` carries a small-model places result's
+     places; capable turns put theirs in `LocalChatViewModel.replyPlaces[messageID]`
+     (in memory). Neither reaches `ChatMessage` yet; CP9 adds `mapPlaces`.
+   - CP7: `OpenMeteoWeather`, `OpenMeteoGeocoder` and `MapKitPlaceSearch` take a
+     clock; `WeatherLookup.report` is the structured forecast both paths use.
+   - `LookupTimeLimit.run` is the shared time limit for one lookup.

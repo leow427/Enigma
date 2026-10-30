@@ -196,6 +196,20 @@ enum LocationIntent {
   private static let comingDays = try! NSRegularExpression(pattern: #"\b(?:this weekend|next week)\b"#)
   // Starts with a letter, like `namedDestination`, so the two agree on what a place is. The candidate is
   // captured inside a lookahead so every in, at, for or near is tried, and it ends at the next one.
+  /// /maps (spec §6.3): the first area after in/at/near that isn't a time, home, work or school.
+  static func mapsArea(normalized text: String) -> String? {
+    var found: String?
+    mapsAreaPattern.enumerateMatches(in: text, range: NSRange(text.startIndex..., in: text)) { match, _, stop in
+      guard let match, let range = Range(match.range(at: 1), in: text) else { return }
+      let place = text[range].trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
+      guard !place.isEmpty, place != "the", !matches(timePhrase, place), !matches(notAPlace, place) else { return }
+      found = place
+      stop.pointee = true
+    }
+    return found
+  }
+
+  private static let mapsAreaPattern = try! NSRegularExpression(pattern: #"\b(?:in|at|near)\s+(?=(?!(?:me|my|this|here|today|tonight|tomorrow|next|on|a|an)\b)([a-z](?:(?!\s+(?:today|tonight|tomorrow|this|next|on|in|at|for|near|right now|now|later)\b).)*))"#)
   private static let weatherPlacePattern = try! NSRegularExpression(pattern: #"\b(?:in|at|for|near)\s+(?=(?!(?:me|my|this|here|today|tonight|tomorrow|next|on|a|an)\b)([a-z](?:(?!\s+(?:today|tonight|tomorrow|this|next|on|in|at|for|near|right now|now|later)\b).)*))"#)
   private static let timePhrase = try! NSRegularExpression(pattern: #"^(?:the )?(?:\#(times)\b|\#(placeLikeTimes))"#)
   /// A language only as the whole candidate: "spanish" isn't a place, "dutch harbor" and "latin america" are.

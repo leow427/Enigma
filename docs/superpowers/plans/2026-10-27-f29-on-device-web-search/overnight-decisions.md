@@ -19,7 +19,7 @@ The summary at the top is written when the run ends.
 - **CP3:** D49–D60
 - **CP4:** D61–D72
 - **CP5:** D73–D80
-- **CP6:**
+- **CP6:** D81–D90
 - **CP7:**
 - **CP8:**
 - **CP9:**
@@ -1618,4 +1618,188 @@ view is released, not from extraction. The CI failures were most likely the
   `testSharedExtractorUsesThePipelinesLimit`.
 - **Why:** D79, reviewer round 2.
 - **Alternatives:** none worth keeping.
+- **Reversible:** yes.
+
+### D81 — 2026-10-30 09:05, CP6 — Geocoding asks for 5 results and prefers an exact name match; names as returned
+
+- **Decided (worker CP6):** `OpenMeteoGeocoder` sends `count=5` (spec §6.4 says
+  `count=1`) and picks the first result whose `name` equals the place's name
+  (ignoring case and diacritics), preferring one whose admin1, country or
+  country code matches the text after a comma ("springfield, illinois");
+  otherwise the first result. A comma-qualified place is searched by its first
+  part, since Open-Meteo matches names only. The resolved name is `name`,
+  `admin1` (left out when equal to the name) and `country` exactly as
+  returned, so the Paris fixture gives "Paris, Île-de-France Region, France"
+  (CP0b Q4), not the brief's "Paris, Île-de-France, France", and its latitude
+  48.85341 rounds to 48.85, not the brief's 48.86 (MapKit's figure).
+- **Why:** CP0b Q4: a typo resolves silently to another place ("Pariss" →
+  Parisse, Haiti) and `count=1` returns the most populous match; asking for 5
+  and preferring an exact name costs nothing in latency (one request) and
+  avoids that. Stating admin1 and country lets the user spot a wrong match.
+- **Alternatives:** `count=1`, first result: `OpenMeteoGeocoder.resultCount`
+  and `best(_:for:)` in `Enigma/Search/WeatherLookup.swift`.
+- **Reversible:** yes.
+
+### D82 — 2026-10-30 09:05, CP6 — The tools' activity text is two new phases that count as searching
+
+- **Decided (worker CP6):** `AssistantActivity.Phase` gains `findingPlaces`
+  ("Finding places…") and `checkingWeather` ("Checking the weather…"), with
+  `isSearching` true for them and `.searching`; the activity panel's
+  "Waiting for search results…" line uses `isSearching`. Spec §6.2 says "both
+  as `.searching` phases with their own text"; `Phase` is a plain enum whose
+  label is fixed per case, so separate cases are the smallest way to give them
+  their own text.
+- **Why:** the brief's `testToolActivityText` needs the two labels; a payload
+  on `.searching` would change every switch over `Phase`.
+- **Alternatives:** an associated label on `.searching` (`AssistantActivity.swift`).
+- **Reversible:** yes.
+
+### D83 — 2026-10-30 09:18, CP6 — Places and weather are in `NativeToolPlan.offeredParts`, not `parts`
+
+- **Decided (worker CP6):** `NativeToolPart` gains `.places` and `.weather`,
+  but `NativeToolPlan.make` sets `offersPlacesAndWeather` instead of inserting
+  them into `parts`; `offeredParts` (`parts` plus the two) is what
+  `nativeToolbox` builds from. A typed `/maps` offers search like `/search`
+  (when a backend exists) and always offers places and weather, key or not,
+  with `find_places` required; a declined provider-search card
+  (`searchDeclined`) offers none of them.
+- **Why:** the brief says F32's and F30's tests stay green unchanged, and
+  `NativeToolPlanTests.testPlanTable` pins `parts` exactly; inserting the new
+  parts there would change it.
+- **Alternatives:** insert them into `parts` and update `testPlanTable`
+  (`Enigma/Chat/AssistantToolbox.swift`).
+- **Reversible:** yes.
+
+### D84 — 2026-10-30 09:18, CP6 — How `/maps` travels and what it conflicts with
+
+- **Decided (worker CP6):** the submitted prompt keeps `/maps ` (as `/edit` and
+  `/translate` stay in theirs), so every route sees it: `shouldSearch` and
+  `search()` read `ComposerCommands(prompt).maps`, and the native plan reads it
+  from the prompt as before. The user's message therefore shows "/maps
+  bookshops". `/maps` with a screenshot or `/screen`/`/snapshot` gives the new
+  `.mapsConflict` ("/maps can't be combined with a screenshot. Remove /screen,
+  /snapshot, or the screenshot, then send again."); alone it gives
+  `.nothingToFind` ("There's nothing to look for."), shown through
+  `messages.report` like the Messages conflict, draft kept. On a capable turn,
+  `web_search` ignores `/maps` for its own routing, so `/maps` alone never
+  sends the location to Brave. Help gets a `/maps` row next to `/search` (with
+  the key requirement); the main page's command examples list it last; the
+  welcome page's fixed "/screen /search /edit" line is unchanged.
+- **Why:** a separate flag would need new parameters on `submit`,
+  `submitCloud`, `submitAuto` and the queue; the welcome line is sized to its
+  text (`EnigmaControls.swift` comment), and the owner should choose which
+  command it drops.
+- **Alternatives:** strip `/maps` from the shown message (`ThinkCommand.message`)
+  and pass a flag; add `/maps` to the welcome line (`WelcomeSetupView.swift`,
+  `EnigmaControls.swift`).
+- **Reversible:** yes.
+
+### D85 — 2026-10-30 09:18, CP6 — Tool details the brief leaves open
+
+- **Decided (worker CP6):** (1) `find_places`'s saved source is
+  `https://maps.apple.com/?q=<query>` without the `area`, since a model can
+  fill `area` with the user's city (it learns it from `get_weather`'s place
+  name); (2) near the user, the tools check the location (on the Mac, nothing
+  sent) before the gate-3 card, so a Mac with location off never shows a card
+  for a lookup that can't run; (3) the gate-3 card is a new
+  `ToolPermission.lookUpAfterMessages(title:service:)` whose grant is
+  `searchAfterMessages`'s, with the detail "…It will be sent to Apple Maps."
+  or "…to Open-Meteo."; (4) `get_weather` with no place asks "Check the
+  weather for your area?"; (5) the shared instructions sit on `find_places`,
+  and `AssistantToolbox` skips empty instruction strings; (6) `onPlaces`
+  fills an in-memory `LocalChatViewModel.replyPlaces[messageID]` for CP9.
+- **Why:** saved sources must never carry the location (spec §6.5); the
+  rest follow spec §6.2 with the least new surface.
+- **Alternatives:** each is local to `Enigma/Search/PlacesAndWeatherTools.swift`,
+  `Enigma/Chat/ToolPermissions.swift` or `LocalChatViewModel.nativeToolbox`.
+- **Reversible:** yes.
+
+### D86 — 2026-10-30 09:19, CP6 — Three F30/F32 assertions follow spec §6.2's intended changes
+
+- **Decided (worker CP6):** in `NativeToolRequestTests`, the flagged local
+  turn's tool set now includes `find_places` and `get_weather`; the
+  provider-search instruction check uses `ProviderSearchPart(offersPlacesAndWeather: true)`;
+  and `askClause` is spec §6.2's replacement sentence ("use find_places or
+  get_weather, which know the user's approximate location"). The tests still
+  check the same things (the tools a turn gets, that the provider instruction
+  is sent, that a declined or missing location tells the model what to do).
+  The brief asks both for these behavior changes and for F30's and F32's tests
+  to stay unchanged; the two can't both hold, and the spec wins.
+- **Why:** 5 tests (6 assertions) failed only on these intended changes.
+- **Alternatives:** none that meets spec §6.2.
+- **Reversible:** yes.
+
+### D87 — 2026-10-30 09:31, CP6 — A declined location stays declined for the places and weather tools; round-1 fixes
+
+- **Decided (orchestrator):** amends spec §6.2 (marked "Amended overnight"):
+  when the user taps "Don't allow" on F30's share-location card, that turn's
+  `find_places`/`get_weather` get no location (they answer "The user's
+  location isn't available…"), F30's "ask which city they mean" clause is kept
+  for that turn, and `testLocationDeclinedSendsNothing`'s original assertion is
+  restored. Also: `/maps` applies the weather rule's exclusions (times, home,
+  work, school) before counting a named area; `find_places`'s saved link drops
+  the city's words from the query (or links to bare maps.apple.com); tests for
+  gate 3 on both tools and both backends, and for the 3 s/2 s time limits; and
+  a GeoNames (CC BY 4.0) credit beside Open-Meteo in ThirdPartyNotices, since
+  Open-Meteo's geocoding is built on GeoNames.
+- **Why:** reviewer round 1 — the decline could be bypassed and addresses and
+  distances near the user would reach the provider the user refused
+  (privacy, Blocker); the others are concrete failures or untested rules.
+- **Alternatives:** spec §6.2 as written (tools keep the location after a
+  decline) — `NativeWebSearch.swift`, `LocalChatViewModel.swift`.
+- **Reversible:** yes.
+
+### D88 — 2026-10-30 09:33, CP6 — How the round-1 fixes (D87) are built
+
+- **Decided (worker CP6):** (1) `providerSearchLocation` also reports whether
+  the user declined F30's card; `nativeToolbox(…locationDeclined:)` then gives
+  the places and weather tools a location closure that returns nil, and
+  `ProviderSearchPart` keeps "ask which city they mean"
+  (`offersPlacesAndWeather` false for its clause). (2) `/maps` counts a named
+  area only when `LocationIntent.mapsArea` finds an in/at/near candidate that
+  isn't a time, home, work or school (the weather place rule's exclusions),
+  as well as `SearchRouting`'s area pattern. (3) Near the user,
+  `find_places`'s link drops the city's words (`searchCity`, split into
+  words, matched ignoring case and accents) and a dangling in/near/at; if the
+  query is then empty, or still holds a city word or a digit run that could
+  be a coordinate, it links to bare `https://maps.apple.com/`. (4) The time-limit
+  tests use `ManualClock` with a hanging fake. (5) The notice credits GeoNames
+  (CC BY 4.0) beside Open-Meteo.
+- **Why:** reviewer round 1 (D87).
+- **Alternatives:** in `LocalChatViewModel.swift`, `SearchRouting.swift`,
+  `LocationService.swift`, `PlacesAndWeatherTools.swift`.
+- **Reversible:** yes.
+
+### D89 — 2026-10-30 09:41, CP6 — A declined location lasts for the rest of the chat; round-2 fixes; no round 3
+
+- **Decided (orchestrator):** amends D87: a "Don't allow" on the
+  share-location card is remembered in memory for the rest of that chat and
+  provider (never saved), and cleared by a later Allow — so later turns'
+  `find_places`/`get_weather`/`web_search` get no location either. Also: the
+  fallback to Enigma's `web_search` after a decline skips the location lookup;
+  `find_places`'s saved link strips `near?.searchCity ?? area` and falls back
+  to bare `https://maps.apple.com/` when a city word appears inside the query
+  (covers Japanese/Chinese queries without spaces); a test pins
+  `MapKitPlaceSearch.timeout` at 3 s. No round 3: each fix is narrow and comes
+  with the reviewer's failing probe as a test, and weekly usage is ~82% (the
+  run stops new work at 83%).
+- **Why:** reviewer round 2 — the city could still reach the provider after a
+  decline (fallback path, next turn, explicit area, CJK queries).
+- **Alternatives:** a decline for that turn only (D87 as written).
+- **Reversible:** yes.
+
+### D90 — 2026-10-30 09:43, CP6 — How the round-2 fixes (D89) are built
+
+- **Decided (worker CP6):** (1) `LocalChatViewModel.declinedLocations` holds
+  "chat session | provider" keys in memory; a Don't allow on the
+  share-location card adds one, an Allow (or an Always grant answering without
+  a card) removes it. A cloud turn whose chat and provider hold one gets
+  `locationDeclined`, which now also reaches `web_search` (`search(…skipsLocation:)`
+  skips the location lookup, so the nearby cue is dropped with no city). (2)
+  `find_places`'s link strips `near?.searchCity ?? area`; a city word found
+  inside the folded query also gives the bare link: whole words for Latin
+  words of one or two letters, substrings otherwise, and for CJK words also
+  without a trailing 区/市/都/府/県/道/町/村/省/县 ("渋谷区" matches "渋谷").
+- **Why:** reviewer round 2 (D89).
+- **Alternatives:** `LocalChatViewModel.swift`, `PlacesAndWeatherTools.swift`.
 - **Reversible:** yes.

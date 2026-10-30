@@ -105,6 +105,7 @@ struct KeyboardShortcutsHelpView: View {
       ForEach(KeyboardShortcutsHelp.panel, id: \.self) { row($0) }
       if searchSettings.hasAPIKey {
         row(KeyboardShortcutsHelp.search)
+        row(KeyboardShortcutsHelp.maps)
         EnigmaHairline()
         EnigmaNote(KeyboardShortcutsHelp.searchNote).padding(.vertical, 10)
       }

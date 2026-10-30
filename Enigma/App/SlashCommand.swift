@@ -2,7 +2,7 @@ import Foundation
 
 /// The same catalog drives execution, syntax coloring, and completion.
 enum SlashCommand: String, CaseIterable, Identifiable {
-  case search, screen, snapshot, think, edit, translate, messages
+  case search, screen, snapshot, think, edit, translate, messages, maps
 
   var id: String { rawValue }
   var token: String { "/" + rawValue }
@@ -15,6 +15,7 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .edit: "Revise selected text with your instructions"
     case .translate: "Translate to English or a language you name"
     case .messages: "Read, search, and send your Messages"
+    case .maps: "Find places with Apple Maps"
     }
   }
 
@@ -28,7 +29,8 @@ enum SlashCommand: String, CaseIterable, Identifiable {
   }
 
   static func available(hasSearchKey: Bool) -> [SlashCommand] {
-    allCases.filter { $0 != .search || hasSearchKey }
+    // /maps needs the key as /search does, until the keyless search replaces Brave (CP8).
+    allCases.filter { ($0 != .search && $0 != .maps) || hasSearchKey }
   }
 
   // Quoted examples and code are literal. Requiring whitespace before a slash

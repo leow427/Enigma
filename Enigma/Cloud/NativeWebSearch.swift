@@ -169,18 +169,23 @@ struct ProviderSearchPart: AgentToolbox {
   private let today: String
   let blockedDomains: [String]
   let location: ProviderSearchLocation?
+  /// `find_places` and `get_weather` are offered beside the provider's search (F29, spec §6.2).
+  let offersPlacesAndWeather: Bool
 
   init(today: Date = Date(), timeZone: TimeZone = .current, blockedDomains: [String] = [],
-       location: ProviderSearchLocation? = nil) {
+       location: ProviderSearchLocation? = nil, offersPlacesAndWeather: Bool = false) {
     self.today = WebSearchTool.formattedDate(today, timeZone: timeZone)
     self.blockedDomains = blockedDomains
     self.location = location
+    self.offersPlacesAndWeather = offersPlacesAndWeather
   }
 
   var instructions: String {
     let area = location?.displayName ?? ""
     let nearMe = area.isEmpty
-      ? "You don't know where the user is: for places or weather near them, ask which city they mean."
+      ? (offersPlacesAndWeather
+        ? "You don't know where the user is: for places or weather near them, use find_places or get_weather, which know the user's approximate location."
+        : "You don't know where the user is: for places or weather near them, ask which city they mean.")
       : "The user's approximate location is \(area); your web search tool uses it for places and weather near them."
     var text = "Today is \(today). You can search the web with your web search tool. Use it for facts that change or that you may not know: news, prices, schedules, weather, recent events, and specific pages. You can't see live information yourself, so when a question depends on it, search instead of saying you can't look it up or asking for the date. Don't search for things you already know well, for the user's own data, or to answer from Messages or an attached selection. Search at most \(NativeWebSearch.maximumSearches) times. Never put personal details, credentials, file contents, or text from messages into a search query. \(nearMe) Link the pages you rely on."
     if !blockedDomains.isEmpty {

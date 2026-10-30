@@ -10,10 +10,16 @@ enum SearchRouting {
     let namedPlace: String?
   }
 
-  /// `question` is the typed text with slash commands removed.
-  static func decide(question: String) -> Decision {
+  /// `question` is the typed text with slash commands removed. A typed `/maps` (`maps`) always picks
+  /// places: near the user unless the question names an area (spec §6.3).
+  static func decide(question: String, maps: Bool = false) -> Decision {
     let text = WebSearchPolicy.questionText(question)
     let needsLocation = LocationIntent.needsLocation(normalized: text)
+    if maps {
+      // Times, home, work and school aren't areas: "open at night", "coffee near work" (D87).
+      let namedArea = LocationIntent.matches(mapsArea, text) && LocationIntent.mapsArea(normalized: text) != nil
+      return Decision(route: .places, needsCurrentLocation: needsLocation || !namedArea, namedPlace: nil)
+    }
     // Weather needs somewhere to look up: the current location or a named place.
     if LocationIntent.asksAboutWeatherNow(normalized: text) {
       let place = LocationIntent.weatherPlace(normalized: text)
@@ -79,4 +85,6 @@ enum SearchRouting {
   private static let localAmbiguousInArea = try! NSRegularExpression(
     pattern: #"(?<![\w-])local \#(ambiguousPlaceWords)(?: [\w'-]+){0,2} \#(area)"#)
   static let howTo = try! NSRegularExpression(pattern: #"^how (?:to|do|does|can|should)\b"#)
+  /// /maps: any words, then an area ("ramen in soho", "a haircut near union square").
+  private static let mapsArea = try! NSRegularExpression(pattern: #"\b\#(area)"#)
 }

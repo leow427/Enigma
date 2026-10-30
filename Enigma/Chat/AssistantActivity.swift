@@ -11,6 +11,8 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
   enum Phase: String, Sendable, Equatable {
     case analyzing, refiningSearch, searching, readingSources, thinking, generating
     case readingMessages, awaitingApproval
+    /// `find_places` and `get_weather` (F29): searching, with their own text (D82).
+    case findingPlaces, checkingWeather
     case completed, cancelled, failed
 
     var label: String {
@@ -22,6 +24,8 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
       case .thinking: "Thinking…"
       case .generating: "Generating response…"
       case .readingMessages: "Reading Messages…"
+      case .findingPlaces: "Finding places…"
+      case .checkingWeather: "Checking the weather…"
       case .awaitingApproval: "Waiting for your approval…"
       case .completed: "Activity"
       case .cancelled: "Stopped"
@@ -30,6 +34,7 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
     }
 
     var isTerminal: Bool { self == .completed || self == .cancelled || self == .failed }
+    var isSearching: Bool { self == .searching || self == .findingPlaces || self == .checkingWeather }
   }
 
   let id: UUID

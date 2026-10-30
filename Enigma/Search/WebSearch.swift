@@ -15,6 +15,8 @@ struct WebSearchResult: Equatable, Sendable {
   var site: String? = nil
   var published: Date? = nil
   var kind: EvidenceKind = .article
+  /// A places result's places, for the map card (CP9). In memory only, never saved.
+  var places: [MapPlace]? = nil
 }
 
 enum SearchRoute: String, Equatable, Sendable { case web, places, weather }

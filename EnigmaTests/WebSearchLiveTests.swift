@@ -73,6 +73,34 @@ final class WebSearchLiveTests: XCTestCase {
 
   /// CP5: whole searches through `OnDeviceSearchProvider.live()`. Prints each question's position
   /// in this list with its time and result counts, never a query, link or page text.
+  // MARK: Places and weather (F29 CP6). Test coordinates only: the Chicago fixture's.
+
+  func testLiveOpenMeteo() async throws {
+    let started = ContinuousClock.now
+    let forecast = try await OpenMeteoWeather().forecast(at: SearchCoordinate(latitude: 41.88, longitude: -87.63), units: .us)
+    print("Live Open-Meteo: \(started.duration(to: .now)), \(forecast.hourly.time.count) hours, \(forecast.daily.time.count) days")
+    XCTAssertEqual(forecast.timezone, "America/Chicago")
+    XCTAssertEqual(forecast.daily.time.count, 7)
+    XCTAssertGreaterThanOrEqual(forecast.hourly.time.count, 24)
+    XCTAssertNotNil(forecast.current.temperature)
+  }
+
+  func testLiveGeocoder() async throws {
+    let started = ContinuousClock.now
+    let found = try await XCTUnwrapAsync(await OpenMeteoGeocoder(language: "en").locate("Paris"))
+    print("Live geocoder: \(started.duration(to: .now)), \(found.name)")
+    XCTAssertTrue((48.7...49.0).contains(found.coordinate.latitude), "\(found.coordinate)")
+    XCTAssertTrue(found.name.hasSuffix("France"), found.name)
+  }
+
+  func testLiveMapKitPlaces() async throws {
+    let started = ContinuousClock.now
+    let places = try await MapKitPlaceSearch().places(matching: "coffee", near: SearchCoordinate(latitude: 41.88, longitude: -87.63))
+    print("Live MapKit: \(started.duration(to: .now)), \(places.count) places, \(places.filter { $0.address != nil }.count) with addresses")
+    XCTAssertGreaterThanOrEqual(places.count, 3)
+    XCTAssertTrue(places.allSatisfy { $0.place.distanceMeters != nil })
+  }
+
   @MainActor func testLiveOnDeviceSearch() async throws {
     let questions: [(String, SearchRecency?)] = [
       ("latest news on the artemis moon program", .week),

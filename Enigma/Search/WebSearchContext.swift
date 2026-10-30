@@ -65,7 +65,7 @@ enum WebSearchExcerpts {
       guard words[index] > share else { return result }
       return WebSearchResult(source: result.source,
                              snippets: [prefix(result.snippets.joined(separator: "\n"), words: share)],
-                             site: result.site, published: result.published, kind: result.kind)
+                             site: result.site, published: result.published, kind: result.kind, places: result.places)
     }
   }
 

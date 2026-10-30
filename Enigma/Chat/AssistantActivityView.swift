@@ -102,7 +102,7 @@ struct AssistantActivityView: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(height: min(CGFloat(activity.sources.count) * ActivitySourceRow.height, 260))
         .enigmaTestMarker("Activity sources")
-      } else if activity.phase == .searching {
+      } else if activity.phase.isSearching {
         Text("Waiting for search results…")
           .font(EnigmaTypography.mono(11))
           .foregroundStyle(palette.textSecondary.color)

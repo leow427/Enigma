@@ -19,6 +19,7 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     case .readChat(_, let name): title = "Allow reading your chat with \(Self.oneLine(name))?"
     case .searchChats(let query): title = "Search all your messages for “\(Self.oneLine(query))”?"
     case .searchAfterMessages(let query): title = "Search the web for “\(Self.oneLine(query))”?"
+    case .lookUpAfterMessages(let question, _): title = Self.oneLine(question)
     case .shareMessageText: title = "Send text from your messages to \(destination.displayName)?"
     case .shareLocation(let provider, _): title = "Share your location with \(provider.shortName)?"
     case .providerSearchAfterMessages(let provider): title = "Let \(provider.shortName) search the web in this chat?"
@@ -30,6 +31,7 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
       "This chat includes text from your messages. \(provider.shortName)'s web search runs its own queries on \(company.displayName)'s servers, and Enigma can't check each one."
     // Enigma's own `web_search` runs on Brave (F29 replaces it).
     case (.searchAfterMessages, _): "This chat includes text from your messages. It will be sent to Brave."
+    case (.lookUpAfterMessages(_, let service), _): "This chat includes text from your messages. It will be sent to \(service)."
     case (.shareMessageText, _): "This chat includes text from your messages."
     case (_, .thisMac): "It stays on this Mac."
     case (_, let company): "It will be sent to \(company.displayName)."
