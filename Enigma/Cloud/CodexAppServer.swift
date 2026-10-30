@@ -304,7 +304,9 @@ actor CodexAppServer: CodexRPCTransport {
     }
     Task {
       let result = await task.value
-      guard generation == self.generation else { return }
+      // A call whose handler was removed (Stop, or a held-back provider-search result) isn't
+      // answered: its turn is being interrupted.
+      guard generation == self.generation, fileHandlers[threadID] != nil else { return }
       try? write(.object(["id": message["id"], "result": result]))
     }
   }

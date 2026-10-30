@@ -36,16 +36,20 @@ final class NativeToolRequestTests: XCTestCase {
   // MARK: Helpers
 
   private func makeChat(model: LocalModel = flaggedModel, inference: NativeScriptedInference = NativeScriptedInference(),
-                        cloud: NativeToolProvider? = nil, search: NativeSearchProvider? = nil,
+                        cloud: (any ChatProvider & ToolCallingChatProvider)? = nil, search: NativeSearchProvider? = nil,
                         messagesDatabase: MessagesDatabase? = nil, store: ToolGrantStore? = nil,
                         sessionStore: ChatSessionStore? = nil, files: FileModeCoordinator? = nil,
                         nativeToolsEnabled: Bool = true,
-                        hasFullDiskAccess: Bool = true, automaticSearch: Bool = true,
+                        hasFullDiskAccess: Bool = true, automaticSearch: Bool = true, hasSearchKey: Bool = true,
+                        nativeWebSearchProviders: Set<CloudProviderID> = [],
+                        fileCodex: CodexSubscriptionClient = .fileMode,
+                        locationProvider: (any LocationProviding)? = nil, sendRunner: RecordingRunner? = nil,
                         replace: (@MainActor (String) -> Void)? = nil) -> LocalChatViewModel {
     let provider = cloud ?? NativeToolProvider(steps: [])
     let registry = CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider,
                                          gemini: provider, claudeCode: provider)
-    let settings = WebSearchSettings(credentials: NativeSearchCredentials(), defaults: defaults)
+    let settings = WebSearchSettings(credentials: NativeSearchCredentials(key: hasSearchKey ? "test-key" : nil),
+                                     defaults: defaults)
     settings.automaticallySearch = automaticSearch
     let database = messagesDatabase
     return LocalChatViewModel(
@@ -55,17 +59,23 @@ final class NativeToolRequestTests: XCTestCase {
       files: files,
       toolPermissions: ToolPermissionCoordinator(store: store ?? ToolGrantStore(defaults: defaults)),
       messagesToolbox: { confirm in
-        MessagesTools(database: database ?? MessagesDatabase(url: URL(fileURLWithPath: "/nonexistent")),
-                      contacts: FixtureContacts(), confirmSend: confirm)
+        var tools = MessagesTools(database: database ?? MessagesDatabase(url: URL(fileURLWithPath: "/nonexistent")),
+                                  contacts: FixtureContacts(), sender: sendRunner.map { MessagesSender(run: $0.run) } ?? MessagesSender(),
+                                  confirmSend: confirm)
+        if sendRunner != nil { tools.sendConfirmationTimeout = .zero }
+        return tools
       },
       messagesAccess: { if !hasFullDiskAccess { throw MessagesError.fullDiskAccessRequired } },
       localToolRuntime: { _ in true },
       fileInference: inference,
+      fileCodex: fileCodex,
       cloudProviders: registry,
       webSearch: search ?? NativeSearchProvider(results: Self.searchResults),
       searchSettings: settings,
+      locationProvider: locationProvider,
       sessionStore: sessionStore ?? ChatSessionStore(applicationSupportDirectory: root),
-      nativeToolsEnabled: nativeToolsEnabled)
+      nativeToolsEnabled: nativeToolsEnabled,
+      nativeWebSearchProviders: nativeWebSearchProviders)
   }
 
   private func plan(_ draft: String, chat: LocalChatViewModel) -> NativeToolPlan {
@@ -289,7 +299,7 @@ final class NativeToolRequestTests: XCTestCase {
     let inference = NativeScriptedInference(steps: [.call("web_search", #"{"query":"paris weather"}"#), .text("Sunny.")])
     let chat = makeChat(inference: inference, automaticSearch: false)
     await chat.refreshInstalledModel()
-    XCTAssertFalse(plan("weather", chat: chat).parts.contains(.search))
+    XCTAssertFalse(plan("weather", chat: chat).parts.contains(.search(.enigma)))
     try await send("/search weather in Paris", to: chat)
     let required = await inference.requiredTools
     XCTAssertEqual(required.first, "web_search")
@@ -752,6 +762,809 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(provider.plainStreams.values.isEmpty)
   }
 
+  // MARK: Provider search (F30)
+
+  static let openAIRoute = Route(mode: .cloud, providerID: CloudProviderID.openAI.rawValue, modelID: "gpt-5.5",
+                                 usesNetwork: true)
+  static let geminiRoute = Route(mode: .cloud, providerID: CloudProviderID.gemini.rawValue, modelID: "gemini-3-pro",
+                                 usesNetwork: true)
+  static let chatGPTRoute = Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: "gpt-5.6-luna",
+                                  usesNetwork: true)
+  static let claudeCodeRoute = Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: "sonnet",
+                                     usesNetwork: true)
+  static let providerSearchText = "You can search the web with your web search tool."
+  static let aliceRead = #"{"chat_id":"\#(MessagesFixture.aliceChat)"}"#
+
+  private func pageSources(_ range: ClosedRange<Int>) -> [WebSearchSource] {
+    range.map { WebSearchSource(title: "Page \($0)", url: URL(string: "https://site\($0).com/")!) }
+  }
+
+  func testProviderSearchSetsRequestAndInstruction() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertEqual(run.request.providerSearch, ProviderSearch())
+    XCTAssertFalse(run.toolNames.contains("web_search"), "The provider's own tool replaces Enigma's")
+    XCTAssertTrue(run.toolNames.contains("get_messages"), "The other F32 tools stay")
+    XCTAssertTrue(run.instructions.contains(ProviderSearchPart().instructions))
+    XCTAssertTrue(run.instructions.contains(AssistantToolbox.untrustedDataInstruction))
+    XCTAssertEqual(chat.messages.map(\.content), ["Hi", "Answer."])
+  }
+
+  func testTypedSearchRequiresTheProvidersSearchToo() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Searched.")]])
+    let chat = makeChat(cloud: provider, automaticSearch: false, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
+    try await send("/search tide times", to: chat, route: Self.cloudRoute)
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertNotNil(run.request.providerSearch)
+    XCTAssertEqual(run.requiredTool, "web_search")
+    XCTAssertEqual(run.request.messages.last?.content.hasSuffix("Call the web_search tool before you answer."), true)
+  }
+
+  func testWithoutProviderSearchKeepsWebSearchTool() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.openAI])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertNil(run.request.providerSearch)
+    XCTAssertTrue(run.toolNames.contains("web_search"))
+    XCTAssertFalse(run.instructions.contains(Self.providerSearchText))
+  }
+
+  /// CP4 turns ChatGPT on: its turns ask Codex for live web search instead of offering `web_search`.
+  /// The other routes keep Enigma's search until their checkpoints.
+  func testTheShippedProviderSetSearchesOnChatGPTAndClaudeCode() async throws {
+    let codex = SearchCodexTransport(script: [
+      CodexNotification(method: "item/agentMessage/delta", params: .object([
+        "threadId": .string("thread-one"), "turnId": .string("turn-one"), "delta": .string("Answer.")])),
+      CodexNotification(method: "turn/completed", params: .object([
+        "threadId": .string("thread-one"), "turn": .object(["id": .string("turn-one"), "status": .string("completed")])])),
+    ])
+    let chatGPT = makeChat(nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders,
+                           fileCodex: CodexSubscriptionClient(transport: codex))
+    try await send("Hi", to: chatGPT, route: Self.chatGPTRoute)
+    let started = await codex.threadStart
+    let thread = try XCTUnwrap(started)
+    XCTAssertEqual(thread["config"]["web_search"].string, "live")
+    XCTAssertFalse(thread["dynamicTools"].array?.contains { $0["name"].string == "web_search" } ?? true)
+    XCTAssertTrue(thread["developerInstructions"].string?.contains(Self.providerSearchText) == true)
+    XCTAssertEqual(chatGPT.messages.last?.content, "Answer.")
+
+    let claudeCode = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let claudeCodeChat = makeChat(cloud: claudeCode, nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders)
+    try await send("Hi", to: claudeCodeChat, route: Self.claudeCodeRoute)
+    XCTAssertNotNil(claudeCode.runs.first?.request.providerSearch)
+    XCTAssertFalse(claudeCode.runs.first?.toolNames.contains("web_search") ?? true)
+    XCTAssertTrue(claudeCode.runs.first?.instructions.contains(Self.providerSearchText) == true)
+
+    for route in [Self.cloudRoute, Self.openAIRoute, Self.geminiRoute] {
+      let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+      let chat = makeChat(cloud: provider, nativeWebSearchProviders: CloudProviderID.nativeWebSearchProviders)
+      try await send("Hi", to: chat, route: route)
+      XCTAssertNil(provider.runs.first?.request.providerSearch, route.providerID)
+      XCTAssertTrue(provider.runs.first?.toolNames.contains("web_search") == true, route.providerID)
+    }
+  }
+
+  func testProviderSearchNeedsNoKey() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertNotNil(provider.runs.first?.request.providerSearch)
+    XCTAssertTrue(provider.runs.first?.instructions.contains(Self.providerSearchText) == true)
+
+    let none = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let other = makeChat(cloud: none, hasSearchKey: false, nativeWebSearchProviders: [])
+    try await send("Hi", to: other, route: Self.cloudRoute)
+    XCTAssertNil(none.runs.first?.request.providerSearch)
+    XCTAssertFalse(none.runs.first?.toolNames.contains("web_search") == true, "No key and no provider search: no search")
+  }
+
+  /// Owner, 2026-10-29: a turn the user asked to use Messages asks before the provider's search, so
+  /// its reads go into a provider-search request with no restart. Declined, it doesn't search.
+  func testTypedMessagesTurnAsksBeforeProviderSearch() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [[.call("get_messages", Self.aliceRead), .token("Alice says hi.")]])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+    var cards: [ToolPermissionRequest] = []
+    try await send("/messages what did Alice say?", to: chat, route: Self.cloudRoute,
+                   answers: [.conversation, .conversation], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission), [.providerSearchAfterMessages(provider: .anthropic),
+                                             .readChat(chatGUID: MessagesFixture.aliceChat, name: "Alice Smith")])
+    XCTAssertEqual(provider.runs.count, 1, "No restart")
+    XCTAssertNotNil(provider.runs.first?.request.providerSearch)
+    XCTAssertFalse(provider.runs.first?.toolNames.contains("web_search") ?? true)
+    XCTAssertEqual(provider.delivered.map(\.name), ["get_messages"], "The read went into the approved request")
+
+    let declined = ScriptedSearchProvider(runs: [[.token("No new texts.")]])
+    let other = makeChat(cloud: declined, nativeWebSearchProviders: [.anthropic])
+    try await send("/messages who texted me?", to: other, route: Self.cloudRoute, answers: [.deny])
+    XCTAssertNil(declined.runs.first?.request.providerSearch)
+    XCTAssertFalse(declined.runs.first?.toolNames.contains("web_search") ?? true, "Declined: no search, not Brave")
+  }
+
+  /// The footer names the search that ran: the provider's, unless the turn fell back or restarted.
+  func testReplyRecordsWhichSearchRan() async throws {
+    let sources = pageSources(1...1)
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.sourcesSelected(sources)), .token("Found.")],
+      [.fail(.webSearchUnavailable(.anthropic))], [.token("Fell back.")],
+    ])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(chat.messages.last?.origin?.providerSearch, true)
+    let other = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Fell back.")]])
+    let fallback = makeChat(cloud: other, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: fallback, route: Self.cloudRoute)
+    XCTAssertEqual(fallback.messages.last?.content, "Fell back.")
+    XCTAssertEqual(fallback.messages.last?.origin?.providerSearch, false)
+    let (restarted, _) = try restartChat(second: [.token("Alice says hi.")])
+    try await send("What did Alice say?", to: restarted, route: Self.cloudRoute, answers: [.conversation])
+    XCTAssertEqual(restarted.messages.last?.origin?.providerSearch, false)
+  }
+
+  /// Owner, 2026-10-29: a chat holding message text asks, per provider, before the provider's search.
+  /// Allowed, the provider searches; declined, nothing searches, even with a Brave key.
+  func testChatHoldingMessageTextAsksBeforeProviderSearch() async throws {
+    for (hasSearchKey, answer) in [(true, ToolPermissionAnswer.conversation), (true, .deny), (false, .conversation),
+                                   (false, .deny)] {
+      let sessionStore = ChatSessionStore(applicationSupportDirectory: root.appendingPathComponent("\(hasSearchKey)"))
+      var saved = ChatSession(title: "Alice")
+      saved.append(ChatMessage(role: .user, content: "What did Alice say?"))
+      saved.append(ChatMessage(role: .assistant, content: "She said hi."))
+      saved.holdsMessageText = true
+      try sessionStore.save([saved])
+      let provider = ScriptedSearchProvider(runs: [[.call("web_search", #"{"query":"q"}"#), .token("Done.")]])
+      let store = ToolGrantStore(defaults: UserDefaults(suiteName: "\(suiteName!)-\(hasSearchKey)-\(answer)")!)
+      let chat = makeChat(cloud: provider, store: store, sessionStore: sessionStore,
+                          hasSearchKey: hasSearchKey, nativeWebSearchProviders: Set(CloudProviderID.allCases))
+      chat.selectSession(id: saved.id)
+      var cards: [ToolPermissionRequest] = []
+      try await send("Search it", to: chat, route: Self.cloudRoute, answers: [.conversation, answer], cards: &cards)
+      let label = "key \(hasSearchKey), \(answer)"
+      XCTAssertEqual(cards.map(\.permission), [.shareMessageText, .providerSearchAfterMessages(provider: .anthropic)], label)
+      XCTAssertEqual(provider.runs.count, 1, label)
+      let run = try XCTUnwrap(provider.runs.first)
+      XCTAssertEqual(run.request.providerSearch != nil, answer == .conversation, label)
+      XCTAssertEqual(run.instructions.contains(Self.providerSearchText), answer == .conversation, label)
+      XCTAssertFalse(run.toolNames.contains("web_search"), "Never Brave on a provider-search route: \(label)")
+      UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(hasSearchKey)-\(answer)")
+    }
+  }
+
+  /// The grant is per provider, like the location card's: allowing Claude Code doesn't allow the
+  /// Anthropic API or ChatGPT. Always is saved and listed; a granted provider asks nothing.
+  func testProviderSearchAfterMessagesGrantIsPerProvider() async throws {
+    let store = ToolGrantStore(defaults: defaults)
+    func chatHoldingMessageText(_ provider: ScriptedSearchProvider) throws -> LocalChatViewModel {
+      let sessionStore = ChatSessionStore(applicationSupportDirectory: root.appendingPathComponent(UUID().uuidString))
+      var saved = ChatSession(title: "Alice")
+      saved.append(ChatMessage(role: .user, content: "What did Alice say?"))
+      saved.holdsMessageText = true
+      try sessionStore.save([saved])
+      let chat = makeChat(cloud: provider, store: store, sessionStore: sessionStore,
+                          nativeWebSearchProviders: [.claudeCode, .anthropic, .chatGPT])
+      chat.selectSession(id: saved.id)
+      return chat
+    }
+    let first = ScriptedSearchProvider(runs: [[.token("One.")], [.token("Two.")]])
+    let claudeCode = try chatHoldingMessageText(first)
+    var cards: [ToolPermissionRequest] = []
+    try await send("Search it", to: claudeCode, route: Self.claudeCodeRoute, answers: [.conversation, .always], cards: &cards)
+    XCTAssertEqual(cards.last?.permission, .providerSearchAfterMessages(provider: .claudeCode))
+    XCTAssertEqual(cards.last?.title, "Let Claude Code search the web in this chat?")
+    XCTAssertEqual(cards.last?.detail,
+                   "This chat includes text from your messages. Claude Code's web search runs its own queries on Anthropic's servers, and Enigma can't check each one.")
+    XCTAssertTrue(store.alwaysGrants.contains { $0.kind == .providerSearchAfterMessages && $0.provider == .claudeCode })
+    XCTAssertEqual(MessagesSettingsSection.rowText(for: try XCTUnwrap(store.alwaysGrants.first {
+      $0.kind == .providerSearchAfterMessages })), "Let Claude Code search the web after reading messages")
+    cards = []
+    try await send("Again", to: claudeCode, route: Self.claudeCodeRoute, cards: &cards)
+    XCTAssertTrue(cards.isEmpty, "Always: no card")
+    XCTAssertNotNil(first.runs.last?.request.providerSearch)
+
+    let api = ScriptedSearchProvider(runs: [[.token("Three.")]])
+    let anthropic = try chatHoldingMessageText(api)
+    cards = []
+    try await send("Search it", to: anthropic, route: Self.cloudRoute, answers: [.conversation], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission), [.shareMessageText, .providerSearchAfterMessages(provider: .anthropic)],
+                   "Claude Code's grant doesn't cover the Anthropic API")
+    XCTAssertNil(api.runs.first?.request.providerSearch)
+  }
+
+  func testStopWhileProviderSearchCardShowsEndsTheTurn() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Alice")
+    saved.append(ChatMessage(role: .user, content: "What did Alice say?"))
+    saved.holdsMessageText = true
+    try sessionStore.save([saved])
+    let provider = ScriptedSearchProvider(runs: [[.token("Never sent.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore, nativeWebSearchProviders: [.anthropic])
+    chat.selectSession(id: saved.id)
+    let stopped = stopOnProviderSearchCard(chat)
+    chat.submitNative("Search it", route: Self.cloudRoute, plan: plan("Search it", chat: chat))
+    try await waitUntil { stopped().stop != nil }
+    await stopped().stop?.value
+    XCTAssertEqual(stopped().cards.map(\.permission), [.shareMessageText, .providerSearchAfterMessages(provider: .anthropic)])
+    XCTAssertTrue(provider.runs.isEmpty, "Nothing was sent")
+    XCTAssertEqual(chat.state, .idle)
+  }
+
+  /// Answers every card For this conversation, and presses Stop on the provider-search card. Awaiting
+  /// `stop` waits for the turn to unwind.
+  private func stopOnProviderSearchCard(_ chat: LocalChatViewModel)
+    -> () -> (cards: [ToolPermissionRequest], stop: Task<Void, Never>?) {
+    var seen: [ToolPermissionRequest] = []
+    var stop: Task<Void, Never>?
+    let token = chat.toolPermissions.$pending.compactMap { $0 }.sink { request in
+      seen.append(request)
+      Task { @MainActor in
+        if case .providerSearchAfterMessages = request.permission { stop = chat.stopStreaming() }
+        else { chat.toolPermissions.answer(.conversation) }
+      }
+    }
+    return { withExtendedLifetime(token) { (seen, stop) } }
+  }
+
+  func testUnavailableBeforeReplyFallsBackOnce() async throws {
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .fail(.webSearchUnavailable(.anthropic))],
+      [.token("Answer.")],
+      [.token("Second.")],
+    ])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+    var accepted = 0
+    chat.submitNative("Hi", route: Self.cloudRoute, plan: plan("Hi", chat: chat)) { accepted += 1 }
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertNotNil(provider.runs[0].request.providerSearch)
+    XCTAssertNil(provider.runs[1].request.providerSearch)
+    XCTAssertTrue(provider.runs[1].toolNames.contains("web_search"), "Enigma's search, with a key")
+    XCTAssertEqual(chat.messages.map(\.content), ["Hi", "Answer."], "One question and one reply")
+    XCTAssertEqual(accepted, 1)
+    XCTAssertEqual(chat.state, .idle)
+
+    try await send("Again", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.runs.count, 3, "Remembered: no second try")
+    XCTAssertNil(provider.runs[2].request.providerSearch)
+
+    let other = ScriptedSearchProvider(runs: [[.token("Fine.")]])
+    let fresh = makeChat(cloud: other, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: fresh, route: Self.cloudRoute)
+    XCTAssertNotNil(other.runs.first?.request.providerSearch, "Only this run of the app remembers")
+  }
+
+  func testUnavailableFallbackWithoutKeyHasNoSearch() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Answer.")]])
+    let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertNil(provider.runs[1].request.providerSearch)
+    XCTAssertFalse(provider.runs[1].toolNames.contains("web_search"))
+    XCTAssertEqual(chat.messages.last?.content, "Answer.")
+  }
+
+  func testUnavailableAfterReplyStartsDoesNotFallBack() async throws {
+    let source = WebSearchSource(title: "A", url: URL(string: "https://a.com/")!)
+    for start in [ScriptedSearchProvider.Event.token("Partial."), .call("nope", "{}")] {
+      let provider = ScriptedSearchProvider(runs: [
+        [start, .activity(.sourcesSelected([source])), .fail(.webSearchUnavailable(.anthropic))],
+        [.token("Next turn.")],
+      ])
+      let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+      try await send("Hi", to: chat, route: Self.cloudRoute)
+      XCTAssertEqual(provider.runs.count, 1, "\(start)")
+      XCTAssertEqual(chat.state, .failed(CloudProviderError.webSearchUnavailable(.anthropic).localizedDescription))
+      XCTAssertEqual(chat.messages.last?.searchSources, [source], "Sources so far are kept")
+      if case .token = start { XCTAssertEqual(chat.messages.last?.content, "Partial.") }
+      try await send("Again", to: chat, route: Self.cloudRoute)
+      XCTAssertNil(provider.runs.last?.request.providerSearch, "Remembered, so the next turn doesn't try it")
+    }
+  }
+
+  func testProviderSourcesSavedOnReply() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    let early = pageSources(1...2), later = pageSources(2...11)
+    let provider = ScriptedSearchProvider(runs: [[
+      .activity(.phase(.searching)), .activity(.sourcesDiscovered(later)), .activity(.sourcesSelected(early)),
+      .token("Found it."), .activity(.sourcesSelected(later)),
+    ]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let expected = Array(pageSources(1...11).prefix(NativeWebSearch.maximumSources))
+    XCTAssertEqual(chat.messages.last?.searchSources, expected)
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(sessionStore.load().first?.messages.last?.searchSources, expected)
+  }
+
+  func testFailedStreamStillSavesSources() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    let sources = pageSources(1...2)
+    let provider = ScriptedSearchProvider(runs: [[.activity(.sourcesSelected(sources)), .token("Part"), .fail(.offline)]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(chat.state, .failed(CloudProviderError.offline.localizedDescription))
+    XCTAssertEqual(chat.messages.last?.content, "Part")
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertEqual(sessionStore.load().first?.messages.last?.searchSources, sources)
+  }
+
+  func testGeminiNeverGetsProviderSearch() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: Set(CloudProviderID.allCases))
+    try await send("Hi", to: chat, route: Self.geminiRoute)
+    XCTAssertNil(provider.runs.first?.request.providerSearch)
+    XCTAssertTrue(provider.runs.first?.toolNames.contains("web_search") == true)
+  }
+
+  // MARK: The restart (F30)
+
+  /// Reads Alice partway through a provider-search reply; the second run answers.
+  private func restartChat(second: [ScriptedSearchProvider.Event], later: [[ScriptedSearchProvider.Event]] = [],
+                           hasSearchKey: Bool = true, store: ToolGrantStore? = nil,
+                           sessionStore: ChatSessionStore? = nil) throws
+    -> (LocalChatViewModel, ScriptedSearchProvider) {
+    let folder = root.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let database = MessagesDatabase(url: try MessagesFixture(directory: folder).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .activity(.sourcesSelected(pageSources(1...1))), .token("Searching first."),
+       .call("get_messages", Self.aliceRead), .token("Never shown.")],
+      second,
+    ] + later)
+    let chat = makeChat(cloud: provider, messagesDatabase: database, store: store, sessionStore: sessionStore,
+                        hasSearchKey: hasSearchKey, nativeWebSearchProviders: [.anthropic])
+    return (chat, provider)
+  }
+
+  func testMessageTextHoldsResultAndRestarts() async throws {
+    let (chat, provider) = try restartChat(second: [.token("Alice says hi.")])
+    var cards: [ToolPermissionRequest] = []
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation], cards: &cards)
+    XCTAssertTrue(provider.delivered.isEmpty, "The read's result never reached the provider")
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertEqual(chat.messages.map(\.content), ["What did Alice say?", "Alice says hi."], "The reply restarted")
+    XCTAssertNil(chat.messages.last?.searchSources, "The stopped request's sources are dropped")
+    XCTAssertEqual(chat.selectedSession?.holdsMessageText, true)
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat, .providerSearchAfterMessages],
+                   "The second run asks before the provider searches again")
+  }
+
+  /// Search hits and allowed chat previews are message text too: each restarts like a read.
+  func testSearchHitsAndPreviewsRestartToo() async throws {
+    // The second run's provider-search card is declined; a search asks its own card first.
+    let calls = [("search_messages", #"{"query":"Luna"}"#, [ToolPermissionAnswer.conversation, .deny]),
+                 ("list_conversations", "{}", [.deny])]
+    for (name, arguments, answers) in calls {
+      let folder = root.appendingPathComponent(name)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      let database = MessagesDatabase(url: try MessagesFixture(directory: folder).url)
+      let store = ToolGrantStore(defaults: UserDefaults(suiteName: "\(suiteName!)-\(name)")!)
+      // Previews show text only for a chat already allowed.
+      store.record(.always, for: .readChat(chatGUID: MessagesFixture.aliceChat, name: "Alice"), destination: .anthropic,
+                   session: UUID())
+      let provider = ScriptedSearchProvider(runs: [
+        [.activity(.sourcesSelected(pageSources(1...1))), .token("Looking."), .call(name, arguments)],
+        [.token("Done.")],
+      ])
+      let chat = makeChat(cloud: provider, messagesDatabase: database, store: store, nativeWebSearchProviders: [.anthropic])
+      try await send("Who mentioned Luna?", to: chat, route: Self.cloudRoute, answers: answers)
+      XCTAssertTrue(provider.delivered.isEmpty, "\(name)'s result never reached the provider")
+      XCTAssertEqual(provider.runs.count, 2, name)
+      XCTAssertNil(provider.runs[1].request.providerSearch, name)
+      XCTAssertEqual(chat.messages.last?.content, "Done.", name)
+      XCTAssertNil(chat.messages.last?.searchSources, name)
+      UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(name)")
+    }
+  }
+
+  /// Owner, 2026-10-29: the second run asks the provider-search card; allowed, the provider searches
+  /// again and its read is delivered, so the turn restarts only once.
+  func testRestartAsksThenSearchesWithTheProvider() async throws {
+    let (chat, provider) = try restartChat(second: [.call("get_messages", Self.aliceRead), .token("Done.")])
+    var cards: [ToolPermissionRequest] = []
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation, .conversation],
+                   cards: &cards)
+    XCTAssertEqual(provider.runs.count, 2, "Once")
+    let second = provider.runs[1]
+    XCTAssertNotNil(second.request.providerSearch)
+    XCTAssertFalse(second.toolNames.contains("web_search"), "Never Brave")
+    XCTAssertTrue(second.instructions.contains(Self.providerSearchText))
+    XCTAssertEqual(provider.delivered.map(\.name), ["get_messages"], "The second run's read doesn't restart")
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat, .providerSearchAfterMessages])
+    XCTAssertEqual(chat.messages.last?.content, "Done.")
+    XCTAssertEqual(chat.messages.last?.origin?.providerSearch, true)
+  }
+
+  /// Declined on the second run, there's no search at all, with or without a Brave key.
+  func testRestartDeclinedHasNoSearch() async throws {
+    for hasSearchKey in [true, false] {
+      let (chat, provider) = try restartChat(second: [.token("Done.")], hasSearchKey: hasSearchKey)
+      try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation, .deny])
+      XCTAssertEqual(provider.runs.count, 2)
+      XCTAssertNil(provider.runs[1].request.providerSearch)
+      XCTAssertFalse(provider.runs[1].toolNames.contains("web_search"), "key \(hasSearchKey)")
+    }
+  }
+
+  func testRestartKeepsTheReadGrant() async throws {
+    let (chat, provider) = try restartChat(second: [.call("get_messages", Self.aliceRead), .token("Done.")])
+    var cards: [ToolPermissionRequest] = []
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat, .providerSearchAfterMessages], "The second read asks nothing")
+    XCTAssertEqual(provider.delivered.map(\.name), ["get_messages"])
+    XCTAssertTrue(provider.delivered.first?.text.contains("messages") == true)
+  }
+
+  func testStopWhileRestartCardShowsEndsTheTurn() async throws {
+    let (chat, provider) = try restartChat(second: [.token("Never sent.")])
+    let stopped = stopOnProviderSearchCard(chat)
+    chat.submitNative("What did Alice say?", route: Self.cloudRoute, plan: plan("What did Alice say?", chat: chat))
+    try await waitUntil { stopped().stop != nil }
+    await stopped().stop?.value
+    XCTAssertEqual(stopped().cards.map(\.permission.kind), [.readChat, .providerSearchAfterMessages])
+    XCTAssertEqual(provider.runs.count, 1, "No second run")
+    XCTAssertTrue(provider.delivered.isEmpty)
+    XCTAssertEqual(chat.state, .idle)
+  }
+
+  /// A provider already allowed (here Always) gets the read partway through, with no restart or card.
+  func testGrantedProviderSearchDoesNotRestart() async throws {
+    let store = ToolGrantStore(defaults: defaults)
+    store.record(.always, for: .providerSearchAfterMessages(provider: .anthropic), destination: .anthropic, session: UUID())
+    let (chat, provider) = try restartChat(second: [.token("Never run.")], store: store)
+    var cards: [ToolPermissionRequest] = []
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation], cards: &cards)
+    XCTAssertEqual(provider.runs.count, 1)
+    XCTAssertEqual(provider.delivered.map(\.name), ["get_messages"])
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat])
+    XCTAssertEqual(chat.messages.last?.content, "Searching first.Never shown.")
+  }
+
+  /// A For this conversation grant counts in its own chat only.
+  func testConversationGrantSkipsTheRestartInItsChatOnly() async throws {
+    for sameChat in [true, false] {
+      let sessionStore = ChatSessionStore(applicationSupportDirectory: root.appendingPathComponent(UUID().uuidString))
+      var saved = ChatSession(title: "Earlier")
+      saved.append(ChatMessage(role: .user, content: "Hi"))
+      try sessionStore.save([saved])
+      let store = ToolGrantStore(defaults: UserDefaults(suiteName: "\(suiteName!)-\(sameChat)")!)
+      store.record(.conversation, for: .providerSearchAfterMessages(provider: .anthropic), destination: .anthropic,
+                   session: sameChat ? saved.id : UUID())
+      let (chat, provider) = try restartChat(second: [.token("Done.")], store: store, sessionStore: sessionStore)
+      chat.selectSession(id: saved.id)
+      try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation, .deny])
+      XCTAssertEqual(provider.runs.count, sameChat ? 1 : 2, "same chat \(sameChat)")
+      XCTAssertEqual(provider.delivered.map(\.name), sameChat ? ["get_messages"] : [], "same chat \(sameChat)")
+      UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(sameChat)")
+    }
+  }
+
+  /// Allowed on the restart, then unavailable before the second run's reply: the third run has
+  /// Enigma's search, and the turn ends there.
+  func testRestartThenUnavailableFallsBack() async throws {
+    let (chat, provider) = try restartChat(second: [.fail(.webSearchUnavailable(.anthropic))],
+                                           later: [[.token("Done.")]])
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation, .conversation])
+    XCTAssertEqual(provider.runs.count, 3)
+    XCTAssertNotNil(provider.runs[1].request.providerSearch)
+    XCTAssertNil(provider.runs[2].request.providerSearch)
+    XCTAssertTrue(provider.runs[2].toolNames.contains("web_search"), "Enigma's search, behind its card")
+    XCTAssertTrue(provider.delivered.isEmpty)
+    XCTAssertEqual(chat.messages.last?.content, "Done.")
+  }
+
+  func testDeclinedReadDoesNotRestart() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [[.call("get_messages", Self.aliceRead), .token("Okay.")]])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.deny])
+    XCTAssertEqual(provider.runs.count, 1)
+    XCTAssertEqual(provider.delivered, [.init(name: "get_messages", text: MessagesTools.declinedResult)])
+    XCTAssertEqual(chat.messages.last?.content, "Okay.")
+    XCTAssertNotEqual(chat.selectedSession?.holdsMessageText, true)
+  }
+
+  func testStopDuringRestartEndsTheTurn() async throws {
+    let (chat, provider) = try restartChat(second: [.token("Should not run.")])
+    provider.beforeStop = { await MainActor.run { _ = chat.stopStreaming() } }
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation])
+    XCTAssertEqual(provider.runs.count, 1, "No second request")
+    XCTAssertNil(chat.activeRequest)
+    XCTAssertEqual(chat.state, .idle)
+    XCTAssertFalse(chat.messages.contains { $0.content.contains("Should not run.") })
+  }
+
+  /// A send is never repeated: the restarted run shares the first run's send ledger.
+  func testRestartDoesNotSendTwice() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let runner = RecordingRunner()
+    let sendCall = #"{"recipient":"\#(MessagesFixture.aliceChat)","text":"On my way"}"#
+    let provider = ScriptedSearchProvider(runs: [
+      [.call("send_message", sendCall), .call("get_messages", Self.aliceRead)],
+      [.call("send_message", sendCall), .token("Sent earlier.")],
+    ])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic],
+                        sendRunner: runner)
+    var approvals = 0
+    let token = chat.appleMessages.$pendingSend.compactMap { $0 }.sink { _ in
+      approvals += 1
+      Task { @MainActor in chat.appleMessages.answer(true) }
+    }
+    try await send("Tell Alice I'm on my way, then show me her chat", to: chat, route: Self.cloudRoute,
+                   answers: [.conversation])
+    token.cancel()
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertEqual(approvals, 1, "The repeat asks nothing")
+    XCTAssertEqual(runner.invocations.count, 1, "Alice gets one message")
+    XCTAssertEqual(provider.delivered.map(\.name), ["send_message", "send_message"])
+    XCTAssertEqual(provider.delivered.last?.text, MessagesError.duplicateSend.localizedDescription)
+  }
+
+  func testRestartIsNotShownAsStop() async throws {
+    let (chat, _) = try restartChat(second: [.token("Alice says hi.")])
+    var phases: [AssistantActivity.Phase] = []
+    let token = chat.$activity.compactMap { $0?.phase }.sink { phases.append($0) }
+    try await send("What did Alice say?", to: chat, route: Self.cloudRoute, answers: [.conversation])
+    token.cancel()
+    XCTAssertEqual(chat.state, .idle)
+    XCTAssertFalse(phases.contains(.cancelled))
+    XCTAssertFalse(phases.contains(.failed))
+    XCTAssertEqual(chat.messages.last?.activity?.phase, .completed)
+  }
+
+  // MARK: The location card (F30, spec §2a)
+
+  static let austin = ApproximateLocation(latitude: 30.27, longitude: -97.74, area: "Austin, TX", city: "Austin",
+                                          region: "TX", countryCode: "US")
+  static let austinArea = "Austin, TX, United States"
+  static let nearby = "Coffee shops near me"
+  static let askClause = "ask which city they mean"
+
+  /// Sends `prompt` and returns the cards shown, with how many requests reached the provider when each showed.
+  private func sendNearby(_ prompt: String = nearby, to chat: LocalChatViewModel, route: Route,
+                          provider: ScriptedSearchProvider, answers: [ToolPermissionAnswer])
+    async throws -> [(request: ToolPermissionRequest, runsBefore: Int)] {
+    var shown: [(ToolPermissionRequest, Int)] = []
+    var remaining = answers
+    let token = chat.toolPermissions.$pending.compactMap { $0 }.sink { request in
+      shown.append((request, provider.runs.count))
+      let answer = remaining.isEmpty ? ToolPermissionAnswer.deny : remaining.removeFirst()
+      Task { @MainActor in chat.toolPermissions.answer(answer) }
+    }
+    chat.submitNative(prompt, route: route, plan: plan(prompt, chat: chat))
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    token.cancel()
+    return shown
+  }
+
+  func testNearbyQuestionAsksBeforeProviderSearch() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Try Epoch.")], [.token("Again.")]])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.openAI], locationProvider: location)
+    let cards = try await sendNearby(to: chat, route: Self.openAIRoute, provider: provider, answers: [.conversation])
+    XCTAssertEqual(cards.count, 1)
+    let card = try XCTUnwrap(cards.first)
+    XCTAssertEqual(card.runsBefore, 0, "Nothing reached the provider before the answer")
+    XCTAssertEqual(card.request.permission, .shareLocation(provider: .openAI, area: Self.austinArea))
+    XCTAssertEqual(card.request.title, "Share your location with OpenAI?")
+    XCTAssertEqual(card.request.detail,
+                   "OpenAI's web search will use Austin, TX, United States to find nearby results. Enigma never sends your exact position.")
+    XCTAssertTrue(card.request.offersAlways)
+    let sent = try XCTUnwrap(provider.runs.first?.request.providerSearch?.location)
+    XCTAssertEqual(sent, ProviderSearchLocation(city: "Austin", region: "TX", countryCode: "US",
+                                                timeZone: TimeZone.current.identifier))
+    XCTAssertTrue(provider.runs[0].instructions.contains("The user's approximate location is \(Self.austinArea);"))
+    XCTAssertFalse(provider.runs[0].instructions.contains(Self.askClause))
+
+    // For this conversation: the next nearby question asks nothing, and looks the area up again.
+    let again = try await sendNearby("Will it rain today?", to: chat, route: Self.openAIRoute, provider: provider, answers: [])
+    XCTAssertTrue(again.isEmpty)
+    XCTAssertNotNil(provider.runs[1].request.providerSearch?.location)
+    XCTAssertEqual(location.calls, 2)
+  }
+
+  func testLocationDeclinedSendsNothing() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Which city?")], [.token("Which city?")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: NativeLocation(.success(Self.austin)))
+    let first = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.deny])
+    XCTAssertEqual(first.map(\.request.permission), [.shareLocation(provider: .anthropic, area: Self.austinArea)])
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertNotNil(run.request.providerSearch)
+    XCTAssertNil(run.request.providerSearch?.location)
+    XCTAssertTrue(run.instructions.contains(Self.askClause))
+    XCTAssertFalse(run.instructions.contains("Austin"))
+    let second = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.deny])
+    XCTAssertEqual(second.count, 1, "The card comes back for the next nearby question")
+  }
+
+  func testLocationGrantIsPerProvider() async throws {
+    // ChatGPT and the OpenAI API share a ToolDestination; their location grants don't.
+    let store = ToolGrantStore(defaults: defaults)
+    let session = UUID()
+    for (granted, other) in [(CloudProviderID.chatGPT, CloudProviderID.openAI), (.openAI, .chatGPT),
+                             (.claudeCode, .anthropic), (.anthropic, .claudeCode)] {
+      let fresh = ToolGrantStore(defaults: UserDefaults(suiteName: "\(suiteName!)-\(granted)")!)
+      for (target, answer) in [(store, ToolPermissionAnswer.conversation), (fresh, .always)] {
+        let destination = ToolDestination(route: Route(mode: .cloud, providerID: granted.rawValue, modelID: "m", usesNetwork: true))!
+        target.record(answer, for: .shareLocation(provider: granted, area: "Austin"), destination: destination, session: session)
+        XCTAssertTrue(target.isGranted(.shareLocation(provider: granted, area: "Elsewhere"), destination: destination, session: session))
+        XCTAssertFalse(target.isGranted(.shareLocation(provider: other, area: "Austin"), destination: destination, session: session),
+                       "\(granted) covers \(other)")
+        if target === store { store.endSession(session) }
+      }
+      UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(granted)")
+    }
+
+    // In a chat: Always for Claude Code still asks on the Anthropic API, and the other way round.
+    for (first, second) in [(Self.claudeCodeRoute, Self.cloudRoute), (Self.cloudRoute, Self.claudeCodeRoute)] {
+      let provider = ScriptedSearchProvider(runs: [[.token("One.")], [.token("Two.")]])
+      let chat = makeChat(cloud: provider, store: ToolGrantStore(defaults: UserDefaults(suiteName: "\(suiteName!)-chat")!),
+                          nativeWebSearchProviders: [.anthropic, .claudeCode],
+                          locationProvider: NativeLocation(.success(Self.austin)))
+      let shown = try await sendNearby(to: chat, route: first, provider: provider, answers: [.always])
+      XCTAssertEqual(shown.count, 1)
+      let next = try await sendNearby(to: chat, route: second, provider: provider, answers: [.deny])
+      XCTAssertEqual(next.map(\.runsBefore), [1], "\(second.providerID) asks again before sending")
+      XCTAssertNil(provider.runs[1].request.providerSearch?.location)
+      UserDefaults().removePersistentDomain(forName: "\(suiteName!)-chat")
+    }
+  }
+
+  func testStopWhileLocationCardShowsEndsTheTurn() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Should not run.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: NativeLocation(.success(Self.austin)))
+    var cards: [ToolPermissionRequest] = []
+    let token = chat.toolPermissions.$pending.compactMap { $0 }.sink { request in
+      cards.append(request)
+      Task { @MainActor in _ = chat.stopStreaming() }
+    }
+    var accepted = false
+    chat.submitNative(Self.nearby, route: Self.cloudRoute, plan: plan(Self.nearby, chat: chat)) { accepted = true }
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    token.cancel()
+    XCTAssertEqual(cards.map(\.permission.kind), [.shareLocation])
+    XCTAssertTrue(provider.runs.isEmpty, "Nothing is sent after Stop")
+    XCTAssertFalse(accepted)
+    XCTAssertEqual(chat.state, .idle)
+  }
+
+  func testNoLocationCardWithoutNearbyQuestion() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Swift 7.")]])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic], locationProvider: location)
+    let cards = try await sendNearby("What's new in Swift? Weather in Paris tomorrow?", to: chat, route: Self.cloudRoute,
+                                     provider: provider, answers: [.always])
+    XCTAssertTrue(cards.isEmpty)
+    XCTAssertEqual(location.calls, 0, "The location isn't even looked up")
+    XCTAssertNil(provider.runs.first?.request.providerSearch?.location)
+  }
+
+  func testNoLocationCardWhenLocationOff() async throws {
+    let suite = UserDefaults(suiteName: "\(suiteName!)-location")!
+    let service = LocationService(defaults: suite)
+    service.isEnabled = false
+    let provider = ScriptedSearchProvider(runs: [[.token("Which city?")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic], locationProvider: service)
+    let cards = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.always])
+    XCTAssertTrue(cards.isEmpty)
+    XCTAssertNotNil(provider.runs.first?.request.providerSearch)
+    XCTAssertNil(provider.runs.first?.request.providerSearch?.location)
+    XCTAssertTrue(provider.runs.first?.instructions.contains(Self.askClause) == true)
+    UserDefaults().removePersistentDomain(forName: "\(suiteName!)-location")
+  }
+
+  func testNoLocationCardWhenLocationUnavailable() async throws {
+    let onlyCoordinates = ApproximateLocation(latitude: 30.27, longitude: -97.74)
+    for result in [Result<ApproximateLocation, Error>.failure(LocationError.unavailable), .success(onlyCoordinates)] {
+      let provider = ScriptedSearchProvider(runs: [[.token("Which city?")]])
+      let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic], locationProvider: NativeLocation(result))
+      let cards = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.always])
+      XCTAssertTrue(cards.isEmpty, "No area, no card")
+      XCTAssertEqual(provider.runs.count, 1, "The turn goes on")
+      XCTAssertNil(provider.runs.first?.request.providerSearch?.location)
+      XCTAssertTrue(provider.runs.first?.instructions.contains(Self.askClause) == true)
+    }
+  }
+
+  func testNoLocationCardOnEnigmaSearch() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [], locationProvider: location)
+    let cards = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.always])
+    XCTAssertTrue(cards.isEmpty)
+    XCTAssertEqual(location.calls, 0)
+    XCTAssertNil(provider.runs.first?.request.providerSearch)
+  }
+
+  func testNoLocationCardAfterRestart() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.token("Looking."), .call("get_messages", Self.aliceRead)],
+      [.call("get_messages", Self.aliceRead), .token("Done.")],
+    ])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: location)
+    let cards = try await sendNearby("Did Alice text about coffee near me?", to: chat, route: Self.cloudRoute,
+                                     provider: provider, answers: [.conversation, .conversation])
+    XCTAssertEqual(cards.map(\.request.permission.kind), [.shareLocation, .readChat, .providerSearchAfterMessages],
+                   "No second location card")
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertNotNil(provider.runs[0].request.providerSearch?.location)
+    XCTAssertNil(provider.runs[1].request.providerSearch, "Declined on the second run: no provider search")
+    XCTAssertFalse(provider.runs[1].instructions.contains("Austin"))
+    XCTAssertEqual(location.calls, 1)
+  }
+
+  /// Allowed on the second run, the provider searches again with the area the user already
+  /// shared for this turn, without a second location card.
+  func testRestartAllowedKeepsTheLocation() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.token("Looking."), .call("get_messages", Self.aliceRead)],
+      [.call("get_messages", Self.aliceRead), .token("Done.")],
+    ])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: location)
+    let cards = try await sendNearby("Did Alice text about coffee near me?", to: chat, route: Self.cloudRoute,
+                                     provider: provider, answers: [.conversation, .conversation, .conversation])
+    XCTAssertEqual(cards.map(\.request.permission.kind), [.shareLocation, .readChat, .providerSearchAfterMessages])
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertEqual(provider.runs[1].request.providerSearch?.location, provider.runs[0].request.providerSearch?.location)
+    XCTAssertNotNil(provider.runs[1].request.providerSearch?.location)
+    XCTAssertTrue(provider.runs[1].instructions.contains("Austin"))
+    XCTAssertEqual(location.calls, 1)
+    XCTAssertEqual(provider.delivered.map(\.name), ["get_messages"])
+  }
+
+  func testAlwaysLocationGrantSurvivesAndIsListed() throws {
+    // An F32 grant saved before this change still decodes.
+    let old = #"[{"kind":"readChat","chatGUID":"g","chatName":"Mom","destination":"anthropic"}]"#
+    defaults.set(Data(old.utf8), forKey: ToolGrantStore.defaultsKey)
+    let store = ToolGrantStore(defaults: defaults)
+    XCTAssertEqual(store.alwaysGrants, [ToolAlwaysGrant(kind: .readChat, chatGUID: "g", chatName: "Mom", destination: .anthropic)])
+    XCTAssertTrue(store.isGranted(.readChat(chatGUID: "g", name: "Mom"), destination: .anthropic, session: UUID()))
+
+    store.record(.always, for: .shareLocation(provider: .claudeCode, area: Self.austinArea), destination: .anthropic,
+                 session: UUID())
+    let reopened = ToolGrantStore(defaults: defaults)
+    let grant = try XCTUnwrap(reopened.alwaysGrants.last)
+    XCTAssertEqual(grant.kind, .shareLocation)
+    XCTAssertEqual(grant.provider, .claudeCode)
+    XCTAssertNil(grant.destination)
+    XCTAssertNil(grant.chatName, "The area is never saved")
+    XCTAssertFalse(String(decoding: defaults.data(forKey: ToolGrantStore.defaultsKey) ?? Data(), as: UTF8.self).contains("Austin"))
+    XCTAssertTrue(reopened.isGranted(.shareLocation(provider: .claudeCode, area: "Elsewhere"), destination: .anthropic,
+                                     session: UUID()))
+    XCTAssertEqual(MessagesSettingsSection.rowText(for: grant), "Share your location with web search · Claude Code")
+    reopened.remove(grant)
+    XCTAssertEqual(ToolGrantStore(defaults: defaults).alwaysGrants.count, 1)
+    XCTAssertFalse(reopened.isGranted(.shareLocation(provider: .claudeCode, area: "Austin"), destination: .anthropic,
+                                      session: UUID()))
+  }
+
+  func testApproximateLocationForProviderSearchHasNoCoordinates() {
+    let location = ApproximateLocation(latitude: 48.86, longitude: 2.35, area: "Paris, France", city: "Paris",
+                                       region: nil, countryCode: "FR")
+    let shared = location.providerSearchLocation
+    XCTAssertEqual(shared, ProviderSearchLocation(city: "Paris", region: nil, countryCode: "FR",
+                                                  timeZone: TimeZone.current.identifier))
+    XCTAssertEqual(shared.displayName, "Paris, France")
+    for text in [String(describing: shared), shared.displayName] {
+      XCTAssertFalse(text.contains("48.86") || text.contains("2.35"), text)
+    }
+    XCTAssertEqual(ApproximateLocation(latitude: 1, longitude: 2).providerSearchLocation.displayName, "")
+    XCTAssertEqual(LocationService.region(cityWithContext: "Cupertino, CA", city: "Cupertino", country: "United States"), "CA")
+    XCTAssertNil(LocationService.region(cityWithContext: "Paris, France", city: "Paris", country: "France"))
+    XCTAssertNil(LocationService.region(cityWithContext: "Paris", city: "Paris", country: "France"))
+    XCTAssertNil(LocationService.region(cityWithContext: "Somewhere, X", city: nil, country: nil))
+  }
+
   // MARK: Results
 
   func testSourcesAttachToReply() async throws {
@@ -1024,6 +1837,17 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
   }
 }
 
+@MainActor
+final class NativeLocation: LocationProviding {
+  private(set) var calls = 0
+  let result: Result<ApproximateLocation, Error>
+  init(_ result: Result<ApproximateLocation, Error>) { self.result = result }
+  func currentLocation() async throws -> ApproximateLocation {
+    calls += 1
+    return try result.get()
+  }
+}
+
 final class NativeSearchProvider: WebSearchProvider, @unchecked Sendable {
   let results: [WebSearchResult]
   let queries = LockedStrings()
@@ -1035,7 +1859,8 @@ final class NativeSearchProvider: WebSearchProvider, @unchecked Sendable {
 }
 
 struct NativeSearchCredentials: WebSearchCredentialStore {
-  func apiKey() throws -> String? { "test-key" }
+  var key: String? = "test-key"
+  func apiKey() throws -> String? { key }
   func setAPIKey(_ value: String) throws {}
   func removeAPIKey() throws {}
 }

@@ -51,6 +51,23 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case .gemini: "Gemini"
     }
   }
+
+  /// The provider's name as cards and Settings show it, without the route (F30 location card).
+  var shortName: String {
+    switch self {
+    case .chatGPT: "ChatGPT"
+    case .claudeCode: "Claude Code"
+    case .openAI: "OpenAI"
+    case .anthropic: "Anthropic"
+    case .gemini: "Gemini"
+    }
+  }
+
+  /// The providers whose own web search is on (F30), each after its live check passed: ChatGPT
+  /// (CP4) and Claude Code (CP5); never `.gemini`.
+  static let nativeWebSearchProviders: Set<CloudProviderID> = [.chatGPT, .claudeCode]
+
+  var supportsNativeWebSearch: Bool { Self.nativeWebSearchProviders.contains(self) }
 }
 
 struct CloudModel: Codable, Equatable, Identifiable, Sendable {
@@ -117,6 +134,8 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
   case requestFailed(statusCode: Int, message: String?)
   case streamEndedUnexpectedly
   case providerMessage(String)
+  /// The provider's own web search can't be used with this model or account (F30).
+  case webSearchUnavailable(CloudProviderID)
 
   var errorDescription: String? {
     switch self {
@@ -139,6 +158,8 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
       "The cloud response ended before it completed."
     case .providerMessage(let message):
       message
+    case .webSearchUnavailable:
+      "Web search isn't available for this model."
     }
   }
 }

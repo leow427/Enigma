@@ -9,7 +9,7 @@ work anywhere in a message and are highlighted as you type.
 
 | Command | Shown description | What it does |
 | --- | --- | --- |
-| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved. See [Web Search](Web-Search.md). |
+| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved; typed anyway on ChatGPT or Claude Code, it uses the provider's own search. See [Web Search](Web-Search.md). |
 | `/screen` | Capture all displays | Captures every display, then asks about it. See [Screen](Screen-Skill.md). |
 | `/snapshot` | Select a screen region to capture | Lets you drag out a region of the screen, then asks about it. |
 | `/think` | Think more deeply for this answer | Asks the model to reason more carefully for this answer, with a larger answer allowance on local models and a higher reasoning effort on cloud models that support it. Works with File Mode and `/messages` too. |
@@ -98,14 +98,17 @@ Each has a **native tools** flag; see
 [Local models](Local-Model-Selection.md#native-tools) for the list. On a flagged
 route, every message offers the model the tools that apply:
 
-- `web_search`, when automatic search is on and a Brave key is saved;
+- a web search tool, when automatic search is on: `web_search` when a Brave key
+  is saved, or on ChatGPT and Claude Code the provider's own search, with no key
+  (see [Web Search](Web-Search.md#cloud-models-own-search));
 - the Messages tools, while Enigma has Full Disk Access;
 - `propose_edit` and `propose_translation`, when Selection Context is attached.
 
 The model picks a tool, writes its own arguments, or answers without one.
 Nothing is recognized from your wording and no chips are shown. Reading a chat,
 searching all your chats, and a web search once message text is in the chat each
-ask you first in a card; see [Messages](Messages.md#permission-cards).
+ask you first in a card (for ChatGPT's or Claude Code's own search, one card per
+chat); see [Messages](Messages.md#permission-cards).
 
 Typed commands still work, and turn a choice into a request:
 

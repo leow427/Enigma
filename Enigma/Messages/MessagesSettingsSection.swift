@@ -17,6 +17,8 @@ struct MessagesSettingsSection: View {
     case .searchChats: "Search all your messages · \(destination)"
     case .searchAfterMessages: "Search the web after reading messages"
     case .shareMessageText: "Send text from your messages · \(destination)"
+    case .shareLocation: "Share your location with web search · \(grant.provider?.shortName ?? "")"
+    case .providerSearchAfterMessages: "Let \(grant.provider?.shortName ?? "a provider") search the web after reading messages"
     }
   }
 

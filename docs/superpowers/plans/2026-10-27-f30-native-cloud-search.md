@@ -4,9 +4,12 @@ This plan drives **F30** in `to-do.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to build your checkpoint yourself, task by task. Steps use checkbox (`- [ ]`) syntax for tracking. Here, each checkpoint is one worker's job, in a chat the owner starts; the worker starts its own reviewers. Read [agent-workflow.md](2026-10-27-f30-native-cloud-search/agent-workflow.md), then your checkpoint's brief. They and the spec are all you need.
 
-**Goal:** On OpenAI, Anthropic, ChatGPT (Codex) and Claude Code, a flagged
-cloud model searches with its provider's own search tool, with no Brave key,
-in chats that hold no message text. Enigma's `web_search` covers the rest.
+**Goal:** On ChatGPT (Codex) and Claude Code, a flagged cloud model searches
+with its provider's own search tool, with no Brave key; in chats that hold
+message text, only after the user allows it on a per-provider card (amended
+2026-10-29). Enigma's `web_search` covers the rest, including the OpenAI and
+Anthropic API routes, whose checkpoints (CP2, CP3) are deferred (owner,
+2026-10-29).
 
 **Architecture:**
 
@@ -23,8 +26,9 @@ in chats that hold no message text. Enigma's `web_search` covers the rest.
    `CloudProviderError.webSearchUnavailable` before the reply starts; the
    turn runs again with the plan made again.
 5. If a Messages tool is about to return message text into a
-   provider-search request, the gate holds the result back and raises
-   `ProviderSearchRestart`; the turn runs again without provider search.
+   provider-search request the user hasn't allowed, the gate holds the result
+   back and raises `ProviderSearchRestart`; the turn runs again after the
+   provider-search card (amended 2026-10-29).
 
 **Tech Stack:**
 
@@ -67,8 +71,9 @@ on-device provider, no blocked-sites list.
   and record the mapping in CP0's Hand-off.
 - **Turning providers on.**
   - `CloudProviderID.nativeWebSearchProviders` is `[]` after CP1.
-  - CP2 adds `.openAI`, CP3 `.anthropic`, CP4 `.chatGPT` and CP5
-    `.claudeCode`, each only after its live check passes.
+  - CP4 adds `.chatGPT` and CP5 `.claudeCode`, each only after its live
+    check passes. CP2 (`.openAI`) and CP3 (`.anthropic`) are deferred
+    (owner, 2026-10-29): the API routes keep Enigma's `web_search`.
   - A provider whose account the owner can't provide stays off, and the
     Hand-off says so.
   - `.gemini` is never added.
@@ -81,14 +86,18 @@ on-device provider, no blocked-sites list.
   | Sources shown and saved | At most 8, as `NativeWebSearch.maximumSources` (F29 later sets `WebSearchLimits.maximumSources` to the same 8; Brave's own cap stays 10) |
   | Restarts per turn | At most 1 |
   | Anthropic continuations after `pause_turn` | At most 3 per step, outside F32's 12-step limit |
-  | Anthropic tool | `web_search_20260318` with `max_uses: 5` and `response_inclusion: "excluded"` for the reviewed model prefixes; `web_search_20250305` with `max_uses: 5` otherwise |
+  | Anthropic tool | `web_search_20260318` with `max_uses: 5` and `response_inclusion: "full"` (owner, 2026-10-29) for the reviewed model prefixes; `web_search_20250305` with `max_uses: 5` otherwise |
   | OpenAI fields | `{"type": "web_search"}` in `tools`, `include: ["web_search_call.action.sources"]`, `max_tool_calls: 5` if CP0 confirms it counts only built-in calls |
   | Codex | `config.web_search` is `"live"`, or `"cached"` when the workspace allows only that |
   | Claude Code | `--tools WebSearch`, and `WebSearch` in `--allowedTools` beside F32's MCP tool names |
 
 - **Privacy:**
-  - No location ever reaches a provider's search: no `user_location`, and
-    no Codex `tools.web_search.location`.
+  - Location reaches a provider's search only as spec §2a allows (owner,
+    2026-10-29, replacing "never"): a nearby question, after the user allows
+    it on that provider's card (grants keyed by `CloudProviderID`, never
+    shared between providers), as city, region, country and time zone,
+    never coordinates. `user_location` (OpenAI, Anthropic), Codex
+    `tools.web_search.location`, and the near-me clause on Claude Code.
   - No provider search in a chat that holds message text, and no message
     text in a provider-search request: the restart (spec §2) is enforced in
     the gate, in Swift.
@@ -120,23 +129,25 @@ on-device provider, no blocked-sites list.
 
 ## Review Focus
 
-Six inputs the spec implies but doesn't spell out, most likely first. Each
+Seven inputs the spec implies but doesn't spell out, most likely first. Each
 is pinned by a test in the checkpoint that owns the code:
 
 1. **The model reads a chat partway through a provider-search reply,**
    after it has already searched and written some text.
-   - **Expected:** the read's result never reaches the provider; the reply
-     on screen restarts; the second run has `.enigma` search behind gate 3
-     (or none without a Brave key); the read isn't asked again; it happens
-     once.
-   - **Pinned by:** CP1 `testMessageTextHoldsResultAndRestarts`,
-     `testRestartRunsOnceWithoutProviderSearch` and
-     `testRestartKeepsTheReadGrant`; CP2–CP5 each
+   - **Expected (amended 2026-10-29, owner):** the read's result never
+     reaches the provider; the reply on screen restarts; the second run asks
+     the provider-search card, and has provider search if allowed, no search
+     if declined; the read isn't asked again; it happens once. A provider
+     already allowed doesn't restart.
+   - **Pinned by:** CP1 `testMessageTextHoldsResultAndRestarts` and
+     `testRestartKeepsTheReadGrant`; CP6 audit
+     `testRestartAsksThenSearchesWithTheProvider`,
+     `testRestartDeclinedHasNoSearch`, `testGrantedProviderSearchDoesNotRestart`; CP4 and CP5 each
      `test<Provider>RestartDeliversNothing`.
 2. **A chat reopened from Recents that holds message text.**
-   - **Expected:** no provider search on any route; Enigma's `web_search`
-     behind gate 3 if a Brave key is saved, otherwise no search.
-   - **Pinned by:** CP1 `testChatHoldingMessageTextNeverGetsProviderSearch`.
+   - **Expected (amended 2026-10-29, owner):** the provider-search card
+     first; provider search if allowed, no search if declined.
+   - **Pinned by:** CP6 audit `testChatHoldingMessageTextAsksBeforeProviderSearch`.
 3. **A search with no citations, or the same page cited many times**, with
    different fragments or as both a citation and a link.
    - **Expected:** the sources fall back to the discovered results when
@@ -153,7 +164,12 @@ is pinned by a test in the checkpoint that owns the code:
    - **Expected:** no fallback and no second run. The error is shown, and
      the text and sources so far are kept.
    - **Pinned by:** CP1 `testUnavailableAfterReplyStartsDoesNotFallBack`.
-6. **Stop during a restart,** after the first run stopped and before the
+6. **A nearby question after allowing location for another provider**
+   (ChatGPT allowed, now on the OpenAI API; or Claude Code allowed, now on
+   Anthropic).
+   - **Expected:** the card shows again; nothing is sent before an answer.
+   - **Pinned by:** CP1 `testLocationGrantIsPerProvider`.
+7. **Stop during a restart,** after the first run stopped and before the
    second sends anything.
    - **Expected:** the turn ends like any Stop; no second request goes out.
    - **Pinned by:** CP1 `testStopDuringRestartEndsTheTurn`.
@@ -195,9 +211,9 @@ These stop the line until the owner decides:
 | --- | --- | --- | --- |
 | CP0 | [Spike](2026-10-27-f30-native-cloud-search/cp0-spike.md) | F32 on `main` | Answers to the spec's 6 open questions, the F32 name check, scrubbed fixtures, the worktree |
 | CP1 | [Shared plumbing](2026-10-27-f30-native-cloud-search/cp1-shared-plumbing.md) | CP0 | `NativeWebSearch` and its helpers, the plan's search backend, `ChatRequest.providerSearch`, fallback, the restart, sources, the draft PR; no provider on yet |
-| CP2 | [OpenAI](2026-10-27-f30-native-cloud-search/cp2-openai.md) | CP1 | OpenAI's search tool in the tool loop, stream, replay, error mapping; the live-test file; `.openAI` on |
-| CP3 | [Anthropic](2026-10-27-f30-native-cloud-search/cp3-anthropic.md) | CP2 | Tool by model, stream and citations, server-block replay, `pause_turn`, error mapping, output margin; `.anthropic` on |
-| CP4 | [ChatGPT (Codex)](2026-10-27-f30-native-cloud-search/cp4-chatgpt-codex.md) | CP3 | Thread setting with dynamic tools, policy check, `webSearch` events, answer links, error mapping; `.chatGPT` on |
+| CP2 | [OpenAI](2026-10-27-f30-native-cloud-search/cp2-openai.md) | — | Deferred (owner, 2026-10-29); kept as the design for later |
+| CP3 | [Anthropic](2026-10-27-f30-native-cloud-search/cp3-anthropic.md) | — | Deferred (owner, 2026-10-29); kept as the design for later |
+| CP4 | [ChatGPT (Codex)](2026-10-27-f30-native-cloud-search/cp4-chatgpt-codex.md) | CP1 | Thread setting with dynamic tools, policy check, `webSearch` events, answer links, error mapping; the live-test file; `.chatGPT` on |
 | CP5 | [Claude Code](2026-10-27-f30-native-cloud-search/cp5-claude-code.md) | CP4 | Arguments beside the MCP tools, parser events, `init` check; `.claudeCode` on |
 | CP6 | [Quality check, docs and audit](2026-10-27-f30-native-cloud-search/cp6-quality-docs-audit.md) | CP5 | The eval and comparison, the report, docs, `to-do.md`, final audit and merge |
 
@@ -211,18 +227,20 @@ that use it.
 | --- | --- | --- | --- |
 | `ProviderSearch`, `ChatRequest.providerSearch` | `Enigma/Chat/ChatDomain.swift` | CP1 | CP2–CP6 |
 | `SearchBackend`, `NativeToolPart.search(SearchBackend)`, `NativeToolPlan.Inputs.providerSearch` | `Enigma/Chat/AssistantToolbox.swift` | CP1 | CP1–CP6 |
+| `ProviderSearchLocation`, `ProviderSearch.location`, `ToolPermission.shareLocation(provider:area:)`, `ApproximateLocation.providerSearchLocation` | `Enigma/Chat/ChatDomain.swift`, `Enigma/Chat/ToolPermissions.swift`, `Enigma/Search/LocationService.swift` | CP1 (amendment) | CP2–CP6 |
 | `CloudProviderError.webSearchUnavailable(_:)` | `Enigma/Cloud/CloudDomain.swift` | CP1 | CP2–CP5 |
 | `CloudProviderID.nativeWebSearchProviders`, `.supportsNativeWebSearch` | `Enigma/Cloud/CloudDomain.swift` | CP1 (empty) | CP2–CP6 |
-| `NativeWebSearch` (`maximumSearches`, `maximumSources`, `isAllowed(provider:modelID:holdsMessageText:availability:)`, `selectSources(cited:linked:discovered:)`, `links(in:)`) | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP2–CP6 |
+| `NativeWebSearch` (`maximumSearches`, `maximumSources`, `isAllowed(provider:modelID:enabledProviders:availability:)` (no message-text check since the audit amendment), `selectSources(cited:linked:discovered:)`, `links(in:)`) | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP2–CP6 |
 | `ProviderSearchPart` (the instruction) | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP2–CP5 |
 | `NativeWebSearchSources` (the per-request source collector) | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP2–CP5 |
 | `NativeWebSearchAvailability` | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP1 |
 | `ProviderSearchRestart` | `Enigma/Cloud/NativeWebSearch.swift` | CP1 | CP1–CP5 |
 | `LocalChatViewModel.init(nativeWebSearchProviders:)` | `Enigma/LocalInference/LocalChatViewModel.swift` | CP1 | CP1–CP6 tests |
 | `CloudSearchFixture`, `ScriptedSearchProvider` (tests) | `EnigmaTests/CloudSearchTestSupport.swift` | CP1 | CP1–CP6 tests |
-| `NativeWebSearchLiveTests` (tests) | `EnigmaTests/NativeWebSearchLiveTests.swift` | CP2 | CP3–CP6 |
-| `OpenAIResponsesClient.webSearchFields(required:)`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP2 | CP2 |
-| `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)`, `.dynamicSearchModelPrefixes`, `.maximumBlockedDomains`, `.maximumContinuations`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP3 | CP3 |
+| `NativeWebSearchLiveTests` (tests) | `EnigmaTests/NativeWebSearchLiveTests.swift` | CP4 | CP5–CP6 |
+| `ToolPermission.providerSearchAfterMessages(provider:)`, `NativeToolPlan.withoutSearch()`, `LocalChatViewModel.allowsProviderSearch` | `Enigma/Chat/ToolPermissions.swift`, `AssistantToolbox.swift`, `Enigma/LocalInference/LocalChatViewModel.swift` | CP6 (audit amendment) | CP6 |
+| `OpenAIResponsesClient.webSearchFields(required:)`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP2 (deferred) | CP2 |
+| `AnthropicMessagesClient.webSearchTool(modelID:blockedDomains:)`, `.dynamicSearchModelPrefixes`, `.maximumBlockedDomains`, `.maximumContinuations`, `.isWebSearchRejection(statusCode:body:)` | `Enigma/Cloud/CloudToolCalling.swift` | CP3 (deferred) | CP3 |
 | `CodexToolMode.threadParameters(model:toolbox:providerSearch:searchMode:)`, `CodexSubscriptionClient.webSearchMode(requirements:)` | `Enigma/Cloud/CloudToolCalling.swift`, `CodexSubscriptionClient.swift` | CP4 | CP4 |
 | `ClaudeCodeSubscriptionClient` tool arguments with `providerSearch:`, `ClaudeCodeStreamParser.Event.toolsListed/.searchStarted/.searchResults` | `Enigma/Cloud/ClaudeCodeSubscriptionClient.swift` | CP5 | CP5 |
 | `scripts/web-search-queries.json`, `scripts/search_judge.py`, `scripts/evaluate-native-search.py`, `NativeWebSearchEvaluationTests` | `scripts/`, `EnigmaTests/` | CP6 | CP6; F29 extends them |
@@ -247,10 +265,12 @@ stays in its brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | not started | | |
-| CP1 | not started | | |
-| CP2 | not started | | |
-| CP3 | not started | | |
-| CP4 | not started | | |
-| CP5 | not started | | |
-| CP6 | not started | | |
+| CP0 | done | 2 | Codex and Claude Code probed live; OpenAI and Anthropic from docs (no keys), synthetic fixtures, stay off until a live check; owner decided (2026-10-29): Anthropic `response_inclusion: "full"`; location goes to a provider's search after a per-provider card (spec §2a, amendment) |
+| CP1 | done | 3 | No provider on; `/messages` turns skip provider search and CP1 builds the "web search" footer (owner, review round 1); full suite 1591 run, 28 skipped, 1 window-test timing flake that passes alone (4 of 4 runs) |
+| CP2 | deferred | | Owner, 2026-10-29: the API-key routes aren't the app's focus and there's no key to check them live; the API routes keep Enigma's search |
+| CP3 | deferred | | Same as CP2 |
+| CP4 | done | 2 | `.chatGPT` on after its live check (owner-approved, 2026-10-29); location key accepted by Codex, a search with it unverified (CP6 to check in the app); build and analyze clean; full suite 1609 run, 29 skipped, 0 failed |
+| CP5 | done | 2 | `.claudeCode` on after its live check (owner-approved, sonnet, 2026-10-29: 6 sources); round 1's two test gaps fixed, round 2 clean; build and analyze clean; full suite 1622 run, 30 skipped, 0 failed |
+| CP6 | done | 2 | Live (owner-approved): eval 58/60 on ChatGPT and on Claude Code with provider search; 20 questions: ChatGPT searched 20/20, 2+ sources 19/20 after the owner had 11 questions reworded to ask for sources (first run 10/20), Claude Code 19/20 and 19/20; no unsafe source; judge not run (owner: no Brave runs, routes ship without it). Round 2's three small fixes done by the worker, among them the footer after a relaunch saying "web search". Full suite 1626 run, 31 skipped, 0 failed. Report in `docs/history/`; docs updated; the next release's notes need the line in CP6's Hand-off (no release now, owner); in-app audit and merge follow |
+| CP6 audit | done | 2 | In-app audit (owner, 2026-10-29): steps 1, 3, 5 passed; Gemini step not used. Owner changed the rule: in a chat with message text, or on a typed `/messages` turn, ChatGPT's and Claude Code's own search runs after a per-provider card (declined: no search); the restart's second run asks it; Brave's card names Brave. Also outside F30: ChatGPT shows "selected for cloud" (eabd97a). 2 review rounds, no Blocker; full suite 1634 run, 31 skipped, 0 failed. See CP6's Hand-off, item 7 |
+| Merge | done | — | Owner re-checked step 2 on the installed copy (2026-10-29); PR leow427/Enigma#23 merged to `main` as c1bce9e after CI passed on 7cb2820; F30 ticked off in `to-do.md` |

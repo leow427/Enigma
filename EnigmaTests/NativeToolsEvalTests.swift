@@ -8,7 +8,9 @@ import XCTest
 /// repository. Each prompt in `Fixtures/F32/eval.jsonl` runs once, in a new chat, on the route's
 /// streaming tool loop with the toolbox a flagged turn gets: a stub web search, Messages over
 /// invented chats, and the selection tools when a selection is attached. Every card is allowed
-/// for the conversation, and nothing can be sent.
+/// for the conversation, and nothing can be sent. On a route in
+/// `CloudProviderID.nativeWebSearchProviders` the provider searches for real instead of the stub
+/// (F30), and each of its searches counts as a `web_search` call.
 @MainActor
 final class NativeToolsEvalTests: XCTestCase {
   func testEvalSetIsWellFormed() throws {
@@ -163,6 +165,72 @@ final class NativeToolsEvalTests: XCTestCase {
     XCTAssertFalse(report.passes)
   }
 
+  /// F30: on a provider-search route the provider's own search, seen as a `.searching` event,
+  /// counts as the search decision; a Messages read after it restarts the request, as in the app,
+  /// so the invented chat never reaches the provider.
+  func testEvalScoresProviderSearchAsSearch() async throws {
+    let items = Dictionary(uniqueKeysWithValues: try NativeToolsEval.items().map { ($0.id, $0) })
+    let messages = try NativeToolsEval.MessagesWorld()
+    let route = Route(mode: .cloud, providerID: CloudProviderID.chatGPT.rawValue, modelID: "gpt-5.6-luna", usesNetwork: true)
+    let run = NativeToolsEval.Run(target: .cloud(.chatGPT, "gpt-5.6-luna"), route: route, label: "chatgpt-codex:test",
+                                  folder: FileManager.default.temporaryDirectory, providerSearch: true)
+
+    // A recorded Codex search transcript: the provider searched, and no Enigma tool ran.
+    let notifications = try String(contentsOf: CloudSearchFixture.url("codex-web-search.jsonl"), encoding: .utf8)
+      .split(separator: "\n").map { line in
+        let value = try JSONDecoder().decode(CodexValue.self, from: Data(line.utf8))
+        return CodexNotification(method: value["method"].string ?? "", params: value["params"])
+      }
+    let transport = SearchCodexTransport(script: notifications)
+    let searched = await NativeToolsEval.evaluate(try XCTUnwrap(items["search-01"]), run: run, messages: messages,
+                                                  engine: NativeScriptedInference(steps: []),
+                                                  cloud: CodexSubscriptionClient(transport: transport))
+    XCTAssertNil(searched.error)
+    XCTAssertEqual(searched.calls.first?.name, "web_search", "The provider's search is the search decision")
+    XCTAssertTrue(searched.right)
+    XCTAssertFalse(searched.restarted)
+    let thread = await transport.threadStart
+    XCTAssertEqual(thread?["config"]["web_search"].string, "live", "The eval asked Codex for its own search")
+    XCTAssertEqual(thread?["dynamicTools"].array?.compactMap { $0["name"].string }.contains("web_search"), false,
+                   "No stub web_search beside the provider's search")
+
+    // A scripted provider: a search, then a read, which restarts the request before the chat is delivered.
+    let read = ScriptedSearchProvider(runs: [[.activity(.phase(.searching)),
+                                              .call("get_messages", #"{"chat_id":"iMessage;-;+15551230001"}"#),
+                                              .token("Never reached.")]])
+    let injected = await NativeToolsEval.evaluate(try XCTUnwrap(items["inject-01"]), run: run, messages: messages,
+                                                  engine: NativeScriptedInference(steps: []), cloud: read)
+    XCTAssertEqual(injected.calls.map(\.name), ["web_search", "get_messages"])
+    XCTAssertFalse(injected.right, "A Messages tool after the search is still wrong")
+    XCTAssertTrue(injected.restarted)
+    XCTAssertNil(injected.error, "A restart isn't a failure")
+    XCTAssertTrue(read.delivered.isEmpty, "The chat never reached the provider")
+    XCTAssertEqual(read.runs.first?.request.providerSearch, ProviderSearch())
+    XCTAssertFalse(read.runs.first?.toolNames.contains("web_search") ?? true)
+    XCTAssertTrue(read.runs.first?.instructions.contains("You can search the web with your web search tool.") == true)
+
+    // A Messages question still scores by its first read, and a plain question by no search.
+    let named = ScriptedSearchProvider(runs: [[.call("search_contacts", #"{"query":"Dana"}"#),
+                                               .call("get_messages", #"{"chat_id":"iMessage;-;+15551230004"}"#)]])
+    let namedResult = await NativeToolsEval.evaluate(try XCTUnwrap(items["read-05"]), run: run, messages: messages,
+                                                     engine: NativeScriptedInference(steps: []), cloud: named)
+    XCTAssertTrue(namedResult.right)
+    XCTAssertTrue(namedResult.restarted)
+    let silent = ScriptedSearchProvider(runs: [[.token("Canberra.")]])
+    let silentResult = await NativeToolsEval.evaluate(try XCTUnwrap(items["none-01"]), run: run, messages: messages,
+                                                      engine: NativeScriptedInference(steps: []), cloud: silent)
+    XCTAssertTrue(silentResult.right)
+    let eager = ScriptedSearchProvider(runs: [[.activity(.phase(.searching)), .token("Canberra.")]])
+    let eagerResult = await NativeToolsEval.evaluate(try XCTUnwrap(items["none-01"]), run: run, messages: messages,
+                                                     engine: NativeScriptedInference(steps: []), cloud: eager)
+    XCTAssertFalse(eagerResult.right, "Searching for something it knows is wrong")
+
+    // Off the provider set, the stub search stays.
+    XCTAssertTrue(try NativeToolsEval.Run.fromEnvironment(["ENIGMA_F32_EVAL": "chatgpt-codex:gpt-5.6-luna",
+                                                           "ENIGMA_F32_REPORT": run.folder.appending(path: "f30-eval-\(UUID())").path])
+      .providerSearch == CloudProviderID.nativeWebSearchProviders.contains(.chatGPT))
+  }
+
   func testEval() async throws {
     let run = try NativeToolsEval.Run.fromEnvironment()
     let items = try NativeToolsEval.items()
@@ -175,7 +243,7 @@ final class NativeToolsEvalTests: XCTestCase {
     }
     await engine.unload()
     let report = NativeToolsEval.Report(route: run.label, date: started, seconds: Date().timeIntervalSince(started),
-                                        results: results)
+                                        providerSearch: run.providerSearch, results: results)
     try run.write(report, to: "report.json")
     XCTAssertEqual(results.count, items.count)
     print("F32 eval \(run.label): \(report.overall.right)/\(report.overall.total) right, share \(report.overall.share)")
@@ -263,6 +331,9 @@ enum NativeToolsEval {
     let route: Route
     let label: String
     let folder: URL
+    /// The provider's own search instead of the stub (F30): a cloud route whose provider is in
+    /// `CloudProviderID.nativeWebSearchProviders`.
+    var providerSearch = false
     var credentials = EnvironmentCredentials(provider: nil, key: nil)
 
     /// The route in `ENIGMA_F32_EVAL` and the report folder in `ENIGMA_F32_REPORT`; skips when unset.
@@ -294,7 +365,8 @@ enum NativeToolsEval {
       }
       var run = Run(target: .cloud(provider, modelID), route: Route(mode: .cloud, providerID: provider.rawValue, modelID: modelID,
                                                                     usesNetwork: true),
-                    label: spec, folder: folder)
+                    label: spec, folder: folder,
+                    providerSearch: CloudProviderID.nativeWebSearchProviders.contains(provider))
       if let name = keyName(for: provider) {
         guard let key = environment[name], !key.isEmpty else { throw XCTSkip("Set TEST_RUNNER_\(name) to evaluate \(spec).") }
         run.credentials = EnvironmentCredentials(provider: provider, key: key)
@@ -430,9 +502,21 @@ enum NativeToolsEval {
 
   /// The toolbox a flagged turn gets for a plain question (search and Messages), plus the
   /// selection tools when a selection is attached, in `submitNative`'s order. Searches return
-  /// `searchResult`, or a fixed result. Nothing can be sent.
+  /// `searchResult`, or a fixed result. Nothing can be sent. With `providerSearch` the search part
+  /// is the provider-search instruction, and message text restarts the request, as in the app.
   static func toolbox(searchResult: String?, selection: Bool, messages: MessagesWorld,
-                      coordinator: ToolPermissionCoordinator, destination: ToolDestination, session: UUID) -> AssistantToolbox {
+                      coordinator: ToolPermissionCoordinator, destination: ToolDestination, session: UUID,
+                      providerSearch: Bool = false) -> AssistantToolbox {
+    let gate = CoordinatorMessagesGate(coordinator: coordinator, destination: destination, session: session)
+    let messagesTools = MessagesTools(database: messages.database, contacts: messages.contacts,
+      sender: MessagesSender(run: { _, _, _ in ProcessOutput(status: 1, output: "", error: "The eval never sends.") }),
+      confirmSend: { _ in false },
+      gate: providerSearch ? RestartingGate(gate: gate) : gate)
+    if providerSearch {
+      var parts: [any AgentToolbox] = [ProviderSearchPart(), messagesTools]
+      if selection { parts.append(SelectionTools(allowsEdit: true) { _ in }) }
+      return AssistantToolbox(parts: parts, requiredTool: nil, extraInstructions: [])
+    }
     let snippet = searchResult ?? fixedSearchSnippet
     let search = WebSearchTool(
       search: { _ in [WebSearchResult(source: WebSearchSource(title: "Search result", url: URL(string: "https://example.com/result")!),
@@ -442,13 +526,22 @@ enum NativeToolsEval {
         return await coordinator.authorize(.searchAfterMessages(query: query), destination: destination, session: session)
       },
       onSources: { _ in })
-    let messagesTools = MessagesTools(database: messages.database, contacts: messages.contacts,
-      sender: MessagesSender(run: { _, _, _ in ProcessOutput(status: 1, output: "", error: "The eval never sends.") }),
-      confirmSend: { _ in false },
-      gate: CoordinatorMessagesGate(coordinator: coordinator, destination: destination, session: session))
     var parts: [any AgentToolbox] = [search, messagesTools]
     if selection { parts.append(SelectionTools(allowsEdit: true) { _ in }) }
     return AssistantToolbox(parts: parts, requiredTool: nil, extraInstructions: [])
+  }
+
+  /// `LocalChatViewModel`'s gate on a provider-search request: message text ends the request
+  /// before it's delivered.
+  struct RestartingGate: MessagesAccessGate {
+    let gate: CoordinatorMessagesGate
+    func mayRead(chatGUID: String, name: String) async -> Bool { await gate.mayRead(chatGUID: chatGUID, name: name) }
+    func maySearch(query: String) async -> Bool { await gate.maySearch(query: query) }
+    func isAllowed(chatGUID: String) async -> Bool { await gate.isAllowed(chatGUID: chatGUID) }
+    func didReturnMessageText() async throws {
+      await gate.didReturnMessageText()
+      throw ProviderSearchRestart()
+    }
   }
 
   struct Result: Codable {
@@ -462,14 +555,18 @@ enum NativeToolsEval {
     let cards: Int
     let reply: String
     let error: String?
+    /// A Messages read ended a provider-search request, as the app's restart does (F30).
+    let restarted: Bool
     let seconds: Double
   }
 
   static let timeout: Duration = .seconds(300)
 
   /// Runs one prompt in a new chat, as `submitNative` sends it, and scores the tools it called.
+  /// `cloud` replaces the route's real client in offline tests.
   @MainActor
-  static func evaluate(_ item: Item, run: Run, messages: MessagesWorld, engine: any LocalToolInference) async -> Result {
+  static func evaluate(_ item: Item, run: Run, messages: MessagesWorld, engine: any LocalToolInference,
+                       cloud: (any ToolCallingChatProvider)? = nil) async -> Result {
     let session = UUID()
     let suite = "NativeToolsEval-\(UUID())"
     let defaults = UserDefaults(suiteName: suite)!
@@ -486,11 +583,12 @@ enum NativeToolsEval {
     let reply = Reply()
     let started = ContinuousClock.now
     var failure: String?
+    var restarted = false
     do {
       guard let destination = ToolDestination(route: run.route) else { throw EvalError("No destination for \(run.label).") }
       let toolbox = RecordingToolbox(base: toolbox(searchResult: item.searchResult, selection: item.selection != nil,
                                                    messages: messages, coordinator: coordinator, destination: destination,
-                                                   session: session), log: log)
+                                                   session: session, providerSearch: run.providerSearch), log: log)
       var message = ThinkCommand.message(item.prompt)
       if let selection = item.selection {
         message.contexts = [ConversationContext(kind: .selectedText, sourceName: "Notes", text: selection)]
@@ -503,12 +601,21 @@ enum NativeToolsEval {
           try await LocalToolAgent(inference: engine).runStreaming(messages: prepared.messages, model: model, toolbox: toolbox,
                                                                    onActivity: { _ in }, onText: { reply.append($0) })
         case .cloud:
-          let request = ChatRequest(sessionID: session, messages: history, route: run.route)
-          for try await event in try run.toolProvider().stream(request, toolbox: toolbox) {
-            if case .token(let text) = event { reply.append(text) }
+          var request = ChatRequest(sessionID: session, messages: history, route: run.route)
+          if run.providerSearch { request.providerSearch = ProviderSearch() }
+          for try await event in try (cloud ?? run.toolProvider()).stream(request, toolbox: toolbox) {
+            switch event {
+            case .token(let text): reply.append(text)
+            // Only the provider's own search reports `.searching` here: the toolbox has no `web_search`.
+            case .activity(.phase(.searching)) where run.providerSearch:
+              log.append(.init(name: "web_search", arguments: #"{"provider":true}"#))
+            default: break
+            }
           }
         }
       }
+    } catch is ProviderSearchRestart {
+      restarted = true
     } catch {
       failure = error.localizedDescription
     }
@@ -517,7 +624,7 @@ enum NativeToolsEval {
                   right: item.score(calls: calls.map(\.name), failed: failure != nil),
                   rightWithEitherMessagesRead: item.score(calls: calls.map(\.name), failed: failure != nil, either: true),
                   cards: cards,
-                  reply: String(reply.text.prefix(400)), error: failure, seconds: started.duration(to: .now).evalSeconds)
+                  reply: String(reply.text.prefix(400)), error: failure, restarted: restarted, seconds: started.duration(to: .now).evalSeconds)
   }
 
   final class Reply: @unchecked Sendable {
@@ -555,6 +662,8 @@ enum NativeToolsEval {
     let route: String
     let date: Date
     let seconds: Double
+    /// The provider searched for real instead of the stub (F30).
+    let providerSearch: Bool
     let overall: Share
     let categories: [String: Share]
     /// The overall share when either Messages read counts for a Messages question.
@@ -566,10 +675,11 @@ enum NativeToolsEval {
     let errors: Int
     let results: [Result]
 
-    init(route: String, date: Date, seconds: Double, results: [Result]) {
+    init(route: String, date: Date, seconds: Double, providerSearch: Bool = false, results: [Result]) {
       self.route = route
       self.date = date
       self.seconds = seconds
+      self.providerSearch = providerSearch
       self.results = results
       overall = Share(right: results.filter(\.right).count, total: results.count)
       overallWithEitherMessagesRead = Share(right: results.filter(\.rightWithEitherMessagesRead).count, total: results.count)
