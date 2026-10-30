@@ -109,7 +109,7 @@ The summary at the top is written when the run ends.
 - **Run end:** D91
 - **CP7:** D92–D127
 - **CP8:** D128–D144
-- **CP9:**
+- **CP9:** D145–D163
 - **CP10:**
 
 ## Entries
@@ -2435,4 +2435,137 @@ view is released, not from extraction. The CI failures were most likely the
 - **Decided (orchestrator):** CP8 is committed although the full suite had one failure, `EnigmaMainWindowTests.testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField` (timeout at "the held message pending, the stopped draft back in the field"). The full suite ran 2022 tests: 40 skipped, 1 failure.
 - **Why:** the same seven UI classes run back to back fail this test the same way on CP7's commit `82e5fb3` (242 tests, 1 failure) and on CP8 (245 tests, 1 failure). It passes alone and in its class alone. So it is an existing timing flake under load, not caused by CP8. Logs: `/private/tmp/claude-501/f29-cp8/ui-base.log`, `ui-cp8.log`, `full-suite.log`.
 - **Alternatives:** fix the test's timing as a separate change (it isn't F29's); watch it on CI.
+- **Reversible:** yes.
+
+### D145 — 2026-10-30 16:34, CP9 — The live map exists only while the card is on screen
+
+- **Decided (worker CP9):** the brief and spec say the card is built when its row appears in the message list's lazy stack, but `EnigmaMessageList` is a plain `VStack` (its comment explains why it stopped being lazy). `MapCardView` instead swaps its `Map` for a same-size placeholder unless `onScrollVisibilityChange(threshold: 0.01)` reports it on screen, so no live map is kept once it scrolls away. The test host always gets the placeholder (`MapCardView.drawsLiveMap`).
+- **Why:** the code no longer matches the brief's starting point; making the list lazy again would bring back the empty-space bug its comment describes.
+- **Alternatives:** make the message list lazy (reopens that bug); keep the `Map` alive for every card (more memory in long chats). Switch by removing the `isOnScreen` condition in `MapCardView.body`.
+- **Reversible:** yes.
+
+### D146 — 2026-10-30 16:34, CP9 — When places reach the reply
+
+- **Decided (worker CP9):** every search route collects places in `LocalChatViewModel.replyPlaces[messageID]` (the small-model `submit`, the screen path, cloud with search, and `find_places` on capable turns), merged in arrival order without duplicates by identifier. `finishGeneration` moves them onto `ChatMessage.mapPlaces` for every ending (finished, Stop or error) when the reply has text, then clears the store. `ConversationTranscript.Reply.mapPins` is nil while the reply is in progress, a second guard. `replyPlaces` became private.
+- **Why:** spec §6.6 "on any route" and "appears once the reply finishes, so the pins match the text"; a stopped reply keeps its partial text, so its pins still match it.
+- **Alternatives:** attach only on success (change the `attachReplyPlaces()` call to run under `error == nil, !Task.isCancelled`).
+- **Reversible:** yes.
+
+### D147 — 2026-10-30 16:34, CP9 — Pin matching details and the singular label
+
+- **Decided (worker CP9):** text and names are folded for case and diacritics, `’` becomes `'`, and both are split into words on anything that isn't a letter or digit; a name matches as a contiguous run of whole words, a leading "The" dropped from names of two words or more. Where one name's match lies inside a longer name's match ("Joe's Pizza" inside "Joe's Pizza Broadway"), only the longer one counts there. Ties keep result order. One place reads "Map of 1 place".
+- **Why:** the brief's "normalized substring search on whole words"; the overlap rule keeps a short name from pinning the wrong place.
+- **Alternatives:** drop the overlap rule (both would pin); "Map of 1 places" verbatim.
+- **Reversible:** yes.
+
+### D148 — 2026-10-30 16:34, CP9 — The card's look
+
+- **Decided (worker CP9):** 190 pt `Map` in `.standard` style, no map controls, camera on a region fitting the pins with a 1.5× margin and at least 0.01° across; pins are 22 pt circles in `textPrimary` with the number in `background` (SF Mono, semibold) and a `surface` ring, titled with the place name; 6 pt continuous corners and a `hairline` edge (`EnigmaEdgeStroke`), as the sources panel's rows; **Open in Maps** is a text button under the map's trailing edge, so nothing covers Apple's logo or legal link.
+- **Why:** UI-Style allows one `accent` control per view, and several pins would break that; the button below the map keeps attribution clear at every width.
+- **Alternatives:** `accent` pins; `.automatic` camera (zooms very close on one pin).
+- **Reversible:** yes.
+
+### D149 — 2026-10-30 16:34, CP9 — Scrolling passes through the map
+
+- **Decided (worker CP9):** besides `interactionModes: []`, the live map has a transparent overlay (`MapScrollPassThrough`) that takes only scroll-wheel events and hands them to the enclosing scroll view; clicks, hovers and everything else reach the map, its pins and its legal link.
+- **Why:** reviewer checklist "the map never takes scrolling"; an `MKMapView` with panning off may still swallow the wheel.
+- **Alternatives:** none without covering the pins. Remove the `.overlay` to compare in the signed app.
+- **Reversible:** yes.
+
+### D150 — 2026-10-30 16:34, CP9 — Opening Apple Maps
+
+- **Decided (worker CP9):** `MapCardOpener.appleMaps` asks MapKit for the place by its identifier (`MKMapItemRequest`) and falls back to an item at the coordinate with the name; one place uses `openInMaps()`, several `MKMapItem.openMaps(with:)`. The view takes the opener as a parameter, so tests never open Maps.
+- **Why:** opening the real place shows its details; the fallback covers places without an identifier.
+- **Alternatives:** always the coordinate item (no request to Apple).
+- **Reversible:** yes.
+
+### D151 — 2026-10-30 16:34, CP9 — How the view tests check the card
+
+- **Decided (worker CP9):** view tests host the card in a borderless window at −10,000 that is never ordered front or made key, and find controls by test markers (each pin's marker is named by its VoiceOver label). The accessibility tree is empty and synthetic clicks don't fire in such a window, so the pin and Open in Maps actions are tested through `MapCardActions` (what the buttons call), and the card's label through `MapCard.label(count:)`.
+- **Why:** the run must not take the owner's screen.
+- **Alternatives:** a hosted window test with `clickTestControl` (takes the screen; for CP10 or the owner's check).
+- **Reversible:** yes.
+
+### D152 — 2026-10-30 16:34, CP9 — Steps left to the owner and the orchestrator
+
+- **Decided (worker CP9):** not attempted: Task 9.3's check in a signed app and Task 9.4's screenshot (owner steps, in the Hand-off); no hosted UI class was run (none was changed; `EnigmaConversationTests` and the other message-list window classes are for the full suite before the commit); no reviewer round and no full suite (the orchestrator's). The `CodingKeys` mutation wasn't run: `MapPlace` isn't `Codable`, so adding `mapPlaces` there fails to compile, and `testMapPlacesAreNeverSaved` covers the saved JSON.
+- **Why:** the orchestrator's instructions for this run.
+- **Alternatives:** run them now.
+- **Reversible:** yes.
+
+### D153 — 2026-10-30 22:45, CP9 — A stopped reply with text keeps its card; places never attach late
+
+- **Decided (orchestrator, from review round 1):** D146 stands: a reply stopped with text shows its card. `stopStreaming()` attaches the places before it clears the active request, and places from a request that is no longer active are dropped, so they can never attach at a later request's end or in another chat. A provider-search restart clears the reply's places.
+- **Why:** round 1 showed a stopped reply's places staying in memory and attaching when the next request finished, possibly in another chat (S1), and a restarted reply keeping the first run's places (S2).
+- **Alternatives:** clear the places on Stop, so stopped replies show no card (`LocalChatViewModel.stopStreaming`).
+- **Reversible:** yes.
+
+### D154 — 2026-10-30 22:45, CP9 — Owner's Recents check relaunches first; pin names hidden
+
+- **Decided (orchestrator):** (1) The owner's "reopened from Recents shows no card" check is done after relaunching the app: within one run, switching chats keeps the session-only card, as it keeps `activity` and `origin`. (2) The pins show their numbers only (`.annotationTitles(.hidden)`); the names are in the reply and each pin's accessibility label, and ten name labels crowd a 190 pt map.
+- **Why:** round 1 nits N9 and N5.
+- **Alternatives:** show the titles (`MapCard.swift`), to judge in the signed app.
+- **Reversible:** yes.
+
+### D155 — 2026-10-30 22:45, CP9 — A short review round 2
+
+- **Decided (orchestrator):** run round 2, focused on `stopStreaming`, `restartNativeReply`, `addReplyPlaces` and the new tests.
+- **Why:** round 1's S1 was a real bug (places attaching to the wrong reply), so this is more than small fixes under the owner's rule.
+- **Alternatives:** none.
+- **Reversible:** yes.
+
+### D156 — 2026-10-30 16:55, CP9 — No stale places: request-scoped, cleared at every start
+
+- **Decided (worker CP9):** `addReplyPlaces` takes the request's ID and drops places when that request isn't running (so a `find_places` result after Stop is lost). `stopStreaming()` attaches the places before clearing `activeRequest` (D153), `restartNativeReply` drops the restarted message's places, and `beginGeneration` clears the store, so nothing from an earlier request can reach a later reply in any chat. Small-model, screen and cloud-with-search routes add a places result only when its source is in `grounded.sources`, the evidence the model saw (review N6).
+- **Why:** review round 1, S1, S2 and N6.
+- **Alternatives:** key the store by request ID as well as message ID (more state for the same effect).
+- **Reversible:** yes.
+
+### D157 — 2026-10-30 16:55, CP9 — Camera, matching and opening after review
+
+- **Decided (worker CP9):** the camera is an `MKMapRect` union of the pins, padded 1.5×, at least 1 km across, intersected with the world rect (N2). "&" reads as "and"; a name with no words besides "The" never matches (N7). Open in Maps starts every identifier lookup at once, waits for each at most 2 s (`MapCardOpener.lookUpTime`) before using the coordinate and name, opens in pin order, ignores clicks while one is running (`MapCardOpening`), and does nothing in the test host (N3, N8). Off screen in the app the placeholder is a plain surface hidden from VoiceOver; only the test host's placeholder has pin controls (N4).
+- **Why:** review round 1.
+- **Alternatives:** a 1 s or 3 s lookup time (change `lookUpTime`).
+- **Reversible:** yes.
+
+### D158 — 2026-10-30 16:55, CP9 — New route tests use local fakes
+
+- **Decided (worker CP9):** `MapCardTests` gets its own vision server (`MapCardVision`, answering without a model) and cloud provider (`MapCardCloud`) fakes to cover the screen path and cloud with search, plus `HeldPlaces` for a MapKit search that waits until released. The restart test (`testRestartDropsTheFirstRunsPlaces`) is in `NativeToolRequestTests`, which has the restart harness.
+- **Why:** review round 1, S2 and S3.
+- **Alternatives:** share the fakes in a support file.
+- **Reversible:** yes.
+
+### D159 — 2026-10-30 23:20, CP9 — Round 2: Open in Maps' time limit resumes the wait itself; the request guard gets a test
+
+- **Decided (orchestrator, from review round 2):** (1) The 2 s identifier lookup resumes on whichever comes first, MapKit's answer or the timer, which cancels the request and resumes with nothing; it no longer waits for a cancelled request to call back, because MapKit never calls back an `MKMapItemRequest` cancelled while loading (checked on macOS 27.2). A test with a lookup that never answers checks it returns promptly. (2) `addReplyPlaces`'s request-ID guard gets a direct test through an internal seam; it matters on the ChatGPT (Codex) route, whose tool calls can land after Stop. (3) A screen fallback that grounds the results again replaces the reply's places rather than merging into the first attempt's.
+- **Why:** round 2 found that a stalled lookup hung Open in Maps and disabled the card's controls for the session (a regression from the round-1 fix), and that the guard had no test.
+- **Alternatives:** none for (1); for (3), keep merging (`LocalChatViewModel` screen fallback).
+- **Reversible:** yes.
+
+### D160 — 2026-10-30 23:20, CP9 — Accepted limits; no round 3
+
+- **Decided (orchestrator):** accepted and listed as limitations: on ChatGPT, a `find_places` call running in parallel with the Messages read that restarts the reply can land on the restarted reply, as its sources already can (round 2 N2); places past a truncated places excerpt can be pinned when the reply names none (N3). No round 3: round 2 found one small fix plus a test, which I verify with targeted runs.
+- **Why:** owner's review rule; both limits are narrow and match existing behaviour.
+- **Alternatives:** a per-run epoch checked in `onPlaces` and `onSources`; limit places to names in the kept excerpt; a round 3 reviewer.
+- **Reversible:** yes.
+
+### D161 — 2026-10-30 17:17, CP9 — The place lookup's time limit resumes the wait itself
+
+- **Decided (worker CP9):** `MapCardOpener.lookUp(within:start:cancel:)` waits on a checked continuation that the first of two things resumes: MapKit's completion handler (`getMapItem`) or the 2 s timer, which cancels the request and resumes with nil; a main-actor `ResumeOnce` lets only the first through. Open in Maps then falls back to the coordinate and name, and `MapCardOpening` frees the card for the next click. `testLookUpGivesUpWhenMapKitNeverAnswers` drives it with a lookup that never answers (50 ms limit); a mutant whose timer only cancels times out that test.
+- **Why:** review round 2, S1 (D159): MapKit never calls back a request cancelled while loading, so awaiting the cancelled request hung Open in Maps and blocked the card's later clicks.
+- **Alternatives:** none safe; a task group waits for the hung child.
+- **Reversible:** yes.
+
+### D162 — 2026-10-30 17:17, CP9 — A late request's places, and the screen fallback
+
+- **Decided (worker CP9):** `addReplyPlaces(_:messageID:requestID:)` is internal so `testPlacesForAnEndedRequestAreDropped` can hand it a stopped request's places while the next request runs; a mutant without the request check fails that test. The screen path clears the reply's places before adding the grounded ones, so a fallback to the local vision model replaces the first attempt's places instead of merging (no test: the cloud-to-local fallback needs a cloud screen failure fixture).
+- **Why:** review round 2, S2 and N1 (D159).
+- **Alternatives:** a test seam on the view model instead of internal access.
+- **Reversible:** yes.
+
+### D163 — 2026-10-30 23:50, CP9 — Commit with one unrelated flaky test
+
+- **Decided (orchestrator):** CP9 is committed although the full suite (2050 tests, 40 skipped) had one failure: `ClaudeCodeSubscriptionTests.testClaudeCodeRestartDeliversNothing`, which couldn't open the "input" file its fake Claude Code process writes. CP9 touches neither that class nor the Claude Code client, and the class passes alone (37 tests, 0 failed). The D144 flake didn't occur this time.
+- **Why:** a timing race in F30's test under full-suite load, not caused by CP9. Logs: `/private/tmp/claude-501/f29-cp9/full-suite.log`, `claude-rerun.log`.
+- **Alternatives:** make that test wait for the fake process's file as a separate change; watch it on CI.
 - **Reversible:** yes.

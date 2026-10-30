@@ -1,10 +1,10 @@
 # F29 overnight run — report (2026-10-30)
 
-## RESUME (after CP8, 2026-10-30 evening)
+## RESUME (after CP9, 2026-10-30 night)
 
-- **State:** CP7 and CP8 are committed (see the table below). The owner is
-  present and steering; the run continues with CP9 (map card) and CP10 (docs
-  and maintenance), then the PR is marked ready, never merged.
+- **State:** CP7, CP8 and CP9 are committed (see the table below). The owner
+  is present and steering; the run continues with CP10 (docs and
+  maintenance), then the PR is marked ready, never merged.
 - **CP8, owner decision D128:** the relaxed gate failed (typed: on-device
   equal or better on 47%), so on-device is the default for everyone and Brave
   runs only while a Brave key is saved, and only for web searches (D138).
@@ -12,8 +12,9 @@
   model):** the model-style half of the evaluation, the one-query vs
   two-query A/B (D116), and the tool-use eval (Task 7.5). See D121.
 - **Owner checks:** CP8 in a signed build (welcome, Settings, keyless
-  searches, blocking and Undo, Brave with a key); the possible llama-server
-  keep-alive issue (D114).
+  searches, blocking and Undo, Brave with a key); CP9's map card in a signed
+  build and its screenshot (cp9-map-card.md Hand-off); the possible
+  llama-server keep-alive issue (D114).
 - **Review rule now:** reviewers are always Opus at effort xhigh; big changes
   get up to three rounds, stopping when a round finds only small fixes.
 
@@ -28,7 +29,8 @@
 | CP5 passages and pipeline | `5523f78` | 2 | D73–D80 | The on-device provider sits behind the Debug-only switch; Brave stays the default. Live median 1.65 s. Also fixes CP4's macOS 26 CI failure (D77); CI passed. |
 | CP6 places and weather | `fb17df8` | 2 | D81–D90 | Open-Meteo weather and geocoding, Apple Maps places, `find_places`, `get_weather` and `/maps`. A declined location card holds for the rest of the chat. |
 | CP7 evaluation and search features | `82e5fb3` | 2 | D92–D127 | Evaluation harness and 60 questions; owner-added query rewrite, "enough?" check, Wikidata facts and Google News headlines. Typed verdict: on-device 26, Brave 32, tie 2 (was 13 to 27 of 40). Both gates fail on the judge share. |
-| CP8 switch-over | (this commit) | 1 | D128–D143 | Owner's D128: on-device search by default with no key or setup; Brave only while a key is saved, and only for web searches (places and weather stay on Apple Maps and Open-Meteo). "Never use this site" with Undo; blocked sites filter Brave and go to ChatGPT's and Claude Code's own search. Brave gets the city only. |
+| CP8 switch-over | `3fc315c` | 1 | D128–D143 | Owner's D128: on-device search by default with no key or setup; Brave only while a key is saved, and only for web searches (places and weather stay on Apple Maps and Open-Meteo). "Never use this site" with Undo; blocked sites filter Brave and go to ChatGPT's and Claude Code's own search. Brave gets the city only. |
+| CP9 map card | (this commit) | 2 | D145–D163 | A still Apple map under replies that used places, with numbered pins for the places the reply names (all places when it names none); pins and Open in Maps open Apple Maps; never saved. Round 1 fixed places attaching to the wrong reply after Stop; round 2 fixed Open in Maps hanging on a stalled lookup. |
 
 The PR stays a draft: CP8–CP10 remain, and the branch merges only after CP10.
 

@@ -42,6 +42,12 @@ struct ConversationTranscript: Equatable {
 
     var slot: EnigmaCharacterSlotID { ConversationTranscript.slot(forReply: id) }
 
+    /// The map card's pins, once the reply has finished (spec §6.6).
+    var mapPins: [MapPin]? {
+      guard !isInProgress, let places = message?.mapPlaces, !places.isEmpty else { return nil }
+      return MapCard.pins(for: places, reply: content)
+    }
+
     /// The reply used web sources.
     var searched: Bool {
       !(activity?.sources.isEmpty ?? true) || !(message?.searchSources?.isEmpty ?? true)

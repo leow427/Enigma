@@ -1318,6 +1318,26 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.content, "Done.")
   }
 
+  /// CP9: a restarted reply drops the first run's places, so its map card shows only what the
+  /// reply it ends with found.
+  func testRestartDropsTheFirstRunsPlaces() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .call("find_places", #"{"query":"coffee","area":"Soho"}"#),
+       .call("get_messages", Self.aliceRead), .token("Never shown.")],
+      [.token("Done.")],
+    ])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+    let places = FakePlaces([Self.placeResult()])
+    chat.placeSearch = places
+    try await send("What did Alice say? Any coffee in Soho?", to: chat, route: Self.cloudRoute,
+                   answers: [.conversation, .conversation])
+    XCTAssertEqual(places.calls.count, 1, "The first run found places")
+    XCTAssertEqual(provider.runs.count, 2, "The reply restarted")
+    XCTAssertEqual(chat.messages.last?.content, "Done.")
+    XCTAssertNil(chat.messages.last?.mapPlaces)
+  }
+
   func testDeclinedReadDoesNotRestart() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let provider = ScriptedSearchProvider(runs: [[.call("get_messages", Self.aliceRead), .token("Okay.")]])

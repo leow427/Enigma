@@ -375,11 +375,12 @@ final class LocalChatViewModel: ObservableObject {
     : OpenMeteoWeather()
   var weatherGeocoder: any Geocoding = TestHost.isActive ? OpenMeteoGeocoder(client: OfflineSearchHTTPClient())
     : OpenMeteoGeocoder()
-  /// A reply's places for CP9's map card, by message. In memory only: never saved.
   /// Chats and providers whose share-location card was declined (D89): their places, weather and
   /// web_search tools get no location until a later Allow. In memory only: never saved.
   private var declinedLocations: Set<String> = []
-  private(set) var replyPlaces: [UUID: [MapPlace]] = [:]
+  /// The running request's places for its reply's map card, by message, until the reply ends.
+  /// In memory only: never saved.
+  private var replyPlaces: [UUID: [MapPlace]] = [:]
   /// On-device search, the default for everyone (D128).
   private let webSearch: any WebSearchProvider
   /// Brave, used only while a Brave key is saved (D128, D129). Nil in tests unless one injects it,
@@ -1162,7 +1163,7 @@ final class LocalChatViewModel: ObservableObject {
         parts.append(PlaceSearchTool(places: placeSearch, location: location, units: { .current },
                                      mayQuery: { await mayLookUp($0, "Apple Maps") }, onSources: onSources,
                                      onPlaces: { @MainActor [weak self] places in
-                                       self?.replyPlaces[responseID, default: []] += places
+                                       self?.addReplyPlaces(places, messageID: responseID, requestID: requestID)
                                      }))
       }
       if plan.offeredParts.contains(.weather) {
@@ -1274,6 +1275,37 @@ final class LocalChatViewModel: ObservableObject {
                                            session: sessionID)
   }
 
+  /// A search's places, for its reply's map card (spec §6.6): only a places result whose source
+  /// survived context fitting, so the card never shows places the model never saw.
+  private func addReplyPlaces(_ results: [WebSearchResult], kept sources: [WebSearchSource], messageID: UUID,
+                              requestID: UUID) {
+    let kept = Set(sources.map(\.url))
+    let places = results.filter { kept.contains($0.source.url) }.compactMap(\.places).flatMap { $0 }
+    addReplyPlaces(places, messageID: messageID, requestID: requestID)
+  }
+
+  /// Merges places in arrival order without duplicates. They stay in memory until the reply ends;
+  /// places for a request that's no longer running are dropped.
+  func addReplyPlaces(_ places: [MapPlace], messageID: UUID, requestID: UUID) {
+    guard !places.isEmpty, activeRequest?.id == requestID else { return }
+    var merged = replyPlaces[messageID] ?? []
+    for place in places where !merged.contains(where: { $0.id == place.id }) { merged.append(place) }
+    replyPlaces[messageID] = merged
+  }
+
+  /// Puts the places on their replies once the request ends, so the card's pins match the finished
+  /// text. `mapPlaces` is session-only and never saved.
+  private func attachReplyPlaces() {
+    defer { replyPlaces = [:] }
+    for (messageID, places) in replyPlaces {
+      for sessionIndex in sessions.indices {
+        guard let index = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }),
+              !sessions[sessionIndex].messages[index].content.allSatisfy(\.isWhitespace) else { continue }
+        sessions[sessionIndex].messages[index].mapPlaces = places
+      }
+    }
+  }
+
   /// Whether the reply's searches ran on the provider's own search (F30).
   private func recordReplySearch(provider: Bool, messageID: UUID, sessionID: UUID, requestID: UUID) {
     guard activeRequest?.id == requestID, let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
@@ -1291,6 +1323,7 @@ final class LocalChatViewModel: ObservableObject {
       sessions[sessionIndex].messages[messageIndex].searchSources = nil
       persistSessions(immediately: false)
     }
+    replyPlaces[messageID] = nil
     if nativeProposals?.requestID == requestID {
       nativeProposals?.edit = nil
       nativeProposals?.translations = []
@@ -1435,6 +1468,7 @@ final class LocalChatViewModel: ObservableObject {
           }
           prepared = grounded.prepared
           sources = grounded.sources
+          owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
           owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
         }
         try Task.checkCancellation()
@@ -1609,6 +1643,9 @@ final class LocalChatViewModel: ObservableObject {
               }
               prepared = grounded.prepared
               sources = grounded.sources
+              // A fallback grounds again: its places replace the first attempt's.
+              owner.replyPlaces[responseID] = nil
+              owner.addReplyPlaces(searchResults!, kept: grounded.sources, messageID: responseID, requestID: active.id)
               owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
             }
             try Task.checkCancellation()
@@ -1797,6 +1834,7 @@ final class LocalChatViewModel: ObservableObject {
               let providerID = CloudProviderID(rawValue: route.providerID) else { return }
         let sessionID = owner.ensureSelectedSession()
         let responseID = UUID()
+        owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
         owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
         owner.contextNotice = grounded.prepared.notice
         owner.state = .preparing
@@ -1889,6 +1927,8 @@ final class LocalChatViewModel: ObservableObject {
     files.revoke()
     holdQueue()
     if let id = activeRequest?.id { receiveActivity(.phase(.cancelled), requestID: id) }
+    // A stopped reply with text keeps its card (D146); finishGeneration won't run for it.
+    attachReplyPlaces()
     // Revoke ownership before cancellation can release any queued events or cleanup.
     activeRequest = nil
     activity = nil
@@ -2277,6 +2317,7 @@ final class LocalChatViewModel: ObservableObject {
     cancelIdleUnload()
     requestLocationContext = nil
     let request = ActiveRequest(id: UUID(), route: route, modelDisplayName: modelDisplayName)
+    replyPlaces = [:]
     pendingUserMessage = nil
     hasReceivedResponse = false
     activeRequest = request
@@ -2412,6 +2453,7 @@ final class LocalChatViewModel: ObservableObject {
       }
     }
     selectionEditRequest = nil
+    attachReplyPlaces()
     receiveActivity(.phase(error == nil ? .completed : .failed), requestID: id)
     activeRequest = nil
     activity = nil

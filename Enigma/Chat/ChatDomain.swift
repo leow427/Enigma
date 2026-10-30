@@ -100,6 +100,9 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   var selectionDraft: String? = nil
   /// Session-only, like `activity`: the request a reply came from, for its meta line.
   var origin: ReplyOrigin? = nil
+  /// Session-only: the places behind the reply's map card (spec §6.6). Never saved, so no
+  /// coordinate reaches the disk; a reopened chat has no card.
+  var mapPlaces: [MapPlace]? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, role, content, searchSources, createdAt, attachments
