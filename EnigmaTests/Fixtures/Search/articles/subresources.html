@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subresource Trap</title>
+<base href="{{ORIGIN}}/base/">
+<link rel="stylesheet" href="{{ORIGIN}}/style.css">
+<link rel="preload" href="{{ORIGIN}}/preload.js" as="script">
+<link rel="preconnect" href="{{ORIGIN}}">
+<link rel="prefetch" href="{{ORIGIN}}/prefetch.html">
+<link rel="icon" href="{{ORIGIN}}/favicon.ico">
+<script src="{{ORIGIN}}/script.js"></script>
+<style>
+@import url("{{ORIGIN}}/import.css");
+@font-face { font-family: Trap; src: url("{{ORIGIN}}/font.woff2"); }
+body { background-image: url("{{ORIGIN}}/background.png"); font-family: Trap, serif; }
+</style>
+</head>
+<body style="border-image: url('{{ORIGIN}}/border.png') 30">
+<article>
+<h1>Subresource Trap</h1>
+<p>This page points at a local listener from every kind of element that can fetch something on its own, so that a test can count whether any of them made a connection while the page was being read for its text.</p>
+<img src="{{ORIGIN}}/image.png" alt="">
+<img srcset="{{ORIGIN}}/small.png 1x, {{ORIGIN}}/large.png 2x" alt="">
+<img src="relative-to-base.png" alt="">
+<picture><source srcset="{{ORIGIN}}/picture.webp" type="image/webp"><img src="{{ORIGIN}}/picture.png" alt=""></picture>
+<p>The second paragraph is long enough to look like part of an article, with ordinary sentences about nothing in particular, which keeps the reader-mode heuristics interested in the page as a whole.</p>
+<iframe src="{{ORIGIN}}/frame.html"></iframe>
+<iframe srcdoc="&lt;img src='{{ORIGIN}}/srcdoc.png'&gt;"></iframe>
+<video poster="{{ORIGIN}}/poster.png" src="{{ORIGIN}}/video.mp4" preload="auto"></video>
+<audio src="{{ORIGIN}}/audio.mp3" preload="auto"></audio>
+<object data="{{ORIGIN}}/object.html"></object>
+<embed src="{{ORIGIN}}/embed.html">
+<svg width="10" height="10"><image href="{{ORIGIN}}/svg.png" width="10" height="10"/></svg>
+<form><input type="image" src="{{ORIGIN}}/input.png" alt="go"></form>
+<p>A third paragraph closes the article, again with plain words and no links, so that the extracted text has a known shape and the test can check it came from this page.</p>
+</article>
+</body>
+</html>

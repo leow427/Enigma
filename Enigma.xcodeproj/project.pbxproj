@@ -80,6 +80,10 @@
 		E8E7B1D926DADEE0DD4B92DD /* EnigmaTests/SearchEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */; };
 		7F54DF03C0F7AADB5EE55DC8 /* EnigmaTests/SearchSiteRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */; };
 		E3DF04E89D51CB0535B6BF8B /* Enigma/Search/PublicSuffixList.swift in Sources */ = {isa = PBXBuildFile; fileRef = E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */; };
+		C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */; };
+		0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */; };
+		87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */; };
+		A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */; };
 		76E9F80B6E604650D8E4A68E /* Enigma/Search/SourceQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE69BD1E44E54D63D6EC25A /* Enigma/Search/SourceQuality.swift */; };
 		3EB564C48DDDC9F8202CAFEB /* Enigma/Search/ResultRanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1C966EE96B8F444B41B8F5 /* Enigma/Search/ResultRanking.swift */; };
 		673F90A438CD654A073B188E /* EnigmaTests/SourceQualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AF63FDDE6F1F6E7456CD0F /* EnigmaTests/SourceQualityTests.swift */; };
@@ -337,6 +341,10 @@
 		D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchEngineTests.swift"; sourceTree = SOURCE_ROOT; };
 		61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchSiteRunnerTests.swift"; sourceTree = SOURCE_ROOT; };
 		E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PublicSuffixList.swift"; sourceTree = SOURCE_ROOT; };
+		97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PageReader.swift"; sourceTree = SOURCE_ROOT; };
+		D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/ArticleExtractor.swift"; sourceTree = SOURCE_ROOT; };
+		5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PageReaderTests.swift"; sourceTree = SOURCE_ROOT; };
+		A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ArticleExtractorTests.swift"; sourceTree = SOURCE_ROOT; };
 		AEE69BD1E44E54D63D6EC25A /* Enigma/Search/SourceQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SourceQuality.swift"; sourceTree = SOURCE_ROOT; };
 		FB1C966EE96B8F444B41B8F5 /* Enigma/Search/ResultRanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/ResultRanking.swift"; sourceTree = SOURCE_ROOT; };
 		44AF63FDDE6F1F6E7456CD0F /* EnigmaTests/SourceQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SourceQualityTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -538,6 +546,10 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */,
+				5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */,
+				D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */,
+				97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */,
 				774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */,
 				EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */,
 				19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */,
@@ -969,6 +981,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */,
+				C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */,
 				C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */,
 				CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */,
 				95ED97A60C86B267AB67A2EA /* Enigma/Chat/SelectionTools.swift in Sources */,
@@ -1133,6 +1147,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,
+				87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */,
 				748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */,
 				B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */,
 				208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */,

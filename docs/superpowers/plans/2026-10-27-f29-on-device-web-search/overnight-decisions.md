@@ -17,7 +17,7 @@ The summary at the top is written when the run ends.
 - **CP1b:** D7–D24, D26–D32, D44 (CI)
 - **CP2:** D33–D43, D45–D48
 - **CP3:** D49–D60
-- **CP4:**
+- **CP4:** D61–D72
 - **CP5:**
 - **CP6:**
 - **CP7:**
@@ -1207,3 +1207,254 @@ The summary at the top is written when the run ends.
   spam list).
 - **Reversible:** yes.
 
+
+### D61 — 2026-10-30 06:32, CP4 — Readability sits in `SearchData/readability/`, outside the lists' 3 MB budget
+
+- **Decided (worker CP4):** Readability.js 0.6.0, `Readability-readerable.js`,
+  its `LICENSE.md`, a `README.md` with the SHA-256 values and Enigma's
+  `EnigmaExtract.js` go in `Enigma/Resources/SearchData/readability/`, as the
+  brief says (about 100 KB). The lists already use 3,129,228 of the
+  3,145,728 bytes, so the scripts can't share that budget.
+  `testBundledDataLoads` and `scripts/update-search-lists.py` count only the
+  folder's top-level files, so the budget stays the lists' budget (spec §3.6
+  is titled "The bundled lists"). The files are checked against the tag
+  (commit `04fd32f7`) two ways: a raw download and a shallow clone gave the
+  same SHA-256, matching CP0's copy byte for byte.
+- **Why:** the brief fixes the location; shrinking `unsafe.bin` by 100 KB
+  would drop about 12,000 malware domains for no gain.
+- **Alternatives:** move the scripts to their own folder reference
+  (`Enigma/Resources/Readability/`, one project entry), or rerun the list
+  script with 100 KB more headroom.
+- **Reversible:** yes.
+
+### D62 — 2026-10-30 06:32, CP4 — More date sources, a modified date, and a plausibility check
+
+- **Decided (worker CP4):** the owner wants recency, so `EnigmaExtract.js`
+  collects date candidates beyond spec §4's three, in this order:
+  `article:published_time` (property or name), JSON-LD `datePublished`
+  (string scan of the page HTML passed in as an argument, CP0 Q2; `@graph`
+  and arrays walked, article types first), `dateCreated`, Readability's
+  `publishedTime`, `itemprop="datePublished"`, `parsely-pub-date`,
+  `sailthru.date`, `dc.date`/`dcterms.created`/`dc.date.issued`, `date`,
+  `pubdate`, `publish-date`, `time[pubdate]`, and the first `time[datetime]`.
+  Modified dates (`article:modified_time`, `og:updated_time`, JSON-LD
+  `dateModified`, `itemprop="dateModified"`, `last-modified`) are collected
+  separately. The JSON keys are `publishedTimes` and `modifiedTimes`
+  (arrays of raw strings) instead of the brief's single `publishedTime`;
+  Swift parses them (ISO 8601 with and without time, offset or fractions;
+  RFC 1123; "October 29, 2026" and "29 October 2026") and keeps the first
+  date between 1995 and two days after now. Last resort for `published`: a
+  `/2026/10/29/` or `2026-10-29` date in the URL path. `ExtractedArticle`
+  gains `modified: Date?`; `PageChecks.staleFactor` keeps using `published`
+  only, as the spec says, and CP5 may choose `published ?? modified`.
+- **Why:** many pages (CP0's BBC article among them) carry the date only in
+  JSON-LD or `<time>`; a future or 1970 date would wrongly pass or fail the
+  stale check.
+- **Alternatives:** spec §4's three sources only: trim the candidate list in
+  `EnigmaExtract.js` and drop `ArticleDates.fromURLPath`.
+- **Reversible:** yes.
+
+### D63 — 2026-10-30 06:32, CP4 — One view, extractions in turn, tuning in named constants
+
+- **Decided (worker CP4):** one hidden `WKWebView` (spec §4), so
+  extractions run one at a time in arrival order. Each one's 500 ms limit
+  starts when its turn starts, not when it was queued (the caller's reading
+  window bounds the whole); a queued extraction that is cancelled leaves the
+  queue at once. Any failed extraction (timeout, cancellation, script error,
+  WebContent crash) stops loading and discards the view, because Readability
+  may still be running in its WebContent process; the next extraction makes
+  a new one. The limits are named constants
+  (`ArticleExtractor.defaultTimeout`, `.defaultIdleRelease`,
+  `PageReader.maximumBytes`, `.maximumRedirects`, `ExtractedArticle`'s
+  text cap) so CP5's `OnDeviceSearchTiming` and CP7 can pass or change them;
+  the pages-read count stays `RankingTuning.readBatch` (CP3).
+- **Why:** a single WebContent process can only hold one document; reusing
+  a view whose script is stuck would make every later page time out.
+- **Alternatives:** a pool of two or three views to extract in parallel, if
+  CP7 finds extraction is the bottleneck (change `ArticleExtractor` only).
+- **Reversible:** yes.
+
+### D64 — 2026-10-30 06:32, CP4 — The local-network guard refuses a little more, fails closed, and a refusal is its own outcome
+
+- **Decided (worker CP4):** besides the brief's names and ranges, the guard
+  refuses names ending `.localhost`, `.localdomain`, `.home`, `.corp`,
+  `.intranet` and `.onion` (none is a public TLD), `fec0::/10` (old
+  site-local), and judges IPv4-compatible `::a.b.c.d` and NAT64
+  `64:ff9b::a.b.c.d` by their IPv4 address, like IPv4-mapped ones. A
+  resolver error or an empty answer refuses the page (fails closed). A URL
+  carrying a user name or password is refused. `PageFetchOutcome` gains
+  `.refused`: the guard, the blocklist or a non-http(s) redirect said no,
+  so CP5 should use neither the page nor its snippet (a redirect to a
+  blocked site means the result really is that site). `.failed` stays for
+  network and HTTP failures, where the snippet is still fair to use.
+- **Why:** each extra is cheap and only refuses addresses that can't be a
+  public web page; spec §7 says blocked sites never appear.
+- **Alternatives:** the brief's exact lists (`NetworkGuard` in
+  `PageReader.swift`), and folding `.refused` into `.failed`.
+- **Reversible:** yes.
+
+### D65 — 2026-10-30 06:32, CP4 — Downloading details the brief leaves open
+
+- **Decided (worker CP4):** ~~an `http` link falls back to `http` after any
+  `.failed` https attempt (network error or non-2xx), never after
+  `.refused` or `.skipped`.~~ *Corrected by D71/D72: App Transport Security
+  blocks plain http, so pages are read over https only, with no fallback.* 2xx other than 204 and 205 is a page; 301, 302,
+  303, 307 and 308 with a `Location` are redirects (relative locations
+  resolved against the hop); anything else is `.failed`. A response with no
+  `Content-Type` counts as HTML only when its first 512 bytes hold
+  `<!doctype html` or `<html`; otherwise it's skipped. A body cut at 3 MB is
+  still used, and a UTF-8 sequence cut at the end is trimmed so the page
+  doesn't fall back to Windows-1252. A UTF-8 or UTF-16 byte-order mark wins
+  over every declaration. Cancellation gives `.failed`.
+- **Why:** these are the behaviours a browser would show for the same page,
+  within spec §4's rules.
+- **Alternatives:** skip type-less responses, or fall back to http only on
+  connection errors (`PageReader.fetch`).
+- **Reversible:** yes.
+
+### D66 — 2026-10-30 06:32, CP4 — Page checks: more wall phrases, order, non-readerable long pages kept, CJK word counts
+
+- **Decided (worker CP4):** (1) `wallPhrases` adds, to spec §3.4's and the
+  brief's, "verify you are a human", "please enable cookies", "javascript is
+  disabled", "checking your browser", "unusual traffic", "complete the
+  security check", "subscribe to read", "sign in to read", "log in to read",
+  "subscribers only", "create a free account to continue" and "to continue
+  reading, subscribe"; they only count on pages under 400 words. (2) Order:
+  wall, then not-an-article, then wrong language. (3) A page that
+  `isProbablyReaderable` calls false but whose extracted text has at least
+  `PageChecks.minimumWordsWhenNotReaderable` (250) words is kept: FAQ, spec
+  sheet and API reference pages often fail Readability's paragraph-length
+  test yet hold the facts asked for. (4) `wordCount` uses the system's word
+  boundaries, so Japanese and Chinese pages aren't counted as one word each.
+  (5) Wikipedia, read through its API, is exempt from the wall check as well
+  as the length check (a stub about a film called "Access Denied" isn't a
+  wall). (6) The language check reads prose blocks only (not code or table
+  rows) and needs at least 200 letters, else the language is undetermined
+  and the page kept: `NLLanguageRecognizer` called a page of model numbers
+  Polish at 98% confidence.
+- **Why:** the owner wants factual answers; dropping long docs pages costs
+  facts, and a CJK page would otherwise always fail the 120-word minimum.
+- **Alternatives:** spec §3.4 exactly: set
+  `minimumWordsWhenNotReaderable` to `Int.max`; trim `wallPhrases`.
+- **Reversible:** yes.
+
+### D67 — 2026-10-30 06:32, CP4 — The block-all rule list is compiled into WebKit's default store
+
+- **Decided (worker CP4):** the content rule list is compiled once per
+  launch into `WKContentRuleListStore.default()` under the identifier
+  `EnigmaBlockAll` (recompiled rather than looked up, so a changed rule
+  can't be served stale), the only API WebKit offers. That
+  writes WebKit's compiled form of the one static rule to the app's
+  container; it holds no search data. No extraction starts until the list
+  is installed; if it can't be compiled, extraction throws `.unavailable`.
+- **Why:** "nothing is written to disk" is about search data (queries,
+  URLs, pages); WebKit has no in-memory rule list.
+- **Alternatives:** a store in a temporary folder
+  (`WKContentRuleListStore(url:)`), deleted at quit.
+- **Reversible:** yes.
+
+### D68 — 2026-10-30 06:32, CP4 — Extracted text capped at 200,000 characters
+
+- **Decided (worker CP4):** `EnigmaExtract.js` stops adding blocks once
+  200,000 characters are collected (about 30,000 words, longer than nearly
+  any article), and cuts a single block at 20,000 characters.
+- **Why:** bounds the JSON that crosses into the app from a 3 MB page;
+  CP5 keeps at most 2,048 tokens per source anyway.
+- **Alternatives:** change the two constants at the top of
+  `EnigmaExtract.js`.
+- **Reversible:** yes.
+
+### D69 — 2026-10-30 07:20, CP4 — Round-1 fixes: unresolved isn't refused; lenient UTF-8; one static rule-list file; drop responses from non-public addresses
+
+- **Decided (orchestrator):** (1) the guard has three answers — allowed,
+  refused, unresolved; a cancelled or failed lookup gives `.failed` (snippet
+  kept), `.refused` stays for names, addresses, blocklist, schemes and
+  credentials. (2) Declared UTF-8 decodes with replacement characters; fall
+  back to Windows-1252 only when most non-ASCII bytes are invalid. (3) Revises
+  D67: the block-all rule list uses a versioned identifier
+  (`EnigmaBlockAll-v1` or the rule's hash), is looked up first and compiled
+  only when missing, and the old entry is removed once — one static 142-byte
+  file per rule version holding only the rule text, no per-search timestamp.
+  Spec §4/§7 get an "Amended overnight" note naming this file. (4) A test pins
+  the sealed configuration (non-persistent store, scripts off, no message
+  handlers). (5) Extra hardening against DNS rebinding: a response whose
+  `URLSessionTaskTransactionMetrics.remoteAddress` isn't public is dropped as
+  `.refused`.
+- **Why:** reviewer round 1 — (1) a read-window cancel lost snippets; (2) one
+  bad byte garbled non-English pages; (3) the default store rewrote the file at
+  each launch's first search, leaving a search timestamp on disk; (4) a
+  persistent-store mutant passed every test; (5) closes most of the rebinding
+  gap spec §4 accepted, at no cost.
+- **Alternatives:** a temp-folder rule store (a crash can leave it behind); no
+  remote-address check.
+- **Reversible:** yes.
+
+### D70 — 2026-10-30 07:22, CP4 — Round-1 fix details (D69)
+
+- **Decided (worker CP4):** (1) `NetworkGuard.check(_:)` returns
+  `.allowed`, `.refused` or `.unresolved`; `allows(_:)` stays as
+  `check == .allowed`. A lookup error, an empty answer or cancellation is
+  `.unresolved`, which `PageReader` reports as `.failed`; an `http` link
+  then still gets its http attempt unless the task is cancelled. (2) The
+  majority rule applies to every UTF-8 attempt, declared or not: strict
+  UTF-8 (with the cut-tail trim) first; otherwise UTF-8 with replacement
+  characters when at most half the non-ASCII bytes are invalid; otherwise
+  the next declaration, then Windows-1252. (3) The old `EnigmaBlockAll`
+  entry is removed only when the `EnigmaBlockAll-v1` lookup misses, so it
+  happens once per Mac and never again after. (4) `SealedWebView` becomes
+  internal with `makeConfiguration(contentController:)`; a test also checks
+  from JavaScript that `window.webkit` is undefined in both the page world
+  and the `EnigmaExtract` world (no message handlers). (5)
+  `SearchHTTPResponse` gains `remoteAddress: String?` (default nil);
+  `URLSessionSearchHTTPClient` reads it from the last transaction's metrics
+  through a per-task delegate (which also refuses redirects), waiting at
+  most 250 ms after the body for the metrics. It stays nil through a proxy
+  (`isProxyConnection`), since the proxy's address says nothing about the
+  site and is often private; nil means unknown and the page is kept. A
+  non-public address drops the hop as `.refused`, redirects included.
+- **Why:** D69; the proxy case would otherwise break page reading for
+  everyone behind a local or corporate proxy.
+- **Alternatives:** refuse when the address is unknown (breaks proxies);
+  apply the majority rule only to declared UTF-8.
+- **Reversible:** yes.
+
+### D71 — 2026-10-30 07:40, CP4 — Pages over https only (ATS stays strict); round-2 fixes; no round 3
+
+- **Decided (orchestrator):** App Transport Security blocks plain-http loads
+  (URLError -1022) and is not loosened, so pages are read over https only: the
+  http fallback in `PageReader` is removed and an https→http redirect ends as
+  `.failed`. Corrects D65 and the Hand-off; spec §4 gets an "Amended overnight"
+  note. Also fixed: a byte-order mark decodes leniently (UTF-8 and UTF-16 with
+  replacement characters); D70's proxy selection moves into a tested static
+  function; the rule-list versioning test uses a temporary
+  `WKContentRuleListStore(url:)` and checks the file's inode and mtime don't
+  change, instead of rewriting the installed app's store. Plain-HTTP proxies
+  report `isProxyConnection == false` — irrelevant while ATS forbids http, noted
+  in a code comment. No round 3: each fix is small and comes with the
+  reviewer's own failing check as a test; usage is at 77%.
+- **Why:** reviewer round 2. Loosening ATS would weaken transport security for
+  the whole app; https covers nearly all quality sources.
+- **Alternatives:** an ATS exception for the page reader only
+  (`NSAllowsArbitraryLoads` in `Enigma/Resources/Info.plist` — not
+  recommended).
+- **Reversible:** yes.
+
+### D72 — 2026-10-30 07:41, CP4 — Round-2 fix details (D71)
+
+- **Decided (worker CP4):** (1) An `http` link is still read, as `https`
+  (port 80 dropped), with one attempt and no fallback. An `http` hop
+  reached by redirect still goes through the scheme, blocklist and guard
+  checks first, so a redirect to a blocked or local address stays
+  `.refused`; otherwise it ends as `.failed` without a request. (2) With a
+  byte-order mark, UTF-8 decodes strictly with the cut-tail trim, else with
+  replacement characters; UTF-16 drops an odd trailing byte and a trailing
+  lone high surrogate (a cut tail), then decodes with replacement
+  characters. (3) The proxy rule is
+  `URLSessionSearchHTTPClient.reachedAddress(_:)` over (isProxy, address)
+  pairs: the last transaction with an address, nil if it went through a
+  proxy. (4) The rule-list test uses a store in a temporary folder, removed
+  afterwards.
+- **Why:** D71 (reviewer round 2).
+- **Alternatives:** treat an https-to-http redirect as `.refused` (it
+  would drop the snippet of a page that only moved).
+- **Reversible:** yes.

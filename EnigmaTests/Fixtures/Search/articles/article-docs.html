@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Configuring the Lantern cache - Lantern Docs</title>
+<meta name="application-name" content="Lantern Docs">
+</head>
+<body>
+<nav class="sidebar"><ul><li><a href="/start">Getting started</a></li><li><a href="/cache">Cache</a></li><li><a href="/cli">Command line</a></li></ul></nav>
+<main>
+<article class="docs-content">
+<h1>Configuring the Lantern cache</h1>
+<p>Lantern keeps a local cache of compiled templates so that repeated builds can skip work that has not changed. This page explains how to install the cache helper, which options control its size and lifetime, and how to clear it safely when something goes wrong during a build.</p>
+<h2>Installation</h2>
+<p>The cache helper ships as a separate command. Install it once per machine with the package manager that came with Lantern, then check that the command is on your path before running your first cached build.</p>
+<pre><code>lantern install cache-helper --global
+lantern cache status</code></pre>
+<p>The status command prints the cache folder, its current size and the number of entries it holds. A fresh install reports an empty cache with no entries.</p>
+<h2>Options</h2>
+<p>Every option can be set in the project file or passed on the command line, and the command line always wins when both are present.</p>
+<table>
+<tr><th>Option</th><th>Default</th><th>Meaning</th></tr>
+<tr><td>maxSize</td><td>2 GB</td><td>Largest size before old entries are removed</td></tr>
+<tr><td>ttlDays</td><td>30</td><td>Days an unused entry is kept</td></tr>
+</table>
+<p>Older entries are removed first when the cache grows past its limit. Entries that are still in use by a running build are never removed, even when the cache is over its limit for a short time.</p>
+<h2>Clearing the cache</h2>
+<ul>
+<li>Stop any running builds before clearing the cache.</li>
+<li>Run the clear command shown below from any folder.</li>
+<li>Start the next build normally; it repopulates the cache as it goes.</li>
+</ul>
+<pre><code>lantern cache clear --all</code></pre>
+<p>Clearing is always safe, because the cache only ever holds copies of work that Lantern can repeat. The next build is slower while the cache fills again, and later builds return to their usual speed once the common templates are cached.</p>
+</article>
+</main>
+<footer><p>Lantern documentation is written by the Lantern maintainers.</p></footer>
+</body>
+</html>

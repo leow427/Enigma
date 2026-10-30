@@ -456,6 +456,12 @@ spam lists, the off-topic check, and the user's "Never use this site".
 - **Requests:** a single GET per page, with Safari's headers. No cookies,
   cache, stored credentials or `Referer`. Plain `http` links are tried over
   `https` first.
+
+  *Amended overnight (orchestrator, owner to confirm):* App Transport
+  Security blocks plain-http loads and Enigma doesn't loosen it, so pages are
+  read over https only: an `http` link is read as `https` once, with no http
+  fallback, and a redirect to plain http fails the page, keeping its snippet
+  (D71).
 - **Local network guard.** Refuse:
   - `localhost`, single-label hosts, and names ending `.local`, `.lan`,
     `.internal` or `.home.arpa`;
@@ -494,6 +500,13 @@ spam lists, the off-topic check, and the user's "Never use this site".
   - a navigation delegate that cancels every navigation after the first
     load;
   - no script message handlers.
+
+  *Amended overnight (orchestrator, owner to confirm):* WebKit has no
+  in-memory rule list, so the block-all rule is compiled once into WebKit's
+  default content-rule-list store under the versioned identifier
+  `EnigmaBlockAll-v1`, looked up at later launches and recompiled only when
+  missing (D67, D69). That one static file per rule version holds only the
+  rule's text; no query, URL or page is written.
 - **Loading:** `loadHTMLString(_:baseURL: nil)`.
 - **Scripts:** these run in an isolated `WKContentWorld` through
   `callAsyncJavaScript`, all bundled in `SearchData/`:
@@ -861,6 +874,9 @@ Under every reply whose evidence included a `.places` result, on any route.
 - **Stored on the Mac:**
   - the blocked-sites list (domains only, in preferences);
   - site health, in memory only;
+  - *Amended overnight (orchestrator, owner to confirm):* WebKit's compiled
+    copy of the block-all page-reading rule (`EnigmaBlockAll-v1`), one static
+    file per rule version holding only the rule's text (§4, D69);
   - Console entries carry the site name, status and size, never the query
     or a URL.
 - **Brave key cleanup.** On first launch after the update, the Keychain item

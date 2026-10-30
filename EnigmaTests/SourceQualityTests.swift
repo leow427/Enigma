@@ -348,3 +348,164 @@ final class SourceQualityTests: XCTestCase {
                    1.3 * 1.15, accuracy: 1e-9)
   }
 }
+
+// MARK: - Checks after reading (CP4, Task 4.4)
+
+/// Builds `ExtractedArticle`s with an exact word count from original sentences.
+enum PageCheckFixture {
+  static let english = """
+    The river carries cold water from the hills to the sea every spring. Farmers along its banks plant \
+    barley and beans once the floods have passed. In summer the water is low enough to cross on foot near \
+    the old mill. Children fish from the stone bridge while their parents talk about the weather. The town \
+    council repairs the banks each autumn before the rains return.
+    """
+  static let french = """
+    La rivière traverse la vallée avant de rejoindre la mer au printemps. Les agriculteurs plantent du blé \
+    et des haricots lorsque les eaux se retirent enfin. En été, les enfants pêchent depuis le vieux pont de \
+    pierre pendant que leurs parents parlent du temps. Le conseil municipal répare les berges chaque automne \
+    avant le retour des pluies et des tempêtes.
+    """
+  static let japanese = """
+    川は春になると山から海へ冷たい水を運びます。洪水が引いた後、農家の人たちは川沿いの畑に大麦や豆を植えます。\
+    夏には水位が下がり、古い水車小屋の近くでは歩いて川を渡ることができます。子どもたちは石の橋から魚を釣り、\
+    大人たちは天気の話をしています。町の議会は雨の季節が戻る前に、毎年秋に土手を修理しています。
+    """
+
+  /// `text` repeated and cut to exactly `count` words.
+  static func words(_ count: Int, from text: String = english) -> String {
+    let words = text.split(whereSeparator: \.isWhitespace)
+    return (0..<count).map { String(words[$0 % words.count]) }.joined(separator: " ")
+  }
+
+  static func article(_ text: String, readerable: Bool = true) -> ExtractedArticle {
+    ExtractedArticle(title: "A page", siteName: nil, byline: nil, language: nil, published: nil,
+                     blocks: [ArticleBlock(kind: .paragraph, text: text)], isReaderable: readerable)
+  }
+
+  /// Distinct made-up words, so shingles only repeat where a test repeats a sentence.
+  static func sentences(_ count: Int, seed: UInt64) -> [String] {
+    var state = seed
+    func next() -> UInt64 {
+      state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+      return state >> 33
+    }
+    return (0..<count).map { _ in
+      (0..<10).map { _ in "w\(next() % 5_000)" }.joined(separator: " ") + "."
+    }
+  }
+}
+
+extension SourceQualityTests {
+  private var english: Set<String> { ["en"] }
+
+  func testShortPageIsNotArticle() {
+    let short = PageCheckFixture.article(PageCheckFixture.words(119))
+    XCTAssertEqual(short.wordCount, 119)
+    XCTAssertEqual(PageChecks.basic(short, isWikipedia: false, allowedLanguages: english), .notArticle)
+    let enough = PageCheckFixture.article(PageCheckFixture.words(120))
+    XCTAssertEqual(enough.wordCount, 120)
+    XCTAssertEqual(PageChecks.basic(enough, isWikipedia: false, allowedLanguages: english), .keep)
+    XCTAssertEqual(PageChecks.minimumWords, 120)
+    // Words are counted across blocks, and punctuation isn't a word.
+    let split = ExtractedArticle(title: "t", siteName: nil, byline: nil, language: nil, published: nil,
+                                 blocks: [ArticleBlock(kind: .heading, text: "Two words —"),
+                                          ArticleBlock(kind: .paragraph, text: "and three more!")],
+                                 isReaderable: true)
+    XCTAssertEqual(split.wordCount, 5)
+  }
+
+  func testNotReaderablePageNeedsMoreWords() {
+    let short = PageCheckFixture.article(PageCheckFixture.words(249), readerable: false)
+    XCTAssertEqual(PageChecks.basic(short, isWikipedia: false, allowedLanguages: english), .notArticle)
+    let long = PageCheckFixture.article(PageCheckFixture.words(250), readerable: false)
+    XCTAssertEqual(PageChecks.basic(long, isWikipedia: false, allowedLanguages: english), .keep, "D66")
+    XCTAssertEqual(PageChecks.minimumWordsWhenNotReaderable, 250)
+  }
+
+  func testWikipediaExemptFromLength() {
+    let stub = PageCheckFixture.article(PageCheckFixture.words(40), readerable: false)
+    XCTAssertEqual(PageChecks.basic(stub, isWikipedia: true, allowedLanguages: english), .keep)
+    XCTAssertEqual(PageChecks.basic(stub, isWikipedia: false, allowedLanguages: english), .notArticle)
+  }
+
+  func testWallPhraseOnShortPage() {
+    let short = PageCheckFixture.article(PageCheckFixture.words(350) + " Subscribe to continue reading this story.")
+    XCTAssertEqual(PageChecks.basic(short, isWikipedia: false, allowedLanguages: english), .wall)
+    let long = PageCheckFixture.article(PageCheckFixture.words(500) + " Subscribe to continue reading this story.")
+    XCTAssertEqual(PageChecks.basic(long, isWikipedia: false, allowedLanguages: english), .keep)
+    XCTAssertEqual(PageChecks.wallWordLimit, 400)
+    for phrase in ["subscribe to continue", "sign in to continue", "enable javascript", "access denied",
+                   "verify you are human", "log in to continue", "are you a robot", "this content is for subscribers"] {
+      XCTAssertTrue(PageChecks.wallPhrases.contains(phrase), phrase)
+      let page = PageCheckFixture.article(PageCheckFixture.words(200) + " " + phrase.uppercased() + ".")
+      XCTAssertEqual(PageChecks.basic(page, isWikipedia: false, allowedLanguages: english), .wall, phrase)
+    }
+    XCTAssertTrue(PageChecks.wallPhrases.allSatisfy { $0 == $0.lowercased() })
+    // A wall in the title of a short page counts too; a tiny wall page is a wall, not just short.
+    let titled = ExtractedArticle(title: "Access Denied", siteName: nil, byline: nil, language: nil, published: nil,
+                                  blocks: [ArticleBlock(kind: .paragraph, text: "Reference 18.2f.")], isReaderable: false)
+    XCTAssertEqual(PageChecks.basic(titled, isWikipedia: false, allowedLanguages: english), .wall)
+  }
+
+  func testWrongLanguageDropped() {
+    let french = PageCheckFixture.article(PageCheckFixture.words(200, from: PageCheckFixture.french))
+    XCTAssertEqual(PageChecks.basic(french, isWikipedia: false, allowedLanguages: ["en"]), .wrongLanguage)
+    XCTAssertEqual(PageChecks.basic(french, isWikipedia: false, allowedLanguages: ["en", "fr-CA"]), .keep)
+    XCTAssertEqual(PageChecks.basic(french, isWikipedia: false, allowedLanguages: ["EN", "fr_FR"]), .keep)
+  }
+
+  func testPreferredLanguagePageIsKept() {
+    let text = String(repeating: PageCheckFixture.japanese, count: 3)
+    let japanese = PageCheckFixture.article(text)
+    XCTAssertGreaterThanOrEqual(japanese.wordCount, 120, "Japanese words are counted, not whitespace runs")
+    XCTAssertEqual(PageChecks.basic(japanese, isWikipedia: false, allowedLanguages: ["en", "ja"]), .keep)
+    XCTAssertEqual(PageChecks.basic(japanese, isWikipedia: false, allowedLanguages: ["en"]), .wrongLanguage)
+  }
+
+  func testUndeterminedLanguageIsKept() {
+    // Model numbers: the recognizer alone calls this Polish at 98%, but it has too few letters.
+    let figures = (0..<130).map { "X\($0)-\($0 * 7) 4.\($0)" }.joined(separator: " ")
+    XCTAssertEqual(PageChecks.basic(PageCheckFixture.article(figures), isWikipedia: false, allowedLanguages: ["ja"]), .keep)
+    // Table rows and code don't count towards the language.
+    let rows = (0..<40).map { ArticleBlock(kind: .tableRow, text: "Rzeka płynie przez dolinę wiosną \($0)") }
+    let table = ExtractedArticle(title: "t", siteName: nil, byline: nil, language: nil, published: nil,
+                                 blocks: [ArticleBlock(kind: .paragraph, text: PageCheckFixture.words(130))] + rows,
+                                 isReaderable: true)
+    XCTAssertEqual(PageChecks.basic(table, isWikipedia: false, allowedLanguages: ["en"]), .keep)
+  }
+
+  func testNearDuplicateDetected() {
+    let shared = PageCheckFixture.sentences(16, seed: 1)
+    let a = (shared + PageCheckFixture.sentences(4, seed: 2)).joined(separator: " ")
+    let b = (shared + PageCheckFixture.sentences(4, seed: 3)).joined(separator: " ")
+    XCTAssertEqual(a.split(separator: " ").count, 200)
+    let similarity = PageChecks.jaccard(PageChecks.shingles(a), PageChecks.shingles(b))
+    XCTAssertGreaterThanOrEqual(similarity, PageChecks.duplicateThreshold)
+    XCTAssertLessThan(similarity, 1)
+    let unrelated = PageCheckFixture.sentences(20, seed: 4).joined(separator: " ")
+    XCTAssertLessThan(PageChecks.jaccard(PageChecks.shingles(a), PageChecks.shingles(unrelated)), 0.1)
+    XCTAssertEqual(PageChecks.duplicateThreshold, 0.6)
+    // Shingles ignore case and punctuation, and an identical text scores 1.
+    XCTAssertEqual(PageChecks.shingles("One two three four five six."), PageChecks.shingles("one, TWO three four five six"))
+    XCTAssertEqual(PageChecks.shingles("one two three four five six").count, 2)
+    XCTAssertEqual(PageChecks.jaccard(PageChecks.shingles(a), PageChecks.shingles(a)), 1)
+    XCTAssertEqual(PageChecks.jaccard([], []), 0)
+  }
+
+  func testStaleFactor() {
+    let now = Date(timeIntervalSince1970: 1_793_000_000)
+    func daysAgo(_ days: Double) -> Date { now.addingTimeInterval(-days * 86_400) }
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(15), recency: .week, now: now), 0.5)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(13), recency: .week, now: now), 1.0)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(3), recency: .day, now: now), 0.5)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(1.5), recency: .day, now: now), 1.0)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(61), recency: .month, now: now), 0.5)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(59), recency: .month, now: now), 1.0)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(740), recency: .year, now: now), 0.5)
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(700), recency: .year, now: now), 1.0)
+    for recency in [SearchRecency.day, .week, .month, .year] {
+      XCTAssertEqual(PageChecks.staleFactor(published: nil, recency: recency, now: now), 1.0)
+    }
+    XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(5_000), recency: nil, now: now), 1.0)
+  }
+}

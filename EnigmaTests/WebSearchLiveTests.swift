@@ -61,6 +61,59 @@ final class WebSearchLiveTests: XCTestCase {
     XCTAssertGreaterThan(article.text.count, 1_000)
     XCTAssertEqual(article.url.host(), "en.wikipedia.org")
   }
+
+  /// CP4: downloads and extracts a few public pages of different kinds through the real
+  /// `PageReader` and `ArticleExtractor`. Prints the page's position in this list with counts and
+  /// timings, never a link or page text.
+  func testLivePageReading() async throws {
+    let pages = livePages
+    let extracted = await Self.readLivePages(pages)
+    XCTAssertGreaterThanOrEqual(extracted, pages.count / 2)
+  }
+
+  private var livePages: [String] {
+    [
+      "http://en.wikipedia.org/wiki/Alan_Turing",                   // http link, large article
+      "https://www.rfc-editor.org/rfc/rfc9110.html",                 // very long page
+      "https://docs.python.org/3/library/json.html",                 // docs with code
+      "https://www.gov.uk/bank-holidays",                            // government page with tables
+      "https://www.nhs.uk/conditions/flu/",                          // health authority
+      "https://developer.apple.com/documentation/swift/array",       // script-rendered docs
+    ]
+  }
+
+  @MainActor private static func readLivePages(_ pages: [String]) async -> Int {
+    let reader = PageReader(client: URLSessionSearchHTTPClient.live, networkGuard: NetworkGuard(), isBlocked: { _ in false })
+    let extractor = ArticleExtractor()
+    extractor.warmUp()
+    var extracted = 0
+    for (index, link) in pages.enumerated() {
+      let fetchStart = ContinuousClock.now
+      let outcome = await reader.fetch(URL(string: link)!)
+      let fetchTime = ContinuousClock.now - fetchStart
+      guard case .page(let page) = outcome else {
+        print("LIVE page \(index) outcome=\(outcome) fetch=\(fetchTime)")
+        continue
+      }
+      let extractStart = ContinuousClock.now
+      do {
+        let article = try await extractor.extract(html: page.content, url: page.finalURL)
+        let extractTime = ContinuousClock.now - extractStart
+        extracted += 1
+        var kinds: [String: Int] = [:]
+        for block in article.blocks { kinds[block.kind.rawValue, default: 0] += 1 }
+        let verdict = PageChecks.basic(article, isWikipedia: false, allowedLanguages: ["en"])
+        print("LIVE page \(index) format=\(page.format) chars=\(page.content.count) fetch=\(fetchTime)",
+              "extract=\(extractTime) words=\(article.wordCount) readerable=\(article.isReaderable)",
+              "verdict=\(verdict) published=\(article.published != nil) modified=\(article.modified != nil)",
+              "site=\(article.siteName != nil) lang=\(article.language ?? "-") blocks=\(kinds.sorted { $0.key < $1.key })")
+      } catch {
+        print("LIVE page \(index) format=\(page.format) chars=\(page.content.count) fetch=\(fetchTime)",
+              "extract-error=\(error) after \(ContinuousClock.now - extractStart)")
+      }
+    }
+    return extracted
+  }
 }
 
 private final class CapturingClient: SearchHTTPClient, @unchecked Sendable {

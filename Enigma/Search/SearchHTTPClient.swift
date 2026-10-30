@@ -9,6 +9,8 @@ struct SearchHTTPResponse: Equatable, Sendable {
   let body: Data
   /// True when the body was cut at the byte limit.
   let truncated: Bool
+  /// The server address the response came from; nil when unknown or reached through a proxy.
+  var remoteAddress: String? = nil
 }
 
 protocol SearchHTTPClient: Sendable {
@@ -40,8 +42,21 @@ final class URLSessionSearchHTTPClient: SearchHTTPClient {
 
   deinit { session.invalidateAndCancel() }
 
+  /// The address a request's connection reached: the last transaction that reports one, or nil
+  /// when that transaction went through a proxy, whose address says nothing about the site and is
+  /// often loopback or private (D70). A plain-HTTP proxy reports `isProxyConnection == false`, but
+  /// page reading is https only (ATS, D71), and an https proxy (CONNECT) does report it.
+  static func reachedAddress(_ transactions: [(isProxy: Bool, address: String?)]) -> String? {
+    guard let last = transactions.last(where: { $0.address != nil }) else { return nil }
+    return last.isProxy ? nil : last.address
+  }
+
+  /// How long to wait, after the body, for the connection's metrics (the remote address).
+  static let metricsWait: Duration = .milliseconds(250)
+
   func send(_ request: URLRequest, maximumBytes: Int) async throws -> SearchHTTPResponse {
-    let (bytes, response) = try await session.bytes(for: request)
+    let metrics = RemoteAddressCollector()
+    let (bytes, response) = try await session.bytes(for: request, delegate: metrics)
     guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
     var body = Data()
     body.reserveCapacity(min(max(Int(http.expectedContentLength), 0), maximumBytes))
@@ -58,8 +73,61 @@ final class URLSessionSearchHTTPClient: SearchHTTPClient {
     for (name, value) in http.allHeaderFields {
       if let name = name as? String { headers[name.lowercased()] = "\(value)" }
     }
+    let remoteAddress = await metrics.remoteAddress(within: Self.metricsWait)
     return SearchHTTPResponse(url: http.url ?? request.url ?? URL(string: "about:blank")!,
-                              statusCode: http.statusCode, headers: headers, body: body, truncated: truncated)
+                              statusCode: http.statusCode, headers: headers, body: body, truncated: truncated,
+                              remoteAddress: remoteAddress)
+  }
+}
+
+/// A per-task delegate that reads the address the connection reached from the task's metrics,
+/// and refuses redirects like the session's own delegate. Through a proxy the address is the
+/// proxy's, so it reports none.
+private final class RemoteAddressCollector: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+  private let lock = NSLock()
+  private var collected = false
+  private var address: String?
+  private var waiter: CheckedContinuation<String?, Never>?
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                  newRequest request: URLRequest) async -> URLRequest? {
+    nil
+  }
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+    let reached = URLSessionSearchHTTPClient.reachedAddress(
+      metrics.transactionMetrics.map { (isProxy: $0.isProxyConnection, address: $0.remoteAddress) })
+    let waiting: CheckedContinuation<String?, Never>? = lock.withLock {
+      guard !collected else { return nil }
+      collected = true
+      address = reached
+      defer { waiter = nil }
+      return waiter
+    }
+    waiting?.resume(returning: reached)
+  }
+
+  /// The address, or nil if the metrics don't arrive within `limit`.
+  func remoteAddress(within limit: Duration) async -> String? {
+    await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
+      let ready: String?? = lock.withLock {
+        if collected { return .some(address) }
+        waiter = continuation
+        return nil
+      }
+      if let ready { return continuation.resume(returning: ready) }
+      let seconds = Double(limit.components.seconds) + Double(limit.components.attoseconds) / 1e18
+      DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
+        guard let self else { return }
+        let late: CheckedContinuation<String?, Never>? = self.lock.withLock {
+          guard !self.collected else { return nil }
+          self.collected = true
+          defer { self.waiter = nil }
+          return self.waiter
+        }
+        late?.resume(returning: nil)
+      }
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import os
 
 /// FNV-1a, 64-bit: the hash `scripts/update-search-lists.py` writes into `unsafe.bin` and `spam.bin`.
@@ -231,5 +232,121 @@ struct SourceQuality: Sendable {
     }
     if isUnreadable(url) { factor *= RankingTuning.unreadableFactor }
     return factor
+  }
+}
+
+/// What the checks after reading decided about a page (spec §3.4). CP5 adds off-topic.
+enum PageVerdict: Equatable, Sendable { case keep, notArticle, wall, wrongLanguage, offTopic, duplicate }
+
+/// The checks after reading (spec §3.4). Every value is a starting value for CP7 to tune.
+enum PageChecks {
+  static let minimumWords = 120
+  /// A page `isProbablyReaderable` turns down is kept only with this many words (D66). FAQ, spec
+  /// sheet and API reference pages fail Readability's paragraph test yet carry facts.
+  static let minimumWordsWhenNotReaderable = 250
+  static let wallWordLimit = 400
+  /// Lowercase English phrases of login walls, paywalls and bot checks; they count only on pages
+  /// under `wallWordLimit` words. Spec §3.4's, the brief's, then D66's.
+  static let wallPhrases = [
+    "subscribe to continue", "sign in to continue", "enable javascript", "access denied", "verify you are human",
+    "log in to continue", "are you a robot", "this content is for subscribers",
+    "verify you are a human", "please enable cookies", "javascript is disabled", "checking your browser",
+    "unusual traffic", "complete the security check", "subscribe to read", "sign in to read", "log in to read",
+    "subscribers only", "create a free account to continue", "to continue reading, subscribe",
+  ]
+  static let duplicateThreshold = 0.6
+  static let shingleWords = 5
+  /// `NLLanguageRecognizer`'s confidence needed before a page's language counts.
+  static let languageConfidence = 0.8
+  /// How much text the language check reads.
+  static let languageSampleCharacters = 5_000
+  /// Fewer letters than this leaves the language undetermined: the recognizer calls a page of
+  /// model numbers Polish with 98% confidence.
+  static let languageMinimumLetters = 200
+  static let stalePenalty = 0.5
+  /// Spec §3.4: twice each recency window.
+  static let staleAfter: [SearchRecency: TimeInterval] = [
+    .day: 2 * 86_400, .week: 14 * 86_400, .month: 60 * 86_400, .year: 730 * 86_400,
+  ]
+
+  /// Wall, then not an article, then wrong language. Wikipedia (read through its API) is exempt
+  /// from the length and wall checks.
+  static func basic(_ article: ExtractedArticle, isWikipedia: Bool, allowedLanguages: Set<String>) -> PageVerdict {
+    if !isWikipedia {
+      if article.wordCount < wallWordLimit, containsWallPhrase(article) { return .wall }
+      let needed = article.isReaderable ? minimumWords : max(minimumWords, minimumWordsWhenNotReaderable)
+      if article.wordCount < needed { return .notArticle }
+    }
+    if let language = dominantLanguage(of: article), !allowedLanguages.isEmpty,
+       !allowedLanguages.contains(where: { baseLanguage($0) == language }) {
+      return .wrongLanguage
+    }
+    return .keep
+  }
+
+  /// 5-word shingles of the text's words, lowercased, hashed with FNV-1a-64. A text of fewer
+  /// than 5 words is one shingle.
+  static func shingles(_ text: String) -> Set<UInt64> {
+    let words = TextWords.words(in: text)
+    guard !words.isEmpty else { return [] }
+    guard words.count >= shingleWords else { return [FNV1a64.hash(words.joined(separator: " "))] }
+    var result = Set<UInt64>()
+    result.reserveCapacity(words.count - shingleWords + 1)
+    for start in 0...(words.count - shingleWords) {
+      result.insert(FNV1a64.hash(words[start..<(start + shingleWords)].joined(separator: " ")))
+    }
+    return result
+  }
+
+  static func jaccard(_ a: Set<UInt64>, _ b: Set<UInt64>) -> Double {
+    let union = a.union(b).count
+    guard union > 0 else { return 0 }
+    return Double(a.intersection(b).count) / Double(union)
+  }
+
+  /// 0.5 when a recency hint is set and the page was published more than twice its window ago;
+  /// 1.0 with no hint or no date.
+  static func staleFactor(published: Date?, recency: SearchRecency?, now: Date) -> Double {
+    guard let published, let recency, let limit = staleAfter[recency] else { return 1.0 }
+    return now.timeIntervalSince(published) > limit ? stalePenalty : 1.0
+  }
+
+  // MARK: Helpers
+
+  private static func containsWallPhrase(_ article: ExtractedArticle) -> Bool {
+    let text = ([article.title] + article.blocks.map(\.text)).joined(separator: "\n").lowercased()
+    return wallPhrases.contains { phrase in
+      var searchStart = text.startIndex
+      while let range = text.range(of: phrase, range: searchStart..<text.endIndex) {
+        // Whole words only: "design in to continue" isn't "sign in to continue".
+        let before = range.lowerBound == text.startIndex ? nil : text[text.index(before: range.lowerBound)]
+        let after = range.upperBound == text.endIndex ? nil : text[range.upperBound]
+        if !(before?.isLetter ?? false), !(after?.isLetter ?? false) { return true }
+        searchStart = text.index(after: range.lowerBound)
+      }
+      return false
+    }
+  }
+
+  /// The base code of the page's language when the recognizer is at least 80% sure; nil otherwise.
+  private static func dominantLanguage(of article: ExtractedArticle) -> String? {
+    // Prose only: code and table rows are mostly names and figures.
+    var sample = ""
+    for block in article.blocks where block.kind != .code && block.kind != .tableRow {
+      sample += block.text + "\n"
+      if sample.count >= languageSampleCharacters { break }
+    }
+    guard sample.lazy.filter(\.isLetter).count >= languageMinimumLetters else { return nil }
+    let recognizer = NLLanguageRecognizer()
+    recognizer.processString(String(sample.prefix(languageSampleCharacters)))
+    guard let (language, confidence) = recognizer.languageHypotheses(withMaximum: 1).first,
+          confidence >= languageConfidence, language != .undetermined else { return nil }
+    return baseLanguage(language.rawValue)
+  }
+
+  /// "en-GB", "EN_us" and "en" all give "en"; Norwegian's three codes give "no".
+  static func baseLanguage(_ code: String) -> String {
+    let base = code.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init) ?? ""
+    return ["nb", "nn"].contains(base) ? "no" : base
   }
 }

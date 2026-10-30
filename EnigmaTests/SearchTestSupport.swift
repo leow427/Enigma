@@ -68,7 +68,8 @@ final class ManualClock: Clock, @unchecked Sendable {
 /// A search HTTP client that answers from a table and records what it was asked.
 final class FakeSearchHTTPClient: SearchHTTPClient, @unchecked Sendable {
   enum Reply: Sendable {
-    case response(status: Int, headers: [String: String] = [:], body: Data)
+    /// `remoteAddress` is the address the reply came from, as `URLSessionSearchHTTPClient` reports it.
+    case response(status: Int, headers: [String: String] = [:], body: Data, remoteAddress: String? = nil)
     case failure(URLError.Code)
     /// Never answers; throws `CancellationError` once its task is cancelled.
     case hang
@@ -103,12 +104,12 @@ final class FakeSearchHTTPClient: SearchHTTPClient, @unchecked Sendable {
       return rules.first { $0.0(request) }?.1 ?? fallback
     }
     switch reply {
-    case .response(let status, let headers, let body):
+    case .response(let status, let headers, let body, let remoteAddress):
       try Task.checkCancellation()
       let lowered = Dictionary(uniqueKeysWithValues: headers.map { ($0.key.lowercased(), $0.value) })
       let kept = body.prefix(maximumBytes)
       return SearchHTTPResponse(url: request.url!, statusCode: status, headers: lowered,
-                                body: Data(kept), truncated: body.count > maximumBytes)
+                                body: Data(kept), truncated: body.count > maximumBytes, remoteAddress: remoteAddress)
     case .failure(let code):
       throw URLError(code)
     case .hang:

@@ -51,3 +51,4 @@ same as the `us-en` region the request sent.
 Block pages give 0 items. Their markers: `id="challenge-form"` and "bots use
 DuckDuckGo too" (DuckDuckGo; this copy was served with HTTP 202); `<title>Captcha` (Mojeek, HTTP 200);
 `<script id="anubis_challenge">` (Startpage, HTTP 200).
+| `articles/` | Written for F29 CP4, original text only (see `articles/README.md`) | — | nothing to redact |
