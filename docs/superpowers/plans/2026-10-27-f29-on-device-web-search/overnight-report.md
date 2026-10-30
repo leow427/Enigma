@@ -1,39 +1,48 @@
 # F29 overnight run — report (2026-10-30)
 
-## RESUME
+## RESUME (CP7 paused, 2026-10-30 10:38)
 
-- **Weekly usage when it stopped:** 82% ("Weekly · all models"). The run stopped
-  on purpose at a checkpoint boundary rather than start CP7 one point under the
-  83% line (decision D91).
-- **Where it stopped:** CP6 is committed (`fb17df8`) and pushed. CP7 has not
-  started: no files, no eval set, no live runs. Nothing was in progress.
-- **Review round:** none open. Every checkpoint's findings were fixed before its
-  commit.
-- **wip branch:** none. The worktree `/private/tmp/claude-501/enigma-f29` is
-  clean on `feat/f29-on-device-search` at `fb17df8`.
-- **Live runs cut off:** none.
+- **Why it stopped:** the owner had to turn the computer off (D100). Weekly
+  usage was 82%; for CP7 the hard stop is 92% and no new review round or live
+  run starts from 90% (D93).
+- **Models for CP7 (D92):** worker on Haiku (effort high), each review round
+  a fresh Sonnet reviewer (effort xhigh), the evaluation's judge
+  `claude -p --model sonnet`.
+- **Where CP7 stopped:** the worker had written the evaluation harness and
+  was running the first full baseline when it was stopped.
+  - Done, uncommitted on the feature branch: the 60-question set
+    (`scripts/web-search-queries.json`, 40 new questions written by the
+    worker, not yet reviewed by the owner, D94, D96), `WebSearchEvaluationTests`
+    with the on-device trace, `scripts/evaluate-web-search.py` with its tests
+    and fixtures, the 12 new tool-use prompts and their offline scoring test,
+    F30's evaluator scoped to its 20 questions, test pacing for DuckDuckGo's
+    rate limit (D97), answers from Gemma 4 12B with evidence capped (D98).
+    Python tests passed when it stopped.
+  - Not done: the full baseline (`baseline-2` was cut off mid-run), the judge
+    run, any tuning, Task 7.5's live tool-use eval, the gate report, the
+    spot-check, the Hand-off, and every review round.
+- **wip branch:** `wip/f29-cp7-20261030-1037` (commit `9f02355`) holds all of
+  the above. The feature branch has only this report and the decision log.
+- **Live run cut off:** `baseline-2` in
+  `/private/tmp/claude-501/f29-cp7/runs/` (incomplete; rerun it). `baseline-1`
+  ran without pacing and isn't used for the gate (D97).
+- **Full suite** on `bf4d115`, screen unlocked: 1957 tests, 1 flaky UI
+  failure that passes alone (D99). CI on `bf4d115` hit the known
+  `ScreenViewTests` flake; the failed job was rerun.
 - **Next 3 steps:**
-  1. **Start CP7 (evaluation and tuning)** from
-     `cp7-evaluation.md`: the 60-question set with model-style queries, the
-     evaluation test and script, the tool-use prompts, then tuning against the
-     relaxed gate (D2, D3). Tuning knobs live in `OnDeviceSearchTiming`
-     (`Enigma/Search/OnDeviceSearch.swift`) and `RankingTuning`
-     (`Enigma/Search/ResultRanking.swift`). Items earlier checkpoints left for
-     CP7 to measure: the ranking cut-off (0.08 now; D59 suggests 0.05–0.08),
-     the 800 ms extraction limit on ~1 MB pages and on macOS 26 (D77), Stack
-     Overflow and `blogspot.com` trust (D55, D59), page checks letting listing
-     pages through (D66), and the routing misroutes listed "for CP7" in the CP1b
-     Hand-off (`cp1b-routing-fixes.md`).
-  2. **Owner checks before CP8:**
-     - the drafted `authority.txt` and `unreadable.txt` (D52) and `overrides.tsv`
-       (D55–D57) in `Enigma/Resources/SearchData/`;
-     - the spec amendments marked "Amended overnight" in §4, §6.1, §6.2 and §7;
-     - the `/maps` welcome-page line (D84) and the GeoNames credit (D87);
-     - CP6's manual check of the Debug switch in a Debug build.
-  3. **Unlock the screen and rerun** `scripts/verify-xcode.sh test`. The 81
-     hosted UI failures in nine classes are key-window timeouts from the locked
-     screen (D25, D31). Then check CI on `fb17df8`, which was still running at
-     the stop.
+  1. In `/private/tmp/claude-501/enigma-f29`, bring the wip work back onto
+     the feature branch without committing it:
+     `git merge --squash wip/f29-cp7-20261030-1037` (the decision log on both
+     branches is identical up to D98, so it merges cleanly or keeps the
+     feature branch's copy, which has D99–D100).
+  2. Resume CP7 with a new Haiku worker: give it the CP7 brief, this RESUME,
+     D92–D100 and `/private/tmp/claude-501/f29-overnight/agent-rules.md`, and
+     tell it to rerun the baseline (`baseline-3`), then judge, tune, run the
+     tool-use eval, write the gate report, the spot-check (outside the repo)
+     and the Hand-off. Optional first: the owner reviews the 40 new questions
+     and 12 tool prompts (D94), since changing them later means rerunning.
+  3. Then the review rounds (fresh Sonnet reviewer each), the full suite,
+     build and analyze, and the `(F29 CP7)` commit; then CP8–CP10.
 
 ## What's done
 
