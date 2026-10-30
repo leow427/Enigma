@@ -1,0 +1,626 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<!--[if IE 6]><html class="ie6" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 7]><html class="lt-ie8 lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 8]><html class="lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if gt IE 8]><!--><html xmlns="http://www.w3.org/1999/xhtml"><!--<![endif]-->
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=1" />
+  <meta name="referrer" content="origin" />
+  <meta name="HandheldFriendly" content="true" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>swift concurrency actors at DuckDuckGo</title>
+  <link title="DuckDuckGo (HTML)" type="application/opensearchdescription+xml" rel="search" href="//duckduckgo.com/opensearch_html_v2.xml" />
+  <link href="//duckduckgo.com/favicon.ico" rel="shortcut icon" />
+  <link rel="icon" href="//duckduckgo.com/favicon.ico" type="image/x-icon" />
+  <link id="icon60" rel="apple-touch-icon" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_60x60.png?v=2"/>
+  <link id="icon76" rel="apple-touch-icon" sizes="76x76" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_76x76.png?v=2"/>
+  <link id="icon120" rel="apple-touch-icon" sizes="120x120" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_120x120.png?v=2"/>
+  <link id="icon152" rel="apple-touch-icon" sizes="152x152" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_152x152.png?v=2"/>
+  <link rel="image_src" href="//duckduckgo.com/assets/icons/meta/DDG-icon_256x256.png">
+  <link rel="stylesheet" media="handheld, all" href="//duckduckgo.com/dist/h.12e359033b8c1146e5f7.css" type="text/css"/>
+</head>
+
+<body class="body--html">
+  <a name="top" id="top"></a>
+
+  <form action="/html/" method="post">
+    <input type="text" name="state_hidden" id="state_hidden" />
+  </form>
+
+  <div>
+    <div class="site-wrapper-border"></div>
+
+    <div id="header" class="header cw header--html">
+      <a title="DuckDuckGo" href="/html/" class="header__logo-wrap"></a>
+
+      <form name="x" class="header__form" action="/html/" method="post">
+        <div class="search search--header">
+          <input name="q" autocomplete="off" class="search__input" id="search_form_input_homepage" type="text" value="swift concurrency actors" />
+          <input name="b" id="search_button_homepage" class="search__button search__button--html" value="" title="Search" alt="Search" type="submit" />
+        </div>
+
+        
+        
+        
+        
+
+        <div class="frm__select">
+          <select name="kl">
+            
+              <option value="" >All Regions</option>
+            
+              <option value="ar-es" >Argentina</option>
+            
+              <option value="au-en" >Australia</option>
+            
+              <option value="at-de" >Austria</option>
+            
+              <option value="be-fr" >Belgium (fr)</option>
+            
+              <option value="be-nl" >Belgium (nl)</option>
+            
+              <option value="br-pt" >Brazil</option>
+            
+              <option value="bg-bg" >Bulgaria</option>
+            
+              <option value="ca-en" >Canada (en)</option>
+            
+              <option value="ca-fr" >Canada (fr)</option>
+            
+              <option value="ct-ca" >Catalonia</option>
+            
+              <option value="cl-es" >Chile</option>
+            
+              <option value="cn-zh" >China</option>
+            
+              <option value="co-es" >Colombia</option>
+            
+              <option value="hr-hr" >Croatia</option>
+            
+              <option value="cz-cs" >Czech Republic</option>
+            
+              <option value="dk-da" >Denmark</option>
+            
+              <option value="ee-et" >Estonia</option>
+            
+              <option value="fi-fi" >Finland</option>
+            
+              <option value="fr-fr" >France</option>
+            
+              <option value="de-de" >Germany</option>
+            
+              <option value="gr-el" >Greece</option>
+            
+              <option value="hk-tzh" >Hong Kong</option>
+            
+              <option value="hu-hu" >Hungary</option>
+            
+              <option value="is-is" >Iceland</option>
+            
+              <option value="in-en" >India (en)</option>
+            
+              <option value="id-en" >Indonesia (en)</option>
+            
+              <option value="ie-en" >Ireland</option>
+            
+              <option value="il-en" >Israel (en)</option>
+            
+              <option value="it-it" >Italy</option>
+            
+              <option value="jp-jp" >Japan</option>
+            
+              <option value="kr-kr" >Korea</option>
+            
+              <option value="lv-lv" >Latvia</option>
+            
+              <option value="lt-lt" >Lithuania</option>
+            
+              <option value="my-en" >Malaysia (en)</option>
+            
+              <option value="mx-es" >Mexico</option>
+            
+              <option value="nl-nl" >Netherlands</option>
+            
+              <option value="nz-en" >New Zealand</option>
+            
+              <option value="no-no" >Norway</option>
+            
+              <option value="pk-en" >Pakistan (en)</option>
+            
+              <option value="pe-es" >Peru</option>
+            
+              <option value="ph-en" >Philippines (en)</option>
+            
+              <option value="pl-pl" >Poland</option>
+            
+              <option value="pt-pt" >Portugal</option>
+            
+              <option value="ro-ro" >Romania</option>
+            
+              <option value="ru-ru" >Russia</option>
+            
+              <option value="xa-ar" >Saudi Arabia</option>
+            
+              <option value="sg-en" >Singapore</option>
+            
+              <option value="sk-sk" >Slovakia</option>
+            
+              <option value="sl-sl" >Slovenia</option>
+            
+              <option value="za-en" >South Africa</option>
+            
+              <option value="es-ca" >Spain (ca)</option>
+            
+              <option value="es-es" >Spain (es)</option>
+            
+              <option value="se-sv" >Sweden</option>
+            
+              <option value="ch-de" >Switzerland (de)</option>
+            
+              <option value="ch-fr" >Switzerland (fr)</option>
+            
+              <option value="tw-tzh" >Taiwan</option>
+            
+              <option value="th-en" >Thailand (en)</option>
+            
+              <option value="tr-tr" >Turkey</option>
+            
+              <option value="us-en" >US (English)</option>
+            
+              <option value="us-es" >US (Spanish)</option>
+            
+              <option value="ua-uk" >Ukraine</option>
+            
+              <option value="uk-en" >United Kingdom</option>
+            
+              <option value="vn-en" >Vietnam (en)</option>
+            
+          </select>
+        </div>
+
+        <div class="frm__select frm__select--last">
+          <select class="" name="df">
+            
+              <option value="" selected>Any Time</option>
+            
+              <option value="d" >Past Day</option>
+            
+              <option value="w" >Past Week</option>
+            
+              <option value="m" >Past Month</option>
+            
+              <option value="y" >Past Year</option>
+            
+          </select>
+        </div>
+      </form>
+    </div>
+
+    
+
+    
+      <!-- Web results are present -->
+      <div>
+        <div class="serp__results">
+          <div id="links" class="results">
+            
+
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://docs.swift.org/latest/documentation/the-swift-programming-language/concurrency/">Concurrency - Documentation</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://docs.swift.org/latest/documentation/the-swift-programming-language/concurrency/">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/docs.swift.org.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://docs.swift.org/latest/documentation/the-swift-programming-language/concurrency/">
+                            docs.swift.org/latest/documentation/the-swift-programming-language/concurrency/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://docs.swift.org/latest/documentation/the-swift-programming-language/concurrency/">You use <b>actors</b> and isolation to protect against data races, as described in this chapter. Note If you&#x27;ve written concurrent code before, you might be used to working with threads. The <b>concurrency</b> model in <b>Swift</b> is built on top of threads, but you don&#x27;t interact with them directly.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://developer.apple.com/documentation/swift/actor">Actor | Apple Developer Documentation</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://developer.apple.com/documentation/swift/actor">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/developer.apple.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://developer.apple.com/documentation/swift/actor">
+                            developer.apple.com/documentation/swift/actor
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://developer.apple.com/documentation/swift/actor">Overview The <b>Actor</b> protocol generalizes over all <b>actor</b> types. <b>Actor</b> types implicitly conform to this protocol. <b>Actors</b> and SerialExecutors By default, <b>actors</b> execute tasks on a shared global <b>concurrency</b> thread pool. This pool is shared by all default <b>actors</b> and tasks, unless an <b>actor</b> or task specified a more specific executor requirement.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://www.hackingwithswift.com/quick-start/concurrency/what-is-an-actor-and-why-does-swift-have-them">What is an actor and why does Swift have them?</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://www.hackingwithswift.com/quick-start/concurrency/what-is-an-actor-and-why-does-swift-have-them">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.hackingwithswift.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://www.hackingwithswift.com/quick-start/concurrency/what-is-an-actor-and-why-does-swift-have-them">
+                            www.hackingwithswift.com/quick-start/concurrency/what-is-an-actor-and-why-does-swift-have-them
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://www.hackingwithswift.com/quick-start/concurrency/what-is-an-actor-and-why-does-swift-have-them">Updated for Xcode 16.4 <b>Swift&#x27;s</b> <b>actors</b> are conceptually like classes that are safe to use in concurrent environments. This safety is made possible because <b>Swift</b> automatically ensures no two pieces of code attempt to access an <b>actor&#x27;s</b> data simultaneously - it is made impossible by the compiler, rather than requiring developers to write boilerplate code using systems such as locks.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://swiftcrafted.dev/article/swift-actors-complete-guide-thread-safe-concurrency">Swift Actors: Concurrency Guide 2026 | Swift Crafted</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://swiftcrafted.dev/article/swift-actors-complete-guide-thread-safe-concurrency">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/swiftcrafted.dev.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://swiftcrafted.dev/article/swift-actors-complete-guide-thread-safe-concurrency">
+                            swiftcrafted.dev/article/swift-actors-complete-guide-thread-safe-concurrency
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://swiftcrafted.dev/article/swift-actors-complete-guide-thread-safe-concurrency">Master <b>Swift</b> <b>actors</b> - <b>actor</b> isolation, @MainActor, global <b>actors</b>, reentrancy traps, and <b>Swift</b> 6.2 <b>concurrency</b> updates with real-world examples.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://medium.com/@farshad.j/swift-actors-in-depth-19c8b3dbd85a">Swift Actors — in depth. Learn, don&#x27;t memorize. - Medium</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://medium.com/@farshad.j/swift-actors-in-depth-19c8b3dbd85a">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/medium.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://medium.com/@farshad.j/swift-actors-in-depth-19c8b3dbd85a">
+                            medium.com/@farshad.j/swift-actors-in-depth-19c8b3dbd85a
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://medium.com/@farshad.j/swift-actors-in-depth-19c8b3dbd85a">In <b>Swift</b>, an <b>actor</b> is a reference type introduced in <b>Swift</b> 5.5 as part of its advanced <b>concurrency</b> model. Its primary role is to prevent data races and ensure safe access to shared mutable state ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://www.hackingwithswift.com/quick-start/concurrency">Swift Concurrency by Example - free quick start tutorials for Swift ...</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://www.hackingwithswift.com/quick-start/concurrency">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.hackingwithswift.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://www.hackingwithswift.com/quick-start/concurrency">
+                            www.hackingwithswift.com/quick-start/concurrency
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://www.hackingwithswift.com/quick-start/concurrency"><b>Swift</b> <b>Concurrency</b> by Example is the largest free book teaching all aspects of <b>Swift</b> <b>concurrency</b>, walking you through the many and varied ways of running concurrent code in <b>Swift</b> such as async/await, tasks, <b>actors</b>, and more.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://www.swiftdifferently.com/blog/swift/concurrency/how-actors-work">Actors in Swift: The Problem They Solve and How it Works</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://www.swiftdifferently.com/blog/swift/concurrency/how-actors-work">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.swiftdifferently.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://www.swiftdifferently.com/blog/swift/concurrency/how-actors-work">
+                            www.swiftdifferently.com/blog/swift/concurrency/how-actors-work
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://www.swiftdifferently.com/blog/swift/concurrency/how-actors-work">Introduction A couple of days ago, I wrote an article about AsyncGate, built by Matt —a way to solve <b>actor</b> rentrency. Writing it scratched an itch, but it also left me with a bigger question buzzing in the back of my head: what are <b>actors</b> actually for? How do they work under the hood? And why did <b>Swift</b> bother adding them in the first place? 🤔 So I did what any curious developer would do ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://www.swiftyn.com/articles/mastering-actors-swift-conquering-concurrency-isolation">Mastering Actors in Swift: Conquering Concurrency with Isolation</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://www.swiftyn.com/articles/mastering-actors-swift-conquering-concurrency-isolation">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.swiftyn.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://www.swiftyn.com/articles/mastering-actors-swift-conquering-concurrency-isolation">
+                            www.swiftyn.com/articles/mastering-actors-swift-conquering-concurrency-isolation
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://www.swiftyn.com/articles/mastering-actors-swift-conquering-concurrency-isolation">Mastering <b>Actors</b> in <b>Swift</b>: Conquering <b>Concurrency</b> with Isolation <b>Swift</b> <b>Actors</b> provide a powerful and intuitive way to manage shared mutable state in concurrent environments, effectively eliminating data races. This article explores the core principles of <b>Actors</b>, their benefits, and how to integrate them into your <b>Swift</b> and SwiftUI projects to build more reliable and predictable applications.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://www.swiftbyrahul.com/posts/SwiftActorsExplainedWithRealExamples/">Swift Actors Explained with Real Examples - Swift By Rahul</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://www.swiftbyrahul.com/posts/SwiftActorsExplainedWithRealExamples/">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.swiftbyrahul.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://www.swiftbyrahul.com/posts/SwiftActorsExplainedWithRealExamples/">
+                            www.swiftbyrahul.com/posts/SwiftActorsExplainedWithRealExamples/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://www.swiftbyrahul.com/posts/SwiftActorsExplainedWithRealExamples/">Dive into <b>Swift</b> <b>Actors</b>, a powerful <b>concurrency</b> feature that eliminates data races and simplifies shared mutable state management in your iOS apps.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="https://fuckingapproachableswiftconcurrency.com/en/">Fucking Approachable Swift Concurrency</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="https://fuckingapproachableswiftconcurrency.com/en/">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/fuckingapproachableswiftconcurrency.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="https://fuckingapproachableswiftconcurrency.com/en/">
+                            fuckingapproachableswiftconcurrency.com/en/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="https://fuckingapproachableswiftconcurrency.com/en/"><b>Swift</b> <b>Concurrency</b> is built on top of libdispatch (the same runtime as GCD). The difference is the compile-time layer: <b>actors</b> and isolation are enforced by the compiler, while the runtime handles scheduling on a cooperative thread pool limited to your CPU&#x27;s core count.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+
+            
+              
+              
+                <div class="nav-link">
+                  <form action="/html/" method="post">
+                    <input type="submit" class='btn btn--alt' value="Next" />
+                    <input type="hidden" name="q" value="swift concurrency actors" />
+                    <input type="hidden" name="s" value="10" />
+                    <input type="hidden" name="nextParams" value="" />
+                    <input type="hidden" name="v" value="l" />
+                    <input type="hidden" name="o" value="json" />
+                    <input type="hidden" name="dc" value="11" />
+                    <input type="hidden" name="api" value="d.js" />
+                    <input type="hidden" name="vqd" value="REDACTED" />
+
+                    
+                    
+                    
+                      <input name="kl" value="wt-wt" type="hidden" />
+                    
+                    
+                    
+                    
+                  </form>
+                </div>
+              
+            
+
+            <div class="feedback-btn">
+              <a rel="nofollow" href="//duckduckgo.com/feedback.html" target="_new">Feedback</a>
+            </div>
+            <div class="clear"></div>
+          </div>
+        </div>
+      </div> <!-- links wrapper //-->
+    
+  </div>
+
+  <div id="bottom_spacing2"></div>
+
+  
+    <img src="//duckduckgo.com/t/sl_h"/>
+  
+</body>
+</html>

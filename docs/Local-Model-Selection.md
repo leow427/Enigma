@@ -212,6 +212,11 @@ Measured on Gemma 4 12B Q5_K_M and Qwen3.8 27B IQ3_XXS. With the tools, the
 first answer text came sooner (0.16 s and 0.36 s against 0.51 s and 0.97 s
 for today's plain turn), because flagged turns keep the prompt cache on.
 
+Flagged models also get `find_places` and `get_weather` beside `web_search`
+(F29). The eval's prompt set now holds 72 prompts, 12 of them for places and
+weather, but it hasn't been rerun with the two new tools, so the scores above
+are from the 60-prompt run.
+
 The server stops after a minute without a request, and the cache goes with it.
 So while you type in Local or Auto, Enigma loads a model with tools and reads
 the tool descriptions in the background, and keeps it loaded while you're

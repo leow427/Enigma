@@ -29,11 +29,13 @@ character, and the conversation is saved to the sidebar's **Recents**.
   conversation fills the space above it. Your messages are right-aligned bubbles
   in the system font. Replies are set in a serif, with a monospace meta line
   underneath: the model, where it ran (**on this mac** or the cloud provider),
-  **brave search** if Brave's web sources were used (**web search** for a
-  provider's own search on ChatGPT or Claude Code, and for any searched reply
-  reopened after Enigma restarts), and the time (date and time for
+  **web search** if web sources were used (**brave search** when a saved Brave
+  key answered, until Enigma restarts), and the time (date and time for
   replies from an earlier day). The character sits beside the latest reply;
-  earlier replies show the outline mark instead.
+  earlier replies show the outline mark instead. A finished reply that used
+  places from Apple Maps shows a map card under it, with numbered pins that open
+  the places in Apple Maps and **Open in Maps**; the card is for this session
+  only and isn't saved. See [Web Search](Web-Search.md#places-and-weather).
 - **Over the composer.** The route's status line, plus any notices and cards:
   a trimmed-context notice, attached selection, screenshot, files, a Messages
   send approval, or errors.
@@ -189,10 +191,11 @@ listed source means its excerpt was sent, not that the full page was read.
 On a model that chooses its own tools, a reply can pause on a card in the chat
 before a tool reads private data: **Allow reading your chat with ‹name›?**,
 **Search all your messages for “‹query›”?**, or, once message text is in the
-chat, **Search the web for “‹query›”?** (Enigma's search, on Brave) or **Let
-‹provider› search the web in this chat?** (ChatGPT's or Claude Code's own
-search). The detail line says where the data goes (**It stays on this Mac.**,
-**It will be sent to ‹company›.** or **It will be sent to Brave.**), and the
+chat, **Search the web for “‹query›”?** (Enigma's search), **Find ‹what› near
+you?** or **Check the weather for ‹place›?**, or **Let ‹provider› search the web
+in this chat?** (ChatGPT's or Claude Code's own search). The detail line says
+where the data goes (**It stays on this Mac.**, **It will be sent to ‹company›.**,
+**It will be sent to search sites.**, or Brave, Apple Maps or Open-Meteo), and the
 buttons are **Don't allow** (Escape), **For this conversation** and **Always**.
 One card is open at a time; the reply carries on once you answer, and Stop or
 a new chat answers Don't allow. Other chats can't be opened while it waits. A chat holding message text
@@ -318,10 +321,11 @@ their own paths.
 
 - `nativeToolPlan(for:)` makes a `NativeToolPlan` (`Enigma/Chat/AssistantToolbox.swift`)
   from the typed commands, the attached selection and the settings (automatic
-  search, the Brave key, Full Disk Access). `submitNative` remakes it for the
+  search, Full Disk Access). `submitNative` remakes it for the
   route: the search part is `.search(.provider)` when
   `NativeWebSearch.isAllowed` says so (ChatGPT or Claude Code, the pair not
-  marked unavailable), and `.search(.enigma)` with a Brave key otherwise. When
+  marked unavailable), and `.search(.enigma)` otherwise, with `find_places` and
+  `get_weather` beside either. When
   the chat holds message text, or `/messages` was typed, a `.provider` search
   first asks `ToolPermission.providerSearchAfterMessages`; declined, the plan
   is remade with `withoutSearch()`, and allowed, the toolbox's gate delivers

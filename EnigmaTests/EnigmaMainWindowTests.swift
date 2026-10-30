@@ -196,9 +196,10 @@ final class EnigmaMainWindowTests: XCTestCase {
   // MARK: Examples and layout
 
   func testCommandExamplesFollowTheAvailableCommands() {
-    let withSearch = SlashCommandExample.examples(available: SlashCommand.available(hasSearchKey: true))
-    XCTAssertEqual(withSearch.map(\.command), [.screen, .search, .edit, .translate])
-    let withoutSearch = SlashCommandExample.examples(available: SlashCommand.available(hasSearchKey: false))
+    // Retargeted (CP8): search needs no key, so /search's example is always shown.
+    let available = SlashCommandExample.examples(available: SlashCommand.available())
+    XCTAssertEqual(available.map(\.command), [.screen, .search, .edit, .translate])
+    let withoutSearch = SlashCommandExample.examples(available: SlashCommand.allCases.filter { $0 != .search && $0 != .maps })
     XCTAssertEqual(withoutSearch.map(\.command), [.screen, .edit, .translate, .think])
     XCTAssertEqual(SlashCommandExample.examples(available: SlashCommand.allCases, limit: 10).count,
                    SlashCommand.allCases.count, "Every command has an example line")
@@ -266,7 +267,7 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   /// Help and Settings name the selection chat and web search as the
-  /// Settings pages do ("Selection", "Web search · Brave"), not by old names.
+  /// Settings pages do ("Selection", "Web search"), not by old names.
   func testHelpAndSettingsUseTheCurrentPageNames() {
     let texts = [KeyboardShortcutsHelp.selectionBackup.title, KeyboardShortcutsHelp.selectionNote,
                  KeyboardShortcutsHelp.searchNote, GeneralSettingsPage.newChatsNote]
@@ -598,7 +599,7 @@ final class EnigmaMainWindowTests: XCTestCase {
       editor.string == "/" && fixture.screen.draft == "/" && editor.completion?.commands.isEmpty == false
     }
     XCTAssertTrue(host.window.firstResponder === editor, "The / button gives the field focus")
-    XCTAssertEqual(editor.completion?.commands, SlashCommand.available(hasSearchKey: false))
+    XCTAssertEqual(editor.completion?.commands, SlashCommand.available())
     XCTAssertEqual(editor.commandTextColor, EnigmaPalette.paper.accentText.nsColor, "Commands use accentText")
     editor.completion?.dismiss()
 
@@ -1535,7 +1536,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await snapshot("minimum-size", host, fixture) { host.shows("Send message") }
 
     try EnigmaSnapshot.save("help", size: KeyboardShortcutsHelpView.size) {
-      KeyboardShortcutsHelpView(searchSettings: fixture.search)
+      KeyboardShortcutsHelpView()
     }
     let notes = ReleaseNote.load(from: ReleaseNote.bundledDirectory)
       .sorted { ReleaseNote.isNewer($0.version, than: $1.version) }.prefix(2)

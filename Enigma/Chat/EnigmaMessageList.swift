@@ -265,6 +265,9 @@ struct EnigmaReplyView<Revision: View>: View {
             .enigmaTestMarker("Reply")
         }
         revision()
+        if let pins = reply.mapPins {
+          MapCardView(pins: pins)
+        }
         if !reply.isInProgress, let message = reply.message {
           HStack(spacing: 8) {
             Text(ReplyMetaLine.text(origin: message.origin, searched: reply.searched, date: message.createdAt))

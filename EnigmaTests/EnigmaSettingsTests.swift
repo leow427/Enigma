@@ -707,7 +707,70 @@ final class EnigmaSettingsTests: XCTestCase {
     let message = FailingSearchCredentials.Failure().localizedDescription
     try await waitForUI("the error line", in: host.view) { host.shows(message) }
     XCTAssertEqual(field.stringValue, "brave-key")
-    XCTAssertTrue(host.shows("no key"))
+    XCTAssertTrue(host.shows("not used"), "Retargeted (CP8): the optional Brave row reads not used")
+    XCTAssertTrue(host.shows("ready"), "On-device search stays ready")
+  }
+
+  /// CP8 (Task 8.3, D133): the Web search section's text, and the Brave row as an optional extra.
+  @MainActor
+  func testWebSearchSectionText() async throws {
+    typealias Section = WebSearchSettingsSection
+    XCTAssertEqual(Section.header, "Web search")
+    XCTAssertEqual(Section.automaticSubtitle, "On by default. Questions about news, recent events and changing facts search automatically, in every mode. Turn this off to search only when you type /search.")
+    XCTAssertEqual(Section.statusTitle, "Web search")
+    XCTAssertEqual(Section.statusSubtitle, "Runs on this Mac. No account or key needed.")
+    XCTAssertEqual(Section.searchStatus(hasAPIKey: false).1, "ready")
+    XCTAssertEqual(Section.searchStatus(hasAPIKey: true).1, "Brave in use")
+    XCTAssertEqual(Section.keyStatus(hasAPIKey: false).1, "not used")
+    XCTAssertEqual(Section.keyStatus(hasAPIKey: true).1, "key saved")
+    XCTAssertEqual(Section.blockedTitle, "Blocked sites")
+    XCTAssertEqual(Section.blockedEmptyNote, "Use Never use this site in a reply's sources to stop Enigma using a site.")
+    XCTAssertTrue(Section.sitesNote.contains("DuckDuckGo") && Section.sitesNote.contains("Wikipedia"))
+    XCTAssertFalse(Section.sitesNote.contains("Mojeek") || Section.sitesNote.contains("Startpage"),
+                   "Only the sites the lineup kept")
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    for text in ["Web search", "ready", "Use Brave Search instead", "not used", "Blocked sites", "No blocked sites"] {
+      try await waitForUI(text, in: host.view) { host.shows(text) }
+    }
+    XCTAssertFalse(host.shows("Web search · Brave"))
+  }
+
+  /// CP8 (Tasks 8.3, 8.5b): one row per blocked site, Remove unblocks it, and the list notes
+  /// that cloud models' own search is only asked to avoid them.
+  @MainActor
+  func testBlockedSitesListAndRemove() async throws {
+    let fixture = try await Fixture(test: self)
+    fixture.search.block(URL(string: "https://example.com/a")!)
+    fixture.search.block(URL(string: "https://www.sample.org/b")!)
+    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("two blocked rows", in: host.view) { host.shows("example.com") && host.shows("sample.org") }
+    XCTAssertFalse(host.shows("No blocked sites"))
+    try host.press("Remove example.com")
+    try await waitForUI("one row left", in: host.view) { !host.shows("example.com") }
+    try host.press("Remove sample.org")
+    try await waitForUI("the empty note", in: host.view) { host.shows("No blocked sites") }
+    XCTAssertEqual(fixture.search.blockedSites, [])
+  }
+
+  @MainActor
+  func testBlockedSitesNoteMentionsCloudSearch() {
+    XCTAssertEqual(WebSearchSettingsSection.blockedCloudNote,
+                   "ChatGPT and Claude Code, when they use their own search, are asked to avoid these sites, but Enigma can't enforce it.")
+  }
+
+  /// Snapshots of the section, empty and with two blocked sites, in Paper and Ink (CP8).
+  @MainActor
+  func testSaveWebSearchSectionScreenshots() async throws {
+    let fixture = try await Fixture(test: self)
+    try EnigmaSnapshot.save("settings-web-search-empty", size: CGSize(width: 620, height: 620)) {
+      WebSearchSettingsSection(settings: fixture.search).padding(16)
+    }
+    fixture.search.block(URL(string: "https://example.com/a")!)
+    fixture.search.block(URL(string: "https://sample.org/b")!)
+    try EnigmaSnapshot.save("settings-web-search-blocked", size: CGSize(width: 620, height: 700)) {
+      WebSearchSettingsSection(settings: fixture.search).padding(16)
+    }
   }
 
   @MainActor

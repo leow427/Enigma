@@ -205,8 +205,11 @@ it. Choose **Always Allow**.
    The app bundles every file there for its What's new? sheet, which shows
    them with the chat's Markdown renderer, so keep to headings, paragraphs
    and lists. The first line must be `# Enigma <version>`; the script checks.
-2. Optionally rehearse: `scripts/release.sh --dry-run <version>`.
-3. Run `scripts/release.sh <version>` from a clean `main` that is level with
+2. Run `scripts/update-search-lists.py` and the live search checks
+   (`TEST_RUNNER_ENIGMA_LIVE_SEARCH=1`, see [Testing](Testing.md)), and commit
+   any refreshed lists. See [Web Search](Web-Search.md#maintenance).
+3. Optionally rehearse: `scripts/release.sh --dry-run <version>`.
+4. Run `scripts/release.sh <version>` from a clean `main` that is level with
    `origin/main`.
 
 The script works in `~/Library/Caches/Enigma-Release/` (its DerivedData and
@@ -219,7 +222,8 @@ the archive copy), outside the repository. It stops at the first failure:
    It also checks the branch is `main`, the tree is clean, and `HEAD` equals
    `origin/main` after a fetch. The keychain must hold exactly one valid
    Developer ID Application certificate for the project's `DEVELOPMENT_TEAM`,
-   and `notarytool` must sign in with the `enigma` profile.
+   and `notarytool` must sign in with the `enigma` profile. It warns, without
+   stopping, when the bundled search lists are more than 60 days old.
 2. **Bump.** `MARKETING_VERSION` becomes `<version>` and
    `CURRENT_PROJECT_VERSION` goes up by one, in both app configurations.
 3. **Build and verify.** It runs `xcodebuild archive` (Release,

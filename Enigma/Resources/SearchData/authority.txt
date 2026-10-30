@@ -1,0 +1,98 @@
+# Authoritative sources: a page from one of these gets the authority trust factor (RankingTuning).
+# A line starting with "." is a suffix rule (".gov" covers cdc.gov and www.nih.gov); any other line is
+# a domain and covers its subdomains. A line starting with "!" is never an authority, whatever
+# else matches (D58). Lines starting with # are comments.
+# Draft for owner review (F29 CP3, spec §3.3; decision D52).
+
+# Government and intergovernmental
+.gov
+.mil
+.gov.uk
+.gc.ca
+.gov.au
+.govt.nz
+.europa.eu
+.int
+.gov.ie
+.gouv.fr
+.bund.de
+.go.jp
+.gov.sg
+.gov.in
+canada.ca
+
+# Universities
+.edu
+# A commercial site under .edu (decision D57).
+!academia.edu
+.ac.uk
+.edu.au
+.ac.nz
+.ac.jp
+
+# Research
+arxiv.org
+pubmed.ncbi.nlm.nih.gov
+doi.org
+nature.com
+science.org
+cochranelibrary.com
+cochrane.org
+nejm.org
+thelancet.com
+bmj.com
+jamanetwork.com
+
+# Health bodies outside the government suffixes
+nhs.uk
+mayoclinic.org
+clevelandclinic.org
+hopkinsmedicine.org
+msdmanuals.com
+merckmanuals.com
+cancer.org
+heart.org
+diabetes.org
+nice.org.uk
+
+# Finance: regulators, central banks and international bodies outside the suffixes above
+bankofengland.co.uk
+fca.org.uk
+finra.org
+imf.org
+worldbank.org
+bis.org
+oecd.org
+
+# Official documentation
+developer.apple.com
+docs.swift.org
+swift.org
+developer.mozilla.org
+docs.python.org
+learn.microsoft.com
+docs.github.com
+developer.android.com
+kotlinlang.org
+go.dev
+doc.rust-lang.org
+nodejs.org
+docs.npmjs.com
+react.dev
+typescriptlang.org
+docs.oracle.com
+postgresql.org
+sqlite.org
+git-scm.com
+docs.docker.com
+kubernetes.io
+w3.org
+whatwg.org
+rfc-editor.org
+ietf.org
+unicode.org
+en.cppreference.com
+docs.aws.amazon.com
+cloud.google.com
+developer.chrome.com
+web.dev

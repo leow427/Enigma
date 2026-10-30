@@ -121,11 +121,91 @@ enum MapCard {
 
 ## Hand-off
 
-*Filled in by the CP9 worker.*
+*Filled in by the CP9 worker, 2026-10-30. Decisions D145–D162 in
+[overnight-decisions.md](overnight-decisions.md).*
 
-1. **Summary:**
+1. **Summary:** Tasks 9.1–9.3 are built, test-first; Task 9.3's signed-app check and
+   Task 9.4's screenshot are the owner's. Every search route (small-model `submit`, the
+   screen path, cloud with search, and `find_places` on capable turns) collects places in
+   `LocalChatViewModel.replyPlaces`, merged in order without duplicates, only for the running
+   request and only when the places source reached the model; `finishGeneration`, or
+   `stopStreaming` on Stop, moves them onto the session-only `ChatMessage.mapPlaces` when the
+   reply ends, and a restart or a new request clears them (D146, D153, D156).
+   `MapCard.pins(for:reply:)` picks the pins (D147). `EnigmaReplyView` shows `MapCardView`
+   under a finished reply: a 190 pt `.standard` `Map`, `interactionModes: []`, numbered pins
+   that open the place in Apple Maps, **Open in Maps** for all pins, 6 pt corners and a hairline
+   (D148). The live map exists only while the card is on screen, since the message list isn't
+   lazy (D145); scroll-wheel events pass through to the chat (D149). The test host gets a
+   placeholder with the same size and pin controls, and no `MKMapView`.
 2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+   - New: `Enigma/Chat/MapCard.swift` (`MapPin`, `MapCard`, `MapCardOpener`, `MapCardActions`,
+     `MapCardOpening`, `MapCardView`, `MapScrollPassThrough`), `EnigmaTests/MapCardTests.swift`; both registered
+     in the Xcode project.
+   - `Enigma/Chat/ChatDomain.swift` (`mapPlaces`, not in `CodingKeys`),
+     `Enigma/Chat/EnigmaConversationLogic.swift` (`Reply.mapPins`),
+     `Enigma/Chat/EnigmaMessageList.swift` (the card under the reply),
+     `Enigma/LocalInference/LocalChatViewModel.swift` (`addReplyPlaces`, `attachReplyPlaces`,
+     `replyPlaces` private; request-scoped, attached on Stop, cleared on restart and at each
+     request's start).
+   - `EnigmaTests/NativeToolRequestTests.swift`: `testRestartDropsTheFirstRunsPlaces`.
+   - `PlacesAndWeatherTools.swift` needed no change: its `onPlaces` already reports each call's
+     places; the merge is in the view model.
+3. **Decisions:** D145 (on-screen live map instead of a lazy stack), D146 (when places reach the
+   reply; every ending with text), D147 (matching details; "Map of 1 place"), D148 (look),
+   D149 (scroll pass-through), D150 (opening Maps), D151 (how the view tests check the card),
+   D152 (steps left to the owner and orchestrator); round 1: D153–D155 (orchestrator's),
+   D156 (no stale places; only places the model saw), D157 (camera, matching, opening, off-screen
+   placeholder), D158 (route test fakes); round 2: D159–D160 (orchestrator's), D161 (the lookup's
+   time limit resumes the wait itself), D162 (a late request's places; the screen fallback
+   replaces).
+   Beyond the brief: `testReplyRowShowsTheCardOnceFinished` (the reply row, in progress, finished
+   and reopened) and `testScrollingPassesThroughTheMap`.
+4. **Verification** (`scripts/verify-xcode.sh`, logs in `/private/tmp/claude-501/f29-cp9/`):
+   - RED: `MapCardTests` failed to compile (no `MapPin`, `MapCard`, `mapPlaces`, `mapPins`).
+   - `MapCardTests`: 16 executed, 0 failed.
+   - `MapCardTests`, `PlacesAndWeatherToolTests`, `WebSearchTests`, `NativeToolRequestTests`,
+     `OnDeviceSearchTests`, `ChatPersistenceTests`: 249 executed, 0 failed.
+   - `build` succeeded; `analyze` succeeded, no warnings in the changed files.
+   - Review round 1 (no Blocker; S1–S3 and N1–N9 fixed): new tests
+     `testScreenPathPlacesReachTheReply`, `testCloudSearchPlacesReachTheReply`,
+     `testWhitespaceReplyGetsNoCard`, `testPlacesTheModelNeverSawGetNoCard`,
+     `testStopAttachesAndLeavesNothingStale`, `testToolPlacesAfterStopAreDropped`,
+     `testPinsTreatAmpersandAsAndAndSkipEmptyNames`, `testCameraFitsFarApartPins`,
+     `testOpeningIgnoresClicksWhileRunning`, and `NativeToolRequestTests.testRestartDropsTheFirstRunsPlaces`.
+     Mutants (no attach on Stop, no clearing on restart) fail `testStopAttachesAndLeavesNothingStale`
+     and `testRestartDropsTheFirstRunsPlaces`; restored. After the fixes: `MapCardTests` 25,
+     and the six classes together 259 executed, 0 failed; `build` and `analyze` succeeded.
+   - Review round 2 (no Blocker; S1, S2, N1 fixed): new `testLookUpGivesUpWhenMapKitNeverAnswers`
+     and `testPlacesForAnEndedRequestAreDropped`. Mutants (the timer only cancels; no request
+     check in `addReplyPlaces`) each fail their test; restored. After the fixes: `MapCardTests` 27,
+     and the six classes together 261 executed, 0 failed; `build` and `analyze` succeeded.
+   - Not run: hosted UI classes (none changed; `EnigmaConversationTests`,
+     `EnigmaMainWindowTests` and `EnigmaCompactPanelTests` draw replies and run in the full
+     suite), the full suite, a review round, the `CodingKeys` mutation (D152).
 5. **Limitations:**
+   - The live `Map`, its pins' clicks, the scroll pass-through and Apple's attribution at narrow
+     widths were never seen running: the test host draws only the placeholder. That's the
+     owner's check below.
+   - VoiceOver labels are tested through the functions that make them and the markers named by
+     them, not by reading the accessibility tree (D151).
+   - A card appears after Stop and after an error when the reply has text (D146, D153); places a
+     `find_places` call returns after Stop are dropped.
+   - Accepted (D160): Codex's restart can race the first run's late `find_places` result; places
+     named past a truncated places excerpt can still get pins.
+   - The screen path's fallback replacing places (D162) has no test.
+   - Matching needs spaces between words: Japanese, Chinese and other scripts without spaces
+     rarely match, so those replies pin every place.
+   - The view tests can't click in their offscreen window, so the "ignore clicks while opening"
+     rule is tested on `MapCardActions`, not on the buttons.
+   - Opening Maps asks Apple for the place by its identifier (D150); the place query already went
+     to Apple Maps.
 6. **For the next checkpoint:**
+   - **Owner, Task 9.3:** build the signed app from Xcode (stable Apple Development identity) and
+     check on a small and a capable model: "cafes near me", "ramen in Soho", `/maps bookshops`,
+     and a chat reopened from Recents after relaunching the app (no card; D154). Also check: the wheel scrolls the chat over the
+     map; pins and Open in Maps open Apple Maps; Apple's logo and Legal link show in the compact
+     panel's width; pins show numbers without name titles (D154); Paper and Ink; two
+     far-apart places (for example "Apple Park and the Sydney Opera House") frame both.
+   - **Owner, Task 9.4:** a map card screenshot beside the other reply screenshots (Paper and
+     Ink), from the signed app with invented places in a public area, for CP10's docs.
+   - CP10: `docs/Web-Search.md` should say the card isn't saved and a reopened chat has none.

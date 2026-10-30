@@ -455,9 +455,130 @@ struct WebSearchTool: AgentToolbox {
 
 *Filled in by the CP5 worker.*
 
-1. **Summary:**
+1. **Summary:** `OnDeviceSearchProvider` answers web searches end to end:
+   DuckDuckGo and Wikipedia, ranking, up to 6 reads at a time within the
+   reading window (refilling only after a failure), the checks after reading,
+   near-duplicates, BM25 passages with the off-topic check, the stale factor,
+   the snippet fallback, and round-robin passage collection. `PassageRanker`
+   splits and scores passages. `WebSearchContext` sends spec §5's envelope with
+   the shared excerpt objects (`WebSearchExcerpts`), which are also
+   `web_search`'s result; `web_search` takes an optional `recency` and always
+   asks for the web route. `WebSearchProviderFactory` picks the on-device
+   provider only in Debug builds outside the test host when
+   `webSearch.debugProvider` is `onDevice`; Brave stays the default. Places and
+   weather requests use the web route until CP6. Also in this change, at the
+   orchestrator's request: the CP4 CI fix for macOS 26 (D77, D78; D76's retry
+   was unreachable and is gone).
 2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+   - New: `Enigma/Search/PassageRanker.swift`, `Enigma/Search/OnDeviceSearch.swift`
+     (`OnDeviceSearchTiming`, `OnDeviceSearchProvider`, `WebSearchProviderFactory`),
+     `EnigmaTests/PassageRankerTests.swift`, `EnigmaTests/OnDeviceSearchTests.swift`;
+     all four registered in `Enigma.xcodeproj/project.pbxproj`.
+   - `Enigma/Search/SourceQuality.swift`: `PageChecks.isOffTopic`, `.offTopicShare`.
+   - `Enigma/Search/WebSearchContext.swift`: `WebSearchExcerpts` (`Excerpt`,
+     `excerpts`, `encode`, `json`, `fitted`), the new envelope,
+     `prepare(…now:timeZone:using:)`.
+   - `Enigma/Search/WebSearchTool.swift`: `recency`, excerpt result, the two
+     sentences, the closure `(query, recency)`.
+   - `Enigma/LocalInference/LocalChatViewModel.swift`: `shared` uses the
+     factory; `nativeToolbox` passes the tool's recency and forces the web
+     route (`search(…toolRecency:)`); on-device results are fitted to F32's
+     budget (D75).
+   - `Enigma/Search/ArticleExtractor.swift`: `shared` uses
+     `OnDeviceSearchTiming.extractionTimeout`; `warmUp` loads a blank page once
+     per view (taking an extraction turn, at most 2 s) and a failed extraction
+     re-warms a fresh view; `normalized` maps foreign errors to `.scriptFailed`;
+     the finished `WKNavigation` stays referenced until the next load (D78).
+   - Tests changed on purpose, checking the same things:
+     `NativeToolPartsTests` (closure takes `(query, recency)`; the result's
+     `text` instead of `snippets`), `NativeToolsEvalTests` (closure arity),
+     `WebSearchTests` (new wording; `decodedExcerpts` reads the numeric `id`;
+     `testGroundingFitsBudget…` window 1,400 → 2,000 with its bound 1,200 →
+     1,800, as the envelope grew), `ScreenPipelineTests` (new wording; the
+     reserved-image test's question 140 → 100 repeats). New tests in
+     `SourceQualityTests`, `WebSearchTests`, `NativeToolPartsTests`,
+     `NativeToolRequestTests`, `ArticleExtractorTests` (content tests use a
+     10 s limit through `patient()`; `testExtractionTimesOut` and
+     `testIdleRelease` now also cover the re-warm), and
+     `WebSearchLiveTests.testLiveOnDeviceSearch`.
+   - The brief's `testEarlyStopAfterFourPassingPages` is
+     `testEarlyStopAfterEnoughPassingPages`, since the stop is now 5 (D73).
+3. **Decisions:** D73 (tuning: window 3.0 s, 6 reads, stop at 5, extraction
+   800 ms, cut-off 0.08, 15,000 words scored per page), D74 (pipeline details:
+   `published ?? modified` for staleness, Wikipedia's base score and line
+   paragraphs, snippet-fallback eligibility, round-robin collection, the
+   50-word/400-character query cap, allowed languages), D75 (`web_search`
+   fitted to F32's budget on the on-device provider), D76 (superseded),
+   D77 (orchestrator: round 1), D78 (how round 1's fixes are built).
+4. **Verification (final, after review round 2):**
+   - `scripts/verify-xcode.sh build` and `analyze` succeeded.
+   - Targeted classes, all passing: `OnDeviceSearchTests` 27,
+     `PassageRankerTests` 14, `SourceQualityTests` 36, `WebSearchTests` 79,
+     `NativeToolPartsTests` 13, `NativeToolRequestTests` 83,
+     `ArticleExtractorTests` 22, `PageReaderTests` 34, `ScreenPipelineTests` 33.
+   - Full suite (`-test-timeouts-enabled YES
+     -default-test-execution-time-allowance 60`, screen locked): 1,160
+     executed, 20 skipped, 81 failed. The 81 are the same classes and counts
+     as D32's environment failures (D25): AppCommandTests 2, ChatCopyTests 2,
+     ComposerIntentChipsTests 2, EnigmaCompactPanelTests 15,
+     EnigmaConversationTests 18, EnigmaMainWindowTests 29, FileModeUITests 1,
+     ScreenCaptureTests 1, ScreenViewTests 11 (every one a key-window wait or
+     `isKeyWindow`). CI is the check for them.
+   - Live (`TEST_RUNNER_ENIGMA_LIVE_SEARCH=1`, 6 questions, this Mac's
+     network, before review): median 1.65 s, max 1.80 s; every search had
+     read pages (4–5 articles, plus Wikipedia on 4 of 6).
+   - Not run: the owner's manual check (exit criteria).
 5. **Limitations:**
-6. **For the next checkpoint:**
+   - **CP4 on macOS 26:** the fix (D77, D78) can't be run here; CI is the
+     check. Production keeps the 800 ms limit (D73), so a slow Mac's first
+     pages may still time out and fall back to snippets.
+   - The near-duplicate check compares every passing pair; pages are capped
+     at 200,000 characters (D68), so it stays cheap, but it isn't measured.
+   - `maximumWordsScoredPerPage` leaves passages past 15,000 words unscored
+     (score 0, still collected last).
+   - BM25 misses synonyms ("fuel" for "gas"); semantic reranking is CP7's
+     question (spec §5).
+   - The two window tests wait 300 ms of real time for the checks after the
+     fake extractions finish before ending the window.
+   - The live check is one run from one network; the speed bar is CP7's
+     measurement.
+6. **Review round 1 (reviewer: 1 Blocker, 2 Should fixes; all fixed, D77,
+   D78):**
+   - Blocker: D76's retry was unreachable and the error wasn't WebKit's. Fixed
+     as above; new `testWarmUpLoadsOneBlankPageOncePerView`.
+   - Outages with an unrelated Wikipedia article threw `noResults`; now the
+     sites' error (`testSiteOutageWithUnrelatedWikipediaReportsTheOutage`).
+   - Untested rules now tested: `testFittedSharesTheBudgetAndCutsAtWords`,
+     `testUserBlockedWikipediaNeverAppears`,
+     `testSnippetFallbackLeavesOutWrongLanguagePages`.
+   - `testFailedPageIsReplacedFromQueue` raced (5 of the first batch could
+     pass before the refill); two of the first six now fail, so the result is
+     deterministic.
+   - After the fixes: `OnDeviceSearchTests` 27 (run twice), `WebSearchTests`
+     79, `ArticleExtractorTests` 20, `PageReaderTests` 34,
+     `PassageRankerTests` 14, `SourceQualityTests` 36,
+     `NativeToolPartsTests` 13, `NativeToolRequestTests` 83,
+     `ScreenPipelineTests` 33: all passing.
+7. **Review round 2 (no Blockers, 2 Should fixes; fixed, D79, D80):** the
+   warm-up's limit task stopped the view even after a finished blank load
+   (`testNoStopFollowsACompletedWarmUp`); nothing pinned the production
+   extraction limit (`testSharedExtractorUsesThePipelinesLimit`). No round 3.
+8. **For the next checkpoint:**
+   - CP6 adds `places:` and `weather:` to `OnDeviceSearchProvider.init` with
+     defaults; today `search` treats every route as web. A places or weather
+     excerpt should come first in `collect`'s order (spec §5).
+   - `WebSearchExcerpts.json` is the shared excerpt encoding; places and
+     weather results need only `kind` `.places`/`.weather` and their text.
+   - Tuning lives in `OnDeviceSearchTiming`, `RankingTuning` (trust factors;
+     its `cutoff` 0.15 is now only `select`'s default) and `PageChecks`.
+   - Test fakes in `OnDeviceSearchTests.swift`: `FakeExtractor`,
+     `RecordingEngine`, `LockedEvents`, and the `Harness`.
+   - Interface additions beyond the brief: `OnDeviceSearchTiming.extractionTimeout`,
+     `.rankingCutoff`, `.collectionAllowance`, `.maximumWordsScoredPerPage`,
+     `.maximumQueryWords`, `.maximumQueryCharacters`;
+     `OnDeviceSearchProvider.siteQuery(_:)`, `.failure(_:)`, `.collect(_:maximumTokens:)`;
+     `PassageRanker.passages(fromPlainText:lineBreaks:)`, `.paragraphBlocks`,
+     `.scoreWithLemmas(_:question:wordLimit:)`, `.stopWords` and its scoring
+     constants; `WebSearchProviderFactory.makeDefault(defaults:isTestHost:)`;
+     `WebSearchTool.recencies`; `ArticleExtractor.normalized(_:)`, `.blankPage`, `.warmLoadLimit`,
+     `.viewsCreated`, `.warmLoads`, `.isWarming`; `SealedWebView.hasLoaded`.

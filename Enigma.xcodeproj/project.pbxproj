@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */; };
+		155304E6FA7871D103301197 /* Enigma/Chat/MapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */; };
 		748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */; };
 		B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */; };
 		C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */; };
@@ -69,6 +71,34 @@
 		CB69FE0F73B85BA98B3980BD /* LocalMultimodalProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */; };
 		FD9FA2F09CE21FD65DFC93D7 /* Enigma/Messages/MessagesSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */; };
 		CA59186E509F5F5819A0A142 /* Enigma/Search/WebSearchSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */; };
+		92B68B9F858462103B82A8FA /* Enigma/Search/WebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3882831C806915390C8A5B /* Enigma/Search/WebSearch.swift */; };
+		E86F8DCE2E662B18B920B14A /* Enigma/Search/SearchHTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81374D1A1B4EBA2AB486D3CF /* Enigma/Search/SearchHTTPClient.swift */; };
+		1AA2DE5B22546F1F13910754 /* Enigma/Search/Engines/SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */; };
+		E3532B75952D574791938129 /* Enigma/Search/Engines/DuckDuckGoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */; };
+		D239BEE26998EC74732B6FDC /* Enigma/Search/Engines/WikipediaSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */; };
+		23B87D88B4E3ACCF5C988741 /* Enigma/Search/Engines/GoogleNewsSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */; };
+		A12103FED58ACAFEDB338E8A /* Enigma/Search/Engines/WikidataFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */; };
+		734E39C71E0112EFEBC0A605 /* Enigma/Search/SearchAssist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */; };
+		4975AE439C41CCACE99A3560 /* Enigma/Search/Engines/SearchSiteRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */; };
+		4D8641AFF40A286B7F6BADFA /* EnigmaTests/SearchTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */; };
+		78B14594ECB34E43B03D3077 /* EnigmaTests/SearchHTTPClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */; };
+		E8E7B1D926DADEE0DD4B92DD /* EnigmaTests/SearchEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */; };
+		CAC4871B198B7910C3C30B5B /* EnigmaTests/SearchFactsAndNewsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */; };
+		7BFEE28FB28F631DC1A4E876 /* EnigmaTests/SearchAssistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */; };
+		7F54DF03C0F7AADB5EE55DC8 /* EnigmaTests/SearchSiteRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */; };
+		E3DF04E89D51CB0535B6BF8B /* Enigma/Search/PublicSuffixList.swift in Sources */ = {isa = PBXBuildFile; fileRef = E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */; };
+		C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */; };
+		0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */; };
+		87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */; };
+		A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */; };
+		76E9F80B6E604650D8E4A68E /* Enigma/Search/SourceQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE69BD1E44E54D63D6EC25A /* Enigma/Search/SourceQuality.swift */; };
+		3EB564C48DDDC9F8202CAFEB /* Enigma/Search/ResultRanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1C966EE96B8F444B41B8F5 /* Enigma/Search/ResultRanking.swift */; };
+		673F90A438CD654A073B188E /* EnigmaTests/SourceQualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AF63FDDE6F1F6E7456CD0F /* EnigmaTests/SourceQualityTests.swift */; };
+		C07683DF43509AB226A25D49 /* EnigmaTests/SearchRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8275DF5F44CEE22A587BB41 /* EnigmaTests/SearchRankingTests.swift */; };
+		C1D176BD8C0EF9F4E799FACD /* SearchData in Resources */ = {isa = PBXBuildFile; fileRef = 9D80E17741BE7384963D469D /* SearchData */; };
+		0ADFF0883A89DCC9C165E22A /* EnigmaTests/WebSearchLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D640FECBEE932EF4F6A290CD /* EnigmaTests/WebSearchLiveTests.swift */; };
+		0EE3ADBF1E9B5265767FD098 /* Enigma/Search/SearchRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFACFFDDABE049DADED8E6E2 /* Enigma/Search/SearchRouting.swift */; };
+		E7A25104ECB5240838E2D32E /* EnigmaTests/SearchRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96EBC9CF0BA946C4297E6B5 /* EnigmaTests/SearchRoutingTests.swift */; };
 		53CA68645BB07133717F254B /* Enigma/Screen/ScreenSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */; };
 		4A0283F0F7A52011DBA917F3 /* Enigma/Cloud/CloudSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8453604F34BB8C7C2787F70F /* Enigma/Cloud/CloudSettingsPage.swift */; };
 		BB63D517DE46148345D1D5B3 /* Enigma/Cloud/CloudSettingsForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F86FA582489E0F20016047 /* Enigma/Cloud/CloudSettingsForm.swift */; };
@@ -233,6 +263,16 @@
 		F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */; };
 		F368AD14CC3718DC0F973BFC /* Enigma/Cloud/GeminiContentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C7C96CC8B68E10665AB266 /* Enigma/Cloud/GeminiContentClient.swift */; };
 		FF70383D00EFDC94759EC47F /* Enigma/Files/LocalFileInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0134D277D0D4590D1E9D4D24 /* Enigma/Files/LocalFileInference.swift */; };
+		E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */; };
+		AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */; };
+		0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */; };
+		FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */; };
+		1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */; };
+		D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */; };
+		836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */; };
+		65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */; };
+		2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */; };
+		5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -246,6 +286,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/MapCardTests.swift"; sourceTree = SOURCE_ROOT; };
+		9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MapCard.swift"; sourceTree = SOURCE_ROOT; };
 		774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/CloudSearchTestSupport.swift"; sourceTree = SOURCE_ROOT; };
 		EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeWebSearchTests.swift"; sourceTree = SOURCE_ROOT; };
 		19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/NativeWebSearch.swift"; sourceTree = SOURCE_ROOT; };
@@ -307,6 +349,34 @@
 		48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalMultimodalProfile.swift"; sourceTree = SOURCE_ROOT; };
 		400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Messages/MessagesSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
 		B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WebSearchSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
+		BA3882831C806915390C8A5B /* Enigma/Search/WebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WebSearch.swift"; sourceTree = SOURCE_ROOT; };
+		81374D1A1B4EBA2AB486D3CF /* Enigma/Search/SearchHTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SearchHTTPClient.swift"; sourceTree = SOURCE_ROOT; };
+		92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/SearchEngine.swift"; sourceTree = SOURCE_ROOT; };
+		4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/DuckDuckGoEngine.swift"; sourceTree = SOURCE_ROOT; };
+		52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/WikipediaSearch.swift"; sourceTree = SOURCE_ROOT; };
+		D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/GoogleNewsSearch.swift"; sourceTree = SOURCE_ROOT; };
+		BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/WikidataFacts.swift"; sourceTree = SOURCE_ROOT; };
+		48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SearchAssist.swift"; sourceTree = SOURCE_ROOT; };
+		7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/Engines/SearchSiteRunner.swift"; sourceTree = SOURCE_ROOT; };
+		10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchTestSupport.swift"; sourceTree = SOURCE_ROOT; };
+		20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchHTTPClientTests.swift"; sourceTree = SOURCE_ROOT; };
+		D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchEngineTests.swift"; sourceTree = SOURCE_ROOT; };
+		9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchFactsAndNewsTests.swift"; sourceTree = SOURCE_ROOT; };
+		858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchAssistTests.swift"; sourceTree = SOURCE_ROOT; };
+		61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchSiteRunnerTests.swift"; sourceTree = SOURCE_ROOT; };
+		E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PublicSuffixList.swift"; sourceTree = SOURCE_ROOT; };
+		97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PageReader.swift"; sourceTree = SOURCE_ROOT; };
+		D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/ArticleExtractor.swift"; sourceTree = SOURCE_ROOT; };
+		5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PageReaderTests.swift"; sourceTree = SOURCE_ROOT; };
+		A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ArticleExtractorTests.swift"; sourceTree = SOURCE_ROOT; };
+		AEE69BD1E44E54D63D6EC25A /* Enigma/Search/SourceQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SourceQuality.swift"; sourceTree = SOURCE_ROOT; };
+		FB1C966EE96B8F444B41B8F5 /* Enigma/Search/ResultRanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/ResultRanking.swift"; sourceTree = SOURCE_ROOT; };
+		44AF63FDDE6F1F6E7456CD0F /* EnigmaTests/SourceQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SourceQualityTests.swift"; sourceTree = SOURCE_ROOT; };
+		A8275DF5F44CEE22A587BB41 /* EnigmaTests/SearchRankingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchRankingTests.swift"; sourceTree = SOURCE_ROOT; };
+		9D80E17741BE7384963D469D /* SearchData */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Enigma/Resources/SearchData"; sourceTree = SOURCE_ROOT; };
+		D640FECBEE932EF4F6A290CD /* EnigmaTests/WebSearchLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WebSearchLiveTests.swift"; sourceTree = SOURCE_ROOT; };
+		FFACFFDDABE049DADED8E6E2 /* Enigma/Search/SearchRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/SearchRouting.swift"; sourceTree = SOURCE_ROOT; };
+		C96EBC9CF0BA946C4297E6B5 /* EnigmaTests/SearchRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/SearchRoutingTests.swift"; sourceTree = SOURCE_ROOT; };
 		C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenSettingsSection.swift"; sourceTree = SOURCE_ROOT; };
 		8453604F34BB8C7C2787F70F /* Enigma/Cloud/CloudSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/CloudSettingsPage.swift"; sourceTree = SOURCE_ROOT; };
 		F8F86FA582489E0F20016047 /* Enigma/Cloud/CloudSettingsForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/CloudSettingsForm.swift"; sourceTree = SOURCE_ROOT; };
@@ -475,6 +545,16 @@
 		F225835FFF11A442B82A63B4 /* Enigma/Screen/ScreenControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenControls.swift"; sourceTree = SOURCE_ROOT; };
 		F854E7BC1B8BD8048823C508 /* Enigma/Files/FileModeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Files/FileModeCoordinator.swift"; sourceTree = SOURCE_ROOT; };
 		E91000000000000000000001 /* Enigma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Enigma.entitlements; sourceTree = "<group>"; };
+		265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PassageRanker.swift"; sourceTree = SOURCE_ROOT; };
+		BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/OnDeviceSearch.swift"; sourceTree = SOURCE_ROOT; };
+		50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PassageRankerTests.swift"; sourceTree = SOURCE_ROOT; };
+		A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/OnDeviceSearchTests.swift"; sourceTree = SOURCE_ROOT; };
+		C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/WeatherLookup.swift"; sourceTree = SOURCE_ROOT; };
+		000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlaceSearch.swift"; sourceTree = SOURCE_ROOT; };
+		4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PlacesAndWeatherTools.swift"; sourceTree = SOURCE_ROOT; };
+		DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherTests.swift"; sourceTree = SOURCE_ROOT; };
+		64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PlacesAndWeatherToolTests.swift"; sourceTree = SOURCE_ROOT; };
+		5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WebSearchEvaluationTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -500,6 +580,22 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */,
+				000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */,
+				4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */,
+				320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */,
+				9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */,
+				DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */,
+				64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */,
+				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
+				5E0F1A2B3C4D5E6F7A8B9C02 /* EnigmaTests/WebSearchEvaluationTests.swift */,
+				50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */,
+				BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */,
+				265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */,
+				A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */,
+				5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */,
+				D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */,
+				97F1276D37E0083FEFEEB481 /* Enigma/Search/PageReader.swift */,
 				774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */,
 				EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */,
 				19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */,
@@ -552,6 +648,30 @@
 				48E9EB1BBA4ED2DACF48212B /* LocalMultimodalProfile.swift */,
 				400545524363F0706CC11C4C /* Enigma/Messages/MessagesSettingsSection.swift */,
 				B8E7F3686641DEAD9DF3006D /* Enigma/Search/WebSearchSettingsSection.swift */,
+				BA3882831C806915390C8A5B /* Enigma/Search/WebSearch.swift */,
+				FFACFFDDABE049DADED8E6E2 /* Enigma/Search/SearchRouting.swift */,
+				D640FECBEE932EF4F6A290CD /* EnigmaTests/WebSearchLiveTests.swift */,
+				61F48CC08AFA8CA0A0178779 /* EnigmaTests/SearchSiteRunnerTests.swift */,
+				D8CD95F7B2D39081E9754FAC /* EnigmaTests/SearchEngineTests.swift */,
+				9FC35346F30311F0A3B30B4C /* EnigmaTests/SearchFactsAndNewsTests.swift */,
+				858DB7CF4EB6564AE6833A13 /* EnigmaTests/SearchAssistTests.swift */,
+				20817EC5F0ACEC3BB69CA23D /* EnigmaTests/SearchHTTPClientTests.swift */,
+				10441ADA1404DF8AFFC6AB10 /* EnigmaTests/SearchTestSupport.swift */,
+				7574A613256B8506C427D664 /* Enigma/Search/Engines/SearchSiteRunner.swift */,
+				E57492D0C25612EA2119ADF2 /* Enigma/Search/PublicSuffixList.swift */,
+				AEE69BD1E44E54D63D6EC25A /* Enigma/Search/SourceQuality.swift */,
+				FB1C966EE96B8F444B41B8F5 /* Enigma/Search/ResultRanking.swift */,
+				44AF63FDDE6F1F6E7456CD0F /* EnigmaTests/SourceQualityTests.swift */,
+				A8275DF5F44CEE22A587BB41 /* EnigmaTests/SearchRankingTests.swift */,
+				9D80E17741BE7384963D469D /* SearchData */,
+				52A340AE99F8A40A33FD0696 /* Enigma/Search/Engines/WikipediaSearch.swift */,
+				D663F695AE93F873D948DF95 /* Enigma/Search/Engines/GoogleNewsSearch.swift */,
+				BD322888151DB9EE29EACB74 /* Enigma/Search/Engines/WikidataFacts.swift */,
+				48A1B529867D5B1CA934BBBC /* Enigma/Search/SearchAssist.swift */,
+				4A0D85187F9124107D677B7D /* Enigma/Search/Engines/DuckDuckGoEngine.swift */,
+				92B30947E1F893632F8CED00 /* Enigma/Search/Engines/SearchEngine.swift */,
+				81374D1A1B4EBA2AB486D3CF /* Enigma/Search/SearchHTTPClient.swift */,
+				C96EBC9CF0BA946C4297E6B5 /* EnigmaTests/SearchRoutingTests.swift */,
 				C108D004393B7BDAEDF645D1 /* Enigma/Screen/ScreenSettingsSection.swift */,
 				8453604F34BB8C7C2787F70F /* Enigma/Cloud/CloudSettingsPage.swift */,
 				F8F86FA582489E0F20016047 /* Enigma/Cloud/CloudSettingsForm.swift */,
@@ -900,6 +1020,7 @@
 				D10000000000000000000007 /* ThirdPartyNotices.txt in Resources */,
 				D10000000000000000000009 /* LICENSE in Resources */,
 				F25A00000000000000000006 /* release-notes in Resources */,
+				C1D176BD8C0EF9F4E799FACD /* SearchData in Resources */,
 				B60000000000000000000202 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -911,6 +1032,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */,
+				D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */,
+				836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */,
+				155304E6FA7871D103301197 /* Enigma/Chat/MapCard.swift in Sources */,
+				AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */,
+				E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */,
+				0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */,
+				C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */,
 				C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */,
 				CC56D5C8510664659CE08B86 /* Enigma/Chat/AssistantToolbox.swift in Sources */,
 				95ED97A60C86B267AB67A2EA /* Enigma/Chat/SelectionTools.swift in Sources */,
@@ -948,6 +1077,19 @@
 				CB69FE0F73B85BA98B3980BD /* LocalMultimodalProfile.swift in Sources */,
 				FD9FA2F09CE21FD65DFC93D7 /* Enigma/Messages/MessagesSettingsSection.swift in Sources */,
 				CA59186E509F5F5819A0A142 /* Enigma/Search/WebSearchSettingsSection.swift in Sources */,
+				92B68B9F858462103B82A8FA /* Enigma/Search/WebSearch.swift in Sources */,
+				0EE3ADBF1E9B5265767FD098 /* Enigma/Search/SearchRouting.swift in Sources */,
+				4975AE439C41CCACE99A3560 /* Enigma/Search/Engines/SearchSiteRunner.swift in Sources */,
+				E3DF04E89D51CB0535B6BF8B /* Enigma/Search/PublicSuffixList.swift in Sources */,
+				76E9F80B6E604650D8E4A68E /* Enigma/Search/SourceQuality.swift in Sources */,
+				3EB564C48DDDC9F8202CAFEB /* Enigma/Search/ResultRanking.swift in Sources */,
+				D239BEE26998EC74732B6FDC /* Enigma/Search/Engines/WikipediaSearch.swift in Sources */,
+				23B87D88B4E3ACCF5C988741 /* Enigma/Search/Engines/GoogleNewsSearch.swift in Sources */,
+				A12103FED58ACAFEDB338E8A /* Enigma/Search/Engines/WikidataFacts.swift in Sources */,
+				734E39C71E0112EFEBC0A605 /* Enigma/Search/SearchAssist.swift in Sources */,
+				E3532B75952D574791938129 /* Enigma/Search/Engines/DuckDuckGoEngine.swift in Sources */,
+				1AA2DE5B22546F1F13910754 /* Enigma/Search/Engines/SearchEngine.swift in Sources */,
+				E86F8DCE2E662B18B920B14A /* Enigma/Search/SearchHTTPClient.swift in Sources */,
 				53CA68645BB07133717F254B /* Enigma/Screen/ScreenSettingsSection.swift in Sources */,
 				4A0283F0F7A52011DBA917F3 /* Enigma/Cloud/CloudSettingsPage.swift in Sources */,
 				BB63D517DE46148345D1D5B3 /* Enigma/Cloud/CloudSettingsForm.swift in Sources */,
@@ -1065,6 +1207,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
+				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
+				F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */,
+				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
+				5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */,
+				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,
+				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,
+				87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */,
 				748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */,
 				B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */,
 				208A655BF744C7A5D587C0DE /* EnigmaTests/NativeToolRequestTests.swift in Sources */,
@@ -1116,6 +1266,16 @@
 				F2A000000000000000000004 /* MessageQueueTests.swift in Sources */,
 				F25A00000000000000000004 /* WhatsNewTests.swift in Sources */,
 				B60000000000000000000402 /* WebSearchTests.swift in Sources */,
+				E7A25104ECB5240838E2D32E /* EnigmaTests/SearchRoutingTests.swift in Sources */,
+				0ADFF0883A89DCC9C165E22A /* EnigmaTests/WebSearchLiveTests.swift in Sources */,
+				7F54DF03C0F7AADB5EE55DC8 /* EnigmaTests/SearchSiteRunnerTests.swift in Sources */,
+				E8E7B1D926DADEE0DD4B92DD /* EnigmaTests/SearchEngineTests.swift in Sources */,
+				CAC4871B198B7910C3C30B5B /* EnigmaTests/SearchFactsAndNewsTests.swift in Sources */,
+				7BFEE28FB28F631DC1A4E876 /* EnigmaTests/SearchAssistTests.swift in Sources */,
+				673F90A438CD654A073B188E /* EnigmaTests/SourceQualityTests.swift in Sources */,
+				C07683DF43509AB226A25D49 /* EnigmaTests/SearchRankingTests.swift in Sources */,
+				78B14594ECB34E43B03D3077 /* EnigmaTests/SearchHTTPClientTests.swift in Sources */,
+				4D8641AFF40A286B7F6BADFA /* EnigmaTests/SearchTestSupport.swift in Sources */,
 				C20000000000000000000002 /* ChatContextTests.swift in Sources */,
 				A1F100000000000000000004 /* ChatCopyTests.swift in Sources */,
 				A10000000000000000000006 /* AppCommandTests.swift in Sources */,

@@ -16,7 +16,21 @@ enum WebSearchPolicy {
       return false
     }
     if LocationIntent.needsLocation(normalized: text) { return true }
+    // A weather question about a named place ("nyc weather today") needs no location but is still current.
+    if LocationIntent.asksAboutWeatherNow(normalized: text) && !LocationIntent.isAboutWeatherSoftware(text) { return true }
     return needsFreshFacts(text, now: now)
+  }
+
+  /// The date window a question asks for. When several match, the shortest wins.
+  static func recency(_ prompt: String, now: Date = Date()) -> SearchRecency? {
+    let text = questionText(prompt)
+    if matches(dayWindow, text) { return .day }
+    if matches(weekWindow, text) { return .week }
+    if matches(monthWindow, text) { return .month }
+    let year = String(Calendar(identifier: .gregorian).component(.year, from: now))
+    if matches(yearWindow, text) || fourDigitWord.matches(in: text, range: NSRange(text.startIndex..., in: text))
+      .contains(where: { Range($0.range, in: text).map { text[$0] == year } ?? false }) { return .year }
+    return nil
   }
 
   static func questionText(_ prompt: String) -> String {
@@ -116,6 +130,11 @@ enum WebSearchPolicy {
       // A call with family or with me: "what did Grandpa say on the phone yesterday".
       + #"|\b\#(relation)\b.{0,40}\b(?:on|over) (?:the phone|a call|facetime)\b|\b(?:on|over) (?:the phone|a call|facetime) (?:with|to) (?:me|us|(?:(?:my|our) )?\#(relation))\b|\bwhen (?:(?:my|our) )?(?:\#(relation)|he|she|they) called\b"#)
   }()
+  // "live" alone would filter "where do penguins live" to the past day.
+  private static let dayWindow = expression(#"\b(?:today|tonight|right now|this (?:morning|afternoon|evening)|live (?:scores?|updates|results|coverage|blog))\b"#)
+  private static let weekWindow = expression(#"\b(?:latest|recent|news|breaking|this week|yesterday)\b"#)
+  private static let monthWindow = expression(#"\bthis month\b"#)
+  private static let yearWindow = expression(#"\bthis year\b"#)
   private static let historicalTopic = expression(#"\b(?:world war|ancient|medieval|roman empire|historical|history of)\b"#)
   private static let conceptualQuestion = expression(#"\b(?:what (?:is|are)|define|explain|how (?:does|do)) (?:a |an |the concept of )?(?:weather|stock prices?|share prices?|exchange rates?|mortgage rates?)(?: work| mean| change| fluctuate)?[?.!]*$"#)
   private static let eventTopic = expression(#"\b(?:election|elections|results|winner|winners|release|releases|announcements|conference|summit|wwdc|schedule|standings|season|tournament|olympics|world cup|budget|laws|regulations)\b"#)

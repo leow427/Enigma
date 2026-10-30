@@ -134,7 +134,7 @@ The reply pauses on a card in the chat, in the style of the send card:
 | --- | --- | --- |
 | Reading a chat (`get_messages`) | **Allow reading your chat with ‹name›?** | Per chat and destination |
 | Searching all chats (`search_messages`) | **Search all your messages for “‹query›”?** | Per destination |
-| A web search once message text is in the chat | **Search the web for “‹query›”?** *This chat includes text from your messages. It will be sent to Brave.* | Once, for every destination |
+| A web search, places lookup or weather check once message text is in the chat | **Search the web for “‹query›”?** *This chat includes text from your messages. It will be sent to search sites.* (Brave, while a Brave key is saved); **Find ‹what› near you?** or **Find ‹what› in ‹area›?** (Apple Maps); **Check the weather for ‹place›?** or **Check the weather for your area?** (Open-Meteo) | Once per kind (web search, places, weather), for every destination |
 | ChatGPT's or Claude Code's own web search once message text is in the chat, or on a typed `/messages` turn | **Let ‹provider› search the web in this chat?** *This chat includes text from your messages. ‹provider›'s web search runs its own queries on ‹company›'s servers, and Enigma can't check each one.* | Per provider |
 
 For the first two, the detail line names where the text goes: **It stays on
@@ -162,7 +162,7 @@ Once any message text is in a chat (a read, a search hit, an allowed preview, or
 an earlier typed `/messages` turn), Enigma marks the chat, saves the mark with
 it, and from then on:
 
-- each web search asks first with the third card;
+- each web search, places lookup or weather check asks first, on its own card;
 - ChatGPT and Claude Code use their provider's own web search, which runs on
   the provider's servers where no card can ask for each query, only after the
   fourth card; declined, the reply has no search. If a read happens partway

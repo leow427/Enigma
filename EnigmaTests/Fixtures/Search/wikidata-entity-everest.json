@@ -1,0 +1,154 @@
+{
+ "entities": {
+  "Q513": {
+   "type": "item",
+   "id": "Q513",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Mount Everest"
+    }
+   },
+   "descriptions": {
+    "en": {
+     "language": "en",
+     "value": "Earth's highest mountain above sea level, located in the Mahalangur Himal sub-range of the Himalayas"
+    }
+   },
+   "claims": {
+    "P2044": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+8848.86",
+         "unit": "http://www.wikidata.org/entity/Q11573"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "preferred",
+      "qualifiers": {}
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+8844.43",
+         "unit": "http://www.wikidata.org/entity/Q11573"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "normal",
+      "qualifiers": {
+       "P585": [
+        {
+         "snaktype": "value",
+         "property": "P585",
+         "datavalue": {
+          "value": {
+           "time": "+2005-00-00T00:00:00Z",
+           "timezone": 0,
+           "before": 0,
+           "after": 0,
+           "precision": 9,
+           "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+          },
+          "type": "time"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+8848",
+         "unit": "http://www.wikidata.org/entity/Q11573"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+8850",
+         "unit": "http://www.wikidata.org/entity/Q11573"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+29030",
+         "unit": "http://www.wikidata.org/entity/Q3710"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "deprecated",
+      "qualifiers": {}
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P2044",
+       "datavalue": {
+        "value": {
+         "amount": "+8847.93",
+         "unit": "http://www.wikidata.org/entity/Q11573"
+        },
+        "type": "quantity"
+       }
+      },
+      "type": "statement",
+      "rank": "normal",
+      "qualifiers": {
+       "P585": [
+        {
+         "snaktype": "value",
+         "property": "P585",
+         "datavalue": {
+          "value": {
+           "time": "+2005-00-00T00:00:00Z",
+           "timezone": 0,
+           "before": 0,
+           "after": 0,
+           "precision": 9,
+           "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+          },
+          "type": "time"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}

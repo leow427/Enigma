@@ -58,7 +58,7 @@ struct ComposerIntent: Equatable, Sendable {
 
   var hasPrompt: Bool { !typed.prompt.isEmpty || edit || translate }
   var submissionPrompt: String {
-    (think ? "/think " : "") + (translate ? "/translate " : edit ? "/edit " : "") + typed.prompt
+    (think ? "/think " : "") + (typed.maps ? "/maps " : "") + (translate ? "/translate " : edit ? "/edit " : "") + typed.prompt
   }
   /// The draft as typed, with inferred `think`, `edit` and `translate` written in front, for
   /// paths such as File Mode that send the draft as typed.
@@ -89,7 +89,7 @@ struct ComposerIntent: Equatable, Sendable {
     candidates.subtract(context.dismissed)
 
     // Drop conflicting inferences, never typed commands.
-    if context.hasFileSelection || context.hasScreenshot || typed.search || typed.screen {
+    if context.hasFileSelection || context.hasScreenshot || typed.search || typed.maps || typed.screen {
       candidates.remove(.messages)
     }
     // Translation stays read-only, and a typed command keeps its meaning.
@@ -98,7 +98,7 @@ struct ComposerIntent: Equatable, Sendable {
 
     // Message contents must never become a web search query, and files can't be combined
     // with search. The search check is skipped when its chip couldn't apply.
-    if context.searchesAutomatically, !context.nativeTools, !typed.screen, !typed.search, !typed.messages,
+    if context.searchesAutomatically, !context.nativeTools, !typed.screen, !typed.search, !typed.maps, !typed.messages,
        !candidates.contains(.messages), !context.hasFileSelection, !context.dismissed.contains(.search),
        WebSearchPolicy.needsFreshInformation(normalized: text, now: now) {
       candidates.insert(.search)
@@ -110,7 +110,8 @@ struct ComposerIntent: Equatable, Sendable {
       typed: typed,
       inferred: chipOrder.filter(candidates.contains),
       messages: typed.messages || candidates.contains(.messages),
-      search: typed.search || candidates.contains(.search),
+      // A typed /maps searches too: places on small models, find_places on capable ones.
+      search: typed.search || typed.maps || candidates.contains(.search),
       think: typed.think || candidates.contains(.think),
       edit: (typed.edit || candidates.contains(.edit)) && !translate,
       translate: translate)

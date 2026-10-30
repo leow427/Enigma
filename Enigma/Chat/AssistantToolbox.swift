@@ -4,7 +4,9 @@ import Foundation
 enum SearchBackend: Hashable, Sendable { case enigma, provider }
 
 /// A group of tools a capable model may get on a turn (F32).
-enum NativeToolPart: Hashable, Sendable { case search(SearchBackend), messages, selection }
+/// `places` and `weather` (F29) come with search on either backend, or with a typed /maps; they're
+/// in `offeredParts`, not `parts`, which stays F32's and F30's.
+enum NativeToolPart: Hashable, Sendable { case search(SearchBackend), messages, selection, places, weather }
 
 /// Which tool parts a flagged turn gets, from the typed commands, what is attached and the
 /// settings. Requests with files or a screenshot keep today's paths and get an empty plan.
@@ -15,9 +17,8 @@ struct NativeToolPlan: Equatable, Sendable {
     var hasFiles: Bool
     var hasScreenshot: Bool
     var searchesAutomatically: Bool
-    var hasSearchKey: Bool
     var hasFullDiskAccess: Bool
-    /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). It needs no Brave key.
+    /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). Enigma's own search needs no key either (spec §8).
     var providerSearch: Bool = false
     /// The user declined the provider's search in a chat holding message text: no search at all,
     /// not even Enigma's (owner, 2026-10-29).
@@ -56,6 +57,15 @@ struct NativeToolPlan: Equatable, Sendable {
     return Self.make(inputs)
   }
 
+  /// Search was offered (automatic search, /search or /maps) and not declined, or /maps was typed:
+  /// `find_places` and `get_weather` are offered with it (spec §6.2).
+  var offersPlacesAndWeather = false
+
+  /// Every part the turn's toolbox gets: `parts`, plus places and weather.
+  var offeredParts: Set<NativeToolPart> {
+    offersPlacesAndWeather ? parts.union([.places, .weather]) : parts
+  }
+
   /// The search backend, if the plan searches.
   var searchBackend: SearchBackend? {
     parts.contains(.search(.provider)) ? .provider : parts.contains(.search(.enigma)) ? .enigma : nil
@@ -66,11 +76,17 @@ struct NativeToolPlan: Equatable, Sendable {
     var plan = NativeToolPlan(parts: [], requiredTool: nil, messagesRequested: inputs.typed.messages)
     plan.inputs = inputs
     // A typed /messages turn keeps provider search; `submitNative` asks before it (owner, 2026-10-29).
-    if !inputs.searchDeclined, inputs.searchesAutomatically || inputs.typed.search,
-       let backend: SearchBackend = inputs.providerSearch ? .provider : inputs.hasSearchKey ? .enigma : nil {
-      plan.parts.insert(.search(backend))
+    let searchOffered = inputs.searchesAutomatically || inputs.typed.search || inputs.typed.maps
+    if !inputs.searchDeclined, searchOffered {
+      plan.parts.insert(.search(inputs.providerSearch ? .provider : .enigma))
+      plan.offersPlacesAndWeather = true
       // On provider routes `web_search` names the provider's own tool.
       if inputs.typed.search { plan.requiredTool = "web_search" }
+    }
+    // find_places is Apple Maps. /maps wins over /search (spec §6.3).
+    if !inputs.searchDeclined, inputs.typed.maps {
+      plan.offersPlacesAndWeather = true
+      plan.requiredTool = "find_places"
     }
     if inputs.hasFullDiskAccess { plan.parts.insert(.messages) }
     if inputs.hasSelection {
@@ -107,7 +123,8 @@ struct AssistantToolbox: AgentToolbox {
   }
 
   var instructions: String {
-    (parts.map(\.instructions) + [Self.untrustedDataInstruction] + extraInstructions).joined(separator: "\n")
+    (parts.map(\.instructions) + [Self.untrustedDataInstruction] + extraInstructions).filter { !$0.isEmpty }
+      .joined(separator: "\n")
   }
 
   var definitions: [AgentToolDefinition] { parts.flatMap(\.definitions) }

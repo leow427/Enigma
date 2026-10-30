@@ -106,6 +106,8 @@ is_newer "$version" "$current_version" || fail "$version is not newer than the c
 [ -f "$notes" ] || fail "release notes are missing: docs/release-notes/$version.md"
 [ "$(head -n 1 "$notes")" = "# Enigma $version" ] \
   || fail "docs/release-notes/$version.md must start with the line: # Enigma $version"
+# Warns, never blocks, when the bundled search lists are more than 60 days old.
+python3 -I "$repository_root/scripts/check-search-lists-age.py" >&2 || true
 if git -C "$repository_root" rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   fail "tag $tag already exists locally"
 fi

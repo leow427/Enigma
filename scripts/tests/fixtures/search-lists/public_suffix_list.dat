@@ -1,0 +1,17 @@
+// Sample Public Suffix List for tests.
+// VERSION: 2026-01-01_00-00-00_UTC
+// ===BEGIN ICANN DOMAINS===
+com
+org
+net
+example
+uk
+co.uk
+jp
+*.kawasaki.jp
+!city.kawasaki.jp
+// ===END ICANN DOMAINS===
+// ===BEGIN PRIVATE DOMAINS===
+github.io
+000webhostapp.com
+// ===END PRIVATE DOMAINS===

@@ -70,6 +70,9 @@ read any pages (CP4) or touch the UI (CP8).
 - **Wikipedia's Perennial sources:** fetched as wikitext through
   `https://en.wikipedia.org/w/api.php?action=parse&page=Wikipedia:Reliable_sources/Perennial_sources&prop=wikitext&format=json`,
   recording the revision ID.
+  *Amended overnight (orchestrator, owner to confirm):* that page's rows
+  live in eight transcluded subpages, which the script fetches the same way,
+  recording each revision ID (decision D50).
 - **Which lists go where:**
   - Phishing.Database active domains, and the Block List Project's malware,
     phishing, scam and fraud lists, go to `unsafe.bin`;
@@ -88,6 +91,11 @@ read any pages (CP4) or touch the UI (CP8).
 - **Budget:** if the folder would exceed `3145728` bytes, drop Phishing.Database
   entries, the largest list, until it fits, and record how many were
   dropped. Fail if it still doesn't fit.
+  *Amended overnight (orchestrator, owner to confirm):* the Block List
+  Project's malware list alone is seven times the budget, so the script
+  fills `unsafe.bin` in a keep order (scam, fraud, phishing,
+  Phishing.Database, malware) and drops from its end: malware first, then
+  Phishing.Database (decision D49).
 - **Failures:** if any source fails to download or parse, leave that list's
   previous file untouched, print what failed, and exit with status 1. Write
   each file through a temporary file and a rename, never partially.
@@ -382,11 +390,188 @@ The initializer gains `publicSuffixes: PublicSuffixList? = SearchDataBundle.bund
 
 ## Hand-off
 
-*Filled in by the CP3 worker.*
+*Filled in by the CP3 worker (overnight run, 2026-10-30; decisions D49–D54, D56, D58 and D60; D55, D57 and D59 are the orchestrator's).*
 
-1. **Summary:**
+1. **Summary:** Results can now be cleaned, merged, scored, filtered and
+   picked for reading. `scripts/update-search-lists.py` downloads the
+   pinned public lists and writes `Enigma/Resources/SearchData/` (3,129,228
+   bytes of the 3,145,728 budget). A reviewed `overrides.tsv` (D55, D56)
+   neutralizes the Perennial rating of Wikipedia, Stack Overflow, Stack
+   Exchange sites and Investopedia, and un-blocks MSN and Healthline;
+   it never lifts a security block. The app loads it once
+   (`SearchDataBundle.bundled`); `SourceQuality` blocks and weighs sites;
+   `URLNormalizer` and `ResultRanking` clean, merge (SearXNG's agreement
+   score) and select (trust, then the 15% cut-off, one page per domain).
+   `WebSearchSettings` keeps the user's blocked sites (registrable domains
+   only, at most 500). Nothing calls the ranking yet; CP5 wires it in.
 2. **Files:**
-3. **Decisions:**
+   - `scripts/update-search-lists.py` (new): the refresh script, standard
+     library only. `scripts/tests/test_update_search_lists.py` and
+     `scripts/tests/fixtures/search-lists/` (new): its tests and fixtures.
+   - `Enigma/Resources/SearchData/` (new folder reference): `unsafe.bin`,
+     `spam.bin`, `reliability.tsv`, `public_suffix_list.dat`,
+     `manifest.json` (generated); `authority.txt`, `unreadable.txt`
+     (**drafts for owner review**, D52); `enigma-blocked.txt` (header only);
+     `overrides.tsv` (D55, D56, hand-curated, kept by the script).
+   - `Enigma/Search/PublicSuffixList.swift` (new): the list, host
+     normalization (lowercase, trailing dot, punycode).
+   - `Enigma/Search/SourceQuality.swift` (new): `FNV1a64`, `DomainHashSet`,
+     `SourceReliability`, `SearchDataBundle`, `SourceQuality`.
+   - `Enigma/Search/ResultRanking.swift` (new): `RankingTuning`,
+     `URLNormalizer`, `RankedCandidate`, `ResultRanking`.
+   - `Enigma/Search/WebSearchSettings.swift`: the blocked-sites model.
+   - `Enigma/Search/Engines/DuckDuckGoEngine.swift`, `SearchEngine.swift`:
+     the weight now reads `RankingTuning.engineWeights`.
+   - `Enigma/Resources/ThirdPartyNotices.txt`: the seven notices.
+   - `Enigma.xcodeproj/project.pbxproj`: three app files, two test files,
+     the `SearchData` folder in Resources.
+   - `EnigmaTests/SourceQualityTests.swift`, `SearchRankingTests.swift`
+     (new); `WebSearchTests.swift`: seven blocked-sites tests.
+   - This brief (two "Amended overnight" notes) and `overnight-decisions.md`
+     (D49–D54, D56, D58, D60).
+3. **Decisions** (details in the log):
+   - **D49:** the unsafe lists can't fit 3 MB (Block List Project malware
+     alone is 2.66 million domains, 21 MB of hashes). Keep order: scam,
+     fraud, phishing, Phishing.Database, malware; the budget drops from the
+     end, and within a list keeps whole domains before subdomains.
+     Subdomains of a listed domain are removed first (lossless). 16 KB is
+     left free for hand edits. Result: scam, fraud and phishing in full,
+     about 65,600 Phishing.Database domains and about 64,300 malware domains
+     still covered (dropped: 321,011 and 2,591,515).
+   - **D50:** Perennial sources rows live in 8 transcluded subpages; `b=y`
+     means blacklisted; `m` rows and path entries are skipped; conflicting
+     rows give `nc` unless all are `d`/`b`.
+   - **D51:** a list that parses to nothing, or to under half its last
+     count, is a failure (previous file kept, exit 1).
+   - **D52:** `authority.txt` and `unreadable.txt` drafted without the
+     owner's approval, leaning to health, finance and developer docs.
+   - **D53:** all ranking numbers in `RankingTuning`; ties go to the higher
+     trust factor, then the better position. Recency isn't available here
+     (DuckDuckGo's HTML has no dates).
+   - **D54:** authority domains match the host's suffix (`nhs.uk` is a
+     public suffix); the settings resolve the Public Suffix List lazily.
+   - **D55 (orchestrator), D56:** `msn.com` is blocked by popcar2's
+     `*://*.msn.com/*` (line 25, "Low Effort Articles"); `healthline.com` by
+     Perennial sources' `{{WP:RSPSTATUS|d|b=y}}` (subpage 4). In
+     `overrides.tsv`, `neutral` drops the Perennial status for a domain and
+     its subdomains; `allow` lifts spam-list and Perennial `d`/`b` blocks.
+     Neither lifts an unsafe-list block, the user's block or
+     `enigma-blocked.txt`. As first built, the budget trim had dropped the
+     five malware-listed msn.com subdomains from `unsafe.bin`, so
+     `allow msn.com` unblocked them; D60 fixed that (review round 2), and
+     they are blocked again. The manifest lists the four curated files under `curated`.
+     A missing `overrides.tsv` loads as none.
+   - **D57 (orchestrator), D58 (review round 1):** `allow` for kickstarter,
+     gofundme, indiegogo, change.org and lulu.com (blocked only by `gu|b=y`);
+     `neutral` for arxiv.org, biorxiv.org, medrxiv.org and aws.amazon.com;
+     `!academia.edu` in `authority.txt` is a new exclusion line
+     (`SearchDataBundle.authorityExclusions`). `URLNormalizer.key` now
+     matches `/amp` case-sensitively, drops only `amp=1` and
+     `outputType=amp`, and strips a host prefix only when a domain remains.
+   - **D59 (orchestrator), D60 (review round 2):** the refresh script
+     reads the `allow` domains from `overrides.tsv` and always keeps
+     unsafe-list entries equal to or under them, before the keep order.
+     The lists were regenerated with `--sources` from the cached
+     2026-10-30 downloads at the same pins; every source's SHA-256 matched
+     the earlier run. The 15% cut-off stays for CP7 to measure (D59).
+   - Also: with Mojeek gone, `testMergeScoresLikeSearXNG` checks spec
+     §3.3's two-site numbers on the new `ResultRanking.agreementScore` and
+     the merge on DuckDuckGo alone. `clean` also unwraps DuckDuckGo's
+     `/l/?uddg=` and Google's `/url?q=` wrappers (spec §3.1). The manifest
+     adds `format` and `dropped` to each source. `DomainHashSet` gained
+     `init(domains:)` and sorts an unsorted file; `SourceQuality` gained
+     `domains(of:)`, `isAuthority(_:)` and `reliability(of:)`.
 4. **Verification:**
+   - `python3 -I -B -m unittest discover -s scripts/tests`: 55 run, 0
+     failed before review (58 after round 1). The curated-files test failed first (no `curated` key), then
+     passed. (17 new in `test_update_search_lists.py`; the tests were written
+     before the script, but the first run was after it existed, so no RED
+     run was recorded for them).
+   - `python3 -I scripts/update-search-lists.py` (real downloads, twice):
+     exit 0; 14 sources; folder 3,129,231 bytes after `overrides.tsv`.
+   - `scripts/verify-xcode.sh test -only-testing:EnigmaTests/SourceQualityTests
+     -only-testing:EnigmaTests/SearchRankingTests
+     -only-testing:EnigmaTests/WebSearchTests
+     -only-testing:EnigmaTests/SearchEngineTests`: 151 executed, 0 skipped,
+     0 failed. The five override tests went RED first against a stub type
+     with no effect: 4 failed and
+     `testOverrideNeverLiftsUserOrCuratedBlock` passed, since it guards
+     behavior that already held. `testBundleLoadParsesTextFiles` also
+     failed; it then passed. RED was only a build failure (the first build had a compile
+     error), so instead, in a scratch copy, six mutants (big-endian reads,
+     no PSL exceptions, trust after the cut-off, no trust tie-break, no
+     500 cap, `d` not blocked) failed 9 tests across all three classes.
+   - `scripts/verify-xcode.sh build`: succeeded, no warnings in the new
+     files. `plutil -lint` on the project: OK.
+   - **Review round 1** (orchestrator's reviewer): no Blockers, 4 Should
+     fixes, all fixed test-first (D57, D58):
+     1. crowdfunding and petition sites hard-blocked → `allow` overrides;
+     2. authority sites (arXiv, AWS docs) ranked below neutral, and
+        academia.edu got the `.edu` bonus → `neutral` overrides and the
+        exclusion line;
+     3. tests that couldn't fail. New or tightened: the cut-off after
+        trust, a candidate exactly at the cut-off, the position tie-break,
+        the cap on a loaded list, the commit pin (the old check never ran),
+        collapse stopping at a private-section suffix, the atomic write,
+        and gr+d giving `nc`;
+     4. `URLNormalizer.key` merged too much → three narrower rules.
+
+     RED for the new behavior: 4 Swift tests failed against stubs
+     (`testNormalizationKeyDoesNotOverMerge`,
+     `testAuthorityExclusionBeatsSuffix`, `testBundleLoadParsesTextFiles`,
+     `testBundledRoundOneOverrides`). The mutant-killing tests pass on the
+     real code; each fails on its mutant:
+     - Swift, in a scratch copy: cut-off on the raw top, `>` for `>=`, no
+       position tie-break, no load cap (4 tests failed);
+     - Python, in scratch copies: collapse past the registrable domain, a
+       direct write, most-severe status merge, an unpinned `main` (each
+       caught).
+
+     GREEN: the four Swift classes ran 158 executed, 0 skipped, 0 failed;
+     Python ran 58, 0 failed. The refresh script ran again (exit 0).
+   - **Review round 2** (orchestrator's reviewer): one security bug, no
+     other findings. `allow msn.com` lifted the block on five
+     malware-listed msn.com hosts, because the budget trim had dropped them
+     from `unsafe.bin`. It was fixed test-first (D59, D60), with no round 3.
+     RED: the new Python test
+     `test_budget_keeps_security_entries_under_allowed_domains` failed. The
+     bundled-data assertion in `testBundledRoundOneOverrides` failed for all
+     five hosts on the old `unsafe.bin`. GREEN: after the fix and the
+     regeneration from cached downloads, Python ran 59, 0 failed; the four
+     Swift classes ran 158 executed, 0 skipped, 0 failed.
+   - **Final checks:**
+     - `scripts/verify-xcode.sh build`: succeeded.
+     - `scripts/verify-xcode.sh analyze`: succeeded, with no warnings in
+       the CP3 files.
+     - Full suite, `scripts/verify-xcode.sh test -test-timeouts-enabled YES
+       -default-test-execution-time-allowance 60` (D31, screen locked):
+       1,776 tests: 1,662 passed, 33 skipped, 81 failed. The 81 failures are
+       the same nine hosted-UI classes, with the same counts, as CP1b's and
+       CP2's (D25, D32): AppCommandTests 2, ChatCopyTests 2,
+       ComposerIntentChipsTests 2, EnigmaCompactPanelTests 15,
+       EnigmaConversationTests 18, EnigmaMainWindowTests 29,
+       FileModeUITests 1, ScreenCaptureTests 1, ScreenViewTests 11. None is
+       in a Search class, so all 81 are environment failures, left for CI.
+       The 53 tests above CP2's 1,723 are CP3's new tests.
 5. **Limitations:**
+   - **Owner review needed:** `authority.txt` and `unreadable.txt` (D52).
+   - **Owner review needed:** `overrides.tsv` (D55). CP7 should measure
+     its effect. `reddit.com` and `medium.com` remain `gu` (0.5).
+   - `unsafe.bin` covers about 2.4% of the malware list and 17% of
+     Phishing.Database (D49).
+   - Loading the bundle takes about 31 ms in a release build (measured
+     outside the app); the first search pays it, not launch (D54).
+   - The 60-day manifest warning in `release.sh` is CP10's.
 6. **For the next checkpoint:**
+   - Build the quality object with `SourceQuality(data:
+     SearchDataBundle.bundled, userBlocked: Set(settings.blockedSites))`;
+     when `bundled` is nil, CP5 must decide the fallback (it is logged).
+   - `ResultRanking.merge(results, weights: RankingTuning.engineWeights,
+     quality:)` then `select(_:quality:)`; read `readQueue` in batches of
+     `RankingTuning.readBatch` (6) and use `snippetOnly` for snippet
+     evidence. `RankedCandidate.url` is the cleaned link to fetch.
+   - `isBlocked` treats a URL without a host as blocked.
+   - Use `url.host(percentEncoded: false)` (punycode) for hosts; plain
+     `host()` percent-encodes IDN hosts.
+   - Refresh: update the five commit SHAs in `SOURCES`, run
+     `python3 -I scripts/update-search-lists.py`, check the printed counts.

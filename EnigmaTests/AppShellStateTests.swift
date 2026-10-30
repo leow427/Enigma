@@ -349,6 +349,24 @@ final class ComposerSubmissionTests: XCTestCase {
     _ = ComposerSubmission.canSubmit(mode: .cloud, hasLocalModel: false, isCloudConfigured: cloud(), hasAutoCloud: cloud(), isBusy: false)
     XCTAssertEqual(cloudChecks, 1)
   }
+
+  func testMapsWinsOverSearch() {
+    XCTAssertEqual(plan("/search /maps bookshops"), .chat(prompt: "/maps bookshops", searchEnabled: true))
+    XCTAssertEqual(plan("/maps bookshops"), .chat(prompt: "/maps bookshops", searchEnabled: true))
+  }
+
+  func testMapsAloneKeepsDraft() {
+    XCTAssertEqual(plan("/maps"), .nothingToFind)
+    XCTAssertEqual(plan("/maps /search"), .nothingToFind)
+    XCTAssertEqual(ComposerSubmission.nothingToFindMessage, "There's nothing to look for.")
+  }
+
+  func testMapsConflicts() {
+    XCTAssertEqual(plan("/maps bookshops", files: true), .fileConflict)
+    XCTAssertEqual(plan("/maps /messages bookshops"), .messagesConflict)
+    XCTAssertEqual(plan("/maps bookshops", screenshot: true), .mapsConflict)
+    XCTAssertEqual(plan("/maps /screen bookshops"), .mapsConflict)
+  }
 }
 
 final class ChatHistoryListTests: XCTestCase {

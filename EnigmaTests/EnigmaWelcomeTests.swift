@@ -56,15 +56,15 @@ final class EnigmaWelcomeTests: XCTestCase {
     XCTAssertEqual(state(.models, Activity(isInstalling: true)), .thinking)
     XCTAssertEqual(state(.models, Activity(installFailed: true)), .error)
     XCTAssertEqual(state(.models, Activity()), .idle)
-    XCTAssertEqual(state(.models, Activity(connectionFailed: true, isEnteringKey: true)), .idle,
+    XCTAssertEqual(state(.models, Activity(connectionFailed: true)), .idle,
                    "Connection cues belong to the connections step")
-    XCTAssertEqual(state(.connections, Activity(isEnteringKey: true)), .listening)
-    XCTAssertEqual(state(.connections, Activity(connectionFailed: true, isEnteringKey: true)), .error,
-                   "A failure outranks typing")
+    // Retargeted (CP8): the welcome has no key field, so nothing makes it listen.
+    XCTAssertEqual(state(.connections, Activity()), .idle)
+    XCTAssertEqual(state(.connections, Activity(connectionFailed: true)), .error)
     XCTAssertEqual(state(.connections, Activity(isInstalling: true)), .idle)
     for step in [WelcomeSetup.Step.welcome, .walkthrough] {
       XCTAssertEqual(state(step, Activity(isDetectingHardware: true, isInstalling: true, installFailed: true,
-                                          connectionFailed: true, isEnteringKey: true)), .idle)
+                                          connectionFailed: true)), .idle)
     }
   }
 
@@ -290,7 +290,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
     try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {
       WelcomeTourCard(setup: fixture.setup, step: .commands,
-                            availableCommands: SlashCommand.available(hasSearchKey: true))
+                            availableCommands: SlashCommand.available())
         .frame(width: WelcomeTourPlacement.maximumCardWidth)
     }
   }
@@ -499,26 +499,22 @@ extension EnigmaWelcomeTests {
     }
   }
 
+  /// Retargeted (CP8, Task 8.4): search needs no setup, so the connections step shows the Web
+  /// search row as ready, with no key field for the character to watch.
   @MainActor
-  func testReturnInTheKeyFieldSavesTheKeyAndStaysOnConnections() async throws {
+  func testConnectionsStepShowsWebSearchReadyWithNoKeyField() async throws {
     let credentials = RecordingSearchCredentials()
     let fixture = try await Fixture(test: self, searchCredentials: credentials)
     fixture.setup.replay()
     fixture.setup.step = .connections
     let host = Host(fixture, test: self)
-    try await waitForUI("the key field", in: host.view) { host.keyField != nil }
-    let field = try XCTUnwrap(host.keyField)
-    XCTAssertTrue(host.window.makeFirstResponder(field))
-    try await waitForUI("the field's editor", in: host.view) { field.currentEditor() != nil }
-    field.currentEditor()?.insertText("  brave-test-key ")
-    try await waitForUI("the character to listen", in: host.view) { host.character.state == .listening }
-    try host.typeReturn()
-    try await waitForUI("Return to save the key", in: host.view) { credentials.saved == ["brave-test-key"] }
-    XCTAssertEqual(fixture.setup.step, .connections, "Return in the field must not press Continue")
-    try await waitForUI("the field to clear and the saved status", in: host.view) {
-      field.stringValue.isEmpty && host.shows("key saved · not tested here")
-    }
-    XCTAssertTrue(fixture.search.hasAPIKey)
+    try await waitForUI("the Web search row", in: host.view) { host.shows("ready · no setup needed") }
+    XCTAssertTrue(host.shows("Web search"))
+    XCTAssertNil(host.keyField, "No Brave key field in the welcome")
+    XCTAssertFalse(host.shows("Brave"))
+    XCTAssertFalse(host.shows("Get a Brave API key"))
+    XCTAssertEqual(host.character.state, .idle)
+    XCTAssertTrue(credentials.saved.isEmpty)
   }
 
   @MainActor
@@ -529,27 +525,6 @@ extension EnigmaWelcomeTests {
     let host = Host(fixture, test: self)
     try await waitForUI("the Terminal steps disclosure", in: host.view) { host.shows("Terminal steps") }
     XCTAssertFalse(host.shows("Anthropic API key note"))
-  }
-
-  @MainActor
-  func testFailedKeySaveShowsTheErrorAndTheCharactersErrorState() async throws {
-    let fixture = try await Fixture(test: self, searchCredentials: FailingSearchCredentials())
-    fixture.setup.replay()
-    fixture.setup.step = .connections
-    let host = Host(fixture, test: self)
-    try await waitForUI("the key field", in: host.view) { host.keyField != nil }
-    let field = try XCTUnwrap(host.keyField)
-    XCTAssertTrue(host.window.makeFirstResponder(field))
-    try await waitForUI("the field's editor", in: host.view) { field.currentEditor() != nil }
-    field.currentEditor()?.insertText("brave-test-key")
-    try await waitForUI("the Save button", in: host.view) { host.shows("Save key") }
-    try host.press("Save key")
-    let message = FailingSearchCredentials.Failure().localizedDescription
-    try await waitForUI("the error line", in: host.view) { host.shows(message) }
-    try await waitForUI("the character's error state", in: host.view) { host.character.state == .error }
-    XCTAssertFalse(fixture.search.hasAPIKey)
-    XCTAssertEqual(field.stringValue, "brave-test-key", "A failed save keeps what was typed")
-    XCTAssertTrue(host.shows("not connected"))
   }
 
   @MainActor
@@ -677,15 +652,6 @@ private final class RecordingSearchCredentials: WebSearchCredentialStore, @unche
   func apiKey() throws -> String? { saved.last }
   func setAPIKey(_ value: String) throws { saved.append(value) }
   func removeAPIKey() throws { saved.removeAll() }
-}
-
-private struct FailingSearchCredentials: WebSearchCredentialStore {
-  struct Failure: LocalizedError {
-    var errorDescription: String? { "The keychain refused the Brave key." }
-  }
-  func apiKey() throws -> String? { nil }
-  func setAPIKey(_ value: String) throws { throw Failure() }
-  func removeAPIKey() throws {}
 }
 
 /// A borderless window that can become key, as the panel can.

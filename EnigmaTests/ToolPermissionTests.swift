@@ -81,6 +81,24 @@ final class ToolPermissionTests: XCTestCase {
     XCTAssertFalse(store.isGranted(.searchAfterMessages(query: "a"), destination: .thisMac, session: sessionB))
   }
 
+  /// Gate 3's tools each ask for themselves: allowing web search, places or weather, for the chat or
+  /// always, never lets the other two through (owner, 2026-10-31).
+  func testGateThreeToolsHaveTheirOwnGrants() {
+    let tools: [ToolPermission] = [.searchAfterMessages(query: "pizza"), .placesAfterMessages(title: "Find pizza near you?"),
+                                   .weatherAfterMessages(title: "Check the weather for your area?")]
+    for answer in [ToolPermissionAnswer.conversation, .always] {
+      for granted in tools {
+        defaults.removeObject(forKey: ToolGrantStore.defaultsKey)
+        let store = store()
+        store.record(answer, for: granted, destination: .thisMac, session: sessionA)
+        for tool in tools {
+          XCTAssertEqual(store.isGranted(tool, destination: .anthropic, session: sessionA), tool == granted,
+                         "\(answer) on \(granted) for \(tool)")
+        }
+      }
+    }
+  }
+
   func testDenyRecordsNothing() {
     let store = store()
     store.record(.deny, for: mom, destination: .thisMac, session: sessionA)
@@ -132,6 +150,30 @@ final class ToolPermissionTests: XCTestCase {
     XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .anthropic))
     XCTAssertFalse(store.messageTextAllowed(session: sessionA, destination: .openAI))
     XCTAssertTrue(store.messageTextAllowed(session: sessionA, destination: .thisMac))
+  }
+
+  /// An Always grant saved when gate 3's tools shared one grant still allows web search, and now only it.
+  func testSavedSearchGrantNowCoversOnlyWebSearch() {
+    defaults.set(Data(#"[{"kind":"searchAfterMessages"}]"#.utf8), forKey: ToolGrantStore.defaultsKey)
+    let store = store()
+    XCTAssertEqual(store.alwaysGrants.map(MessagesSettingsSection.rowText(for:)), ["Search the web after reading messages"])
+    XCTAssertTrue(store.isGranted(.searchAfterMessages(query: "pizza"), destination: .thisMac, session: sessionA))
+    XCTAssertFalse(store.isGranted(.placesAfterMessages(title: "Find pizza near you?"), destination: .thisMac, session: sessionA))
+    XCTAssertFalse(store.isGranted(.weatherAfterMessages(title: "Check the weather for your area?"), destination: .thisMac,
+                                   session: sessionA))
+  }
+
+  /// Always on a places card survives a relaunch and covers other chats, while search and weather still ask.
+  func testAlwaysForPlacesPersistsOnItsOwn() {
+    store().record(.always, for: .placesAfterMessages(title: "Find coffee near you?"), destination: .thisMac, session: sessionA)
+    let relaunched = store()
+    XCTAssertTrue(relaunched.isGranted(.placesAfterMessages(title: "Find ramen in Soho?"), destination: .anthropic, session: sessionB))
+    XCTAssertFalse(relaunched.isGranted(.searchAfterMessages(query: "ramen"), destination: .anthropic, session: sessionB))
+    XCTAssertFalse(relaunched.isGranted(.weatherAfterMessages(title: "Check the weather for Paris?"), destination: .anthropic,
+                                        session: sessionB))
+    XCTAssertEqual(relaunched.alwaysGrants.map(MessagesSettingsSection.rowText(for:)), ["Find places after reading messages"])
+    relaunched.remove(relaunched.alwaysGrants[0])
+    XCTAssertFalse(store().isGranted(.placesAfterMessages(title: "Find ramen in Soho?"), destination: .thisMac, session: sessionB))
   }
 
   func testCorruptDefaultsLoadEmpty() {
@@ -244,7 +286,10 @@ final class ToolPermissionTests: XCTestCase {
     for destination in ToolDestination.allCases {
       XCTAssertEqual(copy(.searchAfterMessages(query: "pizza near me"), destination),
                      ["Search the web for “pizza near me”?",
-                      "This chat includes text from your messages. It will be sent to Brave."])
+                      "This chat includes text from your messages. It will be sent to search sites."])
+      // A saved Brave key names Brave instead (D131).
+      XCTAssertEqual(copy(.searchAfterMessages(query: "pizza near me", service: "Brave"), destination).last,
+                     "This chat includes text from your messages. It will be sent to Brave.")
     }
     XCTAssertEqual(copy(.providerSearchAfterMessages(provider: .chatGPT), .openAI),
                    ["Let ChatGPT search the web in this chat?",
@@ -358,9 +403,12 @@ final class ToolPermissionTests: XCTestCase {
       ToolAlwaysGrant(kind: .readChat, chatGUID: "g", chatName: "Mom", destination: .thisMac),
       ToolAlwaysGrant(kind: .searchChats, chatGUID: nil, chatName: nil, destination: .google),
       ToolAlwaysGrant(kind: .searchAfterMessages, chatGUID: nil, chatName: nil, destination: nil),
+      ToolAlwaysGrant(kind: .placesAfterMessages, chatGUID: nil, chatName: nil, destination: nil),
+      ToolAlwaysGrant(kind: .weatherAfterMessages, chatGUID: nil, chatName: nil, destination: nil),
     ].map(MessagesSettingsSection.rowText(for:))
     XCTAssertEqual(rows, ["Read your chat with Mom · Anthropic", "Read your chat with Mom · this Mac",
-                          "Search all your messages · Google", "Search the web after reading messages"])
+                          "Search all your messages · Google", "Search the web after reading messages",
+                          "Find places after reading messages", "Check the weather after reading messages"])
     XCTAssertEqual(MessagesSettingsSection.alwaysAllowedHeading, "Always allowed")
   }
 }

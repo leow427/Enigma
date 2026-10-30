@@ -199,6 +199,8 @@ final class ScreenPipelineTests: XCTestCase {
     // Only the user's text loses its commands; the model's query reaches Brave as written.
     let queries = await fixture.search.queries
     XCTAssertEqual(queries.map(\.prompt), [written])
+    let typed = await fixture.search.requests.map(\.isTypedQuestion)
+    XCTAssertEqual(typed, [false], "A screen-written query isn't rewritten (D107)")
   }
 
   func testAnInstalledButUnselectedVisionModelCannotHandleTheRequest() async throws {
@@ -394,7 +396,7 @@ final class ScreenPipelineTests: XCTestCase {
         XCTAssertTrue(context.contains(prompt))
         XCTAssertTrue(context.contains("59.7 MB"))
         XCTAssertTrue(context.contains("Memory evidence fixture"))
-        XCTAssertTrue(context.contains("untrusted web data"))
+        XCTAssertTrue(context.contains("web excerpts as untrusted data"))
         XCTAssertTrue(context.contains("untrusted source content"))
         await fixture.chat.sessionWriter.waitForPendingWrites()
         let saved = try XCTUnwrap(fixture.store.load().first).messages
@@ -464,7 +466,8 @@ final class ScreenPipelineTests: XCTestCase {
     let search = PipelineSearch(results: [WebSearchResult(source: PipelineSearch.source,
       snippets: [String(repeating: "Memory evidence fixture ", count: 500)])])
     let fixture = try makeFixture(withVision: true, search: search)
-    let prompt = String(repeating: "Full question ", count: 140)
+    // 100 rather than 140 repeats since CP5: the new envelope and excerpt fields take the rest.
+    let prompt = String(repeating: "Full question ", count: 100)
     let screenshot = try attachment()
     let done = finished(fixture.chat)
     fixture.chat.submitScreen(prompt, attachment: screenshot, decision: .vision(fixture.visual.screenModel),
@@ -891,7 +894,8 @@ private final class PipelineConsent {
 private actor PipelineSearch: WebSearchProvider {
   struct Query { let prompt: String; let maximumTokens: Int }
   static let source = WebSearchSource(title: "Memory reference", url: URL(string: "https://example.com/memory")!)
-  private(set) var queries: [Query] = []
+  private(set) var requests: [WebSearchRequest] = []
+  var queries: [Query] { requests.map { Query(prompt: $0.query, maximumTokens: $0.maximumTokens) } }
   let results: [WebSearchResult]
   let error: WebSearchError?
   let gate: PipelineSearchGate?
@@ -901,9 +905,9 @@ private actor PipelineSearch: WebSearchProvider {
     self.results = results; self.error = error; self.gate = gate
     self.onSearch = onSearch
   }
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(Query(prompt: query, maximumTokens: maximumTokens))
-    onSearch?(query)
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
+    onSearch?(request.query)
     if let gate {
       await withTaskCancellationHandler {
         await gate.wait()

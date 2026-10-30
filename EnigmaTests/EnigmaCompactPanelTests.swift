@@ -45,7 +45,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertTrue(panelKeys.contains("⌘ ."))
     XCTAssertEqual(PanelShortcut.resolve(characters: ".", modifiers: .command), .stopStreaming)
     XCTAssertEqual(PanelShortcut.resolve(characters: "o", modifiers: .command), .openInWindow)
-    XCTAssertFalse(SlashCommand.available(hasSearchKey: false).isEmpty, "/ opens the commands")
+    XCTAssertFalse(SlashCommand.available().isEmpty, "/ opens the commands")
   }
 
   func testCharacterShowsTheSelectionProblemOnlyWhenItCantBeReadOrPermissionIsMissing() {

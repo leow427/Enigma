@@ -34,7 +34,7 @@ enum ScreenSearchError: LocalizedError, Equatable {
   }
 }
 
-/// Writes the Brave query for a screenshot or attached text. Both use one prompt, so both
+/// Writes the web search query for a screenshot or attached text. Both use one prompt, so both
 /// keep its rules: material is quoted data, and personal details and credentials stay out.
 enum ScreenSearchContext {
   /// What a query is written from. The prompt mentions only the material it has.
@@ -43,7 +43,7 @@ enum ScreenSearchContext {
     case attachedText([ConversationContext])
   }
 
-  /// The question as query writing and Brave see it: slash commands are for Enigma only.
+  /// The question as query writing and search see it: slash commands are for Enigma only.
   static func question(_ prompt: String) -> String {
     SlashCommand.removing(Set(SlashCommand.allCases), from: prompt)
   }

@@ -125,11 +125,11 @@ When a model that chooses its own tools may search (automatic search on, or
 `/messages`, you've allowed it on the card **Let Claude Code search the web in this chat?**, the process gets
 `--tools WebSearch` instead of `--tools ""`, and `WebSearch` joins the allowed
 tools beside Enigma's. `WebFetch`, which would download pages from this Mac,
-stays off. Anthropic runs the searches; they count toward your Claude plan, and
-no Brave key is needed. If Claude Code's start-up message doesn't list
+stays off. Anthropic runs the searches; they count toward your Claude plan.
+If Claude Code's start-up message doesn't list
 `WebSearch` (a policy withheld it), Enigma ends the process and asks again with
-its own `web_search` when a Brave key is saved, and without search otherwise. After you allow location for Claude Code, the
-instructions name your approximate area; coordinates never leave this Mac. See
+its own `web_search`. After you allow location for Claude Code, the
+instructions name your approximate area; its search never gets coordinates. See
 [Web search](Web-Search.md#cloud-models-own-search).
 
 ## How it works

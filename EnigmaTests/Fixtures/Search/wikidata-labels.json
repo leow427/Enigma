@@ -1,0 +1,95 @@
+{
+ "entities": {
+  "Q1153825": {
+   "type": "item",
+   "id": "Q1153825",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Annie Ernaux"
+    }
+   }
+  },
+  "Q11573": {
+   "type": "item",
+   "id": "Q11573",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "metre"
+    }
+   }
+  },
+  "Q2633699": {
+   "type": "item",
+   "id": "Q2633699",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Anne Carson"
+    }
+   }
+  },
+  "Q2804309": {
+   "type": "item",
+   "id": "Q2804309",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "stable version"
+    }
+   }
+  },
+  "Q317877": {
+   "type": "item",
+   "id": "Q317877",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Abdulrazak Gurnah"
+    }
+   }
+  },
+  "Q3710": {
+   "type": "item",
+   "id": "Q3710",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "foot"
+    }
+   }
+  },
+  "Q443868": {
+   "type": "item",
+   "id": "Q443868",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Jon Fosse"
+    }
+   }
+  },
+  "Q512062": {
+   "type": "item",
+   "id": "Q512062",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "László Krasznahorkai"
+    }
+   }
+  },
+  "Q5646626": {
+   "type": "item",
+   "id": "Q5646626",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Han Kang"
+    }
+   }
+  }
+ },
+ "success": 1
+}

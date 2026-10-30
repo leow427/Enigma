@@ -1,0 +1,18 @@
+{
+  "project": "ddgs",
+  "repository": "https://github.com/deedy5/ddgs",
+  "license": "MIT",
+  "tag": "v9.16.1",
+  "commit": "8e74959141106702645020dcb853c6453b5e5195",
+  "files": {
+    "ddgs/engines/duckduckgo.py": {
+      "blob": "6396dbab0f0751c572176a8a2d93a3b226ad03b0",
+      "port": "Enigma/Search/Engines/DuckDuckGoEngine.swift"
+    },
+    "ddgs/engines/wikipedia.py": {
+      "blob": "51df186fc9564ce1a1a6b8327e4597110e1a5f34",
+      "port": "Enigma/Search/Engines/WikipediaSearch.swift",
+      "note": "Recorded for the upstream watch only: Enigma uses full-text search, not this file's title lookup (spec §2)."
+    }
+  }
+}

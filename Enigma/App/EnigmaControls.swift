@@ -1987,7 +1987,7 @@ private struct EnigmaControlsPreview: View {
         EnigmaCommandLine(command: "⌥⌃ in any app", description: "opens over what you're doing")
         EnigmaCommandLine(command: "/screen /search /edit", description: "do things, not just chat")
       }
-      EnigmaTextField("Brave API key", text: $key, isSecure: true).frame(width: 260)
+      EnigmaTextField("API key", text: $key, isSecure: true).frame(width: 260)
       VStack(spacing: 0) {
         ForEach(0..<3) { index in
           EnigmaRow("Choice \(index + 1)", badge: index == 0 ? "recommended" : nil,
