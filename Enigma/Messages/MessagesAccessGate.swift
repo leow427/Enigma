@@ -8,8 +8,9 @@ protocol MessagesAccessGate: Sendable {
   func maySearch(query: String) async -> Bool
   /// Whether a chat is already allowed, without a card; for previews.
   func isAllowed(chatGUID: String) async -> Bool
-  /// Message text is now in the conversation, so later web searches ask first.
-  func didReturnMessageText() async
+  /// Message text is now in the conversation, so later web searches ask first. Throws
+  /// `ProviderSearchRestart` when the text must not reach this request (F30).
+  func didReturnMessageText() async throws
 }
 
 /// The gate for one chat session and destination, answered through the permission card.

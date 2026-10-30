@@ -11,9 +11,9 @@ struct ChatGPTConnectionControls: View {
   static let downloadNote = "Signing in the first time downloads Codex from OpenAI · \(CodexRuntime.downloadSize)"
   static let downloadCheckText = "Not signed in · Sign in downloads Codex from OpenAI (\(CodexRuntime.downloadSize))"
 
-  static func status(isConnected: Bool, isSigningIn: Bool, isDownloading: Bool = false,
+  static func status(isConnected: Bool, isSelected: Bool = false, isSigningIn: Bool, isDownloading: Bool = false,
                      isInstalling: Bool = false) -> (EnigmaStatusLine.Status, String) {
-    if isConnected { return (.on, "connected") }
+    if isConnected { return (.on, isSelected ? "connected · selected for cloud" : "connected") }
     if isInstalling { return (.busy, "installing Codex") }
     if isDownloading { return (.busy, "downloading Codex") }
     if isSigningIn { return (.busy, "signing in") }
@@ -23,7 +23,8 @@ struct ChatGPTConnectionControls: View {
   var body: some View {
     // The download reports 100% before the package is checked and installed.
     let isInstalling = settings.isDownloadingCodex && settings.codexDownloadProgress >= 1
-    let status = Self.status(isConnected: settings.chatGPTAccount != nil, isSigningIn: settings.isSigningIn,
+    let status = Self.status(isConnected: settings.chatGPTAccount != nil,
+                             isSelected: settings.preferredProvider == .chatGPT, isSigningIn: settings.isSigningIn,
                              isDownloading: settings.isDownloadingCodex, isInstalling: isInstalling)
     VStack(alignment: .leading, spacing: 0) {
       EnigmaRow("ChatGPT", subtitle: "Through your ChatGPT plan, using Codex") {

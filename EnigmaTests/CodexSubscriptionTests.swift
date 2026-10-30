@@ -177,6 +177,63 @@ final class CodexSubscriptionTests: XCTestCase {
     await notifications.cancel()
   }
 
+  /// A call still running when its thread's handler is removed (Stop, or a provider-search restart
+  /// in F30) is never answered; a call that finishes while the handler is set is.
+  func testAppServerDropsTheAnswerOfACallWhoseHandlerWasRemoved() async throws {
+    let root = try temporaryDirectory()
+    addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+    let executable = try makeExecutable(in: root, script: """
+      #!/bin/sh
+      while IFS= read -r line; do
+        id=$(/usr/bin/printf '%s' "$line" | /usr/bin/sed -n 's/.*"id":\\([0-9][0-9]*\\).*/\\1/p')
+        case "$line" in
+          *'"method":"initialize"'*) /usr/bin/printf '{"id":%s,"result":{}}\\n' "$id" ;;
+          *'"method":"call"'*) call=$(/usr/bin/printf '%s' "$line" | /usr/bin/sed -n 's/.*"call":"\\([a-z0-9-]*\\)".*/\\1/p')
+            /usr/bin/printf '{"id":"%s","method":"item/tool/call","params":{"threadId":"t1","turnId":"u1","callId":"%s","tool":"x","arguments":{}}}\\n' "$call" "$call"
+            /usr/bin/printf '{"id":%s,"result":{}}\\n' "$id" ;;
+          *'"method":"ping"'*) /usr/bin/printf '{"id":%s,"result":{}}\\n' "$id" ;;
+          # An answer to a server request: only Enigma writes these.
+          *'"srv-'*) call=$(/usr/bin/printf '%s' "$line" | /usr/bin/sed -n 's/.*"\\(srv-[0-9]\\)".*/\\1/p')
+            /usr/bin/printf '{"method":"fixture/answered","params":{"id":"%s"}}\\n' "$call" ;;
+        esac
+      done
+      """)
+    let server = CodexAppServer(configuration: .init(directory: root.appending(path: "runtime")),
+      executable: { executable }, requestTimeout: .seconds(5))
+    addTeardownBlock { await server.disconnect() }
+    let notifications = try await initializeTestServer(server)
+    let answered = AnsweredCalls()
+    let observer = Task {
+      for try await notification in notifications.stream where notification.method == "fixture/answered" {
+        if let id = notification.params["id"].string { await answered.add(id) }
+      }
+    }
+    defer { observer.cancel() }
+    let held = expectation(description: "The held call is running")
+    // Through the protocol, as the clients call it.
+    let transport: any CodexRPCTransport = server
+    try await transport.setFileHandler(threadID: "t1") { _, params in
+      guard params["callId"].string == "srv-2" else { return .object(["success": .bool(true)]) }
+      held.fulfill()
+      try? await Task.sleep(for: .seconds(60))
+      return .object(["success": .bool(false)])
+    }
+    _ = try await server.request("call", params: .object(["call": .string("srv-1")]))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while await !answered.ids.contains("srv-1"), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+    let first = await answered.ids
+    XCTAssertEqual(first, ["srv-1"], "A call that finishes while its handler is set is answered")
+
+    _ = try await server.request("call", params: .object(["call": .string("srv-2")]))
+    await fulfillment(of: [held], timeout: 5)
+    try await transport.setFileHandler(threadID: "t1", handler: nil)
+    try await Task.sleep(for: .milliseconds(300))
+    _ = try await server.request("ping", params: .object([:]))
+    let after = await answered.ids
+    XCTAssertEqual(after, ["srv-1"], "The removed handler's call is never answered")
+    await notifications.cancel()
+  }
+
   private func makeUnansweredServer(in root: URL) throws -> URL {
     try makeExecutable(in: root, script: """
       #!/bin/sh
@@ -1087,4 +1144,455 @@ private actor ControlledCodexDeadline {
   func expire() {
     for continuation in pending.values { continuation.yield(()); continuation.finish() }
   }
+}
+
+// MARK: - Provider search (F30 CP4)
+
+extension CodexSubscriptionTests {
+  func testCodexSearchThreadParameters() throws {
+    let toolbox = SearchNoteToolbox()
+    for mode in ["live", "cached"] {
+      let thread = try CodexToolMode.threadParameters(model: "gpt-5.6-luna", toolbox: toolbox,
+                                                      providerSearch: ProviderSearch(), searchMode: mode)
+      XCTAssertEqual(thread["config"]["web_search"].string, mode)
+      XCTAssertEqual(thread["dynamicTools"].array?.compactMap { $0["name"].string }, ["get_saved_note"])
+      XCTAssertEqual(thread["config"]["features.shell_tool"], .bool(false), "F32's isolation stays")
+      XCTAssertEqual(thread["sandbox"].string, "read-only")
+      XCTAssertEqual(thread["environments"], .array([]))
+      let developer = try XCTUnwrap(thread["developerInstructions"].string)
+      XCTAssertTrue(developer.hasPrefix(toolbox.instructions), "The toolbox's instructions, the search instruction among them, come first")
+      XCTAssertTrue(developer.hasSuffix("\nUse only the supplied tools and web search. You cannot run commands or read files."))
+    }
+  }
+
+  func testCodexThreadWithoutSearchUnchanged() throws {
+    let toolbox = SearchNoteToolbox()
+    let thread = try CodexToolMode.threadParameters(model: "gpt-5.6-luna", toolbox: toolbox,
+                                                    providerSearch: nil, searchMode: nil)
+    XCTAssertEqual(thread["config"]["web_search"], .null)
+    XCTAssertEqual(thread["config"]["tools.web_search.location"], .null)
+    XCTAssertEqual(thread["developerInstructions"].string,
+                   toolbox.instructions + "\nUse only the supplied tools. You cannot run commands, read files, or browse.")
+    XCTAssertEqual(thread, try CodexToolMode.threadParameters(model: "gpt-5.6-luna", toolbox: toolbox),
+                   "F32's thread is unchanged")
+    // Even a mode without provider search adds nothing.
+    let stray = try CodexToolMode.threadParameters(model: "gpt-5.6-luna", toolbox: toolbox, providerSearch: nil, searchMode: "live")
+    XCTAssertEqual(stray["config"]["web_search"], .null)
+    XCTAssertTrue(CodexRuntimeConfiguration.fileMode.arguments.contains("web_search=\"disabled\""), "The launch setting stays")
+  }
+
+  func testCodexSearchThreadLocation() throws {
+    let toolbox = SearchNoteToolbox()
+    let full = ProviderSearch(location: ProviderSearchLocation(city: "Cupertino", region: "CA", countryCode: "US",
+                                                               timeZone: "America/Los_Angeles"))
+    let thread = try CodexToolMode.threadParameters(model: "m", toolbox: toolbox, providerSearch: full, searchMode: "live")
+    XCTAssertEqual(thread["config"]["tools.web_search.location"], .object([
+      "city": .string("Cupertino"), "region": .string("CA"), "country": .string("US"),
+      "timezone": .string("America/Los_Angeles"),
+    ]))
+    let partial = ProviderSearch(location: ProviderSearchLocation(city: nil, region: " ", countryCode: "FR", timeZone: "Europe/Paris"))
+    let partialThread = try CodexToolMode.threadParameters(model: "m", toolbox: toolbox, providerSearch: partial, searchMode: "live")
+    XCTAssertEqual(partialThread["config"]["tools.web_search.location"], .object([
+      "country": .string("FR"), "timezone": .string("Europe/Paris"),
+    ]), "Missing parts are left out")
+    let none = try CodexToolMode.threadParameters(model: "m", toolbox: toolbox, providerSearch: ProviderSearch(), searchMode: "live")
+    XCTAssertEqual(none["config"]["tools.web_search.location"], .null)
+    let empty = ProviderSearch(location: ProviderSearchLocation())
+    let emptyThread = try CodexToolMode.threadParameters(model: "m", toolbox: toolbox, providerSearch: empty, searchMode: "live")
+    XCTAssertEqual(emptyThread["config"]["tools.web_search.location"], .null, "An empty area sends no key")
+    // Never coordinates: only the four documented fields can be sent.
+    guard case .object(let sent) = thread["config"]["tools.web_search.location"] else { return XCTFail("No location") }
+    XCTAssertEqual(Set(sent.keys), ["city", "region", "country", "timezone"])
+  }
+
+  func testCodexWebSearchModeFromRequirements() {
+    func requirements(_ modes: CodexValue) -> CodexValue {
+      .object(["requirements": .object(["allowedWebSearchModes": modes])])
+    }
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: nil), "live")
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: .object(["requirements": .null])), "live")
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: requirements(.null)), "live")
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: .object(["requirements": .object([:])])), "live")
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: requirements(.array([.string("cached"), .string("live")]))), "live")
+    XCTAssertEqual(CodexSubscriptionClient.webSearchMode(requirements: requirements(.array([.string("disabled"), .string("cached")]))), "cached")
+    XCTAssertNil(CodexSubscriptionClient.webSearchMode(requirements: requirements(.array([.string("disabled"), .string("indexed")]))))
+    XCTAssertNil(CodexSubscriptionClient.webSearchMode(requirements: requirements(.array([]))), "An empty list allows nothing")
+  }
+
+  func testCodexNoAllowedModeIsUnavailable() async throws {
+    // A regression that starts the turn completes it, and fails below instead of hanging.
+    let transport = SearchCodexTransport(requirements: .object(["requirements": .object([
+      "allowedWebSearchModes": .array([.string("disabled")])])]), script: [completion("completed")])
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: transport)
+        .stream(searchRequest(), toolbox: SearchNoteToolbox()))
+      XCTFail("Expected provider search to be unavailable")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .webSearchUnavailable(.chatGPT)) }
+    let methods = await transport.methods
+    XCTAssertTrue(methods.contains("configRequirements/read"))
+    XCTAssertFalse(methods.contains("thread/start"))
+    XCTAssertFalse(methods.contains("turn/start"))
+  }
+
+  func testCodexAsksForCachedWhenOnlyCachedIsAllowed() async throws {
+    let transport = SearchCodexTransport(requirements: .object(["requirements": .object([
+      "allowedWebSearchModes": .array([.string("cached")])])]), script: [delta("Hi"), completion("completed")])
+    _ = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+    let thread = await transport.threadStart
+    XCTAssertEqual(thread?["config"]["web_search"].string, "cached")
+  }
+
+  func testCodexToolTurnWithoutProviderSearchSkipsThePolicy() async throws {
+    let transport = SearchCodexTransport(script: [delta("Hi"), completion("completed")])
+    var request = searchRequest()
+    request.providerSearch = nil
+    _ = try await collect(CodexSubscriptionClient(transport: transport).stream(request, toolbox: SearchNoteToolbox()))
+    let methods = await transport.methods
+    XCTAssertFalse(methods.contains("configRequirements/read"))
+    let thread = await transport.threadStart
+    XCTAssertEqual(thread?["config"]["web_search"], .null)
+  }
+
+  func testCodexWebSearchEventsFromFixture() async throws {
+    let script = try fixtureNotifications("codex-web-search.jsonl")
+    let transport = SearchCodexTransport(script: script)
+    let events = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+    let thread = await transport.threadStart
+    XCTAssertEqual(thread?["config"]["web_search"].string, "live")
+
+    let searching = try XCTUnwrap(events.firstIndex(of: .activity(.phase(.searching))))
+    let discovered = events.enumerated().compactMap { index, event -> (Int, [WebSearchSource])? in
+      if case .activity(.sourcesDiscovered(let sources)) = event { return (index, sources) }
+      return nil
+    }
+    XCTAssertEqual(discovered.count, 4, "One batch per completed search")
+    XCTAssertGreaterThan(try XCTUnwrap(discovered.first?.0), searching, "Searching shows before its results")
+    let urls = discovered.flatMap { $0.1.map(\.url.absoluteString) }
+    XCTAssertTrue(urls.contains("https://www.apple.com/shop/buy-mac"))
+    XCTAssertTrue(discovered.allSatisfy { $0.1.allSatisfy { $0.isSafeWebLink && !$0.title.isEmpty } })
+
+    XCTAssertEqual(events.last, .completed)
+    guard case .activity(.sourcesSelected(let selected)) = events[events.count - 2] else {
+      return XCTFail("The selection comes right before completion")
+    }
+    let answer = events.compactMap { if case .token(let text) = $0 { text } else { nil } }.joined()
+    let links = NativeWebSearch.links(in: answer)
+    XCTAssertFalse(links.isEmpty)
+    XCTAssertEqual(selected.map(\.url), Array(links.prefix(NativeWebSearch.maximumSources)), "The answer's links are the citations")
+    XCTAssertTrue(selected.allSatisfy { !$0.title.isEmpty })
+  }
+
+  func testCodexFailureAfterSearchKeepsSources() async throws {
+    let transport = SearchCodexTransport(script: [
+      webSearchStarted(), webSearchCompleted(results: [result("https://www.swift.org/blog/", title: "Swift.org Blog")]),
+      delta("The latest is on [the blog](https://www.swift.org/blog/)"),
+      completion("failed", message: "Codex lost the connection."),
+    ])
+    var events: [ChatEvent] = []
+    do {
+      for try await event in CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()) {
+        events.append(event)
+      }
+      XCTFail("Expected the turn to fail")
+    } catch { XCTAssertEqual(error as? CodexError, .server("Codex lost the connection.")) }
+    XCTAssertEqual(events.last, .activity(.sourcesSelected([WebSearchSource(title: "Swift.org Blog",
+                                                                             url: URL(string: "https://www.swift.org/blog/")!)])))
+  }
+
+  func testCodexFailureBeforeAnySearchSendsNoSelection() async throws {
+    let transport = SearchCodexTransport(script: [delta("See https://www.swift.org/"), completion("failed", message: "Boom")])
+    var events: [ChatEvent] = []
+    do {
+      for try await event in CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()) {
+        events.append(event)
+      }
+      XCTFail("Expected the turn to fail")
+    } catch {}
+    XCTAssertFalse(events.contains { if case .activity(.sourcesSelected) = $0 { true } else { false } },
+                   "A reply that never searched has no search sources")
+  }
+
+  func testMalformedSearchResultsAreSkipped() async throws {
+    let transport = SearchCodexTransport(script: [
+      webSearchStarted(),
+      webSearchCompleted(results: [
+        .object(["type": .string("text_result"), "url": .number(5), "title": .string("Number")]),
+        .object(["type": .string("text_result"), "title": .string("No URL")]),
+        result("javascript:alert(1)", title: "Script"),
+        result("https://user:secret@example.com/", title: "Credentials"),
+        result("/relative/path", title: "Relative"),
+        .string("A plain string summary"),
+        .object(["type": .string("text_result"), "url": .string("https://good.example/a")]),
+        result("https://good.example/b", title: "Good B"),
+      ], action: .object(["type": .string("openPage"), "url": .string("https://page.example/opened")])),
+      webSearchCompleted(results: .string("not a list"), action: .object(["type": .string("findInPage"),
+                                                                           "url": .string("javascript:void(0)")])),
+      delta("No links here."),
+      completion("completed"),
+    ])
+    let events = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+    let discovered = events.flatMap { event -> [WebSearchSource] in
+      if case .activity(.sourcesDiscovered(let sources)) = event { return sources }
+      return []
+    }
+    XCTAssertEqual(discovered.map(\.url.absoluteString),
+                   ["https://good.example/a", "https://good.example/b", "https://page.example/opened"])
+    XCTAssertEqual(discovered.first?.title, "good.example", "A missing title becomes the site name")
+    guard case .activity(.sourcesSelected(let selected)) = events[events.count - 2] else { return XCTFail("No selection") }
+    XCTAssertEqual(selected.map(\.url), discovered.map(\.url), "Nothing cited, so the results the model saw")
+  }
+
+  func testCodexSearchAndDynamicToolTogether() async throws {
+    let toolbox = SearchNoteToolbox()
+    let transport = SearchCodexTransport(script: try fixtureNotifications("codex-search-and-dynamic-tool.jsonl"))
+    let events = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: toolbox))
+    XCTAssertEqual(toolbox.calls, ["get_saved_note"])
+    let responses = await transport.responses
+    XCTAssertEqual(responses.count, 1)
+    XCTAssertEqual(responses.first?["success"].bool, true)
+    XCTAssertTrue(events.contains(.activity(.phase(.searching))))
+    XCTAssertEqual(events.last, .completed)
+    guard case .activity(.sourcesSelected(let selected)) = events[events.count - 2] else { return XCTFail("No selection") }
+    XCTAssertEqual(selected.first?.url.host(), "www.apple.com")
+    XCTAssertEqual(selected.count, 1)
+  }
+
+  func testCodexThreadStartErrorIsUnavailable() async throws {
+    let transport = SearchCodexTransport(threadStartError: "Invalid config: web_search mode \"live\" is not allowed by requirements")
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+      XCTFail("Expected provider search to be unavailable")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .webSearchUnavailable(.chatGPT)) }
+
+    // Another thread error, or the same one without provider search, stays as it is.
+    let other = SearchCodexTransport(threadStartError: "Model not found")
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: other).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+      XCTFail("Expected the error")
+    } catch { XCTAssertEqual(error as? CodexError, .server("Model not found")) }
+    var plain = searchRequest()
+    plain.providerSearch = nil
+    let unsearched = SearchCodexTransport(threadStartError: "web search is off")
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: unsearched).stream(plain, toolbox: SearchNoteToolbox()))
+      XCTFail("Expected the error")
+    } catch { XCTAssertEqual(error as? CodexError, .server("web search is off")) }
+  }
+
+  func testCodexTurnFailingOnWebSearchBeforeTextIsUnavailable() async throws {
+    let before = SearchCodexTransport(script: [completion("failed", message: "Web search is not enabled for this workspace.")])
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: before).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+      XCTFail("Expected provider search to be unavailable")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .webSearchUnavailable(.chatGPT)) }
+
+    let after = SearchCodexTransport(script: [delta("Partly"), completion("failed", message: "Web search is not enabled for this workspace.")])
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: after).stream(searchRequest(), toolbox: SearchNoteToolbox()))
+      XCTFail("Expected the error")
+    } catch {
+      XCTAssertEqual(error as? CodexError, .server("Web search is not enabled for this workspace."),
+                     "After text arrived it's an ordinary failure")
+    }
+  }
+
+  func testCodexRestartDeliversNothing() async throws {
+    let toolbox = SearchNoteToolbox(stop: .restart)
+    let transport = SearchCodexTransport(script: [
+      webSearchStarted(), webSearchCompleted(results: [result("https://www.swift.org/", title: "Swift")]),
+      toolCall("get_saved_note"),
+      delta("This must never arrive."),
+      completion("completed"),
+    ])
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: toolbox))
+      XCTFail("Expected a restart")
+    } catch { XCTAssertTrue(error is ProviderSearchRestart, "\(error)") }
+    try await waitForInterrupt(transport)
+    let responses = await transport.responses
+    XCTAssertEqual(responses, [], "The held-back result is never answered")
+    XCTAssertEqual(toolbox.calls, ["get_saved_note"])
+    let order = await transport.methods
+    XCTAssertEqual(order.filter { $0 == "turn/interrupt" }.count, 1)
+  }
+
+  func testCodexMessagesStopStillInterruptsTheTurn() async throws {
+    let toolbox = SearchNoteToolbox(stop: .messages(.automationDenied))
+    let transport = SearchCodexTransport(script: [toolCall("get_saved_note"), delta("Never."), completion("completed")])
+    do {
+      _ = try await collect(CodexSubscriptionClient(transport: transport).stream(searchRequest(), toolbox: toolbox))
+      XCTFail("Expected the Messages stop")
+    } catch { XCTAssertEqual(error as? MessagesError, .automationDenied) }
+    try await waitForInterrupt(transport)
+  }
+
+  // MARK: Provider search helpers
+
+  private func searchRequest() -> ChatRequest {
+    var request = request(modelID: "gpt-5.6-luna")
+    request.providerSearch = ProviderSearch()
+    return request
+  }
+
+  private func waitForInterrupt(_ transport: SearchCodexTransport) async throws {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await !transport.methods.contains("turn/interrupt"), ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let methods = await transport.methods
+    XCTAssertTrue(methods.contains("turn/interrupt"), "The Codex turn must be interrupted")
+  }
+
+  private func fixtureNotifications(_ name: String) throws -> [CodexNotification] {
+    let text = try String(contentsOf: CloudSearchFixture.url(name), encoding: .utf8)
+    return try text.split(separator: "\n").map { line in
+      let value = try JSONDecoder().decode(CodexValue.self, from: Data(line.utf8))
+      return CodexNotification(method: value["method"].string ?? "", params: value["params"])
+    }
+  }
+
+  private func result(_ url: String, title: String) -> CodexValue {
+    .object(["type": .string("text_result"), "url": .string(url), "title": .string(title), "domain": .string("example")])
+  }
+
+  private func webSearchStarted() -> CodexNotification {
+    CodexNotification(method: "item/started", params: .object([
+      "threadId": .string("thread-one"), "turnId": .string("turn-one"),
+      "item": .object(["type": .string("webSearch"), "id": .string("search-one"), "query": .string(""),
+                       "action": .null, "results": .null]),
+    ]))
+  }
+
+  private func webSearchCompleted(results: [CodexValue], action: CodexValue? = nil) -> CodexNotification {
+    webSearchCompleted(results: .array(results), action: action)
+  }
+
+  private func webSearchCompleted(results: CodexValue, action: CodexValue? = nil) -> CodexNotification {
+    CodexNotification(method: "item/completed", params: .object([
+      "threadId": .string("thread-one"), "turnId": .string("turn-one"),
+      "item": .object(["type": .string("webSearch"), "id": .string("search-one"), "query": .string("swift"),
+                       "action": action ?? .object(["type": .string("search"), "query": .string("swift")]),
+                       "results": results]),
+    ]))
+  }
+
+  private func toolCall(_ name: String) -> CodexNotification {
+    CodexNotification(method: "item/tool/call", params: .object([
+      "threadId": .string("thread-one"), "turnId": .string("turn-one"), "callId": .string("call-one"),
+      "namespace": .null, "tool": .string(name), "arguments": .object([:]),
+    ]))
+  }
+}
+
+/// One dynamic tool, `get_saved_note`, as in the recorded fixture. With `stop`, its result is terminal.
+private final class SearchNoteToolbox: AgentToolbox, @unchecked Sendable {
+  private let lock = NSLock()
+  private var recorded: [String] = []
+  private let stop: AgentToolStop?
+
+  init(stop: AgentToolStop? = nil) { self.stop = stop }
+
+  var calls: [String] { lock.withLock { recorded } }
+  var instructions: String { "Use get_saved_note for the user's notes.\nSEARCH INSTRUCTION" }
+  var definitions: [AgentToolDefinition] {
+    [AgentToolDefinition(name: "get_saved_note", description: "Reads a saved note.",
+                         properties: ["topic": .object(["type": .string("string")])], required: [])]
+  }
+
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    lock.withLock { recorded.append(name) }
+    if let stop {
+      return AgentToolResult(text: "The request was restarted.", success: false, terminal: true, stop: stop)
+    }
+    return AgentToolResult(text: "Note on the conference: it's WWDC; check this year's dates.", success: true)
+  }
+}
+
+/// Plays a turn's notifications and server requests, as the Codex app server does: a dynamic tool
+/// call goes to the thread's handler, and its answer is written only while that handler is set.
+/// Removing the handler cancels a call still running, as `CodexAppServer.setFileHandler` does.
+/// `NativeToolRequestTests` uses it for ChatGPT turns through `submitNative`.
+actor SearchCodexTransport: CodexRPCTransport {
+  private let requirements: CodexValue
+  private let threadStartError: String?
+  private let script: [CodexNotification]
+  private var handler: CodexServerRequestHandler?
+  private var running: Task<CodexValue, Never>?
+  private var observers: [UUID: AsyncThrowingStream<CodexNotification, Error>.Continuation] = [:]
+  private var interrupted = false
+  private(set) var methods: [String] = []
+  private(set) var responses: [CodexValue] = []
+  private(set) var threadStart: CodexValue?
+
+  init(requirements: CodexValue = .object(["requirements": .null]), threadStartError: String? = nil,
+       script: [CodexNotification] = []) {
+    self.requirements = requirements
+    self.threadStartError = threadStartError
+    self.script = script
+  }
+
+  func request(_ method: String, params: CodexValue) async throws -> CodexValue {
+    methods.append(method)
+    switch method {
+    case "account/read": return .object(["account": .object(["type": .string("chatgpt"), "planType": .string("plus")])])
+    case "configRequirements/read": return requirements
+    case "thread/start":
+      threadStart = params
+      if let threadStartError { throw CodexError.server(threadStartError) }
+      return .object(["thread": .object(["id": .string("thread-one")])])
+    case "turn/start":
+      Task { await play() }
+      return .object(["turn": .object(["id": .string("turn-one")])])
+    case "turn/interrupt":
+      interrupted = true
+      emit(CodexNotification(method: "turn/completed", params: .object([
+        "threadId": .string("thread-one"), "turn": .object(["id": .string("turn-one"), "status": .string("interrupted")])])))
+      return .object([:])
+    default: return .object([:])
+    }
+  }
+
+  func prepareFileMode() async throws {}
+
+  func setFileHandler(threadID: String, handler: CodexServerRequestHandler?) async throws {
+    self.handler = handler
+    if handler == nil { running?.cancel() }
+  }
+
+  func notifications() -> CodexNotificationSubscription {
+    let id = UUID()
+    let stream = AsyncThrowingStream<CodexNotification, Error> { continuation in
+      observers[id] = continuation
+      continuation.onTermination = { [weak self] _ in Task { await self?.removeObserver(id) } }
+    }
+    return CodexNotificationSubscription(stream: stream, cancel: { [weak self] in await self?.removeObserver(id) })
+  }
+
+  private func play() async {
+    for notification in script {
+      guard !interrupted else { return }
+      if notification.method == "item/tool/call" {
+        guard let handler else { return }
+        let task = Task { await handler(notification.method, notification.params) }
+        running = task
+        let answer = await task.value
+        running = nil
+        guard self.handler != nil else { return }
+        responses.append(answer)
+      } else {
+        emit(notification)
+      }
+    }
+  }
+
+  private func emit(_ notification: CodexNotification) {
+    for continuation in observers.values { continuation.yield(notification) }
+  }
+
+  private func removeObserver(_ id: UUID) { observers.removeValue(forKey: id)?.finish() }
+}
+
+private actor AnsweredCalls {
+  private(set) var ids: [String] = []
+  func add(_ id: String) { ids.append(id) }
 }

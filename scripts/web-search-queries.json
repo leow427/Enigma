@@ -1,0 +1,22 @@
+[
+  {"id": "web-01", "category": "news", "question": "What are the top technology news headlines today? Link your sources."},
+  {"id": "web-02", "category": "news", "question": "What happened at the most recent United Nations climate conference? Link your sources."},
+  {"id": "web-03", "category": "news", "question": "What are the latest developments in NASA's Artemis program? Link your sources."},
+  {"id": "web-04", "category": "news", "question": "What did the European Central Bank decide at its most recent monetary policy meeting? Link your sources."},
+  {"id": "web-05", "category": "facts", "question": "When is the next total solar eclipse visible from Europe? Link your sources."},
+  {"id": "web-06", "category": "facts", "question": "What is the latest stable version of the Linux kernel? Link your sources."},
+  {"id": "web-07", "category": "facts", "question": "Who is the current Secretary-General of NATO? Link your sources."},
+  {"id": "web-08", "category": "facts", "question": "What is the current world record for the men's marathon, and who holds it? Link your sources."},
+  {"id": "web-09", "category": "docs", "question": "In the current Python documentation, what does the `strict` parameter of `zip()` do, and since which version? Link your sources."},
+  {"id": "web-10", "category": "docs", "question": "How do I undo the most recent Git commit but keep its changes in my working tree? Link your sources."},
+  {"id": "web-11", "category": "docs", "question": "How do I create a SwiftUI list whose rows can be deleted with a swipe? Link your sources."},
+  {"id": "web-12", "category": "docs", "question": "What does the CSS `clamp()` function do, and which browsers support it? Link your sources."},
+  {"id": "web-13", "category": "health-finance", "question": "What is the current US federal funds target rate range? Link your sources."},
+  {"id": "web-14", "category": "health-finance", "question": "What are the current CDC recommendations for who should get a flu vaccine this season? Link your sources."},
+  {"id": "web-15", "category": "health-finance", "question": "What is the 401(k) employee contribution limit for this year in the US? Link your sources."},
+  {"id": "web-16", "category": "reviews", "question": "What do recent reviews say about the Sony WH-1000XM6 headphones? Link your sources."},
+  {"id": "web-17", "category": "reviews", "question": "What do recent reviews say about the latest MacBook Air? Link your sources."},
+  {"id": "web-18", "category": "encyclopedic", "question": "How does the James Webb Space Telescope's mirror differ from Hubble's? Link your sources."},
+  {"id": "web-19", "category": "encyclopedic", "question": "What caused the Bronze Age collapse, according to current historians? Link your sources."},
+  {"id": "web-20", "category": "encyclopedic", "question": "How do mRNA vaccines work? Link your sources."}
+]

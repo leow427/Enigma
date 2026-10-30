@@ -1,5 +1,9 @@
 # CP3: Anthropic — the search tool in the Messages tool loop
 
+> **Deferred (owner, 2026-10-29).** The API-key routes aren't the app's
+> focus, and the owner has no key to check them live. This brief stays as
+> the design for later; no worker builds it now. CP4 follows CP1.
+
 Read [agent-workflow.md](agent-workflow.md), the spec (§3 "Anthropic", §4,
 §5), and the Hand-offs of [CP0](cp0-spike.md#hand-off) to
 [CP2](cp2-openai.md#hand-off).
@@ -46,7 +50,7 @@ extension AnthropicMessagesClient {
   - `testAnthropicSearchToolByModel`: each listed prefix and a point
     release (`claude-opus-5-5` under `claude-opus-5`) get
     `web_search_20260318` with `max_uses` 5 and
-    `response_inclusion: "excluded"`; `claude-haiku-4-5` gets
+    `response_inclusion: "full"` (owner, 2026-10-29); `claude-haiku-4-5` gets
     `web_search_20250305` with `max_uses` 5.
   - `testAnthropicBlockedDomainsLeftOutWhenEmpty`, and
     `testAnthropicSearchSendsBlockedDomainsWithinLimit` (F29 fills the list
@@ -116,7 +120,7 @@ extension AnthropicMessagesClient {
 - Replay is byte-faithful for server and code-execution blocks; mutation:
   drop an encrypted field, and a test fails.
 - The continuation cap and the step limit hold together.
-- No `user_location`; blocked domains omitted when empty.
+- `user_location` (`type: "approximate"`, city, region, country, timezone) only when `providerSearch.location` is set, never coordinates; blocked domains omitted when empty. Test both cases.
 - The restart delivers nothing.
 
 ## Hand-off

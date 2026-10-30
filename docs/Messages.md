@@ -134,12 +134,13 @@ The reply pauses on a card in the chat, in the style of the send card:
 | --- | --- | --- |
 | Reading a chat (`get_messages`) | **Allow reading your chat with ‹name›?** | Per chat and destination |
 | Searching all chats (`search_messages`) | **Search all your messages for “‹query›”?** | Per destination |
-| A web search once message text is in the chat | **Search the web for “‹query›”?** *This chat includes text from your messages.* | Once, for every destination |
+| A web search once message text is in the chat | **Search the web for “‹query›”?** *This chat includes text from your messages. It will be sent to Brave.* | Once, for every destination |
+| ChatGPT's or Claude Code's own web search once message text is in the chat, or on a typed `/messages` turn | **Let ‹provider› search the web in this chat?** *This chat includes text from your messages. ‹provider›'s web search runs its own queries on ‹company›'s servers, and Enigma can't check each one.* | Per provider |
 
-The detail line names where the text goes: **It stays on this Mac.** on a local
-route, or **It will be sent to OpenAI** (the OpenAI API and ChatGPT via Codex),
-**Anthropic** (the Anthropic API and Claude Code) or **Google** (Gemini). The
-answers are:
+For the first two, the detail line names where the text goes: **It stays on
+this Mac.** on a local route, or **It will be sent to OpenAI** (the OpenAI API
+and ChatGPT via Codex), **Anthropic** (the Anthropic API and Claude Code) or
+**Google** (Gemini). The answers are:
 
 - **Don't allow** (Escape): the tool tells the model "The user declined." and it
   carries on without the data. Stop or a new chat while a card is open counts
@@ -162,6 +163,13 @@ an earlier typed `/messages` turn), Enigma marks the chat, saves the mark with
 it, and from then on:
 
 - each web search asks first with the third card;
+- ChatGPT and Claude Code use their provider's own web search, which runs on
+  the provider's servers where no card can ask for each query, only after the
+  fourth card; declined, the reply has no search. If a read happens partway
+  through a reply that has the provider's search before you've allowed it,
+  its text is held back, never reaching that request, and the reply starts
+  again after the card (see
+  [Web search](Web-Search.md#cloud-models-own-search));
 - in Auto the chat stays on the local model;
 - a flagged cloud model asks **Send text from your messages to ‹company›?**
   (**Don't allow**, **Allow**, for this chat only) when the text was allowed for
@@ -285,7 +293,8 @@ different signing identity, such as the unsigned product of
 - **Models that choose their own tools:** no message text reaches any model,
   local or cloud, without a card answered for that chat (or for searching all
   chats) and that destination, and no web query leaves the Mac after message
-  text entered the chat without its own card. The cards run in Enigma before a
+  text entered the chat without its own card. A provider's own search runs
+  after message text only once you've allowed it for that provider. The cards run in Enigma before a
   tool returns anything; see [Permission cards](#permission-cards).
 
 | Provider | Destination |

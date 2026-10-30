@@ -981,9 +981,31 @@ actor RecordingMessagesGate: MessagesAccessGate {
   func didReturnMessageText() async { messageTextMarks += 1 }
 }
 
+/// Holds every read back, as F30's gate does on a provider-search request.
+private struct RestartingMessagesGate: MessagesAccessGate {
+  func mayRead(chatGUID: String, name: String) async -> Bool { true }
+  func maySearch(query: String) async -> Bool { true }
+  func isAllowed(chatGUID: String) async -> Bool { true }
+  func didReturnMessageText() async throws { throw ProviderSearchRestart() }
+}
+
 // MARK: Gated tools (F32)
 
 extension MessagesToolsTests {
+  /// F30: every tool that returns message text hands back the restart, never the text.
+  func testProviderSearchRestartHoldsEveryReadBack() async {
+    var tools = tools()
+    tools.gate = RestartingMessagesGate()
+    let calls: [(String, [String: CodexValue])] = [("list_conversations", [:]),
+      ("get_messages", ["chat_id": .string(MessagesFixture.aliceChat)]), ("search_messages", ["query": .string("Luna")])]
+    for (name, arguments) in calls {
+      let result = await tools.execute(name: name, arguments: .object(arguments))
+      XCTAssertTrue(result.terminal, name)
+      XCTAssertEqual(result.stop, .restart, name)
+      XCTAssertEqual(result.text, "The request was restarted.", name)
+    }
+  }
+
   private func gated(_ gate: RecordingMessagesGate) -> MessagesTools {
     var tools = tools()
     tools.gate = gate

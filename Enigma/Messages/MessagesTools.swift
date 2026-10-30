@@ -44,7 +44,8 @@ struct MessagesTools: AgentToolbox {
   var timeZone: TimeZone = .current
   var sendConfirmationTimeout: Duration = .seconds(3)
   var sendConfirmationPause: @Sendable () async throws -> Void = { try await Task.sleep(for: .milliseconds(250)) }
-  private let ledger = MessagesSendLedger()
+  /// One per turn: a turn that runs again (F30's fallback and restart) keeps the sends it made.
+  var ledger = MessagesSendLedger()
 
   static let maximumTextLength = 4_000
   static let declinedResult = "The user declined."
@@ -137,6 +138,9 @@ struct MessagesTools: AgentToolbox {
       return AgentToolResult(text: "The request was stopped.", success: false, terminal: true, stop: .cancelled)
     } catch is AccessDeclined {
       return AgentToolResult(text: Self.declinedResult, success: false)
+    } catch is ProviderSearchRestart {
+      // The read is held back: this text never carries any of it.
+      return AgentToolResult(text: "The request was restarted.", success: false, terminal: true, stop: .restart)
     } catch {
       // A missing permission ends the request, so the chat can offer its settings pane.
       guard let error = error as? MessagesError, error.privacyPane != nil else {
@@ -171,7 +175,7 @@ struct MessagesTools: AgentToolbox {
       conversation["last_message"] = preview
       conversations.append(.object(conversation))
     }
-    if showedText { await gate?.didReturnMessageText() }
+    if showedText { try await gate?.didReturnMessageText() }
     return .object(["conversations": .array(conversations), "contacts_access": .string(await names.access.rawValue)])
   }
 
@@ -197,7 +201,7 @@ struct MessagesTools: AgentToolbox {
     for record in records { messages.append(await message(record)) }
     result["messages"] = .array(messages)
     result["next_before"] = records.count == limit ? records.first.map { .number(Double($0.rowID)) } ?? .null : .null
-    if !records.isEmpty { await gate?.didReturnMessageText() }
+    if !records.isEmpty { try await gate?.didReturnMessageText() }
     return .object(result)
   }
 
@@ -229,7 +233,7 @@ struct MessagesTools: AgentToolbox {
         "match": await message(hit.match), "context_before": .array(before), "context_after": .array(after),
       ]))
     }
-    if !hits.isEmpty { await gate?.didReturnMessageText() }
+    if !hits.isEmpty { try await gate?.didReturnMessageText() }
     return .object(["results": .array(hits), "searched_all_messages": .bool(result.searchedAll)])
   }
 

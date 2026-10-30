@@ -1,6 +1,6 @@
 # CP1: Shared plumbing — the search backend, fallback, the restart, sources
 
-Read [agent-workflow.md](agent-workflow.md), the spec (§1, §2, §4–§6,
+Read [agent-workflow.md](agent-workflow.md), the spec (§1, §2, §2a, §4–§6,
 "Failure handling", "Privacy"), and [CP0's Hand-off](cp0-spike.md#hand-off).
 
 ## Goal
@@ -12,7 +12,10 @@ Build everything the four providers share, without changing what users see:
 - an unavailable provider falls back once, and is remembered;
 - message text on its way into a provider-search request is held back and
   the turn restarts without provider search;
-- provider sources are selected, merged onto the reply and saved.
+- provider sources are selected, merged onto the reply and saved;
+- a nearby question on a provider-search turn asks, per provider, before
+  the approximate location goes to that provider's search (spec §2a, owner
+  amendment of 2026-10-29).
 
 `CloudProviderID.nativeWebSearchProviders` stays empty, so every route
 still gets F32's behavior. CP1 also opens the branch's draft pull request,
@@ -175,6 +178,12 @@ struct ProviderSearchPart: AgentToolbox {
     F29 supplies them later; the sentence is built now so F29 only passes
     the list).
 - [ ] **Run, implement, run.** Update every `switch` over `NativeToolPart`.
+- [ ] **Amendment (spec §2a, §4):** the instruction's near-me clause comes
+  from the request's location. `testProviderSearchInstructionWithLocation`:
+  with a `ProviderSearchLocation` the clause is exactly "The user's
+  approximate location is ‹City, Region, Country›; your web search tool uses
+  it for places and weather near them", with missing parts left out (no
+  stray commas); without one it's the "ask which city they mean" clause.
 
 ### Task 1.3: `submitNative` with provider search, and the fallback
 
@@ -252,7 +261,73 @@ reply's text and sources, and runs the turn again with the plan made again.
 - [ ] **Run, implement, run.** The check stays in the gate (Swift), never
   in a prompt.
 
-### Task 1.5: The pull request
+### Task 1.5: The location card (spec §2a)
+
+Added on 2026-10-29 by the owner's amendment, after CP1 started. Build it
+after Task 1.4.
+
+**Files:** modify `Enigma/Chat/ChatDomain.swift`,
+`Enigma/Chat/ToolPermissions.swift`, `Enigma/Chat/ToolPermissionCard.swift`
+(copy only), `Enigma/Search/LocationService.swift`,
+`Enigma/LocalInference/LocalChatViewModel.swift`, and the Settings Always
+list if it needs a label for the new kind.
+
+**Interfaces:**
+
+```swift
+// ChatDomain.swift
+struct ProviderSearchLocation: Sendable, Equatable {
+  var city: String?
+  var region: String?
+  var countryCode: String?     // ISO 3166-1 alpha-2
+  var timeZone: String?        // IANA identifier, from the Mac
+  /// "City, Region, Country" with missing parts left out, for the card and the instruction.
+  var displayName: String { get }
+}
+struct ProviderSearch { var location: ProviderSearchLocation? = nil }   // beside blockedDomains
+
+// ToolPermissions.swift
+enum ToolPermission { case shareLocation(provider: CloudProviderID, area: String) }
+// ToolAlwaysGrant.Kind gains .shareLocation, and the grant gains an optional
+// `provider: CloudProviderID?`: location grants are matched by provider, never by
+// ToolDestination. Saved Always grants from F32 still decode.
+
+// LocationService.swift
+// ApproximateLocation gains `providerSearchLocation`: city, region and country code from the
+// reverse geocode the service already makes, and TimeZone.current's identifier. Coordinates stay
+// on the Mac.
+```
+
+**Behavior** is spec §2a. The card is asked in `submitNative` before the
+request is sent (like F32's `.shareMessageText` card), only when the plan's
+search is `.provider`, `LocationIntent.needsLocation` holds for the user's
+own question, the Location setting is on, and this provider has no grant.
+Look up the area first (on the Mac), so the card can name it; no area, no
+card. Stop while the card shows ends the turn like Stop.
+
+- [ ] **Write the failing tests** (`NativeToolRequestTests`, with fakes for
+  the location provider and the permission answer):
+  - `testNearbyQuestionAsksBeforeProviderSearch`: the card shows with the
+    spec's exact title and body, before anything reaches the fake provider;
+    "For this conversation" sends the location in `providerSearch.location`.
+  - `testLocationDeclinedSendsNothing`: Don't allow → no location, the
+    "ask which city" clause, and the card returns for the next nearby
+    question.
+  - `testLocationGrantIsPerProvider`: a grant for `.chatGPT` doesn't cover
+    `.openAI`, and `.claudeCode` doesn't cover `.anthropic` (both
+    directions); Always for one provider shows the card again for another.
+  - `testNoLocationCardWithoutNearbyQuestion`, `…WhenLocationOff`,
+    `…WhenLocationUnavailable`, `…OnEnigmaSearch` (`.enigma` backend keeps
+    today's behavior), `…AfterRestart` (the restart's second run asks
+    nothing).
+  - `testAlwaysLocationGrantSurvivesAndIsListed`: saved with F32's Always
+    grants (in a test suite's defaults), listed with the provider's name,
+    removable; an F32 grant saved before this change still decodes.
+  - `ApproximateLocation` maps a geocoded city, region and country to
+    `ProviderSearchLocation` and never includes coordinates.
+- [ ] **Run, implement, run.** Nothing about the location is logged.
+
+### Task 1.6: The pull request
 
 - [ ] **After the commit is pushed,** open the branch's draft pull request
   (`gh pr create --draft`, title "Native web search for cloud models
@@ -278,6 +353,10 @@ reply's text and sources, and runs the turn again with the plan made again.
 - `isAllowed` and the plan can't offer provider search in a chat that holds
   message text, on Gemini, or for an unavailable pair.
 - The fallback can't run after any text or tool call reached the reply.
+- Location: no card and no location unless every §2a condition holds; a
+  grant never crosses providers (mutation-test: key it by
+  `ToolDestination` and a test must fail); no coordinates in
+  `ProviderSearchLocation`; nothing logged.
 - No location, query, URL or answer text in a log; nothing new on disk.
 - No existing F32 test was weakened.
 
@@ -285,9 +364,197 @@ reply's text and sources, and runs the turn again with the plan made again.
 
 *Filled in by the CP1 worker.*
 
-1. **Summary:**
+1. **Summary:** The shared plumbing for provider search, with no provider
+   turned on (`nativeWebSearchProviders == []`), so users see no change. It
+   includes:
+   - the plan's search backend (`.search(.enigma)` or `.search(.provider)`);
+   - `ChatRequest.providerSearch`, set by `submitNative` together with
+     `ProviderSearchPart`'s instruction;
+   - the unavailable fallback, remembered per provider and model;
+   - the restart, enforced in the Messages gate;
+   - source selection, and merging provider sources onto the reply;
+   - spec §2a's per-provider location card.
+
+   It was built in the brief's order, with Task 1.5 (location) after 1.4 as
+   the amendment asked.
 2. **Files:**
+   - `Enigma/Cloud/NativeWebSearch.swift` (new): `NativeWebSearch`
+     (limits, `isAllowed`, `selectSources`, `links(in:)`),
+     `NativeWebSearchAvailability`, `NativeWebSearchSources`,
+     `ProviderSearchRestart`, `ProviderSearchPart`.
+   - `Enigma/Chat/ChatDomain.swift`: `ProviderSearchLocation`,
+     `ProviderSearch`, `ChatRequest.providerSearch`.
+   - `Enigma/Cloud/CloudDomain.swift`: `nativeWebSearchProviders`,
+     `supportsNativeWebSearch`, `shortName` (the card's provider name),
+     `CloudProviderError.webSearchUnavailable`.
+   - `Enigma/Chat/AssistantToolbox.swift`: `SearchBackend`,
+     `NativeToolPart.search(SearchBackend)`, `Inputs.providerSearch`, the
+     plan's stored `inputs`, `remade(providerSearch:)`, `searchBackend`, and
+     `AssistantToolbox.onCall`.
+   - `Enigma/Chat/AgentToolLoop.swift`: `AgentToolStop.restart`, whose error
+     is `ProviderSearchRestart`.
+   - `Enigma/Messages/MessagesAccessGate.swift`, `MessagesTools.swift`:
+     `didReturnMessageText()` is now `async throws`. A
+     `ProviderSearchRestart` becomes a terminal result with fixed text and
+     `stop: .restart`.
+   - `Enigma/LocalInference/LocalChatViewModel.swift`, `submitNative` and
+     its helpers:
+     - the init takes `nativeWebSearchProviders:`, and availability is kept
+       in memory;
+     - the plan is resolved per route, then the location step, then a run
+       loop with the fallback and the restart;
+     - provider `.sourcesSelected` events are merged and capped at 8;
+     - `restartNativeReply`, `providerSearchLocation`, and
+       `SavingMessagesGate.restartsProviderSearch`.
+   - `Enigma/Search/WebSearchTool.swift`: `formattedDate`, shared with
+     `ProviderSearchPart`.
+   - `Enigma/Messages/MessagesTools.swift`: `ledger` is injectable.
+     `submitNative` makes one `MessagesSendLedger` per turn, shared by every
+     run (review round 1).
+   - `Enigma/Chat/ChatDomain.swift` (`ReplyOrigin.providerSearch`, session
+     only) and `Enigma/Chat/EnigmaConversationLogic.swift`
+     (`ReplyMetaLine`): the footer says "web search" for provider search,
+     per spec §5 (owner: CP1 builds it).
+   - `Enigma/Chat/ToolPermissions.swift`: `ToolPermission.shareLocation`,
+     `Kind.shareLocation`, and an optional `provider` on the grant and its
+     key.
+   - `ToolPermissionCoordinator.swift` (copy), `ToolPermissionCard.swift`
+     (the globe icon for the location card), `MessagesSettingsSection.swift`
+     (the Always row).
+   - `Enigma/Search/LocationService.swift`: `ApproximateLocation` gains
+     city, region, country code and `providerSearchLocation`, and
+     `LocationService.region(cityWithContext:city:country:)`.
+   - Tests:
+     - `EnigmaTests/NativeWebSearchTests.swift` (new);
+     - `EnigmaTests/CloudSearchTestSupport.swift` (new):
+       `CloudSearchFixture` and `ScriptedSearchProvider`;
+     - `NativeToolPlanTests` and `NativeToolRequestTests`: new tests.
+   - `Enigma.xcodeproj/project.pbxproj`: the three new files.
 3. **Decisions:**
-4. **Verification:**
+   - **Making the plan again.** `NativeToolPlan` keeps the `Inputs` it was
+     made from, so `submitNative` can resolve provider search for the route
+     itself (`plan.remade(providerSearch:)`) and make the plan again for the
+     fallback and the restart. Callers (`AppShellView`, the warm-up) are
+     unchanged.
+   - **The restart uses the terminal path, as CP0 decided.** The gate
+     throws. `MessagesTools` turns that into a terminal result
+     (`stop: .restart`, text "The request was restarted.", never the read's
+     output), which F32's loops throw instead of delivering.
+   - **"Reply started"** means the first `.token` or toolbox call, tracked
+     with `AssistantToolbox.onCall`. It isn't acceptance, as CP0 found.
+     Each of the fallback and the restart runs at most once per turn. An
+     unavailable error marks the provider and model unavailable even after
+     the reply started, when it's shown as an error and there's no
+     fallback, so later turns skip it (review round 3).
+   - **A typed `/search` on provider search** keeps
+     `requiredTool = "web_search"`. Because `ProviderSearchPart` has no
+     definitions, `offeredRequiredTool` is nil, so `submitNative` adds F32's
+     "Call the web_search tool before you answer." in words itself. Whether
+     to force the tool as well: CP2 may force OpenAI's search with the
+     `allowed_tools` form, only if its live check confirms it (CP0 Q1).
+     CP3 never forces Anthropic's: CP0 Q2 found `tool_choice` returns a 400
+     on current models. A client detects a typed `/search` with
+     `request.providerSearch != nil && toolbox.requiredTool == "web_search"`.
+   - **Sources:**
+     - `selectSources` filters unsafe links before deciding whether
+       anything was cited, so a citation list of only unsafe links falls
+       back to the discovered results.
+     - `links(in:)` returns only http(s) URLs.
+     - `NativeWebSearchSources.selection(linksAreCitations: true)` puts the
+       answer's links first, as the citations, and then any explicit
+       citations.
+     - The 8-source cap applies to provider sources only. Enigma's Brave
+       sources merge uncapped, as in F32.
+   - **Owner decisions from review round 1 (2026-10-29):**
+     - A typed `/messages` turn, which includes Messages-panel sends, never
+       gets provider search (`NativeToolPlan.make`). Its first chat read
+       would restart the request and throw it away. This adds a condition
+       to spec §1, which the spec doesn't yet say. **Proposed spec change:**
+       add "and `/messages` wasn't typed" to §1's `providerSearch`
+       conditions.
+     - CP1 builds spec §5's footer. It's recorded on the reply's
+       session-only `ReplyOrigin`, so a provider-search reply reopened
+       after a relaunch shows the footer without a model or place, and
+       still says "brave search". That's the same gap F32 has for the model
+       name.
+   - **The location card:**
+     - It's asked once per turn, before the run loop. The restart's and the
+       fallback's second runs have no provider search, so the location
+       isn't sent again.
+     - The area's region comes from `cityWithContext` ("Cupertino, CA" gives
+       "CA"), since MapKit 26 has no separate state field. The country code
+       comes from `addressRepresentations.region`.
+     - The country is shown by its English name.
+     - The grant saves the provider, never the area.
+4. **Verification** (the worktree; final numbers are in the progress log):
+   - `scripts/verify-xcode.sh test` with one `-only-testing:EnigmaTests/<Class>`
+     per class. These are class names; `MessagesTests` and
+     `CloudToolStreamingTests` are file names and select nothing. The
+     classes: NativeWebSearchTests, NativeToolPlanTests,
+     NativeToolRequestTests, NativeToolPartsTests, ToolPermissionTests,
+     RequestLifecycleTests, WebSearchTests, EnigmaConversationTests,
+     MessagesToolsTests, MessagesRequestTests, MessagesCoordinatorTests,
+     MessagesSenderTests, MessagesDatabaseTests, CloudToolLoopTests,
+     ClaudeCodeToolModeTests, OpenAIToolStreamAssemblerTests,
+     AnthropicToolStreamAssemblerTests, GeminiToolStreamAssemblerTests,
+     CloudToolStreamPostTests and LocalToolStreamingTests. After review
+     round 2: 411 executed, 0 failed, 1 skipped (the opt-in
+     `testScreenshots`).
+   - `build` succeeded, and `analyze` succeeded with no warnings in CP1's
+     files.
+   - Mutation checks, all reverted. Each made a test fail:
+     - the gate not throwing fails the restart tests;
+     - swallowing the throw for search hits or previews fails
+       `testSearchHitsAndPreviewsRestartToo` and
+       `testProviderSearchRestartHoldsEveryReadBack`;
+     - keying the location grant by `ToolDestination` fails
+       `testLocationGrantIsPerProvider`;
+     - a fresh ledger per run fails `testRestartDoesNotSendTwice`.
+   - After review round 3, the affected classes: 336 executed, 0 failed,
+     1 skipped.
+   - **Full suite** (`scripts/verify-xcode.sh test`, once, before the
+     commit): 1591 executed, 28 skipped, 1 failed. The failure was
+     `EnigmaMainWindowTests.testSendNowDuringAPendingSendKeepsItsDraftAndAttachedFilesStayWithTheField`,
+     a key-window timeout.
+     - It failed twice more when rerun alone right after the suite, then
+       passed 4 times in a row.
+     - e0a0aca, exported from git, passed it 4 times too.
+     - Its fixture runs with native tools off, and CP1 changes nothing on
+       its path (composer, queue, `submit`), so this is a focus or timing
+       flake, as the workflow's "Unreliable failures" note describes.
+   - **Known flake, not caused by CP1:**
+     `EnigmaConversationTests.testCharacterFallsIntoTheFirstReplyFollowsTheRequestAndMovesToTheNewestReply`
+     can time out in whole-class runs, on e0a0aca too. It passes alone.
 5. **Limitations:**
+   - No provider is on, so none of this is reachable in the app yet.
+   - The card's copy and icon weren't checked in the running app.
+   - `LocationService`'s new geocode fields are covered only through the
+     pure `region(...)` helper and `ApproximateLocation`. The live MapKit
+     path needs a person to check it.
 6. **For the next checkpoint:**
+   - A provider-search request has `request.providerSearch != nil`. Its
+     `location` is set only after the user's grant; send it as spec §2a's
+     table says.
+   - The toolbox's instructions already hold the provider-search
+     instruction. Don't add another.
+   - Throw `CloudProviderError.webSearchUnavailable(<provider>)` before the
+     first text or tool call to get the fallback.
+   - Emit `.activity(.sourcesSelected(collector.selection(...)))` before
+     `.completed`, and also before rethrowing any error once text or a
+     search result has arrived. Spec §6 step 5 and the Failure-handling
+     table save the sources so far even when the stream fails.
+     `submitNative` merges and caps them; before a restart or fallback
+     error they're harmless, since the reply is cleared. **Proposed brief
+     change (CP2–CP5):** add this to each brief's stream task, and test
+     that a failure after a search keeps its sources.
+   - A Messages read in a provider-search request ends the request with
+     `ProviderSearchRestart`, the terminal result's stop error. The API
+     loops already throw it, and `ClaudeCodeToolMode.respond` throws it.
+   - `CodexToolMode.handle` still answers the call with `result.codex`
+     (fixed text, no message text) and records only `.messages` stops. CP4
+     must record `.restart` and interrupt the turn (CP0 Q0).
+   - Test support: `ScriptedSearchProvider(runs:)` with
+     `.token / .activity / .call / .fail / .hang`, its `runs` and
+     `delivered`, and `beforeStop`. In `NativeToolRequestTests`,
+     `makeChat(nativeWebSearchProviders:hasSearchKey:locationProvider:)`
+     and `NativeLocation`.

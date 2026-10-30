@@ -1116,8 +1116,9 @@ gets every must-pass example right. Built first, before the rest of F29.
 
 ### F30. Native web search for cloud models
 
-**Status:** re-planned for F32 on 2026-10-29 (spec and plan approved); runs
-before F29. Not started: CP0 creates the worktree.
+**Status:** in progress on `feat/f30-native-cloud-search` (draft PR
+leow427/Enigma#23): CP0 and CP1 done; CP2 and CP3 (API-key routes)
+deferred by the owner on 2026-10-29; CP4 (ChatGPT) next. Runs before F29.
 
 **Spec:** [docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md](docs/superpowers/specs/2026-10-27-f30-native-cloud-search-design.md)
 
@@ -1130,12 +1131,13 @@ runs on Brave, so they can't search without a Brave key. Each provider's own
 search is turned off (`web_search="disabled"` in `CodexAppServer.swift`,
 `--tools ""` for Claude Code).
 
-**Wanted (owner, 2026-10-26 to 2026-10-29):** on OpenAI, Anthropic, ChatGPT
-(Codex) and Claude Code, the provider's own search tool replaces
-`web_search` in chats that hold no message text, with no key. If message
-text would enter a provider-search request, the reply restarts without it.
-Gemini keeps Enigma's search; location never goes to a provider's search;
-Codex searches the live web. The spec has the details.
+**Wanted (owner, 2026-10-26 to 2026-10-29):** on ChatGPT (Codex) and Claude
+Code, the provider's own search tool replaces `web_search` in chats that
+hold no message text, with no key. If message text would enter a
+provider-search request, the reply restarts without it. Gemini and the
+OpenAI and Anthropic API routes (deferred) keep Enigma's search; the
+approximate location goes to a provider's search only after that
+provider's card; Codex searches the live web. The spec has the details.
 
 **Depends on:** F32 (on `main`). Blocks F29.
 

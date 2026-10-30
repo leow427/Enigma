@@ -243,8 +243,12 @@ final class ToolPermissionTests: XCTestCase {
                    ["Search all your messages for “rent”?", "It will be sent to Google."])
     for destination in ToolDestination.allCases {
       XCTAssertEqual(copy(.searchAfterMessages(query: "pizza near me"), destination),
-                     ["Search the web for “pizza near me”?", "This chat includes text from your messages."])
+                     ["Search the web for “pizza near me”?",
+                      "This chat includes text from your messages. It will be sent to Brave."])
     }
+    XCTAssertEqual(copy(.providerSearchAfterMessages(provider: .chatGPT), .openAI),
+                   ["Let ChatGPT search the web in this chat?",
+                    "This chat includes text from your messages. ChatGPT's web search runs its own queries on OpenAI's servers, and Enigma can't check each one."])
     XCTAssertEqual(ToolPermissionCard.buttons.map(\.title), ["Don't allow", "For this conversation", "Always"])
     XCTAssertEqual(ToolPermissionCard.buttons.map(\.answer), [.deny, .conversation, .always])
   }
