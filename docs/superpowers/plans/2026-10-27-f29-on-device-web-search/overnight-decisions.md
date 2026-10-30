@@ -1982,7 +1982,10 @@ view is released, not from extraction. The CI failures were most likely the
   5 s wait, the same flake as D44; the failed job was rerun. Neither test is
   changed in F29.
 - **Why:** both are timing flakes in UI tests outside F29's code; changing
-  them belongs in its own fix.
+  them belongs in its own fix. *Update 10:50:* the `ScreenViewTests` test
+  then failed again at `d5286b5` (failures at `c90ecf3`, `bf4d115` twice and
+  `d5286b5`; `main` passed its last 6 runs), so it may be caused by F29
+  after all. It is now step 3 of the RESUME in `overnight-report.md`.
 - **Alternatives:** lengthen `ScreenViewTests`' 5 s wait in a separate change
   (it has now flaked twice on CI).
 - **Reversible:** yes.

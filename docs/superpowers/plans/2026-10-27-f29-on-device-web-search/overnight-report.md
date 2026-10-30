@@ -40,7 +40,15 @@
      tool-use eval, write the gate report, the spot-check (outside the repo)
      and the Hand-off. Optional first: the owner reviews the 40 new questions
      and 12 tool prompts (D94), since changing them later means rerunning.
-  3. Then the review rounds (fresh Sonnet reviewer each), the full suite,
+  3. **Investigate the `ScreenViewTests` CI failure before CP7's commit.**
+     `testLongScreenSearchConversationSettlesAtBottom` (its 5 s waits at
+     `EnigmaTests/ScreenViewTests.swift:502`) failed on CI at `c90ecf3`,
+     `bf4d115` (twice) and `d5286b5`, and passed on the other branch runs;
+     `main` passed its last 6 runs. F29 only renamed the test's fake search
+     provider, so suspect something F29 adds to the test host's load (for
+     example WebKit warm-up or the search lists loading) rather than the
+     test. Find the cause; don't just lengthen the wait (D99).
+  4. Then the review rounds (fresh Sonnet reviewer each), the full suite,
      build and analyze, and the `(F29 CP7)` commit; then CP8–CP10.
 
 ## What's done
