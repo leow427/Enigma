@@ -1,0 +1,23 @@
+# Sites with no readable text: never read; they can contribute only their search snippet, and they
+# get the unreadable trust factor (RankingTuning). One domain per line; a domain covers its
+# subdomains. Lines starting with # are comments.
+# Draft for owner review (F29 CP3, spec §3.3; decision D52).
+pinterest.com
+pinterest.co.uk
+pinterest.ca
+pinterest.com.au
+pinterest.de
+pinterest.fr
+pinterest.es
+pinterest.it
+pinterest.jp
+youtube.com
+youtu.be
+tiktok.com
+instagram.com
+facebook.com
+x.com
+twitter.com
+linkedin.com
+threads.net
+threads.com

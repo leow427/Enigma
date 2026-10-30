@@ -1,0 +1,7 @@
+# A plain domain list
+phish.example
+login-verify.example
+
+PHISH.EXAMPLE
+sub.phish.example
+bad_domain

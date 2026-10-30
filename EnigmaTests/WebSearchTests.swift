@@ -379,6 +379,82 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(forced, [prompt])
   }
 
+  // MARK: Blocked sites (F29 CP3)
+
+  private func blockSettings(_ defaults: UserDefaults, suffixes: PublicSuffixList? = SourceQualityFixture.suffixes)
+    -> WebSearchSettings {
+    WebSearchSettings(credentials: SearchCredentials(nil), defaults: defaults, publicSuffixes: suffixes)
+  }
+
+  func testBlockingStoresRegistrableDomain() {
+    let defaults = makeDefaults()
+    let settings = blockSettings(defaults)
+    settings.block(URL(string: "https://news.bbc.co.uk/x?id=1#top")!)
+    XCTAssertEqual(settings.blockedSites, ["bbc.co.uk"])
+    XCTAssertEqual(defaults.stringArray(forKey: WebSearchSettings.blockedSitesKey), ["bbc.co.uk"])
+    settings.block(URL(string: "https://Someone.GitHub.io/page")!)
+    XCTAssertEqual(settings.blockedSites, ["bbc.co.uk", "someone.github.io"])
+  }
+
+  func testBlockingFallsBackToTheHostWithoutWWW() {
+    let settings = blockSettings(makeDefaults(), suffixes: nil)
+    settings.block(URL(string: "https://www.example.com/a/b")!)
+    XCTAssertEqual(settings.blockedSites, ["example.com"])
+    settings.block(URL(string: "file:///etc/hosts")!)
+    XCTAssertEqual(settings.blockedSites, ["example.com"], "a URL without a host blocks nothing")
+  }
+
+  func testBlockingTwiceKeepsOne() {
+    let settings = blockSettings(makeDefaults())
+    settings.block(URL(string: "https://example.com/a")!)
+    settings.block(URL(string: "https://www.example.com/b")!)
+    settings.block(URL(string: "https://m.example.com/")!)
+    XCTAssertEqual(settings.blockedSites, ["example.com"])
+  }
+
+  func testBlockListCapsAt500DroppingOldest() {
+    let settings = blockSettings(makeDefaults())
+    for n in 0 ..< 502 { settings.block(URL(string: "https://site\(n).example/")!) }
+    XCTAssertEqual(settings.blockedSites.count, WebSearchSettings.maximumBlockedSites)
+    XCTAssertEqual(WebSearchSettings.maximumBlockedSites, 500)
+    XCTAssertEqual(settings.blockedSites.first, "site2.example")
+    XCTAssertEqual(settings.blockedSites.last, "site501.example")
+  }
+
+  func testUnblockRemoves() {
+    let settings = blockSettings(makeDefaults())
+    settings.block(URL(string: "https://a.example/")!)
+    settings.block(URL(string: "https://b.example/")!)
+    settings.unblock("A.example")
+    XCTAssertEqual(settings.blockedSites, ["b.example"])
+    settings.unblock("missing.example")
+    XCTAssertEqual(settings.blockedSites, ["b.example"])
+  }
+
+  func testBlockedSitesPersist() {
+    let defaults = makeDefaults()
+    let settings = blockSettings(defaults)
+    settings.block(URL(string: "https://a.example/")!)
+    settings.block(URL(string: "https://b.example/")!)
+    XCTAssertEqual(blockSettings(defaults).blockedSites, ["a.example", "b.example"])
+    XCTAssertEqual(WebSearchSettings.blockedSitesKey, "webSearch.blockedSites")
+  }
+
+  func testStoredBlockListIsCappedWhenLoaded() {
+    let defaults = makeDefaults()
+    defaults.set((0 ..< 502).map { "site\($0).example" }, forKey: WebSearchSettings.blockedSitesKey)
+    let sites = blockSettings(defaults).blockedSites
+    XCTAssertEqual(sites.count, 500)
+    XCTAssertEqual(sites.first, "site2.example")
+  }
+
+  func testStoredBlockListIsSanitized() {
+    let defaults = makeDefaults()
+    defaults.set(["A.example", "a.example", "https://x.example/path", "", "b.example"],
+                 forKey: WebSearchSettings.blockedSitesKey)
+    XCTAssertEqual(blockSettings(defaults).blockedSites, ["a.example", "b.example"])
+  }
+
   func testAutomaticSearchSettingsPersistAndRequireAKey() throws {
     let defaults = makeDefaults()
     let credentials = SearchCredentials(nil)

@@ -238,7 +238,7 @@ that use it.
 | `SearchSiteRunner`, `SiteRunResult` | `Enigma/Search/Engines/SearchSiteRunner.swift` | CP2 | CP5 |
 | `ManualClock`, `FakeSearchHTTPClient`, `SearchFixture` (tests) | `EnigmaTests/SearchTestSupport.swift` | CP2 | CP2–CP9 tests |
 | `PublicSuffixList`, `FNV1a64`, `DomainHashSet`, `SearchDataBundle`, `SourceQuality` | `Enigma/Search/PublicSuffixList.swift`, `SourceQuality.swift` | CP3 | CP3–CP8 |
-| `URLNormalizer`, `RankedCandidate`, `ResultRanking` | `Enigma/Search/ResultRanking.swift` | CP3 | CP5 |
+| `URLNormalizer`, `RankedCandidate`, `ResultRanking`, `RankingTuning` | `Enigma/Search/ResultRanking.swift` | CP3 | CP5, CP7 |
 | `WebSearchSettings.blockedSites`, `.block(_:)`, `.unblock(_:)` | `Enigma/Search/WebSearchSettings.swift` | CP3 | CP5, CP8 |
 | `NetworkGuard`, `HostResolver`, `PageReader`, `FetchedPage` | `Enigma/Search/PageReader.swift` | CP4 | CP5 |
 | `ArticleExtracting`, `ArticleExtractor`, `ExtractedArticle`, `ArticleBlock` | `Enigma/Search/ArticleExtractor.swift` | CP4 | CP5 |
@@ -268,7 +268,7 @@ stays in its brief.
 | CP1 | done | 2 | Request, shared types, limits, routing and recency in place; Brave unchanged. Owner widened spec §6 routing; see the CP1 Hand-off. Round 2 (2026-10-28) found 6 Should fixes, not made in CP1; CP1b makes them |
 | CP1b | done | 8 | Routing fixes per spec §6.1 plus overnight amendments; capable models unchanged; overnight decisions D7–D30 and D32 (D25 and D31 cover the full-suite environment failures) |
 | CP2 | done | 3 | DuckDuckGo (header set A, `kl`) and Wikipedia ports, HTTP client, health and runner; Mojeek and Startpage skipped; only block signs and two different challenged queries cool DuckDuckGo down; overnight decisions D33–D43 and D45–D48 |
-| CP3 | not started | | |
+| CP3 | done | 2 | Quality lists (3 MB: unsafe trimmed by a keep order, malware first), Public Suffix List, trust factors, SearXNG merge, selection and blocked sites; reviewed `overrides.tsv` (never lifts a security block); `authority.txt`/`unreadable.txt`/`overrides.tsv` await owner review; overnight decisions D49–D60 |
 | CP4 | not started | | |
 | CP5 | not started | | |
 | CP6 | not started | | |

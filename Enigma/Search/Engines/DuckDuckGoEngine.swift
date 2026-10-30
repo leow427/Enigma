@@ -13,7 +13,8 @@ struct DuckDuckGoEngine: SearchEngine {
   static let bodyXPath = "./a//text()"
 
   let id = SearchEngineID.duckDuckGo
-  let weight = 1.0
+  /// Tuned in `RankingTuning`.
+  let weight = RankingTuning.engineWeights[.duckDuckGo] ?? 1.0
 
   func search(_ query: EngineQuery, using client: any SearchHTTPClient) async -> EngineOutcome {
     do {

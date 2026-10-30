@@ -46,7 +46,7 @@ enum EngineOutcome: Equatable, Sendable { case results([EngineResult]), noResult
 
 protocol SearchEngine: Sendable {
   var id: SearchEngineID { get }
-  /// DuckDuckGo 1.0 (spec §3.3).
+  /// DuckDuckGo 1.0 (spec §3.3), from `RankingTuning.engineWeights`.
   var weight: Double { get }
   func search(_ query: EngineQuery, using client: any SearchHTTPClient) async -> EngineOutcome
 }

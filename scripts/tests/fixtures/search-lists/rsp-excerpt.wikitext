@@ -1,0 +1,32 @@
+{| class="wikitable sortable perennial-sources"
+|-
+! Source !! Status !! Uses
+<onlyinclude>
+|- class="s-gr" id="Reliable Paper"
+| [[Reliable Paper]]
+| {{WP:RSPSTATUS|gr}}
+| {{WP:RSPLAST|2024}}
+| There is consensus that it is generally reliable.
+| {{WP:RSPUSES|reliable.example|www.reliable-paper.example}}
+|- class="s-nc" id="Mixed Paper"
+| [[Mixed Paper]]
+| {{WP:RSPSTATUS|nc}}
+| {{WP:RSPUSES|mixed.example}}
+|- class="s-gu" id="Tabloid"
+| [[Tabloid]]
+| {{WP:RSPSTATUS|gu}}
+| {{WP:RSPUSES|tabloid.example|tabloid.example/opinion}}
+|- class="s-d" id="Fabricator"
+| [[Fabricator]]
+| {{WP:RSPSTATUS|d}}
+| {{WP:RSPUSES|fabricator.example}}
+|- class="s-b" id="Spam Farm"
+| [[Spam Farm]]
+| {{WP:RSPSTATUS|gu|b=y}}
+| {{WP:RSPUSES|spamfarm.example}}
+|- class="s-m" id="Changed Owner"
+| [[Changed Owner]]
+| {{WP:RSPSTATUS|m}}
+| {{WP:RSPUSES|changed.example}}
+</onlyinclude>
+|}

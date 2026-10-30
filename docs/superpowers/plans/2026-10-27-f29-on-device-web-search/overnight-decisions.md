@@ -16,7 +16,7 @@ The summary at the top is written when the run ends.
 - **Run setup:** D1–D6, D25 (all checkpoints)
 - **CP1b:** D7–D24, D26–D32, D44 (CI)
 - **CP2:** D33–D43, D45–D48
-- **CP3:**
+- **CP3:** D49–D60
 - **CP4:**
 - **CP5:**
 - **CP6:**
@@ -960,5 +960,250 @@ The summary at the top is written when the run ends.
   test.
 - **Alternatives:** treat 403 as `.unrecognized` too (one `case` in
   `DuckDuckGoEngine.parse`, and the test changed with the owner).
+- **Reversible:** yes.
+
+### D49 — 2026-10-30 05:28, CP3 — The unsafe lists don't fit 3 MB: a keep order, malware dropped first
+
+- **Decided (worker CP3):** `unsafe.bin` is filled in this keep order until
+  the 3 MB folder budget is reached: the Block List Project's scam list, its
+  fraud list, its phishing list, Phishing.Database's active domains, then its
+  malware list. The budget step drops from the end of that order (malware
+  first, then Phishing.Database, as the brief says, then phishing, then
+  fraud; scam is never dropped), and within a list being trimmed it keeps
+  whole domains before subdomains (fewest labels, then shortest, then
+  alphabetical). Before trimming, a domain whose parent (at or below the
+  registrable domain) is already listed is removed, since the lookup finds
+  the parent anyway. The manifest records `dropped` per source. The 3 MB
+  budget is unchanged; 16 KB of it is left free when filling `unsafe.bin`,
+  so hand edits to the curated files don't push the folder over. Result on
+  today's lists: scam, fraud and phishing in full; 65,586 of
+  Phishing.Database's and 64,305 of malware's domains still covered.
+- **Why:** measured on today's pinned copies: Block List Project malware has
+  2,656,393 domains (21 MB as hashes, seven times the whole budget),
+  Phishing.Database 392,163, fraud 285,200, phishing 190,215, scam 8,527.
+  The brief's rule (drop Phishing.Database until it fits, else fail) can
+  never pass with the malware list in. Malware-distribution hosts rarely
+  appear as search results; fake shops, investment fraud and tech-support
+  scams do, so fraud and scam are kept first. The budget wasn't raised
+  because it's the spec's app-size limit.
+- **Alternatives:** raise `BUDGET_BYTES` (spec §3.6, `scripts/update-search-lists.py`)
+  to keep everything (about 27.5 MB) or everything but malware (about 7 MB);
+  or reorder `UNSAFE_KEEP_ORDER` in the same script and rerun it.
+- **Reversible:** yes.
+
+### D50 — 2026-10-30 05:28, CP3 — Reading Wikipedia's Perennial sources
+
+- **Decided (worker CP3):** the main page's wikitext holds no rows; it
+  transcludes eight subpages (`…/Perennial sources/1` to `/8`). The script
+  fetches the main page (the brief's URL), finds the transcluded subpages and
+  fetches each the same way; the manifest's version lists every revision ID.
+  Status per row comes from `{{WP:RSPSTATUS|…}}`: `b=y` (on Wikipedia's spam
+  blacklist) gives `b` whatever the base status; `m` (no single status) rows
+  are skipped and counted. Domains come from `{{WP:RSPUSES|…}}`; entries with
+  a path are skipped and counted. A domain listed by several rows with
+  different statuses gets `nc` (no adjustment), unless every row is `d` or
+  `b`, which gives `b` if any row is `b`, else `d`.
+- **Why:** blocking or boosting a domain on one row while another row says
+  otherwise (for example a site rated differently by topic or period) would
+  be a guess; `nc` is neutral.
+- **Alternatives:** take the most severe status per domain (one function,
+  `merge_statuses`, in the script).
+- **Reversible:** yes.
+
+### D51 — 2026-10-30 05:28, CP3 — A list that shrinks by more than half counts as a parse failure
+
+- **Decided (worker CP3):** besides a download or parse error, a source
+  counts as failed (its previous file is kept, exit status 1) when it parses
+  to no entries, or to fewer than half the entries the previous manifest
+  recorded for it.
+- **Why:** a silent format change (a renamed template, a list moved to a new
+  path) usually parses to almost nothing rather than raising, and would ship
+  an empty block list.
+- **Alternatives:** drop the check (`check_shrink` in the script).
+- **Reversible:** yes.
+
+### D52 — 2026-10-30 05:28, CP3 — `authority.txt` and `unreadable.txt` drafted without the owner's approval
+
+- **Decided (worker CP3):** the brief needs the owner's approval of both
+  drafts before the commit; the owner is asleep. The worker drafts them from
+  spec §3.3, leaning (as the owner asked) toward authoritative health,
+  finance and developer-documentation sources: the spec's suffixes and
+  domains plus national government suffixes, health bodies and journals,
+  financial regulators and central banks, and official language and platform
+  docs. `unreadable.txt` is the spec's nine plus Pinterest's country domains
+  and Threads. Both are marked for owner review in the Hand-off.
+- **Why:** the run can't wait for the owner; both files are plain text the
+  owner can edit, and the factors are CP7's to tune.
+- **Alternatives:** the spec's lists only (delete the added lines).
+- **Reversible:** yes.
+
+### D53 — 2026-10-30 05:28, CP3 — Ranking tuning in one place; ties favour trust
+
+- **Decided (worker CP3):** every ranking number (engine weights, the four
+  trust factors, the 15% cut-off, the read batch of 6) lives in
+  `RankingTuning` in `ResultRanking.swift`; `DuckDuckGoEngine.weight` reads
+  it. When two candidates score the same after trust factors, the one with
+  the higher trust factor goes first, then the better position, then the URL
+  key, so the order is stable and authority wins ties.
+- **Why:** CP7 tunes these; the owner wants authority favoured where the
+  brief leaves room. Recency can't be used here: DuckDuckGo's HTML results
+  carry no dates; CP4/CP5's stale check covers it.
+- **Alternatives:** score-only order (one comparator in `ResultRanking.select`).
+- **Reversible:** yes.
+
+### D54 — 2026-10-30 05:41, CP3 — Authority domains match on the host; the settings load the lists lazily
+
+- **Decided (worker CP3):**
+  1. An `authority.txt` domain matches the host and any subdomain of it,
+     not just the domains down to the registrable domain as blocks do:
+     `nhs.uk` is itself a public suffix, so `www.nhs.uk` is its own
+     registrable domain and the brief's lookup never reached `nhs.uk`.
+  2. `WebSearchSettings`'s `publicSuffixes` parameter is an
+     `@autoclosure` (same call sites, same default), resolved on the first
+     `block(_:)`, so creating `WebSearchSettings.shared` at launch doesn't
+     load the 3 MB of lists (about 31 ms in a release build, measured).
+- **Why:** found by checking the real data: `https://www.nhs.uk/…` scored
+  1.0 instead of 1.3. The owner's product is low-latency; the lists are
+  only needed when a search runs or a site is blocked.
+- **Alternatives:** the brief's plain parameter (`WebSearchSettings.swift`),
+  and candidate-only matching for authority (`SourceQuality.isAuthority`).
+- **Reversible:** yes.
+
+
+### D55 — 2026-10-30 05:43, CP3 — Keep Wikipedia, Stack Overflow, Healthline and MSN usable
+
+- **Decided (orchestrator):** the real lists down-weight `wikipedia.org`,
+  `stackoverflow.com` and `investopedia.com` to 0.5 (Wikipedia's Perennial
+  sources mark them "generally unreliable" — as *citations inside Wikipedia*),
+  and block `msn.com` and `healthline.com`. A small, reviewed override file
+  in `SearchData/` (bundled, documented in the manifest) sets Wikipedia, Stack
+  Overflow/Stack Exchange sites and Investopedia to the neutral 1.0 factor, and
+  un-blocks `msn.com` (a news syndicator) and `healthline.com` unless they are
+  on a security (unsafe/phishing/malware) list — overrides never lift a
+  security block. The worker checks which list blocks each and records it.
+- **Why:** the Perennial-sources rating judges citations in encyclopedia
+  articles, not answers to search questions; Stack Overflow is the main source
+  for developer questions, Wikipedia is a core factual source, and blocking a
+  major health site and a major news aggregator would hurt the owner's
+  health and news categories. CP7 measures the effect.
+- **Alternatives:** take the lists as they are (delete the override file).
+- **Reversible:** yes.
+
+### D56 — 2026-10-30 05:44, CP3 — What blocks MSN and Healthline, and how D55's overrides work
+
+- **Decided (worker CP3):**
+  1. **What blocks them** (today's pinned copies):
+     - `msn.com`: popcar2/BadWebsiteBlocklist (commit 8c1cee4), line 25,
+       `*://*.msn.com/*`, under its "Low Effort Articles (AI spam,
+       copy-pasting other articles, etc)" heading → `spam.bin`. No unsafe
+       list holds `msn.com` itself, but the Block List Project's malware
+       list holds five of its subdomains (`0.r.msn.com`, `ac2.msn.com`,
+       `anrfrm.msn.com`, `unicast.msn.com`, `zone.msn.com`); those stay
+       blocked. *Corrected by D60:* as first built, D49's budget trim had
+       dropped them from `unsafe.bin`, so the override did unblock them;
+       the refresh script now always keeps unsafe entries under an `allow`
+       domain.
+     - `healthline.com`: Wikipedia's Perennial sources, subpage 4, row
+       `id="Healthline"`, `{{WP:RSPSTATUS|d|b=y}}` (deprecated and on
+       Wikipedia's spam blacklist) → `reliability.tsv` status `b`. No
+       unsafe or spam list holds it.
+  2. **`overrides.tsv`** (hand-curated, bundled, never regenerated; listed
+     under the manifest's new `curated` key with its entry count and
+     SHA-256): `domain<TAB>neutral` ignores the Perennial status (factor 1.0
+     from reliability) for that domain and its subdomains; `domain<TAB>allow`
+     lifts a spam-list or Perennial `d`/`b` block for it (and, like
+     `neutral`, ignores its Perennial status). Entries: neutral
+     for wikipedia.org, stackoverflow.com, stackexchange.com, superuser.com,
+     serverfault.com, askubuntu.com, investopedia.com; allow for msn.com and
+     healthline.com.
+  3. An override never lifts an `unsafe.bin` block, the user's own block or
+     an `enigma-blocked.txt` entry, and leaves the authority and unreadable
+     factors alone. A missing `overrides.tsv` loads as no overrides (the
+     lists then apply as they are).
+- **Why:** D55's scope; the narrowest change that keeps the security lists
+  authoritative and the user's choices final.
+- **Alternatives:** delete `overrides.tsv` (lists as they are), or also let
+  `allow` lift `enigma-blocked.txt` (`SourceQuality.isBlocked`).
+- **Reversible:** yes.
+
+
+### D57 — 2026-10-30 05:59, CP3 — More overrides: crowdfunding/petition sites readable, preprints and AWS docs not penalised
+
+- **Decided (orchestrator):** extends D55/D56. `overrides.tsv` adds `allow`
+  for kickstarter.com, gofundme.com, indiegogo.com, change.org and lulu.com
+  (blocked only because Wikipedia's link-spam blacklist flags them, `gu|b=y`);
+  `neutral` for arxiv.org, biorxiv.org, medrxiv.org and aws.amazon.com, so
+  their authority bonus isn't cancelled by a "generally unreliable" rating on
+  the preprint row or on amazon.com; and academia.edu loses the `.edu`
+  authority bonus (it's a commercial site). D50's mapping of `gu|b=y` to
+  blocked stays for everything else (naturalnews.com, globalresearch.ca…).
+  Security blocks are still never lifted.
+- **Why:** reviewer round 1: questions about a named campaign or petition
+  could never read its page; arXiv (named as research authority in spec §3.3)
+  and AWS docs ranked below an unknown blog.
+- **Alternatives:** map `gu|b=y` to `gu` in `scripts/update-search-lists.py`
+  (also unblocks misinformation sites), or let authority override a parent's
+  rating in `SourceQuality.swift`.
+- **Reversible:** yes.
+
+### D58 — 2026-10-30 06:00, CP3 — Round-1 fix details
+
+- **Decided (worker CP3):**
+  1. D57's entries go into `overrides.tsv` (`allow` for the five
+     crowdfunding/petition sites; `neutral` for arxiv.org, biorxiv.org,
+     medrxiv.org and aws.amazon.com). biorxiv and medrxiv aren't added to
+     `authority.txt`, so they get 1.0, not 1.3.
+  2. academia.edu loses the `.edu` bonus through a new exclusion line in
+     `authority.txt`: `!academia.edu` (PSL-style; it covers subdomains and
+     wins over any suffix or domain rule). `SearchDataBundle` gains
+     `authorityExclusions` (default empty, so existing initializers still
+     compile).
+  3. `URLNormalizer.key`: `/amp` matched case-sensitively; only `amp=1` and
+     `outputType=amp` dropped (names and the value `amp` compared without
+     case); a `www.`/`m.`/`mobile.`/`amp.` prefix is stripped only when what
+     remains still contains a dot (`mobile.de` keeps its host).
+- **Why:** reviewer round 1 findings 1, 2 and 4, within D57.
+- **Alternatives:** a separate `authority-exclusions.txt` file; or keep the
+  looser key (more merges, some wrong).
+- **Reversible:** yes.
+
+
+### D59 — 2026-10-30 06:14, CP3 — Keep security entries under allowed domains; no round 3; cut-off left for CP7
+
+- **Decided (orchestrator):** (1) the refresh script always keeps unsafe-list
+  entries that are an `allow` domain or its subdomain when trimming to the
+  budget (like `NEVER_DROPPED`), so the five malware-listed msn.com hosts are
+  blocked again; a Python test and a bundled-data Swift assertion
+  (`zone.msn.com` is blocked) pin it, and D56/the Hand-off wording is
+  corrected. No round 3: the fix is narrow and the reviewer's own failing
+  check becomes the regression test. (2) The 15% cut-off stays for now; with
+  DuckDuckGo alone it keeps about 6–8 results, which leaves CP5's "read 6,
+  refill" step little to refill from — CP5 keeps the cut-off in
+  `RankingTuning` and CP7 measures a lower one (0.05–0.08) against the
+  owner's "more pages read". (3) Blogs on `blogspot.com` (a public suffix)
+  get 1.0 while `*.wordpress.com` blogs get 0.5 — noted for CP7.
+- **Why:** (1) restores D55's promise that an override never lifts a
+  security block (reviewer round 2); (2)/(3) are tuning questions CP7
+  measures.
+- **Alternatives:** lower the cut-off now (`RankingTuning` in
+  `ResultRanking.swift`).
+- **Reversible:** yes.
+
+### D60 — 2026-10-30 06:14, CP3 — Round-2 fix details
+
+- **Decided (worker CP3):** `run` reads the `allow` domains from the output
+  folder's `overrides.tsv` (missing or unreadable: none) and passes them to
+  `fit_unsafe`, which puts every unsafe-list entry equal to an allowed
+  domain or under it into `unsafe.bin` before the keep order, never
+  dropping them; if those alone exceed the budget the script fails. The
+  lists are regenerated with `--sources` from the cached copies of
+  2026-10-30 (same pins, renamed to the script's file names in a scratch
+  folder), so nothing new is fetched; the manifest's `fetched` dates become
+  the regeneration date, as for any `--sources` run.
+- **Why:** D59 (reviewer round 2): the trim had dropped the five
+  malware-listed msn.com hosts, so `allow msn.com` unblocked them.
+- **Alternatives:** have the app ignore `allow` for any host below the
+  allowed domain (would also re-block legitimate msn.com subdomains on the
+  spam list).
 - **Reversible:** yes.
 

@@ -28,15 +28,53 @@ final class WebSearchSettings: ObservableObject {
     didSet { defaults.set(automaticallySearch, forKey: Self.automaticSearchKey) }
   }
   var canSearchAutomatically: Bool { automaticallySearch && hasAPIKey }
+  static let blockedSitesKey = "webSearch.blockedSites"
+  static let maximumBlockedSites = 500
+  /// The sites the user chose never to use: registrable domains only, oldest first (spec §7).
+  @Published private(set) var blockedSites: [String]
   private static let automaticSearchKey = "webSearch.automaticallySearch"
   private let defaults: UserDefaults
   private let credentials: any WebSearchCredentialStore
+  /// Resolved on the first `block(_:)`, so launch doesn't load the bundled lists (decision D54).
+  private let publicSuffixes: () -> PublicSuffixList?
 
-  init(credentials: any WebSearchCredentialStore = KeychainSearchCredentialStore(), defaults: UserDefaults = .standard) {
+  init(credentials: any WebSearchCredentialStore = KeychainSearchCredentialStore(), defaults: UserDefaults = .standard,
+       publicSuffixes: @autoclosure @escaping () -> PublicSuffixList? = SearchDataBundle.bundled?.publicSuffixes) {
     self.credentials = credentials
     self.defaults = defaults
+    self.publicSuffixes = publicSuffixes
     automaticallySearch = defaults.object(forKey: Self.automaticSearchKey) as? Bool ?? true
     hasAPIKey = (try? credentials.containsAPIKey()) ?? false
+    blockedSites = Self.sanitizedBlockList(defaults.stringArray(forKey: Self.blockedSitesKey) ?? [])
+  }
+
+  /// Stores the URL's registrable domain, never the URL or its path; without the Public Suffix
+  /// List, the host without "www.". Over the limit, the oldest entries go.
+  func block(_ url: URL) {
+    guard let host = url.host(percentEncoded: false).flatMap(PublicSuffixList.normalizedHost) else { return }
+    let domain = publicSuffixes()?.registrableDomain(of: host)
+      ?? (host.hasPrefix("www.") && host.count > 4 ? String(host.dropFirst(4)) : host)
+    guard !blockedSites.contains(domain) else { return }
+    blockedSites = Array((blockedSites + [domain]).suffix(Self.maximumBlockedSites))
+    defaults.set(blockedSites, forKey: Self.blockedSitesKey)
+  }
+
+  func unblock(_ domain: String) {
+    guard let domain = PublicSuffixList.normalizedHost(domain), blockedSites.contains(domain) else { return }
+    blockedSites.removeAll { $0 == domain }
+    defaults.set(blockedSites, forKey: Self.blockedSitesKey)
+  }
+
+  /// Lowercased, deduplicated domains, at most `maximumBlockedSites` of them; anything holding a
+  /// path, scheme or space is dropped.
+  private static func sanitizedBlockList(_ stored: [String]) -> [String] {
+    var seen = Set<String>()
+    let domains = stored.compactMap { entry -> String? in
+      guard !entry.contains(where: { "/:@ ?#".contains($0) }),
+            let domain = PublicSuffixList.normalizedHost(entry), seen.insert(domain).inserted else { return nil }
+      return domain
+    }
+    return Array(domains.suffix(maximumBlockedSites))
   }
 
   func saveAPIKey(_ value: String) throws {

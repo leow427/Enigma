@@ -1,0 +1,26 @@
+# Reviewed exceptions to the downloaded lists (decisions D55, D56). domain<TAB>action; a domain
+# covers its subdomains. Lines starting with # are comments. Kept by the refresh script.
+#   neutral  ignore the domain's Wikipedia Perennial sources status (no reliability factor)
+#   allow    lift a spam-list or Perennial deprecated/blacklisted block
+# An override never lifts an unsafe (security) list block, the user's own block or
+# enigma-blocked.txt, and leaves the authority and unreadable factors alone.
+wikipedia.org	neutral
+stackoverflow.com	neutral
+stackexchange.com	neutral
+superuser.com	neutral
+serverfault.com	neutral
+askubuntu.com	neutral
+investopedia.com	neutral
+msn.com	allow
+healthline.com	allow
+# Decision D57: crowdfunding and petition sites, flagged only by Wikipedia's link-spam blacklist.
+kickstarter.com	allow
+gofundme.com	allow
+indiegogo.com	allow
+change.org	allow
+lulu.com	allow
+# Decision D57: keep the authority bonus of preprint servers and AWS docs from being cancelled.
+arxiv.org	neutral
+biorxiv.org	neutral
+medrxiv.org	neutral
+aws.amazon.com	neutral

@@ -1,0 +1,9 @@
+---
+name: Sample list
+---
+# Domain-level entries
+*://*.example.com/*
+*://example.org/*
+! a comment
+*://*.example.net/blog/*
+/^https?:\/\/[^/]+\.spam\.example\//

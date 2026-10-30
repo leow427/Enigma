@@ -1,0 +1,197 @@
+{
+  "generated": "2026-10-30",
+  "budgetBytes": 3145728,
+  "totalBytes": 3129228,
+  "sources": [
+    {
+      "name": "phishing-database-active",
+      "format": "domains",
+      "url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/12a20bf8dd2b7e78d9d38fc12b3e5c970f79d1a7/phishing-domains-ACTIVE.txt",
+      "version": "12a20bf8dd2b7e78d9d38fc12b3e5c970f79d1a7",
+      "fetched": "2026-10-30",
+      "entries": 386597,
+      "skipped": 5566,
+      "dropped": 321253,
+      "licence": "MIT",
+      "sha256": "70c6c2e24e6b3484e7ace27b079723e55937bc1f4cbd98bea38a472ec8e37326"
+    },
+    {
+      "name": "blocklistproject-malware",
+      "format": "hosts",
+      "url": "https://raw.githubusercontent.com/blocklistproject/Lists/ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6/malware.txt",
+      "version": "ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6",
+      "fetched": "2026-10-30",
+      "entries": 2655820,
+      "skipped": 573,
+      "dropped": 2591542,
+      "licence": "Unlicense",
+      "sha256": "0b439fa1a71f1482eaf922321ee7c824beabebdd81173b68ead7e4ffa07e0115"
+    },
+    {
+      "name": "blocklistproject-phishing",
+      "format": "hosts",
+      "url": "https://raw.githubusercontent.com/blocklistproject/Lists/ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6/phishing.txt",
+      "version": "ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6",
+      "fetched": "2026-10-30",
+      "entries": 190193,
+      "skipped": 22,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "4407e6b9af2fa1e4def92ed523643a3380448fde81837341ffc596c6e781f134"
+    },
+    {
+      "name": "blocklistproject-scam",
+      "format": "hosts",
+      "url": "https://raw.githubusercontent.com/blocklistproject/Lists/ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6/scam.txt",
+      "version": "ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6",
+      "fetched": "2026-10-30",
+      "entries": 8527,
+      "skipped": 0,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "0a8071ae6dfdb6b7f3e189efd01a0acc1ed55f85ec9d734c9ac0b2838f52e045"
+    },
+    {
+      "name": "blocklistproject-fraud",
+      "format": "hosts",
+      "url": "https://raw.githubusercontent.com/blocklistproject/Lists/ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6/fraud.txt",
+      "version": "ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6",
+      "fetched": "2026-10-30",
+      "entries": 285200,
+      "skipped": 0,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "6bb74f2803e5fcf6e7fef7bd3bb71d89688d2277864bc0055d2e400f3891b3ab"
+    },
+    {
+      "name": "popcar2-badwebsiteblocklist",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/popcar2/BadWebsiteBlocklist/8c1cee4370955cd8fbc8a5ce57cbafd113801ab4/uBlacklist.txt",
+      "version": "8c1cee4370955cd8fbc8a5ce57cbafd113801ab4",
+      "fetched": "2026-10-30",
+      "entries": 214,
+      "skipped": 204,
+      "dropped": 0,
+      "licence": "CC0-1.0",
+      "sha256": "a4d2e5f6257f813e5e525bcd97dc07fa61474ac61b81bac95f2eab10050ec711"
+    },
+    {
+      "name": "agsimmons-ai-content-blocklist",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/agsimmons/ai-content-blocklist/91e0b84e9e389fd73df789dbdc1d507367d7f4e0/uBlacklist.txt",
+      "version": "91e0b84e9e389fd73df789dbdc1d507367d7f4e0",
+      "fetched": "2026-10-30",
+      "entries": 57,
+      "skipped": 1,
+      "dropped": 0,
+      "licence": "CC0-1.0",
+      "sha256": "2681c827cb506233e72d07ea5bae3a4ed090566aa8df3cc09c5cbfdc8102d415"
+    },
+    {
+      "name": "quenhus-github-copycats",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/393af27d4d6daaf070035e7cd56d162dac36eef5/data/github_copycats.txt",
+      "version": "393af27d4d6daaf070035e7cd56d162dac36eef5",
+      "fetched": "2026-10-30",
+      "entries": 87,
+      "skipped": 1,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "f02e8152f77e2b598e2537690db7fdded1fa1b6d26660d495b87ae1ec29b6377"
+    },
+    {
+      "name": "quenhus-npm-copycats",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/393af27d4d6daaf070035e7cd56d162dac36eef5/data/npm_copycats.txt",
+      "version": "393af27d4d6daaf070035e7cd56d162dac36eef5",
+      "fetched": "2026-10-30",
+      "entries": 2,
+      "skipped": 0,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "4a478ab94badc061f5d15a863e0cf8b523c69c506e918cda981c0edacf7e0f38"
+    },
+    {
+      "name": "quenhus-seo-spam",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/393af27d4d6daaf070035e7cd56d162dac36eef5/data/seo_spam.txt",
+      "version": "393af27d4d6daaf070035e7cd56d162dac36eef5",
+      "fetched": "2026-10-30",
+      "entries": 38,
+      "skipped": 1,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "e02cb7bca8c61648db2efbd0efcc24e0b6a199365c424db43f1fc09e56719193"
+    },
+    {
+      "name": "quenhus-stackoverflow-copycats",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/393af27d4d6daaf070035e7cd56d162dac36eef5/data/stackoverflow_copycats.txt",
+      "version": "393af27d4d6daaf070035e7cd56d162dac36eef5",
+      "fetched": "2026-10-30",
+      "entries": 535,
+      "skipped": 0,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "bf5298829988884c5ffa3a6d3d4872924b5a4f79e89e4c97b1ad29231730e800"
+    },
+    {
+      "name": "quenhus-wikipedia-copycats",
+      "format": "ublacklist",
+      "url": "https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/393af27d4d6daaf070035e7cd56d162dac36eef5/data/wikipedia_copycats.txt",
+      "version": "393af27d4d6daaf070035e7cd56d162dac36eef5",
+      "fetched": "2026-10-30",
+      "entries": 44,
+      "skipped": 2,
+      "dropped": 0,
+      "licence": "Unlicense",
+      "sha256": "95f80e6dad0a476ca949fb79c335b6e47e6ec662ac50fec141b450c9307b9ccc"
+    },
+    {
+      "name": "wikipedia-perennial-sources",
+      "format": "rsp",
+      "url": "https://en.wikipedia.org/w/api.php?action=parse&page=Wikipedia:Reliable_sources/Perennial_sources&prop=wikitext%7Crevid&format=json&formatversion=2",
+      "version": "rev 1382387523; /1 rev 1380073264; /2 rev 1380962674; /3 rev 1380844894; /4 rev 1369128252; /5 rev 1379443891; /6 rev 1382553114; /7 rev 1378987828; /8 rev 1381439120",
+      "fetched": "2026-10-30",
+      "entries": 748,
+      "skipped": 30,
+      "dropped": 0,
+      "licence": "CC BY-SA 4.0",
+      "sha256": "a083492230980c921fd0b1b20cea205b3631a23416c908c0f40326848d25e308"
+    },
+    {
+      "name": "public-suffix-list",
+      "format": "psl",
+      "url": "https://publicsuffix.org/list/public_suffix_list.dat",
+      "version": "2026-10-28_13-15-55_UTC",
+      "fetched": "2026-10-30",
+      "entries": 10397,
+      "skipped": 0,
+      "dropped": 0,
+      "licence": "MPL-2.0",
+      "sha256": "1f96bae40adfc22ca2474d7c0099bbcfcb25aefd3e2547b5c2147c0dd2e3ebd9"
+    }
+  ],
+  "curated": [
+    {
+      "name": "authority.txt",
+      "entries": 80,
+      "sha256": "ac948d182c979c7dd901707199d24ca4be0fc42deda0a75dc490485a1c22a774"
+    },
+    {
+      "name": "unreadable.txt",
+      "entries": 19,
+      "sha256": "ebbfe01ab131e886ee3ae563ea3a6dbb71a570bd7d81e4b40e73a01312d8d9bd"
+    },
+    {
+      "name": "enigma-blocked.txt",
+      "entries": 0,
+      "sha256": "4564b5865791e3238c06ce53ef6319aebbec72292a0231e12fc687140152381d"
+    },
+    {
+      "name": "overrides.tsv",
+      "entries": 18,
+      "sha256": "e7c9f961b48643d1ef40d6dc1e2e51f032fb221cb66d5e16c291cb3c2b04786d"
+    }
+  ]
+}
