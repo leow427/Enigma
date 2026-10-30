@@ -188,6 +188,8 @@ Startpage runs, and every page uses its full window, is about 7 s.
   - `evidenceTokens` 8,192.
 - `ApproximateLocation` keeps its latitude and longitude as numbers, rounded
   to 2 decimals (about 1 km), next to the display text it has today.
+  *Amended (owner, 2026-10-31):* it also keeps the exact coordinate, which
+  only the model answering gets, local or cloud.
 
 **New files:**
 
@@ -761,7 +763,9 @@ today. If location is off, denied or unavailable, the tool returns "The
 user's location isn't available. Ask which city or area they mean." and the
 model carries on. No card asks first (owner, 2026-10-29): the Location
 setting and macOS's permission are the gates, and only the city or a
-coordinate rounded to about 1 km is used.
+coordinate rounded to about 1 km is sent to Apple Maps and Open-Meteo.
+*Amended (owner, 2026-10-31):* the distances in the result are measured from
+the exact location.
 
 **Gate 3.** In a chat that holds message text, `find_places` and
 `get_weather` ask first, like `web_search`: the card shows "Find ‹query›
@@ -915,10 +919,10 @@ Under every reply whose evidence included a `.places` result, on any route.
 | Result sites, up to 6 at a time *(amended, owner approved 2026-10-30)*; more when a read fails or the "enough?" check reads again | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
 | Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region; *(amended, orchestrator, owner to confirm)* the coordinates rounded to about 1 km, reverse-geocoded to find the city | Places questions; *(amended, orchestrator, owner to confirm)* any nearby question (near-me web searches, weather near you, `find_places` near you) |
-| The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today | Every search a cloud model makes |
+| The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today; *(amended, owner, 2026-10-31)* for a nearby question, the exact location and places' distances measured from it | Every search a cloud model makes |
 
 - **Never sent:** conversation history, attached files, Messages content,
-  provider credentials, precise coordinates, and whole selections or
+  provider credentials, precise coordinates (except to the model answering), and whole selections or
   screenshots. These reach a query only through the B11 query-writing
   prompt.
 - **Compared with Brave:**
@@ -932,7 +936,9 @@ Under every reply whose evidence included a `.places` result, on any route.
   `web_search`, `find_places` and `get_weather` call asks first (gate 3).
   A capable model may look up places or weather near the user without the
   user's wording asking for it (owner, 2026-10-29); the city, or a
-  coordinate rounded to about 1 km, is all that's used.
+  coordinate rounded to about 1 km, is all that's sent to search sites,
+  Apple Maps and Open-Meteo. *Amended (owner, 2026-10-31):* the model
+  answering, local or cloud, gets the exact location.
 - *Amended (owner approved 2026-10-30):* the query rewrite and the
   "enough?" check (section 6.1) run on the Mac with the chat's own loaded
   model; only the keyword queries they produce, and the entity name, leave
@@ -1037,7 +1043,7 @@ Under every reply whose evidence included a `.places` result, on any route.
 
   | Where | New text |
   | --- | --- |
-  | `SettingsView.locationExplanation` | "When you ask about the weather or nearby places, macOS asks for permission. Search sites get only your city; weather uses coordinates rounded to about 1 km, and Apple Maps gets your approximate area. Nothing is saved and nothing runs in the background." |
+  | `SettingsView.locationExplanation` | "When you ask about the weather or nearby places, macOS asks for permission. The model answering, local or cloud, can get your exact location. Search sites get only your city; weather and Apple Maps get coordinates rounded to about 1 km. Nothing is saved and nothing runs in the background." *(amended, owner, 2026-10-31)* |
   | `EnigmaMainWindowLogic.searchNote` | Ends "…controlled in Settings → Cloud and search → Web search." |
   | `AutoRouter` | "Use /search in your message to look this up on the web." |
   | `EnigmaControls` gallery | The "Brave API key" placeholder becomes "API key" |

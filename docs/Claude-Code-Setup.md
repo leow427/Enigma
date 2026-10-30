@@ -129,7 +129,7 @@ stays off. Anthropic runs the searches; they count toward your Claude plan.
 If Claude Code's start-up message doesn't list
 `WebSearch` (a policy withheld it), Enigma ends the process and asks again with
 its own `web_search`. After you allow location for Claude Code, the
-instructions name your approximate area; coordinates never leave this Mac. See
+instructions name your approximate area; its search never gets coordinates. See
 [Web search](Web-Search.md#cloud-models-own-search).
 
 ## How it works

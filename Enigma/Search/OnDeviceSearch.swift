@@ -212,7 +212,7 @@ struct OnDeviceSearchProvider: WebSearchProvider {
     } catch {
       webResults = .failure(error)
     }
-    let mapResults = await found ?? []
+    let mapResults = (await found ?? []).map { MapKitPlaceSearch.measured($0, from: request.distanceOrigin) }
     try Task.checkCancellation()
     guard !mapResults.isEmpty else { return try webResults.get() }
     let excerpt = PlaceSearch.excerpt(mapResults, query: mapQuery, units: units())

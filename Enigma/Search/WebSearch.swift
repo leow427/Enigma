@@ -25,7 +25,8 @@ enum SearchRoute: String, Equatable, Sendable { case web, places, weather }
 /// Raw values are the search sites' date-filter codes.
 enum SearchRecency: String, Equatable, Sendable { case day = "d", week = "w", month = "m", year = "y" }
 
-/// Rounded to 2 decimals (about 1 km) before it leaves `ApproximateLocation`.
+/// A point: rounded to 2 decimals (about 1 km) whenever it leaves the Mac for a search site, Apple Maps or
+/// Open-Meteo; exact only as `ApproximateLocation.exactCoordinate` and `WebSearchRequest.distanceOrigin`.
 struct SearchCoordinate: Equatable, Sendable {
   let latitude: Double
   let longitude: Double
@@ -37,6 +38,9 @@ struct WebSearchRequest: Equatable, Sendable {
   var route: SearchRoute = .web
   var city: String? = nil
   var coordinate: SearchCoordinate? = nil
+  /// Where places' distances are measured from: the exact location, for the model only. Apple Maps
+  /// searches around the rounded `coordinate`.
+  var distanceOrigin: SearchCoordinate? = nil
   var namedPlace: String? = nil
   var recency: SearchRecency? = nil
   var maximumTokens: Int

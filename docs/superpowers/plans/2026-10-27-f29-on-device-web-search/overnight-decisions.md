@@ -208,6 +208,7 @@ The summary at the top is written when the run ends.
 
 **After CP10**
 - D174 Gate 3: web search, places and weather each have their own grant (owner) — R
+- D175 The model answering gets the exact location, local or cloud (owner) — R
 
 **Checks not run or failed**
 - The relaxed quality gate (D3) failed on the typed judge share: on-device equal or better on 47% (26 on-device, 32 Brave, 2 ties of 60). Hence D128: on-device by default, Brave kept as an option with a saved key.
@@ -232,7 +233,7 @@ The summary at the top is written when the run ends.
 - **CP8:** D128–D144
 - **CP9:** D145–D163
 - **CP10:** D164–D173
-- **After CP10:** D174
+- **After CP10:** D174–D175
 
 ## Entries
 
@@ -2768,3 +2769,11 @@ view is released, not from extraction. The CI failures were most likely the
 - **Why:** owner's decision; each tool sends something different to a different company.
 - **Alternatives:** the shared grant (map both new cases to `.searchAfterMessages` in `ToolAlwaysGrant.init(_:destination:)`).
 - **Reversible:** yes.
+
+### D175 — 2026-10-31 01:40, after CP10 — The model answering gets the exact location
+
+- **Decided (owner, 2026-10-31):** first "for local models, they should be able to use your exact coordinates. Cloud should default to 1km rounded, but have the option to change to your exact coordinates in settings", then "lets do exact coordinates for both". Location Services is asked for a precise fix (`kCLLocationAccuracyNearestTenMeters`, was kilometre). `ApproximateLocation` keeps the exact coordinate beside the rounded one. The model answering a nearby question, local or cloud, gets "Current location: ‹area› (‹exact coordinates›)", and places' distances are measured from the exact location on both the small-model route and `find_places`. What leaves the Mac otherwise is unchanged: search sites and Brave get the city only; Apple Maps, Open-Meteo and reverse geocoding get coordinates rounded to about 1 km; a provider's own search gets the area only. Nothing is saved. No Settings option, since both kinds of model get the same.
+- **Why:** owner's decision; better nearby answers and distances.
+- **Alternatives:** exact for local only, rounded for cloud with a Settings switch (the owner's first version); rounded for every model (before; `ApproximateLocation.modelContext`, `WebSearchRequest.distanceOrigin`).
+- **Reversible:** yes.
+- **Review (Opus, one round):** one Blocker, fixed: the share-location card said "Enigma never sends your exact position", now "Its search gets only this area, never your coordinates." Also fixed: macOS's location prompt (`NSLocationUsageDescription`) now says the model gets the exact location; "Never sent" in the docs excepts the model; the model is told not to repeat the coordinates, so they don't end up in the saved answer; comments and the "Finding your location…" status. On models that use tools, the model gets no coordinate line, only `find_places` distances measured from the exact location (`get_weather` sends it none); the docs say so. People who allowed location before keep their grant: macOS won't show the new prompt text to them. No second round: every fix is wording, checked by reading and by the targeted tests. Full suite: 2055 tests, 40 skipped, 1 failure, the D144 send-now flake, which passes alone.

@@ -26,7 +26,7 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     }
     detail = switch (permission, destination) {
     case (.shareLocation(let provider, let area), _):
-      "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Enigma never sends your exact position."
+      "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Its search gets only this area, never your coordinates."
     case (.providerSearchAfterMessages(let provider), let company):
       "This chat includes text from your messages. \(provider.shortName)'s web search runs its own queries on \(company.displayName)'s servers, and Enigma can't check each one."
     // Enigma's own `web_search`: on this Mac's search sites, or Brave with a saved key (D131).

@@ -157,7 +157,8 @@ whether to call them and writes their arguments itself:
   Open-Meteo.
 
 A model may look up places or the weather near you without your wording asking
-for it; only your city, or a coordinate rounded to about 1 km, is used.
+for it. Apple Maps and Open-Meteo get only your city or a coordinate rounded to
+about 1 km; the distances the model sees are measured from your exact location.
 
 - Automatic search off: the tools are offered only when you type `/search` or
   `/maps`.
@@ -319,7 +320,7 @@ and the answer.
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
 | Apple (MapKit) | The place query and your approximate area or the named area; your coordinates rounded to about 1 km, to find your city; map tiles for the card's region | Places questions, and any nearby question |
 | Brave, only while a key is saved | The query and, for nearby questions, your city only; your key; your IP address | Web searches only |
-| The model's provider, on cloud routes | The excerpts, places list or forecast | Every search a cloud model makes |
+| The model's provider, on cloud routes | The excerpts, places list or forecast; for a nearby question, your exact location and places' distances measured from it | Every search a cloud model makes |
 
 - **The query.** Normally it's your current question, trimmed to 50 words and
   400 characters. Slash commands such as `/think`, `/edit` and `/translate` are
@@ -340,7 +341,7 @@ and the answer.
   from the attached material alone. If the model can't write a usable query,
   Enigma says so, names the screen or the attached text, and keeps your draft.
 - **Never sent:** conversation history, attached files, Messages content,
-  model-provider credentials, precise coordinates, and whole selections or
+  model-provider credentials, precise coordinates (except to the model answering), and whole selections or
   screenshots.
 - **Compared with a keyed search service:** queries aren't tied to an account
   key, and coordinates don't go to a search site. More parties see your IP
@@ -374,9 +375,12 @@ and the answer.
 **Settings → General → Location → Use location for nearby questions** is on by
 default. It's used only for a nearby question without a named place: places and
 weather near you. macOS asks for permission the first time. The area is used for
-that question only, is not saved, and requests give up after 20 seconds. Search
-sites get only your city; weather uses coordinates rounded to about 1 km, and
-Apple Maps gets your approximate area. If location is off, denied or
+that question only, is not saved, and requests give up after 20 seconds. The
+model answering, local or cloud, can get your exact location: when Enigma
+searches for a nearby question, the model gets your area and exact
+coordinates, and is told not to repeat the coordinates; on models that use
+tools, `find_places` gives distances measured from it. Search sites get only your city; weather and
+Apple Maps get coordinates rounded to about 1 km. If location is off, denied or
 unavailable, Enigma asks you to name a city and doesn't search; once you decline
 in a chat, it stays declined for the rest of that chat. On ChatGPT and Claude
 Code, the area reaches the provider's search only after you allow it on that

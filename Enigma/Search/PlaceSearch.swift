@@ -8,7 +8,7 @@ struct MapPlace: Equatable, Sendable, Identifiable {
   let id: String
   let name: String
   let coordinate: SearchCoordinate
-  /// From the user's rounded location, computed on the Mac; nil for a named area.
+  /// From the user's exact location, computed on the Mac; nil for a named area.
   let distanceMeters: Double?
 }
 
@@ -63,6 +63,17 @@ struct MapKitPlaceSearch: PlaceSearching {
                                          coordinate: result.place.coordinate, distanceMeters: distance),
                          category: result.category, address: result.address, phone: result.phone, website: result.website)
     }
+  }
+
+  /// The result with its distance measured from `origin` (the exact location) on this Mac; unchanged
+  /// without one.
+  static func measured(_ result: PlaceResult, from origin: SearchCoordinate?) -> PlaceResult {
+    guard let origin else { return result }
+    var place = result.place
+    place = MapPlace(id: place.id, name: place.name, coordinate: place.coordinate,
+                     distanceMeters: distance(from: origin, to: place.coordinate))
+    return PlaceResult(place: place, category: result.category, address: result.address, phone: result.phone,
+                       website: result.website)
   }
 
   static func distance(from origin: SearchCoordinate, to destination: SearchCoordinate) -> Double {

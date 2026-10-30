@@ -1436,7 +1436,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(card.request.permission, .shareLocation(provider: .openAI, area: Self.austinArea))
     XCTAssertEqual(card.request.title, "Share your location with OpenAI?")
     XCTAssertEqual(card.request.detail,
-                   "OpenAI's web search will use Austin, TX, United States to find nearby results. Enigma never sends your exact position.")
+                   "OpenAI's web search will use Austin, TX, United States to find nearby results. Its search gets only this area, never your coordinates.")
     XCTAssertTrue(card.request.offersAlways)
     let sent = try XCTUnwrap(provider.runs.first?.request.providerSearch?.location)
     XCTAssertEqual(sent, ProviderSearchLocation(city: "Austin", region: "TX", countryCode: "US",

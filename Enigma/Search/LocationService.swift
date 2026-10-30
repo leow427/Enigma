@@ -221,10 +221,13 @@ struct ApproximateLocation: Equatable, Sendable {
   static let unknownArea = "current area"
   let area: String
   let coordinates: String
-  /// Rounded to 2 decimals, about 1 km.
+  /// Rounded to 2 decimals, about 1 km: what Apple Maps, Open-Meteo and reverse geocoding get.
   let latitude: Double
   let longitude: Double
   var coordinate: SearchCoordinate { SearchCoordinate(latitude: latitude, longitude: longitude) }
+  /// As Location Services gave it, for the model answering a nearby question, local or cloud (owner,
+  /// 2026-10-31). Never sent to a search site, Apple Maps or Open-Meteo.
+  let exactCoordinate: SearchCoordinate
   /// The geocoded parts a provider's search may get (F30), when the geocoder gave them.
   var city: String?
   var region: String?
@@ -233,7 +236,12 @@ struct ApproximateLocation: Equatable, Sendable {
   /// What search sites get for "near me" (F29): the area with its context, such as "Austin, TX", since they
   /// never get coordinates. Nil when reverse geocoding found nothing.
   var searchCity: String? { area == Self.unknownArea ? nil : area }
-  var searchContext: String { "Approximate current location: \(area) (\(coordinates))" }
+  /// The location line the model gets with a nearby question: the exact coordinate.
+  var modelContext: String {
+    let exact = String(format: "%.5f, %.5f", locale: Locale(identifier: "en_US_POSIX"),
+                       exactCoordinate.latitude, exactCoordinate.longitude)
+    return "Current location: \(area) (\(exact))"
+  }
 
   /// What a provider's own web search gets once the user allows it (spec §2a): the area and this
   /// Mac's time zone. Coordinates stay on the Mac.
@@ -244,6 +252,7 @@ struct ApproximateLocation: Equatable, Sendable {
   init(latitude: Double, longitude: Double, area: String = ApproximateLocation.unknownArea,
        city: String? = nil, region: String? = nil, countryCode: String? = nil) {
     self.area = area
+    exactCoordinate = SearchCoordinate(latitude: latitude, longitude: longitude)
     let latitude = (latitude * 100).rounded() / 100
     let longitude = (longitude * 100).rounded() / 100
     self.latitude = latitude
@@ -305,8 +314,9 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
         let manager = CLLocationManager()
         self.manager = manager
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyKilometer
-        status = "Finding your approximate location…"
+        // Precise, for the model (owner, 2026-10-31); search sites, Apple Maps and Open-Meteo get it rounded.
+        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        status = "Finding your location…"
         timeout = Task { [weak self] in
           do { try await Task.sleep(for: .seconds(20)) } catch { return }
           guard self?.requestID == id else { return }
@@ -338,11 +348,11 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     guard self.manager === manager, geocoder == nil,
           let location = locations.last(where: { $0.horizontalAccuracy >= 0 && abs($0.timestamp.timeIntervalSinceNow) < 300 }) else { return }
     manager.stopUpdatingLocation()
-    // Round before reverse geocoding or sharing with search/model providers.
-    let latitude = (location.coordinate.latitude * 100).rounded() / 100
-    let longitude = (location.coordinate.longitude * 100).rounded() / 100
-    let fallback = ApproximateLocation(latitude: latitude, longitude: longitude)
-    guard let geocoder = MKReverseGeocodingRequest(location: CLLocation(latitude: latitude, longitude: longitude)) else {
+    // Reverse geocoding gets the rounded coordinate; the exact one stays on the Mac.
+    let exact = location.coordinate
+    let fallback = ApproximateLocation(latitude: exact.latitude, longitude: exact.longitude)
+    guard let geocoder = MKReverseGeocodingRequest(location: CLLocation(latitude: fallback.latitude,
+                                                                       longitude: fallback.longitude)) else {
       finish(.success(fallback))
       return
     }
@@ -351,7 +361,7 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
       guard let self, let manager, self.manager === manager else { return }
       let address = items?.first?.addressRepresentations
       let area = address?.cityWithContext ?? ""
-      self.finish(.success(area.isEmpty ? fallback : ApproximateLocation(latitude: latitude, longitude: longitude, area: area,
+      self.finish(.success(area.isEmpty ? fallback : ApproximateLocation(latitude: exact.latitude, longitude: exact.longitude, area: area,
         city: address?.cityName, region: Self.region(cityWithContext: area, city: address?.cityName, country: address?.regionName),
         countryCode: address?.region?.identifier)))
     }

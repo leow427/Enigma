@@ -63,10 +63,11 @@ final class PlacesAndWeatherToolTests: XCTestCase {
       .execute(name: "find_places", arguments: .object(["query": .string("coffee")]))
     XCTAssertTrue(result.success)
     XCTAssertEqual(places.calls.map(\.query), ["coffee"])
+    // Apple Maps gets the rounded location; the model's distance is measured from the exact one (owner, 2026-10-31).
     XCTAssertEqual(places.calls.map(\.coordinate), [SearchCoordinate(latitude: 41.88, longitude: -87.63)])
     let found = try XCTUnwrap(try json(result.text)["places"] as? [[String: Any]])
     XCTAssertEqual(found.first?["name"] as? String, "Blue Bottle")
-    XCTAssertEqual(found.first?["distance"] as? String, "0.4 km")
+    XCTAssertEqual(found.first?["distance"] as? String, "0.2 km")
     XCTAssertEqual(found.first?["website"] as? String, "https://cafe.example")
     XCTAssertEqual(recorder.titles, ["Find coffee near you?"])
     XCTAssertEqual(recorder.places.map(\.name), ["Blue Bottle"])

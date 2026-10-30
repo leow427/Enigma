@@ -103,7 +103,9 @@ struct PlaceSearchTool: AgentToolbox {
                              success: false)
     }
     guard !found.isEmpty else { return AgentToolResult(text: PlacesAndWeatherTools.noPlaces, success: false) }
-    let listed = Array(found.prefix(MapKitPlaceSearch.maximumResults))
+    // Apple Maps searched around the rounded location; the model gets distances from the exact one.
+    let listed = found.prefix(MapKitPlaceSearch.maximumResults)
+      .map { MapKitPlaceSearch.measured($0, from: near?.exactCoordinate) }
     // The saved source names the query only: never the area, which a model could fill with the
     // user's city, nor coordinates.
     await onSources([WebSearchSource(title: PlaceSearch.sourceTitle, url: Self.sourceURL(query: query, city: near?.searchCity ?? area))])

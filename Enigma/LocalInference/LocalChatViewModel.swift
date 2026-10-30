@@ -2234,9 +2234,11 @@ final class LocalChatViewModel: ObservableObject {
       let location = try await locationProvider.currentLocation()
       try Task.checkCancellation()
       guard activeRequest?.id == requestID else { throw CancellationError() }
-      requestLocationContext = location.searchContext
+      // The model gets the exact location, local or cloud; the search sites only the city (owner, 2026-10-31).
+      requestLocationContext = location.modelContext
       request.city = location.searchCity
       request.coordinate = location.coordinate
+      request.distanceOrigin = location.exactCoordinate
     }
     // Only the embedded text engine's models: a vision model on this path gets the code-only
     // clean-up and no check (D120, D124).
@@ -2309,7 +2311,7 @@ final class LocalChatViewModel: ObservableObject {
   private func locationGrounded(_ messages: [ChatMessage]) -> [ChatMessage] {
     guard let context = requestLocationContext, !messages.isEmpty else { return messages }
     var result = messages
-    result[result.count - 1].content += "\n\n" + context + "\nUse this area for this question only; mention the area in your answer."
+    result[result.count - 1].content += "\n\n" + context + "\nUse this location for this question only; mention the area in your answer, but don't repeat the coordinates."
     return result
   }
 

@@ -207,11 +207,12 @@ part of a search, places lookup or weather check.
 
 - macOS asks for location permission the first time a qualifying question is
   sent.
-- Enigma requests one location at kilometer accuracy and rounds the
-  coordinates to two decimal places before looking up the area name with Apple
-  MapKit or sharing anything. Search sites get only your city; weather uses
-  coordinates rounded to about 1 km, and Apple Maps gets your approximate area.
-  The area also goes into that request's context for the model.
+- Enigma requests one precise location. It rounds the coordinates to two
+  decimal places, about 1 km, before looking up the area name with Apple MapKit
+  or sending them to Apple Maps or Open-Meteo. Search sites get only your city.
+  When Enigma searches for a nearby question, the model answering, local or
+  cloud, gets the area and your exact coordinates in that request's context;
+  on models that use tools, `find_places` gives distances measured from them.
 - The location isn't saved with your prompt or reused for later requests, and
   there is no background tracking. The answer may name the area and is saved
   like any other chat.

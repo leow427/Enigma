@@ -60,15 +60,18 @@ final class WebSearchTests: XCTestCase {
       XCTAssertEqual(requests.last?.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
       let localRequests = await engine.requests
       let context = localRequests.last?.prompt ?? cloud.requests.last?.messages.last?.content ?? ""
-      XCTAssertTrue(context.contains("Approximate current location: Chicago"))
+      // The model gets the exact location on every route; the search request only the rounded one (owner, 2026-10-31).
+      XCTAssertTrue(context.contains("Current location: Chicago (41.87811, -87.62980)"), route)
+      XCTAssertEqual(requests.last?.distanceOrigin, SearchCoordinate(latitude: 41.8781136, longitude: -87.6297982))
       XCTAssertEqual(model.messages.first?.content, prompt)
       await model.sessionWriter.waitForPendingWrites()
       let saved = String(decoding: try JSONEncoder().encode(store.load()), as: UTF8.self)
       XCTAssertFalse(saved.contains("41.88"))
+      XCTAssertFalse(saved.contains("41.878"), "The exact location is never saved")
       model.submitCloud("Weather in Copenhagen", provider: .chatGPT, modelID: "model")
       await finish(model)
       XCTAssertEqual(location.calls, 1)
-      XCTAssertFalse(cloud.requests.last?.messages.last?.content.contains("Approximate current location") == true)
+      XCTAssertFalse(cloud.requests.last?.messages.last?.content.contains("Current location") == true)
     }
   }
 
@@ -162,6 +165,7 @@ final class WebSearchTests: XCTestCase {
     XCTAssertEqual(location.coordinate, SearchCoordinate(latitude: 41.88, longitude: -87.63))
     XCTAssertEqual(location.searchCity, "Chicago")
     XCTAssertEqual(location.coordinates, "41.88, -87.63")
+    XCTAssertNotEqual(location.exactCoordinate, location.coordinate, "The exact coordinate is kept for the model")
   }
 
   func testUnknownAreaHasNoCity() {
@@ -169,7 +173,7 @@ final class WebSearchTests: XCTestCase {
     XCTAssertNil(location.city)
     XCTAssertNil(location.searchCity)
     XCTAssertEqual(location.area, ApproximateLocation.unknownArea)
-    XCTAssertEqual(location.searchContext, "Approximate current location: current area (41.88, -87.63)")
+    XCTAssertEqual(location.modelContext, "Current location: current area (41.88000, -87.63000)")
   }
 
   func testRecencyHints() throws {

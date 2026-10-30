@@ -120,10 +120,12 @@ final class OnDeviceSearchTests: XCTestCase {
     }
 
     func search(_ query: String = OnDeviceSearchTests.question, route: SearchRoute = .web, recency: SearchRecency? = nil,
-                city: String? = nil, coordinate: SearchCoordinate? = nil, namedPlace: String? = nil,
+                city: String? = nil, coordinate: SearchCoordinate? = nil, distanceOrigin: SearchCoordinate? = nil,
+                namedPlace: String? = nil,
                 maximumTokens: Int = WebSearchLimits.evidenceTokens) async throws -> [WebSearchResult] {
-      let request = WebSearchRequest(query: query, route: route, city: city, coordinate: coordinate, namedPlace: namedPlace,
+      var request = WebSearchRequest(query: query, route: route, city: city, coordinate: coordinate, namedPlace: namedPlace,
                                      recency: recency, maximumTokens: maximumTokens)
+      request.distanceOrigin = distanceOrigin
       let events = activity
       return try await provider().search(request) { events.append($0) }
     }
@@ -572,6 +574,19 @@ extension OnDeviceSearchTests {
     XCTAssertEqual(harness.places.calls.map(\.query), ["cafes"])
     XCTAssertEqual(harness.places.calls.map(\.coordinate), [Self.chicago])
     XCTAssertEqual(harness.engine.queries.map(\.text), ["cafes near Chicago"])
+  }
+
+  /// Apple Maps searches around the rounded location; the model's distances come from the exact one
+  /// (owner, 2026-10-31).
+  func testPlacesDistancesComeFromTheExactLocation() async throws {
+    let harness = Harness([("alpha", .article(Self.article("alpha", topic: "cafes near Chicago")))])
+    harness.places = FakePlaces([Self.place("Blue Bottle")])
+    let exact = SearchCoordinate(latitude: 41.8781136, longitude: -87.6297982)
+    let results = try await harness.search("cafes near me", route: .places, city: "Chicago", coordinate: Self.chicago,
+                                           distanceOrigin: exact)
+    XCTAssertEqual(harness.places.calls.map(\.coordinate), [Self.chicago])
+    let place = try XCTUnwrap(results.first?.places?.first)
+    XCTAssertEqual(try XCTUnwrap(place.distanceMeters), MapKitPlaceSearch.distance(from: exact, to: place.coordinate), accuracy: 0.5)
   }
 
   func testNamedAreaPlacesHaveNoRegion() async throws {
