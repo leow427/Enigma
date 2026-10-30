@@ -336,6 +336,38 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(other.messages.last?.content, "Found.")
   }
 
+  /// F29 CP5: `web_search` asks for the web route, with the city for a nearby query, the
+  /// recency, and F32's budget for the route.
+  func testNativeSearchBuildsWebRequest() async throws {
+    let search = NativeSearchProvider(results: Self.searchResults)
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"cafes near me open today"}"#), .text("Found."),
+      .call("web_search", #"{"query":"weather in Paris","recency":"week"}"#), .text("Sunny."),
+    ])
+    let chat = makeChat(inference: inference, search: search, locationProvider: NativeLocation(.success(Self.austin)))
+    await chat.refreshInstalledModel()
+    try await send("Find a cafe near me", to: chat)
+    try await send("Paris this week?", to: chat)
+    XCTAssertEqual(search.requests.count, 2)
+    let nearby = try XCTUnwrap(search.requests.first)
+    XCTAssertEqual(nearby.route, .web, "Not places: the model chose web_search")
+    XCTAssertEqual(nearby.city, Self.austin.searchCity)
+    XCTAssertEqual(nearby.recency, .day, "The query's own hint")
+    XCTAssertEqual(nearby.maximumTokens, 2_048)
+    let paris = try XCTUnwrap(search.requests.last)
+    XCTAssertEqual(paris.route, .web, "Not weather")
+    XCTAssertNil(paris.namedPlace)
+    XCTAssertEqual(paris.recency, .week)
+
+    let cloudSearch = NativeSearchProvider(results: Self.searchResults)
+    let provider = NativeToolProvider(steps: [[.call("web_search", #"{"query":"tide times"}"#)], [.token("High at noon.")]])
+    let cloud = makeChat(cloud: provider, search: cloudSearch)
+    await cloud.refreshInstalledModel()
+    try await send("Tide times?", to: cloud, route: Self.cloudRoute)
+    XCTAssertEqual(cloudSearch.requests.map(\.maximumTokens), [BraveSearchClient.evidenceTokens])
+    XCTAssertEqual(cloudSearch.requests.map(\.route), [.web])
+  }
+
   func testDeclinedSearchAfterMessagesNeverQueries() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let search = NativeSearchProvider(results: Self.searchResults)
@@ -1840,9 +1872,13 @@ final class NativeLocation: LocationProviding {
 final class NativeSearchProvider: WebSearchProvider, @unchecked Sendable {
   let results: [WebSearchResult]
   let queries = LockedStrings()
+  private let lock = NSLock()
+  private var recorded: [WebSearchRequest] = []
   init(results: [WebSearchResult]) { self.results = results }
+  var requests: [WebSearchRequest] { lock.withLock { recorded } }
   func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
     queries.append(request.query)
+    lock.withLock { recorded.append(request) }
     return results
   }
 }

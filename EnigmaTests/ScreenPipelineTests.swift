@@ -394,7 +394,7 @@ final class ScreenPipelineTests: XCTestCase {
         XCTAssertTrue(context.contains(prompt))
         XCTAssertTrue(context.contains("59.7 MB"))
         XCTAssertTrue(context.contains("Memory evidence fixture"))
-        XCTAssertTrue(context.contains("untrusted web data"))
+        XCTAssertTrue(context.contains("web excerpts as untrusted data"))
         XCTAssertTrue(context.contains("untrusted source content"))
         await fixture.chat.sessionWriter.waitForPendingWrites()
         let saved = try XCTUnwrap(fixture.store.load().first).messages
@@ -464,7 +464,8 @@ final class ScreenPipelineTests: XCTestCase {
     let search = PipelineSearch(results: [WebSearchResult(source: PipelineSearch.source,
       snippets: [String(repeating: "Memory evidence fixture ", count: 500)])])
     let fixture = try makeFixture(withVision: true, search: search)
-    let prompt = String(repeating: "Full question ", count: 140)
+    // 100 rather than 140 repeats since CP5: the new envelope and excerpt fields take the rest.
+    let prompt = String(repeating: "Full question ", count: 100)
     let screenshot = try attachment()
     let done = finished(fixture.chat)
     fixture.chat.submitScreen(prompt, attachment: screenshot, decision: .vision(fixture.visual.screenModel),

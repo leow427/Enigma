@@ -508,4 +508,28 @@ extension SourceQualityTests {
     }
     XCTAssertEqual(PageChecks.staleFactor(published: daysAgo(5_000), recency: nil, now: now), 1.0)
   }
+
+  // MARK: Off-topic (CP5)
+
+  func testOffTopicNeedsBothConditions() {
+    let question: Set<String> = ["solar", "panel", "cost", "roof"]
+    // Weak best passage and under half the question's words: off-topic.
+    XCTAssertTrue(PageChecks.isOffTopic(bestPassageScore: 1, overallBestScore: 10,
+                                        pageLemmas: ["solar", "weather"], questionLemmas: question))
+    // Weak passage, but half the words are on the page.
+    XCTAssertFalse(PageChecks.isOffTopic(bestPassageScore: 1, overallBestScore: 10,
+                                         pageLemmas: ["solar", "panel", "weather"], questionLemmas: question))
+    // Few words, but a passage at 25% of the best.
+    XCTAssertFalse(PageChecks.isOffTopic(bestPassageScore: 2.5, overallBestScore: 10,
+                                         pageLemmas: ["solar"], questionLemmas: question))
+    XCTAssertTrue(PageChecks.isOffTopic(bestPassageScore: 2.49, overallBestScore: 10,
+                                        pageLemmas: ["solar"], questionLemmas: question))
+  }
+
+  func testOffTopicNeedsQuestionWords() {
+    let lemmas = PassageRanker.contentLemmas("what is it?")
+    XCTAssertTrue(lemmas.isEmpty)
+    XCTAssertFalse(PageChecks.isOffTopic(bestPassageScore: 0, overallBestScore: 10, pageLemmas: [], questionLemmas: lemmas))
+    XCTAssertFalse(PageChecks.isOffTopic(bestPassageScore: 0, overallBestScore: 0, pageLemmas: ["x"], questionLemmas: lemmas))
+  }
 }

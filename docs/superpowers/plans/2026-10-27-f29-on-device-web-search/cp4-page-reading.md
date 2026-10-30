@@ -547,6 +547,14 @@ Otherwise it's 1.0.
    - The live check ran once, from this Mac's network, on 2026-10-30.
    - The WebKit tests need the hosted test app (a real `WKWebView`); they
      passed overnight without a key window.
+   - **macOS 26 (added by the CP5 worker, D77, D78):** CI (Xcode 26.6,
+     macOS 26) failed four `ArticleExtractorTests` on 44e4711. The
+     "InvalidTransition" text in the log comes from Apple's private Gestures
+     framework when a view is released; the failures were most likely the
+     500 ms limit on a slow runner (they ended at 0.585–0.795 s). CP5 gives the
+     content tests a 10 s limit through a helper (`testExtractionTimesOut`
+     still pins the limit), warms the WebContent process with a blank page in
+     `warmUp`, and re-warms after a failed extraction. CI is the check.
 6. **For the next checkpoint (CP5):**
    - Build: `PageReader(client: URLSessionSearchHTTPClient.live,
      networkGuard: NetworkGuard(), isBlocked: quality.isBlocked)` (the

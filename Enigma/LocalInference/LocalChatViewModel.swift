@@ -5,7 +5,8 @@ import Synchronization
 
 @MainActor
 final class LocalChatViewModel: ObservableObject {
-  static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared, searchSettings: .shared,
+  static let shared = LocalChatViewModel(engine: LlamaCPPModelEngine(), modelAdvisor: .shared,
+                                         webSearch: WebSearchProviderFactory.makeDefault(), searchSettings: .shared,
                                          locationProvider: LocationService.shared, nativeToolsEnabled: NativeTools.isEnabled)
 
   /// The chat's request lifecycle. Model installs report through `modelOperation`.
@@ -1094,10 +1095,14 @@ final class LocalChatViewModel: ObservableObject {
     if plan.parts.contains(.search(.provider)) { parts.append(ProviderSearchPart(location: location)) }
     if plan.parts.contains(.search(.enigma)) {
       parts.append(WebSearchTool(
-        search: { [weak self] query in
+        search: { [weak self] query, recency in
           guard let self else { throw CancellationError() }
-          return try await self.search(query, writtenQuery: query, maximumTokens: evidenceTokens,
-                                       requestID: requestID, refinesQuery: false)
+          let results = try await self.search(query, writtenQuery: query, maximumTokens: evidenceTokens,
+                                              requestID: requestID, refinesQuery: false, toolRecency: .some(recency))
+          // The on-device provider collects 1.5 × the budget for the envelope to trim; a tool
+          // result isn't trimmed again, so it keeps F32's budget here (D75).
+          return self.webSearch is OnDeviceSearchProvider
+            ? WebSearchExcerpts.fitted(results, maximumTokens: evidenceTokens) : results
         },
         mayQuery: { query in
           guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
@@ -2028,8 +2033,11 @@ final class LocalChatViewModel: ObservableObject {
 
   /// `prompt` is the user's text; `writtenQuery`, a query the screen path's model already wrote from it.
   /// `refinesQuery` is false for a query a capable model wrote with its tools: it's searched as written.
+  /// `toolRecency` is set for `web_search` (F29 CP5): the web route with the tool's recency, never
+  /// a route the recognizers chose from the model's query.
   private func search(_ prompt: String, writtenQuery: String? = nil, maximumTokens: Int,
-                      requestID: UUID, refinesQuery: Bool = true) async throws -> [WebSearchResult] {
+                      requestID: UUID, refinesQuery: Bool = true,
+                      toolRecency: SearchRecency?? = nil) async throws -> [WebSearchResult] {
     receiveActivity(.phase(.searching), requestID: requestID)
     // The user's text loses its slash commands here on every route, before refining, routing
     // and the provider. A model-written query is used as written.
@@ -2079,6 +2087,11 @@ final class LocalChatViewModel: ObservableObject {
     let decision = SearchRouting.decide(question: typedQuestion)
     var request = WebSearchRequest(query: contextualQuery, route: decision.route, namedPlace: decision.namedPlace,
       recency: WebSearchPolicy.recency(typedQuestion), maximumTokens: maximumTokens)
+    if let toolRecency {
+      request.route = .web
+      request.namedPlace = nil
+      request.recency = toolRecency
+    }
     if decision.needsCurrentLocation, let locationProvider {
       let location = try await locationProvider.currentLocation()
       try Task.checkCancellation()

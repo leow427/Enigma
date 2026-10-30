@@ -18,7 +18,7 @@ The summary at the top is written when the run ends.
 - **CP2:** D33–D43, D45–D48
 - **CP3:** D49–D60
 - **CP4:** D61–D72
-- **CP5:**
+- **CP5:** D73–D80
 - **CP6:**
 - **CP7:**
 - **CP8:**
@@ -1457,4 +1457,165 @@ The summary at the top is written when the run ends.
 - **Why:** D71 (reviewer round 2).
 - **Alternatives:** treat an https-to-http redirect as `.refused` (it
   would drop the snippet of a page that only moved).
+- **Reversible:** yes.
+
+### D73 — 2026-10-30 08:00, CP5 — Pipeline tuning defaults inside the owner's speed bar
+
+- **Decided (worker CP5):** `OnDeviceSearchTiming` holds every pipeline
+  number CP7 measures: `readingWindow` 3.0 s (spec 2.5 s), `readLimit` 6
+  reads at a time (spec; also spec §7's "at most 6 downloads"),
+  `earlyStopPages` 5 (spec 4), `extractionTimeout` 800 ms (spec 500 ms),
+  `rankingCutoff` 0.08 (spec and `RankingTuning.cutoff` 0.15, which stays
+  as CP3's tested default for `select`), `snippetFallbackSources` 4,
+  `tokensPerWord` 1.4, `collectionAllowance` 1.5, and
+  `maximumWordsScoredPerPage` 15,000 (passages past it aren't scored, which
+  bounds lemmatizing on very long pages).
+- **Why:** owner's bar is a 4.0 s median and 6.0 s p90 (D2) and asks for
+  more pages read. Sites take up to 2.0 s, so a 3.0 s window keeps the worst
+  case near 5–5.5 s while giving serial extractions more room; CP4's live
+  check saw 1 MB pages miss 500 ms (Wikipedia's 1.3 MB took 386 ms). With
+  DuckDuckGo alone, 0.15 keeps about positions 1–6, leaving nothing to
+  refill a failed read from (D59); 0.08 keeps about 1–12. A fifth passing
+  page adds a source for capable models at little time cost.
+- **Alternatives:** the spec's values (2.5 s, 4 pages, 500 ms, 0.15): change
+  the constants in `Enigma/Search/OnDeviceSearch.swift`.
+- **Reversible:** yes.
+
+### D74 — 2026-10-30 08:00, CP5 — Pipeline details the brief leaves open
+
+- **Decided (worker CP5):** (1) The stale check uses `published ?? modified`
+  (D62); the excerpt's `published` stays the page's own publish date. (2)
+  Wikipedia's order score uses the top read candidate's score as its base
+  (it has no search score), times its passage match; a read page that
+  near-duplicates the Wikipedia article is dropped, Wikipedia kept. (3)
+  Wikipedia's plain extract puts one paragraph per line, so its lines are
+  paragraphs (`passages(fromPlainText:lineBreaks:)`); `text/plain` pages
+  split at blank lines as the brief says. (4) The snippet fallback takes
+  unread, failed, skipped, wall and not-an-article candidates and
+  `snippetOnly` ones, best score first; never `.refused` (D64), off-topic,
+  duplicate or wrong-language ones; read pages and Wikipedia count toward
+  the 4. (5) Passages are collected round-robin, each source's best
+  passage first, so one long page can't take the whole 1.5 × budget; each
+  source also stops at `WebSearchLimits.tokensPerSource`. (6) The query sent
+  to sites is cut to 50 words and 400 characters (spec §2; CP2 left it to
+  CP5). (7) The question's language (`NLLanguageRecognizer`) plus the Mac's
+  preferred languages are the allowed page languages.
+- **Why:** each follows the spec's intent; (5) keeps several sources in a
+  small budget.
+- **Alternatives:** per-source order (first source fills the budget); the
+  modified date in `published`; all in `OnDeviceSearch.swift`.
+- **Reversible:** yes.
+
+### D75 — 2026-10-30 08:00, CP5 — `web_search` on the on-device provider is capped to F32's budget
+
+- **Decided (worker CP5):** the provider collects up to 1.5 × the request's
+  tokens because `WebSearchContext` trims again with the model's tokenizer
+  (spec §5). `web_search`'s result isn't trimmed again, so on capable turns
+  served by `OnDeviceSearchProvider`, `nativeToolbox` fits the results to
+  F32's budget (2,048 local, 8,192 cloud) by the same words × 1.4 estimate,
+  sharing it fairly between sources (`WebSearchExcerpts.fitted`). Brave's
+  results pass unchanged, as today, since Brave already measures its own.
+- **Why:** keeps F32's budgets, and a local model's prefill time, unchanged
+  when the Debug switch is on.
+- **Alternatives:** no fitting (up to 50% more evidence on capable turns):
+  drop the `fitted` call in `LocalChatViewModel.nativeToolbox`.
+- **Reversible:** yes.
+
+### D76 — 2026-10-30 08:10, CP5 (CP4 CI fix) — WebKit's own extraction errors become a normal failure, retried once on a fresh view
+
+*Superseded by D77 (reviewer round 1):* the retry below could never run,
+because every error `extract` sees is already Enigma's own, and the
+"InvalidTransition" text comes from Apple's private Gestures framework when a
+view is released, not from extraction. The CI failures were most likely the
+500 ms limit on a slow runner. The retry and `.unknownFailure` are removed
+(D78); `normalized` stays as a guard.
+
+- **Decided (worker CP5, at the orchestrator's request):** CI (Xcode 26.6,
+  macOS 26) failed four `ArticleExtractorTests` on 44e4711 with a foreign
+  error, `InvalidTransition { phase: idle targetPhase: failed(deinit) }`,
+  thrown out of `extract`; they pass on macOS 27 locally. Not reproducible
+  here, so the fix is defensive: (1) any failure discards the view, as
+  before, and any error that isn't `CancellationError` or
+  `ArticleExtractorError` becomes `.unknownFailure`
+  (`ArticleExtractor.normalized`); (2) `extract` retries such a failure
+  once on a fresh sealed view (same configuration, rule list and delegate),
+  then throws `.scriptFailed`, so the pipeline falls back to the snippet;
+  (3) `SealedWebView` keeps the finished `WKNavigation` referenced until the
+  next load or the view's release, instead of releasing it inside the
+  delegate callback. A deterministic test pins (1). Every sealed-view
+  guarantee is unchanged. CI is the check; if the four tests still fail
+  there, extraction on macOS 26 needs a closer look on a macOS 26 machine.
+- **Why:** orchestrator's report of CI on 44e4711; the error's
+  "failed(deinit)" points at an object released while idle.
+- **Alternatives:** skip the WebKit tests on macOS 26 (weakens tests, not
+  done); raise the deployment target (owner's call).
+- **Reversible:** yes (`ArticleExtractor.swift`).
+
+### D77 — 2026-10-30 08:40, CP5 — Replace D76: CI failures were slow-runner timeouts; warm the WebKit process; site outages aren't "no results"
+
+- **Decided (orchestrator):** (1) D76's retry is unreachable and the
+  "InvalidTransition" text comes from Apple's private Gestures framework when a
+  discarded view is released, so the four CI failures were almost certainly
+  extractions passing the 500 ms default on a slow macOS 26 runner (they ended
+  at 0.585–0.795 s). The unreachable retry is removed; tests that check
+  extracted content use a long explicit timeout through a helper, and
+  `testExtractionTimesOut` still pins the limit. (2) `warmUp` makes the sealed
+  view load an empty page so the WebContent process is running before the first
+  real extraction (a fresh process costs 0.4–0.9 s on the CI runner), and a
+  view discarded after a timeout is re-warmed in the background. (3) When no
+  page or snippet remains and the sites failed or were rate-limited, the error
+  comes from the sites' outcomes ("limiting requests", unreachable), not
+  `noResults`. (4) Tests for `WebSearchExcerpts.fitted`, a user-blocked
+  wikipedia.org, and wrong-language pages left out of the snippet fallback.
+  A focused round 2 follows (a Blocker was found).
+- **Why:** reviewer round 1 (Blocker 1, Should fixes 2–3); macOS 26 is the
+  deployment target, so first-extraction latency matters to real users too.
+- **Alternatives:** keep D76's retry; raise the production extraction limit
+  instead of warming (`OnDeviceSearchTiming`).
+- **Reversible:** yes.
+
+### D78 — 2026-10-30 08:40, CP5 — How D77's warm-up and fixes are built
+
+- **Decided (worker CP5):** (1) `ArticleExtractor.normalized` maps any error
+  that isn't `CancellationError` or `ArticleExtractorError` to `.scriptFailed`;
+  `.unknownFailure` and the retry are gone. (2) `warmUp()` creates the view
+  and, once the rule list is ready, loads a blank page (`<html></html>`, no
+  base URL) through the same sealed `load`, taking an extraction turn so it
+  never overlaps a page; it runs once per view (skipped once the view has
+  loaded anything) and ends after at most 2 s. (3) Any extraction failure that
+  discards the view (timeout, script failure, cancellation) re-warms a fresh
+  view in the background; the 60 s idle release doesn't. (4)
+  `ArticleExtractorTests` that check extracted content use
+  `ArticleExtractor(timeout: .seconds(10))` through a helper;
+  `testExtractionTimesOut` still uses 1 ms. (5) With no page or snippet left,
+  the error is the sites' (`.rateLimited` or `.unavailable`) when DuckDuckGo
+  returned nothing, `.noResults` otherwise.
+- **Why:** D77, reviewer round 1.
+- **Alternatives:** warm without taking a turn (an extraction could replace
+  the blank load mid-flight); re-warm only after timeouts.
+- **Reversible:** yes (`ArticleExtractor.swift`, `OnDeviceSearch.swift`).
+
+### D79 — 2026-10-30 08:49, CP5 — Round-2 fixes, then commit without a round 3
+
+- **Decided (orchestrator):** the warm-up's limit task returns on
+  cancellation instead of stopping the view (a latent race that could cancel
+  the next real page load), with a test that no stop follows a completed
+  warm-up; and a test pins `ArticleExtractor.shared` to
+  `OnDeviceSearchTiming.extractionTimeout` so the production limit can't
+  silently drop to 1 ms. No round 3: both fixes are small, each comes with the
+  reviewer's own check as a test, and weekly usage is about 80% (the run stops
+  new work at 83%).
+- **Why:** reviewer round 2 (two Should fixes, no Blockers).
+- **Alternatives:** a round 3 on these two fixes.
+- **Reversible:** yes.
+
+### D80 — 2026-10-30 08:50, CP5 — Round-2 fix details (D79)
+
+- **Decided (worker CP5):** the warm-up's limit task returns when cancelled;
+  `SealedWebView` counts its stops (`stopCount`, read through
+  `ArticleExtractor.viewStops`, for tests) and `ArticleExtractor.timeout` is
+  readable. Tests: `testNoStopFollowsACompletedWarmUp`,
+  `testSharedExtractorUsesThePipelinesLimit`.
+- **Why:** D79, reviewer round 2.
+- **Alternatives:** none worth keeping.
 - **Reversible:** yes.

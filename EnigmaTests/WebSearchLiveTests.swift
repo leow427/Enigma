@@ -71,6 +71,44 @@ final class WebSearchLiveTests: XCTestCase {
     XCTAssertGreaterThanOrEqual(extracted, pages.count / 2)
   }
 
+  /// CP5: whole searches through `OnDeviceSearchProvider.live()`. Prints each question's position
+  /// in this list with its time and result counts, never a query, link or page text.
+  @MainActor func testLiveOnDeviceSearch() async throws {
+    let questions: [(String, SearchRecency?)] = [
+      ("latest news on the artemis moon program", .week),
+      ("swift task group cancellation", nil),
+      ("flu symptoms in adults", nil),
+      ("macbook air battery life hours", nil),
+      ("python json load vs loads", nil),
+      ("population of tokyo", nil),
+    ]
+    let provider = OnDeviceSearchProvider.live()
+    var times: [Duration] = []
+    var withPages = 0
+    for (index, question) in questions.enumerated() {
+      let start = ContinuousClock.now
+      do {
+        let results = try await provider.search(WebSearchRequest(query: question.0, recency: question.1,
+                                                                 maximumTokens: WebSearchLimits.evidenceTokens))
+        let time = ContinuousClock.now - start
+        times.append(time)
+        var kinds: [String: Int] = [:]
+        for result in results { kinds[result.kind.rawValue, default: 0] += 1 }
+        if kinds["article"] ?? 0 > 0 { withPages += 1 }
+        let words = results.reduce(0) { $0 + TextWords.count(in: $1.snippets.joined()) }
+        print("LIVE search \(index) time=\(time) results=\(results.count) kinds=\(kinds.sorted { $0.key < $1.key })",
+              "dated=\(results.filter { $0.published != nil }.count) words=\(words)")
+      } catch {
+        times.append(ContinuousClock.now - start)
+        print("LIVE search \(index) error=\(error) after \(ContinuousClock.now - start)")
+      }
+      try await Task.sleep(for: .seconds(2))  // DuckDuckGo's pacing, and politeness
+    }
+    let sorted = times.sorted()
+    print("LIVE searches median=\(sorted[sorted.count / 2]) max=\(sorted.last!) withPages=\(withPages)/\(questions.count)")
+    XCTAssertGreaterThanOrEqual(withPages, questions.count / 2)
+  }
+
   private var livePages: [String] {
     [
       "http://en.wikipedia.org/wiki/Alan_Turing",                   // http link, large article

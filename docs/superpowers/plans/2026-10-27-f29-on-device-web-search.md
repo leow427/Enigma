@@ -269,8 +269,8 @@ stays in its brief.
 | CP1b | done | 8 | Routing fixes per spec §6.1 plus overnight amendments; capable models unchanged; overnight decisions D7–D30 and D32 (D25 and D31 cover the full-suite environment failures) |
 | CP2 | done | 3 | DuckDuckGo (header set A, `kl`) and Wikipedia ports, HTTP client, health and runner; Mojeek and Startpage skipped; only block signs and two different challenged queries cool DuckDuckGo down; overnight decisions D33–D43 and D45–D48 |
 | CP3 | done | 2 | Quality lists (3 MB: unsafe trimmed by a keep order, malware first), Public Suffix List, trust factors, SearXNG merge, selection and blocked sites; reviewed `overrides.tsv` (never lifts a security block); `authority.txt`/`unreadable.txt`/`overrides.tsv` await owner review; overnight decisions D49–D60 |
-| CP4 | done | 2 | Network guard (also checks the reached address), https-only page download, sealed WebKit extraction with Readability 0.6.0 and dates, checks after reading; pages over ~1 MB can near the 500 ms extraction limit (CP7 tunes); overnight decisions D61–D72 (D69, D71 the orchestrator's) |
-| CP5 | not started | | |
+| CP4 | done | 2 | Network guard (also checks the reached address), https-only page download, sealed WebKit extraction with Readability 0.6.0 and dates, checks after reading; pages over ~1 MB can near the 500 ms extraction limit (CP7 tunes); overnight decisions D61–D72 (D69, D71 the orchestrator's); the macOS 26 CI fix (slow-runner timeouts, WebKit warm-up) landed in CP5 (D77, D78) |
+| CP5 | done | 2 | Passages (BM25 on lemmas), the on-device web pipeline with reading window, checks, snippet fallback and budget, spec §5 envelope and excerpts, `web_search` recency, Debug-only `webSearch.debugProvider` (Brave stays default); tuning in `OnDeviceSearchTiming` (3.0 s window, stop at 5, 800 ms extraction, cut-off 0.08); live median 1.65 s; overnight decisions D73–D80 (D77, D79 the orchestrator's) |
 | CP6 | not started | | |
 | CP7 | not started | | |
 | CP8 | not started | | |

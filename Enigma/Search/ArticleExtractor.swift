@@ -144,7 +144,8 @@ enum ArticleExtractorError: Error, Equatable {
 /// stored data. Readability.js and `EnigmaExtract.js` run in an isolated content world and hand
 /// back JSON. Page HTML is parsed only in WebKit's WebContent process.
 @MainActor final class ArticleExtractor: ArticleExtracting {
-  static let shared = ArticleExtractor()
+  /// The search pipeline's extractor, with its per-page limit (D73).
+  static let shared = ArticleExtractor(timeout: OnDeviceSearchTiming.extractionTimeout)
 
   /// Spec §4: 500 ms per page. CP5's timing passes its own value.
   static let defaultTimeout: Duration = .milliseconds(500)
@@ -156,13 +157,23 @@ enum ArticleExtractorError: Error, Equatable {
   static let retiredRuleListIdentifiers = ["EnigmaBlockAll"]
   static let blockAllRules = #"[{"trigger":{"url-filter":".*"},"action":{"type":"block"}}]"#
 
-  private let timeout: Duration
+  /// Each page's extraction limit; `shared` uses `OnDeviceSearchTiming.extractionTimeout`.
+  let timeout: Duration
   private let idleRelease: Duration
   private let clock: any Clock<Duration>
   private var view: SealedWebView?
   private var busy = false
   private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, any Error>)] = []
   private var idleTask: Task<Void, Never>?
+  private var warmTask: Task<Void, Never>?
+  private var created = 0
+  private var blankLoads = 0
+
+  /// A blank page, loaded once per view so its WebContent process is running before the first
+  /// real page (a fresh process cost 0.4–0.9 s on the CI runner; D77).
+  static let blankPage = "<html></html>"
+  /// The most a blank load may hold the view.
+  static let warmLoadLimit: Duration = .seconds(2)
 
   init(timeout: Duration = ArticleExtractor.defaultTimeout, idleRelease: Duration = ArticleExtractor.defaultIdleRelease,
        clock: any Clock<Duration> = ContinuousClock()) {
@@ -173,12 +184,58 @@ enum ArticleExtractorError: Error, Equatable {
 
   /// For tests.
   var hasWebView: Bool { view != nil }
+  /// For tests: views created so far, blank pages loaded, and whether a warm-up is under way.
+  var viewsCreated: Int { created }
+  var warmLoads: Int { blankLoads }
+  var isWarming: Bool { warmTask != nil }
+  /// For tests: how many times the current view was told to stop loading.
+  var viewStops: Int? { view?.stopCount }
 
-  /// Creates the view, so its setup overlaps the network time of a search that's starting.
+  /// Creates the view and loads a blank page in it, so the WebContent process starts while a
+  /// search is still on the network. Once per view; the blank load takes an extraction turn, so it
+  /// never overlaps a page (D78).
   func warmUp() {
-    if view == nil { view = SealedWebView() }
-    Task { _ = await Self.ruleList() }
+    let view = currentView()
     scheduleIdleRelease()
+    guard !view.hasLoaded, warmTask == nil else { return }
+    warmTask = Task { [weak self] in
+      await self?.warm(view)
+      self?.warmTask = nil
+    }
+  }
+
+  private func currentView() -> SealedWebView {
+    if let view { return view }
+    let view = SealedWebView()
+    created += 1
+    self.view = view
+    return view
+  }
+
+  private func warm(_ view: SealedWebView) async {
+    guard let rules = await Self.ruleList() else { return }
+    do { try await waitForTurn() } catch { return }
+    defer {
+      endTurn()
+      if !busy { scheduleIdleRelease() }
+    }
+    guard self.view === view, !view.hasLoaded else { return }
+    view.install(rules)
+    blankLoads += 1
+    let once = WarmLoad()
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      once.continuation = continuation
+      let limit = Task {
+        // A finished blank load cancels this; it must not stop the view then (D79).
+        do { try await ContinuousClock().sleep(for: Self.warmLoadLimit) } catch { return }
+        view.stopLoading()
+        once.finish()
+      }
+      view.load(Self.blankPage) { _ in
+        limit.cancel()
+        once.finish()
+      }
+    }
   }
 
   /// One page at a time, in arrival order (D63); the time limit starts with this page's turn.
@@ -193,19 +250,27 @@ enum ArticleExtractorError: Error, Equatable {
     try Task.checkCancellation()
     guard let script = Self.script, let rules = await Self.ruleList() else { throw ArticleExtractorError.unavailable }
     try Task.checkCancellation()
-    let view = self.view ?? SealedWebView()
-    self.view = view
+    let view = currentView()
     view.install(rules)
-    let json: String
     do {
-      json = try await run(script, html: html, in: view)
+      let json = try await run(script, html: html, in: view)
+      return try await Self.article(from: json, url: url)
     } catch {
       // A timed-out or cancelled script may still be running in the WebContent process, and a
-      // crashed one has none; the next page gets a fresh view (D63).
-      if self.view === view { discardView() }
-      throw error
+      // crashed one has none: the view goes, and a fresh one warms up for the next page (D63, D78).
+      if self.view === view {
+        discardView()
+        warmUp()
+      }
+      throw Self.normalized(error)
     }
-    return try await Self.article(from: json, url: url)
+  }
+
+  /// Cancellation and Enigma's own errors as they are; anything else becomes `.scriptFailed`, so
+  /// the pipeline falls back to the page's snippet (D78).
+  nonisolated static func normalized(_ error: any Error) -> any Error {
+    if error is CancellationError || error is ArticleExtractorError { return error }
+    return ArticleExtractorError.scriptFailed
   }
 
   // MARK: Turns
@@ -381,6 +446,15 @@ enum ArticleExtractorError: Error, Equatable {
   }
 }
 
+/// The blank load's single continuation, resumed by the load or by `warmLoadLimit`.
+@MainActor private final class WarmLoad {
+  var continuation: CheckedContinuation<Void, Never>?
+  func finish() {
+    continuation?.resume()
+    continuation = nil
+  }
+}
+
 /// The navigation delegate's rule: only the main-frame load Enigma starts, once. Frames, meta
 /// refreshes, new windows and anything after the first load are cancelled.
 enum SealedNavigation {
@@ -397,6 +471,8 @@ enum SealedNavigation {
   private var allowsNextNavigation = false
   private var navigation: WKNavigation?
   private var onLoad: ((Result<Void, ArticleExtractorError>) -> Void)?
+  /// A load has finished in this view, so its WebContent process is running.
+  private(set) var hasLoaded = false
 
   /// Spec §4's configuration: nothing stored, no page scripts, only Enigma's content controller
   /// (which never gets a script message handler).
@@ -437,7 +513,13 @@ enum SealedNavigation {
     webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: world, completionHandler: completion)
   }
 
-  func stopLoading() { webView.stopLoading() }
+  /// For tests.
+  private(set) var stopCount = 0
+
+  func stopLoading() {
+    stopCount += 1
+    webView.stopLoading()
+  }
 
   func close() {
     webView.stopLoading()
@@ -448,7 +530,9 @@ enum SealedNavigation {
   private func finishLoad(_ result: Result<Void, ArticleExtractorError>) {
     let callback = onLoad
     onLoad = nil
-    navigation = nil
+    // The finished navigation stays referenced until the next load replaces it or the view goes,
+    // so WebKit never sees it released mid-callback (macOS 26 CI, D76). Delegate calls for it
+    // after this find `onLoad` empty and do nothing.
     callback?(result)
   }
 
@@ -464,6 +548,7 @@ enum SealedNavigation {
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     guard navigation === self.navigation else { return }
+    hasLoaded = true
     finishLoad(.success(()))
   }
 

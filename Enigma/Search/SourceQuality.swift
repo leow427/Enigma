@@ -304,6 +304,18 @@ enum PageChecks {
     return Double(a.intersection(b).count) / Double(union)
   }
 
+  /// A page's best passage scores under this share of the best passage across all pages read.
+  static let offTopicShare = 0.25
+
+  /// Spec §3.4: true only when the question has content words, the page's best passage scores
+  /// under `offTopicShare` of the overall best, and the page holds fewer than half of the
+  /// question's content words. The pipeline applies it only while 2 other pages pass.
+  static func isOffTopic(bestPassageScore: Double, overallBestScore: Double,
+                         pageLemmas: Set<String>, questionLemmas: Set<String>) -> Bool {
+    guard !questionLemmas.isEmpty, bestPassageScore < offTopicShare * overallBestScore else { return false }
+    return Double(pageLemmas.intersection(questionLemmas).count) < Double(questionLemmas.count) / 2
+  }
+
   /// 0.5 when a recency hint is set and the page was published more than twice its window ago;
   /// 1.0 with no hint or no date.
   static func staleFactor(published: Date?, recency: SearchRecency?, now: Date) -> Double {

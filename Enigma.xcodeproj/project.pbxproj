@@ -256,6 +256,10 @@
 		F1000000000000000000000D /* ClaudeCodeSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* ClaudeCodeSubscriptionTests.swift */; };
 		F368AD14CC3718DC0F973BFC /* Enigma/Cloud/GeminiContentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C7C96CC8B68E10665AB266 /* Enigma/Cloud/GeminiContentClient.swift */; };
 		FF70383D00EFDC94759EC47F /* Enigma/Files/LocalFileInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0134D277D0D4590D1E9D4D24 /* Enigma/Files/LocalFileInference.swift */; };
+		E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */; };
+		AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */; };
+		0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */; };
+		FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -521,6 +525,10 @@
 		F225835FFF11A442B82A63B4 /* Enigma/Screen/ScreenControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Screen/ScreenControls.swift"; sourceTree = SOURCE_ROOT; };
 		F854E7BC1B8BD8048823C508 /* Enigma/Files/FileModeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Files/FileModeCoordinator.swift"; sourceTree = SOURCE_ROOT; };
 		E91000000000000000000001 /* Enigma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Enigma.entitlements; sourceTree = "<group>"; };
+		265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/PassageRanker.swift"; sourceTree = SOURCE_ROOT; };
+		BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Search/OnDeviceSearch.swift"; sourceTree = SOURCE_ROOT; };
+		50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/PassageRankerTests.swift"; sourceTree = SOURCE_ROOT; };
+		A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/OnDeviceSearchTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -546,6 +554,10 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
+				50B472042E88922499175BCA /* EnigmaTests/PassageRankerTests.swift */,
+				BCF4F9489AEA2191725F9E26 /* Enigma/Search/OnDeviceSearch.swift */,
+				265F0BDFF92C8FC9475C144F /* Enigma/Search/PassageRanker.swift */,
 				A71E7A3E767A9D74221D39C8 /* EnigmaTests/ArticleExtractorTests.swift */,
 				5E4AFB485EF6FC91A53B86FA /* EnigmaTests/PageReaderTests.swift */,
 				D309FF655A685211184CFA4B /* Enigma/Search/ArticleExtractor.swift */,
@@ -981,6 +993,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */,
+				E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */,
 				0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */,
 				C44BECDB0CDC8A78D1311F1A /* Enigma/Search/PageReader.swift in Sources */,
 				C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */,
@@ -1147,6 +1161,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
+				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,
 				A3B80491DEC08CDE5312B877 /* EnigmaTests/ArticleExtractorTests.swift in Sources */,
 				87C4EF9C9270B0770A379B1A /* EnigmaTests/PageReaderTests.swift in Sources */,
 				748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */,

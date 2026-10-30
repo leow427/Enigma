@@ -73,6 +73,10 @@ private final class OnceFlag: @unchecked Sendable {
 final class ArticleExtractorTests: XCTestCase {
   private let pageURL = URL(string: "https://news.example.com/2026/10/28/tidal-barrier")!
 
+  /// Tests that check what's extracted get a long limit: a slow CI runner took 0.6–0.8 s for
+  /// pages that take 0.1–0.4 s here (D77). `testExtractionTimesOut` pins the limit itself.
+  @MainActor static func patient() -> ArticleExtractor { ArticleExtractor(timeout: .seconds(10)) }
+
   private func fixture(_ name: String) -> String { SearchFixture.string("articles/\(name)") }
 
   private func waitUntil(_ condition: () -> Bool, seconds: Double = 3) async {
@@ -83,7 +87,7 @@ final class ArticleExtractorTests: XCTestCase {
   }
 
   func testExtractsNewsArticle() async throws {
-    let extractor = ArticleExtractor()
+    let extractor = Self.patient()
     let article = try await extractor.extract(html: fixture("article-news.html"), url: pageURL)
     XCTAssertEqual(article.title, "Harbor Council Backs Tidal Barrier Plan")
     XCTAssertEqual(article.siteName, "The Harbor Ledger")
@@ -108,7 +112,7 @@ final class ArticleExtractorTests: XCTestCase {
   }
 
   func testDocsPageKeepsHeadingsAndCode() async throws {
-    let article = try await ArticleExtractor().extract(html: fixture("article-docs.html"),
+    let article = try await Self.patient().extract(html: fixture("article-docs.html"),
                                                        url: URL(string: "https://docs.example.com/cache")!)
     let kinds = article.blocks.map(\.kind)
     XCTAssertTrue(kinds.contains(.heading))
@@ -135,7 +139,7 @@ final class ArticleExtractorTests: XCTestCase {
   }
 
   func testScriptOnlyPageIsNotReaderable() async throws {
-    let article = try await ArticleExtractor().extract(html: fixture("script-only.html"),
+    let article = try await Self.patient().extract(html: fixture("script-only.html"),
                                                        url: URL(string: "https://app.example.com/")!)
     XCTAssertFalse(article.isReaderable)
     XCTAssertLessThan(article.wordCount, 20)
@@ -150,7 +154,7 @@ final class ArticleExtractorTests: XCTestCase {
     var html = fixture("article-news.html")
     html = html.replacingOccurrences(of: "<body>", with: "<body onload=\"document.body.innerHTML='SCRIPT RAN'\">" + script)
     html = html.replacingOccurrences(of: "</article>", with: "<img src=\"x\" onerror=\"this.parentNode.innerHTML='SCRIPT RAN'\"></article>" + script)
-    let article = try await ArticleExtractor().extract(html: html, url: pageURL)
+    let article = try await Self.patient().extract(html: html, url: pageURL)
     XCTAssertFalse(article.blocks.isEmpty)
     XCTAssertFalse(article.title.contains("SCRIPT RAN"))
     for block in article.blocks {
@@ -172,7 +176,7 @@ final class ArticleExtractorTests: XCTestCase {
     try await listener.start()
     defer { listener.stop() }
     let html = fixture("subresources.html").replacingOccurrences(of: "{{ORIGIN}}", with: listener.origin)
-    let article = try await ArticleExtractor().extract(html: html, url: URL(string: "https://trap.example.com/")!)
+    let article = try await Self.patient().extract(html: html, url: URL(string: "https://trap.example.com/")!)
     XCTAssertTrue(article.blocks.contains { $0.text.hasPrefix("This page points at a local listener") })
     try await Task.sleep(for: .milliseconds(300))
     XCTAssertEqual(listener.connectionCount, 0)
@@ -183,7 +187,7 @@ final class ArticleExtractorTests: XCTestCase {
     try await listener.start()
     defer { listener.stop() }
     let html = fixture("meta-refresh.html").replacingOccurrences(of: "{{ORIGIN}}", with: listener.origin)
-    let extractor = ArticleExtractor()
+    let extractor = Self.patient()
     let article = try await extractor.extract(html: html, url: URL(string: "https://ferry.example.com/")!)
     XCTAssertEqual(article.title, "Ferry Timetable Changes")
     XCTAssertTrue(article.blocks.contains { $0.text.hasPrefix("The winter ferry timetable starts") })
@@ -272,7 +276,48 @@ final class ArticleExtractorTests: XCTestCase {
     } catch {
       XCTAssertEqual(error as? ArticleExtractorError, .timedOut)
     }
-    XCTAssertFalse(extractor.hasWebView, "a timed-out view is discarded (D63)")
+    // The timed-out view is discarded (D63), and a fresh one warms up for the next page (D78).
+    await waitUntil { !extractor.isWarming }
+    XCTAssertEqual(extractor.viewsCreated, 2)
+    XCTAssertEqual(extractor.warmLoads, 1)
+    XCTAssertTrue(extractor.hasWebView)
+  }
+
+  func testNoStopFollowsACompletedWarmUp() async throws {
+    let extractor = Self.patient()
+    extractor.warmUp()
+    await waitUntil { !extractor.isWarming }
+    XCTAssertEqual(extractor.warmLoads, 1)
+    // A stray stop here could cancel the next real page's load (reviewer round 2, D79).
+    try await Task.sleep(for: .milliseconds(200))
+    XCTAssertEqual(extractor.viewStops, 0)
+  }
+
+  func testSharedExtractorUsesThePipelinesLimit() {
+    XCTAssertEqual(ArticleExtractor.shared.timeout, OnDeviceSearchTiming.extractionTimeout)
+    XCTAssertEqual(Self.patient().timeout, .seconds(10))
+  }
+
+  func testWarmUpLoadsOneBlankPageOncePerView() async throws {
+    let extractor = Self.patient()
+    extractor.warmUp()
+    extractor.warmUp()
+    XCTAssertTrue(extractor.hasWebView)
+    await waitUntil { !extractor.isWarming }
+    XCTAssertEqual(extractor.warmLoads, 1, "One blank load for two calls")
+    extractor.warmUp()
+    await waitUntil { !extractor.isWarming }
+    XCTAssertEqual(extractor.warmLoads, 1, "A view that has loaded isn't warmed again")
+    // The warmed view still serves sealed extractions: the meta refresh never navigates.
+    let listener = try LoopbackListener()
+    try await listener.start()
+    defer { listener.stop() }
+    let html = fixture("meta-refresh.html").replacingOccurrences(of: "{{ORIGIN}}", with: listener.origin)
+    let article = try await extractor.extract(html: html, url: URL(string: "https://ferry.example.com/")!)
+    XCTAssertEqual(article.title, "Ferry Timetable Changes")
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertEqual(listener.connectionCount, 0)
+    XCTAssertEqual(extractor.viewsCreated, 1)
   }
 
   func testIdleRelease() async throws {
@@ -290,7 +335,8 @@ final class ArticleExtractorTests: XCTestCase {
     XCTAssertFalse(extractor.hasWebView)
     extractor.warmUp()
     XCTAssertTrue(extractor.hasWebView)
-    // A warmed-up view that's never used is released too.
+    // A warmed-up view that's never used is released too, once its blank load is done.
+    await waitUntil { !extractor.isWarming }
     await clock.waitForSleepers(1)
     clock.advance(by: .seconds(60))
     await waitUntil { !extractor.hasWebView }
@@ -298,7 +344,7 @@ final class ArticleExtractorTests: XCTestCase {
   }
 
   func testExtractionsTakeTurns() async throws {
-    let extractor = ArticleExtractor()
+    let extractor = Self.patient()
     let newsHTML = fixture("article-news.html"), docsHTML = fixture("article-docs.html"), newsURL = pageURL
     async let news = extractor.extract(html: newsHTML, url: newsURL)
     async let docs = extractor.extract(html: docsHTML, url: URL(string: "https://docs.example.com/")!)
@@ -307,8 +353,21 @@ final class ArticleExtractorTests: XCTestCase {
     XCTAssertTrue(second.title.hasPrefix("Configuring the Lantern cache"), second.title)
   }
 
+  /// Any error that isn't Enigma's own becomes a normal extraction failure, so a search falls
+  /// back to the page's snippet (D78). No WebKit needed.
+  func testForeignWebKitErrorBecomesExtractionFailure() {
+    struct InvalidTransition: Error {}
+    XCTAssertEqual(ArticleExtractor.normalized(InvalidTransition()) as? ArticleExtractorError, .scriptFailed)
+    XCTAssertEqual(ArticleExtractor.normalized(NSError(domain: "WKErrorDomain", code: 4)) as? ArticleExtractorError,
+                   .scriptFailed)
+    XCTAssertTrue(ArticleExtractor.normalized(CancellationError()) is CancellationError)
+    for error in [ArticleExtractorError.timedOut, .scriptFailed, .unavailable] {
+      XCTAssertEqual(ArticleExtractor.normalized(error) as? ArticleExtractorError, error)
+    }
+  }
+
   func testCancelledExtractionThrowsAndViewRecovers() async throws {
-    let extractor = ArticleExtractor()
+    let extractor = Self.patient()
     let task = Task { try await extractor.extract(html: fixture("article-news.html"), url: pageURL) }
     task.cancel()
     do {
@@ -334,7 +393,7 @@ final class ArticleExtractorTests: XCTestCase {
       </script></head>
       <body><article><h1>Keeping the Light</h1>\(body)</article></body></html>
       """
-    let article = try await ArticleExtractor().extract(html: html, url: URL(string: "https://gazette.example.com/light")!)
+    let article = try await Self.patient().extract(html: html, url: URL(string: "https://gazette.example.com/light")!)
     XCTAssertEqual(article.published, ISO8601DateFormatter().date(from: "2026-09-14T05:30:00Z"))
     XCTAssertEqual(article.modified, ISO8601DateFormatter().date(from: "2026-09-15T08:00:00Z"))
     XCTAssertEqual(article.siteName, "Northwind Gazette")
@@ -344,11 +403,11 @@ final class ArticleExtractorTests: XCTestCase {
   func testTimeElementAndURLDates() async throws {
     let body = String(repeating: "<p>The orchard society met in the old barn to compare the year's apples, judge the cider and plan the winter pruning, and as usual the arguments about which tree was oldest went on long after dark.</p>\n", count: 4)
     let withTime = "<html><head><title>Orchard Notes</title></head><body><article><h1>Orchard Notes</h1><p>Posted <time datetime=\"2026-08-02\">2 August</time></p>\(body)</article></body></html>"
-    let timed = try await ArticleExtractor().extract(html: withTime, url: URL(string: "https://orchard.example.com/notes")!)
+    let timed = try await Self.patient().extract(html: withTime, url: URL(string: "https://orchard.example.com/notes")!)
     XCTAssertEqual(timed.published, ISO8601DateFormatter().date(from: "2026-08-02T00:00:00Z"))
 
     let plain = "<html><head><title>Orchard Notes</title></head><body><article><h1>Orchard Notes</h1>\(body)</article></body></html>"
-    let fromURL = try await ArticleExtractor().extract(html: plain, url: URL(string: "https://orchard.example.com/2026/07/19/notes")!)
+    let fromURL = try await Self.patient().extract(html: plain, url: URL(string: "https://orchard.example.com/2026/07/19/notes")!)
     XCTAssertEqual(fromURL.published, ISO8601DateFormatter().date(from: "2026-07-19T00:00:00Z"))
     XCTAssertNil(fromURL.modified)
   }

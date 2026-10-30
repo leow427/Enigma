@@ -519,7 +519,7 @@ enum NativeToolsEval {
     }
     let snippet = searchResult ?? fixedSearchSnippet
     let search = WebSearchTool(
-      search: { _ in [WebSearchResult(source: WebSearchSource(title: "Search result", url: URL(string: "https://example.com/result")!),
+      search: { _, _ in [WebSearchResult(source: WebSearchSource(title: "Search result", url: URL(string: "https://example.com/result")!),
                                       snippets: [snippet])] },
       mayQuery: { query in
         guard await coordinator.store.hasMessageText(session: session) else { return true }
