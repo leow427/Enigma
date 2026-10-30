@@ -870,6 +870,143 @@ performance" in Settings still runs one by hand.
 
 ## Features
 
+### F14. Revamp welcome setup and Settings (most important)
+
+The owner's top feature. Welcome setup predates most of what Enigma does now,
+and Settings has grown into a few long pages that are hard to find things in.
+Absorbs the tour work that was F23.
+
+**Today — welcome setup:**
+
+- State is in `WelcomeSetup` (`Enigma/App/WelcomeSetup.swift`), views in
+  `WelcomeSetupView.swift`. Four steps (`Step`: `welcome`, `models`,
+  `connections`, `walkthrough`); the step's raw number is saved under
+  `welcomeSetup.step.v1`, completion under `welcomeSetup.completed.v1`.
+- **Welcome:** "A small assistant that lives on your Mac", with three
+  command-line rows (`⌥⌃ in any app`, `select, then ⌥⌥` while the double-tap
+  shortcut is on, `/screen /search /edit`) and **Get started**.
+- **Models:** this Mac's memory, storage and chip, up to three "Good fits",
+  or **Skip local models**.
+- **Connections:** ChatGPT and Claude Code sign-in
+  (`ChatGPTConnectionControls`, `ClaudeCodeConnectionControls`), a Brave key
+  ("Used by /search"), `MacPermissionRows` (Accessibility and Screen
+  Recording only) and **More connection settings** (`ConnectionSettingsSheet`,
+  which embeds `SettingsView` on Cloud).
+- **Walkthrough:** offers a six-stop tour (`WelcomeTourStep`: `history`,
+  `composer`, `commands`, `files`, `model`, `help`; targets marked with
+  `welcomeTourTarget`).
+- Never mentioned or set up: temporary and private selection chats and the
+  Selection settings; Messages and its Full Disk Access, Contacts and
+  Automation; native cloud search (F30) and tool calling with **Always**
+  approvals (F32), so the Brave copy implies a paid key is needed for
+  search; cloud API keys; location; Start mode and Auto; `/messages`,
+  `/think`, `/translate`; attaching files; What's new and updates. The tour
+  skips selection, Screen, Messages, search and temporary chats.
+- There is no "Skip setup". Finishing setup resets Start mode to Auto
+  (`AppShellView`).
+- Existing users: `WelcomeSetup.start(hasInstalledModels:)` marks setup done
+  when a model is installed or `localModelOnboardingDismissed` is set, so they
+  only see setup again through Settings → General → Welcome → Replay.
+- `docs/Welcome-and-Settings.md` and its screenshots describe this flow.
+
+**Today — Settings:** `SettingsView.SettingsDestination` has four pages,
+`general`, `local`, `cloud`, `selection`, in a plain-text nav.
+
+- **General** is one long scroll mixing unrelated things: appearance,
+  permissions (`MacPermissionRows`), Welcome replay, New chats (Start mode,
+  sidebar), location, inferred commands, Messages (`MessagesSettingsSection`:
+  its permissions plus every **Always allowed** grant, including search and
+  location ones) and updates/version.
+- **Local models** (`LocalModelManagerSection`): Mac stats, performance check,
+  For this Mac, On this Mac, All models, Files (`LocalFileToolsRow`,
+  `FileRecoveryRow`), **Advanced: Import text GGUF…**, catalogue version.
+- **Cloud and search** (`CloudSettingsPage.swift`): subscriptions, Screen's
+  cloud-screenshot consent (`ScreenSettingsSection`), web search
+  (`WebSearchSettingsSection`, Brave key), `AdvancedCloudSettings`, API keys.
+- **Selection:** Accessibility again (`MacPermissionRows(showScreen: false)`),
+  auto-replace for `/edit`, private selection chats. The selection shortcut
+  key, double-tap and interval are in the Help sheet
+  (`KeyboardShortcutsHelpView`), not Settings.
+- "Advanced" means three different things: a Cloud section, a Local models
+  button and the model menu's "Advanced settings…" item (Cloud mode only;
+  "Manage models in Settings…" otherwise, `EnigmaMainWindowLogic.swift`).
+- Deep links (`.settingsDestinationRequested`,
+  `showSettings(destination:)`) go to a page, never a section. No search.
+
+**Wanted:**
+
+- **Welcome setup** introduces Enigma as it is now, privacy first: chats are
+  temporary and kept minimal, and nothing leaves the Mac unless the user
+  picks a cloud model or search. Suggested steps: Welcome, Model, Cloud and
+  search, Abilities, Tour.
+  - **Abilities** lists selection, Screen, Messages, files and web search,
+    each with a one-line "what it does / when it asks" and its own permission
+    button with live status. Setup grants nothing itself; buttons open the
+    right System Settings pane, as `MacPermissionRows` does.
+  - Search copy matches reality: ChatGPT and Claude Code search natively; a
+    Brave key is optional (re-check after F29).
+  - Every step and ability row can be skipped ("Set up later"), and the first
+    step has **Skip setup**.
+  - Saved progress survives the new order: a `welcomeSetup.step.v2` key, with
+    the old v1 numbers mapped to the nearest new step. F20 reuses this.
+  - Existing users are not put through setup again. Owner to decide how they
+    hear about it; default: a What's new entry plus Settings → Welcome →
+    "Take the new tour" and "Review permissions".
+- **Tour** (was F23): add stops for selection (no on-screen target, so a
+  centred card), temporary chats, Screen, Messages and search to
+  `WelcomeTourStep`.
+- **Settings** is easy to navigate:
+  - Pages grouped in the sidebar nav. Suggested: General, Models (local and
+    cloud), Abilities (Selection, Screen, Messages, Web search, Files),
+    Privacy and permissions (every macOS permission and every **Always**
+    grant in one place, replacing the duplicate Accessibility rows),
+    Shortcuts (selection shortcut moved out of the Help sheet; later F16),
+    Updates and About. Owner to confirm the grouping.
+  - A search field that jumps to a page and highlights the setting.
+  - One **Advanced** toggle (from the old F14): off shows the active model,
+    connections and common switches; on adds Start mode, preferred provider
+    and model, manual model ID, thinking/effort, catalogue details, Import
+    text GGUF and later F15/F16. It replaces `AdvancedCloudSettings`' section,
+    Local models' Advanced button, and the model menu item, which opens the
+    right page with Advanced on.
+  - Deep links can target a section; old raw values (`general`, `local`,
+    `cloud`, `selection`, and `discover`) still open something sensible.
+  - Room for F13 (Personalization), F15 and F16.
+  - Keep `docs/design/UI-Style.md`'s look: plain-text nav with a dot,
+    hairline rows, no boxes.
+
+**Files:** change `Enigma/App/WelcomeSetup.swift`, `WelcomeSetupView.swift`,
+`SettingsView.swift`, `KeyboardShortcutsHelpView.swift`,
+`EnigmaMainWindowLogic.swift`, `Enigma/Cloud/CloudSettingsPage.swift`,
+`Enigma/LocalInference/LocalModelManagerSection.swift`,
+`Enigma/Messages/MessagesSettingsSection.swift` and
+`Enigma/Screen/MacPermissionRows.swift`; probably add a settings search index
+(`Enigma/App/SettingsSearch.swift`). Leave the permission, cloud and model
+logic itself alone.
+
+**Tests:** update `EnigmaWelcomeTests`, `EnigmaSettingsTests`
+(`testEveryDestinationRendersAtWindowSizeInPaperAndInk`,
+`testNoPageSpillsIntoItsMargins`, the deep-link and "discover" tests),
+`LocalModelSelectionTests` (`testWelcomeResumesIncompleteSetupAndCompletionPersists`,
+`testWelcomeMigrationAndReplayPreserveExistingPreferences`),
+`EnigmaMainWindowTests` (fresh vs existing install) and `AppShellStateTests`.
+Add: v1 → v2 step migration, existing users skip setup, Skip on every step,
+ability rows' permission status, settings search, Advanced toggle visibility,
+section deep links and old destination names.
+
+**Docs:** rewrite `docs/Welcome-and-Settings.md` with new screenshots in Paper
+and Ink; fix "Settings → …" paths in `Selection-Context.md`, `Messages.md` and
+`Web-Search.md`; update the Welcome and Settings notes in
+`docs/design/UI-Style.md`.
+
+**Depends on / blocks:** do first. F13, F15, F16, F19 and F20 each need a
+home in the new Settings; F20 adds a step to the new setup. F29 changes the
+search copy. F6's note sits in the model step.
+
+**Out of scope:** the features that will live in the new pages
+(personalization, remappable shortcuts, context size, occupation), changes to
+permission or cloud behaviour, and the chat UI.
+
 ### F1. ✅ Done: Copy buttons on code blocks and replies, like ChatGPT
 
 > **Solved:** Code blocks have a header with the language and a **Copy code**
@@ -2105,17 +2242,6 @@ thinking off except under **/think** (`enable_thinking`).
   Temporary chats (F10) still use it.
 - The occupation picker (F20) can pre-fill it.
 
-### F14. Settings revamp with an Advanced toggle
-
-- Simpler default view: the active model, connections, and the common toggles.
-- An "Advanced" toggle reveals the detailed options, such as Start mode,
-  performance checks, catalogue details, local context size (F15) and
-  keyboard shortcuts (F16). Fold in the "Advanced" pieces that exist today:
-  `AdvancedCloudSettings`, Local models' "Advanced: Import text GGUF…" and the
-  main window's "Advanced settings…" menu item. Find a place for F13's tab
-  too.
-- Do this before F19 and F20 so they have a clear place to link to.
-
 ### F15. Local context size (Advanced)
 
 - An Advanced setting for how much conversation the local model can see.
@@ -2270,18 +2396,9 @@ Builds on F1's copy buttons.
   keystroke with no Save or Cancel, and its text isn't kept, so reuse only its
   look.
 
-### F23. Better, more complete tour
+### F23. Merged into F14: Better, more complete tour
 
-- The tour has 6 steps today (`WelcomeTourStep`: history, composer, commands,
-  files, model, help).
-- Add the missing features: selection, temporary chat (ghost mode), screen,
-  Messages and web search, plus whatever of the features above has shipped
-  (copy and editing, regenerate and rewind, drag and drop, personalization,
-  shortcuts, saved prompts, dictation and so on). Selection is a global
-  shortcut with nothing on screen to point at, so it needs a step without a
-  target (`welcomeTourTarget`).
-- Do this after the features above, since they change what the tour should
-  show.
+The tour work is now part of F14 (welcome setup and Settings revamp).
 
 ### F24. Maps integration (later)
 
