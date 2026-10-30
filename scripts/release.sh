@@ -3,17 +3,20 @@
 # through Sparkle. See docs/Updates.md.
 #
 #   scripts/release.sh <version>            release X.Y.Z from a clean, current main
-#   scripts/release.sh --dry-run <version>  build and update the appcast in a
-#                                           temporary worktree; publish nothing
+#   scripts/release.sh --dry-run <version>  build, notarize and update the appcast
+#                                           in a temporary worktree; publish nothing
+#   --accept-new-identity                   allow this one release to change the
+#                                           signing identity (see docs/Updates.md)
 #
 # For the manual end-to-end check, a dry run can build against a test feed:
 # ENIGMA_RELEASE_TEST_FEED_URL=<url> scripts/release.sh --dry-run <version>.
 # A real release refuses it.
 #
-# Steps: preflight, bump the version, archive and verify the signature, zip,
-# sign the zip and add it to appcast.xml with Sparkle's generate_appcast, then
-# publish in an order that never leaves the feed pointing at a missing file:
-# commit and tag, push the tag, create the GitHub release, push main.
+# Steps: preflight, bump the version, archive, sign with Developer ID and verify
+# the signature, notarize and staple, zip, sign the zip and add it to appcast.xml
+# with Sparkle's generate_appcast, then publish in an order that never leaves the
+# feed pointing at a missing file: commit and tag, push the tag, create the
+# GitHub release, push main.
 
 set -eu
 
@@ -21,9 +24,11 @@ repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 work_directory="$HOME/Library/Caches/Enigma-Release"
 derived_data="$work_directory/DerivedData"
 repository_url="https://github.com/leow427/Enigma"
+# The keychain profile made once with `xcrun notarytool store-credentials enigma`.
+notary_profile="enigma"
 
 usage() {
-  echo "Usage: $0 [--dry-run] <version>" >&2
+  echo "Usage: $0 [--dry-run] [--accept-new-identity] <version>" >&2
   exit 64
 }
 
@@ -37,10 +42,15 @@ say() {
 }
 
 dry_run=false
-if [ "${1:-}" = --dry-run ]; then
-  dry_run=true
+accept_new_identity=false
+while [ "$#" -gt 1 ]; do
+  case "$1" in
+    --dry-run) dry_run=true ;;
+    --accept-new-identity) accept_new_identity=true ;;
+    *) usage ;;
+  esac
   shift
-fi
+done
 [ "$#" -eq 1 ] || usage
 version=$1
 tag="v$version"
@@ -110,6 +120,19 @@ git -C "$repository_root" fetch --quiet origin main
 [ "$(git -C "$repository_root" rev-parse HEAD)" = "$(git -C "$repository_root" rev-parse origin/main)" ] \
   || require "HEAD is not level with origin/main"
 gh auth status >/dev/null 2>&1 || fail "gh is not signed in (run gh auth login)"
+
+# Releases are signed with the team's Developer ID Application certificate and
+# notarized, so a downloaded copy opens without a Gatekeeper warning.
+team=$(setting DEVELOPMENT_TEAM "$repository_root/$project")
+developer_ids=$(security find-identity -v -p codesigning | grep "\"Developer ID Application: .* ($team)\"\$" || true)
+[ -n "$developer_ids" ] \
+  || fail "no valid Developer ID Application certificate for team $team in the keychain (Xcode > Settings > Accounts > Manage Certificates)"
+[ "$(printf '%s\n' "$developer_ids" | wc -l | tr -d ' ')" = 1 ] \
+  || fail "more than one Developer ID Application certificate for team $team; remove the one you no longer use from the keychain"
+signing_identity=$(printf '%s\n' "$developer_ids" | awk '{ print $2 }')
+signing_name=$(printf '%s\n' "$developer_ids" | sed 's/^[^"]*"\(.*\)"$/\1/')
+xcrun notarytool history --keychain-profile "$notary_profile" >/dev/null 2>&1 \
+  || fail "notarytool can't sign in with the keychain profile $notary_profile (run: xcrun notarytool store-credentials $notary_profile)"
 
 new_build=$((current_build + 1))
 say "releasing $version (build $new_build), after $current_version (build $current_build)"
@@ -185,37 +208,41 @@ built_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents
 cmp -s "$notes" "$app/Contents/Resources/release-notes/$version.md" \
   || fail "the app does not bundle docs/release-notes/$version.md for What's new?"
 
-# `xcodebuild archive` leaves Sparkle's helpers ad-hoc signed (an Organizer export
-# would re-sign them). Re-sign them with the app's own identity and the hardened
-# runtime, innermost first, in the order and with the flags Sparkle documents
-# (https://sparkle-project.org/documentation/sandboxing/#code-signing), then the
-# app itself with its entitlements. No --deep: Downloader keeps its own entitlements.
-first_authority() {
-  codesign -dvv "$1" 2>&1 | sed -n 's/^Authority=//p' | head -n 1
+# `xcodebuild archive` signs the app and llama.framework for development and
+# leaves Sparkle's helpers ad-hoc signed (an Organizer export would re-sign them).
+# Re-sign everything with the Developer ID identity, the hardened runtime and a
+# secure timestamp, which notarization requires: innermost first, in the order
+# and with the flags Sparkle documents
+# (https://sparkle-project.org/documentation/sandboxing/#code-signing), then
+# llama.framework, then the app itself with its entitlements. No --deep:
+# Downloader keeps its own entitlements.
+sign() {
+  codesign -f -s "$signing_identity" -o runtime --timestamp "$@"
 }
-app_authority=$(first_authority "$app")
-[ -n "$app_authority" ] || fail "the archived app has no signing identity"
-codesign -d --extract-certificates="$temporary/certificate" "$app" 2>/dev/null
-signing_identity=$(shasum -a 1 "$temporary/certificate0" | cut -d ' ' -f 1)
 sparkle_framework="$app/Contents/Frameworks/Sparkle.framework"
 sparkle_code="$sparkle_framework/Versions/B"
-say "re-signing Sparkle's helpers with the app's identity"
-codesign -f -s "$signing_identity" -o runtime "$sparkle_code/XPCServices/Installer.xpc"
-codesign -f -s "$signing_identity" -o runtime --preserve-metadata=entitlements "$sparkle_code/XPCServices/Downloader.xpc"
-codesign -f -s "$signing_identity" -o runtime "$sparkle_code/Autoupdate"
-codesign -f -s "$signing_identity" -o runtime "$sparkle_code/Updater.app"
-codesign -f -s "$signing_identity" -o runtime "$sparkle_framework"
-codesign -f -s "$signing_identity" -o runtime --preserve-metadata=entitlements "$app"
+llama_framework="$app/Contents/Frameworks/llama.framework"
+say "signing with $signing_name"
+sign "$sparkle_code/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$sparkle_code/XPCServices/Downloader.xpc"
+sign "$sparkle_code/Autoupdate"
+sign "$sparkle_code/Updater.app"
+sign "$sparkle_framework"
+sign "$llama_framework"
+sign --preserve-metadata=entitlements "$app"
 
 codesign --verify --deep --strict "$app" || fail "codesign --verify failed"
 for code in "$sparkle_code/XPCServices/Installer.xpc" "$sparkle_code/XPCServices/Downloader.xpc" \
   "$sparkle_code/Autoupdate" "$sparkle_code/Updater.app" "$sparkle_framework" \
-  "$app/Contents/Frameworks/llama.framework" "$app"; do
+  "$llama_framework" "$app"; do
   name=${code#"$app/"}
   [ "$code" = "$app" ] && name=Enigma.app
-  [ "$(first_authority "$code")" = "$app_authority" ] || fail "$name is not signed with the app's identity"
-  codesign -dvv "$code" 2>&1 | grep -q '^CodeDirectory .*flags=.*runtime' || fail "$name lacks the hardened runtime"
-  say "signed with the app's identity and hardened runtime: $name"
+  details=$(codesign -dvv "$code" 2>&1)
+  [ "$(printf '%s\n' "$details" | sed -n 's/^Authority=//p' | head -n 1)" = "$signing_name" ] \
+    || fail "$name is not signed with $signing_name"
+  printf '%s\n' "$details" | grep -q '^CodeDirectory .*flags=.*runtime' || fail "$name lacks the hardened runtime"
+  printf '%s\n' "$details" | grep -q '^Timestamp=' || fail "$name has no secure timestamp"
+  say "signed with Developer ID, the hardened runtime and a timestamp: $name"
 done
 codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -convert json -o "$temporary/entitlements.json" -
 plutil -convert json -o "$temporary/expected-entitlements.json" "$source/Enigma/Resources/Enigma.entitlements"
@@ -247,22 +274,91 @@ else
 fi
 [ -n "$previous_app" ] || fail "no app found in $previous_tag"
 previous_requirement=$(designated_requirement "$previous_app")
-if [ "$new_requirement" != "$previous_requirement" ]; then
+if [ "$new_requirement" = "$previous_requirement" ]; then
+  [ "$accept_new_identity" = false ] \
+    || fail "--accept-new-identity was given, but the designated requirement matches $previous_tag"
+  say "designated requirement matches $previous_tag"
+elif [ "$accept_new_identity" = true ]; then
+  say "warning: the signing identity changes in this release, as --accept-new-identity allows."
+  say "  $previous_tag: $previous_requirement"
+  say "  $version: $new_requirement"
+  say "  Users grant Screen Recording, Accessibility and Full Disk Access again once; the release notes must say so."
+else
   echo "release: the signing identity changed; installed copies would lose their permissions." >&2
   echo "  $previous_tag: $previous_requirement" >&2
   echo "  $version: $new_requirement" >&2
+  echo "  If this is intended, run again with --accept-new-identity (see docs/Updates.md)." >&2
   exit 1
 fi
-say "designated requirement matches $previous_tag"
 
-# MARK: 4. Package
+# MARK: 4. Notarize
+
+# Apple's notary service checks the signed app; the ticket is then stapled to it
+# so Gatekeeper accepts a downloaded copy even offline.
+say "notarizing (usually a few minutes; a team's first submissions can take hours)"
+ditto -c -k --keepParent "$app" "$temporary/notarize.zip"
+xcrun notarytool submit "$temporary/notarize.zip" --keychain-profile "$notary_profile" \
+  --output-format json > "$temporary/submission.json" || fail "uploading to Apple's notary service failed"
+submission_id=$(plutil -extract id raw -o - "$temporary/submission.json" 2>/dev/null || true)
+[ -n "$submission_id" ] || fail "the notary service returned no submission ID"
+say "submitted $submission_id; waiting for Apple"
+# Poll rather than `notarytool wait`, so a dropped connection costs one check
+# instead of the whole release. Gives up after about four hours.
+submission_status=""
+polls=0
+while :; do
+  xcrun notarytool info "$submission_id" --keychain-profile "$notary_profile" \
+    --output-format json > "$temporary/notarization.json" 2> "$temporary/notarization.err" || true
+  submission_status=$(plutil -extract status raw -o - "$temporary/notarization.json" 2>/dev/null || true)
+  case "$submission_status" in
+    Accepted | Invalid | Rejected) break ;;
+  esac
+  polls=$((polls + 1))
+  [ "$polls" -lt 480 ] \
+    || fail "still waiting on Apple after four hours; check later with: xcrun notarytool info $submission_id --keychain-profile $notary_profile"
+  if [ $((polls % 10)) -eq 0 ]; then
+    if [ -n "$submission_status" ]; then
+      say "still $submission_status after $((polls / 2)) minutes"
+    else
+      say "could not reach the notary service after $((polls / 2)) minutes: $(tail -n 1 "$temporary/notarization.err" | cut -c 1-200)"
+    fi
+  fi
+  sleep 30
+done
+if [ "$submission_status" != Accepted ]; then
+  cat "$temporary/notarization.json" >&2 || true
+  if [ -n "$submission_id" ]; then
+    xcrun notarytool log "$submission_id" --keychain-profile "$notary_profile" >&2 || true
+  fi
+  fail "notarization did not succeed (status: ${submission_status:-unknown})"
+fi
+say "notarized (submission $submission_id)"
+# Apple's ticket service can lag a moment behind an Accepted result, so retry.
+# stapler reports its errors on stdout.
+staples=0
+until xcrun stapler staple "$app" > "$temporary/staple.log" 2>&1; do
+  staples=$((staples + 1))
+  if [ "$staples" -ge 5 ]; then
+    cat "$temporary/staple.log" >&2
+    fail "stapling the notarization ticket failed; submission $submission_id is notarized, so stapling can be retried"
+  fi
+  say "stapling failed; trying again in 30 seconds ($staples of 5)"
+  sleep 30
+done
+xcrun stapler validate "$app" > "$temporary/staple.log" 2>&1 \
+  || { cat "$temporary/staple.log" >&2; fail "the stapled ticket does not validate"; }
+spctl --assess --type execute --verbose=2 "$app" 2>&1 | grep -q 'source=Notarized Developer ID' \
+  || fail "Gatekeeper does not accept the app as notarized Developer ID"
+say "stapled; Gatekeeper accepts it as notarized Developer ID"
+
+# MARK: 5. Package
 
 feed="$temporary/feed"
 mkdir -p "$feed"
 archive_name="Enigma-$version.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$feed/$archive_name"
 
-# MARK: 5. Appcast
+# MARK: 6. Appcast
 
 cp "$notes" "$feed/Enigma-$version.md"
 cp "$source/appcast.xml" "$feed/appcast.xml"
@@ -288,12 +384,12 @@ if [ "$dry_run" = true ]; then
   mkdir -p "$output"
   cp "$feed/$archive_name" "$feed/appcast.xml" "$source/$project" "$output/"
   diff -u "$temporary/appcast.before" "$feed/appcast.xml" || true
-  say "dry run finished; nothing was committed, tagged, pushed or uploaded."
+  say "dry run finished; the build was notarized, but nothing was committed, tagged, pushed or published."
   say "results: $output"
   exit 0
 fi
 
-# MARK: 6. Publish
+# MARK: 7. Publish
 
 remote_main=$(git -C "$repository_root" ls-remote origin refs/heads/main | cut -f 1)
 [ "$remote_main" = "$(git -C "$repository_root" rev-parse HEAD)" ] \

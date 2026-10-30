@@ -52,7 +52,9 @@ a release with one script, `scripts/release.sh`. The design is in
 
 Updates keep the bundle identifier and the signing identity, so Screen
 Recording, Accessibility, Full Disk Access, Automation and Keychain approvals
-carry over. Chats, models and credentials are not touched.
+carry over. Chats, models and credentials are not touched. The one exception
+is the first Developer ID release, which changes the signing identity once;
+see [Developer ID and notarization](#developer-id-and-notarization).
 
 Builds from Xcode (Debug) refuse background checks, so a development build
 never replaces itself. **Check for Updates…** still works in Debug for
@@ -166,12 +168,36 @@ trust only archives signed with the key whose public half is `SUPublicEDKey` in
    password manager, then delete it.
 4. To release from another Mac, restore it with `generate_keys -f <file>`.
 
-Losing the private key means installed copies can never update again: on the
-free team there is no Developer ID signature for Sparkle to fall back on.
+Losing the private key no longer strands installed copies once they run a
+Developer ID release. Sparkle lets one update change either the EdDSA key or
+the Apple code signing certificate, never both. So a release signed with the
+same Developer ID and a new key, with the new public key in `SUPublicEDKey`,
+moves them to the new key. Copies older than the first Developer ID release
+would still need a manual download.
 
 The first `release.sh` run on a Mac asks for keychain access to the key when
 `generate_appcast` signs the archive. Choose **Always Allow** so later releases
 do not stop at the prompt.
+
+## One-time setup: Developer ID and notarization
+
+Releases need two more things in the login keychain of the Mac that releases:
+
+1. **A Developer ID Application certificate** for team `5JXMXR2W9L`: Xcode →
+   Settings → Accounts → the team → **Manage Certificates…** → **+** →
+   **Developer ID Application**. Back it up: in Keychain Access, export the
+   certificate with its private key as a `.p12`, store it in a password
+   manager, then delete the file. To release from another Mac, import the
+   `.p12` there. `release.sh` stops if the keychain has none, or more than one
+   valid one; after a renewal, remove the old certificate.
+2. **A notarization profile** named `enigma`: make an app-specific password
+   at account.apple.com (Sign-In and Security → App-Specific Passwords), then
+   run `xcrun notarytool store-credentials enigma`. Leave the App Store Connect
+   API key path empty, and enter the Apple ID, the password and the team ID.
+   `release.sh` checks the profile with `notarytool history` before it builds.
+
+The first signing with the Developer ID key may ask whether `codesign` can use
+it. Choose **Always Allow**.
 
 ## Releasing
 
@@ -191,24 +217,25 @@ the archive copy), outside the repository. It stops at the first failure:
    `# Enigma <version>`, the tag `v<version>` doesn't
    exist locally or on `origin`, `gh` is signed in, and Sparkle's tools resolve.
    It also checks the branch is `main`, the tree is clean, and `HEAD` equals
-   `origin/main` after a fetch.
+   `origin/main` after a fetch. The keychain must hold exactly one valid
+   Developer ID Application certificate for the project's `DEVELOPMENT_TEAM`,
+   and `notarytool` must sign in with the `enigma` profile.
 2. **Bump.** `MARKETING_VERSION` becomes `<version>` and
    `CURRENT_PROJECT_VERSION` goes up by one, in both app configurations.
 3. **Build and verify.** It runs `xcodebuild archive` (Release,
    `-allowProvisioningUpdates`) and checks the built version and that the app
    bundles this version's release notes (a dry run copies them into its
-   worktree first, so they needn't be committed yet). `xcodebuild
-   archive` leaves Sparkle's helpers ad-hoc signed, unlike an Organizer
-   export, and a quarantined download may refuse to run them. So the script
-   re-signs them with the app's own identity, read from the built app's
-   certificate, and the hardened runtime. It follows
+   worktree first, so they needn't be committed yet). The archive is signed
+   for development, and its Sparkle helpers are only ad-hoc signed, unlike in
+   an Organizer export. So the script re-signs everything with the Developer
+   ID certificate, the hardened runtime and a secure timestamp. It follows
    [Sparkle's documented order](https://sparkle-project.org/documentation/sandboxing/#code-signing):
    `Installer.xpc`, `Downloader.xpc` (keeping its entitlements), `Autoupdate`,
-   `Updater.app`, `Sparkle.framework`. Then it re-signs `Enigma.app`, keeping
-   its entitlements. It then checks several things:
+   `Updater.app`, `Sparkle.framework`. Then it signs `llama.framework`, and
+   then `Enigma.app`, keeping its entitlements. It then checks several things:
    - `codesign --verify --deep --strict` passes.
-   - Every one of those items, plus `llama.framework` and the app, has the
-     app's signing authority and the runtime flag.
+   - Every one of those items is signed by the Developer ID certificate, with
+     the runtime flag and a secure timestamp.
    - The app's entitlements equal `Enigma.entitlements`, with no
      `get-task-allow`.
 
@@ -216,17 +243,27 @@ the archive copy), outside the repository. It stops at the first failure:
    compares the designated requirement with the previous GitHub release's app,
    taken from its zip, or for 0.9.x from its DMG mounted read-only. A changed
    requirement means every user would silently lose their permissions, so the
-   script stops.
-4. **Package.** `ditto -c -k --sequesterRsrc --keepParent` makes
-   `Enigma-<version>.zip`.
-5. **Appcast.** Sparkle's `generate_appcast` signs the zip with the keychain
+   script stops, unless `--accept-new-identity` was given (see
+   [Developer ID and notarization](#developer-id-and-notarization)). That
+   flag fails when the requirement hasn't changed, so it can't be left on.
+4. **Notarize.** It zips the app and sends it to Apple's notary service with
+   `notarytool submit`. Then it asks `notarytool info` for the result every 30
+   seconds, so a dropped connection costs one check, and gives up after four
+   hours. A team's first submissions can take that long; the first one took
+   20–30 minutes. It stops unless the result is `Accepted`, printing Apple's
+   log. Then `stapler staple` attaches the ticket to the
+   app, `stapler validate` checks it, and `spctl --assess` must report
+   `source=Notarized Developer ID`.
+5. **Package.** `ditto -c -k --sequesterRsrc --keepParent` makes
+   `Enigma-<version>.zip` from the stapled app.
+6. **Appcast.** Sparkle's `generate_appcast` signs the zip with the keychain
    key and adds an item to `appcast.xml`. The options are
    `--embed-release-notes --maximum-deltas 0 --maximum-versions 0` and a
    download prefix of
    `https://github.com/leow427/Enigma/releases/download/v<version>/`. The
    script then checks the new item's `sparkle:version`,
    `sparkle:shortVersionString`, enclosure URL and `sparkle:edSignature`.
-6. **Publish**, in an order that never leaves the live feed pointing at a
+7. **Publish**, in an order that never leaves the live feed pointing at a
    missing file:
    1. commit `Release <version>` and tag `v<version>`;
    2. push the tag;
@@ -238,7 +275,7 @@ development, so the repository has no "Latest" release. Updates don't depend
 on one: the feed is read from `main` and each enclosure URL names its tag. To
 publish full releases later, drop `--prerelease` from `release.sh`.
 
-Just before step 6, the script checks again that `origin/main` hasn't moved.
+Just before step 7, the script checks again that `origin/main` hasn't moved.
 If anything fails before the release commit, it restores `project.pbxproj`
 and `appcast.xml` in the checkout. If a later step fails, it prints how to
 retry or undo:
@@ -252,21 +289,24 @@ retry or undo:
 The previous release used for the signature check is the newest one that isn't
 a draft. Pre-releases count, since every release is one.
 
-`--dry-run` runs steps 1–5 in a temporary detached worktree of `HEAD`. It
+`--dry-run` runs steps 1–6 in a temporary detached worktree of `HEAD`. It
 copies the zip, `appcast.xml` and `project.pbxproj` to
 `~/Library/Caches/Enigma-Release/dry-run/<version>/`, prints the appcast diff,
 and removes the worktree. In a dry run, the branch, clean-tree and
 `origin/main` checks only warn, so it can be rehearsed from a feature branch.
-Every other check still fails hard. It commits, tags, pushes and uploads
-nothing. For the manual check below,
+Every other check still fails hard. A dry run does send the build to Apple's
+notary service, which keeps it private, but it commits, tags, pushes and
+publishes nothing. For the manual check below,
 `ENIGMA_RELEASE_TEST_FEED_URL=<url> scripts/release.sh --dry-run <version>`
 builds an app that checks a test feed instead. A real release refuses this
 variable.
 
 Releases are zips from 0.10.0 on; 0.9.x shipped as DMGs without an updater.
 Friends install the newest release by hand once: download the zip, drag
-`Enigma.app` into Applications in Finder, and open it. The first time, macOS
-needs **Open Anyway** in System Settings → Privacy & Security.
+`Enigma.app` into Applications in Finder, and open it. Notarized releases
+open after macOS's usual "downloaded from the Internet" confirmation. Releases
+before the first Developer ID release need **Open Anyway** in System
+Settings → Privacy & Security the first time.
 
 ## Resolved during implementation
 
@@ -281,6 +321,10 @@ needs **Open Anyway** in System Settings → Privacy & Security.
 | Exact Sparkle 2.10.0 Swift spellings | `updater(_:mayPerform:) throws`, `updater(_:willInstallUpdateOnQuit:immediateInstallationBlock:)`, `updater(_:didFinishUpdateCycleFor:error:)`, `standardUserDriverShouldHandleShowingScheduledUpdate(_:andInImmediateFocus:)`, `standardUserDriverWillHandleShowingUpdate(_:forUpdate:state:)`, `standardUserDriverDidReceiveUserAttention(forUpdate:)`, `standardUserDriverWillFinishUpdateSession()`. |
 | Does a local `http://127.0.0.1` test feed work? | Yes; Sparkle fetched the feed and update over it (see the manual check below). |
 | Does renewing the free certificate change the designated requirement? | Unknown until the first renewal; `release.sh` stops if it does. |
+| Does the paid membership change the team ID? | No. Team `5JXMXR2W9L` became the paid team (2026-10-29); the Apple Development certificate and `install-app.sh` copies are unchanged. |
+| What is a Developer ID release's designated requirement? | `identifier "com.leow427.AISpotlight" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "5JXMXR2W9L"`: the team, not one certificate (0.13.0 dry run, 2026-10-30). |
+| Does the archive embed a provisioning profile? | No; the entitlements need none, so Developer ID needs no profile. |
+| How long does notarization take? | The team's first submission took 20–30 minutes; the next one under 5. Inside a sandboxed shell `notarytool wait` lost its connection, so `release.sh` polls `notarytool info`. |
 
 ## Manual end-to-end check
 
@@ -337,14 +381,42 @@ reported that it worked. The steps:
    reopen offer appears, and after **Reopen** it runs in place.
 4. **Not Now** returns at the next launch; **Don't ask again** stops it.
 
-## Future: Developer ID and notarization
+## Developer ID and notarization
 
-This is planned as one deliberate release. `release.sh` would sign with a
-Developer ID Application identity, notarize with `xcrun notarytool submit
---wait`, staple, and re-zip. The designated-requirement check would accept the
-identity change for that one release only, through an explicit flag such as
-`--accept-new-identity`. Sparkle accepts it because the EdDSA key is unchanged.
-macOS ties Screen Recording and Accessibility approval to the signature, so
-every user re-grants them once, and that release's notes must say so.
-Afterwards Gatekeeper no longer needs **Open Anyway**, and releasing from
-GitHub Actions can be reconsidered.
+Releases up to 0.12.0 were signed "Apple Development" by the free Personal
+Team, so a downloaded copy needed **Open Anyway**. From the next release on,
+`release.sh` signs with the team's Developer ID Application certificate,
+notarizes and staples (steps 3 and 4 above), so Gatekeeper opens a download
+after its usual confirmation. Debug runs and `scripts/install-app.sh` copies
+keep the Apple Development signature; they aren't downloaded, so Gatekeeper
+doesn't check them.
+
+**The first Developer ID release changes the signing identity, once.** Its
+designated requirement no longer names the Apple Development certificate. Run
+it as `scripts/release.sh --accept-new-identity <version>`, after a dry run
+with the same flag. Sparkle installs it because the EdDSA key is unchanged.
+macOS ties some approvals to the signature, so after updating, users:
+
+- grant Screen Recording, Accessibility and Full Disk Access again in System
+  Settings → Privacy & Security (Automation for Messages, Contacts and
+  Location ask again when used);
+- see a Keychain prompt for each saved cloud key or sign-in the first time
+  Enigma reads it (the items live in the login keychain,
+  `KeychainCredentialStore`); **Always Allow** keeps it.
+
+That release's notes must say so. After it, the requirement names the team ID
+rather than one certificate, so a renewed Developer ID certificate keeps
+everyone's approvals, and later releases run without the flag.
+
+The two signatures have different designated requirements. Swapping
+`/Applications/Enigma.app` between a copy from `scripts/install-app.sh`
+(Apple Development) and a downloaded or Sparkle-installed release (Developer
+ID) makes macOS ask for every permission again, each time. An
+`install-app.sh` copy still checks the feed, so it installs a release whose
+build number is higher. For the same reason, the manual end-to-end check
+below now needs both builds signed the same way: install a Developer ID
+build first (for example from a dry run's zip), not an `install-app.sh` copy.
+
+Releasing from GitHub Actions is now possible, but it would put the Developer
+ID certificate and a notarization credential in repository secrets, so
+releases stay on the owner's Mac.
