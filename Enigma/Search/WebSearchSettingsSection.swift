@@ -16,7 +16,7 @@ struct WebSearchSettingsSection: View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("Web search · Brave")
       EnigmaRow("Search automatically when fresh information is needed",
-                subtitle: "On by default. With a saved Brave key, questions about news, recent events and changing facts can search automatically, including in Local mode. Without a key, automatic search stays inactive. Turn this off for manual-only search.") {
+                subtitle: "On by default. With a saved Brave key, questions about news, recent events and changing facts can search automatically, including in Local mode. Without a key, only ChatGPT and Claude Code search, with their provider's own search. Turn this off for manual-only search.") {
         EnigmaSwitch("Search automatically when fresh information is needed", isOn: $settings.automaticallySearch)
       }
       EnigmaRow("Brave Search API key",

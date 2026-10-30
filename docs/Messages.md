@@ -162,6 +162,13 @@ an earlier typed `/messages` turn), Enigma marks the chat, saves the mark with
 it, and from then on:
 
 - each web search asks first with the third card;
+- ChatGPT and Claude Code stop using their provider's own web search, which runs
+  on the provider's servers where no card can ask; they use Enigma's
+  `web_search` behind the third card when a Brave key is saved, and don't
+  search otherwise. If a read happens partway through a reply that has the
+  provider's search, its text is held back, never reaching that request, and
+  the reply starts again without it (see
+  [Web search](Web-Search.md#cloud-models-own-search));
 - in Auto the chat stays on the local model;
 - a flagged cloud model asks **Send text from your messages to ‹company›?**
   (**Don't allow**, **Allow**, for this chat only) when the text was allowed for

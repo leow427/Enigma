@@ -9,23 +9,10 @@ final class NativeWebSearchLiveTests: XCTestCase {
   static let multiSearchQuestion =
     "Compare the current prices of the cheapest MacBook Air and the cheapest MacBook Pro in the US. Link your sources."
 
-  private var root: URL!
-  private var suiteName: String!
-  private var defaults: UserDefaults!
-
   override func setUpWithError() throws {
     guard ProcessInfo.processInfo.environment["ENIGMA_NATIVE_SEARCH_LIVE"] == "1" else {
       throw XCTSkip("Set TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1 to run the live provider-search checks.")
     }
-    root = FileManager.default.temporaryDirectory.appending(path: "NativeWebSearchLiveTests-\(UUID())")
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    suiteName = "NativeWebSearchLiveTests-\(UUID())"
-    defaults = UserDefaults(suiteName: suiteName)
-  }
-
-  override func tearDownWithError() throws {
-    if let suiteName { defaults?.removePersistentDomain(forName: suiteName) }
-    if let root { try? FileManager.default.removeItem(at: root) }
   }
 
   /// Uses the Mac's ChatGPT sign-in, through Codex, with no Brave key.
@@ -55,35 +42,8 @@ final class NativeWebSearchLiveTests: XCTestCase {
     print("F30 live \(route.providerID) \(modelID): \(sources.count) sources, \(reply.content.count) characters")
   }
 
-  /// Sends one flagged turn through `submitNative`, with automatic search on and no Brave key, and
-  /// returns the reply. Messages tools see no real chats.
+  /// Sends one flagged turn through `submitNative`, with automatic search on and no Brave key.
   private func ask(_ prompt: String, route: Route, providers: Set<CloudProviderID>) async throws -> ChatMessage {
-    let settings = WebSearchSettings(credentials: NativeSearchCredentials(key: nil), defaults: defaults)
-    settings.automaticallySearch = true
-    let chat = LocalChatViewModel(
-      engine: NativeTestEngine(model: NativeToolRequestTests.flaggedModel),
-      selectionEditingSettings: SelectionEditingSettings(defaults: defaults),
-      toolPermissions: ToolPermissionCoordinator(store: ToolGrantStore(defaults: defaults)),
-      messagesToolbox: { confirm in
-        MessagesTools(database: MessagesDatabase(url: URL(fileURLWithPath: "/nonexistent")), contacts: FixtureContacts(),
-                      confirmSend: confirm)
-      },
-      messagesAccess: {},
-      searchSettings: settings,
-      sessionStore: ChatSessionStore(applicationSupportDirectory: root),
-      nativeToolsEnabled: true,
-      nativeWebSearchProviders: providers)
-    // `submitNative` gives the plan provider search for the route.
-    chat.submitNative(prompt, route: route, plan: chat.nativeToolPlan(for: ComposerCommands(prompt)))
-    let deadline = ContinuousClock.now.advanced(by: .seconds(180))
-    while chat.activeRequest != nil || chat.isBusy {
-      guard ContinuousClock.now < deadline else {
-        _ = chat.stopStreaming()
-        return try XCTUnwrap(nil, "The live turn took longer than 3 minutes.")
-      }
-      try await Task.sleep(for: .milliseconds(100))
-    }
-    if case .failed(let message) = chat.state { XCTFail("The turn failed: \(message)") }
-    return try XCTUnwrap(chat.messages.last { $0.role == .assistant })
+    try await NativeSearchTurn.ask(prompt, route: route, providers: providers)
   }
 }

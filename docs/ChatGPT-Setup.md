@@ -197,6 +197,16 @@ until you sign in again or choose another provider.
   part of your message, not a tool), memories, and multi-agent features are
   turned off. The thread is closed when
   the response ends, and **Stop** interrupts generation on the server.
+- Web search is the one exception: when a model that chooses its own tools may
+  search (automatic search on, or `/search` typed) and the chat holds no
+  message text, its thread turns on Codex's own web search in `live` mode,
+  beside Enigma's tools. OpenAI runs the searches on its servers; they count
+  toward your ChatGPT plan, and no Brave key is needed. If your workspace
+  allows only `cached`, that's used; if it allows neither, Enigma asks again
+  with its own `web_search` when a Brave key is saved, and without search
+  otherwise. Your approximate area goes with the thread
+  (`tools.web_search.location`) only after you allow it for ChatGPT on the
+  location card. See [Web search](Web-Search.md#cloud-models-own-search).
 - Downloading the built-in Codex sends only the HTTPS request to GitHub; no
   chats or account details. Nothing new is saved besides the package itself
   and, after a failed quiet upgrade, the failed version and time (so it waits

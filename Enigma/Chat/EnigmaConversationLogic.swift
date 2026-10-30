@@ -158,7 +158,8 @@ struct ReplySlotPlacement: Equatable {
 
 /// The monospace line under a finished reply: `model · where it ran · time`,
 /// from what the reply recorded. A reply from an earlier session didn't record
-/// its model, so it shows only what it has.
+/// its model, so it shows only what it has, and doesn't know which search it used
+/// (Brave or the provider's own, F30), so its search is just "web search".
 enum ReplyMetaLine {
   static func text(origin: ReplyOrigin?, searched: Bool, date: Date, now: Date = .now,
                    calendar: Calendar = .current, locale: Locale = .current) -> String {
@@ -167,7 +168,7 @@ enum ReplyMetaLine {
       if !origin.modelName.isEmpty { parts.append(origin.modelName) }
       parts.append(place(origin))
     }
-    if searched { parts.append(origin?.providerSearch == true ? "web search" : "brave search") }
+    if searched { parts.append(origin?.providerSearch == false ? "brave search" : "web search") }
     parts.append(time(date, now: now, calendar: calendar, locale: locale))
     return parts.joined(separator: " · ")
   }

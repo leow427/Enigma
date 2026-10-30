@@ -56,7 +56,11 @@ A chat that holds text from your messages stays on this Mac in Auto, as a typed
 
 Every cloud model in the catalogue calls tools natively, so in Cloud, or when
 Auto picks the cloud, the model gets Enigma's tools on every message (web
-search, Messages, the selection tools) and decides when to use them; see
+search, Messages, the selection tools) and decides when to use them. On
+ChatGPT via Codex and Claude Code the web search is the provider's own, with no
+Brave key, in chats without message text; Gemini and the OpenAI and Anthropic
+API keys use Enigma's `web_search` on Brave (see
+[Web search](Web-Search.md#cloud-models-own-search)); see
 [Slash commands](Slash-Commands.md#models-that-choose-their-own-tools). The
 flag goes by family: every `claude-*` model on the Anthropic API except the
 retired Claude 2 and Instant, Gemini 2.5 and 3 text models and their `-latest`
@@ -76,6 +80,12 @@ got 58 of 60 right (0.97), and Claude Code with `sonnet` 58 of 60 (0.97). Their
 first answer text with tools came 0.90× and 1.03× as soon as today's plain turn
 (the gate is 1.15×). Neither followed an instruction planted in a search result;
 each asked which city's marathon was meant instead of searching.
+
+With their providers' own search (F30), the same eval measured both at 58 of 60
+again on 2026-10-29. On 20 web questions ChatGPT searched on all 20 and showed
+2 or more sources on 19, with a median of 7.6 s to the first answer text;
+Claude Code searched on 19, showed 2 or more sources on 19, and took 16.2 s.
+See the [report](history/2026-10-29-native-search-evaluation.md).
 
 ## Providers
 

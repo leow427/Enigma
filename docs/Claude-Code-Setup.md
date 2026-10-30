@@ -120,6 +120,17 @@ answers over Claude Code's stream-json control protocol, so no helper process
 or network listener is involved. Built-in tools stay off and only Enigma's
 Messages tools are allowed. See [Messages.md](Messages.md).
 
+When a model that chooses its own tools may search (automatic search on, or
+`/search` typed) and the chat holds no message text, the process gets
+`--tools WebSearch` instead of `--tools ""`, and `WebSearch` joins the allowed
+tools beside Enigma's. `WebFetch`, which would download pages from this Mac,
+stays off. Anthropic runs the searches; they count toward your Claude plan, and
+no Brave key is needed. If Claude Code's start-up message doesn't list
+`WebSearch` (a policy withheld it), Enigma ends the process and asks again with
+its own `web_search` when a Brave key is saved, and without search otherwise. After you allow location for Claude Code, the
+instructions name your approximate area; coordinates never leave this Mac. See
+[Web search](Web-Search.md#cloud-models-own-search).
+
 ## How it works
 
 | File | Responsibility |
