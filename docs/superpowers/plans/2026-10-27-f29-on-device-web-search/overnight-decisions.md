@@ -9,7 +9,93 @@ The summary at the top is written when the run ends.
 
 ## Summary
 
-*Written at the end of the run.*
+*Written when the run stopped. "R" = reversible.*
+
+**Run setup and all checkpoints**
+- D1 Overnight orchestrator replaces the owner role (owner) — R
+- D2 Speed bar 4.0 s median / 6.0 s p90 (owner) — R
+- D3 Relaxed quality gate (owner) — R
+- D4 If the relaxed gate fails, keep Brave (owner) — R
+- D5 Dependencies and marked spec/brief amendments allowed (owner) — R
+- D6 Spot-check and live-run rules (owner) — R
+- D25 Hosted UI tests time out with the screen locked; CI checks them — R
+- D31 Full suite runs with a 60 s per-test limit (a UI test hung) — R
+
+**CP1b — routing (8 review rounds)**
+- D7, D9, D11 Times, parts of the day, "forecast": which weather questions use the location — R
+- D8 "local cafes" with no city stays "local cafes" — R
+- D10, D14 Developer/how-to and language-name exclusions — R
+- D12, D15, D18–D21 "temperature …", "<city> weather", seasons; whole-question patterns — R
+- D13 Weather place ends at the next preposition (long-draft speed) — R
+- D16 From round 3, only location leaks or everyday misroutes are fixed; the rest go to CP7 — R
+- D17, D19, D21, D23, D26, D28, D30 Round details — R
+- D22 Every fix regression-checked against an 830-question probe — R
+- D24, D27, D29 Location-leak fixes ("right now", "forecast", "local forecast for", "forecast for home prices"); stop after round 8 — R
+- D32 81 full-suite failures sorted as environment failures — R
+- D44 A flaky CI screen test re-run, not changed — R
+
+**CP2 — search sites (3 rounds)**
+- D33 Owner lineup: DuckDuckGo + Wikipedia; Mojeek/Startpage tasks skipped — R
+- D34 Header set A split into GET and form-POST headers — R
+- D35, D42 DuckDuckGo `kl` region table from DuckDuckGo's own list — R
+- D36 One extra live request to find the "no results" marker — R (request already sent)
+- D37, D43, D46, D48 Runner/health details — R
+- D38 First results page only; page 2 ported, unused — R
+- D39 The 30 largest Wikipedia editions — R
+- D40 Workaround for an NSXMLNode XPath bug — R
+- D41, D45, D47 Cooldown only on real block signs; a challenged query sits out alone; unexpected statuses are "unrecognized" — R
+
+**CP3 — quality and ranking (2 rounds)**
+- D49 Unsafe lists trimmed to 3 MB: scam/fraud/phishing kept, most malware dropped — R
+- D50 Reading Wikipedia's Perennial sources — R
+- D51 A list shrinking by half is a parse failure — R
+- D52 `authority.txt`, `unreadable.txt` drafted; **owner to approve** — R
+- D53 Ranking weights in `RankingTuning`; ties favour trust — R
+- D54 Authority matched on the host; lists load lazily — R
+- D55–D57 Overrides: Wikipedia/Stack Overflow/Investopedia/arXiv/AWS docs neutral; MSN, Healthline, crowdfunding sites readable; never lifts a security block — R
+- D58, D60 Round details — R
+- D59 Security entries under allowed domains always kept; cut-off and blogspot left for CP7 — R
+
+**CP4 — page reading (2 rounds)**
+- D61 Readability 0.6.0 bundled outside the lists' budget — R
+- D62 More date sources and a plausibility check — R
+- D63 One sealed view, extractions in turn, named tuning constants — R
+- D64 Guard fails closed; refusal drops page and snippet — R
+- D65, D70, D72 Download details — R
+- D66 Page checks — R
+- D67 → D69 One static, versioned WebKit rule-list file on disk (spec §4/§7 amended) — R
+- D68 Extracted text capped at 200,000 characters — R
+- D69 Unresolved lookups aren't refusals; lenient UTF-8; responses from non-public addresses dropped — R
+- D71 Pages over https only; ATS stays strict (spec §4 amended) — R
+
+**CP5 — passages and pipeline (2 rounds)**
+- D73 Tuning defaults: 3.0 s window, 6 reads, stop at 5, 800 ms extraction, cut-off 0.08 — R
+- D74 Pipeline details — R
+- D75 `web_search` capped to F32's budget — R
+- D76 Superseded by D77
+- D77, D78 CI fix: content tests use a long timeout; WebKit warmed before the first read; site outages report the site's error — R
+- D79, D80 Warm-up stop race fixed; production timeout pinned — R
+
+**CP6 — places and weather (2 rounds)**
+- D81 Geocoding: 5 results, exact name preferred, names as returned — R
+- D82 Two new activity phases — R
+- D83 Tools in `offeredParts` — R
+- D84 `/maps` handling; welcome-page line left for the owner — R
+- D85 Tool details — R
+- D86 Three F30/F32 assertions follow spec §6.2 — R
+- D87, D89 A declined location stays declined for the rest of the chat (spec §6.2 amended) — R
+- D88, D90 Round details — R
+
+**Run end**
+- D91 Stopped after CP6 at 82% weekly usage instead of starting CP7 — R
+
+**Unrun or failed checks**
+- Hosted UI tests (81, nine classes) time out locally with the screen locked; CI passed on 3563716, c094b6c, 5523f78 (CI on fb17df8 was still running at the stop). Rerun `scripts/verify-xcode.sh test` with the screen unlocked.
+- CP6's manual Debug-switch check (on-device provider in a Debug build) is not done.
+- No quality evaluation, judge run, tool-use eval or spot-check yet (CP7).
+- Live checks run: DuckDuckGo/Wikipedia (CP2), six-page reading (CP4), six-question pipeline, median 1.65 s (CP5), Open-Meteo/geocoder/MapKit (CP6).
+
+**What's next:** CP7 (evaluation and tuning) — see the RESUME section of `overnight-report.md`; then CP8 only if the relaxed gate (D3) passes, else D4; then CP9 and CP10.
 
 ## Index by checkpoint
 
@@ -20,6 +106,7 @@ The summary at the top is written when the run ends.
 - **CP4:** D61–D72
 - **CP5:** D73–D80
 - **CP6:** D81–D90
+- **Run end:** D91
 - **CP7:**
 - **CP8:**
 - **CP9:**
@@ -1803,3 +1890,20 @@ view is released, not from extraction. The CI failures were most likely the
 - **Why:** reviewer round 2 (D89).
 - **Alternatives:** `LocalChatViewModel.swift`, `PlacesAndWeatherTools.swift`.
 - **Reversible:** yes.
+
+### D91 — 2026-10-30 09:56, run end — Stop after CP6 instead of starting CP7 at 82%
+
+- **Decided (orchestrator):** weekly usage was 82% after CP6's commit, one
+  point under the run's 83% "start nothing new" line. CP7 is not started:
+  each checkpoint has used 2–4 points, and CP7's evaluation sends every
+  question through Claude Code (sonnet), which draws on the same weekly
+  budget, so it would cross 83% before finishing its first task and likely
+  reach the 86% hard stop mid-evaluation, leaving a half-built harness and a
+  cut-off live run. The run ends cleanly with CP1b–CP6 committed, the worktree
+  clean, no wip branch, the PR left as a draft (CP7–CP10 remain), and a RESUME
+  section in `overnight-report.md`.
+- **Why:** a clean stop at a checkpoint boundary is easier to resume than a
+  wip branch, and keeps the owner's buffer under 86%.
+- **Alternatives:** start the CP7 worker now and hard-stop when usage reaches
+  86% (WIP to `wip/f29-overnight-<time>`).
+- **Reversible:** yes (resume from the RESUME steps).
