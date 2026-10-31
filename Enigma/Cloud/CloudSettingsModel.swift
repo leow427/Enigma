@@ -167,6 +167,10 @@ final class CloudSettingsModel: ObservableObject {
     didSet { preferences.setPreferredClaudeCodeEffort(claudeCodeEffort) }
   }
 
+  /// Follows the free pool's switches for a daily limit (F34). Holds `self` weakly, so a released
+  /// model leaves only an inert observer.
+  private var freeSwitchObserver: NSObjectProtocol?
+
   @Published var autoMayUseFreeGemini: Bool {
     didSet { preferences.setAutoMayUseFreeGemini(autoMayUseFreeGemini) }
   }
@@ -264,6 +268,15 @@ final class CloudSettingsModel: ObservableObject {
     codexThinkingCapacity = preferences.preferredCodexThinkingCapacity()
     claudeCodeEffort = preferences.preferredClaudeCodeEffort()
     autoMayUseFreeGemini = preferences.autoMayUseFreeGemini()
+    freeSwitchObserver = NotificationCenter.default.addObserver(
+      forName: .freeModelSwitched, object: nil, queue: .main
+    ) { [weak self] note in
+      guard let modelID = note.object as? String else { return }
+      MainActor.assumeIsolated {
+        guard let self, self.preferredProvider == .free else { return }
+        self.preferredModelID = modelID
+      }
+    }
   }
 
   var isConfigured: Bool {

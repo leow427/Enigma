@@ -155,6 +155,10 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
       "\(provider.displayName) rejected the API key. Check it in Settings → Cloud and search."
     case .rateLimited(let provider):
       "\(provider.displayName) is rate limiting this account. Please try again shortly."
+    case .quotaExhausted(.free, let resetsAt):
+      "Free limits reached. "
+        + (resetsAt.map { "They reset at \($0.formatted(date: .omitted, time: .shortened))" } ?? "Try again later")
+        + ", or connect another provider in Settings."
     case .quotaExhausted(let provider, let resetsAt):
       "\(provider.displayName) reached its free daily limit. "
         + (resetsAt.map { "It resets at \($0.formatted(date: .omitted, time: .shortened))." } ?? "Try again later.")

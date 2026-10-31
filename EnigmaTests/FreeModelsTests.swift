@@ -97,7 +97,144 @@ final class FreeModelsTests: XCTestCase {
     try settings.removeAPIKey(for: .gemini)
     XCTAssertFalse(settings.hasCloudAccess(for: .free))
   }
+
+  // MARK: - Task 4: fallback in the pool
+
+  private let ranked = ["gemini-2.5-pro", "apple-pcc", "gemini-2.5-flash"]
+
+  private func pool(_ fake: ScriptedFreeProvider, usage: FreeModelUsage, models: [String]? = nil,
+                    allowsGeminiInAuto: Bool = false, switches: SwitchLog = SwitchLog()) -> FreeModelPool {
+    let models = models ?? ranked
+    return FreeModelPool(gemini: fake, apple: fake, usage: usage, models: { models },
+                         allowsGeminiInAuto: { allowsGeminiInAuto }, onSwitch: { switches.append($0) }, now: { [now] in now })
+  }
+
+  private func request(_ model: String, mode: ChatMode = .cloud) -> ChatRequest {
+    ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "hi")],
+                route: Route(mode: mode, providerID: CloudProviderID.free.rawValue, modelID: model, usesNetwork: true))
+  }
+
+  private func events(_ stream: AsyncThrowingStream<ChatEvent, Error>) async throws -> [ChatEvent] {
+    var all: [ChatEvent] = []
+    for try await event in stream { all.append(event) }
+    return all
+  }
+
+  func testDailyLimitSwitchesSavesAndRetries() async throws {
+    let reset = now.addingTimeInterval(3_600)
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .fail(CloudProviderError.quotaExhausted(.gemini, resetsAt: reset))])
+    let usage = FreeModelUsage(), switches = SwitchLog()
+    let all = try await events(pool(fake, usage: usage, switches: switches).stream(request("gemini-2.5-pro")))
+    let time = reset.formatted(date: .omitted, time: .shortened)
+    XCTAssertEqual(all.first, .activity(.notice("Switched to Apple's cloud model: Gemini 2.5 Pro reached its free daily limit (resets \(time)).")))
+    XCTAssertEqual(all.dropFirst().first, .token("from apple-pcc"))
+    XCTAssertEqual(switches.items, ["apple-pcc"])
+    XCTAssertEqual(fake.calls, ["gemini:gemini-2.5-pro", "free:apple-pcc"])
+    XCTAssertTrue(usage.isExhausted("gemini-2.5-pro", now: now))
+  }
+
+  func testPerMinuteLimitRetriesWithoutSaving() async throws {
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .fail(CloudProviderError.rateLimited(.gemini))])
+    let usage = FreeModelUsage(), switches = SwitchLog()
+    let all = try await events(pool(fake, usage: usage, switches: switches).stream(request("gemini-2.5-pro")))
+    XCTAssertTrue(all.contains(.token("from apple-pcc")))
+    XCTAssertEqual(switches.items, [])
+    XCTAssertFalse(usage.isExhausted("gemini-2.5-pro", now: now))
+  }
+
+  func testNoRetryAfterTextStreamed() async throws {
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .tokenThenFail("Hi", CloudProviderError.rateLimited(.gemini))])
+    do {
+      _ = try await events(pool(fake, usage: FreeModelUsage()).stream(request("gemini-2.5-pro")))
+      XCTFail("A reply that already started must not be retried")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .rateLimited(.gemini)) }
+    XCTAssertEqual(fake.calls, ["gemini:gemini-2.5-pro"])
+  }
+
+  func testExhaustedChoiceIsSkipped() async throws {
+    let usage = FreeModelUsage(), switches = SwitchLog()
+    usage.markExhausted("gemini-2.5-pro", until: now.addingTimeInterval(600))
+    let fake = ScriptedFreeProvider([:])
+    let all = try await events(pool(fake, usage: usage, switches: switches).stream(request("gemini-2.5-pro")))
+    XCTAssertEqual(fake.calls, ["free:apple-pcc"])
+    XCTAssertEqual(switches.items, ["apple-pcc"])
+    if case .activity(.notice(let text)) = all.first { XCTAssertTrue(text.hasPrefix("Switched to Apple's cloud model: Gemini 2.5 Pro")) }
+    else { XCTFail("Expected a notice first, got \(all)") }
+  }
+
+  func testAutoSkipsGeminiWithoutTheToggle() async throws {
+    let fake = ScriptedFreeProvider([:])
+    _ = try await events(pool(fake, usage: FreeModelUsage()).stream(request("gemini-2.5-pro", mode: .auto)))
+    XCTAssertEqual(fake.calls, ["free:apple-pcc"])
+  }
+
+  func testAllOutThrowsStopTextWithEarliestReset() async throws {
+    let usage = FreeModelUsage()
+    usage.markExhausted("gemini-2.5-pro", until: now.addingTimeInterval(900))
+    usage.markExhausted("apple-pcc", until: now.addingTimeInterval(300))
+    usage.markExhausted("gemini-2.5-flash", until: now.addingTimeInterval(600))
+    let fake = ScriptedFreeProvider([:])
+    do {
+      _ = try await events(pool(fake, usage: usage).stream(request("gemini-2.5-pro")))
+      XCTFail("Every free model is out")
+    } catch {
+      let earliest = now.addingTimeInterval(300)
+      XCTAssertEqual(error as? CloudProviderError, .quotaExhausted(.free, resetsAt: earliest))
+      XCTAssertEqual((error as? CloudProviderError)?.errorDescription,
+                     "Free limits reached. They reset at \(earliest.formatted(date: .omitted, time: .shortened)), or connect another provider in Settings.")
+    }
+    XCTAssertEqual(fake.calls, [])
+  }
+
+  @MainActor
+  func testSettingsFollowAPoolSwitch() async throws {
+    let credentials = MemoryCredentials()
+    try credentials.setAPIKey("test-only-key", for: .gemini)
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
+      preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false })
+    settings.preferredProvider = .free
+    settings.preferredModelID = "gemini-2.5-pro"
+    NotificationCenter.default.post(name: .freeModelSwitched, object: "gemini-2.5-flash")
+    await Task.yield()
+    XCTAssertEqual(settings.preferredModelID, "gemini-2.5-flash")
+  }
 }
+
+final class SwitchLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: [String] = []
+  var items: [String] { lock.withLock { stored } }
+  func append(_ item: String) { lock.withLock { stored.append(item) } }
+}
+
+/// Answers every free model with one token naming it, unless scripted otherwise. Records each call
+/// as "<route provider>:<model>".
+final class ScriptedFreeProvider: ChatProvider, ToolCallingChatProvider, @unchecked Sendable {
+  enum Script { case fail(Error), tokenThenFail(String, Error) }
+  private let lock = NSLock()
+  private let scripts: [String: Script]
+  private var stored: [String] = []
+  init(_ scripts: [String: Script]) { self.scripts = scripts }
+  var calls: [String] { lock.withLock { stored } }
+
+  func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
+    let model = request.route.modelID
+    lock.withLock { stored.append("\(request.route.providerID):\(model)") }
+    return AsyncThrowingStream { continuation in
+      switch scripts[model] {
+      case .fail(let error)?: continuation.finish(throwing: error)
+      case .tokenThenFail(let text, let error)?: continuation.yield(.token(text)); continuation.finish(throwing: error)
+      case nil: continuation.yield(.token("from \(model)")); continuation.yield(.completed); continuation.finish()
+      }
+    }
+  }
+
+  func stream(_ request: ChatRequest, toolbox: any AgentToolbox) -> AsyncThrowingStream<ChatEvent, Error> { stream(request) }
+}
+
 
 final class MemoryCredentials: CloudCredentialStore, @unchecked Sendable {
   private let lock = NSLock()

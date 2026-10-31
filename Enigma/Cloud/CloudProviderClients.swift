@@ -11,6 +11,7 @@ struct CloudProviderRegistry: Sendable {
   let chatGPT: any ChatProvider
   let claudeCode: any ChatProvider
   let gemini: any ChatProvider
+  let free: any ChatProvider
 
   init(
     openAI: any ChatProvider, anthropic: any ChatProvider, chatGPT: any ChatProvider,
@@ -21,6 +22,7 @@ struct CloudProviderRegistry: Sendable {
     self.chatGPT = chatGPT
     self.claudeCode = claudeCode ?? ClaudeCodeSubscriptionClient.live
     self.gemini = gemini ?? GeminiContentClient(credentialStore: KeychainCredentialStore(), transport: URLSessionCloudTransport.shared)
+    free = FreeModelPool.live(gemini: self.gemini, credentialStore: KeychainCredentialStore())
   }
 
   init(
@@ -32,6 +34,7 @@ struct CloudProviderRegistry: Sendable {
     self.chatGPT = chatGPT
     self.claudeCode = claudeCode
     gemini = GeminiContentClient(credentialStore: credentialStore, transport: transport)
+    free = FreeModelPool.live(gemini: gemini, credentialStore: credentialStore)
     openAI = OpenAIResponsesClient(
       credentialStore: credentialStore,
       transport: transport
@@ -49,15 +52,8 @@ struct CloudProviderRegistry: Sendable {
     case .openAI: openAI
     case .anthropic: anthropic
     case .gemini: gemini
-    case .free: FreeModelsPending()
+    case .free: free
     }
-  }
-}
-
-// Replaced by the free pool in F34 Task 4.
-private struct FreeModelsPending: ChatProvider {
-  func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
-    AsyncThrowingStream { $0.finish(throwing: CloudProviderError.invalidResponse) }
   }
 }
 

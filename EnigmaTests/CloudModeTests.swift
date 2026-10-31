@@ -290,8 +290,7 @@ final class CloudModeTests: XCTestCase {
 
   @MainActor
   func testCloudTrimmingPreservesStoredTranscriptForEveryProvider() async throws {
-    // Free models join once the pool replaces the stub (F34 Task 4).
-    for provider in CloudProviderID.allCases where provider != .free {
+    for provider in CloudProviderID.allCases {
       let root = FileManager.default.temporaryDirectory.appending(path: "CloudContextPersistence-\(UUID())")
       defer { try? FileManager.default.removeItem(at: root) }
       let store = ChatSessionStore(applicationSupportDirectory: root)
@@ -314,7 +313,8 @@ final class CloudModeTests: XCTestCase {
         }
       })
       let registry = CloudProviderRegistry(
-        credentialStore: MockCredentialStore(keys: [provider: "fixture-key"]),
+        // Free models run on the Gemini key (F34).
+        credentialStore: MockCredentialStore(keys: [provider == .free ? .gemini : provider: "fixture-key"]),
         transport: transport,
         chatGPT: ContextCompletionProvider(onRequest: { request in
           XCTAssertEqual(request.messages.map(\.content), ["recent", "recent reply", "current"])
