@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 extension Notification.Name {
   /// Posted with the new model ID when the free pool switches models for a daily limit (F34).
@@ -16,6 +17,8 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
   let allowsGeminiInAuto: @Sendable () -> Bool
   let onSwitch: @Sendable (String) -> Void
   var now: @Sendable () -> Date = Date.init
+  /// How long a model may say nothing before it counts as busy and the next one answers.
+  var firstEventDeadline: Duration = .seconds(12)
 
   /// The pool the app uses: models from the saved Gemini key, the Auto toggle from preferences,
   /// and switches announced to `CloudSettingsModel`.
@@ -79,7 +82,7 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
         if id != chosen { continuation.yield(.activity(.answeredBy(FreeModelCatalog.displayName(id)))) }
         var started = false
         do {
-          for try await event in start(provider, attempt) {
+          for try await event in Self.busyIfSilent(start(provider, attempt), for: firstEventDeadline) {
             // A daily limit moves the user's choice; a busy model, or Auto's pick, only this request.
             if !started, left?.daily == true, !request.route.isAuto { onSwitch(id) }
             started = true
@@ -93,12 +96,42 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
             left = left ?? (id, true)
           case .rateLimited:
             left = left ?? (id, false)
+          case .requestFailed(let status, _) where (500...599).contains(status):
+            // Google's free tier answers an overloaded model with 503.
+            left = left ?? (id, false)
           default:
             throw error
           }
         }
       }
       throw CloudProviderError.quotaExhausted(.free, resetsAt: usage.earliestReset(among: available, now: now()))
+    }
+  }
+
+  /// Ends `stream` as a busy model when it yields nothing within `deadline`, cancelling it;
+  /// once it has yielded, it runs to the end however slowly.
+  private static func busyIfSilent(_ stream: AsyncThrowingStream<ChatEvent, Error>,
+                                   for deadline: Duration) -> AsyncThrowingStream<ChatEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let started = OSAllocatedUnfairLock(initialState: false)
+      let pump = Task {
+        do {
+          for try await event in stream {
+            started.withLock { $0 = true }
+            continuation.yield(event)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      let timer = Task {
+        try await Task.sleep(for: deadline)
+        guard !started.withLock({ $0 }) else { return }
+        pump.cancel()
+        continuation.finish(throwing: CloudProviderError.rateLimited(.free))
+      }
+      continuation.onTermination = { _ in pump.cancel(); timer.cancel() }
     }
   }
 

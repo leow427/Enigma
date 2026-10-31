@@ -104,10 +104,39 @@ final class FreeModelsTests: XCTestCase {
   private let ranked = ["gemini-3.8-flash", "apple-pcc", "gemini-2.5-flash"]
 
   private func pool(_ fake: ScriptedFreeProvider, usage: FreeModelUsage, models: [String]? = nil,
-                    allowsGeminiInAuto: Bool = false, switches: SwitchLog = SwitchLog()) -> FreeModelPool {
+                    allowsGeminiInAuto: Bool = false, switches: SwitchLog = SwitchLog(),
+                    firstEventDeadline: Duration = .seconds(30)) -> FreeModelPool {
     let models = models ?? ranked
     return FreeModelPool(gemini: fake, apple: fake, usage: usage, models: { models },
-                         allowsGeminiInAuto: { allowsGeminiInAuto }, onSwitch: { switches.append($0) }, now: { [now] in now })
+                         allowsGeminiInAuto: { allowsGeminiInAuto }, onSwitch: { switches.append($0) }, now: { [now] in now },
+                         firstEventDeadline: firstEventDeadline)
+  }
+
+  // Google's free tier answers an overloaded model with 503, or not at all (live, 2026-10-31).
+  func testAnOverloadedModelStepsDownForThisRequest() async throws {
+    let fake = ScriptedFreeProvider(["gemini-3.8-flash": .fail(CloudProviderError.requestFailed(statusCode: 503, message: "overloaded"))])
+    let switches = SwitchLog()
+    let all = try await events(pool(fake, usage: FreeModelUsage(), switches: switches).stream(request("gemini-3.8-flash")))
+    XCTAssertEqual(all.first, .activity(.notice("Answered with Apple's cloud model: Gemini 3.8 Flash is busy right now.")))
+    XCTAssertEqual(fake.calls, ["gemini:gemini-3.8-flash", "free:apple-pcc"])
+    XCTAssertEqual(switches.items, [], "Busy isn't a daily limit, so the choice stays")
+  }
+
+  func testAModelThatSaysNothingStepsDownAtTheDeadline() async throws {
+    let fake = ScriptedFreeProvider(["gemini-3.8-flash": .silent])
+    let all = try await events(pool(fake, usage: FreeModelUsage(), firstEventDeadline: .milliseconds(100))
+      .stream(request("gemini-3.8-flash")))
+    XCTAssertEqual(all.first, .activity(.notice("Answered with Apple's cloud model: Gemini 3.8 Flash is busy right now.")))
+    XCTAssertTrue(all.contains(.token("from apple-pcc")))
+    XCTAssertEqual(fake.calls, ["gemini:gemini-3.8-flash", "cancelled:gemini-3.8-flash", "free:apple-pcc"])
+  }
+
+  func testAReplyThatHasStartedIsNeverCutOffByTheDeadline() async throws {
+    let fake = ScriptedFreeProvider(["gemini-3.8-flash": .tokenThenPause("Hi", .milliseconds(300))])
+    let all = try await events(pool(fake, usage: FreeModelUsage(), firstEventDeadline: .milliseconds(100))
+      .stream(request("gemini-3.8-flash")))
+    XCTAssertEqual(all, [.token("Hi"), .completed])
+    XCTAssertEqual(fake.calls, ["gemini:gemini-3.8-flash"])
   }
 
   private func request(_ model: String, mode: ChatMode = .cloud) -> ChatRequest {
@@ -461,7 +490,7 @@ final class SwitchLog: @unchecked Sendable {
 /// Answers every free model with one token naming it, unless scripted otherwise. Records each call
 /// as "<route provider>:<model>".
 final class ScriptedFreeProvider: ChatProvider, ToolCallingChatProvider, @unchecked Sendable {
-  enum Script { case fail(Error), tokenThenFail(String, Error), activityThenFail(Error) }
+  enum Script { case fail(Error), tokenThenFail(String, Error), activityThenFail(Error), silent, tokenThenPause(String, Duration) }
   private let lock = NSLock()
   private let scripts: [String: Script]
   private var stored: [String] = []
@@ -476,6 +505,13 @@ final class ScriptedFreeProvider: ChatProvider, ToolCallingChatProvider, @unchec
       case .fail(let error)?: continuation.finish(throwing: error)
       case .tokenThenFail(let text, let error)?: continuation.yield(.token(text)); continuation.finish(throwing: error)
       case .activityThenFail(let error)?: continuation.yield(.activity(.phase(.searching))); continuation.finish(throwing: error)
+      case .silent?:
+        // Says nothing until cancelled, like a stalled overloaded model.
+        let task = Task { try? await Task.sleep(for: .seconds(60)); continuation.finish() }
+        continuation.onTermination = { _ in task.cancel(); self.lock.withLock { self.stored.append("cancelled:\(model)") } }
+      case .tokenThenPause(let text, let pause)?:
+        continuation.yield(.token(text))
+        Task { try? await Task.sleep(for: pause); continuation.yield(.completed); continuation.finish() }
       case nil: continuation.yield(.token("from \(model)")); continuation.yield(.completed); continuation.finish()
       }
     }

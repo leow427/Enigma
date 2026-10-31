@@ -40,7 +40,8 @@ A request goes to the model you chose in ⌘K or **› Advanced**. If that model
   **Switched to *next*: *model* reached its free daily limit (resets *time*).**,
   and keeps the next model selected for later requests. ⌘K marks the spent model
   **out until *time***.
-- **is busy** (a per-minute limit), Enigma retries on the next model for this
+- **is busy** (a per-minute limit, Google's 503 "overloaded", or no answer
+  within 12 seconds), Enigma retries on the next model for this
   request only and says **Answered with *next*: *model* is busy right now.**
 
 A reply's label names the model that actually answered. A retry happens only
@@ -85,6 +86,10 @@ model.
   (`Enigma/Cloud/CloudConnectionControls.swift`).
 
 ## Limitations
+
+- Gemini 3.8 Flash's free tier allows few requests a day (20 when checked on
+  2026-10-31) and is often overloaded; a chat with tools uses one request per
+  round trip. The 12-second wait covers only the start of a reply.
 
 - Only checked against fixtures written from Google's documentation; a live
   check with a real free key is still to do.
