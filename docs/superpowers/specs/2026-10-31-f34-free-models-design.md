@@ -1,7 +1,7 @@
 # Free cloud models (F34) — design
 
 Status: approved design, not yet implemented. Date: 2026-10-31.
-Plan: not written yet.
+Plan: [2026-10-31-f34-free-models.md](../plans/2026-10-31-f34-free-models.md).
 
 ## Goal and users
 
@@ -51,7 +51,7 @@ Made with the owner on 2026-10-31:
 | Per-minute limit | That one request retries on the next model; the choice is not saved |
 | Privacy | Apple PCC may be used by Auto like any cloud provider. Free Gemini models are used by Auto only with **Auto may use free Gemini models** on (off by default) |
 | macOS 26 | Apple's model is listed only on macOS 27. macOS 26 users see that upgrading to macOS 27 gives them Apple's free model |
-| CI | Moves to GitHub's `xcode-27` runner image so the macOS 27 SDK builds there |
+| CI | Stays on `macos-26`; the `xcode-27` preview image failed tests that pass locally (see [CI](#ci)) |
 
 **Rejected:**
 
@@ -151,7 +151,11 @@ The user can always pick another model in ⌘K; a model out of usage shows
 
 - **⌘K menu**: a **Free models** group in ranked order, each marked **text +
   images** or **text only**, and **out until 9:00** while exhausted.
-- **Settings → Cloud and search → Subscriptions**: a **Free models** row.
+- **Settings → Cloud** (F14's layout): a **Free models** connection row after
+  the ChatGPT and Claude rows, in the same style
+  (`CloudConnectionControls.swift`). Free models also joins the **Preferred
+  provider** menu under **Advanced** (`CloudProviderID.selectableProviders`
+  leaves it out until this row ships).
   - **Gemini**: **Get a free Gemini key** opens Google AI Studio's API key
     page; a paste field saves the key to Keychain, tests it and selects Free
     models in one step, with **Remove**. Uses the same Keychain item as the
@@ -161,17 +165,21 @@ The user can always pick another model in ⌘K; a model out of usage shows
     to get Apple's free cloud model.** Before the entitlement is granted the
     Apple line is hidden on every macOS version.
   - **Auto may use free Gemini models** toggle, off by default.
-- **Welcome setup → Connect what you use**: the same row, so a user with no
-  plan reaches a cloud model during setup. The macOS 26 upgrade line appears
-  here too.
+- **Welcome setup, cloud step** (F14's `.connections` step): the same row
+  after ChatGPT and Claude, so a user with no plan reaches a cloud model
+  during setup. The macOS 26 upgrade line appears here too. The step keeps
+  its title **Want backup from the cloud?** and its subtitle becomes **Use
+  your ChatGPT or Claude plan, or free models, for the hard stuff. Totally
+  optional.** (owner, 2026-10-31).
 
 ## CI
 
-`ci.yml` and `stress.yml` move from `runs-on: macos-26` (default Xcode 26.6)
-to `runs-on: xcode-27`, GitHub's image with Xcode 27 (a preview image at the
-time of writing; there is no `macos-27` runner yet). The owner builds with
-Xcode 27.2 on macOS 27. The compile-time SDK guard around
-`ApplePrivateCloudClient` stays, so the project still builds with Xcode 26.
+CI stays on `runs-on: macos-26` (Xcode 26.6). On 2026-10-31 GitHub's
+`xcode-27` preview image (macOS 27.0.1) failed about 20 screen, panel and
+Vision tests with both Xcode 27.1 and 27.2 that pass on the owner's Mac, so
+the move was reverted. `ApplePrivateCloudClient` sits behind a compile-time
+guard (`#if compiler(>=6.4)`), so CI builds without it; the owner's Xcode 27.2
+release builds compile it. Move CI once a stable macOS 27 runner exists.
 
 ## Testing
 

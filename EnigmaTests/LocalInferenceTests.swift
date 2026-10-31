@@ -91,6 +91,25 @@ final class LocalInferenceTests: XCTestCase {
   }
 
   @MainActor
+  func testNextReplyNoticeShowsOnTheLocalReplyOnce() async {
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in
+      AsyncThrowingStream { $0.yield("Hi"); $0.finish() }
+    })
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await viewModel.refreshInstalledModel()
+    viewModel.nextReplyNotice = "Free models are out until 9:00. Answered on this Mac."
+
+    viewModel.submit("Hello")
+    await waitUntil { viewModel.state == .idle && viewModel.messages.count == 2 }
+    XCTAssertEqual(viewModel.messages[1].activity?.notice, "Free models are out until 9:00. Answered on this Mac.")
+    XCTAssertNil(viewModel.nextReplyNotice)
+
+    viewModel.submit("Again")
+    await waitUntil { viewModel.state == .idle && viewModel.messages.count == 4 }
+    XCTAssertNil(viewModel.messages[3].activity?.notice)
+  }
+
+  @MainActor
   func testViewModelInstallsSelectedModelThroughEngine() async {
     let engine = MockLocalModelEngine()
     let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())

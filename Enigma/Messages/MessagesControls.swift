@@ -10,11 +10,11 @@ struct MessagesDialogs: ViewModifier {
   }
 
   func body(content: Content) -> some View {
-    content.alert("Use Messages with \(messages.cloudDisclosure?.displayName ?? "the cloud")?", isPresented: disclosurePresented) {
+    content.alert("Use Messages with \(messages.cloudDisclosure?.recipientName ?? "the cloud")?", isPresented: disclosurePresented) {
       Button("Continue") { if let prompt = messages.answerDisclosure(allow: true) { submit(prompt) } }
       Button("Cancel", role: .cancel) { _ = messages.answerDisclosure(allow: false) }
     } message: {
-      Text("When Enigma uses Messages, the conversations and contact details (names, numbers, emails, companies) the model looks up are sent to \(messages.cloudDisclosure?.displayName ?? "your cloud provider") to answer. Choose Local or Auto to keep Messages on this Mac. Enigma asks before sending any message.")
+      Text("When Enigma uses Messages, the conversations and contact details (names, numbers, emails, companies) the model looks up are sent to \(messages.cloudDisclosure?.recipientName ?? "your cloud provider") to answer. Choose Local or Auto to keep Messages on this Mac. Enigma asks before sending any message.")
     }
   }
 }

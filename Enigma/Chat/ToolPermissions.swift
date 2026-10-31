@@ -5,7 +5,7 @@ import Foundation
 
 /// Where a tool's result goes: this Mac, or the company whose model answers.
 enum ToolDestination: String, Codable, Sendable, CaseIterable {
-  case thisMac, openAI, anthropic, google
+  case thisMac, openAI, anthropic, google, apple
 
   /// Nil for a cloud route whose provider Enigma doesn't know, so no card can name the wrong company.
   init?(route: Route) {
@@ -17,6 +17,7 @@ enum ToolDestination: String, Codable, Sendable, CaseIterable {
     case .chatGPT, .openAI: self = .openAI
     case .claudeCode, .anthropic: self = .anthropic
     case .gemini: self = .google
+    case .free: self = FreeModelCatalog.underlyingProvider(route.modelID) == nil ? .apple : .google
     case nil: return nil
     }
   }
@@ -27,6 +28,7 @@ enum ToolDestination: String, Codable, Sendable, CaseIterable {
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .google: "Google"
+    case .apple: "Apple"
     }
   }
 }

@@ -31,6 +31,12 @@ struct AssistantActivityView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
+      if let notice = activity.notice {
+        Text(notice)
+          .font(EnigmaTypography.mono(11))
+          .foregroundStyle(palette.textSecondary.color)
+          .fixedSize(horizontal: false, vertical: true)
+      }
       toggle
       if isExpanded.wrappedValue {
         panel.transition(.opacity)

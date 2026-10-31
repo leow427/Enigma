@@ -96,8 +96,13 @@ final class ScreenProviderTests: XCTestCase {
         for try await _ in registry.provider(for: provider).stream(request) {}
         let wire = try XCTUnwrap(transport.streamRequests.last?.httpBody)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: wire) as? [String: Any])
-        let control = provider == .gemini ? (object["generationConfig"] as? [String: Any])?["thinkingConfig"] : object[provider == .openAI ? "reasoning" : "thinking"]
-        XCTAssertEqual(control != nil, enabled)
+        if provider == .gemini {
+          // Gemini 3 always gets a level: low by default, high for /think.
+          let config = (object["generationConfig"] as? [String: Any])?["thinkingConfig"] as? [String: Any]
+          XCTAssertEqual(config?["thinkingLevel"] as? String, enabled ? "high" : "low")
+        } else {
+          XCTAssertEqual(object[provider == .openAI ? "reasoning" : "thinking"] != nil, enabled)
+        }
       }
     }
     XCTAssertEqual(CodexThinkingCapacity.high.forExtendedThinking, .xhigh)

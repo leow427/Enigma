@@ -44,9 +44,10 @@ struct ScreenUploadConsent: Identifiable {
   /// False when the request came straight from a typed capture, which runs only typed commands.
   var recognizesCommands = true
   var title: String {
-    "Send \(attachment.source == .fullDesktop ? "full desktop" : "selected region") to \(provider.displayName)?"
+    "Send \(attachment.source == .fullDesktop ? "full desktop" : "selected region") to \(provider.recipientName)?"
   }
   var explanation: String {
-    "This image captures \(attachment.source.captureScope). It will be sent to \(provider.displayName) for image analysis, under that provider’s data policies."
+    "This image captures \(attachment.source.captureScope). It will be sent to \(provider.recipientName) for image analysis, under that provider’s data policies."
+      + (provider == .free ? " On Google's free tier, prompts may be used to improve Google's products." : "")
   }
 }
