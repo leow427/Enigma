@@ -578,7 +578,7 @@ struct TourScene: Equatable {
   static let original = "Don’t be late. The boat leaves at 2 sharp."
   static let revised = "Try to get there a little early, the boat leaves at 2!"
   static let context = ConversationContext(id: UUID(uuidString: "00000000-0000-0000-0000-00000000F14A")!,
-                                           sourceName: "Saturday plans", text: original)
+                                           sourceName: "Shmoogle Docs", text: original)
   /// The question the panel types, with the selection attached, and its reply with a revision.
   static let demo = TourDemo(prompt: "make this friendlier", script: .friendlier, contexts: [context], opensInWindow: true)
 }
@@ -1237,7 +1237,7 @@ final class TourDocumentWindow {
   private func makeWindow() -> NSPanel {
     let panel = TourDocumentPanel(contentRect: NSRect(origin: .zero, size: Self.contentSize),
                                   styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
-    panel.title = "Saturday plans"
+    panel.title = "Saturday plans – Shmoogle Docs"
     panel.isFloatingPanel = true
     // Under Enigma's window and panel, as another app's window is, so it
     // never covers them, even after a click on its card, and above the rest.
@@ -1278,20 +1278,23 @@ struct TourDocumentView: View {
   var body: some View {
     let scene = tour.scene
     HStack(spacing: 0) {
-      document(scene)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white)
-        .overlay(alignment: .bottom) {
-          // The two ⌥ taps, under the text so they never cover it.
-          HStack(spacing: 10) {
-            GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 1)
-            GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 2)
-          }
-          .scaleEffect(1.4)
-          .padding(.bottom, 48)
-          .opacity(scene.keys > 0 ? 1 : 0)
-          .animation(.easeInOut(duration: 0.2), value: scene.keys)
+      VStack(alignment: .leading, spacing: 0) {
+        ShmoogleDocsHeader()
+        document(scene)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .background(Color.white)
+      .overlay(alignment: .bottom) {
+        // The two ⌥ taps, under the text so they never cover it.
+        HStack(spacing: 10) {
+          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 1)
+          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 2)
         }
+        .scaleEffect(1.4)
+        .padding(.bottom, 48)
+        .opacity(scene.keys > 0 ? 1 : 0)
+        .animation(.easeInOut(duration: 0.2), value: scene.keys)
+      }
       ZStack {
         GuidedTourRail()
         // The card stays here until the chat moves into Enigma's window, which shows its own.
@@ -1337,6 +1340,80 @@ struct TourDocumentView: View {
     .font(.system(size: 15))
     .foregroundStyle(Color(white: 0.12))
     .padding(40)
+  }
+}
+
+/// The pretend app's toolbar, for fun: its logo, the draft's name, its menus and Share.
+private struct ShmoogleDocsHeader: View {
+  var body: some View {
+    HStack(alignment: .center, spacing: 10) {
+      ShmoogleDocsLogo()
+      VStack(alignment: .leading, spacing: 3) {
+        Text("Saturday plans")
+          .font(.system(size: 15))
+          .foregroundStyle(Color(white: 0.13))
+        HStack(spacing: 11) {
+          ForEach(["File", "Edit", "View", "Insert", "Format", "Tools"], id: \.self) { Text($0) }
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(Color(white: 0.35))
+      }
+      Spacer(minLength: 8)
+      Text("Share")
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(Color(red: 0.04, green: 0.20, blue: 0.43))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(Color(red: 0.76, green: 0.87, blue: 0.99), in: Capsule())
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(Color(red: 0.976, green: 0.984, blue: 0.992))
+    .overlay(alignment: .bottom) { Color(white: 0.88).frame(height: 1) }
+    .accessibilityHidden(true)
+  }
+}
+
+/// Shmoogle Docs' logo: a blue page with a folded corner and lines of text.
+private struct ShmoogleDocsLogo: View {
+  var body: some View {
+    let blue = Color(red: 0.26, green: 0.52, blue: 0.96)
+    ZStack(alignment: .topLeading) {
+      ShmooglePage(fold: 6).fill(blue)
+      ShmoogleFold(fold: 6).fill(Color(red: 0.63, green: 0.76, blue: 0.98))
+      VStack(alignment: .leading, spacing: 2.5) {
+        ForEach(0..<3, id: \.self) { _ in Capsule().fill(.white).frame(width: 10, height: 1.6) }
+        Capsule().fill(.white).frame(width: 6, height: 1.6)
+      }
+      .offset(x: 4, y: 10)
+    }
+    .frame(width: 19, height: 25)
+  }
+}
+
+private struct ShmooglePage: Shape {
+  let fold: CGFloat
+  func path(in rect: CGRect) -> Path {
+    Path { path in
+      path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.maxX - fold, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + fold))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+      path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+      path.closeSubpath()
+    }
+  }
+}
+
+private struct ShmoogleFold: Shape {
+  let fold: CGFloat
+  func path(in rect: CGRect) -> Path {
+    Path { path in
+      path.move(to: CGPoint(x: rect.maxX - fold, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.maxX - fold, y: rect.minY + fold))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + fold))
+      path.closeSubpath()
+    }
   }
 }
 
