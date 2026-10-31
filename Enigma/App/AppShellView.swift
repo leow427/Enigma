@@ -1123,9 +1123,6 @@ struct AppShellView: View {
     let intent = composerIntent(recognizesCommands: recognizesCommands)
     guard intent.hasPrompt else { return }
     let prompt = intent.submissionPrompt
-    let cloudText = cloudSettings.isConfigured
-      ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
-                   provider: cloudSettings.preferredProvider).screenModel : nil
     let searchEnabled = localChat.shouldSearch(prompt, explicitlyEnabled: intent.search, allowsAutomaticSearch: false)
     let automatic = shell.selectedMode == .auto ? AutoRouter.decide(AutoRouter.Request(
       selectedMode: .auto, webSearchEnabled: searchEnabled, prompt: prompt,
@@ -1137,6 +1134,14 @@ struct AppShellView: View {
     if let limitation = automatic?.limitation {
       screen.error = limitation.message
       return
+    }
+    // Auto's cloud pick, not the Cloud-mode choice: for Free models they differ (F34).
+    var cloudText = cloudSettings.isConfigured
+      ? CloudModel(id: cloudSettings.preferredModelID, displayName: cloudSettings.preferredModelID,
+                   provider: cloudSettings.preferredProvider).screenModel : nil
+    if let route = automatic?.route, route.mode == .cloud, let provider = CloudProviderID(rawValue: route.providerID) {
+      cloudText = CloudModel(id: route.modelID, displayName: route.modelID, provider: provider).screenModel
+      cloudText?.isAuto = true
     }
     let request = ScreenRoutingPolicy.Request(
       prompt: prompt, ocr: ScreenOCRResult(text: attachment.ocrText, confidence: attachment.ocrConfidence),

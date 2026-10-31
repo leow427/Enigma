@@ -13,6 +13,8 @@ struct ScreenModel: Sendable, Equatable {
   let isLocal: Bool
   let capabilities: ModelInputCapabilities
   var visionProjectorPath: String? = nil
+  /// Auto picked this cloud model (F34); kept on the route for the free pool.
+  var isAuto = false
   var supportsText: Bool { capabilities.supportsText }
   var supportsVision: Bool { capabilities.supportsVision }
   var canUseVision: Bool {
@@ -22,7 +24,8 @@ struct ScreenModel: Sendable, Equatable {
     route(searchEnabled: false)
   }
   func route(searchEnabled: Bool) -> Route {
-    Route(mode: isLocal ? .local : .cloud, providerID: provider, modelID: id, usesNetwork: !isLocal || searchEnabled)
+    Route(mode: isLocal ? .local : .cloud, providerID: provider, modelID: id, usesNetwork: !isLocal || searchEnabled,
+          isAuto: isAuto)
   }
 }
 

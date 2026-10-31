@@ -61,6 +61,15 @@ final class AutoRouterTests: XCTestCase {
     XCTAssertEqual(decision.route?.isAuto, true)
   }
 
+  func testAutoMarkSurvivesTheSearchReroute() {
+    let decision = AutoRouter.decide(AutoRouter.Request(
+      selectedMode: .auto, webSearchEnabled: true,
+      prompt: "Write a Swift function that parses ISO dates and debug its stack trace",
+      contextMessages: [], localModel: localModel, cloud: cloud))
+    XCTAssertEqual(decision.route?.mode, .cloud)
+    XCTAssertEqual(decision.route?.isAuto, true)
+  }
+
   func testLengthAloneDoesNotEscalateAnOrdinarySummary() {
     let decision = AutoRouter.decide(request(
       prompt: "Summarize this passage: " + String(repeating: "The garden is green. ", count: 60)

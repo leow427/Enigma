@@ -299,6 +299,22 @@ final class FreeModelsTests: XCTestCase {
     XCTAssertTrue(all.contains(.activity(.answeredBy("Apple's cloud model"))), "\(all)")
   }
 
+  func testPoolRefusesAChoiceThatIsntSetUp() async throws {
+    let fake = ScriptedFreeProvider([:])
+    do {
+      _ = try await events(pool(fake, usage: FreeModelUsage(), models: ["gemini-2.5-pro"]).stream(request("apple-pcc")))
+      XCTFail("Another company's model must not stand in silently")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .unsupportedModel(.free, modelID: "apple-pcc")) }
+    XCTAssertEqual(fake.calls, [])
+  }
+
+  func testScreenModelCarriesTheAutoMark() {
+    var model = CloudModel(id: "apple-pcc", displayName: "Apple's cloud model", provider: .free).screenModel
+    XCTAssertFalse(model.route.isAuto)
+    model.isAuto = true
+    XCTAssertTrue(model.route(searchEnabled: true).isAuto)
+  }
+
   @MainActor
   func testAFreeModelThatIsntSetUpCantBeSent() async throws {
     let settings = try freeSettings()

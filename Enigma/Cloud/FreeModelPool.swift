@@ -53,7 +53,11 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
         !request.route.isAuto || FreeModelCatalog.underlyingProvider(id) == nil || allowsGeminiInAuto()
       }
       guard !available.isEmpty else { throw CloudProviderError.missingAPIKey(.gemini) }
-      // A choice that isn't set up never reaches here from Settings; Auto's pick may be left out.
+      // Another model, maybe another company's, never stands in for a choice that isn't set up.
+      // Auto's pick may be left out for privacy; Auto then takes the next one it may use.
+      guard available.contains(chosen) || request.route.isAuto else {
+        throw CloudProviderError.unsupportedModel(.free, modelID: chosen)
+      }
       let order = (available.contains(chosen) ? [chosen] : []) + available.filter { $0 != chosen }
       // The model the user chose and why the pool left it, for the notice.
       var left: (model: String, daily: Bool)?

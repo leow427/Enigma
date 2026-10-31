@@ -2311,6 +2311,12 @@ final class LocalChatViewModel: ObservableObject {
           let sessionIndex = sessions.firstIndex(where: { $0.messages.contains(where: { $0.id == messageID }) }),
           let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
     sessions[sessionIndex].messages[messageIndex].activity = updated
+    // The free pool answered on another model than the chosen one (F34).
+    if case .answeredBy(let model) = event, let origin = sessions[sessionIndex].messages[messageIndex].origin {
+      sessions[sessionIndex].messages[messageIndex].origin = ReplyOrigin(
+        mode: origin.mode, providerID: origin.providerID, modelName: model,
+        providerSearch: origin.providerSearch, braveSearch: origin.braveSearch)
+    }
   }
 
   private func locationGrounded(_ messages: [ChatMessage]) -> [ChatMessage] {
