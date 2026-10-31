@@ -411,13 +411,66 @@ final class AppCommandTests: XCTestCase {
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
     addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
     let store = ShortcutStore(defaults: defaults)
-    XCTAssertEqual(store.conflict(.keys("n", .command), for: .command(.search)), "⌘N is already New chat.")
+    XCTAssertEqual(store.conflict(.keys("n", .command), for: .command(.search)),
+                   ShortcutConflict(message: "⌘N is already New chat.", blocks: true))
     XCTAssertNil(store.conflict(.keys("n", .command), for: .panel(.newChat)), "Its own shortcut is free")
-    XCTAssertEqual(store.conflict(.keys("q", .command), for: .command(.search)), "macOS uses ⌘Q for Quit.")
-    XCTAssertNotNil(store.conflict(ShortcutStore.selectionBackup, for: .summon))
+    XCTAssertEqual(store.conflict(.keys("q", .command), for: .command(.search)),
+                   ShortcutConflict(message: "macOS uses ⌘Q for Quit.", blocks: false))
+    XCTAssertEqual(store.conflict(ShortcutStore.selectionBackup, for: .summon)?.blocks, true)
     XCTAssertEqual(store.conflict(KeyBinding(kind: .chord, modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue),
-                                  for: .selection), "⌃⌥ is already Open or hide Enigma.")
+                                  for: .selection)?.message, "⌃⌥ is already Open or hide Enigma.")
     XCTAssertNil(store.conflict(.keys("t", [.control, .option]), for: .command(.think)))
     XCTAssertEqual(KeyBinding(kind: .doubleTap, modifiers: NSEvent.ModifierFlags.option.rawValue).display, "⌥⌥")
   }
+
+  @MainActor
+  func testAMacOSShortcutWarnsButIsAllowed() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let conflict = try XCTUnwrap(store.conflict(.keys(" ", .command, keyCode: 49), for: .panel(.newChat)))
+    XCTAssertFalse(conflict.blocks)
+    XCTAssertEqual(conflict.message, "macOS uses ⌘Space for Spotlight.")
+  }
+
+  @MainActor
+  func testHelpListsAChangedShortcut() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    store.set(.keys("j", .command), for: .panel(.newChat))
+    let shortcuts = KeyboardShortcutsHelp.windowShortcuts(store)
+    XCTAssertTrue(shortcuts.contains(KeyboardShortcutsHelp.Shortcut("New chat", "⌘J")), "\(shortcuts)")
+    XCTAssertEqual(KeyboardShortcutsHelp.summon(store).keys, "⌃⌥")
+  }
+
+  /// A key another app (here, this test) already holds can't be registered:
+  /// the row says so and the shortcut before it keeps working.
+  @MainActor
+  func testAShortcutThatFailsToRegisterSaysSo() async throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let free = KeyBinding.keys("h", [.control, .option, .command], keyCode: 4)
+    let taken = KeyBinding.keys("j", [.control, .option, .command], keyCode: 38)
+    let blocker = GlobalHotKeyMonitor(keyCode: 38, modifiers: UInt32(cmdKey | optionKey | controlKey),
+                                      identifier: 99, name: "test") {}
+    try blocker.start()
+    defer { blocker.stop() }
+    store.set(free, for: .summon)
+    let hotKeys = ShortcutHotKeys(store: store, handlers: [.summon: {}])
+    hotKeys.start()
+    defer { hotKeys.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id))
+    store.set(taken, for: .summon)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id))
+    XCTAssertEqual(hotKeys.registered[.summon], free, "The shortcut before it stays registered")
+    XCTAssertEqual(ShortcutEditor.failureNote, "Couldn’t set this shortcut. Another app may be using it.")
+  }
+
 }

@@ -307,14 +307,19 @@ final class PanelShortcutMonitor {
 /// Settings → Shortcuts, registered again whenever the shortcuts change.
 @MainActor
 final class ShortcutHotKeys {
+  private let store: ShortcutStore
   private let handlers: [ShortcutAction: @MainActor () -> Void]
   private var monitors: [GlobalHotKeyMonitor] = []
   private var observation: AnyCancellable?
+  /// What each action is registered as now; a shortcut that fails keeps the one before it.
+  private(set) var registered: [ShortcutAction: KeyBinding] = [:]
 
-  init(handlers: [ShortcutAction: @MainActor () -> Void]) { self.handlers = handlers }
+  init(store: ShortcutStore = .shared, handlers: [ShortcutAction: @MainActor () -> Void]) {
+    self.store = store
+    self.handlers = handlers
+  }
 
   func start() {
-    let store = ShortcutStore.shared
     observation = store.$overrides.combineLatest(store.$selectionSameAsSummon)
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _, _ in self?.register() }
@@ -330,18 +335,37 @@ final class ShortcutHotKeys {
     monitors.forEach { $0.stop() }
     monitors = []
     for (index, action) in ShortcutAction.global.enumerated() {
-      guard let binding = ShortcutStore.shared.binding(action), binding.kind == .keys,
-            let handler = handlers[action] else { continue }
-      let monitor = GlobalHotKeyMonitor(keyCode: UInt32(binding.keyCode), modifiers: Self.carbon(binding.flags),
-                                        identifier: UInt32(10 + index), name: binding.display) {
-        if !ShortcutStore.shared.isRecording { handler() }
+      guard let binding = store.binding(action), binding.kind == .keys, let handler = handlers[action] else {
+        registered[action] = nil
+        store.failedActions.remove(action.id)
+        continue
       }
-      do {
-        try monitor.start()
-        monitors.append(monitor)
-      } catch {
-        NSLog("Unable to register %@: %@", binding.display, error.localizedDescription)
+      if register(binding, identifier: UInt32(10 + index), handler: handler) {
+        registered[action] = binding
+        store.failedActions.remove(action.id)
+      } else {
+        store.failedActions.insert(action.id)
+        if let previous = registered[action], previous != binding,
+           !register(previous, identifier: UInt32(10 + index), handler: handler) {
+          registered[action] = nil
+        }
       }
+    }
+  }
+
+  private func register(_ binding: KeyBinding, identifier: UInt32, handler: @escaping @MainActor () -> Void) -> Bool {
+    let store = store
+    let monitor = GlobalHotKeyMonitor(keyCode: UInt32(binding.keyCode), modifiers: Self.carbon(binding.flags),
+                                      identifier: identifier, name: binding.display) {
+      if !store.isRecording { handler() }
+    }
+    do {
+      try monitor.start()
+      monitors.append(monitor)
+      return true
+    } catch {
+      NSLog("Unable to register %@: %@", binding.display, error.localizedDescription)
+      return false
     }
   }
 

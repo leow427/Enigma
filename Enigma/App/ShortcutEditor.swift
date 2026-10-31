@@ -11,6 +11,8 @@ import SwiftUI
 final class ShortcutRecorder: ObservableObject {
   @Published private(set) var recording: ShortcutAction?
   @Published private(set) var message: String?
+  /// A macOS clash, shown under the row after its shortcut is saved.
+  @Published private(set) var warning: (id: String, text: String)?
   private let store: ShortcutStore
   private var monitor: Any?
   /// The modifiers held together since they were last all released.
@@ -20,6 +22,7 @@ final class ShortcutRecorder: ObservableObject {
   init(store: ShortcutStore = .shared) { self.store = store }
 
   func toggle(_ action: ShortcutAction) {
+    warning = nil
     if recording == action { stop() } else { start(action) }
   }
 
@@ -75,12 +78,14 @@ final class ShortcutRecorder: ObservableObject {
 
   private func finish(_ binding: KeyBinding, for action: ShortcutAction) {
     lastTap = nil
-    if let conflict = store.conflict(binding, for: action) {
-      message = conflict + " Try another."
+    let conflict = store.conflict(binding, for: action)
+    if let conflict, conflict.blocks {
+      message = conflict.message + " Try another."
       return
     }
     store.set(binding, for: action)
     stop()
+    warning = conflict.map { (action.id, $0.message) }
   }
 }
 
@@ -90,6 +95,7 @@ struct ShortcutEditor: View {
   @StateObject private var recorder = ShortcutRecorder()
   @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
 
+  static let failureNote = "Couldn’t set this shortcut. Another app may be using it."
   static let sameAsSummonNote = "Your summon shortcut then attaches text you’ve just selected, and otherwise opens Enigma as usual. Reading a selection can take a moment, up to about 2 seconds the first time in Chrome and other Electron apps, and the selection panel opens under the text rather than in the middle of the screen."
 
   var body: some View {
@@ -135,6 +141,11 @@ struct ShortcutEditor: View {
   private func row(_ action: ShortcutAction, subtitle: String? = nil) -> some View {
     let isRecording = recorder.recording == action
     return EnigmaRow(action.title, subtitle: subtitle) {
+      if !isRecording, store.failedActions.contains(action.id) {
+        EnigmaStatusLine(.problem, Self.failureNote).padding(.top, 4)
+      } else if !isRecording, let warning = recorder.warning, warning.id == action.id {
+        EnigmaNote(warning.text).padding(.top, 4)
+      }
       if isRecording {
         EnigmaNote(recorder.message ?? (action.isGlobal
           ? "Press keys, press modifiers together, or tap one twice. Esc cancels; Delete removes it."

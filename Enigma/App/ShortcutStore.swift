@@ -143,6 +143,12 @@ enum ShortcutAction: Hashable, Identifiable {
 }
 
 /// The shortcuts in use: each action's default unless changed in Settings → Shortcuts.
+struct ShortcutConflict: Equatable {
+  let message: String
+  /// Another Enigma action has it; a macOS shortcut only warns.
+  let blocks: Bool
+}
+
 @MainActor
 final class ShortcutStore: ObservableObject {
   /// Tests share the app's defaults, so theirs are kept apart.
@@ -152,6 +158,7 @@ final class ShortcutStore: ObservableObject {
   /// ⇧⌥Space always asks about a selection, as a backup.
   static let selectionBackup = KeyBinding.keys(" ", [.shift, .option], keyCode: 49)
   /// Shortcuts macOS or every text field uses, which no action may take.
+  // shortcut: common macOS shortcuts only, not every app's; extend when users report a clash.
   static let reserved: [KeyBinding: String] = [
     .keys("q", .command): "Quit", .keys("w", .command): "Close", .keys("h", .command): "Hide",
     .keys("m", .command): "Minimize", .keys("c", .command): "Copy", .keys("v", .command): "Paste",
@@ -165,6 +172,8 @@ final class ShortcutStore: ObservableObject {
   @Published var selectionSameAsSummon: Bool { didSet { defaults.set(selectionSameAsSummon, forKey: Self.sameAsSummonKey) } }
   /// While a shortcut is being recorded, no shortcut fires.
   @Published var isRecording = false
+  /// Global actions whose shortcut couldn't be registered, by `ShortcutAction.id`.
+  @Published var failedActions: Set<String> = []
 
   private let defaults: UserDefaults
 
@@ -200,11 +209,16 @@ final class ShortcutStore: ObservableObject {
   }
 
   /// What already uses `binding`, other than `action`, or nil when it's free.
-  func conflict(_ binding: KeyBinding, for action: ShortcutAction) -> String? {
-    if let reserved = Self.reserved[binding] { return "macOS uses \(binding.display) for \(reserved)." }
-    if binding == Self.selectionBackup { return "\(binding.display) is the backup for asking about a selection." }
+  /// Another Enigma shortcut blocks `binding`; a macOS one only warns.
+  func conflict(_ binding: KeyBinding, for action: ShortcutAction) -> ShortcutConflict? {
+    if binding == Self.selectionBackup {
+      return ShortcutConflict(message: "\(binding.display) is the backup for asking about a selection.", blocks: true)
+    }
     if let other = ShortcutAction.all.first(where: { $0 != action && self.binding($0) == binding }) {
-      return "\(binding.display) is already \(other.title)."
+      return ShortcutConflict(message: "\(binding.display) is already \(other.title).", blocks: true)
+    }
+    if let reserved = Self.reserved[binding] {
+      return ShortcutConflict(message: "macOS uses \(binding.display) for \(reserved).", blocks: false)
     }
     return nil
   }

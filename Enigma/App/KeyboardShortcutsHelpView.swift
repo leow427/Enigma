@@ -95,7 +95,7 @@ struct KeyboardShortcutsList: View {
       }
       .padding(.top, 12)
       .padding(.bottom, 4)
-      row(KeyboardShortcutsHelp.showOrHide)
+      row(KeyboardShortcutsHelp.summon(.shared))
       EnigmaHairline()
       EnigmaNote(KeyboardShortcutsHelp.showOrHideNote).padding(.vertical, 10)
     }
@@ -104,7 +104,7 @@ struct KeyboardShortcutsList: View {
   private var inThePanel: some View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("In the chat panel")
-      ForEach(KeyboardShortcutsHelp.panel, id: \.self) { row($0) }
+      ForEach(KeyboardShortcutsHelp.windowShortcuts(.shared), id: \.self) { row($0) }
       row(KeyboardShortcutsHelp.search)
       row(KeyboardShortcutsHelp.maps)
       EnigmaHairline()
