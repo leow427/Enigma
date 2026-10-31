@@ -1108,9 +1108,13 @@ final class EnigmaMainWindowTests: XCTestCase {
       tour.beat == .ready && fixture.screen.draft == TourScene.demo.prompt
     }
     let editor = try XCTUnwrap(composerEditor(in: view))
+    func editors(_ v: NSView) -> [SlashCommandTextView] { ((v as? SlashCommandTextView).map { [$0] } ?? []) + v.subviews.flatMap(editors) }
+    NSLog("TOURDIAG before Return editors=%d editorWindowIsPanel=%d beat=%@ step=%@ composer=%d", editors(view).count, editor.window === window ? 1 : 0, String(describing: tour.beat), String(describing: tour.currentStep?.kind), controller.isSelectionComposer ? 1 : 0)
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
       windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
       isARepeat: false, keyCode: 36)))
+    try await Task.sleep(for: .seconds(1))
+    NSLog("TOURDIAG 1s after Return beat=%@ step=%@ composer=%d panelMarker=%d", String(describing: tour.beat), String(describing: tour.currentStep?.kind), controller.isSelectionComposer ? 1 : 0, Host.marker("Compact panel", in: view) != nil ? 1 : 0)
     // One wait per condition, so a slow CI machine says which one it was still waiting on.
     try await waitForUI("the chat moved into the window", in: view, timeout: .seconds(20)) {
       !controller.isSelectionComposer && Host.marker("Compact panel", in: view) == nil

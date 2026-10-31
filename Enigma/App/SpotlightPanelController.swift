@@ -460,6 +460,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// the panel: its chat becomes the main window's, which moves to the
   /// window's normal size, centered on the screen the panel is on.
   @objc func openSelectionChatInWindow() {
+    NSLog("TOURDIAG openSelectionChatInWindow normalNil=%d composer=%d", selectionNormalFrame == nil ? 1 : 0, isSelectionComposer ? 1 : 0)
     finishMove()
     guard let normal = selectionNormalFrame else { return }
     selectionNormalFrame = nil

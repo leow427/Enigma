@@ -835,6 +835,7 @@ struct AppShellView: View {
   /// Carries out what a press asked for, from this window's card
   /// and composer or the pretend document's card.
   private func performTourAction(_ action: GuidedTour.Action) {
+    NSLog("TOURDIAG performTourAction %@ shellSelection=%d", String(describing: action), shell.isSelectionComposer ? 1 : 0)
     switch action {
     case .send(let demo):
       draft = ""
@@ -1115,6 +1116,7 @@ struct AppShellView: View {
   }
 
   private func submitDraft(recognizesCommands: Bool = true) {
+    NSLog("TOURDIAG submitDraft welcome=%d tourActive=%d", welcomeSetup.isPresented ? 1 : 0, guidedTour.isActive ? 1 : 0)
     guard !welcomeSetup.isPresented else { return }
     // During the tour a send plays a scripted reply.
     if guidedTour.isActive {

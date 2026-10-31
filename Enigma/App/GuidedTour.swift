@@ -144,6 +144,7 @@ final class GuidedTour: ObservableObject {
   /// Finishes the typing, takes the step, or moves on. Returns what the window should do.
   func advance() -> Action? {
     // The composer and the card's button can both see one Return.
+    NSLog("TOURDIAG advance since=%f beat=%@ step=%@", Date().timeIntervalSince(lastAdvance), String(describing: beat), String(describing: currentStep?.kind))
     guard Date().timeIntervalSince(lastAdvance) > 0.25 else { return nil }
     lastAdvance = Date()
     switch beat {

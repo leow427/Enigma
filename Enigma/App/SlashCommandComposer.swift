@@ -250,7 +250,8 @@ final class SlashCommandTextView: NSTextView {
   var focusChanged: ((Bool) -> Void)?
 
   override func keyDown(with event: NSEvent) {
-    if completion?.handle(event) == true { return }
+    NSLog("TOURDIAG keyDown code=%d marked=%d submitNil=%d commands=%d window=%@", Int(event.keyCode), hasMarkedText() ? 1 : 0, submit == nil ? 1 : 0, completion?.commands.count ?? -1, String(describing: window))
+    if completion?.handle(event) == true { NSLog("TOURDIAG keyDown eaten by completion"); return }
     if !hasMarkedText(), [36, 76].contains(event.keyCode),
        event.modifierFlags.intersection([.shift, .option, .control, .command]) == .shift {
       insertText("\n", replacementRange: selectedRange())

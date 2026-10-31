@@ -35,6 +35,8 @@ jobs:
           -default-test-execution-time-allowance 120
           -maximum-test-execution-time-allowance 120
           CODE_SIGNING_ALLOWED=NO
+          -only-testing:EnigmaTests/EnigmaMainWindowTests/testTourSelectionStopRunsTheRealPanelOverThePretendDocument
+          -test-iterations 2
       - name: Upload test results
         if: failure() || cancelled()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
