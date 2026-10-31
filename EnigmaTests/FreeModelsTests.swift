@@ -201,6 +201,56 @@ final class FreeModelsTests: XCTestCase {
     await Task.yield()
     XCTAssertEqual(settings.preferredModelID, "gemini-2.5-flash")
   }
+
+  // MARK: - Task 5: Auto and the all-out route
+
+  @MainActor
+  private func freeSettings(geminiKey: Bool = true) throws -> CloudSettingsModel {
+    let credentials = MemoryCredentials()
+    if geminiKey { try credentials.setAPIKey("test-only-key", for: .gemini) }
+    let settings = CloudSettingsModel(
+      credentialStore: credentials,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+                                 cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
+      preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false })
+    settings.preferredProvider = .free
+    return settings
+  }
+
+  @MainActor
+  func testAutoUsesFreeGeminiOnlyWithTheToggle() throws {
+    let settings = try freeSettings()
+    XCTAssertNil(settings.autoFreeModelID(now: now, usage: FreeModelUsage()))
+    settings.autoMayUseFreeGemini = true
+    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: FreeModelUsage()), "gemini-2.5-pro")
+  }
+
+  @MainActor
+  func testAutoSkipsAnExhaustedFreeModel() throws {
+    let settings = try freeSettings()
+    settings.autoMayUseFreeGemini = true
+    let usage = FreeModelUsage()
+    usage.markExhausted("gemini-2.5-pro", until: now.addingTimeInterval(60))
+    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: usage), "gemini-2.5-flash")
+  }
+
+  @MainActor
+  func testAllOutReportsTheEarliestResetUntilItPasses() throws {
+    let settings = try freeSettings()
+    let usage = FreeModelUsage()
+    XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage))
+    usage.markExhausted("gemini-2.5-pro", until: now.addingTimeInterval(900))
+    usage.markExhausted("gemini-2.5-flash", until: now.addingTimeInterval(300))
+    XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage), "Flash-Lite is still available")
+    usage.markExhausted("gemini-2.5-flash-lite", until: now.addingTimeInterval(600))
+    XCTAssertEqual(settings.freeModelsAllOut(now: now, usage: usage), now.addingTimeInterval(300))
+    XCTAssertNil(settings.freeModelsAllOut(now: now.addingTimeInterval(301), usage: usage))
+  }
+
+  @MainActor
+  func testNoFreeModelsMeansNotAllOut() throws {
+    XCTAssertNil(try freeSettings(geminiKey: false).freeModelsAllOut(now: now, usage: FreeModelUsage()))
+  }
 }
 
 final class SwitchLog: @unchecked Sendable {

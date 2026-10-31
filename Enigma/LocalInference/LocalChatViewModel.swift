@@ -65,6 +65,8 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var installedModels: [LocalModel] = []
   @Published private(set) var contextNotice: String?
   @Published private(set) var activity: AssistantActivity?
+  /// Shown above the next reply, then cleared, such as free models running out (F34).
+  var nextReplyNotice: String?
   private var activityMessageID: UUID?
   @Published private(set) var activeRequest: ActiveRequest? {
     didSet { lastRequestActivityAt = .now }
@@ -2336,6 +2338,10 @@ final class LocalChatViewModel: ObservableObject {
     activityMessageID = nil
     braveSearchRequest = nil
     activity = AssistantActivity(id: request.id)
+    if let nextReplyNotice {
+      activity?.apply(.notice(nextReplyNotice))
+      self.nextReplyNotice = nil
+    }
     return request
   }
 

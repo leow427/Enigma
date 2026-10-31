@@ -299,6 +299,24 @@ final class CloudSettingsModel: ObservableObject {
     return "No verified text-chat models were found. Refresh after checking model access, or enter a model ID manually. Saved selections are kept."
   }
 
+  /// The free models set up on this Mac, most capable first (F34).
+  private var freeModelIDs: [String] {
+    FreeModelCatalog.available(hasGeminiKey: hasAPIKey(for: .gemini), appleAvailable: isApplePCCAvailable).map(\.id)
+  }
+
+  /// The free model Auto may use: the most capable one not out of usage, leaving out Gemini's
+  /// free tier unless the user allowed it. Nil sends Auto to this Mac.
+  func autoFreeModelID(now: Date = Date(), usage: FreeModelUsage = .shared) -> String? {
+    freeModelIDs.first { id in
+      (FreeModelCatalog.underlyingProvider(id) == nil || autoMayUseFreeGemini) && !usage.isExhausted(id, now: now)
+    }
+  }
+
+  /// When every free model is out of usage, the earliest time one comes back; otherwise nil.
+  func freeModelsAllOut(now: Date = Date(), usage: FreeModelUsage = .shared) -> Date? {
+    usage.earliestReset(among: freeModelIDs, now: now)
+  }
+
   func hasCloudAccess(for provider: CloudProviderID) -> Bool {
     switch provider {
     case .chatGPT: chatGPTAccount != nil

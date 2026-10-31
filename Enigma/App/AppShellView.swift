@@ -962,8 +962,8 @@ struct AppShellView: View {
   }
 
   /// The route a chat or Messages send takes through `submitNative`, or nil for today's path.
-  private func nativeRoute(for submission: ComposerSubmission) -> Route? {
-    ComposerSubmission.nativeRoute(for: submission, mode: shell.selectedMode, nativeToolsEnabled: localChat.nativeToolsEnabled,
+  private func nativeRoute(for submission: ComposerSubmission, mode: ChatMode? = nil) -> Route? {
+    ComposerSubmission.nativeRoute(for: submission, mode: mode ?? shell.selectedMode, nativeToolsEnabled: localChat.nativeToolsEnabled,
       localModel: localChat.installedModel, cloudProvider: cloudSettings.preferredProvider,
       cloudModelID: cloudSettings.preferredModelID)
   }
@@ -1039,12 +1039,13 @@ struct AppShellView: View {
   /// Sends a chat message on the selected route. The resolved draft already
   /// decided search, including a dismissed search chip.
   private func submitChat(_ prompt: String, searchEnabled: Bool, onAccepted accepted: @escaping @MainActor () -> Void) {
-    if let route = nativeRoute(for: .chat(prompt: prompt, searchEnabled: searchEnabled)) {
+    let mode = chatSendMode()
+    if let route = nativeRoute(for: .chat(prompt: prompt, searchEnabled: searchEnabled), mode: mode) {
       let typed = ComposerCommands((searchEnabled ? "/search " : "") + prompt)
       localChat.submitNative(prompt, route: route, plan: localChat.nativeToolPlan(for: typed), onAccepted: accepted)
       return
     }
-    switch shell.selectedMode {
+    switch mode {
     case .local:
       localChat.submit(prompt, searchEnabled: searchEnabled, allowsAutomaticSearch: false, onAccepted: accepted)
     case .cloud:
@@ -1186,9 +1187,21 @@ struct AppShellView: View {
     }
   }
 
+  /// The mode a chat goes out on: Cloud with every free model out of usage answers on this Mac
+  /// instead, saying so above the reply (F34).
+  private func chatSendMode() -> ChatMode {
+    guard shell.selectedMode == .cloud, cloudSettings.preferredProvider == .free,
+          localChat.installedModel != nil, let reset = cloudSettings.freeModelsAllOut() else { return shell.selectedMode }
+    localChat.nextReplyNotice = "Free models are out until \(reset.formatted(date: .omitted, time: .shortened)). Answered on this Mac."
+    return .local
+  }
+
   private var autoCloudConfiguration: AutoRouter.CloudConfiguration? {
     guard cloudSettings.isConfigured else { return nil }
-    let modelID = cloudSettings.preferredModelID
+    // Free models in Auto: only one Auto may use and that isn't out of usage (F34).
+    let freeModelID = cloudSettings.preferredProvider == .free ? cloudSettings.autoFreeModelID() : nil
+    guard cloudSettings.preferredProvider != .free || freeModelID != nil else { return nil }
+    let modelID = freeModelID ?? cloudSettings.preferredModelID
     let displayName = cloudSettings.models.first(where: { $0.id == modelID })?.displayName ?? modelID
     return AutoRouter.CloudConfiguration(
       provider: cloudSettings.preferredProvider,
