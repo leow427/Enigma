@@ -1130,6 +1130,28 @@ final class EnigmaMainWindowTests: XCTestCase {
 
   /// The tour's text to Sam waits on the real approval card,
   /// Return in the composer approves it, and nothing is sent.
+  /// Moving to another stop mid-reply stops that reply: the chat is free at
+  /// once, and its late finish never skips a step of the new stop.
+  @MainActor
+  func testLeavingAStopMidReplyStopsTheReply() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the reply playing", in: host.view, timeout: .seconds(5)) {
+      tour.beat == .playing && fixture.chat.isBusy
+    }
+    tour.go(.code)
+    try await waitForUI("the chat free again", in: host.view, timeout: .seconds(1)) { !fixture.chat.isBusy }
+    try await Task.sleep(for: .seconds(6))
+    XCTAssertEqual(tour.stop, .code)
+    XCTAssertEqual(tour.stepIndex, 0, "The old reply's finish didn't take a step here")
+  }
+
   /// A tour demo plays in a temporary chat: nothing it says reaches Recents.
   @MainActor
   func testNoTourChatReachesRecents() async throws {

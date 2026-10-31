@@ -467,6 +467,8 @@ struct AppShellView: View {
       shell.isComposerFocused = true
     }
     .onChange(of: guidedTour.stop) { _, stop in
+      // A reply from the stop just left stops with it.
+      localChat.cancelTourReply()
       if stop != nil { shell.isComposerFocused = true }
       // Leaving the tour's text unapproved doesn't send it.
       if messages.pendingSend != nil { messages.answer(false) }

@@ -823,6 +823,7 @@ struct GuidedTourCard: View {
         Spacer(minLength: 0)
         if stop != .ask {
           Button("Back") { tour.back() }.enigmaButtonStyle(.text)
+            .disabled(tour.beat == .playing)
         }
         Button { onAdvance() } label: { HStack(spacing: 10) { Text(primaryLabel); EnigmaKeycap("↵") } }
           .enigmaButtonStyle(.primary)

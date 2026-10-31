@@ -53,6 +53,8 @@ final class LocalChatViewModel: ObservableObject {
   typealias Sleep = @Sendable (Duration) async throws -> Void
 
   @Published private(set) var sessions: [ChatSession]
+  /// The tour's scripted reply while it plays.
+  private var tourReply: Task<Void, Never>?
   @Published private(set) var selectedSessionID: UUID?
   /// The chat whose last accepted request used Messages, typed or recognized. It lets a
   /// follow-up like "send her a message saying …" carry Messages over. In memory only:
@@ -1945,6 +1947,7 @@ final class LocalChatViewModel: ObservableObject {
   /// Opens a fresh chat: no chat selected, as at launch. Nothing is written
   /// for it; `ensureSelectedSession()` makes it once it's used.
   func newChat() {
+    cancelTourReply()
     // Stopping first: a question still being prepared never reached its
     // chat, so a chat it was the first of is left empty and goes.
     stopStreaming()
@@ -2569,10 +2572,12 @@ extension LocalChatViewModel {
     sessions[index].messages.append(reply)
     let replyID = reply.id
     state = .searching
-    Task { @MainActor [weak self] in
+    tourReply?.cancel()
+    tourReply = Task { @MainActor [weak self] in
       guard let self else { return }
       var approved = true
       for phase in script.phases {
+        guard !Task.isCancelled else { return }
         activity.apply(.phase(phase))
         if phase == .readingSources { activity.apply(.sourcesDiscovered(script.sources)) }
         update({ $0.activity = activity }, id: replyID)
@@ -2589,6 +2594,7 @@ extension LocalChatViewModel {
       var text = ""
       let replyText = approved ? script.reply : script.declined ?? script.reply
       for word in replyText.split(separator: " ", omittingEmptySubsequences: false) {
+        guard !Task.isCancelled else { return }
         text += (text.isEmpty ? "" : " ") + word
         update({ $0.content = text }, id: replyID)
         try? await Task.sleep(for: .milliseconds(45))
@@ -2604,8 +2610,17 @@ extension LocalChatViewModel {
                                                         text: revision, automatic: false)
       }
       state = .idle
+      tourReply = nil
       onFinish()
     }
+  }
+
+  /// Stops a tour reply partway, freeing the chat; its finish never runs.
+  func cancelTourReply() {
+    guard let tourReply else { return }
+    tourReply.cancel()
+    self.tourReply = nil
+    state = .idle
   }
 }
 
