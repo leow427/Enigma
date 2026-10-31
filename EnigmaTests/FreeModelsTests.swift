@@ -31,4 +31,20 @@ final class FreeModelsTests: XCTestCase {
     let message = CloudProviderError.quotaExhausted(.gemini, resetsAt: now).errorDescription!
     XCTAssertTrue(message.contains(now.formatted(date: .omitted, time: .shortened)), message)
   }
+
+  // MARK: - Task 2: notice
+
+  func testNoticeIsKeptOnTheActivity() {
+    var activity = AssistantActivity(id: UUID())
+    activity.apply(.notice("Switched to Apple's cloud model"))
+    activity.apply(.phase(.generating))
+    XCTAssertEqual(activity.notice, "Switched to Apple's cloud model")
+  }
+
+  func testNoticeArrivingAfterTheReplyEndedIsStillShown() {
+    var activity = AssistantActivity(id: UUID())
+    activity.apply(.phase(.completed))
+    activity.apply(.notice("Answered on this Mac."))
+    XCTAssertEqual(activity.notice, "Answered on this Mac.")
+  }
 }
