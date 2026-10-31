@@ -294,13 +294,29 @@ final class EnigmaSettingsTests: XCTestCase {
     try await waitForUI("Cloud with Advanced open", in: host.view) { host.shows("Save OpenAI API key") }
   }
 
+  /// Search goes word by word, so plurals, hyphens and the words people use
+  /// find their page; Return prefers the page a word names.
+  func testSettingsSearchFindsWhatPeopleType() {
+    typealias Destination = SettingsView.SettingsDestination
+    let expected: [String: Destination] = [
+      "api keys": .cloud, "keys": .cloud, "keychain": .cloud, "model id": .cloud, "preferred model": .cloud,
+      "thinking capacity": .cloud, "sign in": .cloud, "brave search": .search, "double tap": .shortcuts,
+      "hotkeys": .shortcuts, "theme": .general, "accessibility": .permissions, "local models": .local,
+      "cloud and search": .cloud,
+    ]
+    for (query, page) in expected {
+      XCTAssertTrue(page.matches(query), "\(query) should find \(page)")
+      XCTAssertEqual(Destination.firstMatch(query), page, query)
+    }
+  }
+
   func testSettingsSearchFindsWordsFromDetailsAndAdvanced() {
     typealias Destination = SettingsView.SettingsDestination
     XCTAssertEqual(Destination.allCases.filter { $0.matches("brave") }, [.search])
     XCTAssertTrue(Destination.allCases.filter { $0.matches("api key") }.contains(.cloud))
     XCTAssertTrue(Destination.allCases.filter { $0.matches("zzz") }.isEmpty)
     XCTAssertEqual(Destination.firstMatch("messages"), .messages)
-    XCTAssertEqual(Destination.firstMatch("  Accessibility "), .selection)
+    XCTAssertEqual(Destination.firstMatch("  Accessibility "), .permissions)
     XCTAssertNil(Destination.firstMatch("zzz"))
   }
 

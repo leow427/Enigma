@@ -118,12 +118,16 @@ struct SettingsView: View {
     /// Words the sidebar's search finds this page by, besides its title.
     var keywords: [String] {
       switch self {
-      case .general: ["appearance", "dark", "light", "start mode", "auto", "sidebar", "welcome", "replay", "tour", "commands", "wording"]
-      case .shortcuts: ["keyboard", "double-tap", "option", "control", "hotkey", "interval"]
-      case .local: ["model", "download", "install", "gguf", "memory", "local"]
-      case .cloud: ["chatgpt", "claude", "openai", "anthropic", "gemini", "api key", "provider", "subscription", "effort", "thinking"]
+      // Old page names stay as keywords, so they still find the new pages.
+      case .general: ["appearance", "theme", "dark mode", "light", "start mode", "auto", "sidebar", "welcome", "replay",
+                      "tour", "commands", "wording"]
+      case .shortcuts: ["keyboard", "keybinds", "double-tap", "option", "control", "hotkey", "summon", "interval", "speed"]
+      case .local: ["local models", "download", "install", "gguf", "memory", "performance", "import"]
+      case .cloud: ["cloud and search", "chatgpt", "claude", "codex", "openai", "anthropic", "gemini", "api key", "keychain",
+                    "provider", "preferred model", "model id", "manual", "subscription", "plan", "sign in", "sign out",
+                    "effort", "thinking capacity"]
       case .search: ["web", "brave", "location", "weather", "places", "maps", "blocked sites"]
-      case .selection: ["edit", "replace", "revision", "private", "accessibility"]
+      case .selection: ["edit", "replace", "revision", "private"]
       case .screen: ["screenshot", "snapshot", "screen recording", "cloud"]
       case .files: ["attach", "folder", "undo", "codex"]
       case .messages: ["imessage", "sms", "texts", "full disk access", "contacts"]
@@ -133,12 +137,31 @@ struct SettingsView: View {
       }
     }
 
-    /// What Return in the search field opens.
-    static func firstMatch(_ query: String) -> SettingsDestination? { allCases.first { $0.matches(query) } }
+    /// What Return in the search field opens: the page whose own words match best.
+    static func firstMatch(_ query: String) -> SettingsDestination? {
+      allCases.filter { $0.matches(query) }.max { $0.score(query) < $1.score(query) }
+    }
 
+    /// Every word of the query starts a word of the page's title or keywords.
     func matches(_ query: String) -> Bool {
-      let query = query.trimmingCharacters(in: .whitespaces).lowercased()
-      return query.isEmpty || title.lowercased().contains(query) || keywords.contains { $0.contains(query) }
+      let words = Self.words(query)
+      let own = Self.words(([title] + keywords).joined(separator: " "))
+      return words.allSatisfy { word in own.contains { $0.hasPrefix(word) } }
+    }
+
+    /// Whole words beat prefixes, and the title beats keywords; ties keep the sidebar's order.
+    private func score(_ query: String) -> Int {
+      let titleWords = Self.words(title), keywordWords = Self.words(keywords.joined(separator: " "))
+      return Self.words(query).reduce(0) { total, word in
+        total + (titleWords.contains(word) ? 3 : keywordWords.contains(word) ? 2 : 0)
+      }
+    }
+
+    /// Lowercased words, split at anything but letters and digits, with a plural "s" dropped.
+    private static func words(_ text: String) -> [String] {
+      text.lowercased().split { !$0.isLetter && !$0.isNumber }.map { word in
+        word.count > 3 && word.hasSuffix("s") ? String(word.dropLast()) : String(word)
+      }
     }
   }
 
