@@ -619,8 +619,10 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   func hide() {
     // Esc or ⌥⌃ during the tour leaves it, as End tour does. The tour's own
-    // step aside orders the window out quietly instead.
-    if GuidedTour.shared.isActive { GuidedTour.shared.requestFinish() }
+    // step aside orders the window out quietly instead. At the permissions
+    // stop hiding is how people reach System Settings, so the tour waits there,
+    // and a restart for Screen Recording still resumes it.
+    if GuidedTour.shared.isActive, GuidedTour.shared.stop != .permissions { GuidedTour.shared.requestFinish() }
     finishMove()
     // Hiding an already hidden panel keeps the time it was first hidden.
     hiddenAt = hiddenAt ?? now()

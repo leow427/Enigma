@@ -263,6 +263,15 @@ final class AppCommandTests: XCTestCase {
     let hidden = expectation(forNotification: .guidedTourFinishRequested, object: nil)
     controller.hide()
     await fulfillment(of: [hidden], timeout: 1)
+    // At the permissions stop, hiding is how people reach System Settings: the tour waits.
+    controller.show()
+    tour.go(.permissions)
+    let keeps = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    keeps.isInverted = true
+    controller.hide()
+    await fulfillment(of: [keeps], timeout: 0.3)
+    XCTAssertEqual(tour.stop, .permissions)
+    tour.go(.ask)
     let newChat = expectation(forNotification: .guidedTourFinishRequested, object: nil)
     NotificationCenter.default.post(name: .newChatRequested, object: nil)
     await fulfillment(of: [newChat], timeout: 1)
