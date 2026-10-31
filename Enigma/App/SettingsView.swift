@@ -335,12 +335,15 @@ struct SettingsView: View {
     case .screen:
       ScreenSettingsSection(settings: screen)
       SettingsLink("Screen Recording", subtitle: "Needed for /screen and /snapshot.", to: .permissions)
+      // Closes the links' card.
+      EnigmaHairline()
     case .files:
       FilesSettingsPage()
     case .messages:
       MessagesSettingsSection(part: .about)
       SettingsLink("Full Disk Access and Contacts", subtitle: "Needed to read your chats.", to: .permissions)
       SettingsLink("Always allowed", subtitle: "Chats you let Enigma read without asking.", to: .approvals)
+      EnigmaHairline()
     case .permissions:
       PermissionsSettingsPage()
     case .approvals:

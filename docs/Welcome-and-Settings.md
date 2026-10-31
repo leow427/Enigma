@@ -141,8 +141,9 @@ macOS to leave it out of screen captures and sharing (best effort).
 The sidebar groups the pages: **Enigma** (General, Shortcuts), **Models** (On
 this Mac, Cloud), **Abilities** (Search and maps, Selection, Screen, Files,
 Messages), **Privacy** (Permissions, Approvals), and **About**. The search
-field above it filters the pages by their names and what's on them, including
-details and Advanced rows; Return opens the first match.
+field above it filters the pages word by word, by their names and the settings
+on them, including Advanced ones and the old page names; Return opens the best
+match.
 
 Each section's rows sit on a card under a bold heading. Rows keep to a title
 and at most one short subtitle; a row's longer explanation is behind its ⓘ.
