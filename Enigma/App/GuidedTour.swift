@@ -49,7 +49,7 @@ final class GuidedTour: ObservableObject {
 
   private let defaults: UserDefaults
   /// Tests share the app's defaults, so their tours never save or resume progress.
-  private let persists = !TestHost.isActive
+  private let persists: Bool
   /// Set once an existing user takes or declines the tour's invite.
   nonisolated static let inviteKey = "guidedTour.invite.v1"
   @Published private(set) var inviteDismissed = false
@@ -59,8 +59,9 @@ final class GuidedTour: ObservableObject {
   private var newChatObserver: NSObjectProtocol?
   private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
-  init(defaults: UserDefaults = .standard) {
+  init(defaults: UserDefaults = .standard, persists: Bool = !TestHost.isActive) {
     self.defaults = defaults
+    self.persists = persists
     // ⌘N or New chat at the new-chat step counts as doing it.
     newChatObserver = NotificationCenter.default.addObserver(forName: .newChatRequested, object: nil, queue: .main) { [weak self] _ in
       MainActor.assumeIsolated {
@@ -395,8 +396,8 @@ struct TourScript: Equatable {
   /// The reply when the text isn't approved.
   var declined: String? = nil
 
-  static let willis = TourScript(
-    reply: "Architect Bruce Graham and structural engineer Fazlur Khan of Skidmore, Owings & Merrill. It went up in the early 1970s as the Sears Tower and was the tallest building in the world for nearly 25 years.",
+  static let sears = TourScript(
+    reply: "Architect Bruce Graham and structural engineer Fazlur Khan of Skidmore, Owings & Merrill. It went up in the early 1970s and was the tallest building in the world for nearly 25 years.",
     phases: [.searching, .readingSources],
     sources: [WebSearchSource(title: "Willis Tower - Wikipedia", url: URL(string: "https://en.wikipedia.org/wiki/Willis_Tower")!)])
 
@@ -550,7 +551,7 @@ extension GuidedTour.Stop {
   var steps: [TourStep] {
     switch self {
     case .ask:
-      [TourStep(label: "Search the web", kind: .send(TourDemo(prompt: "who designed the Willis Tower?", script: .willis))),
+      [TourStep(label: "Search the web", kind: .send(TourDemo(prompt: "who designed the Sears Tower?", script: .sears))),
        TourStep(label: "Find places", kind: .send(TourDemo(prompt: "any good museums near Millennium Park?", script: .museums))),
        TourStep(label: "Check the weather", kind: .send(TourDemo(prompt: "will it rain in Chicago tomorrow?", script: .weather)))]
     case .code:
