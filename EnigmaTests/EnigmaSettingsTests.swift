@@ -194,6 +194,9 @@ final class EnigmaSettingsTests: XCTestCase {
       for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
         let label = "\(destination) in \(appearance)"
         let image = try EnigmaSnapshot.render(fixture.settings(destination).enigmaTheme(appearance), size: size)
+        try EnigmaSnapshot.save("settings-\(destination)-\(appearance)", size: size) {
+          fixture.settings(destination).enigmaTheme(appearance)
+        }
         try assertPixel(image, at: CGPoint(x: 20, y: size.height - 20), is: palette.sidebar, label)
         try assertPixel(image, at: CGPoint(x: SettingsView.navigationWidth + 12, y: size.height / 2),
                         is: palette.background, label)

@@ -3,16 +3,10 @@ import SwiftUI
 /// Help: every shortcut, as hairline rows with monospace keys, and the
 /// selection shortcut settings.
 struct KeyboardShortcutsHelpView: View {
-  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
-  @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
-  @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleTapEnabled = true
-  @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
   @Environment(\.dismiss) private var dismiss
   @Environment(\.enigmaPalette) private var palette
 
   static let size = CGSize(width: 500, height: 540)
-
-  private var modifier: SelectionModifier { SelectionModifier(rawValue: selectionModifier) ?? .option }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -30,13 +24,7 @@ struct KeyboardShortcutsHelpView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
       ScrollView {
-        VStack(alignment: .leading, spacing: 0) {
-          anywhere
-          inThePanel
-          editing
-          EnigmaHint(KeyboardShortcutsHelp.legend)
-            .padding(.top, 14)
-        }
+        KeyboardShortcutsList()
         .padding(.horizontal, 28)
         .padding(.bottom, 16)
       }
@@ -62,6 +50,28 @@ struct KeyboardShortcutsHelpView: View {
     .tint(palette.accent.color)
     .enigmaMenuHost()
     .onExitCommand { dismiss() }
+  }
+}
+
+/// Every shortcut and the selection shortcut's settings: in Help, and on
+/// Settings → Shortcuts (F14 spike).
+struct KeyboardShortcutsList: View {
+  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
+  @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
+  @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleTapEnabled = true
+  @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
+  @Environment(\.enigmaPalette) private var palette
+
+  private var modifier: SelectionModifier { SelectionModifier(rawValue: selectionModifier) ?? .option }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      anywhere
+      inThePanel
+      editing
+      EnigmaHint(KeyboardShortcutsHelp.legend)
+        .padding(.top, 14)
+    }
   }
 
   private var anywhere: some View {

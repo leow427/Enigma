@@ -664,6 +664,8 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
   let title: String
   var badge: String?
   var subtitle: String?
+  /// The longer explanation, behind an ⓘ beside the title.
+  var info: String?
   /// Nil hides the dot. Otherwise the row is one choice in a list.
   var selection: Bool?
   var action: (() -> Void)?
@@ -672,12 +674,13 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
   @Environment(\.enigmaPalette) private var palette
   @FocusState private var isFocused: Bool
 
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder detail: @escaping () -> Detail,
        @ViewBuilder trailing: @escaping () -> Trailing) {
     self.title = title
     self.badge = badge
     self.subtitle = subtitle
+    self.info = info
     self.selection = selection
     self.action = action
     self.detail = detail
@@ -720,6 +723,7 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
               .font(EnigmaTypography.mono(11))
               .foregroundStyle(palette.accentText.color)
           }
+          if let info { EnigmaInfoButton(title: title, text: info) }
         }
         if let subtitle {
           Text(subtitle)
@@ -737,9 +741,9 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
 }
 
 extension EnigmaRow where Detail == EmptyView {
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
-    self.init(title, badge: badge, subtitle: subtitle, selection: selection, action: action,
+    self.init(title, badge: badge, subtitle: subtitle, info: info, selection: selection, action: action,
               detail: { EmptyView() }, trailing: trailing)
   }
 }
@@ -747,10 +751,36 @@ extension EnigmaRow where Detail == EmptyView {
 extension EnigmaRow where Detail == EmptyView, Trailing == EmptyView {
   /// The defaulted `trailing` keeps a trailing closure from ever binding to
   /// `action`: the action always needs its label.
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder trailing: @escaping () -> EmptyView = { EmptyView() }) {
-    self.init(title, badge: badge, subtitle: subtitle, selection: selection, action: action,
+    self.init(title, badge: badge, subtitle: subtitle, info: info, selection: selection, action: action,
               detail: { EmptyView() }, trailing: trailing)
+  }
+}
+
+/// ⓘ beside a row's title: its longer explanation in a popover.
+struct EnigmaInfoButton: View {
+  let title: String
+  let text: String
+  @State private var isShown = false
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    Button { isShown.toggle() } label: {
+      Image(systemName: "info.circle")
+        .font(.system(size: 11.5))
+        .foregroundStyle(palette.textTertiary.color)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("About \(title)")
+    .popover(isPresented: $isShown, arrowEdge: .bottom) {
+      Text(text)
+        .font(EnigmaTypography.ui(12.5))
+        .foregroundStyle(palette.textPrimary.color)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 280, alignment: .leading)
+        .padding(14)
+    }
   }
 }
 
