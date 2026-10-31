@@ -260,6 +260,7 @@ struct SettingsView: View {
         SettingsPageHeader(destination: destination)
         pageContent
       }
+      .settingsCards(inset: 14)
       .padding(.horizontal, Self.pagePadding)
       .padding(.top, 16)
       .padding(.bottom, 24)

@@ -14,6 +14,14 @@ final class EnigmaSettingsTests: XCTestCase {
   // MARK: Mac capabilities
 
   @MainActor
+  func testSettingsCardsGroupRowsBetweenHeadingsAndClosingLines() {
+    // A heading (end), two rows, a closing line, a stray line, then one row closed by the next heading.
+    let cards = SettingsCardsBackground.cards([(.end, 0), (.row, 50), (.row, 10), (.end, 90),
+                                               (.end, 91), (.row, 120), (.end, 160)])
+    XCTAssertEqual(cards, [.init(top: 10, bottom: 90, dividers: [50]), .init(top: 120, bottom: 160, dividers: [])])
+  }
+
+  @MainActor
   func testHardwareDetailsNameCPUsAndMetal() {
     var hardware = LocalHardwareProfile(physicalMemory: 16 * gib, isAppleSilicon: true, hasMetal: true,
       hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 10, performanceCPUCount: 4,
@@ -211,8 +219,9 @@ final class EnigmaSettingsTests: XCTestCase {
     for destination in SettingsView.SettingsDestination.allCases {
       let image = try EnigmaSnapshot.render(fixture.settings(destination, size: size).enigmaTheme(.paper),
                                             size: size, scale: 1)
-      let left = SettingsView.navigationWidth + 18
-      let right = size.width - 23
+      // Cards reach 14 pt into the 30 pt margins.
+      let left = SettingsView.navigationWidth + 10
+      let right = size.width - 10
       for y in stride(from: 4.0, to: size.height - 4, by: 6) {
         for x in [left, right] {
           let color = try EnigmaSnapshot.pixel(image, at: CGPoint(x: x, y: y))
