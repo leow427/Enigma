@@ -1071,6 +1071,63 @@ final class EnigmaMainWindowTests: XCTestCase {
                                                      from: try XCTUnwrap(composerEditor(in: view)))))
   }
 
+  /// F14 spike: the tour's selection stop runs the real panel over its pretend
+  /// document: the window steps aside, ⌥⌥ opens the compact panel with the
+  /// draft's line attached, a send moves the chat into the window with a
+  /// revision and no model request, and Replace text changes the document
+  /// while the window steps aside and comes back.
+  @MainActor
+  func testTourSelectionStopRunsTheRealPanelOverThePretendDocument() async throws {
+    let fixture = try await Fixture(test: self)
+    let view = NSHostingView(rootView: fixture.shell())
+    let sizes = PanelSizeStore(defaults: fixture.defaults)
+    sizes.save(NSSize(width: 1100, height: 720))
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { true })
+    controller.show()
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end(); controller.hide(); view.window?.contentView = nil }
+    let window = try XCTUnwrap(view.window)
+    try await waitForUI("the window", in: view) { Host.marker("New chat", in: view) != nil }
+
+    tour.go(.selection)
+    try await waitForUI("the window stepping aside for the document", in: view) {
+      !window.isVisible && TourDocumentWindow.shared.selectionOnScreen != nil
+    }
+    tour.press()
+    try await waitForUI("the line selected", in: view) { tour.scene.phase == .selected && tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the real panel under the selection", in: view) {
+      controller.isSelectionComposer && window.isVisible && window.frame.height < 200
+        && fixture.chat.attachedContexts.map(\.id) == [TourScene.context.id]
+        && Host.marker("Compact panel", in: view) != nil
+    }
+    let selection = try XCTUnwrap(TourDocumentWindow.shared.selectionOnScreen)
+    XCTAssertLessThanOrEqual(window.frame.maxY, selection.minY + 1, "The panel opens under the selected line")
+    try await waitForUI("the question typed into the panel", in: view, timeout: .seconds(10)) {
+      tour.beat == .ready && fixture.screen.draft == TourScene.demo.prompt
+    }
+    let editor = try XCTUnwrap(composerEditor(in: view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the chat in the window with its revision", in: view, timeout: .seconds(10)) {
+      !controller.isSelectionComposer && Host.marker("Compact panel", in: view) == nil
+        && Host.marker("Your message", in: view) != nil && Host.marker("Replace text", in: view) != nil
+        && tour.beat == .ready && tour.currentStep?.kind == .replace
+    }
+    XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
+    tour.press()
+    try await waitForUI("the window stepping aside for the paste", in: view) { !window.isVisible }
+    try await waitForUI("the replacement in the document and the window back", in: view, timeout: .seconds(10)) {
+      tour.scene.phase == .replaced && window.isVisible && tour.beat == .finished
+        && fixture.chat.selectionRevisions.values.first?.status == .sent
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the next stop back in the window", in: view) { tour.stop == .files && window.isVisible }
+  }
+
   // MARK: Tour
 
   @MainActor
@@ -1704,7 +1761,11 @@ extension EnigmaMainWindowTests {
       let search = WebSearchSettings(credentials: MainWindowTestSearchCredentials(key: searchKey), defaults: defaults)
       self.search = search
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
-        replaceSelection: { [pastes] text, _, automatic in
+        replaceSelection: { [pastes] text, contextID, automatic in
+          // F14 spike: the tour's selection takes the app's own path, into its pretend document.
+          if contextID == TourScene.context.id {
+            return await SelectionContextService.shared.replace(with: text, contextID: contextID, automatic: automatic)
+          }
           pastes.texts.append(text)
           pastes.automatic.append(automatic)
           return true

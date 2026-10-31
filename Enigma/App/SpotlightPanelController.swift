@@ -245,6 +245,10 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
+    // F14 spike: the tour's selection stop uses the real panel over a pretend document.
+    NotificationCenter.default.addObserver(self, selector: #selector(tourStepAside), name: .guidedTourStepAside, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(tourComeBack), name: .guidedTourComeBack, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(tourSummon(_:)), name: .guidedTourSummon, object: nil)
     if let welcomeSetup {
       // F14 spike: the hands-on tour grows the window by its rail.
       welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour, GuidedTour.shared.$stop)
@@ -290,6 +294,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private var selectionInvocation: Task<Void, Never>?
 
   func summonSelectionContext() {
+    // F14 spike: during the tour's selection stop, ⌥⌥ takes its step instead of reading another app.
+    if GuidedTour.shared.stop == .selection { GuidedTour.shared.shortcutPressed(); return }
     guard !isCapturingScreen, selectionInvocation == nil else { return }
     let cursor = NSEvent.mouseLocation
     let visible = (NSScreen.screens.first { NSMouseInRect(cursor, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
@@ -304,7 +310,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   func presentSelectionContext(_ context: ConversationContext?, cursor: NSPoint, selection: NSRect?, visible: NSRect?) {
-    guard normalSize == nil else { return }
+    // The tour's selection stop opens it while the tour has the window enlarged.
+    guard normalSize == nil || GuidedTour.shared.stop == .selection else { return }
     finishMove()
     if selectionNormalFrame == nil { selectionNormalFrame = panel.frame }
     isSelectionComposer = true
@@ -427,6 +434,28 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     selectionAppliedFrame = panel.frame
     guard isSelectionComposer, let visible = visibleFrame(panel) else { return }
     NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
+  }
+
+  /// F14 spike: the window steps aside for the tour's pretend document.
+  @objc private func tourStepAside() {
+    finishMove()
+    panel.orderOut(nil)
+  }
+
+  /// F14 spike: back as the window, wherever the tour left it.
+  @objc private func tourComeBack() {
+    if selectionNormalFrame != nil { restoreNormalPanel() }
+    hiddenAt = nil
+    panel.orderFrontRegardless()
+    panel.makeKey()
+  }
+
+  /// F14 spike: the real panel, under the pretend document's selected line.
+  @objc private func tourSummon(_ notification: Notification) {
+    guard let selection = (notification.object as? NSValue)?.rectValue else { return }
+    let screen = NSScreen.screens.first { $0.frame.intersects(selection) } ?? NSScreen.main
+    presentSelectionContext(TourScene.context, cursor: NSPoint(x: selection.minX, y: selection.minY),
+                            selection: selection, visible: screen?.visibleFrame)
   }
 
   @objc private func restoreNormalPanel() {

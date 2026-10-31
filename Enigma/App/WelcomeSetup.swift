@@ -234,7 +234,8 @@ extension Notification.Name {
 /// The tour in the main window, fully scripted: Return or the card's button
 /// takes each next beat. A stop has one or more steps: a question that types
 /// itself into the composer and plays a scripted reply in a temporary chat,
-/// a new chat, or a beat of the selection scene's mock document.
+/// a new chat, or a beat of the selection stop, which runs the real selection
+/// panel against a pretend document in its own window.
 @MainActor
 final class GuidedTour: ObservableObject {
   static let shared = GuidedTour()
@@ -249,18 +250,21 @@ final class GuidedTour: ObservableObject {
   enum Beat { case typing, ready, playing, finished }
 
   /// What a press of Return asks the window to do.
-  enum Action { case send(TourDemo), newChat }
+  enum Action {
+    case send(TourDemo), newChat
+    /// Replace text on the selection stop's revision card.
+    case replace
+  }
 
   @Published private(set) var stop: Stop?
   @Published private(set) var stepIndex = 0
   @Published private(set) var beat: Beat = .finished
   /// What the composer shows while a demo types itself.
   @Published private(set) var draft = ""
-  /// The selection stop's mock document and panel.
+  /// The selection stop's pretend document.
   @Published var scene = TourScene()
-  /// The character perches on the card, except while a reply plays or it sits in the scene's panel.
+  /// The character perches on the card, except while a scripted reply plays.
   @Published var characterOnCard = true
-  @Published private(set) var characterInScene = false
   /// Measured by the card, so the character's perch can sit on it.
   @Published var cardHeight: CGFloat = 220
   /// The tour picked up again after a restart, for the card's welcome back.
@@ -306,18 +310,32 @@ final class GuidedTour: ObservableObject {
   func go(_ stop: Stop) {
     typing?.cancel()
     playing?.cancel()
+    let leaving = self.stop
     self.stop = stop
     if persists { defaults.set(stop.rawValue, forKey: Self.progressKey) }
     resumed = false
     characterOnCard = true
-    characterInScene = false
     scene = TourScene()
     stepIndex = 0
+    if stop == .selection {
+      // Enigma steps aside for the pretend app, as if you'd switched to it.
+      NotificationCenter.default.post(name: .guidedTourStepAside, object: nil)
+      TourDocumentWindow.shared.open()
+    } else if leaving == .selection {
+      leaveDocument()
+    }
     startStep()
   }
 
-  /// Return or the card's button: finishes the typing, takes the step, or
-  /// moves on. Returns what the window should do.
+  /// Return or the card's button, in either window.
+  func press() {
+    if let action = advance() { NotificationCenter.default.post(name: .guidedTourAction, object: action) }
+  }
+
+  /// End tour or Start chatting, in either window.
+  func requestFinish() { NotificationCenter.default.post(name: .guidedTourFinishRequested, object: nil) }
+
+  /// Finishes the typing, takes the step, or moves on. Returns what the window should do.
   func advance() -> Action? {
     // The composer and the card's button can both see one Return.
     guard Date().timeIntervalSince(lastAdvance) > 0.25 else { return nil }
@@ -334,10 +352,18 @@ final class GuidedTour: ObservableObject {
         draft = ""
         characterOnCard = false
         return .send(demo)
+      case .askSelection:
+        beat = .playing
+        draft = ""
+        scene.phase = .sent
+        return .send(TourScene.demo)
       case .newChat:
         stepFinished()
         return .newChat
-      case .select, .summon, .askSelection, .replace:
+      case .replace:
+        beat = .playing
+        return .replace
+      case .select, .summon:
         beat = .playing
         play(step.kind)
         return nil
@@ -371,32 +397,62 @@ final class GuidedTour: ObservableObject {
     typing?.cancel()
     playing?.cancel()
     if persists { defaults.removeObject(forKey: Self.progressKey) }
+    let leaving = stop
     stop = nil
     beat = .finished
     draft = ""
     scene = TourScene()
     characterOnCard = true
-    characterInScene = false
     resumed = false
+    if leaving == .selection { leaveDocument() }
+  }
+
+  // MARK: The selection stop
+
+  /// The selection shortcut during the selection stop: it takes the ⌥⌥ step
+  /// instead of reading another app.
+  func shortcutPressed() {
+    guard beat == .ready, currentStep?.kind == .summon else { return }
+    press()
+  }
+
+  /// Replace text, sent to the pretend document instead of another app. The
+  /// window steps aside and comes back the way a real paste makes it.
+  func replaceInDocument(_ text: String, automatic: Bool) async -> Bool {
+    NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
+    TourDocumentWindow.shared.bringForward()
+    try? await Task.sleep(for: .milliseconds(reduceMotion ? 100 : 450))
+    scene.phase = .replaced
+    try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 1500))
+    NotificationCenter.default.post(name: .selectionReplacementEnded,
+                                    object: SelectionReplacementEnd(automatic: automatic, sent: true))
+    if currentStep?.kind == .replace { stepFinished() }
+    return true
+  }
+
+  /// Back to Enigma's own window, as it was before the stop.
+  private func leaveDocument() {
+    NotificationCenter.default.post(name: .guidedTourComeBack, object: nil)
+    TourDocumentWindow.shared.close()
   }
 
   // MARK: Steps
 
-  /// A question types itself into the composer, or the scene's into its panel.
+  /// A question types itself into the composer.
   private func startStep() {
     typing?.cancel()
     draft = ""
     guard let step = currentStep else { beat = .finished; return }
     switch step.kind {
-    case .send(let demo): type(demo.prompt, firstStep: stepIndex == 0) { self.draft = $0 }
-    case .askSelection: type(TourScene.question, firstStep: false) { self.scene.typed = $0 }
+    case .send(let demo): type(demo.prompt, firstStep: stepIndex == 0)
+    case .askSelection: type(TourScene.demo.prompt, firstStep: false)
     case .newChat, .select, .summon, .replace: beat = .ready
     }
   }
 
   /// Types `text` a character at a time, with a pause after a leading `/` so
   /// the command list shows.
-  private func type(_ text: String, firstStep: Bool, into show: @escaping @MainActor (String) -> Void) {
+  private func type(_ text: String, firstStep: Bool) {
     beat = .typing
     guard !reduceMotion else { finishTyping(); return }
     typing = Task { [weak self] in
@@ -404,9 +460,9 @@ final class GuidedTour: ObservableObject {
       try? await Task.sleep(for: .milliseconds(firstStep ? 900 : 500))
       var typed = ""
       for character in text {
-        guard self != nil, !Task.isCancelled else { return }
+        guard let self, !Task.isCancelled else { return }
         typed.append(character)
-        show(typed)
+        self.draft = typed
         let pause = typed == "/" ? 1100 : Int.random(in: 28...62)
         try? await Task.sleep(for: .milliseconds(pause))
       }
@@ -419,13 +475,13 @@ final class GuidedTour: ObservableObject {
     typing?.cancel()
     switch currentStep?.kind {
     case .send(let demo)?: draft = demo.prompt
-    case .askSelection?: scene.typed = TourScene.question
+    case .askSelection?: draft = TourScene.demo.prompt
     default: break
     }
     beat = .ready
   }
 
-  /// One beat of the selection scene.
+  /// Selecting the line, and the two ⌥ taps that open the real panel under it.
   private func play(_ kind: TourStep.Kind) {
     playing = Task { [weak self] in
       guard let self else { return }
@@ -440,31 +496,12 @@ final class GuidedTour: ObservableObject {
         self.scene.keys = 2
         await pause(320)
         self.scene.phase = .panel
-        self.characterOnCard = false
-        self.characterInScene = true
+        if let selection = TourDocumentWindow.shared.selectionOnScreen {
+          NotificationCenter.default.post(name: .guidedTourSummon, object: NSValue(rect: selection))
+        }
         await pause(700)
         self.scene.keys = 0
-      case .askSelection:
-        self.scene.phase = .thinking
-        await pause(1100)
-        self.scene.phase = .answered
-        var reply = ""
-        for word in TourScene.answer.split(separator: " ") {
-          guard !Task.isCancelled else { return }
-          reply += (reply.isEmpty ? "" : " ") + word
-          self.scene.reply = reply
-          await pause(45)
-        }
-        await pause(300)
-        self.scene.showsRevision = true
-        await pause(400)
-      case .replace:
-        self.scene.revisionStatus = .applying
-        await pause(700)
-        self.scene.revisionStatus = .sent
-        self.scene.phase = .replaced
-        await pause(500)
-      case .send, .newChat:
+      case .send, .askSelection, .newChat, .replace:
         break
       }
       guard !Task.isCancelled else { return }
@@ -473,13 +510,24 @@ final class GuidedTour: ObservableObject {
   }
 }
 
+extension Notification.Name {
+  /// F14 spike: the tour asks the main window to step aside, come back, or
+  /// open the selection panel under the pretend document's selection.
+  static let guidedTourStepAside = Notification.Name("guidedTourStepAside")
+  static let guidedTourComeBack = Notification.Name("guidedTourComeBack")
+  static let guidedTourSummon = Notification.Name("guidedTourSummon")
+  /// A `GuidedTour.Action` for the window to carry out.
+  static let guidedTourAction = Notification.Name("guidedTourAction")
+  static let guidedTourFinishRequested = Notification.Name("guidedTourFinishRequested")
+}
+
 /// One step of a stop, named on the card's checklist.
 struct TourStep: Equatable {
   enum Kind: Equatable {
     /// A question typed into the composer and sent.
     case send(TourDemo)
     case newChat
-    /// The selection scene: select text, tap ⌥ twice, ask, put it back.
+    /// The selection stop: select text, tap ⌥ twice, ask, put it back.
     case select, summon, askSelection, replace
   }
 
@@ -498,28 +546,23 @@ struct TourStep: Equatable {
   }
 }
 
-/// The selection stop's mock document and panel, beat by beat.
+/// The selection stop's pretend document, beat by beat.
 struct TourScene: Equatable {
   enum Phase: Int, Comparable {
-    case document, selected, panel, thinking, answered, replaced
+    case document, selected, panel, sent, replaced
     static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
   }
 
   var phase = Phase.document
   /// How many ⌥ presses show.
   var keys = 0
-  var typed = ""
-  var reply = ""
-  var showsRevision = false
-  var revisionStatus = SelectionRevision.Status.ready
 
   static let original = "Don’t be late. The boat leaves at 2 sharp."
   static let revised = "Try to get there a little early, the boat leaves at 2!"
-  static let question = "make this friendlier"
-  static let answer = "Here’s a friendlier version. Replace text puts it back in your draft."
   static let context = ConversationContext(id: UUID(uuidString: "00000000-0000-0000-0000-00000000F14A")!,
                                            sourceName: "Saturday plans", text: original)
-  static let revision = UUID(uuidString: "00000000-0000-0000-0000-00000000F14B")!
+  /// The question the panel types, with the selection attached, and its reply with a revision.
+  static let demo = TourDemo(prompt: "make this friendlier", script: .friendlier, contexts: [context], opensInWindow: true)
 }
 
 /// A question the tour types and sends, with what's attached to it and the reply it plays.
@@ -527,7 +570,10 @@ struct TourDemo: Equatable {
   var prompt: String
   var script: TourScript
   var attachments: [MessageAttachment] = []
+  var contexts: [ConversationContext] = []
   var thinks = false
+  /// Sent from the selection panel: the chat moves into the window, as a real send does.
+  var opensInWindow = false
 }
 
 /// A scripted exchange: the activity steps it shows, then a reply streamed word by word.
@@ -538,6 +584,8 @@ struct TourScript: Equatable {
   var places: [MapPlace]? = nil
   /// How long each activity step shows, in milliseconds.
   var phaseDuration = 900
+  /// A revision of the attached selection, for the reply's Revised text card.
+  var revision: String? = nil
 
   static let willis = TourScript(
     reply: "Architect Bruce Graham and structural engineer Fazlur Khan of Skidmore, Owings & Merrill. It went up in the early 1970s as the Sears Tower and was the tallest building in the world for nearly 25 years.",
@@ -573,6 +621,10 @@ struct TourScript: Equatable {
   static let readMessages = TourScript(
     reply: "Mom said Sunday dinner is at 6 at her place, and asked if you can bring an Eli’s Cheesecake.",
     phases: [.readingMessages], phaseDuration: 1200)
+
+  static let friendlier = TourScript(
+    reply: "Here’s a friendlier version. Replace text puts it back in your draft.",
+    phases: [.thinking], revision: TourScene.revised)
 
   static let sendMessage = TourScript(
     reply: "Here’s your text to Sam: “Running 10 minutes late, see you soon!” It goes only after you approve it.",
@@ -674,7 +726,7 @@ extension GuidedTour.Stop {
   /// A short line under the detail: what the stop's feature needs, or where to change it.
   var footnote: String? {
     switch self {
-    case .selection: "Needs Accessibility. You choose at the end."
+    case .selection: "In other apps this needs Accessibility. You choose at the end."
     case .messages: "Needs Full Disk Access. You choose at the end."
     case .modes: "Change the default in Settings → General → Start mode."
     case .done: "Replay this tour any time from Settings → General."
@@ -764,12 +816,6 @@ struct GuidedTourPlacement: Equatable {
     cardOrigin = CGPoint(x: container.width - Self.railWidth + Self.margin,
                          y: min(max(Self.perchRoom, ideal), lowest))
   }
-
-  /// The page between the sidebar and the rail, where the selection scene plays.
-  static func page(in container: CGSize, sidebarVisible: Bool) -> CGRect {
-    let leading = sidebarVisible ? MainPageLayout.sidebarWidth(for: container.width) : 0
-    return CGRect(x: leading, y: 0, width: max(0, container.width - leading - railWidth), height: container.height)
-  }
 }
 
 /// The tour's rail beside the page: the window grows by its width for the
@@ -790,13 +836,11 @@ struct GuidedTourRail: View {
   }
 }
 
-/// What the tour draws under the character: the selection scene, and the
-/// character's perch at the card's top-left corner. It's inside the
-/// character's stage, so the character can sit on both.
+/// The character's perch on the tour card. It sits inside the character's
+/// stage, under the card, at the card's top-left corner.
 struct GuidedTourPerch: View {
   @ObservedObject var tour: GuidedTour
   let anchors: [WelcomeTourStep: Anchor<CGRect>]
-  var sidebarVisible = true
   static let slot: EnigmaCharacterSlotID = "tour.card"
 
   var body: some View {
@@ -804,19 +848,9 @@ struct GuidedTourPerch: View {
       if let stop = tour.stop {
         let placement = GuidedTourPlacement(target: stop.target.flatMap { anchors[$0] }.map { geometry[$0] },
                                             container: geometry.size, cardHeight: tour.cardHeight)
-        ZStack(alignment: .topLeading) {
-          if stop == .selection {
-            GuidedTourScene(tour: tour)
-              .frame(width: GuidedTourPlacement.page(in: geometry.size, sidebarVisible: sidebarVisible).width,
-                     height: geometry.size.height)
-              .offset(x: GuidedTourPlacement.page(in: geometry.size, sidebarVisible: sidebarVisible).minX)
-              .transition(.opacity)
-          }
-          Color.clear
-            .enigmaCharacterSlot(id: Self.slot, size: 54)
-            .position(x: placement.cardOrigin.x + 36, y: placement.cardOrigin.y - 22)
-        }
-        .animation(EnigmaMotion.pageChange.animation, value: stop)
+        Color.clear
+          .enigmaCharacterSlot(id: Self.slot, size: 54)
+          .position(x: placement.cardOrigin.x + 36, y: placement.cardOrigin.y - 22)
       }
     }
     .allowsHitTesting(false)
@@ -1103,168 +1137,142 @@ struct GuidedTourPermissions: View {
   }
 }
 
-// MARK: Selection scene
+// MARK: Pretend document
 
-/// The selection stop's scripted scene over the page: a draft in another app,
-/// its text selected, ⌥ tapped twice, the selection panel asked in plain
-/// words, and the revision put back into the draft. The panel is built from
-/// the real panel's parts, with the character in its input slot.
-struct GuidedTourScene: View {
+/// The selection stop's pretend app: a real window with a draft in it, so
+/// Enigma's own selection panel can open under its selected line exactly as
+/// it does over any app. Its right side holds the tour's card while Enigma's
+/// window is away or is the panel.
+@MainActor
+final class TourDocumentWindow {
+  static let shared = TourDocumentWindow()
+  static let contentSize = NSSize(width: 560 + GuidedTourPlacement.railWidth, height: 560)
+  private var window: NSPanel?
+  /// The selected line, in the content's own space with a top-left origin.
+  var selection: CGRect = .zero
+
+  func open() {
+    let window = self.window ?? makeWindow()
+    self.window = window
+    let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
+    if let visible = screen?.visibleFrame {
+      window.setFrame(PanelSizeStore.centeredFrame(size: window.frame.size, in: visible), display: false)
+    }
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  func close() { window?.orderOut(nil) }
+
+  /// Above the other apps while Enigma's window steps aside for a paste.
+  func bringForward() { window?.orderFrontRegardless() }
+
+  /// The selected line on screen, for placing the panel under it.
+  var selectionOnScreen: NSRect? {
+    guard let window, let content = window.contentView, window.isVisible, !selection.isEmpty else { return nil }
+    let inView = content.isFlipped ? selection
+      : NSRect(x: selection.minX, y: content.bounds.height - selection.maxY, width: selection.width, height: selection.height)
+    return window.convertToScreen(content.convert(inView, to: nil))
+  }
+
+  private func makeWindow() -> NSPanel {
+    let panel = TourDocumentPanel(contentRect: NSRect(origin: .zero, size: Self.contentSize),
+                                  styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+    panel.title = "Saturday plans"
+    panel.isFloatingPanel = true
+    panel.level = .floating
+    panel.hidesOnDeactivate = false
+    panel.isReleasedWhenClosed = false
+    panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    panel.contentView = NSHostingView(rootView: TourDocumentRoot())
+    return panel
+  }
+}
+
+/// Takes keys, so Return reaches the card's button.
+private final class TourDocumentPanel: NSPanel {
+  override var canBecomeKey: Bool { true }
+}
+
+/// The pretend document in Enigma's theme, which only its card uses.
+private struct TourDocumentRoot: View {
+  @ObservedObject private var appearance = EnigmaAppearancePreference.shared
+
+  var body: some View {
+    TourDocumentView(tour: .shared)
+      .enigmaTheme(appearance.appearance)
+  }
+}
+
+/// The draft, with its line selected, the ⌥ taps, and the replacement as
+/// they happen, beside the tour's card.
+struct TourDocumentView: View {
   @ObservedObject var tour: GuidedTour
-  static let slot: EnigmaCharacterSlotID = "tour.scene"
-  private static let space = "guidedTourScene"
-  private static let panelWidth: CGFloat = 540
+  /// Tests leave the shared pretend window alone.
+  var measures = true
   @Environment(\.enigmaPalette) private var palette
-  @State private var selection: CGRect = .zero
 
   var body: some View {
     let scene = tour.scene
-    ZStack(alignment: .topLeading) {
-      backdrop
-      VStack(spacing: 18) {
-        // The two ⌥ taps, above the window so they never cover its text.
-        HStack(spacing: 10) {
-          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 1)
-          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 2)
+    HStack(spacing: 0) {
+      document(scene)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.white)
+        .overlay(alignment: .bottom) {
+          // The two ⌥ taps, under the text so they never cover it.
+          HStack(spacing: 10) {
+            GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 1)
+            GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 2)
+          }
+          .scaleEffect(1.4)
+          .padding(.bottom, 48)
+          .opacity(scene.keys > 0 ? 1 : 0)
+          .animation(.easeInOut(duration: 0.2), value: scene.keys)
         }
-        .scaleEffect(1.4)
-        .frame(height: 44)
-        .opacity(scene.keys > 0 ? 1 : 0)
-        document(scene)
+      ZStack {
+        GuidedTourRail()
+        // The card stays here until the chat moves into Enigma's window, which shows its own.
+        if scene.phase < .sent {
+          GuidedTourCard(tour: tour, stop: .selection, onAdvance: { GuidedTour.shared.press() },
+                         onFinish: { GuidedTour.shared.requestFinish() })
+            .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
+            .transition(.opacity)
+        }
       }
-      .frame(maxWidth: .infinity)
-      .padding(.top, 40)
-      if scene.phase >= .panel {
-        // It opens under the selection, as the real panel does.
-        panel(scene)
-          .frame(width: Self.panelWidth)
-          .offset(x: selection.midX - Self.panelWidth / 2, y: selection.maxY + 14)
-          .transition(.opacity.combined(with: .offset(y: -8)))
-      }
+      .frame(width: GuidedTourPlacement.railWidth)
+      .animation(EnigmaMotion.pageChange.animation, value: scene.phase)
     }
-    .coordinateSpace(.named(Self.space))
-    .animation(.easeInOut(duration: 0.25), value: scene.keys)
-    .animation(EnigmaMotion.pageChange.animation, value: scene.phase)
-    .animation(EnigmaMotion.pageChange.animation, value: scene.showsRevision)
-    .animation(EnigmaMotion.pageChange.animation, value: scene.revisionStatus)
-  }
-
-  /// Another app on the Mac: a soft wallpaper over the page.
-  private var backdrop: some View {
-    RoundedRectangle(cornerRadius: 14, style: .continuous)
-      .fill(LinearGradient(colors: [Color(red: 0.33, green: 0.45, blue: 0.62), Color(red: 0.53, green: 0.43, blue: 0.62)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing))
-      .overlay(alignment: .topLeading) {
-        Text("Another app on your Mac")
-          .font(EnigmaTypography.ui(12, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.85))
-          .padding(16)
-      }
-      .padding(16)
+    .frame(width: TourDocumentWindow.contentSize.width, height: TourDocumentWindow.contentSize.height)
   }
 
   private func document(_ scene: TourScene) -> some View {
     let replaced = scene.phase >= .replaced
-    return VStack(alignment: .leading, spacing: 0) {
-      HStack(spacing: 7) {
-        ForEach([Color(red: 1, green: 0.37, blue: 0.34), Color(red: 1, green: 0.74, blue: 0.18),
-                 Color(red: 0.16, green: 0.79, blue: 0.25)], id: \.self) { color in
-          Circle().fill(color).frame(width: 11, height: 11)
-        }
-        Spacer()
-        Text("Saturday plans").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(white: 0.35))
-        Spacer()
-        Color.clear.frame(width: 47, height: 1)
-      }
-      .padding(.horizontal, 12)
-      .frame(height: 30)
-      .background(Color(white: 0.93))
-      VStack(alignment: .leading, spacing: 12) {
-        Text("Hi Jamie,")
-        Text("Saturday is all set. Let’s meet at the Art Institute at 10, then lunch at Portillo’s.")
-          .fixedSize(horizontal: false, vertical: true)
-        ZStack(alignment: .leading) {
-          // The selection sweeps across the line, as a drag would.
-          Text(TourScene.original)
-            .background(alignment: .leading) {
-              Color(red: 0.70, green: 0.84, blue: 1)
-                .padding(-2)
-                .scaleEffect(x: scene.phase >= .selected ? 1 : 0, anchor: .leading)
-                .animation(.easeInOut(duration: 0.8), value: scene.phase)
-            }
-            .opacity(replaced ? 0 : 1)
-          Text(TourScene.revised)
-            .background(palette.accent.color.opacity(0.22).padding(-2))
-            .opacity(replaced ? 1 : 0)
-        }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { selection = $0 }
-        Text("See you there,\nAlex")
-      }
-      .font(.system(size: 14))
-      .foregroundStyle(Color(white: 0.12))
-      .padding(22)
-    }
-    .frame(width: 480, alignment: .leading)
-    .background(Color.white)
-    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-    .shadow(color: .black.opacity(0.28), radius: 20, y: 10)
-  }
-
-  /// The selection panel as it opens under the selection, from the real
-  /// panel's selection line and hints.
-  private func panel(_ scene: TourScene) -> some View {
-    let shape = RoundedRectangle(cornerRadius: CompactPanelLayout.cornerRadius, style: .continuous)
-    return VStack(spacing: 0) {
-      EnigmaCompactSelectionLine(contexts: [TourScene.context], isBusy: scene.phase == .thinking, remove: { _ in })
-      HStack(alignment: .center, spacing: 10) {
-        Color.clear
-          .frame(width: CompactPanelLayout.inputSlotSize, height: CompactPanelLayout.inputSlotSize)
-          .enigmaCharacterSlot(id: Self.slot, size: CompactPanelLayout.inputSlotSize)
-        Text(scene.typed.isEmpty ? CompactPanelLayout.placeholder(hasSelection: true) : scene.typed)
-          .font(EnigmaTypography.ui(16))
-          .foregroundStyle(scene.typed.isEmpty ? palette.textTertiary.color : palette.textPrimary.color)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        Text("auto · local")
-          .font(EnigmaTypography.mono(11))
-          .foregroundStyle(palette.textTertiary.color)
-        Text("↵")
-          .font(EnigmaTypography.mono(12))
-          .foregroundStyle(palette.textSecondary.color)
-          .frame(width: 26, height: 22)
-          .background(palette.background.color, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-      }
-      .padding(.leading, 12)
-      .padding(.trailing, 14)
-      .padding(.vertical, 12)
-      if scene.phase >= .thinking {
-        VStack(alignment: .leading, spacing: 12) {
-          if scene.phase == .thinking {
-            EnigmaStatusLine(.busy, "Thinking…")
-          } else {
-            Text(scene.reply)
-              .font(EnigmaTypography.reply)
-              .foregroundStyle(palette.textPrimary.color)
-              .fixedSize(horizontal: false, vertical: true)
-            if scene.showsRevision {
-              SelectionRevisionCard(
-                revision: SelectionRevision(id: TourScene.revision, contextID: TourScene.context.id,
-                                            text: TourScene.revised, automatic: false, status: scene.revisionStatus),
-                disabled: false, update: { _ in }, replace: {})
-              .transition(.opacity)
-            }
+    return VStack(alignment: .leading, spacing: 14) {
+      Text("Hi Jamie,")
+      Text("Saturday is all set. Let’s meet at the Art Institute at 10, then lunch at Portillo’s.")
+        .fixedSize(horizontal: false, vertical: true)
+      ZStack(alignment: .leading) {
+        // The selection sweeps across the line, as a drag would.
+        Text(TourScene.original)
+          .background(alignment: .leading) {
+            Color(red: 0.70, green: 0.84, blue: 1)
+              .padding(-2)
+              .scaleEffect(x: scene.phase >= .selected ? 1 : 0, anchor: .leading)
+              .animation(.easeInOut(duration: 0.8), value: scene.phase)
           }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
+          .opacity(replaced ? 0 : 1)
+        Text(TourScene.revised)
+          .background(palette.accent.color.opacity(0.22).padding(-2))
+          .opacity(replaced ? 1 : 0)
       }
-      EnigmaCompactHints(hints: CompactPanelHints.hints(isResponding: scene.phase == .thinking),
-                         tag: CompactPanelHints.temporaryTag)
+      .animation(.easeInOut(duration: 0.35), value: replaced)
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+        if measures { TourDocumentWindow.shared.selection = frame }
+      }
+      Text("See you there,\nAlex")
     }
-    .background(palette.surface.color)
-    .clipShape(shape)
-    .enigmaEdge(shape)
-    .shadow(color: .black.opacity(0.3), radius: 22, y: 10)
+    .font(.system(size: 15))
+    .foregroundStyle(Color(white: 0.12))
+    .padding(40)
   }
 }
 
@@ -1275,6 +1283,7 @@ extension LocalChatViewModel {
     if !isTemporaryChat { startTemporaryChat(context: nil) }
     var message = ChatMessage(role: .user, content: demo.prompt)
     message.attachments = demo.attachments.isEmpty ? nil : demo.attachments
+    message.contexts = demo.contexts.isEmpty ? nil : demo.contexts
     message.extendedThinking = demo.thinks ? true : nil
     tourAppend(message, script: demo.script, onFinish: onFinish)
   }

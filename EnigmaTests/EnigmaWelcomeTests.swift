@@ -313,19 +313,18 @@ final class EnigmaWelcomeTests: XCTestCase {
           .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
       }
     }
-    // F14 spike: the selection stop's scripted scene, beat by beat.
+    // F14 spike: the selection stop's pretend document, beat by beat.
     let sceneTour = GuidedTour(defaults: UserDefaults(suiteName: "GuidedTourScene-\(UUID())")!)
     let beats: [(String, TourScene)] = [
+      ("document", TourScene()),
       ("selected", TourScene(phase: .selected)),
-      ("panel", TourScene(phase: .panel, keys: 2, typed: TourScene.question)),
-      ("answered", TourScene(phase: .answered, typed: TourScene.question, reply: TourScene.answer, showsRevision: true)),
-      ("replaced", TourScene(phase: .replaced, typed: TourScene.question, reply: TourScene.answer, showsRevision: true,
-                             revisionStatus: .sent)),
+      ("keys", TourScene(phase: .selected, keys: 2)),
+      ("replaced", TourScene(phase: .replaced)),
     ]
     for (name, scene) in beats {
       sceneTour.scene = scene
-      try EnigmaSnapshot.save("guided-scene-\(name)", size: CGSize(width: 1040, height: 760)) {
-        GuidedTourScene(tour: sceneTour)
+      try EnigmaSnapshot.save("guided-document-\(name)", size: TourDocumentWindow.contentSize) {
+        TourDocumentView(tour: sceneTour, measures: false)
       }
     }
     try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {

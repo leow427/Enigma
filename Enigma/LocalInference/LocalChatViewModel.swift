@@ -2590,6 +2590,10 @@ extension LocalChatViewModel {
         $0.searchSources = script.sources.isEmpty ? nil : script.sources
         $0.mapPlaces = script.places
       }, id: replyID)
+      if let revision = script.revision {
+        selectionRevisions[replyID] = SelectionRevision(id: replyID, contextID: TourScene.context.id,
+                                                        text: revision, automatic: false)
+      }
       state = .idle
       onFinish()
     }
