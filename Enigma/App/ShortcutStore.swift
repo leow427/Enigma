@@ -169,7 +169,13 @@ final class ShortcutStore: ObservableObject {
   /// An action set to nil has no shortcut; one missing keeps its default.
   @Published private(set) var overrides: [String: KeyBinding?]
   /// ⌥⌥ and the like are off; the summon shortcut asks about a fresh selection instead.
-  @Published var selectionSameAsSummon: Bool { didSet { defaults.set(selectionSameAsSummon, forKey: Self.sameAsSummonKey) } }
+  @Published var selectionSameAsSummon: Bool {
+    didSet {
+      defaults.set(selectionSameAsSummon, forKey: Self.sameAsSummonKey)
+      // The selection then follows summon, so its own shortcut's note no longer applies.
+      if selectionSameAsSummon { failedActions.remove(ShortcutAction.selection.id) }
+    }
+  }
   /// While a shortcut is being recorded, no shortcut fires.
   @Published var isRecording = false
   /// Global actions whose shortcut couldn't be registered, by `ShortcutAction.id`.
@@ -206,11 +212,13 @@ final class ShortcutStore: ObservableObject {
   }
 
   func reset(_ action: ShortcutAction) {
+    failedActions.remove(action.id)
     overrides[action.id] = nil
     save()
   }
 
   func resetAll() {
+    failedActions = []
     overrides = [:]
     selectionSameAsSummon = false
     save()

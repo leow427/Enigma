@@ -311,7 +311,8 @@ final class ShortcutHotKeys {
   private let handlers: [ShortcutAction: @MainActor () -> Void]
   private var monitors: [GlobalHotKeyMonitor] = []
   private var observation: AnyCancellable?
-  /// What each action is registered as now; a shortcut that fails keeps the one before it.
+  /// The last shortcut that worked for each action, of any kind: modifiers
+  /// together and double taps are watched elsewhere and always work.
   private(set) var registered: [ShortcutAction: KeyBinding] = [:]
 
   init(store: ShortcutStore = .shared, handlers: [ShortcutAction: @MainActor () -> Void]) {
@@ -335,10 +336,8 @@ final class ShortcutHotKeys {
     monitors.forEach { $0.stop() }
     monitors = []
     for (index, action) in ShortcutAction.global.enumerated() {
-      guard let binding = store.binding(action), binding.kind == .keys, let handler = handlers[action] else {
-        registered[action] = nil
-        continue
-      }
+      guard let binding = store.binding(action) else { registered[action] = nil; continue }
+      guard binding.kind == .keys, let handler = handlers[action] else { registered[action] = binding; continue }
       if register(binding, identifier: UInt32(10 + index), handler: handler) {
         registered[action] = binding
       } else {

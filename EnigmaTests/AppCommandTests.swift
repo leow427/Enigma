@@ -565,6 +565,34 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(KeyboardShortcutsHelp.summon(store).keys, "⌃⌥")
   }
 
+  /// Changing the default ⌥⌃ to keys another app holds keeps ⌥⌃, and Reset
+  /// clears the note.
+  @MainActor
+  func testAFailedChangeFromTheDefaultKeepsTheDefault() async throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let original = store.binding(.summon)
+    let blocker = GlobalHotKeyMonitor(keyCode: 38, modifiers: UInt32(cmdKey | optionKey | controlKey),
+                                      identifier: 98, name: "test") {}
+    try blocker.start()
+    defer { blocker.stop() }
+    let hotKeys = ShortcutHotKeys(store: store, handlers: [.summon: {}])
+    hotKeys.start()
+    defer { hotKeys.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    store.set(.keys("j", [.control, .option, .command], keyCode: 38), for: .summon)
+    try await Task.sleep(for: .milliseconds(200))
+    XCTAssertEqual(store.binding(.summon), original, "⌥⌃ still works")
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id))
+    store.reset(.summon)
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id), "Reset clears the note")
+    store.failedActions.insert(ShortcutAction.selection.id)
+    store.resetAll()
+    XCTAssertTrue(store.failedActions.isEmpty, "Restore Defaults clears every note")
+  }
+
   /// A key another app (here, this test) already holds can't be registered:
   /// the row says so and the shortcut before it keeps working.
   @MainActor
