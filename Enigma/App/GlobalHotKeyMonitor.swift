@@ -337,16 +337,16 @@ final class ShortcutHotKeys {
     for (index, action) in ShortcutAction.global.enumerated() {
       guard let binding = store.binding(action), binding.kind == .keys, let handler = handlers[action] else {
         registered[action] = nil
-        store.failedActions.remove(action.id)
         continue
       }
       if register(binding, identifier: UInt32(10 + index), handler: handler) {
         registered[action] = binding
-        store.failedActions.remove(action.id)
       } else {
         store.failedActions.insert(action.id)
-        if let previous = registered[action], previous != binding,
-           !register(previous, identifier: UInt32(10 + index), handler: handler) {
+        // Save the shortcut that works, so the next launch has it too; this registers it again.
+        if let previous = registered[action], previous != binding {
+          store.keep(previous, for: action)
+        } else {
           registered[action] = nil
         }
       }

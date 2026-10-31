@@ -531,6 +531,8 @@ final class AppCommandTests: XCTestCase {
     let conflict = try XCTUnwrap(store.conflict(.keys(" ", .command, keyCode: 49), for: .panel(.newChat)))
     XCTAssertFalse(conflict.blocks)
     XCTAssertEqual(conflict.message, "macOS uses ⌘Space for Spotlight.")
+    // macOS takes these keys before Enigma sees them, so a shortcut that works anywhere can't use them.
+    XCTAssertEqual(store.conflict(.keys(" ", .command, keyCode: 49), for: .summon)?.blocks, true)
   }
 
   @MainActor
@@ -569,6 +571,11 @@ final class AppCommandTests: XCTestCase {
     try await Task.sleep(for: .milliseconds(100))
     XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id))
     XCTAssertEqual(hotKeys.registered[.summon], free, "The shortcut before it stays registered")
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(store.binding(.summon), free, "What's saved is what works, so the next launch has it too")
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id), "The row still says the new one failed")
+    store.set(.keys("k", [.control, .option, .command], keyCode: 40), for: .summon)
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id), "A new choice clears the note")
     XCTAssertEqual(ShortcutEditor.failureNote, "Couldn’t set this shortcut. Another app may be using it.")
   }
 

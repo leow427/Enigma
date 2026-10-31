@@ -192,7 +192,15 @@ final class ShortcutStore: ObservableObject {
 
   func isChanged(_ action: ShortcutAction) -> Bool { overrides[action.id] != nil }
 
+  /// A new choice; it clears the note that the last one couldn't be set.
   func set(_ binding: KeyBinding?, for action: ShortcutAction) {
+    failedActions.remove(action.id)
+    keep(binding, for: action)
+  }
+
+  /// Puts back a shortcut that works after a new one couldn't be registered,
+  /// keeping the note that says so.
+  func keep(_ binding: KeyBinding?, for action: ShortcutAction) {
     overrides[action.id] = .some(binding)
     save()
   }
@@ -218,7 +226,8 @@ final class ShortcutStore: ObservableObject {
       return ShortcutConflict(message: "\(binding.display) is already \(other.title).", blocks: true)
     }
     if let reserved = Self.reserved[binding] {
-      return ShortcutConflict(message: "macOS uses \(binding.display) for \(reserved).", blocks: false)
+      // macOS takes these keys first, so a shortcut that works in any app would never fire.
+      return ShortcutConflict(message: "macOS uses \(binding.display) for \(reserved).", blocks: action.isGlobal)
     }
     return nil
   }
