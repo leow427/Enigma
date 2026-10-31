@@ -186,7 +186,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// Ends a move on time when the display isn't refreshing, asleep or locked.
   private var moveDeadline: Task<Void, Never>?
   private var moveStart = NSRect.zero
-  private var moveBegan: CFTimeInterval = 0
+  /// When the move's first frame was drawn: a slow first tick starts the spring there, not partway in.
+  private var moveBegan: CFTimeInterval?
   private var moveDuration: Double = 0
   private var moveTarget: NSRect?
   /// Runs once the current move reaches its target.
@@ -416,7 +417,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     moveCompletion = completion
     moveStart = panel.frame
     moveTarget = target
-    moveBegan = CACurrentMediaTime()
+    moveBegan = nil
     moveDuration = SelectionPanelMotion.settlingDuration()
     let link = panel.displayLink(target: self, selector: #selector(stepMove(_:)))
     link.add(to: .main, forMode: .common)
@@ -431,7 +432,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// One step of the move, at the time the frame will reach the screen.
   @objc private func stepMove(_ link: CADisplayLink) {
     guard let target = moveTarget else { link.invalidate(); return }
-    let seconds = link.targetTimestamp - moveBegan
+    let began = moveBegan ?? link.timestamp
+    moveBegan = began
+    let seconds = link.targetTimestamp - began
     guard seconds < moveDuration else { finishMove(); return }
     let progress = SelectionPanelMotion.springProgress(at: seconds)
     panel.setFrame(SelectionPanelMotion.frame(at: progress, from: moveStart, to: target), display: true)
