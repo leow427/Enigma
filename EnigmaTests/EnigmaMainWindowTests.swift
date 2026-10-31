@@ -1108,6 +1108,9 @@ final class EnigmaMainWindowTests: XCTestCase {
       tour.beat == .ready && fixture.screen.draft == TourScene.demo.prompt
     }
     let editor = try XCTUnwrap(composerEditor(in: view))
+    // With Reduce Motion on (as on CI) the panel and typing are instant, so
+    // wait out the tour's 0.25 s between presses or it drops this Return.
+    try await Task.sleep(for: .milliseconds(300))
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
       windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
       isARepeat: false, keyCode: 36)))
