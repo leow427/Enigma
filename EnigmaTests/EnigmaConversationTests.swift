@@ -125,12 +125,16 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(meta(ReplyOrigin(mode: .local, providerID: "local", modelName: "Fixture 8B")),
                    "Fixture 8B · on this mac · \(time)")
     XCTAssertEqual(meta(ReplyOrigin(mode: .local, providerID: "local", modelName: "Fixture 8B"), searched: true),
-                   "Fixture 8B · on this mac · brave search · \(time)")
-    // F30: a provider's own search is named for what it is, and Brave keeps its name.
+                   "Fixture 8B · on this mac · web search · \(time)", "On-device search is web search (CP8)")
+    XCTAssertEqual(meta(ReplyOrigin(mode: .local, providerID: "local", modelName: "Fixture 8B", braveSearch: true),
+                        searched: true), "Fixture 8B · on this mac · brave search · \(time)", "Brave keeps its name (D131)")
+    // F30: a provider's own search is named for what it is.
     XCTAssertEqual(meta(ReplyOrigin(mode: .cloud, providerID: "openai", modelName: "gpt-5.5", providerSearch: true),
                         searched: true), "gpt-5.5 · openai · web search · \(time)")
     XCTAssertEqual(meta(ReplyOrigin(mode: .cloud, providerID: "openai", modelName: "gpt-5.5"), searched: true),
-                   "gpt-5.5 · openai · brave search · \(time)")
+                   "gpt-5.5 · openai · web search · \(time)")
+    XCTAssertEqual(meta(ReplyOrigin(mode: .cloud, providerID: "openai", modelName: "gpt-5.5", braveSearch: true),
+                        searched: true), "gpt-5.5 · openai · brave search · \(time)")
     // A reply reopened after a relaunch didn't save which search it used, so it doesn't claim Brave.
     XCTAssertEqual(meta(nil, searched: true), "web search · \(time)")
     XCTAssertEqual(meta(nil), time)

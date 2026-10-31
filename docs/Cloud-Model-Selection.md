@@ -33,7 +33,8 @@ Auto picks a route from the request itself, without asking another model:
    connect Cloud before using Auto.**
 2. If the prompt asks for a web lookup ("search the web", "latest news",
    "current price" and similar) and web search isn't on for the request, Auto
-   stops and suggests using `/search`. See [Web-Search.md](Web-Search.md).
+   stops with **Use /search in your message to look this up on the web.** See
+   [Web-Search.md](Web-Search.md).
    This rule is skipped when the local model chooses its own tools, since the
    model can search for itself.
 3. If the conversation won't fit the local model's context, Auto uses the cloud,
@@ -57,9 +58,9 @@ A chat that holds text from your messages stays on this Mac in Auto, as a typed
 Every cloud model in the catalogue calls tools natively, so in Cloud, or when
 Auto picks the cloud, the model gets Enigma's tools on every message (web
 search, Messages, the selection tools) and decides when to use them. On
-ChatGPT via Codex and Claude Code the web search is the provider's own, with no
-Brave key (in a chat with message text, after a card); Gemini and the OpenAI and Anthropic
-API keys use Enigma's `web_search` on Brave (see
+ChatGPT via Codex and Claude Code the web search is the provider's own (in a
+chat with message text, after a card); Gemini and the OpenAI and Anthropic API
+keys use Enigma's `web_search`, which runs on this Mac (see
 [Web search](Web-Search.md#cloud-models-own-search)); see
 [Slash commands](Slash-Commands.md#models-that-choose-their-own-tools). The
 flag goes by family: every `claude-*` model on the Anthropic API except the

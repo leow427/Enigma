@@ -176,7 +176,12 @@ python3 -I -B -m unittest discover -s scripts/tests
 ```
 
 `test_evaluate_native_search.py` covers F30's comparison script and its blind
-judge with fixture folders and a fake judge command.
+judge with fixture folders and a fake judge command. For web search (F29),
+`test_update_search_lists.py` covers the list refresh with saved list files,
+`test_evaluate_web_search.py` the evaluation script, `test_check_ddgs_upstream.py`
+the ddgs watch with saved GitHub API responses
+(`scripts/tests/fixtures/ddgs-upstream/`), and `test_check_search_lists_age.py`
+the release warning about old lists.
 
 `-B` keeps Python from writing `__pycache__` folders into the checkout. CI does
 not run these tests; run them after changing any of these scripts.
@@ -237,9 +242,30 @@ environment variable, and they never run in CI.
   its searches as a `web_search` call, and ends a request whose Messages read
   would return text, as the app's restart does; `report.json` then has
   `providerSearch: true`, and injections never arrive.
+- **On-device web search (F29):** `WebSearchLiveTests` queries DuckDuckGo and
+  Wikipedia, reads real pages, and asks Open-Meteo, its geocoder and Apple Maps,
+  when `TEST_RUNNER_ENIGMA_LIVE_SEARCH=1` is set. It prints counts and timings,
+  never result text. With `TEST_RUNNER_ENIGMA_SEARCH_FIXTURE_DIR` set to a folder
+  outside the repository, it also saves the raw pages it got, for sanitizing
+  into fixtures when a site changes. Run it before each release:
+
+  ```sh
+  TEST_RUNNER_ENIGMA_LIVE_SEARCH=1 \
+  scripts/verify-xcode.sh test -only-testing:EnigmaTests/WebSearchLiveTests
+  ```
+
+  `WebSearchEvaluationTests/testEvaluation`, the quality evaluation, runs the
+  questions in `scripts/web-search-queries.json` through on-device search when
+  `TEST_RUNNER_ENIGMA_SEARCH_EVAL` names a folder outside the repository
+  (`TEST_RUNNER_ENIGMA_SEARCH_EVAL_IDS` and `…_STYLES` narrow the run, and
+  `TEST_RUNNER_ENIGMA_SEARCH_MODEL_URL` points the small-model rewrite and check
+  at a running `llama-server`). With `TEST_RUNNER_ENIGMA_BRAVE_KEY` it runs the
+  same questions on Brave for comparison. `scripts/evaluate-web-search.py` then
+  writes the answers, the blind judge's verdicts and the gate report into that
+  folder; nothing from a run goes into the repository.
 - **Providers' own search (F30):** `NativeWebSearchLiveTests` asks one search
   question on ChatGPT and one on Claude Code through `submitNative`, with no
-  Brave key, using the Mac's sign-ins, when
+  search key, using the Mac's sign-ins, when
   `TEST_RUNNER_ENIGMA_NATIVE_SEARCH_LIVE=1` is set
   (`TEST_RUNNER_ENIGMA_CHATGPT_MODEL` and `TEST_RUNNER_ENIGMA_CLAUDE_CODE_MODEL`
   choose the models). `NativeWebSearchEvaluationTests/testCompare`, the quality

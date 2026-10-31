@@ -33,7 +33,7 @@
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSLocationUsageDescription</key>
-  <string>Enigma uses your approximate location when you ask about local weather or nearby places. Your area is shared with web search and your selected AI provider to answer that question.</string>
+  <string>Enigma uses your location when you ask about local weather or nearby places. The AI model answering gets your exact location; web search gets only your city, and Apple Maps and weather get it rounded to about 1 km.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>SUAutomaticallyUpdate</key>

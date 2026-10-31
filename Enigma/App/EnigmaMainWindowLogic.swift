@@ -361,7 +361,7 @@ struct SlashCommandExample: Equatable, Identifiable {
   var id: SlashCommand { command }
 
   /// The order the main page lists commands in, most useful first.
-  static let order: [SlashCommand] = [.screen, .search, .edit, .translate, .think, .snapshot, .messages]
+  static let order: [SlashCommand] = [.screen, .search, .edit, .translate, .think, .snapshot, .messages, .maps]
 
   static func example(for command: SlashCommand) -> SlashCommandExample {
     switch command {
@@ -372,6 +372,7 @@ struct SlashCommandExample: Equatable, Identifiable {
     case .edit: SlashCommandExample(command: command, argument: "[selection]", result: "a tighter draft")
     case .translate: SlashCommandExample(command: command, argument: "\"Bạn khỏe không?\"", result: "\"How are you?\"")
     case .messages: SlashCommandExample(command: command, argument: "\"what did Sam say?\"", result: "from your Messages")
+    case .maps: SlashCommandExample(command: command, argument: "bookshops", result: "places from Apple Maps")
     }
   }
 
@@ -515,7 +516,8 @@ enum KeyboardShortcutsHelp {
   ]
 
   static let search = Shortcut("Search for this message only", "/search")
-  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search · Brave."
+  static let maps = Shortcut("Find places with Apple Maps", "/maps")
+  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search."
 
   static let commands: [Shortcut] = [
     Shortcut("Capture the full desktop", "/screen"),

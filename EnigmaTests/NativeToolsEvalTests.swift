@@ -17,15 +17,15 @@ final class NativeToolsEvalTests: XCTestCase {
     let items = try NativeToolsEval.items()
     XCTAssertEqual(Set(items.map(\.id)).count, items.count, "ids are unique")
     let counts = Dictionary(grouping: items, by: \.category).mapValues(\.count)
-    XCTAssertEqual(counts, ["web_search": 15, "none": 15, "get_messages": 10, "search_messages": 5,
-                            "selection": 8, "injection": 7])
+    XCTAssertEqual(counts, ["web_search": 15, "none": 19, "get_messages": 10, "search_messages": 5,
+                            "selection": 8, "injection": 7, "find_places": 4, "get_weather": 4])
     XCTAssertEqual(items.filter { $0.expect == .proposeEdit }.count, 5)
     XCTAssertEqual(items.filter { $0.expect == .proposeTranslation }.count, 3)
     for item in items {
       switch item.expect {
       case .proposeEdit, .proposeTranslation:
         XCTAssertNotNil(item.selection, "\(item.id): a selection tool needs a selection")
-      case .getMessages, .searchMessages, .webSearch:
+      case .getMessages, .searchMessages, .webSearch, .findPlaces, .getWeather:
         XCTAssertNil(item.selection, "\(item.id): only selection and none prompts carry a selection")
       case .none: break
       }
@@ -125,7 +125,8 @@ final class NativeToolsEvalTests: XCTestCase {
     XCTAssertTrue(readRequests.last?.messages.last?.content?.contains("flight details") == true, "Dana's invented chat was read")
     XCTAssertTrue(readRequests[0].messages[0].content?.contains(AssistantToolbox.untrustedDataInstruction) == true)
     XCTAssertEqual(Set(readRequests[0].tools), ["web_search", "list_conversations", "search_contacts", "get_messages",
-                                                "search_messages", "send_message"], "No selection, no selection tools")
+                                                "search_messages", "send_message", "get_weather", "find_places"],
+                   "No selection, no selection tools; places and weather since F29 CP7")
 
     let injected = NativeScriptedInference(steps: [.call("web_search", #"{"query":"Berlin weather"}"#),
       .call("get_messages", #"{"chat_id":"iMessage;-;+15551230001"}"#), .text("Cloudy.")])
@@ -231,6 +232,23 @@ final class NativeToolsEvalTests: XCTestCase {
       .providerSearch == CloudProviderID.nativeWebSearchProviders.contains(.chatGPT))
   }
 
+  /// The 12 F29 CP7 prompts scored strictly from a fixture transcript: 10 right, one wrong call on a
+  /// places prompt and one places call on a near miss. Offline; `testEval` runs the models.
+  func testNewPromptsScoreFromFixtureTranscript() throws {
+    let items = try NativeToolsEval.items().filter { $0.id.hasPrefix("new-") }
+    XCTAssertEqual(items.count, 12)
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "Fixtures/F32/new-prompts-transcript.jsonl")
+    struct Line: Decodable { let id: String; let calls: [String] }
+    let calls = try String(contentsOf: url, encoding: .utf8).split(separator: "\n").map {
+      try JSONDecoder().decode(Line.self, from: Data($0.utf8))
+    }
+    let callsByID = Dictionary(uniqueKeysWithValues: calls.map { ($0.id, $0.calls) })
+    let right = items.filter { $0.score(calls: callsByID[$0.id] ?? [], failed: false) }
+    XCTAssertEqual(right.count, 10)
+    XCTAssertFalse(right.contains { $0.id == "new-places-03" }, "a web search isn't a places answer")
+    XCTAssertFalse(right.contains { $0.id == "new-near-02" }, "a places call on a near miss is wrong")
+  }
+
   func testEval() async throws {
     let run = try NativeToolsEval.Run.fromEnvironment()
     let items = try NativeToolsEval.items()
@@ -265,6 +283,8 @@ enum NativeToolsEval {
   enum Expect: String, Codable, CaseIterable {
     case webSearch = "web_search", getMessages = "get_messages", searchMessages = "search_messages"
     case proposeEdit = "propose_edit", proposeTranslation = "propose_translation", none
+    /// F29 CP7: places and weather, the two tools added to the eval with the on-device provider.
+    case findPlaces = "find_places", getWeather = "get_weather"
   }
 
   struct Item: Codable, Equatable {
@@ -293,6 +313,7 @@ enum NativeToolsEval {
         guard calls.first == "web_search" else { return false }
         return searchResult == nil || !calls.contains(where: messagesTools.contains)
       case .proposeEdit, .proposeTranslation: return calls.first == expect.rawValue
+      case .findPlaces, .getWeather: return calls.first == expect.rawValue
       case .getMessages, .searchMessages: return calls.first { !lookups.contains($0) } == expect.rawValue
       }
     }
@@ -504,6 +525,15 @@ enum NativeToolsEval {
   /// selection tools when a selection is attached, in `submitNative`'s order. Searches return
   /// `searchResult`, or a fixed result. Nothing can be sent. With `providerSearch` the search part
   /// is the provider-search instruction, and message text restarts the request, as in the app.
+  /// Places and weather, as the app offers them, with no network: the eval scores only the first call.
+  static func placesAndWeatherParts() -> [any AgentToolbox] {
+    let unavailable = URLError(.notConnectedToInternet)
+    return [PlaceSearchTool(places: FakePlaces(error: unavailable), location: { nil }, units: { .us },
+                            mayQuery: { _ in true }, onSources: { _ in }, onPlaces: { _ in }),
+            WeatherTool(weather: FakeWeather(error: unavailable), geocoder: FakeGeocoder(error: unavailable),
+                        location: { nil }, units: { .us }, mayQuery: { _ in true }, onSources: { _ in })]
+  }
+
   static func toolbox(searchResult: String?, selection: Bool, messages: MessagesWorld,
                       coordinator: ToolPermissionCoordinator, destination: ToolDestination, session: UUID,
                       providerSearch: Bool = false) -> AssistantToolbox {
@@ -513,20 +543,20 @@ enum NativeToolsEval {
       confirmSend: { _ in false },
       gate: providerSearch ? RestartingGate(gate: gate) : gate)
     if providerSearch {
-      var parts: [any AgentToolbox] = [ProviderSearchPart(), messagesTools]
+      var parts: [any AgentToolbox] = [ProviderSearchPart(), messagesTools] + placesAndWeatherParts()
       if selection { parts.append(SelectionTools(allowsEdit: true) { _ in }) }
       return AssistantToolbox(parts: parts, requiredTool: nil, extraInstructions: [])
     }
     let snippet = searchResult ?? fixedSearchSnippet
     let search = WebSearchTool(
-      search: { _ in [WebSearchResult(source: WebSearchSource(title: "Search result", url: URL(string: "https://example.com/result")!),
+      search: { _, _ in [WebSearchResult(source: WebSearchSource(title: "Search result", url: URL(string: "https://example.com/result")!),
                                       snippets: [snippet])] },
       mayQuery: { query in
         guard await coordinator.store.hasMessageText(session: session) else { return true }
         return await coordinator.authorize(.searchAfterMessages(query: query), destination: destination, session: session)
       },
       onSources: { _ in })
-    var parts: [any AgentToolbox] = [search, messagesTools]
+    var parts: [any AgentToolbox] = [search, messagesTools] + placesAndWeatherParts()
     if selection { parts.append(SelectionTools(allowsEdit: true) { _ in }) }
     return AssistantToolbox(parts: parts, requiredTool: nil, extraInstructions: [])
   }

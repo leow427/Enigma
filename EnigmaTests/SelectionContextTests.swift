@@ -2549,9 +2549,10 @@ private final class SelectionTestCloud: ChatProvider, @unchecked Sendable {
 }
 
 private actor SelectionTestSearch: WebSearchProvider {
-  var queries: [String] = []
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
+  var requests: [WebSearchRequest] = []
+  var queries: [String] { requests.map(\.query) }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
     return [WebSearchResult(source: WebSearchSource(title: "Lunar evidence", url: URL(string: "https://example.com/moon")!),
       snippets: ["The Moon is made of rock."])]
   }

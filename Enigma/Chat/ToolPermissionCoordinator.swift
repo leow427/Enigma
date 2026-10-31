@@ -18,18 +18,23 @@ struct ToolPermissionRequest: Sendable, Equatable, Identifiable {
     switch permission {
     case .readChat(_, let name): title = "Allow reading your chat with \(Self.oneLine(name))?"
     case .searchChats(let query): title = "Search all your messages for “\(Self.oneLine(query))”?"
-    case .searchAfterMessages(let query): title = "Search the web for “\(Self.oneLine(query))”?"
+    case .searchAfterMessages(let query, _): title = "Search the web for “\(Self.oneLine(query))”?"
+    case .placesAfterMessages(let question), .weatherAfterMessages(let question): title = Self.oneLine(question)
     case .shareMessageText: title = "Send text from your messages to \(destination.displayName)?"
     case .shareLocation(let provider, _): title = "Share your location with \(provider.shortName)?"
     case .providerSearchAfterMessages(let provider): title = "Let \(provider.shortName) search the web in this chat?"
     }
     detail = switch (permission, destination) {
     case (.shareLocation(let provider, let area), _):
-      "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Enigma never sends your exact position."
+      "\(provider.shortName)'s web search will use \(Self.oneLine(area)) to find nearby results. Its search gets only this area, never your coordinates."
     case (.providerSearchAfterMessages(let provider), let company):
       "This chat includes text from your messages. \(provider.shortName)'s web search runs its own queries on \(company.displayName)'s servers, and Enigma can't check each one."
-    // Enigma's own `web_search` runs on Brave (F29 replaces it).
-    case (.searchAfterMessages, _): "This chat includes text from your messages. It will be sent to Brave."
+    // Enigma's own `web_search`: on this Mac's search sites, or Brave with a saved key (D131).
+    case (.searchAfterMessages(_, let service), _): "This chat includes text from your messages. It will be sent to \(service)."
+    case (.placesAfterMessages, _):
+      "This chat includes text from your messages. It will be sent to \(ToolPermission.placesService)."
+    case (.weatherAfterMessages, _):
+      "This chat includes text from your messages. It will be sent to \(ToolPermission.weatherService)."
     case (.shareMessageText, _): "This chat includes text from your messages."
     case (_, .thisMac): "It stays on this Mac."
     case (_, let company): "It will be sent to \(company.displayName)."

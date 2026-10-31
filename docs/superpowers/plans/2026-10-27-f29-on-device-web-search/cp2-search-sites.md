@@ -207,6 +207,13 @@ struct DuckDuckGoEngine: SearchEngine {
   | HTTP 200 with zero items and no marker | `.unrecognized` |
   | Anything else | `.failed` |
 
+  *Amended overnight (orchestrator, owner to confirm):* an unexpected 3xx,
+  400, 404, 405 or 410 is `.unrecognized` (logged with status and size, and
+  it starts the cooldown), since it means the port needs updating. 413, 414,
+  other 5xx and any other status stay `.failed`, logged with status and size;
+  a thrown error or timeout stays `.failed` with nothing logged or recorded.
+  403 and 503 stay `.blocked`, as the row above says (decisions D47, D48).
+
   Only `http` and `https` links are kept, and positions count from 1.
 
 **Steps:**
@@ -428,6 +435,11 @@ struct SearchSiteRunner: Sendable {
   results. It gets `startpageBudget` in total.
 - **Health:** each outcome is recorded. Results and no-results count as
   successes; everything else, timeouts included, as failures.
+  *Amended overnight (orchestrator, owner to confirm):* timeouts and
+  network errors (`.failed`) record nothing; `.blocked`, `.unrecognized`
+  and a second consecutive `.rateLimited` start or climb the cooldown; a
+  single `.rateLimited` leaves a strike that the next success clears
+  (decision D41).
 - **Logging:** `.unrecognized` calls `log.unrecognizedPage`.
 - **Skipping:** sites that are cooling down are skipped, with outcome
   `.failed`. Pacing waits `pacingDelay` first.
@@ -501,11 +513,223 @@ struct SearchSiteRunner: Sendable {
 
 ## Hand-off
 
-*Filled in by the CP2 worker.*
+*Filled in by the CP2 worker (overnight run, 2026-10-30; decisions D33–D43 and D45–D48).*
 
-1. **Summary:**
+1. **Summary:** Enigma can now query DuckDuckGo and Wikipedia itself, the
+   owner's lineup after CP0b. `SearchHTTPClient` is an ephemeral URLSession
+   with no cookies, cache, credentials or redirects that stops reading at a
+   byte limit. `SafariHeaders` sends header set A. `DuckDuckGoEngine` ports
+   ddgs v9.16.1 (`kl` for the region) and tells results, no results, rate
+   limits, blocks and layout changes apart. `WikipediaSearch` uses the
+   official API. `EngineHealth` keeps backoff and pacing in memory, and
+   `SearchSiteRunner` runs DuckDuckGo and Wikipedia together, each with a
+   2.0 s limit. Nothing calls this yet; CP5 wires it in. Skipped, per the
+   owner's lineup (D33): Task 2.3 (Mojeek), Task 2.4 (Startpage), Task 2.7's
+   Startpage rule and `startpageBudget`, `testLiveMojeek` and
+   `testLiveStartpage`, and their `UPSTREAM.json` entries.
 2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+   - `Enigma/Search/SearchHTTPClient.swift` (new): `SearchHTTPResponse`,
+     `SearchHTTPClient`, `URLSessionSearchHTTPClient`, `SafariHeaders`.
+   - `Enigma/Search/Engines/SearchEngine.swift` (new): the engine types,
+     `SERPDocument`, `SearchFormEncoding`, `SearchLogging`/`OSSearchLog`,
+     `EngineHealth`.
+   - `Enigma/Search/Engines/DuckDuckGoEngine.swift` (new): the port.
+   - `Enigma/Search/Engines/WikipediaSearch.swift` (new): search, extract,
+     disambiguation skip, 30,000-character cap, language edition.
+   - `Enigma/Search/Engines/SearchSiteRunner.swift` (new): the runner.
+   - `Enigma/Search/Engines/UPSTREAM.json` (new, in no target): ddgs tag,
+     commit and the blob SHAs of `duckduckgo.py` and `wikipedia.py`.
+   - `Enigma/Resources/ThirdPartyNotices.txt`: ddgs's MIT licence.
+   - `Enigma.xcodeproj/project.pbxproj`: the five app files and five test
+     files.
+   - `EnigmaTests/SearchTestSupport.swift` (new): `ManualClock`,
+     `FakeSearchHTTPClient`, `SearchFixture`, `formFields`.
+   - `EnigmaTests/SearchHTTPClientTests.swift`, `SearchEngineTests.swift`,
+     `SearchSiteRunnerTests.swift`, `WebSearchLiveTests.swift` (new).
+   - `EnigmaTests/Fixtures/Search/`: `duckduckgo-no-results.html` (captured,
+     D36), `duckduckgo-changed.html`, `duckduckgo-ads.html`,
+     `wikipedia-search.json`, `wikipedia-extract.json` (synthetic), and
+     their README rows.
+   - `overnight-decisions.md`: D33–D40, D43, D46 and D48 (D41, D42, D45 and D47 are the orchestrator's).
+3. **Decisions** (details in the decision log):
+   - **D33:** the lineup; `SearchEngineID` has only `.duckDuckGo`. The three
+     Startpage runner tests are replaced by tests of the rules that remain
+     (cooling-down skip, timeout, outcomes and health, pacing).
+   - **D34:** header set A needs GET and POST variants, so
+     `SafariHeaders.standard(acceptLanguage:)` is the GET set (with
+     `Sec-Fetch-Site: none` and `Priority: u=0, i`), and the new
+     `formPost(to:acceptLanguage:)` adds `same-origin`, `Origin` and
+     `Referer`. DuckDuckGo sends `kl`.
+   - **D35, D42:** `kl` uses DuckDuckGo's own region values
+     (`DuckDuckGoEngine.regionCode(for:)`: `gb` gives `uk-en`, `jp` gives
+     `jp-jp`), taken from the region menu on its own results page (D42),
+     and `wt-wt` for countries it doesn't list. `SearchRegion.code` stays
+     `<country>-<language>`.
+   - **D36:** one extra live request found DuckDuckGo's real "no results"
+     page. Empty means a `no-results`/`result--no-result` marker, or a page
+     of nothing but ads. Items without a usable link are `.unrecognized`.
+   - **D41, D43, D45, D46:** a timeout or network error (`.failed`)
+     records nothing; `.blocked` and `.unrecognized` climb the ladder. A
+     `.rateLimited` (202 or 429) leaves a strike holding the query's
+     in-memory fingerprint (`EngineHealth.recordRateLimited(_:query:)`).
+     That query is skipped, with no request, for 60 s (`isSkipped`). A
+     challenge for a different query while the strike is pending climbs
+     the ladder, and a success clears it. The skipped query's lane comes
+     back `.rateLimited`, and nothing is recorded (D47).
+   - **D47, D48:** an unexpected 3xx, 400, 404, 405 or 410 is
+     `.unrecognized` (logged, starts the cooldown). 413, 414 and other 5xx
+     are `.failed` and logged through the new `SearchLogging.failedPage`.
+     403 and 503 stay `.blocked`, as the brief's row says. After the pacing
+     wait the runner checks both the cooldown and the per-query skip. The cooldown is checked
+     again after the pacing wait.
+   - **D37:** a cooling-down skip and a cancelled run record nothing; a
+     failure while already cooling down doesn't climb the ladder; the new
+     `EngineHealth.reservePacingSlot(_:)` checks and books the pacing slot
+     in one call, and the wait comes before the 2.0 s timeout; Wikipedia
+     isn't in `EngineHealth`. The runner reads an unrecognized page's status
+     and size through a wrapper client, so `EngineOutcome` is unchanged.
+   - **D38:** one DuckDuckGo page (about 10 results) and 3 Wikipedia hits
+     per search. ddgs's page field is ported
+     (`DuckDuckGoEngine.request(for:page:)`) but unused.
+   - **D39:** the 30 Wikipedia editions leave out the bot-generated ones;
+     `nb`/`nn` use `no`.
+   - **D40:** on the synthetic `duckduckgo-ads.html`, `NSXMLNode` evaluates
+     a relative `…//text()` wrongly (`./a//text()` also returns later
+     results' text), so `SERPDocument.text` collects descendant text itself
+     for paths ending in `//text()`. On the real `duckduckgo-results.html`
+     plain XPath and the workaround give identical text, so only
+     `testDuckDuckGoDropsAds` guards it. The XPath strings stay verbatim.
+   - Also: `testDuckDuckGoRequestIsFormPost` expects `kl` rather than the
+     brief's `l` (owner, CP0b). Query and title values are percent-encoded
+     over RFC 3986's unreserved set, so `+`, `&` and `=` stay data
+     (URLComponents leaves `+` raw). Wikipedia's extract is read with
+     `JSONSerialization`; a truncated or non-200 response is `.failed`.
+     Results with an empty title are dropped, as are non-http(s) links.
+4. **Verification** (`scripts/verify-xcode.sh`, logs outside the repo):
+   - RED: `test -only-testing:EnigmaTests/SearchHTTPClientTests
+     -only-testing:EnigmaTests/SearchEngineTests
+     -only-testing:EnigmaTests/SearchSiteRunnerTests
+     -only-testing:EnigmaTests/WebSearchLiveTests`, against compiling
+     stubs: 50 executed, 2 skipped, 46 failed.
+   - GREEN, the same command: 51 executed, 2 skipped (the live tests),
+     0 failed. `SearchSiteRunnerTests` and `SearchHTTPClientTests` with
+     `-test-iterations 10 -run-tests-until-failure`: 160 executed,
+     0 failed.
+   - `testDuckDuckGoDropsAds` failed on the first GREEN run, before D40's
+     fix, because the synthetic page's snippet held later results' text. The linkless-items
+     row of `testDuckDuckGoChangedLayoutIsUnrecognized` and
+     `testDuckDuckGoPageOfAdsIsNoResults` were written together with D36's
+     rule, not before it.
+   - `build`: succeeded, with no warnings in the new files.
+   - Live check: `TEST_RUNNER_ENIGMA_LIVE_SEARCH=1
+     TEST_RUNNER_ENIGMA_SEARCH_FIXTURE_DIR=<scratch> scripts/verify-xcode.sh
+     test -only-testing:EnigmaTests/WebSearchLiveTests`: 2 executed,
+     0 failed. DuckDuckGo: HTTP 200, 30 KB, 10 results, 624 ms, `kl=us-en`
+     echoed. Wikipedia ("Alan Turing"): 2 requests, 30,000 characters (the
+     cap), 439 ms. The D36 probe: HTTP 200, 722 ms. Raw pages stay in the
+     scratch folder. In all, DuckDuckGo got 2 requests and Wikipedia 2.
+   - `plutil -lint Enigma.xcodeproj/project.pbxproj`: OK.
+   - Before review, the orchestrator's instructions were to run neither the
+     full suite nor `analyze`. Both ran after round 3, below.
+   - Review round 1 (Opus, xhigh): no Blockers, 4 Should fixes, all fixed
+     (D41–D43):
+     1. timeouts and network errors no longer cool DuckDuckGo down, and a
+        lone 202 doesn't either;
+     2. `testClientKeepsNoCookies` couldn't fail (the stub bypasses cookie
+        handling), so the new `testSessionStoresNothing` checks the
+        session's settings;
+     3. the cooldown is checked again after the pacing wait;
+     4. the region table is rebuilt from DuckDuckGo's own menu.
+
+     The fixes went in before their tests. Every new or changed test was
+     then shown to fail in a scratch copy with the old behavior restored
+     (pacing re-check removed, `.failed`/`.rateLimited` recording failures,
+     cookie storage left on, a code DuckDuckGo doesn't list, no strike).
+     8 tests failed there. After the fixes, the four classes ran 58
+     executed, 2 skipped, 0 failed. The live check wasn't rerun.
+   - Review round 2 (Opus, xhigh; it also ran `analyze`, which succeeded):
+     no Blockers, 1 Should fix, fixed test-first (D45, D46). Retrying a
+     challenged query gave a second 202 and cooled DuckDuckGo down for
+     every query. Now that query alone sits out 60 s. RED: 3 tests failed
+     (`testChallengedQuerySitsOutAMinute`,
+     `testSameChallengedQueryIsSkippedForAMinute`,
+     `test429BehavesLike202`). GREEN: the four classes ran 62 executed,
+     2 skipped, 0 failed.
+   - Review round 3 (Opus, xhigh): no Blockers, 3 Should fixes and 2
+     surviving mutants, all fixed test-first (D47, D48):
+     1. the pacing wait now re-checks the per-query skip;
+     2. unexpected statuses are logged, and those that mean a changed site
+        climb the ladder;
+     3. a skipped query reports `.rateLimited`.
+
+     RED: 57 executed, 18 failures in 6 tests. The two mutant-killing
+     tests (`testDifferentQueryChallengeClearsTheStrike`,
+     `testSkippedQueryBooksNoPacingSlot`) passed on the real code and each
+     failed on its mutant in a scratch copy. GREEN: the four classes ran 67
+     executed, 2 skipped, 0 failed. There was no round 4 (D47).
+   - Final checks after round 3:
+     - live check rerun: DuckDuckGo HTTP 200, 30 KB, 10 results, 601 ms,
+       `kl` echoed; Wikipedia 2 requests, 30,000 characters, 467 ms;
+     - `build` succeeded; `analyze` succeeded, with no warnings in the new
+       files;
+     - full suite: `test -test-timeouts-enabled YES
+       -default-test-execution-time-allowance 60` (D31, screen locked):
+       1,723 tests, 1,609 passed, 33 skipped, 81 failed. The failures are
+       the same nine hosted-UI classes, with the same counts, as CP1b's 81
+       (D32): AppCommandTests 2, ChatCopyTests 2, ComposerIntentChipsTests 2,
+       EnigmaCompactPanelTests 15, EnigmaConversationTests 18,
+       EnigmaMainWindowTests 29, FileModeUITests 1 (hung, stopped at 60 s),
+       ScreenCaptureTests 1, ScreenViewTests 11. They fail with "Timed out
+       waiting for visible control", the shortcut test's "must be
+       frontmost", a key-window assertion or an undrawn animation. None is
+       in a Search class, so all 81 are environment failures under D25, left
+       for CI.
 5. **Limitations:**
+   - DuckDuckGo is the only web index. When it is challenged (HTTP 202
+     answered about 1 in 4 requests in CP0 and CP0b, always on the same
+     query), times out or cools down, a search has Wikipedia alone. After
+     D41, timeouts don't cool it down, but CP5 and CP7 should watch the
+     timeout rate and tune `SearchSiteRunner.primaryTimeout` if it bites
+     (the speed bar allows it, D2).
+   - Disambiguation is detected by the English "may refer to:" only, so
+     other editions may return a disambiguation page.
+   - The region table (D35) is unverified live outside `us-en`.
+   - The 50-word/400-character query cap (spec §2) isn't applied here;
+     CP5 builds the query.
+   - `docs/Testing.md` doesn't list `ENIGMA_LIVE_SEARCH` yet (CP10's docs).
+   - The live check ran twice (before review and after round 3), each time
+     from this Mac's network only.
 6. **For the next checkpoint:**
+   - Build the runner with `SearchSiteRunner(engines: [.duckDuckGo:
+     DuckDuckGoEngine()], wikipedia: WikipediaSearch(), client:
+     URLSessionSearchHTTPClient.live, health: .shared, log: OSSearchLog())`.
+     `includeWikipedia` should be false for day and week recency (spec §2).
+     A skipped site comes back `.failed`, and Wikipedia not asked for
+     comes back `.none`.
+   - `SearchRegion.current()` gives the region; DuckDuckGo maps it to `kl`
+     itself.
+   - **For CP5:** a DuckDuckGo lane of `.rateLimited` may come from the
+     per-query skip (the same query challenged in the last minute, D45,
+     D47), with no request sent. Treat it like any rate limit: the spec's
+     `rateLimited` message when nothing else answered.
+   - `SERPDocument.text` must stay the only way to read `//text()` paths
+     (D40). `XMLNode.nodes(forXPath:)` with a relative `//text()` is wrong
+     on this parser.
+   - `SearchFormEncoding.percentEncode` is the safe encoder for query
+     values; `PageReader` (CP4) can reuse `URLSessionSearchHTTPClient` with
+     `SafariHeaders.standard` and a 3 MB limit.
+   - Tests: `FakeSearchHTTPClient.stub(_:_:)` matches exact URLs, and
+     `stub(where:_:)` matches a predicate (later rules win). `.hang` waits
+     until cancelled and counts `cancellations`. `ManualClock.waitForSleepers(_:)`
+     waits until the code under test is sleeping. `TestInstant` (in
+     `SearchEngineTests.swift`) drives `EngineHealth`, and `FakeEngine` and
+     `RecordingSearchLog` live in `SearchSiteRunnerTests.swift`.
+   - Interface additions beyond the brief: `SafariHeaders.formPost(to:acceptLanguage:)`
+     and `.preferredAcceptLanguage`; `URLSessionSearchHTTPClient.configuration`;
+     `EngineHealth.reservePacingSlot(_:)`, `.recordRateLimited(_:query:)`, `.isSkipped(_:query:)` and `SearchLogging.failedPage(engine:status:bytes:)`, and
+     `.pacingInterval`; `DuckDuckGoEngine.request(for:page:)`,
+     `.regionCode(for:)`, `.regionCodes`, `.maximumBytes`; `WikipediaSearch.searchRequest(for:language:)`,
+     `.extractRequest(title:language:)`, `.articleURL(title:language:)`,
+     `.searchLimit`, `.maximumCharacters`, `.editions`; `SearchFormEncoding`.
+     Removed from the brief's interface: `SearchEngineID.mojeek`,
+     `.startpage` and `SearchSiteRunner.startpageBudget`.

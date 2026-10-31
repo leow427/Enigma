@@ -203,3 +203,108 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+ddgs (search engine definitions ported to Swift)
+
+MIT License
+
+Copyright (c) 2022 deedy5
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Readability.js (Mozilla; Enigma/Resources/SearchData/readability, version 0.6.0)
+
+Readability.js and Readability-readerable.js are bundled unmodified for reading
+search result pages.
+
+Copyright (c) 2010 Arc90 Inc
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Search quality lists (Enigma/Resources/SearchData; versions in manifest.json)
+
+Public Suffix List (public_suffix_list.dat)
+https://publicsuffix.org/list/public_suffix_list.dat
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at https://mozilla.org/MPL/2.0/. The file is bundled unmodified.
+
+Phishing.Database (active phishing domains, hashed into unsafe.bin)
+https://github.com/Phishing-Database/Phishing.Database
+
+MIT License
+
+Copyright (c) 2018-2025 Mitchell Krog - github.com/mitchellkrogza
+Copyright (c) 2018-2025 Nissar Chababy - github.com/funilrys
+Copyright (c) 2018-2025 Phishing.Database Contributors - github.com/Phishing-Database
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The Block List Project (malware, phishing, scam and fraud lists, hashed into unsafe.bin)
+https://github.com/blocklistproject/Lists
+Released into the public domain under the Unlicense (https://unlicense.org).
+
+popcar2/BadWebsiteBlocklist (hashed into spam.bin)
+https://github.com/popcar2/BadWebsiteBlocklist
+CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
+
+agsimmons/ai-content-blocklist (hashed into spam.bin)
+https://github.com/agsimmons/ai-content-blocklist
+CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
+
+quenhus/uBlock-Origin-dev-filter (hashed into spam.bin)
+https://github.com/quenhus/uBlock-Origin-dev-filter
+Released into the public domain under the Unlicense (https://unlicense.org).
+
+Wikipedia: Reliable sources/Perennial sources (reliability.tsv)
+reliability.tsv contains data derived from Wikipedia: Reliable sources/Perennial
+sources, licensed CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
+https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Perennial_sources
+
+Open-Meteo
+Weather data by Open-Meteo.com (https://open-meteo.com/), CC BY 4.0.
+Place names for weather come from Open-Meteo's geocoding API, under the same terms. It is built on
+GeoNames (https://www.geonames.org/), licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).

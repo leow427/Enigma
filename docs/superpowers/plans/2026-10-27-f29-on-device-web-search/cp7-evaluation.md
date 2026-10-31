@@ -292,11 +292,109 @@ for the owner to judge blind.
 
 ## Hand-off
 
-*Filled in by the CP7 worker.*
+*Filled in by the CP7 worker, 2026-10-30. Decisions D92–D124 in
+[overnight-decisions.md](overnight-decisions.md).*
 
-1. **Summary:**
-2. **Files:**
-3. **Decisions:**
-4. **Verification:**
+1. **Summary:** the evaluation harness, the 60-question set and the gate
+   report are built (D94–D103). After the DuckDuckGo-only early read (typed:
+   on-device 13, Brave 27 of 40 judged pairs; news and facts 0 of 12) the
+   owner added four features (D104): a local-model query rewrite and an
+   "enough?" check with one retry on the small-model path (models without
+   native tools only, D120), Wikidata facts and Google News headlines as
+   keyless sources. Round 1 ran with them; the owner stopped it after the
+   typed half (D121). Both gates fail on the judge share; speed passes the
+   relaxed bar (D116). Brave stays the default; on-device stays behind its
+   Debug switch.
+
+   Gate as measured (round 1; typed fully judged, model style 3 of 60):
+
+   | Check | Value | Original bar | Relaxed bar |
+   | --- | --- | --- | --- |
+   | Ad, blocklisted or spam sources | 0 | passed | passed |
+   | 2+ sources, web questions (typed / model) | 1.00 / 0.98 | passed | passed |
+   | 1+ page read, web questions (typed / model) | 1.00 / 1.00 | passed | passed |
+   | 3+ domains, web questions (typed / model) | 1.00 / 0.98 | passed | not a relaxed check |
+   | Authority source, health and docs (typed / model) | 0.39 / 0.61 | failed | not a relaxed check |
+   | Median search time, all 120 runs | 2.27 s | passed (3.0 s) | passed (5.0 s) |
+   | 90th percentile search time, all 120 runs | 6.51 s | failed (4.5 s) | passed (7.0 s) |
+   | On-device equal or better, typed | 0.467 | failed (0.8) | failed (0.65) |
+   | On-device equal or better, model style | — | not run | not run |
+   | Largest Brave-win share in one category | — | not run | not run |
+   | Recency equal or better, news and facts, typed | 0.65 | — | failed (0.7) |
+   | Recency, model style | — | not run | not run |
+   | Tool-use eval, lowest flagged model | — | not run | not run |
+   | New places and weather prompts (of 12) | — | not run | not run |
+
+   **Typed verdict:** on-device 26, Brave 32, tie 2 of 60 (equal or better
+   0.467), against baseline-3's early read of 13 to 27 of 40 judged pairs
+   (0.325). By category (on-device–Brave–tie): news 3–7–0, facts 3–5–2,
+   docs 4–6–0, health-finance 5–3–0, reviews 1–5–0, places 5–1–0, weather
+   2–2–0, encyclopedic 3–3–0. News and facts went from 0 of 12 to 6 of 20
+   wins plus 2 ties; reviews stay weakest (Brave's Reddit and Yelp results).
+   Round 1's typed run used a capable helper model (Gemma 4 12B through a
+   test llama-server) for the rewrite and check, so it describes small
+   models with a strong helper, not the installed native-tools models'
+   path (D120).
+2. **Files:** harness `EnigmaTests/WebSearchEvaluationTests.swift`,
+   `scripts/evaluate-web-search.py` and its tests, the question set
+   `scripts/web-search-queries.json`, the tool prompts
+   `EnigmaTests/Fixtures/F32/eval.jsonl`; features
+   `Enigma/Search/SearchAssist.swift`,
+   `Enigma/Search/Engines/WikidataFacts.swift`,
+   `Enigma/Search/Engines/GoogleNewsSearch.swift`, changes in
+   `OnDeviceSearch.swift`, `WebSearch.swift` and
+   `LocalChatViewModel.swift`; tests `SearchAssistTests`,
+   `SearchFactsAndNewsTests` with fixtures in `EnigmaTests/Fixtures/Search/`;
+   spec §2, §6.1 and §7 amended (owner approved 2026-10-30).
+3. **Decisions:** D92–D126. The owner's: D104 (features), D106, D116
+   (speed bar 5.0 s / 7.0 s; the second query stays while it helps), D119,
+   D120 (option A), D121 (stop after the typed half); the orchestrator's
+   D122 (no location or query to Google), D125 (round 2's fixes; Google
+   News kept under its feed terms); the workers' D107–D115, D117, D124,
+   D126.
+4. **Verification:** affected classes only (no full suite, D119):
+   `SearchAssistTests`, `SearchFactsAndNewsTests`, `OnDeviceSearchTests`,
+   `NativeToolsEvalTests`, `WebSearchTests`, `NativeWebSearchTests`,
+   `WebSearchEvaluationTests`, `LocalInferenceTests`,
+   `ScreenPipelineTests`, `RequestLifecycleTests`,
+   `NativeToolRequestTests`, `PlacesAndWeatherTests`; `build` and
+   `analyze`; the Python harness tests. Review round 1's findings are fixed
+   (D124); round 2 found no Blocker, and its fixes (blocked sites in the
+   new lanes, names kept by the clean-up, cancellation tests; D125, built
+   as D126) are checked by re-running the affected tests and mutants, with
+   no round 3. The owner keeps Google News RSS despite its feed terms
+   (D125).
 5. **Limitations:**
+   - Not run (D121): the model-style half (3 of 60 judged), the one- versus
+     two-query A/B (D116), and the tool-use eval with the 12 new places and
+     weather prompts (Task 7.5, D118). The full suite waits for the Mac.
+   - Speed: typed searches with the rewrite and check took a median 5.45 s
+     and p90 7.57 s in round 1 (rewrite median 1.39 s, check 1.24 s);
+     model-style searches 1.19 s and 2.14 s. The smoke run features-3 (20
+     news and facts questions) measured 4.81 s and 6.65 s; a second
+     DuckDuckGo query costs about 1 s of pacing (D115).
+   - Possible app issue (D114): llama-server drops idle keep-alive
+     connections after about 5 s, which made the harness's first call after
+     each pause a second or more slower; the app's own llama-server session
+     for vision models may meet the same on its ordinary requests. Not
+     checked in the app.
+   - Round 1 ran before D124: its Google News citations linked to a Google
+     search page holding the query (now the publisher's home page), and the
+     news lane wasn't yet skipped for requests with a city or a blocked
+     publisher (D124, D125).
+   - DuckDuckGo's coverage varied between runs with the same code (D102);
+     the site-outcome trace now tells the cases apart.
+   - Spot check: `spot-check.md` exists in the round-1 folder; the owner's
+     picks (`spot-check-picks.json`) don't, so it isn't compared yet.
 6. **For the next checkpoint:**
+   - Open questions for the owner: does a 0.467 typed share (relaxed bar
+     0.65) still allow CP8, or does Brave stay (D4)? Run the model-style
+     half, the A/B and the tool-use eval when the Mac is free? Is the
+     typed speed (median 5.45 s, inside the relaxed 5.0 s bar only for all
+     runs together) acceptable for small models? Should the installed
+     native-tools models also get the "enough?" check (option B, D120)?
+     The spot-check picks.
+   - Run folders, outside the repository, under
+     `/private/tmp/claude-501/f29-cp7/runs/`: `baseline-1` to `baseline-3`,
+     `recheck-1`, `features-1` to `features-3` (smoke runs), and `round-1`
+     (`report.md`, `summary.json`, `spot-check.md`, judgments and contexts).

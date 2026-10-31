@@ -1,0 +1,59 @@
+name: ddgs upstream watch
+
+# Weekly: compares the ddgs files Enigma ports (Enigma/Search/Engines/UPSTREAM.json)
+# with ddgs's latest release, and opens or updates one issue when one changed.
+# It only reads api.github.com; it never contacts a search site.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Compare the ported files with ddgs's latest release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I scripts/check-ddgs-upstream.py > "$RUNNER_TEMP/ddgs.json"
+          cat "$RUNNER_TEMP/ddgs.json"
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          result="$RUNNER_TEMP/ddgs.json"
+          if [ "$(jq '.changed | length' "$result")" -eq 0 ]; then
+            echo "No ported file changed."
+            exit 0
+          fi
+          tag=$(jq -r '.tag' "$result")
+          files=$(jq -r '.changed | join(", ")' "$result")
+          compare=$(jq -r '.compare' "$result")
+          title="ddgs changed: $files ($tag)"
+          body=$(printf '%s\n' \
+            "ddgs $tag changed files that Enigma ports: $files." \
+            "" \
+            "Diff: $compare" \
+            "" \
+            "Port the change to the matching Swift file named in \`Enigma/Search/Engines/UPSTREAM.json\`," \
+            "refresh the fixtures, and record the new tag, commit and blob SHAs there.")
+          gh label create ddgs-upstream --color c5def5 \
+            --description "A ddgs file Enigma ports changed upstream" --force
+          number=$(gh issue list --label ddgs-upstream --state open --limit 1 \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --title "$title" --body "$body"
+          else
+            gh issue create --title "$title" --label ddgs-upstream --body "$body"
+          fi

@@ -284,7 +284,7 @@ struct GeneralSettingsPage: View {
   static let automaticChecksNote = "Once a day, from Enigma’s GitHub page. Only Enigma’s version is sent."
   static let automaticInstallNote = "Updates install when Enigma quits, or when you choose Restart to Update in the menu bar."
   static let inferCommandsNote = "Turns on Messages, Think, Edit, and Translate when your wording asks for them, shown as a chip you can remove. Screen and Snapshot always need their command."
-  static let locationExplanation = "When you ask about local weather or nearby places, macOS asks for permission. Your approximate area is sent to Brave Search and included with the answer context. Requires Web Search setup in Cloud and search. No background tracking."
+  static let locationExplanation = "When you ask about the weather or nearby places, macOS asks for permission. The model answering, local or cloud, can get your exact location. Search sites get only your city; weather and Apple Maps get coordinates rounded to about 1 km. Nothing is saved and nothing runs in the background."
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {

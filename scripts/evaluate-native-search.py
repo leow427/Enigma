@@ -68,8 +68,10 @@ QUESTIONS = Path(__file__).resolve().parent / "web-search-queries.json"
 
 
 def question_set():
-    """{id: question} from the question set; extra keys (F29's `query`) are ignored."""
-    return {entry["id"]: entry["question"] for entry in json.loads(QUESTIONS.read_text(encoding="utf-8"))}
+    """{id: question} for F30's 20 questions (`web-` IDs). F29 CP7 adds 40 more to the same file,
+    which F29's `evaluate-web-search.py` reads; the F30 comparison keeps its own set."""
+    return {entry["id"]: entry["question"] for entry in json.loads(QUESTIONS.read_text(encoding="utf-8"))
+            if entry["id"].startswith("web-")}
 
 
 def median(values):

@@ -16,10 +16,17 @@ enum ComposerSubmission: Equatable {
   /// Send the screenshot that's already attached.
   case screenAttachment
   case chat(prompt: String, searchEnabled: Bool)
+  /// /maps with nothing after it (spec §6.3): the draft stays.
+  case nothingToFind
+  /// /maps can't be combined with a screenshot (spec §6.3).
+  case mapsConflict
 
   static let fileConflictMessage = "Turn off Screen, Web Search, and Messages to work with your attached files."
   static let messagesConflictMessage =
     "/messages can't be combined with Screen or Web Search. Remove /screen, /snapshot, /search, or the screenshot, then send again."
+  static let nothingToFindMessage = "There's nothing to look for."
+  static let mapsConflictMessage =
+    "/maps can't be combined with a screenshot. Remove /screen, /snapshot, or the screenshot, then send again."
   static let queuedMessagesDisclosureMessage =
     "Using Messages with your cloud model needs your OK first. Send a /messages request from the message field to review it, then choose Send now."
 
@@ -46,13 +53,17 @@ enum ComposerSubmission: Equatable {
                    canSubmit: @autoclosure () -> Bool) -> ComposerSubmission {
     let typed = intent.typed
     if hasFileSelection {
-      if hasScreenshot || typed.screen || typed.search || typed.messages { return .fileConflict }
+      if hasScreenshot || typed.screen || typed.search || typed.maps || typed.messages { return .fileConflict }
       return .files(prompt: intent.draftWithInferredCommands)
     }
     if intent.messages {
       // Message contents must never become a web search query or share a request with a capture.
-      if typed.screen || typed.search || hasScreenshot { return .messagesConflict }
+      if typed.screen || typed.search || typed.maps || hasScreenshot { return .messagesConflict }
       return intent.hasPrompt ? .messages(prompt: intent.submissionPrompt) : .none
+    }
+    if typed.maps {
+      if typed.screen || hasScreenshot { return .mapsConflict }
+      if typed.prompt.isEmpty { return .nothingToFind }
     }
     if typed.screen { return .captureScreen }
     if hasScreenshot { return .screenAttachment }

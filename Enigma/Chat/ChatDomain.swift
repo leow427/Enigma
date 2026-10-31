@@ -73,8 +73,10 @@ struct ReplyOrigin: Sendable, Equatable {
   let mode: ChatMode
   let providerID: String
   let modelName: String
-  /// The provider's own web search ran the reply's searches, not Brave (F30).
+  /// The provider's own web search ran the reply's searches (F30).
   var providerSearch = false
+  /// Brave answered one of the reply's searches: a Brave key was saved (D128, D131).
+  var braveSearch = false
 }
 
 struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
@@ -98,6 +100,9 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   var selectionDraft: String? = nil
   /// Session-only, like `activity`: the request a reply came from, for its meta line.
   var origin: ReplyOrigin? = nil
+  /// Session-only: the places behind the reply's map card (spec §6.6). Never saved, so no
+  /// coordinate reaches the disk; a reopened chat has no card.
+  var mapPlaces: [MapPlace]? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, role, content, searchSources, createdAt, attachments

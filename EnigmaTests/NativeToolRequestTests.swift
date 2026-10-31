@@ -42,6 +42,7 @@ final class NativeToolRequestTests: XCTestCase {
                         nativeToolsEnabled: Bool = true,
                         hasFullDiskAccess: Bool = true, automaticSearch: Bool = true, hasSearchKey: Bool = true,
                         nativeWebSearchProviders: Set<CloudProviderID> = [],
+                        braveSearch: (any WebSearchProvider)? = nil,
                         fileCodex: CodexSubscriptionClient = .fileMode,
                         locationProvider: (any LocationProviding)? = nil, sendRunner: RecordingRunner? = nil,
                         replace: (@MainActor (String) -> Void)? = nil) -> LocalChatViewModel {
@@ -71,6 +72,7 @@ final class NativeToolRequestTests: XCTestCase {
       fileCodex: fileCodex,
       cloudProviders: registry,
       webSearch: search ?? NativeSearchProvider(results: Self.searchResults),
+      braveSearch: braveSearch,
       searchSettings: settings,
       locationProvider: locationProvider,
       sessionStore: sessionStore ?? ChatSessionStore(applicationSupportDirectory: root),
@@ -258,8 +260,9 @@ final class NativeToolRequestTests: XCTestCase {
     let unloads = await inference.unloads
     XCTAssertEqual(unloads, 0, "A flagged turn keeps the server and its prompt cache")
     XCTAssertTrue(requests[0].messages[0].content?.contains(AssistantToolbox.untrustedDataInstruction) == true)
+    // F29 CP6: find_places and get_weather come with web_search.
     XCTAssertEqual(Set(requests[0].tools), ["list_conversations", "get_messages", "search_messages", "search_contacts",
-                                            "send_message", "web_search"])
+                                            "send_message", "web_search", "find_places", "get_weather"])
     XCTAssertEqual(chat.messages.last?.origin?.mode, .local)
   }
 
@@ -345,6 +348,40 @@ final class NativeToolRequestTests: XCTestCase {
     try await send("Find a restaurant", to: other, cards: &none)
     XCTAssertTrue(none.isEmpty)
     XCTAssertEqual(other.messages.last?.content, "Found.")
+  }
+
+  /// F29 CP5: `web_search` asks for the web route, with the city for a nearby query, the
+  /// recency, and F32's budget for the route.
+  func testNativeSearchBuildsWebRequest() async throws {
+    let search = NativeSearchProvider(results: Self.searchResults)
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"cafes near me open today"}"#), .text("Found."),
+      .call("web_search", #"{"query":"weather in Paris","recency":"week"}"#), .text("Sunny."),
+    ])
+    let chat = makeChat(inference: inference, search: search, locationProvider: NativeLocation(.success(Self.austin)))
+    await chat.refreshInstalledModel()
+    try await send("Find a cafe near me", to: chat)
+    try await send("Paris this week?", to: chat)
+    XCTAssertEqual(search.requests.count, 2)
+    let nearby = try XCTUnwrap(search.requests.first)
+    XCTAssertEqual(nearby.route, .web, "Not places: the model chose web_search")
+    XCTAssertEqual(nearby.city, Self.austin.searchCity)
+    XCTAssertEqual(nearby.recency, .day, "The query's own hint")
+    XCTAssertEqual(nearby.maximumTokens, 2_048)
+    let paris = try XCTUnwrap(search.requests.last)
+    XCTAssertEqual(paris.route, .web, "Not weather")
+    XCTAssertNil(paris.namedPlace)
+    XCTAssertEqual(paris.recency, .week)
+    XCTAssertEqual(search.requests.map(\.isTypedQuestion), [false, false], "web_search queries go as written (D107)")
+
+    let cloudSearch = NativeSearchProvider(results: Self.searchResults)
+    let provider = NativeToolProvider(steps: [[.call("web_search", #"{"query":"tide times"}"#)], [.token("High at noon.")]])
+    let cloud = makeChat(cloud: provider, search: cloudSearch)
+    await cloud.refreshInstalledModel()
+    try await send("Tide times?", to: cloud, route: Self.cloudRoute)
+    XCTAssertEqual(cloudSearch.requests.map(\.maximumTokens), [BraveSearchClient.evidenceTokens])
+    XCTAssertEqual(cloudSearch.requests.map(\.route), [.web])
+    XCTAssertEqual(cloudSearch.requests.map(\.isTypedQuestion), [false])
   }
 
   func testDeclinedSearchAfterMessagesNeverQueries() async throws {
@@ -459,6 +496,28 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertFalse(store.hasMessageText(session: saved[0].id))
     XCTAssertFalse(store.isGranted(.searchChats(query: "x"), destination: .thisMac, session: saved[0].id))
     await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  /// CP8 (D131): gate 3's card names Brave when a saved key would send the query there, and the
+  /// search sites otherwise.
+  func testSearchAfterMessagesCardNamesTheProviderUsed() async throws {
+    for hasKey in [true, false] {
+      let directory = root.appending(path: "gate3-\(hasKey)")
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let database = MessagesDatabase(url: try MessagesFixture(directory: directory).url)
+      let chat = makeChat(inference: NativeScriptedInference(steps: [
+        .call("get_messages", #"{"chat_id":"\#(MessagesFixture.aliceChat)"}"#),
+        .call("web_search", #"{"query":"q"}"#), .text("Done."),
+      ]), messagesDatabase: database, hasSearchKey: hasKey,
+        braveSearch: NativeSearchProvider(results: Self.searchResults))
+      await chat.refreshInstalledModel()
+      var cards: [ToolPermissionRequest] = []
+      try await send("Read Alice, then search", to: chat, answers: [.conversation, .deny], cards: &cards)
+      let card = try XCTUnwrap(cards.last, "key \(hasKey)")
+      XCTAssertEqual(card.permission.kind, .searchAfterMessages, "key \(hasKey)")
+      XCTAssertEqual(card.detail, "This chat includes text from your messages. It will be sent to "
+                     + (hasKey ? "Brave." : "search sites."), "key \(hasKey)")
+    }
   }
 
   func testMessageTextMarkSurvivesRelaunch() async throws {
@@ -787,7 +846,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(run.request.providerSearch, ProviderSearch())
     XCTAssertFalse(run.toolNames.contains("web_search"), "The provider's own tool replaces Enigma's")
     XCTAssertTrue(run.toolNames.contains("get_messages"), "The other F32 tools stay")
-    XCTAssertTrue(run.instructions.contains(ProviderSearchPart().instructions))
+    XCTAssertTrue(run.instructions.contains(ProviderSearchPart(offersPlacesAndWeather: true).instructions))
     XCTAssertTrue(run.instructions.contains(AssistantToolbox.untrustedDataInstruction))
     XCTAssertEqual(chat.messages.map(\.content), ["Hi", "Answer."])
   }
@@ -858,7 +917,21 @@ final class NativeToolRequestTests: XCTestCase {
     let other = makeChat(cloud: none, hasSearchKey: false, nativeWebSearchProviders: [])
     try await send("Hi", to: other, route: Self.cloudRoute)
     XCTAssertNil(none.runs.first?.request.providerSearch)
-    XCTAssertFalse(none.runs.first?.toolNames.contains("web_search") == true, "No key and no provider search: no search")
+    // Retargeted (CP8): with no key and no provider search, Enigma's own keyless web_search is offered.
+    XCTAssertTrue(none.runs.first?.toolNames.contains("web_search") == true, "No key: Enigma's own search")
+  }
+
+  /// F29 CP8 (Task 8.5b): the user's blocked sites reach the provider's own search, most recent
+  /// first, in the request and in the instruction sentence.
+  func testProviderSearchCarriesBlockedSites() async throws {
+    defaults.set(["old.com", "middle.org", "new.net"], forKey: WebSearchSettings.blockedSitesKey)
+    let provider = ScriptedSearchProvider(runs: [[.token("Answer.")]])
+    let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertEqual(run.request.providerSearch?.blockedDomains, ["new.net", "middle.org", "old.com"])
+    XCTAssertTrue(run.instructions.contains("Don't use results from these sites: new.net, middle.org, old.com."),
+                  run.instructions)
   }
 
   /// Owner, 2026-10-29: a turn the user asked to use Messages asks before the provider's search, so
@@ -928,7 +1001,7 @@ final class NativeToolRequestTests: XCTestCase {
       let run = try XCTUnwrap(provider.runs.first)
       XCTAssertEqual(run.request.providerSearch != nil, answer == .conversation, label)
       XCTAssertEqual(run.instructions.contains(Self.providerSearchText), answer == .conversation, label)
-      XCTAssertFalse(run.toolNames.contains("web_search"), "Never Brave on a provider-search route: \(label)")
+      XCTAssertFalse(run.toolNames.contains("web_search"), "Never Enigma's search on a provider-search route: \(label)")
       UserDefaults().removePersistentDomain(forName: "\(suiteName!)-\(hasSearchKey)-\(answer)")
     }
   }
@@ -1035,13 +1108,14 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertNotNil(other.runs.first?.request.providerSearch, "Only this run of the app remembers")
   }
 
-  func testUnavailableFallbackWithoutKeyHasNoSearch() async throws {
+  /// Retargeted (CP8): without a key the fallback still gets Enigma's own search, which needs none.
+  func testUnavailableFallbackWithoutKeyUsesOnDeviceSearch() async throws {
     let provider = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Answer.")]])
     let chat = makeChat(cloud: provider, hasSearchKey: false, nativeWebSearchProviders: [.anthropic])
     try await send("Hi", to: chat, route: Self.cloudRoute)
     XCTAssertEqual(provider.runs.count, 2)
     XCTAssertNil(provider.runs[1].request.providerSearch)
-    XCTAssertFalse(provider.runs[1].toolNames.contains("web_search"))
+    XCTAssertTrue(provider.runs[1].toolNames.contains("web_search"))
     XCTAssertEqual(chat.messages.last?.content, "Answer.")
   }
 
@@ -1255,6 +1329,26 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.content, "Done.")
   }
 
+  /// CP9: a restarted reply drops the first run's places, so its map card shows only what the
+  /// reply it ends with found.
+  func testRestartDropsTheFirstRunsPlaces() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .call("find_places", #"{"query":"coffee","area":"Soho"}"#),
+       .call("get_messages", Self.aliceRead), .token("Never shown.")],
+      [.token("Done.")],
+    ])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+    let places = FakePlaces([Self.placeResult()])
+    chat.placeSearch = places
+    try await send("What did Alice say? Any coffee in Soho?", to: chat, route: Self.cloudRoute,
+                   answers: [.conversation, .conversation])
+    XCTAssertEqual(places.calls.count, 1, "The first run found places")
+    XCTAssertEqual(provider.runs.count, 2, "The reply restarted")
+    XCTAssertEqual(chat.messages.last?.content, "Done.")
+    XCTAssertNil(chat.messages.last?.mapPlaces)
+  }
+
   func testDeclinedReadDoesNotRestart() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let provider = ScriptedSearchProvider(runs: [[.call("get_messages", Self.aliceRead), .token("Okay.")]])
@@ -1321,6 +1415,9 @@ final class NativeToolRequestTests: XCTestCase {
   static let austinArea = "Austin, TX, United States"
   static let nearby = "Coffee shops near me"
   static let askClause = "ask which city they mean"
+  /// F29 CP6 (spec §6.2): with find_places and get_weather offered and no area known, F30's
+  /// `askClause` becomes this clause; a declined card keeps `askClause` (D87).
+  static let toolsClause = "use find_places or get_weather, which know the user's approximate location"
 
   /// Sends `prompt` and returns the cards shown, with how many requests reached the provider when each showed.
   private func sendNearby(_ prompt: String = nearby, to chat: LocalChatViewModel, route: Route,
@@ -1350,7 +1447,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(card.request.permission, .shareLocation(provider: .openAI, area: Self.austinArea))
     XCTAssertEqual(card.request.title, "Share your location with OpenAI?")
     XCTAssertEqual(card.request.detail,
-                   "OpenAI's web search will use Austin, TX, United States to find nearby results. Enigma never sends your exact position.")
+                   "OpenAI's web search will use Austin, TX, United States to find nearby results. Its search gets only this area, never your coordinates.")
     XCTAssertTrue(card.request.offersAlways)
     let sent = try XCTUnwrap(provider.runs.first?.request.providerSearch?.location)
     XCTAssertEqual(sent, ProviderSearchLocation(city: "Austin", region: "TX", countryCode: "US",
@@ -1453,7 +1550,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(cards.isEmpty)
     XCTAssertNotNil(provider.runs.first?.request.providerSearch)
     XCTAssertNil(provider.runs.first?.request.providerSearch?.location)
-    XCTAssertTrue(provider.runs.first?.instructions.contains(Self.askClause) == true)
+    XCTAssertTrue(provider.runs.first?.instructions.contains(Self.toolsClause) == true)
     UserDefaults().removePersistentDomain(forName: "\(suiteName!)-location")
   }
 
@@ -1466,7 +1563,7 @@ final class NativeToolRequestTests: XCTestCase {
       XCTAssertTrue(cards.isEmpty, "No area, no card")
       XCTAssertEqual(provider.runs.count, 1, "The turn goes on")
       XCTAssertNil(provider.runs.first?.request.providerSearch?.location)
-      XCTAssertTrue(provider.runs.first?.instructions.contains(Self.askClause) == true)
+      XCTAssertTrue(provider.runs.first?.instructions.contains(Self.toolsClause) == true)
     }
   }
 
@@ -1688,6 +1785,131 @@ final class NativeToolRequestTests: XCTestCase {
     try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
     XCTAssertFalse(chat.messages.isEmpty)
   }
+
+  // MARK: Places and weather (F29 CP6)
+
+  private static func placeResult() -> PlaceResult {
+    PlaceResult(place: MapPlace(id: "cafe", name: "Blue Bottle", coordinate: PlacesAndWeatherFixtures.chicago,
+                                distanceMeters: nil), category: "Cafe", address: nil, phone: nil, website: nil)
+  }
+
+  /// D87: Don't allow on the share-location card keeps the places and weather tools from the location too.
+  func testLocationDeclinedKeepsPlacesToolsFromTheLocation() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.call("find_places", #"{"query":"coffee"}"#), .call("get_weather", "{}"),
+                                                  .token("Which city?")]])
+    let location = NativeLocation(.success(Self.austin))
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic], locationProvider: location)
+    let places = FakePlaces([Self.placeResult()]), weather = FakeWeather()
+    chat.placeSearch = places
+    chat.weatherLookup = weather
+    let cards = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.deny])
+    XCTAssertEqual(cards.map(\.request.permission), [.shareLocation(provider: .anthropic, area: Self.austinArea)])
+    XCTAssertTrue(places.calls.isEmpty, "No MapKit request")
+    XCTAssertTrue(weather.calls.isEmpty, "No Open-Meteo request")
+    XCTAssertEqual(provider.delivered.map(\.text), [PlacesAndWeatherTools.locationUnavailable, PlacesAndWeatherTools.locationUnavailable])
+    let run = try XCTUnwrap(provider.runs.first)
+    XCTAssertNil(run.request.providerSearch?.location)
+    XCTAssertTrue(run.instructions.contains(Self.askClause))
+    XCTAssertFalse(run.instructions.contains(Self.toolsClause))
+    XCTAssertFalse(run.instructions.contains("Austin"))
+  }
+
+  /// Gate 3 for find_places and get_weather, on Enigma's backend (a local turn) and the provider's.
+  func testPlacesAndWeatherAskFirstAfterMessageText() async throws {
+    let lookUps: [ToolPermission] = [.placesAfterMessages(title: "Find coffee in Soho?"),
+                                     .weatherAfterMessages(title: "Check the weather for Paris?")]
+    let calls: [(String, String)] = [("get_messages", Self.aliceRead), ("find_places", #"{"query":"coffee","area":"Soho"}"#),
+                                     ("get_weather", #"{"place":"Paris"}"#)]
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    for backend in [SearchBackend.enigma, .provider] {
+      let chat: LocalChatViewModel
+      var cards: [ToolPermissionRequest] = []
+      let places = FakePlaces([Self.placeResult()]), weather = FakeWeather()
+      let geocoder = FakeGeocoder((PlacesAndWeatherFixtures.paris, "Paris, France"))
+      if backend == .enigma {
+        chat = makeChat(inference: NativeScriptedInference(steps: calls.map { .call($0.0, $0.1) } + [.text("Done.")]),
+                        messagesDatabase: database)
+        chat.placeSearch = places
+        chat.weatherLookup = weather
+        chat.weatherGeocoder = geocoder
+        await chat.refreshInstalledModel()
+        try await send("Read Alice", to: chat, answers: [.conversation, .deny, .deny], cards: &cards)
+      } else {
+        let provider = ScriptedSearchProvider(runs: [calls.map { .call($0.0, $0.1) } + [.token("Done.")]])
+        chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+        chat.placeSearch = places
+        chat.weatherLookup = weather
+        chat.weatherGeocoder = geocoder
+        try await send("/messages what did Alice say?", to: chat, route: Self.cloudRoute,
+                       answers: [.conversation, .conversation, .deny, .deny], cards: &cards)
+        XCTAssertEqual(provider.delivered.suffix(2).map(\.text), [MessagesTools.declinedResult, MessagesTools.declinedResult])
+      }
+      XCTAssertEqual(Array(cards.map(\.permission).suffix(2)), lookUps, "\(backend)")
+      XCTAssertTrue(places.calls.isEmpty, "\(backend): no MapKit request")
+      XCTAssertTrue(geocoder.calls.isEmpty, "\(backend): no geocoding")
+      XCTAssertTrue(weather.calls.isEmpty, "\(backend): no Open-Meteo request")
+    }
+  }
+
+  /// Allowing web search for the chat doesn't let places or weather through: each asks on its own card
+  /// (owner, 2026-10-31).
+  func testAllowingSearchStillAsksForPlacesAndWeather() async throws {
+    let calls: [(String, String)] = [("get_messages", Self.aliceRead), ("web_search", #"{"query":"coffee"}"#),
+                                     ("find_places", #"{"query":"coffee","area":"Soho"}"#), ("get_weather", #"{"place":"Paris"}"#)]
+    let places = FakePlaces([Self.placeResult()]), weather = FakeWeather()
+    let geocoder = FakeGeocoder((PlacesAndWeatherFixtures.paris, "Paris, France"))
+    let chat = makeChat(inference: NativeScriptedInference(steps: calls.map { .call($0.0, $0.1) } + [.text("Done.")]),
+                        messagesDatabase: MessagesDatabase(url: try MessagesFixture(directory: root).url))
+    chat.placeSearch = places
+    chat.weatherLookup = weather
+    chat.weatherGeocoder = geocoder
+    await chat.refreshInstalledModel()
+    var cards: [ToolPermissionRequest] = []
+    try await send("Read Alice", to: chat, answers: [.conversation, .conversation, .deny, .deny], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission.kind), [.readChat, .searchAfterMessages, .placesAfterMessages, .weatherAfterMessages])
+    XCTAssertTrue(places.calls.isEmpty, "Declined: no MapKit request")
+    XCTAssertTrue(weather.calls.isEmpty, "Declined: no Open-Meteo request")
+  }
+
+  /// D89: after a decline, the fallback to Enigma's web_search sends no city and no coordinate.
+  func testDeclinedLocationFallbackWebSearchSendsNoLocation() async throws {
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .fail(.webSearchUnavailable(.anthropic))],
+      [.call("web_search", #"{"query":"coffee near me"}"#), .token("Answer.")],
+    ])
+    let search = NativeSearchProvider(results: Self.searchResults)
+    let chat = makeChat(cloud: provider, search: search, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: NativeLocation(.success(Self.austin)))
+    _ = try await sendNearby("Any coffee near me?", to: chat, route: Self.cloudRoute, provider: provider, answers: [.deny])
+    XCTAssertEqual(provider.runs.count, 2)
+    XCTAssertNil(provider.runs[1].request.providerSearch)
+    let request = try XCTUnwrap(search.requests.last)
+    XCTAssertNil(request.city)
+    XCTAssertNil(request.coordinate)
+    XCTAssertFalse(request.query.contains("Austin"))
+  }
+
+  /// D89: a decline lasts for the rest of the chat and provider, and a later Allow clears it.
+  func testLocationDeclineLastsForTheChat() async throws {
+    let provider = ScriptedSearchProvider(runs: [
+      [.token("Which city?")],
+      [.call("find_places", #"{"query":"coffee"}"#), .token("Which city?")],
+      [.call("find_places", #"{"query":"coffee"}"#), .token("Here.")],
+    ])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic],
+                        locationProvider: NativeLocation(.success(Self.austin)))
+    let places = FakePlaces([Self.placeResult()])
+    chat.placeSearch = places
+    _ = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.deny])
+    try await send("Find me a coffee shop", to: chat, route: Self.cloudRoute)
+    XCTAssertTrue(places.calls.isEmpty, "The next turn's find_places gets no location")
+    XCTAssertEqual(provider.delivered.last?.text, PlacesAndWeatherTools.locationUnavailable)
+    XCTAssertTrue(provider.runs[1].instructions.contains(Self.askClause))
+    XCTAssertFalse(provider.runs[1].instructions.contains("Austin"))
+    let allowed = try await sendNearby(to: chat, route: Self.cloudRoute, provider: provider, answers: [.conversation])
+    XCTAssertEqual(allowed.count, 1)
+    XCTAssertEqual(places.calls.map(\.coordinate), [SearchCoordinate(latitude: 30.27, longitude: -97.74)])
+  }
 }
 
 // MARK: Test doubles
@@ -1851,9 +2073,13 @@ final class NativeLocation: LocationProviding {
 final class NativeSearchProvider: WebSearchProvider, @unchecked Sendable {
   let results: [WebSearchResult]
   let queries = LockedStrings()
+  private let lock = NSLock()
+  private var recorded: [WebSearchRequest] = []
   init(results: [WebSearchResult]) { self.results = results }
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
+  var requests: [WebSearchRequest] { lock.withLock { recorded } }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    queries.append(request.query)
+    lock.withLock { recorded.append(request) }
     return results
   }
 }

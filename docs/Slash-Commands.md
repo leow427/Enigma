@@ -9,7 +9,8 @@ work anywhere in a message and are highlighted as you type.
 
 | Command | Shown description | What it does |
 | --- | --- | --- |
-| `/search` | Search the web for this answer | Searches Brave for this message, even when automatic search wouldn't. Offered only when a Brave key is saved; typed anyway on ChatGPT or Claude Code, it uses the provider's own search. See [Web Search](Web-Search.md). |
+| `/search` | Search the web for this answer | Searches the web for this message, even when automatic search wouldn't. Needs no key: search runs on this Mac (on Brave instead while a Brave key is saved). On ChatGPT or Claude Code, models that choose their own tools use the provider's own search. See [Web Search](Web-Search.md). |
+| `/maps` | Find places with Apple Maps | Looks up places near you, or in a named area, with Apple Maps, and shows them on a map card under the reply. Wins over `/search`; can't be combined with attached files, `/messages` or a screenshot. See [Web Search](Web-Search.md#places-and-weather). |
 | `/screen` | Capture all displays | Captures every display, then asks about it. See [Screen](Screen-Skill.md). |
 | `/snapshot` | Select a screen region to capture | Lets you drag out a region of the screen, then asks about it. |
 | `/think` | Think more deeply for this answer | Asks the model to reason more carefully for this answer, with a larger answer allowance on local models and a higher reasoning effort on cloud models that support it. Works with File Mode and `/messages` too. |
@@ -58,9 +59,8 @@ An empty chat also shows up to four example lines under the composer, such as
 into the message field. The welcome tour lists the available commands, and
 **Help** lists the screen, search and thinking commands.
 
-`/search` appears in the list, the examples, Help and the welcome tour only when
-a Brave Search key is saved. Saving or removing the key updates the list right
-away without touching your draft.
+`/search` and `/maps` are always offered in the list, the examples, Help and the
+welcome tour: search needs no setup.
 
 ## How commands are recognized
 
@@ -98,16 +98,19 @@ Each has a **native tools** flag; see
 [Local models](Local-Model-Selection.md#native-tools) for the list. On a flagged
 route, every message offers the model the tools that apply:
 
-- a web search tool, when automatic search is on: `web_search` when a Brave key
-  is saved, or on ChatGPT and Claude Code the provider's own search, with no key
+- a web search tool, when automatic search is on: Enigma's `web_search`, or on
+  ChatGPT and Claude Code the provider's own search
   (see [Web Search](Web-Search.md#cloud-models-own-search));
+- `find_places` (Apple Maps) and `get_weather` (Open-Meteo), when automatic
+  search is on or `/maps` is typed (see
+  [Web Search](Web-Search.md#places-and-weather));
 - the Messages tools, while Enigma has Full Disk Access;
 - `propose_edit` and `propose_translation`, when Selection Context is attached.
 
 The model picks a tool, writes its own arguments, or answers without one.
 Nothing is recognized from your wording and no chips are shown. Reading a chat,
-searching all your chats, and a web search once message text is in the chat each
-ask you first in a card (for ChatGPT's or Claude Code's own search, one card per
+searching all your chats, and a web search, places lookup or weather check once
+message text is in the chat each ask you first in a card (for ChatGPT's or Claude Code's own search, one card per
 chat); see [Messages](Messages.md#permission-cards).
 
 Typed commands still work, and turn a choice into a request:
@@ -115,6 +118,7 @@ Typed commands still work, and turn a choice into a request:
 | Command | On a flagged route |
 | --- | --- |
 | `/search` | `web_search` is offered even with automatic search off, and the model must call it first |
+| `/maps` | `find_places` is offered even with automatic search off, and the model must call it first |
 | `/messages` | The model is told you asked to use Messages. In Auto it still goes to the local model |
 | `/edit` | The model must call `propose_edit`. Only a typed `/edit` replaces the selection automatically when **Automatically replace selected text** is on |
 | `/translate` | The model must call `propose_translation`; the translation appears in the reply |
@@ -226,7 +230,7 @@ safeguard of `/messages`: the Full Disk Access check, the one-time cloud notice,
 Auto staying on this Mac, and your approval for each message sent. On a flagged
 route the model chooses its own tools, but Enigma's permission cards, not the
 model, decide whether message text is read or a search leaves after a read; text
-in a tool result can't answer a card. `/search` sends a query to Brave;
+in a tool result can't answer a card. `/search` sends a query to the search sites (or Brave, while a key is saved);
 `/messages` reads your local Messages database and needs your approval to send.
 
 ## How it works

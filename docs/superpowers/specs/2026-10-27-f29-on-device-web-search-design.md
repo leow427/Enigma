@@ -77,7 +77,9 @@ search keeps recognizing English wording only, as today.
   on capable and small models;
 - capable models still choose well: F32's tool-use eval stays at 0.90 or
   more with the places and weather tools added;
-- Brave's code, settings and stored key are gone;
+- Brave's code, settings and stored key are gone; *amended (owner approved 2026-10-30), D128:*
+  Brave stays as an option used only while a Brave key is saved, and every search works with no
+  key;
 - maintenance averages one to two hours a month.
 
 ## Decisions
@@ -186,6 +188,8 @@ Startpage runs, and every page uses its full window, is about 7 s.
   - `evidenceTokens` 8,192.
 - `ApproximateLocation` keeps its latitude and longitude as numbers, rounded
   to 2 decimals (about 1 km), next to the display text it has today.
+  *Amended (owner, 2026-10-31):* it also keeps the exact coordinate, which
+  only the model answering gets, local or cloud.
 
 **New files:**
 
@@ -233,6 +237,20 @@ Wikipedia uses full-text search rather than ddgs's title lookup, because the
 title lookup returns nothing for question wording. The top hit is the first
 of the 3 that isn't a disambiguation page. Its language is the Mac's first
 preferred language when that Wikipedia edition exists, otherwise English.
+
+*Amended (owner approved 2026-10-30):* two more keyless sources (D104,
+D109, D110), each beside the sites within its own time limit, through the
+search HTTP client (ephemeral, no cookies), with Wikipedia's user agent:
+
+| Source | Role | Request | When | Evidence |
+| --- | --- | --- | --- | --- |
+| Wikidata | Structured facts | `GET https://www.wikidata.org/w/api.php`: `wbsearchentities` for the entity the query rewrite named (or `wbgetentities` by sitelink for a Wikipedia-style title, or for the Wikipedia article this search found), then `wbgetentities` for its claims and for the labels of their values | Any web search with an entity; any recency (facts carry their dates); 2.5 s | One `facts` excerpt placed first: a whitelist of properties (versions, population, winners, office holders, heights, dates…), deprecated values dropped, newest first with their dates, the preferred value marked "current"; kept only when the entity's label shares a content word with the question |
+| Google News | Headlines | `GET https://news.google.com/rss/search?q=<query>&hl=<lang>-<CC>&gl=<CC>&ceid=<CC>:<lang>` | Day, week or month questions, or a news cue ("headlines", "announced", "election", "who won", "winner of"); never when the request carries a city; 2 s | One `news` excerpt after the facts: up to 8 headlines, newest first, each with its publisher and date. Item links only resolve through more Google requests, so none is followed and no publisher page is read from it. The excerpt links to `https://news.google.com/`, never to a link holding the query; headlines from blocked publishers are dropped (§3.2) |
+
+On the small-model path the sites get one or two keyword queries instead
+of the typed question (section 6.1); their results are merged by summing
+each query's scores per page (reciprocal-rank fusion with k = 0, so one
+query ranks exactly as before). Wikipedia gets the first query.
 
 **When Startpage runs:**
 
@@ -368,6 +386,13 @@ registrable domain comes from Mozilla's
 imported from uBlacklist-format lists. Path and regex entries are skipped,
 and the manifest counts them.
 
+*Amended (owner approved 2026-10-30), D125:* the same lists cover the new
+sources: Wikidata's facts are left out when `wikidata.org` is blocked;
+Google News isn't asked when `news.google.com` is blocked; a headline is
+dropped when its publisher's home page is blocked. A news excerpt's
+citation is Google News's home page, so blocking it from there blocks
+Google News.
+
 **3.3 Scoring**
 
 - **Agreement**, using SearXNG's formula
@@ -456,6 +481,12 @@ spam lists, the off-topic check, and the user's "Never use this site".
 - **Requests:** a single GET per page, with Safari's headers. No cookies,
   cache, stored credentials or `Referer`. Plain `http` links are tried over
   `https` first.
+
+  *Amended overnight (orchestrator, owner to confirm):* App Transport
+  Security blocks plain-http loads and Enigma doesn't loosen it, so pages are
+  read over https only: an `http` link is read as `https` once, with no http
+  fallback, and a redirect to plain http fails the page, keeping its snippet
+  (D71).
 - **Local network guard.** Refuse:
   - `localhost`, single-label hosts, and names ending `.local`, `.lan`,
     `.internal` or `.home.arpa`;
@@ -494,6 +525,13 @@ spam lists, the off-topic check, and the user's "Never use this site".
   - a navigation delegate that cancels every navigation after the first
     load;
   - no script message handlers.
+
+  *Amended overnight (orchestrator, owner to confirm):* WebKit has no
+  in-memory rule list, so the block-all rule is compiled once into WebKit's
+  default content-rule-list store under the versioned identifier
+  `EnigmaBlockAll-v1`, looked up at later launches and recompiled only when
+  missing (D67, D69). That one static file per rule version holds only the
+  rule's text; no query, URL or page is written.
 - **Loading:** `loadHTMLString(_:baseURL: nil)`.
 - **Scripts:** these run in an isolated `WKContentWorld` through
   `callAsyncJavaScript`, all bundled in `SearchData/`:
@@ -612,6 +650,34 @@ screenshot or selection never picks a route, because only the typed
 question may ask for location (unchanged from today). A typed `/maps`
 always picks places (section 6.3).
 
+*Amended (owner approved 2026-10-30), D104, D107, D108, D120:* on the
+small-model path — models without native tools, answering through the
+embedded text engine — the typed question isn't sent as a sentence. Models
+with native tools (the installed Gemma 4 12B and Qwen 3.8 27B among them)
+write their own `web_search` query and get neither step; they still get
+the Wikidata and Google News sources:
+
+1. **Query rewrite.** The chat's own loaded model (never a second one)
+   writes one to three `query:` lines and an `entity:` line, at
+   temperature 0, at most 64 tokens, within 2.5 s. The engines have no
+   grammar hook, so a strict parser stands in: anything outside the format
+   is junk. At most two queries go to DuckDuckGo (its 1 s pacing). Junk, a
+   failure or a timeout, and every route without a local model (cloud
+   models searching through Enigma), use a code-only clean-up instead: the
+   question without question words, auxiliaries, "please" and punctuation,
+   keeping names, numbers, years and words such as "latest". Only the typed
+   question is rewritten: a query a capable model wrote with `web_search`,
+   or one written from a screenshot, selection or attachment, goes as
+   written. The places route's "near <city>" query isn't rewritten.
+2. **"Enough?" check.** After the passages are picked, the same model reads
+   the question and the best passages (at most 350 words, page passages
+   first, then the facts and headlines) and answers `yes`
+   or `no: <missing words>` (24 tokens, 2.5 s). On `no`, DuckDuckGo is asked
+   once more with the first query plus those words, its new pages are read
+   within 1.5 s and join the others. At most one retry; junk, a failure or a
+   timeout means no retry. Capable models don't get the check: they can
+   call `web_search` again themselves.
+
 CP1 built these rules, with the owner's widening of 2026-10-27 (CP1's
 Hand-off, owner decisions 1–4). CP1's second review (2026-10-28) found
 misroutes, and CP1b fixes them as listed:
@@ -635,6 +701,39 @@ found, only the location is kept.
 **"local <place word>"** asks for location, like the other nearby cues, and
 `webQuery` makes it "<place word> near <City>", or keeps "local <place
 word>" when there's no city.
+
+*Amended overnight (orchestrator, owner to confirm):* "temperature in
+<named place>" is weather ("what's the temperature in denver") only when
+the question starts with it; units ("in fahrenheit"), "the …" places ("in
+the oven") and pronouns ("in your bedroom", "at which") aren't (decision log
+D12, D15). "Outside" counts as a time word only next to the topic word
+("temperature outside", "raining outside"), not anywhere ("too cold to
+sleep outside"). The weather verbs include "is it gonna / supposed to /
+expected to rain" and "chance(s) of rain/snow" (D15). "What's the current temperature",
+"what temperature is it (now)", "what's the temperature now/like" and
+"what's the weather" use the current location, but only as the whole
+question ("my cpu's current temperature" is web; D20). "This weekend", "right now" and "this morning/afternoon/evening"
+make a bare topic word weather only as the whole question ("rain this
+weekend") or with a named place ("rain in seattle this weekend"). "Forecast"
+is a weather word only after a topic word, "local" or a day ("weather
+forecast", "local forecast", "tomorrow's forecast") or leading the question
+("what's the forecast for…", "10 day forecast", "check the forecast"), so
+"sales forecast" is web; "local forecast for boston" names Boston (D24,
+D27). "What is weather" stays
+conceptual. A month or season after in/during ("paris in may", "rome in
+the summer") is a background word, so the question goes to web. A city
+just before "weather", followed only by time words ("nyc weather today",
+"paris weather"), is the named place; a descriptive first word
+("local weather", "hourly weather") means it isn't (D18, D22). A language on its own is never a named area or a weather place
+("restaurant in spanish" is web; "spanish harlem" and "dutch harbor" are
+places, D23), and "local" with an ambiguous place word (bar, park, atm,
+library, pub) isn't a nearby cue in a how-to or developer question ("best
+local library for python") (D10), and no "local <place word>" is one in
+"how to open/start/run/own/market a local …" (D15). Parts of the day ("in the afternoon",
+"this evening") use the current location like noon; months, weekdays and
+"the weekend" don't (D11). Easter, christmas, sunrise, sunset and dinner are
+times only on their own or with "eve"/"day", so "easter island" and
+"sunrise florida" stay places (D10).
 
 When the current location is needed but location is off, denied or
 unavailable, the existing "include a city" message appears. A named place
@@ -664,12 +763,16 @@ today. If location is off, denied or unavailable, the tool returns "The
 user's location isn't available. Ask which city or area they mean." and the
 model carries on. No card asks first (owner, 2026-10-29): the Location
 setting and macOS's permission are the gates, and only the city or a
-coordinate rounded to about 1 km is used.
+coordinate rounded to about 1 km is sent to Apple Maps and Open-Meteo.
+*Amended (owner, 2026-10-31):* the distances in the result are measured from
+the exact location.
 
 **Gate 3.** In a chat that holds message text, `find_places` and
 `get_weather` ask first, like `web_search`: the card shows "Find ‹query›
 near you?", "Find ‹query› in ‹area›?" or "Check the weather for
-‹place›?", with F32's three answers. The answer is remembered with gate 3's.
+‹place›?", with F32's three answers. *Amended (owner, 2026-10-31):* each
+tool's answer is remembered on its own, so allowing `web_search` never
+allows `find_places` or `get_weather`, and the reverse.
 
 **Activity.** `find_places` shows **Finding places…** and `get_weather`
 **Checking the weather…**, both as `.searching` phases with their own text.
@@ -682,6 +785,12 @@ search replaces `web_search`, and `find_places` and `get_weather` are still
 offered beside it, since location never goes to a provider's search. F30's
 instruction clause "ask which city they mean" becomes "use find_places or
 get_weather, which know the user's approximate location".
+
+*Amended overnight (orchestrator, owner to confirm):* when the user taps
+"Don't allow" on F30's share-location card, that turn's `find_places` and
+`get_weather` get no location (they answer "The user's location isn't
+available…"), and F30's "ask which city they mean" clause stays for that
+turn (decision log D87, D88).
 
 #### 6.3 `/maps`
 
@@ -804,13 +913,16 @@ Under every reply whose evidence included a `.places` result, on any route.
 | DuckDuckGo, Mojeek | The query (commands removed, 50 words at most, the city for nearby questions), region and language, Safari's user agent, the IP address | Every web search |
 | Startpage | The same, plus one homepage request for its token | Only when DuckDuckGo fails |
 | Wikipedia | The query, Enigma's user agent, the IP address | Every web search |
-| Result sites, up to about 6 | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
+| Wikidata *(amended, owner approved 2026-10-30)* | The entity name the query rewrite wrote, or the Wikipedia article's title; Enigma's user agent; the IP address | Web searches that name an entity |
+| Google *(amended, owner approved 2026-10-30)* | The first keyword query, the language and region codes, Enigma's user agent, the IP address. No cookies, no location (skipped when the request carries a city); no article link is followed; nothing when the user blocked Google News | News and recency questions |
+| Brave *(amended, owner approved 2026-10-30, D128, D136)* | The query and, for nearby questions, the city only; the user's key; the IP address. Web searches only: places and weather stay on Apple Maps and Open-Meteo (D138) | Only while a Brave key is saved |
+| Result sites, up to 6 at a time *(amended, owner approved 2026-10-30)*; more when a read fails or the "enough?" check reads again | One GET each. No cookies, `Referer`, images, scripts or other subresources. | Every web search |
 | Open-Meteo | Coordinates rounded to about 1 km, or a named place to geocode | Weather questions |
-| Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region | Places questions |
-| The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today | Every search a cloud model makes |
+| Apple (MapKit) | The place query and the approximate area or named area; map tiles for the card's region; *(amended, orchestrator, owner to confirm)* the coordinates rounded to about 1 km, reverse-geocoded to find the city | Places questions; *(amended, orchestrator, owner to confirm)* any nearby question (near-me web searches, weather near you, `find_places` near you) |
+| The model's provider, on cloud routes | The excerpts, places list or forecast, as with Brave's results today; *(amended, owner, 2026-10-31)* for a nearby question, the exact location and places' distances measured from it | Every search a cloud model makes |
 
 - **Never sent:** conversation history, attached files, Messages content,
-  provider credentials, precise coordinates, and whole selections or
+  provider credentials, precise coordinates (except to the model answering), and whole selections or
   screenshots. These reach a query only through the B11 query-writing
   prompt.
 - **Compared with Brave:**
@@ -824,13 +936,26 @@ Under every reply whose evidence included a `.places` result, on any route.
   `web_search`, `find_places` and `get_weather` call asks first (gate 3).
   A capable model may look up places or weather near the user without the
   user's wording asking for it (owner, 2026-10-29); the city, or a
-  coordinate rounded to about 1 km, is all that's used.
+  coordinate rounded to about 1 km, is all that's sent to search sites,
+  Apple Maps and Open-Meteo. *Amended (owner, 2026-10-31):* the model
+  answering, local or cloud, gets the exact location.
+- *Amended (owner approved 2026-10-30):* the query rewrite and the
+  "enough?" check (section 6.1) run on the Mac with the chat's own loaded
+  model; only the keyword queries they produce, and the entity name, leave
+  the Mac.
 - **Stored on the Mac:**
   - the blocked-sites list (domains only, in preferences);
   - site health, in memory only;
+  - *Amended overnight (orchestrator, owner to confirm):* WebKit's compiled
+    copy of the block-all page-reading rule (`EnigmaBlockAll-v1`), one static
+    file per rule version holding only the rule's text (§4, D69);
   - Console entries carry the site name, status and size, never the query
     or a URL.
-- **Brave key cleanup.** On first launch after the update, the Keychain item
+- *Amended (owner approved 2026-10-30), D128, D134, D136:* Brave stays as an option: a saved
+  Brave key sends searches to Brave instead of the search sites, and the key stays in the
+  Keychain, so the cleanup below is not built. Brave gets the query and, for nearby questions,
+  only the city, never coordinates. Blocked sites filter its results on the Mac (D132).
+- *(Superseded by D128)* **Brave key cleanup.** On first launch after the update, the Keychain item
   (service `com.leow427.AISpotlight.web-search`, account `brave`) is
   deleted. The defaults key `webSearch.braveKeyRemoved` records that it ran.
 
@@ -868,6 +993,13 @@ Under every reply whose evidence included a `.places` result, on any route.
     whenever automatic search is on, with no key (`NativeToolPlan` loses
     `hasSearchKey`).
 - **The map card** under places answers (section 6.6).
+- *Amended (owner approved 2026-10-30), D128, D133:* the section also holds an optional
+  "Use Brave Search instead" row (key field, Save key, Remove key; status `key saved` or
+  `not used`), and the status row reads `Brave in use` while a key is saved. The note names
+  DuckDuckGo, Wikipedia, Wikidata and Google News (the kept lineup), and the cloud-search
+  sentence reads "ChatGPT and Claude Code, when they use their own search, are asked to avoid
+  these sites, but Enigma can't enforce it." (D136). The reply footer and gate 3's card name
+  Brave when it ran, and "web search" or "search sites" otherwise (D131).
 - **Settings → Cloud and search → Web search**, formerly "Web search ·
   Brave":
   1. **The automatic switch**, with the subtitle "On by default. Questions
@@ -883,7 +1015,9 @@ Under every reply whose evidence included a `.places` result, on any route.
      read on this Mac without scripts or images. Weather comes from
      Open-Meteo and nearby places from Apple Maps." CP8 adjusts the site
      names to CP0b's lineup, and adds F30's sentence about cloud models'
-     own search.
+     own search. *Amended (owner approved 2026-10-30):* the reading sentence is "Result pages
+     are read on this Mac, up to six at a time, without scripts or images.", since six is the
+     number read at once, not the total.
 - **Welcome, under "Connect what you use".** The search row becomes "Web
   search", with "Used by /search and automatic search, with sources listed"
   and the status `ready · no setup needed`. The key field, the link and the
@@ -909,12 +1043,14 @@ Under every reply whose evidence included a `.places` result, on any route.
 
   | Where | New text |
   | --- | --- |
-  | `SettingsView.locationExplanation` | "When you ask about the weather or nearby places, macOS asks for permission. Search sites get only your city; weather uses coordinates rounded to about 1 km, and Apple Maps gets your approximate area. Nothing is saved and nothing runs in the background." |
+  | `SettingsView.locationExplanation` | "When you ask about the weather or nearby places, macOS asks for permission. The model answering, local or cloud, can get your exact location. Search sites get only your city; weather and Apple Maps get coordinates rounded to about 1 km. Nothing is saved and nothing runs in the background." *(amended, owner, 2026-10-31)* |
   | `EnigmaMainWindowLogic.searchNote` | Ends "…controlled in Settings → Cloud and search → Web search." |
   | `AutoRouter` | "Use /search in your message to look this up on the web." |
   | `EnigmaControls` gallery | The "Brave API key" placeholder becomes "API key" |
 
-- **Removed:**
+- **Removed** (*amended, owner approved 2026-10-30, D128:* only the Debug switch, the key gates,
+  the welcome's key field and the Brave wording are removed; Brave's client, redirect blocker and
+  key storage stay):
   - `BraveSearchClient.swift`, once its shared types have moved;
   - `BraveRedirectBlocker`;
   - `WebSearchCredentialStore` and `KeychainSearchCredentialStore`, apart

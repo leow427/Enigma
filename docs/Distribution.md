@@ -98,15 +98,37 @@ installed copies update themselves through Sparkle. See
 [Updates.md](Updates.md) for the release steps, the update signing key, and
 what users see.
 
-The project is configured for Apple Development signing only. Developer ID
-signing and notarization are not set up; [Updates.md](Updates.md) describes the
-later move. `release.sh` checks every release with the commands above: the
-signature must verify, carry the hardened runtime flag, and keep the previous
-release's designated requirement. A distribution build should not contain
-`com.apple.security.get-task-allow`; `release.sh` stops if the signed app's
-entitlements differ from `Enigma.entitlements`, so it fails if the free team's
-Apple Development signature adds it. Passing tests does not show that a build
-is notarized.
+There are two kinds of signature:
+
+- **Apple Development.** Runs from Xcode and copies built by
+  `scripts/install-app.sh` use the project's automatic signing. They never go
+  through Gatekeeper's download check, so they need no notarization.
+- **Developer ID.** Releases are signed with the team's Developer ID
+  Application certificate, notarized by Apple and stapled by `release.sh`,
+  so a downloaded copy opens without a warning. See
+  [Updates.md](Updates.md#developer-id-and-notarization).
+
+The two have different designated requirements, so replacing an
+`install-app.sh` copy with a release (by download or by a Sparkle update), or
+the other way round, makes macOS ask for every permission again.
+
+The team is `5JXMXR2W9L`, a paid Apple Developer Program membership since
+2026-10-29. It was the free Personal Team before, with the same ID.
+
+`release.sh` checks every release with the commands above. The signature
+must verify, carry the hardened runtime flag and a secure timestamp, and keep
+the previous release's designated requirement. A distribution build should
+not contain `com.apple.security.get-task-allow`; `release.sh` stops if the
+signed app's entitlements differ from `Enigma.entitlements`. Passing tests
+does not show that a build is notarized; `release.sh` checks that with
+`stapler validate` and `spctl --assess`.
+
+To check a downloaded release:
+
+```sh
+spctl --assess --type execute --verbose=2 /Applications/Enigma.app   # "source=Notarized Developer ID"
+xcrun stapler validate /Applications/Enigma.app
+```
 
 Before sharing a build, check with the signed app: a local model, a cloud
 sign-in, screen and selection capture, a nearby or weather question, and

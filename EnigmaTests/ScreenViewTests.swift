@@ -499,7 +499,8 @@ final class ScreenViewTests: XCTestCase {
         $0.flatMap(\.messages).last?.content == "The answer is values.count." + suffix
       }.prefix(1).sink { _ in burst.fulfill() }
       for _ in 0..<80 { stream.continuation.yield(" More detail.") }
-      await fulfillment(of: [burst, bottom], timeout: 5)
+      // 80 fragments with a layout each: 5 s was too short on CI's runners (failed on F29 and F30).
+      await fulfillment(of: [burst, bottom], timeout: 15)
       XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0,
                            "Expected a scroll, visible: \(scroll.documentVisibleRect), document: \(String(describing: scroll.documentView?.bounds))")
       burstToken.cancel()
@@ -610,7 +611,8 @@ final class ScreenViewTests: XCTestCase {
       field.completion?.refresh()
       await Task.yield()
       view.layoutSubtreeIfNeeded()
-      XCTAssertEqual(field.completion?.commands, [.screen, .snapshot, .think, .edit, .translate, .messages])
+      // Retargeted (CP8): /search and /maps are offered with no key.
+      XCTAssertEqual(field.completion?.commands, SlashCommand.allCases)
       XCTAssertEqual(view.convert(field.bounds, from: field), composerFrame,
                      "Suggestions must not resize or move the compact composer")
       XCTAssertEqual(field.font?.pointSize, 15, "The composer's field is 15 pt at every width")
@@ -625,9 +627,8 @@ final class ScreenViewTests: XCTestCase {
         view.cacheDisplay(in: view.bounds, to: menuBitmap)
         menuText = try await ScreenOCRService().recognize(XCTUnwrap(menuBitmap.cgImage)).text.lowercased()
         menuPNG = try XCTUnwrap(menuBitmap.representation(using: .png, properties: [:]))
-      } while !menuText.contains("capture all displays") && ContinuousClock.now < deadline
-      XCTAssertTrue(menuText.contains("capture all displays"), "Suggestions must be visibly rendered: \(menuText)")
-      XCTAssertFalse(menuText.contains("search the web"), "Without a key, search must not be offered")
+      } while !menuText.contains("search the web") && ContinuousClock.now < deadline
+      XCTAssertTrue(menuText.contains("search the web"), "Suggestions must be visibly rendered, search first, with no key: \(menuText)")
       try menuPNG.write(to: URL(fileURLWithPath: "/tmp/Enigma-Slash-Commands-\(Int(size.width)).png"))
       let menuAttachment = XCTAttachment(data: menuPNG, uniformTypeIdentifier: "public.png")
       menuAttachment.name = "Enigma slash commands \(Int(size.width))"
@@ -1150,7 +1151,7 @@ final class ScreenViewTests: XCTestCase {
     try submitComposer(in: fixture.view)
     try await waitForScreenshotState { !fixture.cloudProvider.requests.isEmpty && !fixture.chat.isBusy }
     var queries = await fixture.webSearch.queries
-    XCTAssertEqual(queries, [], "No chip showed after the capture, so the screenshot's text must not reach Brave")
+    XCTAssertEqual(queries, [], "No chip showed after the capture, so the screenshot's text must not reach a search")
     XCTAssertNil(fixture.chat.messages.last?.searchSources)
     XCTAssertTrue(fixture.cloudProvider.requests.last?.messages.last?.content.contains(question) == true)
 
@@ -1182,7 +1183,9 @@ final class ScreenViewTests: XCTestCase {
   /// An Auto question in the panel that Auto can't route starts no request:
   /// the chat stays in the panel, and its details open with the limitation.
   func testAutoLimitationInThePanelOpensTheDetailsWithTheProblem() async throws {
-    let fixture = try await makeScreenshotComposer(compact: true, mode: .auto)
+    // Retargeted (CP8): with no key, a fresh question now searches automatically; automatic search
+    // off keeps the pre-CP8 conditions this limitation needs.
+    let fixture = try await makeScreenshotComposer(compact: true, mode: .auto, automaticSearch: false)
     defer { fixture.controller.hide(); fixture.window.contentView = nil }
     try await editScreenshotComposer("What is the latest news on this?", in: fixture)
     try submitComposer(in: fixture.view)
@@ -1425,6 +1428,7 @@ final class ScreenViewTests: XCTestCase {
                                       provider: CloudProviderID = .openAI,
                                       sessionWriter: ChatSessionWriter? = nil,
                                       response: AsyncThrowingStream<String, Error>? = nil, hasSearchKey: Bool = false,
+                                      automaticSearch: Bool = true,
                                       streamStarted: @escaping @Sendable () -> Void = {}) async throws -> ScreenshotComposerFixture {
     let suite = "ScreenshotComposer-\(UUID())"
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -1441,6 +1445,7 @@ final class ScreenViewTests: XCTestCase {
     let cloudProvider = ComposerScreenProvider()
     let search = WebSearchSettings(credentials: hasSearchKey ? PresenceOnlyCredentials() as any WebSearchCredentialStore
       : PanelSearchCredentials(), defaults: defaults)
+    search.automaticallySearch = automaticSearch
     let webSearch = PanelSearch()
     // Today's plain cloud request: `ComposerScreenProvider` records `stream` only, not a tool loop.
     let chat = LocalChatViewModel(engine: engine,
@@ -1573,9 +1578,10 @@ private struct PanelSearchCredentials: WebSearchCredentialStore {
 
 private actor PanelSearch: WebSearchProvider {
   static let source = WebSearchSource(title: "Code reference", url: URL(string: "https://example.com/code")!)
-  private(set) var queries: [String] = []
-  func search(_ query: String, maximumTokens: Int) async throws -> [WebSearchResult] {
-    queries.append(query)
+  private(set) var requests: [WebSearchRequest] = []
+  var queries: [String] { requests.map(\.query) }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    requests.append(request)
     return [WebSearchResult(source: Self.source, snippets: ["The count property returns the number of elements."])]
   }
 }

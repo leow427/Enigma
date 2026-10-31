@@ -233,11 +233,137 @@ After CP10 is committed:
 
 ## Hand-off
 
-*Filled in by the CP10 worker, including the draft release-note text.*
+*Filled in by the CP10 worker, 2026-10-30. Decisions D164–D170 in
+[overnight-decisions.md](overnight-decisions.md). Built under the owner's D128,
+not this brief's "Brave removed" (D164).*
 
-1. **Summary:**
+1. **Summary:** Tasks 10.1–10.6 are done; the final audit and merge are the
+   owner's. `docs/Web-Search.md` is rewritten: no setup; on-device search as how
+   search works, with Brave as an optional key in Settings for web searches only
+   (places and weather stay on Apple Maps and Open-Meteo); places, weather,
+   `/maps` and the session-only map card; the three tools on capable models with
+   gate 3; F30's provider search kept; sources and "Never use this site"; the
+   §7 recipients table with Wikidata, Google News and Brave rows; how it works
+   in seven steps with every number taken from the code; limitations;
+   maintenance; tests. No key cleanup is documented (D134). The other docs drop
+   Brave as required or default. The full Cloud and search Settings screenshot
+   is regenerated (Paper and Ink). The ddgs watch (script, saved-response tests,
+   weekly workflow) and the stale-lists warning in `release.sh` are in. The
+   notices already credit everything (D168).
 2. **Files:**
-3. **Decisions:**
+   - Docs: `docs/Web-Search.md` (rewritten), `README.md`, `Welcome-and-Settings.md`,
+     `Slash-Commands.md` (`/maps` row, the two tools, no key gate), `Messages.md`
+     (gate 3 row for places and weather), `Local-Model-Selection.md` (D169),
+     `Chat.md` (map card; footer and card text), `Screen-Skill.md`,
+     `Selection-Context.md`, `Cloud-Model-Selection.md` (Auto's message),
+     `Testing.md` (live checks, fixture refresh, evaluation, script tests),
+     `Updates.md` (release step and the warning), `ChatGPT-Setup.md`,
+     `Claude-Code-Setup.md`.
+   - Screenshots: `docs/design/ui-revamp/screenshots/phase-5/settings-cloud-full-{paper,ink}.png`.
+   - New: `scripts/check-ddgs-upstream.py`, `scripts/check-search-lists-age.py`,
+     `scripts/tests/test_check_ddgs_upstream.py`,
+     `scripts/tests/test_check_search_lists_age.py`,
+     `scripts/tests/fixtures/ddgs-upstream/{changed,unchanged}/`,
+     `.github/workflows/ddgs-watch.yml`.
+   - Changed: `scripts/release.sh` (one warning line in preflight).
+   - Plan: this Hand-off, the progress row, decisions D164–D170.
+3. **Decisions:** D164 (docs follow D128; numbers from the code; audit left to
+   the owner), D165 (the watch compares blob SHAs; a removed file counts as
+   changed; `--upstream` added for tests), D166 (one issue, edited in place; label
+   created with `--force`; `persist-credentials: false`), D167 (the warning never
+   blocks, even without `python3`), D168 (no notices for Wikidata or Google News),
+   D169 (no tool-choice scores exist for the new tools), D170 (`to-do.md` and the
+   map card image left for the owner); review round 1: D171–D172 (orchestrator's),
+   D173 (the fixes).
 4. **Verification:**
+   - Python tests: `python3 -I -B -m unittest discover -s scripts/tests`, 94 run,
+     OK (RED first: the 2 new modules failed to import before the scripts existed).
+     New: 7 for the watch (`test_detects_changed_files`,
+     `test_no_change_reports_empty`, `test_compare_url`, removed file, errors,
+     unreadable `UPSTREAM.json`, API URLs) and 4 for the warning
+     (`test_warns_after_sixty_days`, `test_quiet_within_sixty_days`, unreadable and
+     missing manifest).
+   - Live: `python3 -I scripts/check-ddgs-upstream.py` (api.github.com only)
+     printed `{"tag": "v9.16.1", "changed": [], ...}`, exit 0.
+     `scripts/check-search-lists-age.py` is quiet today (lists generated
+     2026-10-30) and warns at 94 days with `--today 2027-02-01`.
+   - Review round 1 (no Blocker; D171–D173): the fixture API now requires the
+     latest tag as the contents ref; mutants "no ref" (3 failures, 1 error) and
+     "ref = recorded tag" (1 failure, 1 error) fail and were restored. Six new
+     offline tests (`LiveAPI` with `urlopen` patched: 404, other errors, no token
+     header, token header; empty `files`; non-GitHub repository). Python tests
+     after the fixes: 100 run, OK. Docs fixed for gate 3's shared grant, Apple's
+     reverse geocoding (spec §7 amended, owner to confirm), and the nits.
+   - `sh -n scripts/release.sh`: OK. The workflow parses as YAML; `actionlint`
+     isn't installed.
+   - Snapshot: `EnigmaSettingsTests/testSaveSettingsScreenshots` alone, 1 test,
+     0 failures; both full Cloud images looked at: the Web search section shows
+     `ready`, the optional Brave row `not used` with an empty key field, the
+     blocked-sites note and the DuckDuckGo/Wikipedia/Wikidata/Google News note.
+     No private info: fixture settings, no account, no key, no home path.
+   - `scripts/verify-xcode.sh build`: succeeded. No Swift changed, so no test
+     classes, `test` or `analyze` were run.
+   - `grep -rni brave docs/*.md`: Brave appears only as the optional key (Web
+     Search, Welcome and Settings, Slash Commands, Messages, Chat), the opt-in
+     Brave comparison in Testing, and the Brave browser in Selection Context.
 5. **Limitations:**
+   - No review round on CP10.
+   - The map card has no screenshot (CP9 Task 9.4 is the owner's).
+   - The workflow hasn't run on GitHub; `actionlint` wasn't available.
+   - `Local-Model-Selection.md` has no scores for `find_places` and `get_weather`:
+     Task 7.5 wasn't run.
+   - `Web-Search.md`'s quality statement relies on CP7's typed half only
+     (on-device 26, Brave 32, tie 2 of 60).
 6. **For the owner:**
+   - **Release note draft** (put it in `docs/release-notes/<version>.md` once you
+     pick the version, under `# Enigma <version>`):
+
+     > ### Web search on your Mac
+     >
+     > - Web search now works with no setup and no key. Enigma searches
+     >   DuckDuckGo and Wikipedia, reads the result pages on your Mac, and lists
+     >   the sources under each answer. Wikidata adds dated facts, and Google
+     >   News adds headlines for news questions.
+     > - Nearby places come from Apple Maps, with a map card under the reply,
+     >   and the weather comes from Open-Meteo. Type `/maps` to look up places.
+     > - Right-click a source and choose **Never use this site** to stop Enigma
+     >   using it. Blocked sites are listed in Settings → Cloud and search → Web
+     >   search.
+     > - Have a Brave Search key? It still works: while it's saved, web searches
+     >   go to Brave instead.
+
+   - **Final audit, adapted to D128** (signed build from Xcode or
+     `scripts/install-app.sh`):
+     - with no Brave key, first launch shows Web search `ready · no setup needed`
+       in the welcome and `ready` in Settings; searches work on Local, Cloud,
+       Auto and Screen, and the footer says "web search";
+     - with a Brave key saved, Settings shows `Brave in use`, a web search uses
+       Brave (footer "brave search"), while "cafe near me" and "will it rain
+       tomorrow" still use Apple Maps and Open-Meteo; removing the key goes back
+       to on-device search on the next search;
+     - on a small and a capable model: "cafe near me" and `/maps bookshops` show
+       the map card; "will it rain tomorrow" uses Open-Meteo; "what is the
+       temperature to bake salmon" doesn't;
+     - after a Messages read, a search, a places lookup and a weather check each
+       ask first, naming search sites (or Brave), Apple Maps and Open-Meteo;
+     - on ChatGPT or Claude Code, a web question uses the provider's search and
+       a nearby question uses `find_places`;
+     - "Never use this site" and Undo work, and Settings lists and removes
+       blocked sites;
+     - Console (category `search`) shows no queries or URLs; Stop during a
+       search cancels at once;
+     - CP9's map card checks (Recents relaunch, scroll, pins, Open in Maps,
+       attribution, Paper and Ink, far-apart places).
+   - **Verification left:** `scripts/verify-xcode.sh test` (full suite, screen
+     unlocked) and `analyze`; the live checks with
+     `TEST_RUNNER_ENIGMA_LIVE_SEARCH=1`; then the PR, CI and merge.
+   - **Map card screenshot:** from the signed app (CP9 Task 9.4), saved as
+     `docs/design/ui-revamp/screenshots/phase-7/map-card-{paper,ink}.png` or
+     similar, then linked under "Places and weather" in `Web-Search.md` and in
+     `Chat.md`'s conversation bullet.
+   - **ddgs watch:** after the merge, run it once from the Actions tab
+     (`workflow_dispatch`) and check it ends with "No ported file changed."
+   - **`to-do.md`:** mark F29 done after the merge (unchanged here, D170).
+   - **Owner calls:** whether to add a courtesy Wikidata line to the notices
+     (D168); confirm spec §7's amended Apple row (reverse geocoding for every
+     nearby question, D171).

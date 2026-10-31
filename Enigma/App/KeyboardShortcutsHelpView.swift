@@ -3,7 +3,6 @@ import SwiftUI
 /// Help: every shortcut, as hairline rows with monospace keys, and the
 /// selection shortcut settings.
 struct KeyboardShortcutsHelpView: View {
-  @ObservedObject var searchSettings: WebSearchSettings
   @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
   @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
   @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleTapEnabled = true
@@ -103,11 +102,10 @@ struct KeyboardShortcutsHelpView: View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("In the chat panel")
       ForEach(KeyboardShortcutsHelp.panel, id: \.self) { row($0) }
-      if searchSettings.hasAPIKey {
-        row(KeyboardShortcutsHelp.search)
-        EnigmaHairline()
-        EnigmaNote(KeyboardShortcutsHelp.searchNote).padding(.vertical, 10)
-      }
+      row(KeyboardShortcutsHelp.search)
+      row(KeyboardShortcutsHelp.maps)
+      EnigmaHairline()
+      EnigmaNote(KeyboardShortcutsHelp.searchNote).padding(.vertical, 10)
       ForEach(KeyboardShortcutsHelp.commands, id: \.self) { row($0) }
       EnigmaHairline()
       EnigmaNote(KeyboardShortcutsHelp.commandsNote()).padding(.top, 10)

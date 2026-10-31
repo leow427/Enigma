@@ -209,7 +209,7 @@ struct AppShellView: View {
       ZStack {
         if welcomeSetup.tour != nil {
           WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-            availableCommands: SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey))
+            availableCommands: SlashCommand.available())
             .clipShape(windowShape)
             .transition(.opacity)
         }
@@ -374,6 +374,8 @@ struct AppShellView: View {
 
   var body: some View {
     characterObservedShell
+    // "Never use this site" on source rows, for the main window and the compact panel (spec §8).
+    .environment(\.sourceBlocking, SourceBlocking(settings: searchSettings))
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
         .enigmaTheme(appearance.appearance)
@@ -414,7 +416,7 @@ struct AppShellView: View {
       }
     }
     .sheet(isPresented: $shell.isHelpPresented) {
-      KeyboardShortcutsHelpView(searchSettings: searchSettings)
+      KeyboardShortcutsHelpView()
         .enigmaTheme(appearance.appearance)
     }
     .sheet(isPresented: $shell.isWhatsNewPresented) {
@@ -818,7 +820,7 @@ struct AppShellView: View {
                                      hasAttachments: screen.attachment != nil || files.selection != nil)
   }
 
-  private var availableCommands: [SlashCommand] { SlashCommand.available(hasSearchKey: searchSettings.hasAPIKey) }
+  private var availableCommands: [SlashCommand] { SlashCommand.available() }
 
   /// Send is available for a draft the selected route can take.
   private var canSendDraft: Bool {
@@ -1011,6 +1013,10 @@ struct AppShellView: View {
         }
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)
+    case .nothingToFind:
+      messages.report(ComposerSubmission.nothingToFindMessage)
+    case .mapsConflict:
+      messages.report(ComposerSubmission.mapsConflictMessage)
     case .messages(let prompt):
       submitMessages(prompt)
     case .captureScreen:
@@ -1066,7 +1072,7 @@ struct AppShellView: View {
     let intent = ComposerIntent.resolve(intentContext(draft: message.text, hasFileSelection: false, hasScreenshot: false,
                                                       dismissed: message.dismissed))
     switch ComposerSubmission.plan(intent, hasFileSelection: false, hasScreenshot: false, canSubmit: canSubmit) {
-    case .none, .captureScreen, .screenAttachment, .fileConflict, .files:
+    case .none, .captureScreen, .screenAttachment, .fileConflict, .files, .nothingToFind, .mapsConflict:
       return
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)

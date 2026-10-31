@@ -102,7 +102,7 @@ struct AssistantActivityView: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(height: min(CGFloat(activity.sources.count) * ActivitySourceRow.height, 260))
         .enigmaTestMarker("Activity sources")
-      } else if activity.phase == .searching {
+      } else if activity.phase.isSearching {
         Text("Waiting for search results…")
           .font(EnigmaTypography.mono(11))
           .foregroundStyle(palette.textSecondary.color)
@@ -140,25 +140,52 @@ private struct EnigmaVerticalHairline: View {
 
 /// A web source as a plain row that opens the page: its title, then the site
 /// and whether it was used, then the address, in monospace.
+extension EnvironmentValues {
+  /// "Never use this site" for source rows (spec §8); nil offers no action.
+  @Entry var sourceBlocking: SourceBlocking? = nil
+}
+
 private struct ActivitySourceRow: View {
   static let height: CGFloat = 62
 
   let source: WebSearchSource
   let detail: String
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.sourceBlocking) private var blocking
   @FocusState private var isFocused: Bool
   @State private var isHovered = false
+  /// The domain this row blocked, until Undo or the panel closes.
+  @State private var blockedDomain: String?
+
+  /// The blocking actions this row offers: none for Apple Maps, Open-Meteo, or without the environment.
+  private var offeredBlocking: SourceBlocking? { source.allowsBlocking ? blocking : nil }
 
   var body: some View {
+    HStack(alignment: .center, spacing: 6) {
+      link
+      if let blockedDomain, let blocking = offeredBlocking {
+        Button("Undo") {
+          blocking.unblock(blockedDomain)
+          self.blockedDomain = nil
+        }
+        .enigmaButtonStyle(.text)
+        .accessibilityLabel("Undo blocking \(blockedDomain)")
+      }
+    }
+    .overlay(alignment: .bottom) { EnigmaHairline() }
+  }
+
+  private var link: some View {
     let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
-    Link(destination: source.url) {
+    let line = blockedDomain == nil ? source.siteName + " · " + detail : source.siteName + " · blocked"
+    return Link(destination: source.url) {
       HStack(alignment: .top, spacing: 8) {
         VStack(alignment: .leading, spacing: 2) {
           Text(source.title.isEmpty ? source.siteName : source.title)
             .font(EnigmaTypography.ui(12.5, weight: .medium))
             .foregroundStyle(palette.textPrimary.color)
             .lineLimit(1)
-          Text(source.siteName + " · " + detail)
+          Text(line)
             .font(EnigmaTypography.mono(10.5))
             .foregroundStyle(palette.textSecondary.color)
             .lineLimit(1)
@@ -183,9 +210,23 @@ private struct ActivitySourceRow: View {
     .focused($isFocused)
     .focusEffectDisabled()
     .enigmaFocusRing(isFocused, palette: palette, cornerRadius: 6, outset: 0)
-    .overlay(alignment: .bottom) { EnigmaHairline() }
     .onHover { isHovered = $0 }
     .help(source.url.absoluteString)
-    .accessibilityLabel("\(source.title), \(source.siteName), \(detail)")
+    .accessibilityLabel("\(source.title), \(line)")
+    .contextMenu {
+      if let blocking = offeredBlocking, blockedDomain == nil {
+        Button(blocking.neverUseLabel(for: source.url)) { block(blocking) }
+      }
+    }
+    .accessibilityActions {
+      if let blocking = offeredBlocking, blockedDomain == nil {
+        Button(blocking.neverUseLabel(for: source.url)) { block(blocking) }
+      }
+    }
+  }
+
+  private func block(_ blocking: SourceBlocking) {
+    blockedDomain = blocking.domain(source.url)
+    blocking.block(source.url)
   }
 }

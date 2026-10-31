@@ -42,6 +42,12 @@ struct ConversationTranscript: Equatable {
 
     var slot: EnigmaCharacterSlotID { ConversationTranscript.slot(forReply: id) }
 
+    /// The map card's pins, once the reply has finished (spec §6.6).
+    var mapPins: [MapPin]? {
+      guard !isInProgress, let places = message?.mapPlaces, !places.isEmpty else { return nil }
+      return MapCard.pins(for: places, reply: content)
+    }
+
     /// The reply used web sources.
     var searched: Bool {
       !(activity?.sources.isEmpty ?? true) || !(message?.searchSources?.isEmpty ?? true)
@@ -158,8 +164,8 @@ struct ReplySlotPlacement: Equatable {
 
 /// The monospace line under a finished reply: `model · where it ran · time`,
 /// from what the reply recorded. A reply from an earlier session didn't record
-/// its model, so it shows only what it has, and doesn't know which search it used
-/// (Brave or the provider's own, F30), so its search is just "web search".
+/// its model, so it shows only what it has. Search reads "brave search" only when Brave answered
+/// (a Brave key was saved, D131); on-device and the provider's own search are "web search".
 enum ReplyMetaLine {
   static func text(origin: ReplyOrigin?, searched: Bool, date: Date, now: Date = .now,
                    calendar: Calendar = .current, locale: Locale = .current) -> String {
@@ -168,7 +174,7 @@ enum ReplyMetaLine {
       if !origin.modelName.isEmpty { parts.append(origin.modelName) }
       parts.append(place(origin))
     }
-    if searched { parts.append(origin?.providerSearch == false ? "brave search" : "web search") }
+    if searched { parts.append(origin?.braveSearch == true ? "brave search" : "web search") }
     parts.append(time(date, now: now, calendar: calendar, locale: locale))
     return parts.joined(separator: " · ")
   }
