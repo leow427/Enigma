@@ -1,6 +1,13 @@
 import Foundation
 
 struct GeminiContentClient: ChatProvider {
+  /// Gemini 3 thinks at medium unless told otherwise, which held free replies for up to 40 s,
+  /// so it gets low (the lowest every 3.x Flash accepts) and high only for /think.
+  static func thinkingConfig(model: String, thinks: Bool) -> [String: Any]? {
+    if model.hasPrefix("gemini-3") { return ["thinkingLevel": thinks ? "high" : "low"] }
+    return thinks ? ["thinkingBudget": 2_048] : nil
+  }
+
   let credentialStore: any CloudCredentialStore
   let transport: any CloudNetworkTransport
 
@@ -18,7 +25,7 @@ struct GeminiContentClient: ChatProvider {
           wire.setValue(key, forHTTPHeaderField: "x-goog-api-key")
           wire.setValue("application/json", forHTTPHeaderField: "Content-Type")
           var generationConfig: [String: Any] = ["maxOutputTokens": prepared.budget.outputTokens]
-          if ThinkCommand.enabled(in: prepared.messages) { generationConfig["thinkingConfig"] = model.hasPrefix("gemini-3") ? ["thinkingLevel": "high"] : ["thinkingBudget": 2_048] }
+          generationConfig["thinkingConfig"] = Self.thinkingConfig(model: model, thinks: ThinkCommand.enabled(in: prepared.messages))
           wire.httpBody = try JSONSerialization.data(withJSONObject: [
             "contents": MultimodalSerialization.messages(prepared.messages, image: request.image, format: .gemini),
             "generationConfig": generationConfig,

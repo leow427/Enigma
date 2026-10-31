@@ -209,6 +209,14 @@ final class FreeModelsTests: XCTestCase {
     XCTAssertEqual(settings.preferredModelID, "some-next-model")
   }
 
+  /// Gemini 3 models think at medium by default, which held a free "hi" for 40 s; only /think asks for more.
+  func testGemini3ThinksLowUnlessAskedToThink() {
+    XCTAssertEqual(GeminiContentClient.thinkingConfig(model: "gemini-3.8-flash", thinks: false) as NSDictionary?, ["thinkingLevel": "low"])
+    XCTAssertEqual(GeminiContentClient.thinkingConfig(model: "gemini-3.5-flash-lite", thinks: true) as NSDictionary?, ["thinkingLevel": "high"])
+    XCTAssertNil(GeminiContentClient.thinkingConfig(model: "gemini-2.5-flash", thinks: false))
+    XCTAssertEqual(GeminiContentClient.thinkingConfig(model: "gemini-2.5-flash", thinks: true) as NSDictionary?, ["thinkingBudget": 2_048])
+  }
+
   // MARK: - Task 5: Auto and the all-out route
 
   @MainActor
