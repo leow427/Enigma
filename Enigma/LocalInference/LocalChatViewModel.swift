@@ -2588,6 +2588,8 @@ extension LocalChatViewModel {
         }
         try? await Task.sleep(for: .milliseconds(script.phaseDuration))
       }
+      // A cancel wakes the last phase's sleep; the reply must not take the chat back.
+      guard !Task.isCancelled else { return }
       activity.apply(.phase(.generating))
       update({ $0.activity = activity }, id: replyID)
       state = .streaming
@@ -2599,6 +2601,7 @@ extension LocalChatViewModel {
         update({ $0.content = text }, id: replyID)
         try? await Task.sleep(for: .milliseconds(45))
       }
+      guard !Task.isCancelled else { return }
       activity.apply(.phase(.completed))
       update({
         $0.activity = activity

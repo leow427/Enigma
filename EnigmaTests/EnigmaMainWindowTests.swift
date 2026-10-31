@@ -1152,6 +1152,26 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(tour.stepIndex, 0, "The old reply's finish didn't take a step here")
   }
 
+  /// A reply left during its last phase stays stopped: the chat is still free
+  /// a moment later, not taken back by the reply waking up.
+  @MainActor
+  func testLeavingDuringAReplysLastPhaseKeepsTheChatFree() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.code)
+    try await waitForUI("the coding question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the one-phase reply thinking", in: host.view, timeout: .seconds(5)) {
+      tour.beat == .playing && fixture.chat.isBusy
+    }
+    tour.go(.files)
+    try await Task.sleep(for: .seconds(2))
+    XCTAssertFalse(fixture.chat.isBusy, "The cancelled reply didn't take the chat back")
+  }
+
   /// A tour demo plays in a temporary chat: nothing it says reaches Recents.
   @MainActor
   func testNoTourChatReachesRecents() async throws {
