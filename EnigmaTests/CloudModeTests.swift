@@ -292,17 +292,17 @@ final class CloudModeTests: XCTestCase {
   func testFreeReplyLabelNamesTheModelThatAnswered() async throws {
     let root = FileManager.default.temporaryDirectory.appending(path: "FreeLabel-\(UUID())")
     defer { try? FileManager.default.removeItem(at: root) }
-    let gemini = ScriptedFreeProvider(["gemini-2.5-pro": .fail(CloudProviderError.rateLimited(.gemini))])
+    let gemini = ScriptedFreeProvider(["gemini-2.5-flash": .fail(CloudProviderError.rateLimited(.gemini))])
     let registry = CloudProviderRegistry(
       credentialStore: MockCredentialStore(keys: [:]), transport: MockCloudTransport(),
-      free: FreeModelPool(gemini: gemini, apple: nil, models: { ["gemini-2.5-pro", "gemini-2.5-flash"] },
+      free: FreeModelPool(gemini: gemini, apple: nil, models: { ["gemini-2.5-flash", "gemini-3.8-flash"] },
                           allowsGeminiInAuto: { false }, onSwitch: { _ in }))
     let viewModel = LocalChatViewModel(
       engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
       cloudProviders: registry, sessionStore: ChatSessionStore(applicationSupportDirectory: root), nativeToolsEnabled: false)
-    viewModel.submitCloud("hello", provider: .free, modelID: "gemini-2.5-pro")
+    viewModel.submitCloud("hello", provider: .free, modelID: "gemini-2.5-flash")
     for _ in 0..<300 where viewModel.isBusy || viewModel.messages.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
-    XCTAssertEqual(viewModel.messages.last?.origin?.modelName, "Gemini 2.5 Flash")
+    XCTAssertEqual(viewModel.messages.last?.origin?.modelName, "Gemini 3.8 Flash")
   }
 
   @MainActor
@@ -320,7 +320,7 @@ final class CloudModeTests: XCTestCase {
       engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
       cloudProviders: registry, sessionStore: ChatSessionStore(applicationSupportDirectory: root), nativeToolsEnabled: false)
     viewModel.submitAuto("Write a Swift function that parses ISO dates",
-      cloud: AutoRouter.CloudConfiguration(provider: .free, modelID: "gemini-2.5-pro", modelDisplayName: "Gemini 2.5 Pro"))
+      cloud: AutoRouter.CloudConfiguration(provider: .free, modelID: "gemini-3.8-flash", modelDisplayName: "Gemini 3.8 Flash"))
     await fulfillment(of: [marked], timeout: 2)
   }
 
@@ -368,7 +368,7 @@ final class CloudModeTests: XCTestCase {
       viewModel.selectSession(id: store.load()[0].id)
       var draft = "current"
       // Free models only send a model that is set up (F34).
-      viewModel.submitCloud(draft, provider: provider, modelID: provider == .free ? "gemini-2.5-pro" : "manual",
+      viewModel.submitCloud(draft, provider: provider, modelID: provider == .free ? "gemini-3.8-flash" : "manual",
                             onAccepted: { draft = "" })
       XCTAssertEqual(draft, "")
       await fulfillment(of: [ended], timeout: 2)

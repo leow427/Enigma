@@ -24,11 +24,12 @@ The same key also serves the **Gemini** API provider under **› Advanced**.
 
 The free models, most capable first:
 
-1. Gemini 2.5 Pro
+1. Gemini 3.8 Flash
 2. Apple's cloud model (macOS 27, once available; text only, skipped for a
    request with an image)
-3. Gemini 2.5 Flash
-4. Gemini 2.5 Flash-Lite
+
+Older Gemini models are left out on purpose (owner, 2026-10-31). A saved choice
+of a model that's no longer offered moves to the top one.
 
 A request goes to the model you chose in ⌘K or **› Advanced**. If that model:
 

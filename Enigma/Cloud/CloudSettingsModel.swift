@@ -605,6 +605,8 @@ final class CloudSettingsModel: ObservableObject {
   /// Free models are listed from what is set up on this Mac, without a network call.
   private func showFreeModels() {
     models = FreeModelCatalog.available(hasGeminiKey: hasAPIKey(for: .gemini), appleAvailable: isApplePCCAvailable)
+    // A free model dropped from the catalogue stops being the choice.
+    if preferredProvider == .free, !models.isEmpty, !models.contains(where: { $0.id == preferredModelID }) { preferredModelID = "" }
     hasLoadedModelList = true
     discoveryError = nil
     selectDefaultModelIfNeeded()
