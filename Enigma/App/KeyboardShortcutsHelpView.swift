@@ -3,16 +3,10 @@ import SwiftUI
 /// Help: every shortcut, as hairline rows with monospace keys, and the
 /// selection shortcut settings.
 struct KeyboardShortcutsHelpView: View {
-  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
-  @AppStorage(SelectionShortcutMonitor.modifierKey) private var selectionModifier = SelectionModifier.option.rawValue
-  @AppStorage(SelectionShortcutMonitor.enabledKey) private var doubleTapEnabled = true
-  @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
   @Environment(\.dismiss) private var dismiss
   @Environment(\.enigmaPalette) private var palette
 
   static let size = CGSize(width: 500, height: 540)
-
-  private var modifier: SelectionModifier { SelectionModifier(rawValue: selectionModifier) ?? .option }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -30,13 +24,7 @@ struct KeyboardShortcutsHelpView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
       ScrollView {
-        VStack(alignment: .leading, spacing: 0) {
-          anywhere
-          inThePanel
-          editing
-          EnigmaHint(KeyboardShortcutsHelp.legend)
-            .padding(.top, 14)
-        }
+        KeyboardShortcutsList()
         .padding(.horizontal, 28)
         .padding(.bottom, 16)
       }
@@ -63,25 +51,40 @@ struct KeyboardShortcutsHelpView: View {
     .enigmaMenuHost()
     .onExitCommand { dismiss() }
   }
+}
+
+/// Every shortcut and the selection shortcut's settings: in Help, and on
+/// Settings → Shortcuts.
+struct KeyboardShortcutsList: View {
+  @ObservedObject private var selectionAccess = SelectionAccessibilityAccess.shared
+  @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
+  @Environment(\.enigmaPalette) private var palette
+
+  private var modifier: SelectionModifier {
+    ShortcutStore.shared.binding(.selection).flatMap { SelectionModifier(flags: $0.flags) } ?? .option
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      anywhere
+      inThePanel
+      editing
+      EnigmaHint(KeyboardShortcutsHelp.legend)
+        .padding(.top, 14)
+    }
+  }
 
   private var anywhere: some View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("Anywhere on your Mac")
       row(KeyboardShortcutsHelp.selectionChat(modifier: modifier))
       row(KeyboardShortcutsHelp.selectionBackup)
-      EnigmaRow("Double-tap shortcut") {
-        EnigmaSwitch("Double-tap shortcut", isOn: $doubleTapEnabled)
-      }
-      EnigmaRow("Selection shortcut key") {
-        EnigmaMenu("Selection shortcut key", selection: $selectionModifier,
-                   options: SelectionModifier.allCases.map { EnigmaOption($0.rawValue, "\($0.title) \($0.symbol)") })
-      }
       EnigmaRow("Double-tap interval") {
         EnigmaMenu("Double-tap interval", selection: $doubleTapInterval,
                    options: KeyboardShortcutsHelp.intervals.map { EnigmaOption($0.seconds, $0.title) })
       }
       EnigmaHairline()
-      EnigmaNote(KeyboardShortcutsHelp.selectionKeyNote).padding(.top, 10)
+      EnigmaNote("Change any shortcut in Settings → Shortcuts.").padding(.top, 10)
       EnigmaNote(KeyboardShortcutsHelp.selectionNote).padding(.top, 6)
       VStack(alignment: .leading, spacing: 8) {
         EnigmaStatusLine(selectionAccess.isGranted ? .on : .off,
@@ -92,7 +95,7 @@ struct KeyboardShortcutsHelpView: View {
       }
       .padding(.top, 12)
       .padding(.bottom, 4)
-      row(KeyboardShortcutsHelp.showOrHide)
+      row(KeyboardShortcutsHelp.summon(.shared))
       EnigmaHairline()
       EnigmaNote(KeyboardShortcutsHelp.showOrHideNote).padding(.vertical, 10)
     }
@@ -101,7 +104,7 @@ struct KeyboardShortcutsHelpView: View {
   private var inThePanel: some View {
     VStack(alignment: .leading, spacing: 0) {
       EnigmaSectionHeader("In the chat panel")
-      ForEach(KeyboardShortcutsHelp.panel, id: \.self) { row($0) }
+      ForEach(KeyboardShortcutsHelp.windowShortcuts(.shared), id: \.self) { row($0) }
       row(KeyboardShortcutsHelp.search)
       row(KeyboardShortcutsHelp.maps)
       EnigmaHairline()

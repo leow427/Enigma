@@ -1,6 +1,7 @@
 import AppKit
+import Combine
 
-enum PanelShortcut: Equatable {
+enum PanelShortcut: String, CaseIterable, Equatable {
   case newChat
   case modePalette
   case stopStreaming

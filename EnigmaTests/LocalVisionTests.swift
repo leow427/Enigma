@@ -157,7 +157,7 @@ final class LocalVisionTests: XCTestCase {
     let image = PreparedScreenImage(data: Data([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg", pixelWidth: 10, pixelHeight: 10)
     XCTAssertNoThrow(try LlamaServerVisionEngine.prepare(messages: [ChatMessage(role: .user, content: "Define serendipity.")], image: nil, model: restored))
     XCTAssertThrowsError(try LlamaServerVisionEngine.prepare(messages: [ChatMessage(role: .user, content: "Describe the shapes.")], image: image, model: restored)) { error in
-      XCTAssertTrue(error.localizedDescription.contains("Settings → Local models"))
+      XCTAssertTrue(error.localizedDescription.contains("Settings → On this Mac"))
       XCTAssertTrue(error.localizedDescription.contains("draft has been kept"))
     }
     var repaired = restored
@@ -586,7 +586,7 @@ final class LocalVisionTests: XCTestCase {
     add(attachment)
     try png.write(to: URL(fileURLWithPath: "/tmp/ai-spotlight-vision-download-preview.png"))
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text
-    XCTAssertTrue(text.contains("Local models"), text)
+    XCTAssertTrue(text.contains("On this Mac"), text)
     XCTAssertFalse(text.contains("Image understanding"), text)
     XCTAssertTrue(text.contains("For this Mac"), text)
     XCTAssertTrue(text.contains("All models"), text)

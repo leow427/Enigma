@@ -149,7 +149,7 @@ and ChatGPT via Codex), **Anthropic** (the Anthropic API and Claude Code) or
   lasts until you delete the chat or quit Enigma, including when you go back
   to the chat from Recents; after Enigma restarts, the chat asks again.
 - **Always:** saved in Enigma's settings (not the Keychain; it isn't a secret)
-  and listed under **Settings → General → Messages → Always allowed**, one row
+  and listed under **Settings → Approvals**, one row
   per grant with a **Remove** button.
 
 A card shows a query on one line, with hidden characters shown as `�`, and the
@@ -245,7 +245,7 @@ the build Xcode launches):
 | **Automation → Messages** | Sending messages | macOS asks the first time you approve a send. If you declined, open System Settings → Privacy & Security → Automation, expand Enigma, and turn on Messages. |
 | **Contacts** (optional) | Showing names instead of phone numbers, and finding people by name | macOS asks the first time you use `/messages`. To change it later, open System Settings → Privacy & Security → Contacts. |
 
-**Settings → General → Messages · /messages** shows the status of Full Disk
+**Settings → Permissions → Messages** shows the status of Full Disk
 Access and Contacts, with an **Open Settings…** button while either is missing,
 and an **Open Settings…** button for Automation. The rows refresh when you
 return to Enigma. See [Welcome-and-Settings.md](Welcome-and-Settings.md).
@@ -269,12 +269,12 @@ different signing identity, such as the unsigned product of
 
 - **Local** keeps Messages on this Mac, and so does **Auto** for a typed
   `/messages` or a chat that already holds message text. They need an
-  installed local model and the `llama-server` runtime: **Settings → Local
-  models → Files → Local file tools → Install**. When Auto picks the cloud for
+  installed local model and the `llama-server` runtime: **Settings → On this
+  Mac → Files → Local file tools → Install**. When Auto picks the cloud for
   a message (a coding request, say), a model that chooses its own tools can
   read a chat there, after a card that names the company the text goes to.
 - **Cloud** uses the preferred cloud provider and model from
-  **Settings → Cloud and search**. Every provider is supported: OpenAI,
+  **Settings → Cloud**. Every provider is supported: OpenAI,
   Anthropic, and Gemini API keys, ChatGPT through Codex, and Claude through
   Claude Code.
 
@@ -333,7 +333,7 @@ The capability lives in `Enigma/Messages/`:
 | `MessagesTools.swift` | The tool definitions, instructions, argument validation, recipient resolution, and the send ledger. Shared by every model route. |
 | `MessagesCoordinator.swift` | Holds the pending send approval, the problem shown in chat, and the per-provider cloud consent. |
 | `MessagesCards.swift`, `MessagesControls.swift` | The approval and problem cards, the cloud consent alert, and the permission status text. |
-| `MessagesSettingsSection.swift` | The Messages rows in Settings → General, and the **Always allowed** list. |
+| `MessagesSettingsSection.swift` | The Messages page, its rows in Settings → Permissions, and the **Always allowed** list in Settings → Approvals. |
 | `MessagesAccessGate.swift` | `MessagesAccessGate`, which `MessagesTools` asks before returning message text on flagged routes, and `CoordinatorMessagesGate`, which answers it with the permission cards. |
 
 The permission cards live in `Enigma/Chat/`: `ToolPermissions.swift`

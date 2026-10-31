@@ -168,6 +168,11 @@ enum EnigmaTypography {
     .system(size: size, weight: weight, design: .monospaced)
   }
 
+  /// Status, stats, and metadata: mono in the chat, the UI font in Settings.
+  static func detail(_ size: CGFloat = 11.5, weight: Font.Weight = .regular, settings: Bool) -> Font {
+    settings ? ui(size, weight: weight) : mono(size, weight: weight)
+  }
+
   // MARK: SF Symbols
 
   /// An SF Symbol, always at `.regular`: the weight whose line matches the

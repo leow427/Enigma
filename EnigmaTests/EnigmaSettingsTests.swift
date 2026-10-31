@@ -14,6 +14,14 @@ final class EnigmaSettingsTests: XCTestCase {
   // MARK: Mac capabilities
 
   @MainActor
+  func testSettingsCardsGroupRowsBetweenHeadingsAndClosingLines() {
+    // A heading (end), two rows, a closing line, a stray line, then one row closed by the next heading.
+    let cards = SettingsCardsBackground.cards([(.end, 0), (.row, 50), (.row, 10), (.end, 90),
+                                               (.end, 91), (.row, 120), (.end, 160)])
+    XCTAssertEqual(cards, [.init(top: 10, bottom: 90, dividers: [50]), .init(top: 120, bottom: 160, dividers: [])])
+  }
+
+  @MainActor
   func testHardwareDetailsNameCPUsAndMetal() {
     var hardware = LocalHardwareProfile(physicalMemory: 16 * gib, isAppleSilicon: true, hasMetal: true,
       hasUnifiedMemory: true, chip: "Fixture chip", device: "Fixture Mac", cpuCount: 10, performanceCPUCount: 4,
@@ -191,6 +199,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     let size = SettingsView.windowSize
     for destination in SettingsView.SettingsDestination.allCases {
+      try EnigmaSnapshot.save("settings-\(destination)", size: size) { fixture.settings(destination) }
       for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
         let label = "\(destination) in \(appearance)"
         let image = try EnigmaSnapshot.render(fixture.settings(destination).enigmaTheme(appearance), size: size)
@@ -210,8 +219,9 @@ final class EnigmaSettingsTests: XCTestCase {
     for destination in SettingsView.SettingsDestination.allCases {
       let image = try EnigmaSnapshot.render(fixture.settings(destination, size: size).enigmaTheme(.paper),
                                             size: size, scale: 1)
-      let left = SettingsView.navigationWidth + 18
-      let right = size.width - 23
+      // Cards reach 14 pt into the 30 pt margins.
+      let left = SettingsView.navigationWidth + 10
+      let right = size.width - 10
       for y in stride(from: 4.0, to: size.height - 4, by: 6) {
         for x in [left, right] {
           let color = try EnigmaSnapshot.pixel(image, at: CGPoint(x: x, y: y))
@@ -250,15 +260,88 @@ final class EnigmaSettingsTests: XCTestCase {
     }
   }
 
-  func testDiscoverIsGoneAndItsOldNameOpensLocalModels() {
-    typealias Destination = SettingsView.SettingsDestination
-    XCTAssertEqual(Destination.allCases.map(\.rawValue), ["general", "local", "cloud", "selection"])
-    XCTAssertEqual(Destination.requested("discover"), .local)
-    XCTAssertEqual(Destination.requested("local"), .local)
-    XCTAssertEqual(Destination.requested(Destination.cloud), .cloud)
-    XCTAssertNil(Destination.requested("not a destination"))
-    XCTAssertNil(Destination.requested(nil))
+  func testSettingsDetailsUseTheUIFont() {
+    XCTAssertEqual(EnigmaTypography.detail(11.5, settings: true), EnigmaTypography.ui(11.5))
+    XCTAssertEqual(EnigmaTypography.detail(11.5, settings: false), EnigmaTypography.mono(11.5))
   }
+
+  /// Each plan is one row; its longer explanation is behind the row's ⓘ.
+  @MainActor
+  func testCloudSignInIsOneRowPerPlan() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("both plans", in: host.view) { host.shows("ChatGPT") && host.shows("Claude") }
+    XCTAssertTrue(host.shows("About ChatGPT"))
+    XCTAssertTrue(host.shows("About Claude"))
+    XCTAssertEqual(ChatGPTConnectionControls.info.contains("Codex allowance"), true)
+    XCTAssertEqual(ClaudeCodeConnectionControls.info.contains("claude auth logout"), true)
+  }
+
+  /// The model menu's Advanced settings… lands on Cloud with Advanced open; Cloud alone keeps it closed.
+  @MainActor
+  func testAdvancedSettingsOpensCloudWithAdvancedOpen() async throws {
+    typealias Request = SettingsView.SettingsRequest
+    XCTAssertEqual(SettingsView.SettingsDestination.requested(Request(destination: .cloud, opensAdvanced: true)), .cloud)
+    XCTAssertTrue(SettingsView.SettingsDestination.opensAdvanced(Request(destination: .cloud, opensAdvanced: true)))
+    XCTAssertFalse(SettingsView.SettingsDestination.opensAdvanced(SettingsView.SettingsDestination.cloud))
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    NotificationCenter.default.post(name: .settingsDestinationRequested, object: SettingsView.SettingsDestination.cloud)
+    try await waitForUI("Cloud", in: host.view) { host.shows("Advanced") }
+    XCTAssertFalse(host.shows("Save OpenAI API key"))
+    NotificationCenter.default.post(name: .settingsDestinationRequested,
+                                    object: Request(destination: .cloud, opensAdvanced: true))
+    try await waitForUI("Cloud with Advanced open", in: host.view) { host.shows("Save OpenAI API key") }
+  }
+
+  /// Search goes word by word, so plurals, hyphens and the words people use
+  /// find their page; Return prefers the page a word names.
+  func testSettingsSearchFindsWhatPeopleType() {
+    typealias Destination = SettingsView.SettingsDestination
+    let expected: [String: Destination] = [
+      "api keys": .cloud, "keys": .cloud, "keychain": .cloud, "model id": .cloud, "preferred model": .cloud,
+      "thinking capacity": .cloud, "sign in": .cloud, "brave search": .search, "double tap": .shortcuts,
+      "hotkeys": .shortcuts, "theme": .general, "accessibility": .permissions, "local models": .local,
+      "cloud and search": .cloud, "gpt": .cloud,
+    ]
+    for (query, page) in expected {
+      XCTAssertTrue(page.matches(query), "\(query) should find \(page)")
+      XCTAssertEqual(Destination.firstMatch(query), page, query)
+    }
+  }
+
+  func testSettingsSearchFindsWordsFromDetailsAndAdvanced() {
+    typealias Destination = SettingsView.SettingsDestination
+    XCTAssertEqual(Destination.allCases.filter { $0.matches("brave") }, [.search])
+    XCTAssertTrue(Destination.allCases.filter { $0.matches("api key") }.contains(.cloud))
+    XCTAssertTrue(Destination.allCases.filter { $0.matches("zzz") }.isEmpty)
+    XCTAssertEqual(Destination.firstMatch("messages"), .messages)
+    XCTAssertEqual(Destination.firstMatch("  Accessibility "), .permissions)
+    XCTAssertNil(Destination.firstMatch("zzz"))
+  }
+
+  /// Messages elsewhere in the app name the pages as they are now.
+  @MainActor
+  func testAppMessagesUseTheNewPageNames() {
+    let messages = [KeyboardShortcutsHelp.searchNote, ScreenSettings.modelPickerNote,
+                    WebSearchError.missingAPIKey.localizedDescription, WebSearchError.invalidAPIKey.localizedDescription,
+                    CloudProviderError.missingAPIKey(.openAI).localizedDescription]
+    for message in messages {
+      XCTAssertFalse(message.contains("Cloud and search") || message.contains("Local models"), message)
+    }
+  }
+
+  func testOldDestinationNamesStillOpenTheirPages() {
+    typealias Destination = SettingsView.SettingsDestination
+    XCTAssertEqual(Destination.requested("general"), .general)
+    XCTAssertEqual(Destination.requested("local"), .local)
+    XCTAssertEqual(Destination.requested("cloud"), .cloud)
+    XCTAssertEqual(Destination.requested("selection"), .selection)
+    XCTAssertEqual(Destination.requested("discover"), .local)
+    XCTAssertEqual(Destination.allCases.map(\.rawValue),
+      ["general", "shortcuts", "local", "cloud", "search", "selection", "screen", "files", "messages", "permissions", "approvals", "about"])
+  }
+
 
   @MainActor
   func testNavigationClickSelectsAPage() async throws {
@@ -315,7 +398,7 @@ final class EnigmaSettingsTests: XCTestCase {
   func testUpdateSwitchesAndCheckNowReachTheUpdater() async throws {
     let fixture = try await Fixture(test: self)
     let backend = fixture.updaterBackend
-    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.about, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
     try await waitForUI("the update switches", in: host.view) { host.shows("Check for updates automatically switch") }
     try host.press("Check for updates automatically switch")
     try await waitForUI("automatic checks off", in: host.view) { !backend.automaticallyChecksForUpdates }
@@ -369,7 +452,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let credentials = ScreenTestCredentialStore()
     let fixture = try await Fixture(test: self, cloudCredentials: credentials)
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    try await type("  sk-test-key ", intoFieldAt: 1, of: host)
+    try await host.openAdvanced()
+    try await type("  sk-test-key ", intoFieldAt: 0, of: host)
     try host.press("Save OpenAI API key")
     try await waitForUI("the key in the Keychain", in: host.view) {
       (try? credentials.apiKey(for: .openAI)) == "sk-test-key"
@@ -654,7 +738,8 @@ final class EnigmaSettingsTests: XCTestCase {
   func testFailedKeySaveShowsTheSameErrorAndKeepsTheKey() async throws {
     let fixture = try await Fixture(test: self, cloudCredentials: FailingCloudCredentials())
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    let field = try await type("sk-test-key", intoFieldAt: 1, of: host)
+    try await host.openAdvanced()
+    let field = try await type("sk-test-key", intoFieldAt: 0, of: host)
     try host.press("Save OpenAI API key")
     let message = FailingCloudCredentials.Failure().localizedDescription
     try await waitForUI("the error line", in: host.view) { host.shows(message) }
@@ -672,6 +757,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self, cloudCredentials: ScreenTestCredentialStore(keys: [.openAI: "bad"]),
                                     transport: transport)
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     try await waitForUI("the test button", in: host.view) { host.shows("Test OpenAI API connection") }
     try host.press("Test OpenAI API connection")
     try await waitForUI("the failed test", in: host.view) {
@@ -701,7 +787,8 @@ final class EnigmaSettingsTests: XCTestCase {
   @MainActor
   func testFailedBraveKeySaveShowsTheError() async throws {
     let fixture = try await Fixture(test: self, searchCredentials: FailingSearchCredentials())
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     let field = try await type("brave-key", intoFieldAt: 0, of: host)
     try host.press("Save Brave key")
     let message = FailingSearchCredentials.Failure().localizedDescription
@@ -729,7 +816,8 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertFalse(Section.sitesNote.contains("Mojeek") || Section.sitesNote.contains("Startpage"),
                    "Only the sites the lineup kept")
     let fixture = try await Fixture(test: self)
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     for text in ["Web search", "ready", "Use Brave Search instead", "not used", "Blocked sites", "No blocked sites"] {
       try await waitForUI(text, in: host.view) { host.shows(text) }
     }
@@ -743,7 +831,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     fixture.search.block(URL(string: "https://example.com/a")!)
     fixture.search.block(URL(string: "https://www.sample.org/b")!)
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     try await waitForUI("two blocked rows", in: host.view) { host.shows("example.com") && host.shows("sample.org") }
     XCTAssertFalse(host.shows("No blocked sites"))
     try host.press("Remove example.com")
@@ -912,18 +1001,19 @@ final class EnigmaSettingsTests: XCTestCase {
     }
     // Whole pages: Cloud and search's web search, advanced settings, and API
     // keys; General's location, Messages and Updates.
+    // Every Advanced section, open: its rows sit on cards like the rest.
+    for destination in [SettingsView.SettingsDestination.cloud, .search] {
+      let size = CGSize(width: SettingsView.windowSize.width, height: 1680)
+      try await EnigmaSnapshot.save("settings-\(destination)-advanced", size: size, until: { !fixture.advisor.isDetecting }) {
+        fixture.settings(destination, size: size, opensAdvanced: true)
+      }
+    }
     for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1400.0)] {
       let size = CGSize(width: SettingsView.windowSize.width, height: height)
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)-full",
                                     size: size, until: { !fixture.advisor.isDetecting }) {
         fixture.settings(destination, size: size)
       }
-    }
-    // The welcome's connection settings sheet, with Back to setup in its own bar.
-    try await EnigmaSnapshot.save("settings-connection-sheet", size: ConnectionSettingsSheet.size,
-                                  until: { !fixture.advisor.isDetecting }) {
-      ConnectionSettingsSheet(cloud: fixture.cloud, advisor: fixture.advisor, chat: fixture.chat,
-                                    search: fixture.search) {}
     }
     // An open menu, opened by a real click.
     for appearance in [EnigmaAppearance.paper, .ink] {
@@ -1059,11 +1149,11 @@ final class EnigmaSettingsTests: XCTestCase {
 
     func settings(_ destination: SettingsView.SettingsDestination = .general,
                   appearance: EnigmaAppearancePreference? = nil,
-                  size: CGSize = SettingsView.windowSize) -> SettingsView {
+                  size: CGSize = SettingsView.windowSize, opensAdvanced: Bool = false) -> SettingsView {
       SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
                          advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
-                         updater: updater, size: size)
+                         updater: updater, size: size, opensAdvanced: opensAdvanced)
     }
   }
 
@@ -1138,6 +1228,12 @@ final class EnigmaSettingsTests: XCTestCase {
     }
 
     func shows(_ name: String) -> Bool { marker(name) != nil }
+
+    /// Opens the page's "› Advanced" disclosure.
+    func openAdvanced(file: StaticString = #filePath, line: UInt = #line) async throws {
+      try await waitForUI("the Advanced disclosure", in: view) { self.shows("Advanced") }
+      try press("Advanced", file: file, line: line)
+    }
 
     /// Whether SwiftUI has control `name` enabled, or nil when it isn't shown.
     func isEnabled(_ name: String) -> Bool? { (marker(name) as? TestControlMarker.Marker)?.isEnabled }

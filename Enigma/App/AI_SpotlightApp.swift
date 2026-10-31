@@ -116,7 +116,7 @@ final class SettingsWindowController: NSWindowController {
     window.backgroundColor = chrome.backgroundColor
   }
 
-  func showSettings(destination: SettingsView.SettingsDestination? = nil) {
+  func showSettings(destination: SettingsView.SettingsDestination? = nil, opensAdvanced: Bool = false) {
     // The chat's standalone NSHostingView has no SwiftUI settings-scene action.
     NSApp.unhide(nil)
     NSApp.activate(ignoringOtherApps: true)
@@ -125,7 +125,8 @@ final class SettingsWindowController: NSWindowController {
     window?.makeKeyAndOrderFront(nil)
     if let destination {
       window?.contentView?.layoutSubtreeIfNeeded()
-      NotificationCenter.default.post(name: .settingsDestinationRequested, object: destination)
+      NotificationCenter.default.post(name: .settingsDestinationRequested, object: opensAdvanced
+        ? SettingsView.SettingsRequest(destination: destination, opensAdvanced: true) as Any : destination as Any)
     }
   }
 }

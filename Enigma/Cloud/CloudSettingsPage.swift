@@ -1,22 +1,25 @@
 import SwiftUI
 
-/// Cloud and search in Settings: the subscriptions, screenshots, web search,
-/// advanced provider and model settings, and API keys, through
-/// `CloudSettingsForm`.
+/// Cloud in Settings: the subscriptions, and under Advanced the provider and
+/// model settings and API keys, through `CloudSettingsForm`.
 struct CloudSettingsPage: View {
   @ObservedObject var settings: CloudSettingsModel
-  @ObservedObject var screen: ScreenSettings
-  @ObservedObject var search: WebSearchSettings
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Subscriptions")
       ChatGPTConnectionControls(settings: settings)
       ClaudeCodeConnectionControls(settings: settings)
       EnigmaHairline()
+      SettingsAdvanced { advanced }
+    }
+    .task { await CloudSettingsForm.load(settings) }
+    .onChange(of: settings.preferredProvider) { _, provider in
+      Task { await CloudSettingsForm.preferredProviderChanged(to: provider, in: settings) }
+    }
+  }
 
-      ScreenSettingsSection(settings: screen)
-      WebSearchSettingsSection(settings: search)
+  private var advanced: some View {
+    VStack(alignment: .leading, spacing: 0) {
       AdvancedCloudSettings(settings: settings)
 
       EnigmaSectionHeader("API keys")
@@ -28,10 +31,6 @@ struct CloudSettingsPage: View {
                       subtitle: "Your own Gemini API key.")
       EnigmaHairline()
     }
-    .task { await CloudSettingsForm.load(settings) }
-    .onChange(of: settings.preferredProvider) { _, provider in
-      Task { await CloudSettingsForm.preferredProviderChanged(to: provider, in: settings) }
-    }
   }
 }
 
@@ -42,7 +41,7 @@ struct AdvancedCloudSettings: View {
   var body: some View {
     let compatibility = settings.selectedModelCompatibility
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Advanced cloud settings")
+      EnigmaSectionHeader("Provider and model")
       EnigmaRow("Preferred provider") {
         EnigmaMenu("Preferred provider", selection: $settings.preferredProvider,
                    options: CloudProviderID.allCases.map { EnigmaOption($0, $0.displayName) })

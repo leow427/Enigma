@@ -89,8 +89,8 @@ enum WebSearchError: LocalizedError, Equatable {
     let detail: String
     switch self {
     // Brave only (D128, D130): a saved key selects Brave; without one, search runs on this Mac.
-    case .missingAPIKey: detail = "Enter a Brave Search API key in Settings → Cloud and search → Web search."
-    case .invalidAPIKey: detail = "Brave rejected the API key. Check its LLM Context access in Settings → Cloud and search → Web search, or remove it to search on this Mac."
+    case .missingAPIKey: detail = "Enter a Brave Search API key in Settings → Search and maps → Advanced."
+    case .invalidAPIKey: detail = "Brave rejected the API key. Check its LLM Context access in Settings → Search and maps → Advanced, or remove it to search on this Mac."
     case .rateLimited: detail = "Search sites are limiting requests right now. Try again shortly."
     case .unavailable: detail = "Search sites couldn't be reached. Check your connection and try again."
     case .invalidResponse: detail = "A search site returned an invalid response. Try again."

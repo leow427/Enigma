@@ -129,7 +129,7 @@ python3 -I -B -m unittest discover -s scripts/tests
 Then, on an Apple Silicon Mac, running Enigma from Xcode with a stable
 signing identity:
 
-1. Install one new package from Settings → Local models.
+1. Install one new package from Settings → On this Mac.
 2. Ask a question about a full-screen screenshot and check the answer is not
    cut short.
 3. Run **Check performance** and check the peak memory stays inside the

@@ -1071,50 +1071,212 @@ final class EnigmaMainWindowTests: XCTestCase {
                                                      from: try XCTUnwrap(composerEditor(in: view)))))
   }
 
-  // MARK: Tour
-
+  /// The tour's selection stop runs the real panel over its pretend
+  /// document: the window steps aside, ⌥⌥ opens the compact panel with the
+  /// draft's line attached, a send moves the chat into the window with a
+  /// revision and no model request, and Replace text changes the document
+  /// while the window steps aside and comes back.
   @MainActor
-  func testTourTargetsAreOnTheNewControls() async throws {
+  func testTourSelectionStopRunsTheRealPanelOverThePretendDocument() async throws {
     let fixture = try await Fixture(test: self)
-    let box = AnchorBox()
-    let size = CGSize(width: 1000, height: 660)
-    let root = fixture.shell().overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
-      GeometryReader { proxy in AnchorProbe(box: box, rects: anchors.mapValues { proxy[$0] }) }
+    let view = NSHostingView(rootView: fixture.shell())
+    let sizes = PanelSizeStore(defaults: fixture.defaults)
+    sizes.save(NSSize(width: 1100, height: 720))
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, reduceMotion: { true })
+    controller.show()
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end(); controller.hide(); view.window?.contentView = nil }
+    let window = try XCTUnwrap(view.window)
+    try await waitForUI("the window", in: view) { Host.marker("New chat", in: view) != nil }
+
+    tour.go(.selection)
+    try await waitForUI("the window stepping aside for the document", in: view) {
+      !window.isVisible && TourDocumentWindow.shared.selectionOnScreen != nil
     }
-    let host = Host(fixture, size: size, test: self, root: AnyView(root))
-    fixture.setup.replay()
-    fixture.setup.finish(takeTour: true)
-    let targets = Set(WelcomeTourStep.allCases.map(\.target))
-    for sidebar in [true, false] {
-      if !sidebar {
-        fixture.setup.endTour()
-        try await clickTestControl("Hide chat history", in: host.view)
-        fixture.setup.replay()
-        fixture.setup.finish(takeTour: true)
-      }
-      try await waitForUI("every tour target with the sidebar \(sidebar ? "shown" : "hidden")", in: host.view) {
-        Set(box.rects.keys).isSuperset(of: targets) && host.shows(sidebar ? "New chat" : "Show chat history")
-      }
-      let bounds = CGRect(origin: .zero, size: size)
-      // The tour's scrim stays inside the rounded window.
-      let image = try host.capture()
-      for corner in [CGPoint(x: 0.5, y: 0.5), CGPoint(x: size.width - 1, y: 0.5), CGPoint(x: 0.5, y: size.height - 1),
-                     CGPoint(x: size.width - 1, y: size.height - 1)] {
-        XCTAssertLessThan(try EnigmaSnapshot.pixel(image, at: corner).opacity, 0.05, "Corner \(corner) is transparent")
-      }
-      for target in targets {
-        let rect = try XCTUnwrap(box.rects[target])
-        XCTAssertFalse(rect.isEmpty, "\(target) has a size")
-        XCTAssertTrue(bounds.contains(rect), "\(target) is inside the window: \(rect)")
-      }
-      let model = try XCTUnwrap(host.marker("Mode and model"))
-      XCTAssertTrue(try XCTUnwrap(box.rects[.model]).insetBy(dx: -1, dy: -1)
-        .contains(host.view.convert(model.bounds, from: model)), "The model stop is the mode and model menu")
-      let attach = try XCTUnwrap(host.marker("Attach files"))
-      XCTAssertTrue(try XCTUnwrap(box.rects[.files]).insetBy(dx: -1, dy: -1)
-        .contains(host.view.convert(attach.bounds, from: attach)), "The files stop is Attach")
+    tour.press()
+    try await waitForUI("the line selected", in: view) { tour.scene.phase == .selected && tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the real panel under the selection", in: view) {
+      controller.isSelectionComposer && window.isVisible && window.frame.height < 200
+        && fixture.chat.attachedContexts.map(\.id) == [TourScene.context.id]
+        && Host.marker("Compact panel", in: view) != nil
+    }
+    let selection = try XCTUnwrap(TourDocumentWindow.shared.selectionOnScreen)
+    XCTAssertLessThanOrEqual(window.frame.maxY, selection.minY + 1, "The panel opens under the selected line")
+    try await waitForUI("the question typed into the panel", in: view, timeout: .seconds(10)) {
+      tour.beat == .ready && fixture.screen.draft == TourScene.demo.prompt
+    }
+    let editor = try XCTUnwrap(composerEditor(in: view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    // One wait per condition, so a slow CI machine says which one it was still waiting on.
+    try await waitForUI("the chat moved into the window", in: view, timeout: .seconds(20)) {
+      !controller.isSelectionComposer && Host.marker("Compact panel", in: view) == nil
+    }
+    try await waitForUI("the question in the window", in: view, timeout: .seconds(20)) {
+      Host.marker("Your message", in: view) != nil
+    }
+    try await waitForUI("the scripted reply's revision card", in: view, timeout: .seconds(20)) {
+      Host.marker("Replace text", in: view) != nil
+    }
+    try await waitForUI("the replace step ready", in: view, timeout: .seconds(20)) {
+      tour.beat == .ready && tour.currentStep?.kind == .replace
+    }
+    XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
+    tour.press()
+    try await waitForUI("the window stepping aside for the paste", in: view) { !window.isVisible }
+    try await waitForUI("the replacement in the document and the window back", in: view, timeout: .seconds(10)) {
+      tour.scene.phase == .replaced && window.isVisible && tour.beat == .finished
+        && fixture.chat.selectionRevisions.values.first?.status == .sent
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the next stop back in the window", in: view) { tour.stop == .files && window.isVisible }
+  }
+
+  /// The tour's text to Sam waits on the real approval card,
+  /// Return in the composer approves it, and nothing is sent.
+  /// Moving to another stop mid-reply stops that reply: the chat is free at
+  /// once, and its late finish never skips a step of the new stop.
+  @MainActor
+  func testLeavingAStopMidReplyStopsTheReply() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the reply playing", in: host.view, timeout: .seconds(5)) {
+      tour.beat == .playing && fixture.chat.isBusy
+    }
+    tour.go(.code)
+    try await waitForUI("the chat free again", in: host.view, timeout: .seconds(1)) { !fixture.chat.isBusy }
+    try await Task.sleep(for: .seconds(6))
+    XCTAssertEqual(tour.stop, .code)
+    XCTAssertEqual(tour.stepIndex, 0, "The old reply's finish didn't take a step here")
+  }
+
+  /// A reply left during its last phase stays stopped: the chat is still free
+  /// a moment later, not taken back by the reply waking up.
+  @MainActor
+  func testLeavingDuringAReplysLastPhaseKeepsTheChatFree() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.code)
+    try await waitForUI("the coding question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the one-phase reply thinking", in: host.view, timeout: .seconds(5)) {
+      tour.beat == .playing && fixture.chat.isBusy
+    }
+    tour.go(.files)
+    try await Task.sleep(for: .seconds(2))
+    XCTAssertFalse(fixture.chat.isBusy, "The cancelled reply didn't take the chat back")
+  }
+
+  /// A tour demo plays in a temporary chat: nothing it says reaches Recents.
+  @MainActor
+  func testNoTourChatReachesRecents() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    let before = fixture.chat.historySessions.map(\.id)
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the first demo answered", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && !fixture.chat.isBusy
+    }
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertEqual(fixture.chat.historySessions.map(\.id), before)
+    tour.end()
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    try await waitForUI("a fresh chat", in: host.view) { !fixture.chat.isTemporaryChat }
+    XCTAssertEqual(fixture.chat.historySessions.map(\.id), before, "Leaving the tour doesn't keep its chat")
+  }
+
+  /// The card sits in the rail right of the page; its button and Return each take a beat.
+  @MainActor
+  func testTourCardSitsInTheRailAndTakesReturnAndItsButton() async throws {
+    let fixture = try await Fixture(test: self)
+    let size = CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860)
+    let host = Host(fixture, size: size, test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    let button = try XCTUnwrap(host.marker("Tour next"))
+    let frame = button.convert(button.bounds, to: nil)
+    XCTAssertGreaterThanOrEqual(frame.minX, size.width - GuidedTourPlacement.railWidth, "The card is in the rail")
+    try await Task.sleep(for: .milliseconds(300))
+    try await clickTestControl("Tour next", in: host.view)
+    try await waitForUI("the button took the first step", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && tour.beat == .ready
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("Return took the second step", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 2 && tour.beat == .ready
     }
   }
+
+  /// A stop with a target puts the card level with it, kept inside the window.
+  func testTourStopsWithATargetSitLevelWithIt() {
+    let container = CGSize(width: 1000 + GuidedTourPlacement.railWidth, height: 780)
+    let height: CGFloat = 220
+    for midY in [120.0, 400, 700] {
+      let target = CGRect(x: 100, y: midY - 20, width: 200, height: 40)
+      let placement = GuidedTourPlacement(target: target, container: container, cardHeight: height, railMinX: 1000)
+      let cardMid = placement.cardOrigin.y + height / 2
+      let lowest = container.height - GuidedTourPlacement.margin
+      let expected = min(max(midY, GuidedTourPlacement.perchRoom + height / 2), lowest - height / 2)
+      XCTAssertEqual(cardMid, expected, accuracy: 0.5, "target at \(midY)")
+      XCTAssertEqual(placement.cardOrigin.x, 1000 + GuidedTourPlacement.margin)
+    }
+  }
+
+  @MainActor
+  func testTourMessagesStopAsksOnTheRealApprovalCard() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.messages)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    tour.press()
+    try await waitForUI("the second question typed", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && tour.beat == .ready
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the approval card, waiting", in: host.view, timeout: .seconds(10)) {
+      host.shows("Send") && host.shows("Don't Send") && tour.currentStep?.kind == .approve && tour.beat == .ready
+    }
+    XCTAssertEqual(tour.currentStep?.actionLabel, "Send")
+    try await Task.sleep(for: .milliseconds(300))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the reply once it's approved", in: host.view, timeout: .seconds(10)) {
+      !host.shows("Don't Send") && tour.beat == .finished && !fixture.chat.isBusy
+        && fixture.chat.presentationMessages.last?.content.hasPrefix("Sent to Sam") == true
+    }
+    XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
+  }
+
+  // MARK: Tour
 
   // MARK: Character
 
@@ -1424,35 +1586,6 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
-  func testTourCardDrawsAboveTheCharacterAndTakesTheClickOnNext() async throws {
-    let fixture = try await Fixture(test: self)
-    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
-    let character = fixture.character
-    fixture.setup.replay()
-    fixture.setup.finish(takeTour: true)
-    let first = try XCTUnwrap(fixture.setup.tour)
-    try await waitForUI("the first tour stop with the character on the main page", in: host.view) {
-      host.shows("Next tour stop") && character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
-    }
-    let next = frameFromTop(of: try XCTUnwrap(host.marker("Next tour stop")), in: host.view)
-    let center = CGPoint(x: next.midX, y: next.midY)
-    try await holdCharacter(character, at: center, in: host.view)
-    let radius = character.model.bodyRadius
-    XCTAssertEqual(try characterBodyPixels(host.capture(), around: center, bodyRadius: radius), 0,
-                   "The tour's card draws over the character")
-
-    try await clickTestControl("Next tour stop", in: host.view)
-    try await waitForUI("the next tour stop", in: host.view) {
-      fixture.setup.tour.map { $0.rawValue == first.rawValue + 1 } == true
-    }
-    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
-    fixture.setup.endTour()
-    try await waitForUI("the character where the card was, once the tour ends", in: host.view) {
-      (try? characterBodyPixels(host.capture(), around: center, bodyRadius: radius)) == 2
-    }
-  }
-
-  @MainActor
   func testSlashCommandListHidesTheCharacterItCoversAndTakesTheClickOnItsRow() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
@@ -1704,7 +1837,11 @@ extension EnigmaMainWindowTests {
       let search = WebSearchSettings(credentials: MainWindowTestSearchCredentials(key: searchKey), defaults: defaults)
       self.search = search
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
-        replaceSelection: { [pastes] text, _, automatic in
+        replaceSelection: { [pastes] text, contextID, automatic in
+          // The tour's selection takes the app's own path, into its pretend document.
+          if contextID == TourScene.context.id {
+            return await SelectionContextService.shared.replace(with: text, contextID: contextID, automatic: automatic)
+          }
           pastes.texts.append(text)
           pastes.automatic.append(automatic)
           return true
@@ -1787,12 +1924,12 @@ extension EnigmaMainWindowTests {
 
 /// Records the tour's anchors as rectangles in the window.
 private final class AnchorBox {
-  var rects: [WelcomeTourStep: CGRect] = [:]
+  var rects: [TourTarget: CGRect] = [:]
 }
 
 private struct AnchorProbe: View {
   let box: AnchorBox
-  let rects: [WelcomeTourStep: CGRect]
+  let rects: [TourTarget: CGRect]
 
   var body: some View {
     box.rects = rects

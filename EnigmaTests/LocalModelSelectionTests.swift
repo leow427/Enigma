@@ -1019,7 +1019,7 @@ extension LocalModelSelectionTests {
     XCTAssertEqual(resumed.step, .connections)
     resumed.finish(takeTour: false)
     XCTAssertFalse(resumed.isPresented)
-    XCTAssertNil(resumed.tour)
+    XCTAssertFalse(GuidedTour.shared.isActive)
     XCTAssertNil(defaults.object(forKey: WelcomeSetup.progressKey))
     let completed = WelcomeSetup(defaults: defaults)
     completed.start(hasInstalledModels: false)
@@ -1039,16 +1039,9 @@ extension LocalModelSelectionTests {
       XCTAssertTrue(setup.isPresented)
       XCTAssertEqual(setup.step, .welcome)
       XCTAssertEqual(defaults.string(forKey: StartPreferences.modeKey), "cloud")
-      setup.finish(takeTour: true)
-      for step in WelcomeTourStep.allCases {
-        XCTAssertEqual(setup.tour, step)
-        setup.nextTourStep()
-      }
-      XCTAssertNil(setup.tour)
-      setup.replay()
-      setup.finish(takeTour: true)
-      setup.endTour()
-      XCTAssertNil(setup.tour)
+      setup.finish(takeTour: false)
+      XCTAssertFalse(setup.isPresented)
+      XCTAssertEqual(defaults.string(forKey: StartPreferences.modeKey), "cloud")
     }
   }
 
@@ -1140,10 +1133,7 @@ extension LocalModelSelectionTests {
       }
       XCTAssertFalse(try XCTUnwrap(composerEditor(in: view)).isEditable)
       setup.finish(takeTour: exit != 0)
-      if exit == 1 { setup.endTour() }
-      if exit == 2 {
-        for _ in WelcomeTourStep.allCases { setup.nextTourStep() }
-      }
+      if exit != 0 { GuidedTour.shared.end() }
       try await waitForUI("welcome exit \(exit) to enable, focus, and uncover the composer", in: view) {
         guard let composer = composerEditor(in: view) else { return false }
         return composer.isEditable && composer.window?.firstResponder === composer && composerAcceptsClicks(in: view)
@@ -1198,22 +1188,6 @@ extension LocalModelSelectionTests {
       startPreferences: StartPreferences(defaults: defaults), welcomeSetup: setup,
       appearance: EnigmaAppearancePreference(defaults: defaults))
     try render(shell, size: NSSize(width: 640, height: 420), name: "welcome-window-rounded", roundedWindow: true)
-    setup.finish(takeTour: true)
-    for sidebar in [false, true] {
-      let preferences = StartPreferences(defaults: defaults)
-      preferences.showsSidebar = sidebar
-      for step in WelcomeTourStep.allCases {
-        // Rewind without changing any chat or account state.
-        setup.replay()
-        setup.finish(takeTour: true)
-        for _ in 0..<step.rawValue { setup.nextTourStep() }
-        let view = AppShellView(cloudSettings: cloud,
-          localChat: chat, modelAdvisor: advisor, searchSettings: search, startPreferences: preferences, welcomeSetup: setup,
-          appearance: EnigmaAppearancePreference(defaults: defaults))
-        try render(view, size: NSSize(width: 1000, height: 780), name: "welcome-tour-\(step)-\(sidebar)")
-        try render(view, size: NSSize(width: 640, height: 420), name: "welcome-tour-small-\(step)-\(sidebar)")
-      }
-    }
   }
 }
 

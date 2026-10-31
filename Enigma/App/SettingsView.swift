@@ -31,51 +31,142 @@ extension SettingsWindowContent where Settings == SettingsView {
 /// Settings. The window it sits in applies the theme.
 struct SettingsView: View {
   /// A Settings page. `.settingsDestinationRequested` with one of these opens it.
+  /// A page with its "› Advanced" already open, like the model menu's Advanced settings….
+  struct SettingsRequest {
+    let destination: SettingsDestination
+    let opensAdvanced: Bool
+  }
+
   enum SettingsDestination: String, CaseIterable, Identifiable {
-    case general, local, cloud, selection
+    // Grouped as Enigma, Models, Abilities, Privacy, then About.
+    // The first four raw values are the old pages', so deep links still work.
+    case general, shortcuts, local, cloud, search, selection, screen, files, messages, permissions, approvals, about
 
     var id: Self { self }
 
-    /// A destination, its raw value, or "discover" (removed; opens .local). Anything else is nil.
+    static func opensAdvanced(_ object: Any?) -> Bool { (object as? SettingsRequest)?.opensAdvanced == true }
+
+    /// A destination, a request, its raw value, or "discover" (removed; opens .local). Anything else is nil.
     static func requested(_ object: Any?) -> SettingsDestination? {
       if let destination = object as? SettingsDestination { return destination }
+      if let request = object as? SettingsRequest { return request.destination }
       guard let name = object as? String else { return nil }
       return name == "discover" ? .local : SettingsDestination(rawValue: name)
     }
 
-    /// The section's name, in sentence case as in the mockup.
+    /// The sidebar's groups, in order. About stands alone at the bottom.
+    static let groups: [(title: String?, items: [SettingsDestination])] = [
+      ("Enigma", [.general, .shortcuts]),
+      ("Models", [.local, .cloud]),
+      ("Abilities", [.search, .selection, .screen, .files, .messages]),
+      ("Privacy", [.permissions, .approvals]),
+      (nil, [.about]),
+    ]
+
     var title: String {
       switch self {
       case .general: "General"
-      case .local: "Local models"
-      case .cloud: "Cloud and search"
+      case .shortcuts: "Shortcuts"
+      case .local: "On this Mac"
+      case .cloud: "Cloud"
+      case .search: "Search and maps"
       case .selection: "Selection"
+      case .screen: "Screen"
+      case .files: "Files"
+      case .messages: "Messages"
+      case .permissions: "Permissions"
+      case .approvals: "Approvals"
+      case .about: "About"
       }
     }
 
-    /// The one line under the page's heading.
+    /// The one short line under the page's heading.
     var subtitle: String {
       switch self {
-      case .general: "How Enigma looks, starts, and works with your Mac."
-      case .local: "Run models on this Mac, without the cloud."
-      case .cloud: "Optional cloud models, screenshots, and web search."
-      case .selection: "Permissions for selected text, how revisions are applied, and whether selection chats are saved."
+      case .general: "How Enigma looks and starts."
+      case .shortcuts: "Enigma works from the keyboard. Change any shortcut."
+      case .local: "Models that run on this Mac, with nothing sent anywhere."
+      case .cloud: "Optional ChatGPT and Claude, for harder questions."
+      case .search: "Web search, places and weather."
+      case .selection: "Ask about text you select in any app."
+      case .screen: "Ask about what’s on your screen."
+      case .files: "Attach files and folders to a chat."
+      case .messages: "Read and send your texts, in your own words."
+      case .permissions: "Everything Enigma can ask macOS for, in one place."
+      case .approvals: "What you’ve allowed Enigma to do without asking."
+      case .about: "Version and updates."
       }
     }
 
-    /// The navigation glyph, matching the mockup's icons.
     var symbol: String {
       switch self {
       case .general: "slider.horizontal.3"
+      case .shortcuts: "keyboard"
       case .local: "cpu"
       case .cloud: "cloud"
+      case .search: "magnifyingglass"
       case .selection: "text.cursor"
+      case .screen: "rectangle.dashed"
+      case .files: "folder"
+      case .messages: "message"
+      case .permissions: "lock"
+      case .approvals: "checkmark.shield"
+      case .about: "info.circle"
+      }
+    }
+
+    /// Words the sidebar's search finds this page by, besides its title.
+    var keywords: [String] {
+      switch self {
+      // Old page names stay as keywords, so they still find the new pages.
+      case .general: ["appearance", "theme", "dark mode", "light", "start mode", "auto", "sidebar", "welcome", "replay",
+                      "tour", "commands", "wording"]
+      case .shortcuts: ["keyboard", "keybinds", "double-tap", "option", "control", "hotkey", "summon", "interval", "speed"]
+      case .local: ["local models", "download", "install", "gguf", "memory", "performance", "import"]
+      case .cloud: ["cloud and search", "chatgpt", "gpt", "claude", "codex", "openai", "anthropic", "gemini", "api key", "keychain",
+                    "provider", "preferred model", "model id", "manual", "subscription", "plan", "sign in", "sign out",
+                    "effort", "thinking capacity"]
+      case .search: ["web", "brave", "location", "weather", "places", "maps", "blocked sites"]
+      case .selection: ["edit", "replace", "revision", "private"]
+      case .screen: ["screenshot", "snapshot", "screen recording", "cloud"]
+      case .files: ["attach", "folder", "undo", "codex"]
+      case .messages: ["imessage", "sms", "texts", "full disk access", "contacts"]
+      case .permissions: ["accessibility", "screen recording", "full disk access", "contacts", "automation", "location", "privacy"]
+      case .approvals: ["always", "allowed", "grants", "privacy"]
+      case .about: ["version", "update", "check for updates"]
+      }
+    }
+
+    /// What Return in the search field opens: the page whose own words match best.
+    static func firstMatch(_ query: String) -> SettingsDestination? {
+      allCases.filter { $0.matches(query) }.max { $0.score(query) < $1.score(query) }
+    }
+
+    /// Every word of the query starts a word of the page's title or keywords.
+    func matches(_ query: String) -> Bool {
+      let words = Self.words(query)
+      let own = Self.words(([title] + keywords).joined(separator: " "))
+      return words.allSatisfy { word in own.contains { $0.hasPrefix(word) } }
+    }
+
+    /// Whole words beat prefixes, and the title beats keywords; ties keep the sidebar's order.
+    private func score(_ query: String) -> Int {
+      let titleWords = Self.words(title), keywordWords = Self.words(keywords.joined(separator: " "))
+      return Self.words(query).reduce(0) { total, word in
+        total + (titleWords.contains(word) ? 3 : keywordWords.contains(word) ? 2 : 0)
+      }
+    }
+
+    /// Lowercased words, split at anything but letters and digits, with a plural "s" dropped.
+    private static func words(_ text: String) -> [String] {
+      text.lowercased().split { !$0.isLetter && !$0.isNumber }.map { word in
+        word.count > 3 && word.hasSuffix("s") ? String(word.dropLast()) : String(word)
       }
     }
   }
 
   static let windowSize = CGSize(width: 820, height: 680)
-  static let navigationWidth: CGFloat = 176
+  static let navigationWidth: CGFloat = 200
   static let pagePadding: CGFloat = 30
 
   // Passed down to the pages, which observe what they read. Observing them
@@ -92,6 +183,9 @@ struct SettingsView: View {
   private let updater: AppUpdater
   private let size: CGSize
   @State private var destination: SettingsDestination
+  @State private var query = ""
+  /// The page asked for opens its Advanced; any other navigation closes it again.
+  @State private var opensAdvanced = false
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.colorSchemeContrast) private var contrast
@@ -104,7 +198,7 @@ struct SettingsView: View {
        search: WebSearchSettings = .shared, screen: ScreenSettings = .shared,
        startPreferences: StartPreferences = .shared, selectionEditing: SelectionEditingSettings = .shared,
        location: LocationService = .shared, updater: AppUpdater = .shared,
-       size: CGSize = SettingsView.windowSize) {
+       size: CGSize = SettingsView.windowSize, opensAdvanced: Bool = false) {
     self.settings = settings
     self.appearance = appearance
     self.advisor = advisor
@@ -117,6 +211,7 @@ struct SettingsView: View {
     self.updater = updater
     self.size = size
     _destination = State(initialValue: initialDestination)
+    _opensAdvanced = State(initialValue: opensAdvanced)
   }
 
   var body: some View {
@@ -124,16 +219,21 @@ struct SettingsView: View {
       navigation
       page
     }
+    .environment(\.enigmaSettingsStyle, true)
     .frame(width: size.width, height: size.height)
     .background(palette.background.color)
     .tint(palette.accent.color)
     .enigmaMenuHost()
     .onReceive(NotificationCenter.default.publisher(for: .settingsDestinationRequested)) { notification in
-      if let requested = SettingsDestination.requested(notification.object) { select(requested) }
+      if let requested = SettingsDestination.requested(notification.object) {
+        select(requested)
+        opensAdvanced = SettingsDestination.opensAdvanced(notification.object)
+      }
     }
   }
 
   private func select(_ item: SettingsDestination) {
+    opensAdvanced = false
     guard item != destination else { return }
     withAnimation(reduceMotion ? nil : EnigmaMotion.pageChange.animation) { destination = item }
   }
@@ -142,8 +242,38 @@ struct SettingsView: View {
 
   private var navigation: some View {
     VStack(alignment: .leading, spacing: 2) {
-      ForEach(SettingsDestination.allCases) { item in
-        SettingsNavigationItem(item: item, isSelected: destination == item) { select(item) }
+      // Finds a page by its name or what's on it; Return opens the first match.
+      EnigmaTextField("Search", text: $query, accessibilityLabel: "Search Settings", onSubmit: {
+        if let first = SettingsDestination.firstMatch(query) { select(first) }
+      })
+      .padding(.horizontal, 2)
+      .padding(.bottom, 6)
+      .enigmaTestMarker("Search Settings")
+      ForEach(Array(SettingsDestination.groups.enumerated()), id: \.offset) { _, group in
+        let items = group.items.filter { $0.matches(query) }
+        if !items.isEmpty {
+          if let title = group.title {
+            Text(title)
+              .font(EnigmaTypography.ui(12, weight: .semibold))
+              .foregroundStyle(palette.textSecondary.color)
+              .padding(.horizontal, 4)
+              .padding(.top, 14)
+              .padding(.bottom, 3)
+              .accessibilityAddTraits(.isHeader)
+          } else {
+            Spacer().frame(height: 10)
+          }
+          ForEach(items) { item in
+            SettingsNavigationItem(item: item, isSelected: destination == item) { select(item) }
+          }
+        }
+      }
+      if SettingsDestination.allCases.allSatisfy({ !$0.matches(query) }) {
+        Text("No matches")
+          .font(EnigmaTypography.ui(12.5))
+          .foregroundStyle(palette.textTertiary.color)
+          .padding(.horizontal, 4)
+          .padding(.top, 8)
       }
       Spacer(minLength: 0)
     }
@@ -170,8 +300,11 @@ struct SettingsView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         SettingsPageHeader(destination: destination)
+          // A page that starts with a card, not a heading, still clears the subtitle.
+          .padding(.bottom, 16)
         pageContent
       }
+      .settingsCards(inset: 14)
       .padding(.horizontal, Self.pagePadding)
       .padding(.top, 16)
       .padding(.bottom, 24)
@@ -180,6 +313,7 @@ struct SettingsView: View {
     .scrollBounceBehavior(.basedOnSize)
     // Each page gets its own scroll position, and pages cross-fade with a
     // small rise. Reduce Motion keeps only the fade.
+    .environment(\.settingsOpensAdvanced, opensAdvanced)
     .id(destination)
     .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6)))
   }
@@ -187,14 +321,35 @@ struct SettingsView: View {
   @ViewBuilder private var pageContent: some View {
     switch destination {
     case .general:
-      GeneralSettingsPage(appearance: appearance, startPreferences: startPreferences, location: location,
-                                chat: chat, updater: updater)
+      GeneralSettingsPage(appearance: appearance, startPreferences: startPreferences, chat: chat)
+    case .shortcuts:
+      ShortcutEditor()
     case .local:
       LocalModelManagerSection(advisor: advisor, chat: chat)
     case .cloud:
-      CloudSettingsPage(settings: settings, screen: screen, search: search)
+      CloudSettingsPage(settings: settings)
+    case .search:
+      SearchSettingsPage(search: search, location: location)
     case .selection:
       SelectionSettingsPage(selectionEditing: selectionEditing)
+    case .screen:
+      ScreenSettingsSection(settings: screen)
+      SettingsLink("Screen Recording", subtitle: "Needed for /screen and /snapshot.", to: .permissions)
+      // Closes the links' card.
+      EnigmaHairline()
+    case .files:
+      FilesSettingsPage()
+    case .messages:
+      MessagesSettingsSection(part: .about)
+      SettingsLink("Full Disk Access and Contacts", subtitle: "Needed to read your chats.", to: .permissions)
+      SettingsLink("Always allowed", subtitle: "Chats you let Enigma read without asking.", to: .approvals)
+      EnigmaHairline()
+    case .permissions:
+      PermissionsSettingsPage()
+    case .approvals:
+      MessagesSettingsSection(part: .approvals)
+    case .about:
+      AboutSettingsPage(updater: updater)
     }
   }
 }
@@ -264,152 +419,6 @@ struct SettingsPageHeader: View {
         .fixedSize(horizontal: false, vertical: true)
     }
     .enigmaTestMarker("Settings page \(title)")
-  }
-}
-
-// MARK: General
-
-/// Appearance, permissions, the welcome, new chats, location, recognized commands, Messages, and updates.
-struct GeneralSettingsPage: View {
-  @ObservedObject var appearance: EnigmaAppearancePreference
-  @ObservedObject var startPreferences: StartPreferences
-  @ObservedObject var location: LocationService
-  /// Only Replay reads it, through `ReplayWelcomeButton`.
-  let chat: LocalChatViewModel
-  @ObservedObject var updater: AppUpdater
-  @AppStorage(ComposerIntent.inferCommandsKey) private var infersCommands = ComposerIntent.infersCommandsByDefault
-  @Environment(\.enigmaPalette) private var palette
-
-  static let newChatsNote = "Used at launch, for each new chat, and for each selection chat."
-  static let automaticChecksNote = "Once a day, from Enigma’s GitHub page. Only Enigma’s version is sent."
-  static let automaticInstallNote = "Updates install when Enigma quits, or when you choose Restart to Update in the menu bar."
-  static let inferCommandsNote = "Turns on Messages, Think, Edit, and Translate when your wording asks for them, shown as a chip you can remove. Screen and Snapshot always need their command."
-  static let locationExplanation = "When you ask about the weather or nearby places, macOS asks for permission. The model answering, local or cloud, can get your exact location. Search sites get only your city; weather and Apple Maps get coordinates rounded to about 1 km. Nothing is saved and nothing runs in the background."
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Look")
-      EnigmaRow("Appearance", subtitle: "System follows your Mac’s light or dark setting.") {
-        EnigmaSegmentedControl("Appearance", selection: $appearance.appearance,
-                               options: EnigmaAppearance.allCases.map { EnigmaOption($0, $0.title) })
-      }
-      EnigmaHairline()
-
-      EnigmaSectionHeader("Permissions")
-      MacPermissionRows()
-
-      EnigmaSectionHeader("Welcome")
-      EnigmaRow("Replay welcome setup",
-                subtitle: "Try setup and the walkthrough again. Your chats, installed models, and credentials are kept.") {
-        ReplayWelcomeButton(chat: chat)
-      }
-      EnigmaHairline()
-
-      EnigmaSectionHeader("New chats")
-      EnigmaRow("Start mode") {
-        EnigmaMenu("Prefer Start Mode", selection: $startPreferences.mode,
-                   options: ChatMode.allCases.map { EnigmaOption($0, $0.displayName) })
-      }
-      EnigmaRow("Show sidebar") {
-        EnigmaSwitch("Show sidebar", isOn: $startPreferences.showsSidebar)
-      }
-      EnigmaHairline()
-      EnigmaNote(Self.newChatsNote).padding(.top, 8)
-
-      EnigmaSectionHeader("Location")
-      EnigmaRow("Use location for nearby questions", subtitle: Self.locationExplanation) {
-        Text(location.status)
-          .font(EnigmaTypography.mono(11.5))
-          .foregroundStyle(palette.textSecondary.color)
-          .fixedSize(horizontal: false, vertical: true)
-          .padding(.top, 4)
-      } trailing: {
-        EnigmaSwitch("Use location for nearby questions", isOn: $location.isEnabled)
-      }
-      EnigmaRow("Location Services", subtitle: "Allow or deny location access for Enigma in System Settings.") {
-        Button("Open Settings…") { NSWorkspace.shared.open(LocationService.privacySettingsURL) }
-          .enigmaButtonStyle(.secondary)
-          .accessibilityLabel("Open Location Services Settings")
-      }
-      EnigmaHairline()
-
-      EnigmaSectionHeader("Commands")
-      EnigmaRow("Recognize commands from your wording", subtitle: Self.inferCommandsNote) {
-        EnigmaSwitch("Recognize commands from your wording", isOn: $infersCommands)
-      }
-      EnigmaHairline()
-
-      EnigmaSectionHeader("Messages · /messages")
-      MessagesSettingsSection()
-
-      EnigmaSectionHeader("Updates")
-      EnigmaRow("Check for updates automatically", subtitle: Self.automaticChecksNote) {
-        EnigmaSwitch("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
-      }
-      EnigmaRow("Download and install updates automatically", subtitle: Self.automaticInstallNote) {
-        EnigmaSwitch("Download and install updates automatically", isOn: $updater.automaticallyDownloadsUpdates)
-          .disabled(!updater.automaticallyChecksForUpdates)
-      }
-      EnigmaRow("Version", subtitle: versionSubtitle) {
-        Button("Check Now") { updater.checkForUpdates() }
-          .enigmaButtonStyle(.secondary)
-          .enigmaTestMarker("Check for Updates Now")
-          .disabled(!updater.canCheckForUpdates)
-          .accessibilityLabel("Check for Updates Now")
-      }
-      EnigmaHairline()
-    }
-  }
-
-  private var versionSubtitle: String {
-    AppUpdater.versionText(info: Bundle.main.infoDictionary ?? [:]) + " · "
-      + AppUpdater.lastCheckedText(updater.lastUpdateCheckDate, now: .now, locale: .current)
-  }
-}
-
-/// Replay, which waits while the local model or a model install is busy.
-private struct ReplayWelcomeButton: View {
-  @ObservedObject var chat: LocalChatViewModel
-
-  var body: some View {
-    Button("Replay") {
-      NotificationCenter.default.post(name: .welcomeSetupRequested, object: nil)
-    }
-    .enigmaButtonStyle(.secondary)
-    .disabled(!chat.canChangeModels)
-    .accessibilityLabel("Replay Welcome Setup")
-  }
-}
-
-// MARK: Selection
-
-/// The Accessibility permission, automatic replacement, and whether selection
-/// chats stay private.
-struct SelectionSettingsPage: View {
-  @ObservedObject var selectionEditing: SelectionEditingSettings
-  @SelectionShortcutPhrase private var selectionShortcut
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Required for selection capture and replacement")
-      MacPermissionRows(showScreen: false)
-
-      EnigmaSectionHeader("Text editing")
-      EnigmaRow("Automatically replace selected text",
-                subtitle: "When on, completed /edit responses are pasted directly into the source app, without a preview card or Replace text click. Questions and /translate stay read-only.") {
-        EnigmaSwitch("Automatically replace selected text", isOn: $selectionEditing.automaticallyReplace)
-      }
-      EnigmaHairline()
-      EnigmaNote("When off, review the revised text, edit it yourself, or use /edit again to ask for more changes before choosing Replace text. Text is captured only when you \(selectionShortcut).")
-        .padding(.top, 8)
-
-      EnigmaSectionHeader("Privacy")
-      EnigmaRow(SelectionEditingSettings.privateChatsTitle,
-                subtitle: SelectionEditingSettings.privateChatsSubtitle(isOn: selectionEditing.keepsChatsPrivate)) {
-        EnigmaSwitch(SelectionEditingSettings.privateChatsTitle, isOn: $selectionEditing.keepsChatsPrivate)
-      }
-      EnigmaHairline()
-    }
   }
 }
 

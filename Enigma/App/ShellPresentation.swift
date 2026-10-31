@@ -111,18 +111,14 @@ struct ShellPresentation: Equatable {
     isComposerFocused = !isBusy || composerStaysEditable
   }
 
-  mutating func welcomeChanged(isPresented: Bool, isTourActive: Bool) {
-    isComposerFocused = !isPresented && !isTourActive
+  mutating func welcomeChanged(isPresented: Bool) {
+    isComposerFocused = !isPresented
     if !isPresented { selectedMode = .auto }
     if isPresented {
       isModePalettePresented = false
       isHelpPresented = false
       isWhatsNewPresented = false
     }
-  }
-
-  mutating func tourChanged(isActive: Bool, isWelcomePresented: Bool) {
-    isComposerFocused = !isActive && !isWelcomePresented
   }
 
   func isActivityExpanded(_ id: UUID) -> Bool {

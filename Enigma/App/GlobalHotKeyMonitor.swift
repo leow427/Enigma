@@ -1,5 +1,6 @@
 @preconcurrency import Carbon
 import AppKit
+import Combine
 import ApplicationServices
 
 enum GlobalHotKey: CaseIterable {
@@ -13,13 +14,13 @@ enum GlobalHotKey: CaseIterable {
 
   var modifiers: UInt32 { UInt32(optionKey | shiftKey) }
 
-  fileprivate var identifier: UInt32 {
+  var identifier: UInt32 {
     switch self {
     case .selectionContext: 3
     }
   }
 
-  fileprivate var displayName: String {
+  var displayName: String {
     switch self {
     case .selectionContext: "Shift-Option-Space"
     }
@@ -28,14 +29,14 @@ enum GlobalHotKey: CaseIterable {
 
 enum GlobalHotKeyError: LocalizedError {
   case eventHandlerInstallationFailed(OSStatus)
-  case registrationFailed(GlobalHotKey, OSStatus)
+  case registrationFailed(String, OSStatus)
 
   var errorDescription: String? {
     switch self {
     case .eventHandlerInstallationFailed(let status):
       "The keyboard event handler could not be installed (status \(status))."
-    case .registrationFailed(let hotKey, let status):
-      "\(hotKey.displayName) could not be registered (status \(status))."
+    case .registrationFailed(let name, let status):
+      "\(name) could not be registered (status \(status))."
     }
   }
 }
@@ -45,16 +46,29 @@ enum GlobalHotKeyError: LocalizedError {
 final class GlobalHotKeyMonitor: @unchecked Sendable {
   private static let signature: OSType = 0x4149_5350 // AISP
 
-  private let hotKeyDefinition: GlobalHotKey
+  private let keyCode: UInt32
+  private let modifiers: UInt32
+  private let identifier: UInt32
+  private let name: String
   private let handler: @MainActor () -> Void
   private var eventHandler: EventHandlerRef?
   private var hotKey: EventHotKeyRef?
 
-  init(
+  convenience init(
     hotKey: GlobalHotKey,
     handler: @escaping @MainActor () -> Void
   ) {
-    self.hotKeyDefinition = hotKey
+    self.init(keyCode: hotKey.keyCode, modifiers: hotKey.modifiers, identifier: hotKey.identifier,
+              name: hotKey.displayName, handler: handler)
+  }
+
+  /// Any key and modifiers, for a shortcut chosen in Settings.
+  init(keyCode: UInt32, modifiers: UInt32, identifier: UInt32, name: String,
+       handler: @escaping @MainActor () -> Void) {
+    self.keyCode = keyCode
+    self.modifiers = modifiers
+    self.identifier = identifier
+    self.name = name
     self.handler = handler
   }
 
@@ -79,11 +93,11 @@ final class GlobalHotKeyMonitor: @unchecked Sendable {
 
     let hotKeyID = EventHotKeyID(
       signature: Self.signature,
-      id: hotKeyDefinition.identifier
+      id: identifier
     )
     let registrationStatus = RegisterEventHotKey(
-      hotKeyDefinition.keyCode,
-      hotKeyDefinition.modifiers,
+      keyCode,
+      modifiers,
       hotKeyID,
       GetApplicationEventTarget(),
       0,
@@ -91,7 +105,7 @@ final class GlobalHotKeyMonitor: @unchecked Sendable {
     )
     guard registrationStatus == noErr else {
       stop()
-      throw GlobalHotKeyError.registrationFailed(hotKeyDefinition, registrationStatus)
+      throw GlobalHotKeyError.registrationFailed(name, registrationStatus)
     }
   }
 
@@ -119,7 +133,7 @@ final class GlobalHotKeyMonitor: @unchecked Sendable {
     )
     guard status == noErr,
           hotKeyID.signature == Self.signature,
-          hotKeyID.id == hotKeyDefinition.identifier else {
+          hotKeyID.id == identifier else {
       return OSStatus(eventNotHandledErr)
     }
 
@@ -159,6 +173,8 @@ struct PanelShortcutChord {
 
   private var phase = Phase.idle
   private var armedCounter: UInt32 = 0
+  /// The modifiers pressed together, ⌥⌃ unless chosen in Settings.
+  var chord: NSEvent.ModifierFlags = [.option, .control]
   /// A count of key and mouse-button presses system-wide. Global monitors never
   /// see a key another app consumes as a hot key (like Control-Option-Right in
   /// a window manager), but this count does, so a change since the chord armed
@@ -184,17 +200,17 @@ struct PanelShortcutChord {
       defer { phase = .idle }
       return phase == .armed && completes()
     }
-    guard flags.subtracting([.option, .control]).isEmpty else {
+    guard flags.subtracting(chord).isEmpty else {
       phase = .cancelled
       return false
     }
     switch phase {
     case .idle, .partial:
-      phase = flags == [.option, .control] ? .armed : .partial
+      phase = flags == chord ? .armed : .partial
       if phase == .armed { armedCounter = inputCounter() }
       return false
     case .armed:
-      if flags == [.option, .control] { return false }
+      if flags == chord { return false }
       phase = .cancelled
       return completes()
     case .cancelled:
@@ -215,8 +231,13 @@ final class PanelShortcutMonitor {
   private var accessibilityGranted = false
   private var detector = PanelShortcutMonitor.makeDetector()
   private let handler: @MainActor () -> Void
+  /// The action whose chord this watches for, as chosen in Settings.
+  private let action: ShortcutAction
 
-  init(handler: @escaping @MainActor () -> Void) { self.handler = handler }
+  init(action: ShortcutAction = .summon, handler: @escaping @MainActor () -> Void) {
+    self.action = action
+    self.handler = handler
+  }
 
   func start() {
     guard local == nil else { return }
@@ -262,9 +283,15 @@ final class PanelShortcutMonitor {
   }
 
   private func receive(_ event: NSEvent) {
-    guard !IsSecureEventInputEnabled() else {
+    let store = ShortcutStore.shared
+    guard !IsSecureEventInputEnabled(), !store.isRecording,
+          let binding = store.binding(action), binding.kind == .chord else {
       detector.synchronize(modifiers: event.modifierFlags)
       return
+    }
+    if detector.chord != binding.flags {
+      detector.chord = binding.flags
+      detector.synchronize(modifiers: event.modifierFlags)
     }
     guard event.type == .flagsChanged else {
       detector.cancel()
@@ -273,5 +300,80 @@ final class PanelShortcutMonitor {
     if detector.flagsChanged(modifiers: event.modifierFlags) {
       handler()
     }
+  }
+}
+
+/// Global hot keys for the actions set to keys with modifiers in
+/// Settings → Shortcuts, registered again whenever the shortcuts change.
+@MainActor
+final class ShortcutHotKeys {
+  private let store: ShortcutStore
+  private let handlers: [ShortcutAction: @MainActor () -> Void]
+  private var monitors: [GlobalHotKeyMonitor] = []
+  private var observation: AnyCancellable?
+  /// The last shortcut that worked for each action, of any kind: modifiers
+  /// together and double taps are watched elsewhere and always work.
+  private(set) var registered: [ShortcutAction: KeyBinding] = [:]
+
+  init(store: ShortcutStore = .shared, handlers: [ShortcutAction: @MainActor () -> Void]) {
+    self.store = store
+    self.handlers = handlers
+  }
+
+  func start() {
+    observation = store.$overrides.combineLatest(store.$selectionSameAsSummon)
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _, _ in self?.register() }
+  }
+
+  func stop() {
+    observation = nil
+    monitors.forEach { $0.stop() }
+    monitors = []
+  }
+
+  private func register() {
+    monitors.forEach { $0.stop() }
+    monitors = []
+    for (index, action) in ShortcutAction.global.enumerated() {
+      guard let binding = store.binding(action) else { registered[action] = nil; continue }
+      guard binding.kind == .keys, let handler = handlers[action] else { registered[action] = binding; continue }
+      if register(binding, identifier: UInt32(10 + index), handler: handler) {
+        registered[action] = binding
+      } else {
+        store.failedActions.insert(action.id)
+        // Save the shortcut that works, so the next launch has it too; this registers it again.
+        if let previous = registered[action], previous != binding {
+          store.keep(previous, for: action)
+        } else {
+          registered[action] = nil
+        }
+      }
+    }
+  }
+
+  private func register(_ binding: KeyBinding, identifier: UInt32, handler: @escaping @MainActor () -> Void) -> Bool {
+    let store = store
+    let monitor = GlobalHotKeyMonitor(keyCode: UInt32(binding.keyCode), modifiers: Self.carbon(binding.flags),
+                                      identifier: identifier, name: binding.display) {
+      if !store.isRecording { handler() }
+    }
+    do {
+      try monitor.start()
+      monitors.append(monitor)
+      return true
+    } catch {
+      NSLog("Unable to register %@: %@", binding.display, error.localizedDescription)
+      return false
+    }
+  }
+
+  private static func carbon(_ flags: NSEvent.ModifierFlags) -> UInt32 {
+    var modifiers = 0
+    if flags.contains(.command) { modifiers |= cmdKey }
+    if flags.contains(.option) { modifiers |= optionKey }
+    if flags.contains(.control) { modifiers |= controlKey }
+    if flags.contains(.shift) { modifiers |= shiftKey }
+    return UInt32(modifiers)
   }
 }

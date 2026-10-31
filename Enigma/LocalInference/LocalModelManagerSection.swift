@@ -10,6 +10,7 @@ struct LocalModelManagerSection: View {
   @State private var isImporterPresented = false
   @State private var pendingDeletion: LocalModel?
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var settingsStyle
 
   var body: some View {
     let recommendations = advisor.recommendations(installedModels: chat.installedModels)
@@ -24,7 +25,7 @@ struct LocalModelManagerSection: View {
         }
         .padding(.top, 16)
         Text(LocalModelSettingsLogic.hardwareDetails(hardware))
-          .font(EnigmaTypography.mono(11))
+          .font(EnigmaTypography.detail(11, settings: settingsStyle))
           .foregroundStyle(palette.textTertiary.color)
           .fixedSize(horizontal: false, vertical: true)
           .padding(.top, 6)
@@ -119,7 +120,7 @@ struct LocalModelManagerSection: View {
         .font(EnigmaTypography.ui(17, weight: .semibold))
         .foregroundStyle(palette.textPrimary.color)
       Text(label)
-        .font(EnigmaTypography.mono(11))
+        .font(EnigmaTypography.detail(11, settings: settingsStyle))
         .foregroundStyle(palette.textTertiary.color)
     }
     .accessibilityElement(children: .combine)
@@ -216,7 +217,7 @@ struct LocalModelManagerSection: View {
 
   private func mono(_ text: String, color: EnigmaColor? = nil) -> some View {
     Text(text)
-      .font(EnigmaTypography.mono(11))
+      .font(EnigmaTypography.detail(11, settings: settingsStyle))
       .foregroundStyle((color ?? palette.textTertiary).color)
       .fixedSize(horizontal: false, vertical: true)
   }

@@ -134,7 +134,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     guard model.supportsVision, let config = model.visionConfiguration else { throw ScreenRequestError.textOnlyModel }
     if image != nil, model.id == "smolvlm-2b-q4:vision",
        config.packageRevision != "1bc3c9f74ceafd4c8d4411cc9cf188bba3798f91" {
-      throw LocalInferenceError.bridgeFailure("This legacy SmolVLM package cannot process images with its runtime. Install and select a recommended model in Settings → Local models. Your draft has been kept.")
+      throw LocalInferenceError.bridgeFailure("This legacy SmolVLM package cannot process images with its runtime. Install and select a recommended model in Settings → On this Mac. Your draft has been kept.")
     }
     if let image { try ScreenRequestGuard.validateImage(image) }
     return ContextBudget(contextWindow: model.contextWindow, outputTokens: ThinkCommand.localOutputTokens(messages), overheadTokens: 256)
@@ -623,7 +623,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
       try Task.checkCancellation()
       guard activeID == requestID else { throw CancellationError() }
       guard session.process.isRunning else {
-        throw LocalInferenceError.bridgeFailure("The local model could not load. Reinstall its package in Local models or choose a model that fits this Mac.")
+        throw LocalInferenceError.bridgeFailure("The local model could not load. Reinstall its package in Settings → On this Mac or choose a model that fits this Mac.")
       }
       if LocalOnlyNetworking.isListening(on: port) {
         var check = URLRequest(url: session.base.appendingPathComponent("health"), timeoutInterval: 1)

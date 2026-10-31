@@ -24,7 +24,7 @@ a release with one script, `scripts/release.sh`. The design is in
 - **Gentle reminders.** Sparkle shows a scheduled update alert itself only
   near launch or after the user has been idle. At other times Enigma offers
   the update in the menu instead of interrupting.
-- **Settings → General → Updates.** One switch turns the daily check on or off.
+- **Settings → About.** One switch turns the daily check on or off.
   Another turns automatic download and install on or off; it is unavailable
   while checks are off. The **Version** row shows the version and build, when
   Enigma last checked, and a **Check Now** button.

@@ -53,6 +53,8 @@ final class LocalChatViewModel: ObservableObject {
   typealias Sleep = @Sendable (Duration) async throws -> Void
 
   @Published private(set) var sessions: [ChatSession]
+  /// The tour's scripted reply while it plays.
+  private var tourReply: Task<Void, Never>?
   @Published private(set) var selectedSessionID: UUID?
   /// The chat whose last accepted request used Messages, typed or recognized. It lets a
   /// follow-up like "send her a message saying …" carry Messages over. In memory only:
@@ -438,7 +440,7 @@ final class LocalChatViewModel: ObservableObject {
     self.fileCodex = fileCodex
     self.fileCloudAvailability = fileCloudAvailability ?? {
       if await ScreenConnectivity.shared.isOffline { return .unavailable(reason: "This Mac is offline.") }
-      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Sign in to ChatGPT in Settings → Cloud and search to use Codex.") }
+      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Sign in to ChatGPT in Settings → Cloud to use Codex.") }
       return await fileCodex.fileEditingAvailability(preferredModelID: CloudPreferencesStore().chosenModel(for: .chatGPT))
     }
     self.visionEngine = visionEngine
@@ -731,7 +733,7 @@ final class LocalChatViewModel: ObservableObject {
         return
       }
       guard localToolRuntime(model) else {
-        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local models → Local file tools → Install, or choose Cloud.")
+        appleMessages.report("Messages with a local model needs llama-server. Open Settings → On this Mac → Files → Local file tools → Install, or choose Cloud.")
         return
       }
     } else {
@@ -1945,6 +1947,7 @@ final class LocalChatViewModel: ObservableObject {
   /// Opens a fresh chat: no chat selected, as at launch. Nothing is written
   /// for it; `ensureSelectedSession()` makes it once it's used.
   func newChat() {
+    cancelTourReply()
     // Stopping first: a question still being prepared never reached its
     // chat, so a chat it was the first of is left empty and goes.
     stopStreaming()
@@ -2542,6 +2545,85 @@ final class LocalChatViewModel: ObservableObject {
   private func clearQueue() {
     messageQueue.clear()
     queuedInFlight = nil
+  }
+}
+
+// MARK: Scripted tour replies
+
+extension LocalChatViewModel {
+  /// Appends the person's message and a reply that plays `script`: its
+  /// activity steps, then words streamed in, then the map card. The open chat
+  /// is temporary, so none of it is saved.
+  func tourAppend(_ message: ChatMessage, script: TourScript,
+                  confirm: (@MainActor (MessagesSendApproval) async -> Bool)? = nil,
+                  onFinish: @escaping @MainActor () -> Void) {
+    guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { onFinish(); return }
+    func update(_ change: (inout ChatMessage) -> Void, id: UUID) {
+      guard let s = sessions.firstIndex(where: { $0.id == sessionID }),
+            let m = sessions[s].messages.firstIndex(where: { $0.id == id }) else { return }
+      change(&sessions[s].messages[m])
+    }
+    guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { onFinish(); return }
+    sessions[index].messages.append(message)
+    var reply = ChatMessage(role: .assistant, content: "")
+    var activity = AssistantActivity(id: reply.id)
+    reply.activity = activity
+    reply.origin = ReplyOrigin(mode: .local, providerID: "tour", modelName: "example reply")
+    sessions[index].messages.append(reply)
+    let replyID = reply.id
+    state = .searching
+    tourReply?.cancel()
+    tourReply = Task { @MainActor [weak self] in
+      guard let self else { return }
+      var approved = true
+      for phase in script.phases {
+        guard !Task.isCancelled else { return }
+        activity.apply(.phase(phase))
+        if phase == .readingSources { activity.apply(.sourcesDiscovered(script.sources)) }
+        update({ $0.activity = activity }, id: replyID)
+        // The reply waits on the approval card, as a real send does.
+        if phase == .awaitingApproval, let approval = script.approval, let confirm {
+          approved = await confirm(approval)
+          continue
+        }
+        try? await Task.sleep(for: .milliseconds(script.phaseDuration))
+      }
+      // A cancel wakes the last phase's sleep; the reply must not take the chat back.
+      guard !Task.isCancelled else { return }
+      activity.apply(.phase(.generating))
+      update({ $0.activity = activity }, id: replyID)
+      state = .streaming
+      var text = ""
+      let replyText = approved ? script.reply : script.declined ?? script.reply
+      for word in replyText.split(separator: " ", omittingEmptySubsequences: false) {
+        guard !Task.isCancelled else { return }
+        text += (text.isEmpty ? "" : " ") + word
+        update({ $0.content = text }, id: replyID)
+        try? await Task.sleep(for: .milliseconds(45))
+      }
+      guard !Task.isCancelled else { return }
+      activity.apply(.phase(.completed))
+      update({
+        $0.activity = activity
+        $0.searchSources = script.sources.isEmpty ? nil : script.sources
+        $0.mapPlaces = script.places
+      }, id: replyID)
+      if let revision = script.revision {
+        selectionRevisions[replyID] = SelectionRevision(id: replyID, contextID: TourScene.context.id,
+                                                        text: revision, automatic: false)
+      }
+      state = .idle
+      tourReply = nil
+      onFinish()
+    }
+  }
+
+  /// Stops a tour reply partway, freeing the chat; its finish never runs.
+  func cancelTourReply() {
+    guard let tourReply else { return }
+    tourReply.cancel()
+    self.tourReply = nil
+    state = .idle
   }
 }
 

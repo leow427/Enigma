@@ -75,7 +75,7 @@ The ordinary model picker decides; there is no separate screenshot model.
 | **Auto** | Whichever model Auto picks | Auto's pick. If that's a cloud model that can't take the image, or uploads aren't allowed, the selected local model is used instead when it supports images. |
 
 To read images on your Mac, install a recommended text-and-image package in
-**Settings → Local models** and select it. Enigma never quietly switches to a
+**Settings → On this Mac** and select it. Enigma never quietly switches to a
 different installed image model. A text-only local model still handles text-only
 requests; an image request with it stops with a message and keeps your screenshot
 and draft. See [Local model selection](Local-Model-Selection.md).
@@ -119,7 +119,7 @@ granting access you may need to quit and reopen Enigma, and the card says so.
 Your draft is kept in every case.
 
 The permission's status and an **Open Settings…** button are also in
-**Settings → General → Permissions** and in the welcome setup. See
+**Settings → Permissions** and on the welcome tour's permissions stop. See
 [Welcome and settings](Welcome-and-Settings.md).
 
 Captures happen only when you run a command or press **Retake**. While one is in
@@ -148,8 +148,7 @@ while the sheet is open, your answer saves nothing and sends nothing.
 Once you've declined, a request that needs a cloud upload shows a
 **Screenshot uploads are off** card with **Review screenshot permission…** (the
 sheet again) and **Open Screen Settings**. The setting itself is
-**Allow screenshots to be sent to cloud models** under **Screen** in
-**Settings → Cloud and search**. It's checked again before every image is sent,
+**Allow screenshots to be sent to cloud models** in **Settings → Screen**. It's checked again before every image is sent,
 including after a web search, and turning it off stops a cloud reply that is
 using an image.
 

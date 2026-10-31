@@ -12,21 +12,28 @@ final class WelcomeSetup: ObservableObject {
   @Published var step: Step = .welcome {
     didSet { if isPresented { defaults.set(step.rawValue, forKey: Self.progressKey) } }
   }
-  @Published private(set) var tour: WelcomeTourStep?
   private let defaults: UserDefaults
   private var started = false
+  /// Setup was already done, or skipped for an existing user, when this launch started it.
+  @Published private(set) var wasCompletedBeforeLaunch = false
   private var calibrated = false
 
-  init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+  init(defaults: UserDefaults = .standard) {
+    self.defaults = defaults
+    // A tour another test started doesn't carry into this one.
+    if TestHost.isActive { GuidedTour.shared.end() }
+  }
 
   func start(hasInstalledModels: Bool) {
     guard !started else { return }
     started = true
-    guard !defaults.bool(forKey: Self.completedKey) else { return }
+    wasCompletedBeforeLaunch = defaults.bool(forKey: Self.completedKey)
+    guard !wasCompletedBeforeLaunch else { return }
     // Existing users can opt in through Replay; interrupted new setup resumes.
     if defaults.object(forKey: Self.progressKey) == nil,
        hasInstalledModels || defaults.bool(forKey: "localModelOnboardingDismissed") {
       defaults.set(true, forKey: Self.completedKey)
+      wasCompletedBeforeLaunch = true
       return
     }
     isPresented = true
@@ -36,7 +43,6 @@ final class WelcomeSetup: ObservableObject {
   func replay() {
     calibrated = false
     isPresented = true
-    tour = nil
     step = .welcome
   }
 
@@ -44,16 +50,12 @@ final class WelcomeSetup: ObservableObject {
     defaults.set(true, forKey: Self.completedKey)
     defaults.removeObject(forKey: Self.progressKey)
     defaults.set(true, forKey: "localModelOnboardingDismissed")
-    tour = takeTour ? .history : nil
+    // Someone who just finished setup has been offered the tour.
+    defaults.set(true, forKey: GuidedTour.inviteKey)
+    // The tour starts first, so the window goes straight from the welcome's size to the tour's.
+    if takeTour { GuidedTour.shared.begin() }
     isPresented = false
   }
-
-  func nextTourStep() {
-    guard let tour else { return }
-    self.tour = WelcomeTourStep(rawValue: tour.rawValue + 1)
-  }
-
-  func endTour() { tour = nil }
 
   /// The first performance check in a setup run calibrates this Mac; installs
   /// after it skip the check. Only a check that actually ran counts.
@@ -97,7 +99,7 @@ extension WelcomeSetup {
     case hero, header
 
     var id: EnigmaCharacterSlotID { self == .hero ? "welcome.hero" : "welcome.header" }
-    var size: CGFloat { self == .hero ? 150 : 40 }
+    var size: CGFloat { self == .hero ? 170 : 44 }
   }
 
   static func characterSlot(for step: Step) -> CharacterSlot { step == .welcome ? .hero : .header }
@@ -172,44 +174,6 @@ extension WelcomeSetup {
     guard isEnabled else { return nil }
     let symbol = (SelectionModifier(rawValue: modifier) ?? .option).symbol
     return symbol + symbol
-  }
-}
-
-enum WelcomeTourStep: Int, CaseIterable {
-  case history, composer, commands, files, model, help
-  var target: Self { self == .commands ? .composer : self }
-  var title: String {
-    switch self {
-    case .history: "Your conversations"
-    case .composer: "Start a conversation"
-    case .commands: "Shortcuts start with /"
-    case .files: "Bring your files"
-    case .model: "Choose how I think"
-    case .help: "Help is always here"
-    }
-  }
-  var detail: String {
-    switch self {
-    case .history: "Your \(ChatSessionStore.maximumRetainedSessions) most recent chats live in the sidebar. Press ⌃⌘S to show or hide it, and use New chat to start fresh."
-    case .composer: "Type here and press Return to send. Use Shift–Return for a new line. Your draft stays here while you explore the tour."
-    case .commands: "Type / in the message box to browse commands. Use ↑ and ↓, then Tab or Return to choose one before adding your question."
-    case .files: "Open the file picker to work with a file or folder. Enigma asks for access to what you choose."
-    case .model: "Choose Auto, Local, or Cloud, and a model, from the menu beside Send. Local answers on your Mac; Cloud uses your connected provider; Auto selects a route. ⌘K opens it too."
-    case .help: "Find keyboard shortcuts here. Settings is nearby for models, connections, and replaying welcome setup. Press Option and Control together to hide or summon Enigma."
-    }
-  }
-}
-
-struct WelcomeTourAnchors: PreferenceKey {
-  static let defaultValue: [WelcomeTourStep: Anchor<CGRect>] = [:]
-  static func reduce(value: inout [WelcomeTourStep: Anchor<CGRect>], nextValue: () -> [WelcomeTourStep: Anchor<CGRect>]) {
-    value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-  }
-}
-
-extension View {
-  func welcomeTourTarget(_ step: WelcomeTourStep) -> some View {
-    anchorPreference(key: WelcomeTourAnchors.self, value: .bounds) { [step: $0] }
   }
 }
 

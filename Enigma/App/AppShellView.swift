@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
+  /// The hands-on tour in the main window.
+  @ObservedObject private var guidedTour = GuidedTour.shared
   @ObservedObject private var whatsNew: WhatsNew
   /// System, Paper, or Ink.
   @ObservedObject private var appearance: EnigmaAppearancePreference
@@ -183,7 +185,7 @@ struct AppShellView: View {
 
   private var welcomeShell: some View {
     windowFrame
-    .disabled(welcomeSetup.isPresented || welcomeSetup.tour != nil)
+    .disabled(welcomeSetup.isPresented)
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlay {
       ZStack {
@@ -193,30 +195,37 @@ struct AppShellView: View {
             .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -12)))
         }
       }
+      // Fading away while the window grows for the tour, the
+      // welcome keeps its width, as the page under it does.
+      .frame(width: guidedTour.pageWidth)
+      .frame(maxWidth: .infinity, alignment: .leading)
       // The welcome fades away over the main page.
       .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
                  value: welcomeSetup.isPresented)
     }
     // The welcome stays inside the window's corners.
     .clipShape(windowShape)
+    // The character's perch on the tour card, inside the stage.
+    .overlayPreferenceValue(TourTargetAnchors.self) { anchors in
+      if !shell.isSelectionComposer { GuidedTourPerch(tour: guidedTour, anchors: anchors) }
+    }
     // One stage for the whole window, so the character can fall from the
     // welcome into the main page.
     .enigmaCharacterStage(character, tracksPointer: false)
     // The tour and open menus draw above the character, so it never covers
     // their rows and buttons or takes their clicks. The tour's scrim stays
     // inside the window's corners.
-    .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
+    .overlayPreferenceValue(TourTargetAnchors.self) { anchors in
       ZStack {
-        if welcomeSetup.tour != nil {
-          WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
-            availableCommands: SlashCommand.available())
-            .clipShape(windowShape)
+        // While the window is the selection panel, the tour's card is in the pretend document.
+        if guidedTour.isActive && !welcomeSetup.isPresented && !shell.isSelectionComposer {
+          GuidedTourOverlay(tour: guidedTour, anchors: anchors, onAdvance: advanceTour, onFinish: finishGuidedTour)
             .transition(.opacity)
         }
       }
       // The tour fades in as the welcome fades away under it.
       .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
-                 value: welcomeSetup.tour != nil)
+                 value: guidedTour.isActive)
     }
     // One menu host for the window, the compact panel, and the welcome,
     // above everything else in them. The window's controls are disabled
@@ -245,34 +254,35 @@ struct AppShellView: View {
       // sidebar as a new chat has it, in Recents and written once its first
       // question lands, unless "Keep selection chats private" is on.
       shell.openSelectionChatInWindow(showsSidebar: startPreferences.showsSidebar)
-      localChat.openTemporaryChatInWindow()
+      // The tour's chats stay temporary, never in Recents.
+      if !guidedTour.isActive { localChat.openTemporaryChatInWindow() }
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionPanelPlaced)) { notification in
       guard let roomBelow = notification.object as? CGFloat else { return }
       compactOpensOverlaysAbove = CompactPanelLayout.opensOverlaysAbove(roomBelow: roomBelow)
     }
     .onReceive(NotificationCenter.default.publisher(for: .sidebarToggleRequested)) { _ in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       shell.isSidebarVisible.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .fileModeRequested)) { _ in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       activateFileMode(from: .keyboard)
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionContextRequested)) { notification in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       screen.clearDraft()
       shell.beginSelectionComposer(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar)
       localChat.startTemporaryChat(context: notification.object as? ConversationContext)
     }
     .onReceive(NotificationCenter.default.publisher(for: .newChatRequested)) { _ in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       screen.clearDraft()
       shell.startNewChat(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar)
       localChat.newChat()
     }
     .onReceive(NotificationCenter.default.publisher(for: .modePaletteRequested)) { _ in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       shell.isModePalettePresented.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .settingsRequested)) { _ in
@@ -305,7 +315,7 @@ struct AppShellView: View {
       localChat.stopStreaming()
     }
     .onReceive(NotificationCenter.default.publisher(for: .recentChatCycleRequested)) { _ in
-      guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+      guard !welcomeSetup.isPresented else { return }
       // The panel stays while the chat can't switch, as when a request or the
       // file picker is running: its chat isn't left half in the window.
       let leavesPanel = shell.isSelectionComposer
@@ -348,7 +358,7 @@ struct AppShellView: View {
         dismissedInferences = []
       }
       // A local model with tools loads while the question is typed (F32).
-      if !welcomeSetup.isPresented {
+      if !welcomeSetup.isPresented && !guidedTour.isActive {
         localChat.warmNativeTurn(draft: new, mode: shell.selectedMode, hasScreenshot: screen.attachment != nil)
       }
       // A nudge toward the composer for each keystroke that adds text.
@@ -359,6 +369,10 @@ struct AppShellView: View {
       // In the open chat it falls into the first reply and moves down to each
       // newer one. Opening another chat, saved or new, puts it there at once.
       guard !welcomeSetup.isPresented, old.slot != new.slot else { return }
+      // It flies between the tour's stops, but moves into and out of
+      // the selection panel the way it does outside the tour.
+      let panelMove = old.slot == CompactPanelLayout.inputSlot || new.slot == CompactPanelLayout.inputSlot
+      if !panelMove, guidedTour.isActive || old.slot == GuidedTourPerch.slot { character.move(to: new.slot, .fly); return }
       character.move(to: new.slot, ChatCharacterMove.transition(fromSession: old.session, toSession: new.session,
                                                                 isResponding: localChat.activeRequest != nil))
     }
@@ -436,16 +450,40 @@ struct AppShellView: View {
     .task {
       await localChat.refreshInstalledModel()
       welcomeSetup.start(hasInstalledModels: !localChat.installedModels.isEmpty)
+      // A restart mid-tour, as for Screen Recording, picks up there.
+      if !welcomeSetup.isPresented { guidedTour.resumeIfInterrupted() }
       await modelAdvisor.start(installedModels: localChat.installedModels, presentOnboarding: false)
     }
     .onChange(of: welcomeSetup.isPresented) { _, presented in
-      shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
+      shell.welcomeChanged(isPresented: presented)
       if !presented { startPreferences.mode = .auto }
       // The character falls from the welcome into the main page's slot.
-      if !presented { settleCharacter(.automatic) }
+      if !presented { settleCharacter(.fly) }
     }
-    .onChange(of: welcomeSetup.tour) { _, tour in
-      shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
+    // The tour types its demos into the composer.
+    .onChange(of: guidedTour.draft) { _, text in
+      guard guidedTour.isActive else { return }
+      draft = text
+      shell.isComposerFocused = true
+    }
+    .onChange(of: guidedTour.stop) { _, stop in
+      // A reply from the stop just left stops with it.
+      localChat.cancelTourReply()
+      if stop != nil { shell.isComposerFocused = true }
+      // Leaving the tour's text unapproved doesn't send it.
+      if messages.pendingSend != nil { messages.answer(false) }
+    }
+    // A command's own shortcut starts it in the composer, as its example does.
+    .onReceive(NotificationCenter.default.publisher(for: .commandShortcutPressed)) { notification in
+      guard let command = notification.object as? SlashCommand, composerCanType else { return }
+      shell.isComposerFocused = true
+      composerInsertion = SlashCommandInsertion(text: command.token + " ")
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .guidedTourAction)) { notification in
+      if let action = notification.object as? GuidedTour.Action { performTourAction(action) }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .guidedTourFinishRequested)) { _ in
+      finishGuidedTour()
     }
     .onChange(of: shell.selectedMode, initial: true) { _, mode in
       localChat.clearAutoRouteDecision()
@@ -468,20 +506,31 @@ struct AppShellView: View {
   /// The window: the sidebar and the main page on an opaque background.
   private var shellLayout: some View {
     GeometryReader { geometry in
+      let page = tourPageWidth(in: geometry.size.width)
       HStack(spacing: 0) {
-        if shell.isSidebarVisible {
-          sidebar
-            .frame(width: MainPageLayout.sidebarWidth(for: geometry.size.width))
-            .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+        HStack(spacing: 0) {
+          if shell.isSidebarVisible {
+            sidebar
+              .frame(width: MainPageLayout.sidebarWidth(for: page))
+              .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+          }
+          mainColumn
+            // Under Reduce Motion the main column doesn't slide: it takes its
+            // new width at once, so its AppKit views (the message field, Send)
+            // never pass through in-between frames, and only the sidebar fades.
+            .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
         }
-        mainColumn
-          // Under Reduce Motion the main column doesn't slide: it takes its
-          // new width at once, so its AppKit views (the message field, Send)
-          // never pass through in-between frames, and only the sidebar fades.
-          .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
+        .frame(width: page)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
+                   value: shell.isSidebarVisible)
+        // The tour's card sits in a rail beside the page. The
+        // window's edge uncovers it as the window grows, and covers it again.
+        if showsTourRail || guidedTour.pageWidth != nil {
+          GuidedTourRail()
+            .frame(width: GuidedTourPlacement.railWidth)
+        }
       }
-      .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
-                 value: shell.isSidebarVisible)
+      .frame(width: geometry.size.width, alignment: .leading)
     }
     .modifier(EnigmaWindowChrome())
     // The window's minimum height, except while it's the panel or on its way
@@ -493,7 +542,7 @@ struct AppShellView: View {
     EnigmaSidebar(
       // A private selection chat stays out of Recents.
       rows: ChatHistoryList.rows(sessions: localChat.historySessions, selectedSessionID: localChat.selectedSessionID),
-      tourStep: welcomeSetup.tour,
+      tourStep: guidedTour.stop?.target,
       select: { target in
         switch target {
         case .newChat: NotificationCenter.default.post(name: .newChatRequested, object: nil)
@@ -512,6 +561,13 @@ struct AppShellView: View {
     }
   }
 
+  /// The test host shares the app's defaults, so it never shows the invite.
+  private var showsTourInvite: Bool {
+    !TestHost.isActive && !guidedTour.isActive && !guidedTour.inviteDismissed && !welcomeSetup.isPresented
+      && GuidedTour.showsInvite(defaults: .standard, setupCompleted: true,
+                                isFreshSetup: !welcomeSetup.wasCompletedBeforeLaunch)
+  }
+
   private var mainColumn: some View {
     let examples = SlashCommandExample.examples(available: availableCommands)
     return EnigmaMainColumn(
@@ -520,9 +576,15 @@ struct AppShellView: View {
       availableExamples: examples.count,
       topBar: { topBar },
       header: { style in
-        EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
-                             performStatusAction: performRouteAction, mode: $shell.selectedMode,
-                             isStatusActionEnabled: !localChat.isBusy)
+        VStack(spacing: 14) {
+          EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
+                               performStatusAction: performRouteAction, mode: $shell.selectedMode,
+                               isStatusActionEnabled: !localChat.isBusy)
+          if showsTourInvite {
+            TourInvite { guidedTour.dismissInvite(takeTour: $0) }
+              .transition(.opacity)
+          }
+        }
       },
       conversation: { messageList },
       accessories: { composerAccessories() },
@@ -631,7 +693,7 @@ struct AppShellView: View {
       findModel: { Task { await modelAdvisor.replayOnboarding() } },
       importModel: { isModelImporterPresented = true },
       // After the menu has closed and handed focus back, so Settings keeps it.
-      openSettings: { Task { @MainActor in openSettings() } })
+      openSettings: { Task { @MainActor in openModelSettings() } })
   }
 
   // MARK: Compact panel
@@ -742,10 +804,76 @@ struct AppShellView: View {
   /// Where the character sits outside the welcome: beside the latest reply
   /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
+    if guidedTour.isActive && !shell.isSelectionComposer {
+      if guidedTour.characterOnCard { return GuidedTourPerch.slot }
+    }
     let home = shell.isSelectionComposer ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
     guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
                                                   activity: localChat.activity) ?? home
+  }
+
+  /// The tour's rail shows in the window, not the compact panel.
+  private var showsTourRail: Bool {
+    guidedTour.isActive && !welcomeSetup.isPresented && !shell.isSelectionComposer
+  }
+
+  /// The page's width in a window `width` wide. While the window
+  /// grows for the tour, or shrinks back after it, the page keeps its width,
+  /// so nothing in it reflows, until the window is narrower than the page.
+  private func tourPageWidth(in width: CGFloat) -> CGFloat {
+    if let page = guidedTour.pageWidth { return min(page, width) }
+    return showsTourRail ? max(0, width - GuidedTourPlacement.railWidth) : width
+  }
+
+  /// Return or the card's button takes the tour's next beat.
+  private func advanceTour() {
+    if guidedTour.stop == .done { finishGuidedTour(); return }
+    guidedTour.press()
+  }
+
+  /// Carries out what a press asked for, from this window's card
+  /// and composer or the pretend document's card.
+  private func performTourAction(_ action: GuidedTour.Action) {
+    switch action {
+    case .send(let demo):
+      draft = ""
+      // A text to send waits on the real approval card, and the tour moves
+      // on to approving it. Nothing is sent.
+      var confirm: (@MainActor (MessagesSendApproval) async -> Bool)?
+      if demo.script.approval != nil {
+        let messages = messages
+        confirm = { approval in
+          GuidedTour.shared.stepFinished()
+          return await messages.confirm(approval)
+        }
+      }
+      localChat.playTourExchange(demo, confirm: confirm) { GuidedTour.shared.stepFinished() }
+      // A send from the selection panel moves its chat into the window, as a real one does.
+      if demo.opensInWindow && shell.isSelectionComposer {
+        NotificationCenter.default.post(name: .selectionChatOpenInWindowRequested, object: nil)
+      }
+    case .newChat:
+      NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    case .replace:
+      // The revision card's own Replace text, which the tour sends to the pretend document.
+      guard let id = localChat.selectionRevisions.first(where: { $0.value.contextID == TourScene.context.id })?.key else {
+        GuidedTour.shared.stepFinished()
+        return
+      }
+      Task { await localChat.applySelectionRevision(messageID: id) }
+    case .approveSend:
+      messages.answer(true)
+    }
+  }
+
+  /// Leaves the tour for a fresh chat.
+  private func finishGuidedTour() {
+    guard guidedTour.isActive else { return }
+    guidedTour.end()
+    localChat.newChat()
+    draft = ""
+    shell.isComposerFocused = true
   }
 
   /// Sends the character to its slot in the window with its state there.
@@ -787,7 +915,7 @@ struct AppShellView: View {
   }
 
   private var composerFocus: Binding<Bool> {
-    Binding(get: { shell.isComposerFocused && !welcomeSetup.isPresented && welcomeSetup.tour == nil },
+    Binding(get: { shell.isComposerFocused && !welcomeSetup.isPresented },
             set: { shell.isComposerFocused = $0 })
   }
 
@@ -795,7 +923,7 @@ struct AppShellView: View {
   /// window as soon as its request starts, so there's no queue there.
   private var composerIsEnabled: Bool {
     !(localChat.isBusy || screen.isBusy || files.isWorking || files.isPicking)
-      && !welcomeSetup.isPresented && welcomeSetup.tour == nil
+      && !welcomeSetup.isPresented
   }
 
   /// Whether the window's field takes typing: during a reply too, including
@@ -803,7 +931,7 @@ struct AppShellView: View {
   /// picker, and a model install, delete or performance check still block it.
   private var composerCanType: Bool {
     !(screen.isBusy || files.isPicking || localChat.modelOperation?.blocksChat == true)
-      && !welcomeSetup.isPresented && welcomeSetup.tour == nil
+      && !welcomeSetup.isPresented
   }
 
   /// Send and Return queue the draft instead of sending it: a reply is
@@ -987,7 +1115,12 @@ struct AppShellView: View {
   }
 
   private func submitDraft(recognizesCommands: Bool = true) {
-    guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+    guard !welcomeSetup.isPresented else { return }
+    // During the tour a send plays a scripted reply.
+    if guidedTour.isActive {
+      advanceTour()
+      return
+    }
     if queuesDraft {
       guard canQueueDraft, localChat.queueMessage(visibleDraft, dismissed: dismissedInferences) else { return }
       draft = ""
@@ -1068,7 +1201,7 @@ struct AppShellView: View {
   /// starts no request leaves it to the queue, which puts it back in front
   /// and waits.
   private func sendQueuedMessage(_ message: QueuedMessage, onAccepted: @escaping @MainActor () -> Void) {
-    guard !welcomeSetup.isPresented, welcomeSetup.tour == nil, !screen.isBusy, !files.isPicking else { return }
+    guard !welcomeSetup.isPresented, !screen.isBusy, !files.isPicking else { return }
     let intent = ComposerIntent.resolve(intentContext(draft: message.text, hasFileSelection: false, hasScreenshot: false,
                                                       dismissed: message.dismissed))
     switch ComposerSubmission.plan(intent, hasFileSelection: false, hasScreenshot: false, canSubmit: canSubmit) {
@@ -1205,6 +1338,14 @@ struct AppShellView: View {
   private func openSettings() {
     shell.prepareForSettings()
     NotificationCenter.default.post(name: .settingsRequested, object: nil)
+  }
+
+  /// The model menu's Advanced settings… (Cloud) or Manage models in Settings… (On this Mac).
+  private func openModelSettings() {
+    shell.prepareForSettings()
+    NotificationCenter.default.post(name: .settingsRequested, object: shell.selectedMode == .cloud
+      ? SettingsView.SettingsRequest(destination: .cloud, opensAdvanced: true) as Any
+      : SettingsView.SettingsDestination.local as Any)
   }
 }
 

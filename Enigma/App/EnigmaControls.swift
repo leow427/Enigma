@@ -609,16 +609,18 @@ struct EnigmaTextField: View {
 struct EnigmaSectionHeader: View {
   let title: String
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var strong
 
   init(_ title: String) { self.title = title }
 
   var body: some View {
     Text(title)
-      .font(EnigmaTypography.ui(11.5, weight: .medium))
-      .foregroundStyle(palette.textTertiary.color)
-      .padding(.top, 20)
-      .padding(.bottom, 4)
+      .font(EnigmaTypography.ui(strong ? 13.5 : 11.5, weight: strong ? .semibold : .medium))
+      .foregroundStyle((strong ? palette.textPrimary : palette.textTertiary).color)
+      .padding(.top, strong ? 22 : 20)
+      .padding(.bottom, strong ? 12 : 4)
       .accessibilityAddTraits(.isHeader)
+      .settingsCardMark(.end, at: .top, if: strong)
       .enigmaTestMarker(title)
   }
 }
@@ -628,13 +630,21 @@ struct EnigmaHairline: View {
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
+  @Environment(\.enigmaSettingsStyle) private var strong
 
   var body: some View {
+    // In Settings a group's closing line is the bottom of its card instead.
     Rectangle()
-      .fill(EnigmaEdge.hairline.color(in: palette, increasedContrast: contrast == .increased).color)
+      .fill(strong ? .clear : EnigmaEdge.hairline.color(in: palette, increasedContrast: contrast == .increased).color)
       .frame(height: 1 / displayScale)
+      .settingsCardMark(.end, at: .top, if: strong)
       .accessibilityHidden(true)
   }
+}
+
+extension EnvironmentValues {
+  /// Settings draws bold section headings and puts each group of rows on a card.
+  @Entry var enigmaSettingsStyle = false
 }
 
 /// The small `accentText` dot that marks the selected row.
@@ -664,20 +674,24 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
   let title: String
   var badge: String?
   var subtitle: String?
+  /// The longer explanation, behind an ⓘ beside the title.
+  var info: String?
   /// Nil hides the dot. Otherwise the row is one choice in a list.
   var selection: Bool?
   var action: (() -> Void)?
   @ViewBuilder var detail: () -> Detail
   @ViewBuilder var trailing: () -> Trailing
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var strong
   @FocusState private var isFocused: Bool
 
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder detail: @escaping () -> Detail,
        @ViewBuilder trailing: @escaping () -> Trailing) {
     self.title = title
     self.badge = badge
     self.subtitle = subtitle
+    self.info = info
     self.selection = selection
     self.action = action
     self.detail = detail
@@ -701,7 +715,8 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
         content
       }
     }
-    .overlay(alignment: .top) { EnigmaHairline() }
+    .overlay(alignment: .top) { if !strong { EnigmaHairline() } }
+    .settingsCardMark(.row, at: .top, if: strong)
     .enigmaTestMarker(title)
   }
 
@@ -717,9 +732,10 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
             .foregroundStyle(Self.titleColor(selection: selection, in: palette).color)
           if let badge {
             Text(badge)
-              .font(EnigmaTypography.mono(11))
+              .font(EnigmaTypography.detail(11, settings: strong))
               .foregroundStyle(palette.accentText.color)
           }
+          if let info { EnigmaInfoButton(title: title, text: info) }
         }
         if let subtitle {
           Text(subtitle)
@@ -737,9 +753,9 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
 }
 
 extension EnigmaRow where Detail == EmptyView {
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
-    self.init(title, badge: badge, subtitle: subtitle, selection: selection, action: action,
+    self.init(title, badge: badge, subtitle: subtitle, info: info, selection: selection, action: action,
               detail: { EmptyView() }, trailing: trailing)
   }
 }
@@ -747,10 +763,37 @@ extension EnigmaRow where Detail == EmptyView {
 extension EnigmaRow where Detail == EmptyView, Trailing == EmptyView {
   /// The defaulted `trailing` keeps a trailing closure from ever binding to
   /// `action`: the action always needs its label.
-  init(_ title: String, badge: String? = nil, subtitle: String? = nil, selection: Bool? = nil,
+  init(_ title: String, badge: String? = nil, subtitle: String? = nil, info: String? = nil, selection: Bool? = nil,
        action: (() -> Void)? = nil, @ViewBuilder trailing: @escaping () -> EmptyView = { EmptyView() }) {
-    self.init(title, badge: badge, subtitle: subtitle, selection: selection, action: action,
+    self.init(title, badge: badge, subtitle: subtitle, info: info, selection: selection, action: action,
               detail: { EmptyView() }, trailing: trailing)
+  }
+}
+
+/// ⓘ beside a row's title: its longer explanation in a popover.
+struct EnigmaInfoButton: View {
+  let title: String
+  let text: String
+  @State private var isShown = false
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    Button { isShown.toggle() } label: {
+      Image(systemName: "info.circle")
+        .font(.system(size: 11.5))
+        .foregroundStyle(palette.textTertiary.color)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("About \(title)")
+    .enigmaTestMarker("About \(title)")
+    .popover(isPresented: $isShown, arrowEdge: .bottom) {
+      Text(text)
+        .font(EnigmaTypography.ui(12.5))
+        .foregroundStyle(palette.textPrimary.color)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 280, alignment: .leading)
+        .padding(14)
+    }
   }
 }
 
@@ -836,6 +879,8 @@ struct EnigmaStatusLine: View {
     status == .problem ? palette.textPrimary : palette.textSecondary
   }
 
+  @Environment(\.enigmaSettingsStyle) private var settingsStyle
+
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 6) {
       Text(status.glyph).fontWeight(status == .problem ? .bold : .regular)
@@ -844,7 +889,7 @@ struct EnigmaStatusLine: View {
         .foregroundStyle((tintsGlyphOnly ? Self.quietTextColor(for: status, in: palette)
                           : status.color(in: palette)).color)
     }
-    .font(EnigmaTypography.mono(11.5))
+    .font(EnigmaTypography.detail(11.5, settings: settingsStyle))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(text)
     .enigmaTestMarker(text)
@@ -857,6 +902,7 @@ struct EnigmaStatusLine: View {
 struct EnigmaNote: View {
   let text: String
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var strong
 
   init(_ text: String) { self.text = text }
 
@@ -866,6 +912,8 @@ struct EnigmaNote: View {
       .foregroundStyle(palette.textSecondary.color)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: .infinity, alignment: .leading)
+      // In Settings a note often sits right above a card.
+      .padding(.bottom, strong ? 12 : 0)
   }
 }
 

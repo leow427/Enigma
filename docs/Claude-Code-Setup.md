@@ -7,8 +7,8 @@ route falls back to the other.
 
 ## Setup
 
-1. Open **Settings → Cloud and search → Subscriptions → Claude**, or the
-   **Connect what you use** step of welcome setup.
+1. Open **Settings → Cloud → Claude**, or the **Want backup from the
+   cloud?** step of welcome setup.
 2. If Claude Code isn't found, the row's main button is **Install Claude
    Code**. Enigma never bundles or downloads Claude Code itself: the button
    opens Terminal with a script that runs Anthropic's official installer,
@@ -68,7 +68,7 @@ look in `~/Applications`, because Claude Code has no app-bundle layout there.
 The model list holds Claude Code's aliases: **Sonnet (latest)** (the default),
 **Opus (latest)**, **Fable (latest)**, and **Haiku (latest)**. Each resolves to
 the newest model of that family your plan offers. You can type a full model
-name in **Manual model ID** under **Advanced cloud settings**; it is shown as
+name in **Manual model ID** under **Settings → Cloud → Advanced**; it is shown as
 unverified.
 
 The four aliases take screenshots, under the same permission as the API

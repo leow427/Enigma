@@ -498,6 +498,19 @@ enum KeyboardShortcutsHelp {
   static let showOrHide = Shortcut("Show or hide Enigma", "⌥ ⌃")
   static let showOrHideNote = "Press Option and Control together, then release them, on their own. Using them with another key or modifier does nothing here. Accessibility permission lets this shortcut work while another app is active."
 
+  /// The window's shortcuts as set in Settings → Shortcuts, after Esc.
+  @MainActor
+  static func windowShortcuts(_ store: ShortcutStore) -> [Shortcut] {
+    [Shortcut("Hide the panel", "Esc")]
+      + ShortcutAction.window.map { Shortcut($0.title, store.binding($0)?.display ?? "None") }
+  }
+
+  /// Show or hide Enigma, as set in Settings → Shortcuts.
+  @MainActor
+  static func summon(_ store: ShortcutStore) -> Shortcut {
+    Shortcut(showOrHide.title, store.binding(.summon)?.display ?? "None")
+  }
+
   static let panel: [Shortcut] = [
     Shortcut("Hide the panel", "Esc"),
     Shortcut("New chat", "⌘ N"),
@@ -517,7 +530,7 @@ enum KeyboardShortcutsHelp {
 
   static let search = Shortcut("Search for this message only", "/search")
   static let maps = Shortcut("Find places with Apple Maps", "/maps")
-  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Cloud and search → Web search."
+  static let searchNote = "/search applies to one answer. Delete it before sending to cancel explicit search. Automatic search is controlled in Settings → Search and maps."
 
   static let commands: [Shortcut] = [
     Shortcut("Capture the full desktop", "/screen"),

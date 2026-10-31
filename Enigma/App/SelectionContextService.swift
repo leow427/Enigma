@@ -51,7 +51,8 @@ final class SelectionContextService: ObservableObject {
     var pid: pid_t { app.processIdentifier }
   }
 
-  var canReplace: Bool { target != nil && !isWorking }
+  // The tour's pretend document can always take its replacement.
+  var canReplace: Bool { (target != nil || GuidedTour.shared.stop == .selection) && !isWorking }
   func discardTarget() { target = nil; capturedBounds = nil; notice = nil }
 
   /// Apps whose last capture waited the full focus budget without a focused element,
@@ -186,6 +187,10 @@ final class SelectionContextService: ObservableObject {
   /// `automatic` is an /edit revision pasted without Replace text: once it's
   /// sent, Enigma stays out of the way rather than coming back to the front.
   func replace(with text: String, contextID: UUID, automatic: Bool = false) async -> Bool {
+    // The tour's selection goes back into its pretend document.
+    if contextID == TourScene.context.id, GuidedTour.shared.stop == .selection {
+      return await GuidedTour.shared.replaceInDocument(text, automatic: automatic)
+    }
     guard !isWorking, let target, target.contextID == contextID else {
       notice = "Replacement is unavailable. Select text and invoke Enigma again."
       return false
