@@ -13,10 +13,7 @@ permissions:
 
 jobs:
   build-and-test:
-    runs-on: xcode-27
-    # The image defaults to Xcode 27.1, whose test runs fail where 27.2 passes.
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    runs-on: macos-26
     # A normal run takes about 5 minutes. A hung test fails on its own time
     # allowance (below) long before this; the job limit is the last resort.
     timeout-minutes: 30
