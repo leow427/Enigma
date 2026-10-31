@@ -15,6 +15,9 @@ final class ShortcutRecorder: ObservableObject {
   @Published private(set) var warning: (id: String, text: String)?
   private let store: ShortcutStore
   private var monitor: Any?
+  /// The window recording happens in; keys elsewhere pass through, and leaving it stops recording.
+  private weak var window: NSWindow?
+  private var windowObservers: [NSObjectProtocol] = []
   /// The modifiers held together since they were last all released.
   private var held: NSEvent.ModifierFlags = []
   private var lastTap: (flags: NSEvent.ModifierFlags, at: TimeInterval)?
@@ -26,18 +29,28 @@ final class ShortcutRecorder: ObservableObject {
     if recording == action { stop() } else { start(action) }
   }
 
-  func start(_ action: ShortcutAction) {
+  func start(_ action: ShortcutAction, in window: NSWindow? = NSApp.keyWindow) {
     stop()
     recording = action
     store.isRecording = true
+    self.window = window
     monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
-      self?.receive(event) ?? event
+      guard let self, event.window === self.window else { return event }
+      return self.receive(event)
+    }
+    windowObservers = [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification].map { name in
+      NotificationCenter.default.addObserver(forName: name, object: window, queue: nil) { [weak self] _ in
+        MainActor.assumeIsolated { self?.stop() }
+      }
     }
   }
 
   func stop() {
     if let monitor { NSEvent.removeMonitor(monitor) }
     monitor = nil
+    windowObservers.forEach(NotificationCenter.default.removeObserver)
+    windowObservers = []
+    window = nil
     recording = nil
     message = nil
     held = []

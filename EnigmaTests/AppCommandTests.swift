@@ -475,6 +475,25 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(KeyBinding(kind: .doubleTap, modifiers: NSEvent.ModifierFlags.option.rawValue).display, "⌥⌥")
   }
 
+  /// Recording never outlives its window: leaving or closing Settings stops it,
+  /// so the global shortcuts and typing elsewhere come back.
+  @MainActor
+  func testRecordingStopsWhenItsWindowLosesFocusOrCloses() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let recorder = ShortcutRecorder(store: store)
+    let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+    for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+      recorder.start(.summon, in: window)
+      XCTAssertTrue(store.isRecording)
+      NotificationCenter.default.post(name: name, object: window)
+      XCTAssertNil(recorder.recording, "\(name.rawValue)")
+      XCTAssertFalse(store.isRecording, "\(name.rawValue)")
+    }
+  }
+
   @MainActor
   func testAMacOSShortcutWarnsButIsAllowed() throws {
     let suite = "ShortcutStoreTest-\(UUID())"
