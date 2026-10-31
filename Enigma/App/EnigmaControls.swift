@@ -609,15 +609,16 @@ struct EnigmaTextField: View {
 struct EnigmaSectionHeader: View {
   let title: String
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaStrongDividers) private var strong
 
   init(_ title: String) { self.title = title }
 
   var body: some View {
     Text(title)
-      .font(EnigmaTypography.ui(11.5, weight: .medium))
-      .foregroundStyle(palette.textTertiary.color)
-      .padding(.top, 20)
-      .padding(.bottom, 4)
+      .font(EnigmaTypography.ui(strong ? 13.5 : 11.5, weight: strong ? .semibold : .medium))
+      .foregroundStyle((strong ? palette.textPrimary : palette.textTertiary).color)
+      .padding(.top, strong ? 28 : 20)
+      .padding(.bottom, strong ? 6 : 4)
       .accessibilityAddTraits(.isHeader)
       .enigmaTestMarker(title)
   }
@@ -628,13 +629,19 @@ struct EnigmaHairline: View {
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
+  @Environment(\.enigmaStrongDividers) private var strong
 
   var body: some View {
     Rectangle()
-      .fill(EnigmaEdge.hairline.color(in: palette, increasedContrast: contrast == .increased).color)
-      .frame(height: 1 / displayScale)
+      .fill((strong ? EnigmaEdge.border : .hairline).color(in: palette, increasedContrast: contrast == .increased).color)
+      .frame(height: strong ? 1 : 1 / displayScale)
       .accessibilityHidden(true)
   }
+}
+
+extension EnvironmentValues {
+  /// F14 spike: Settings draws its dividers and section headings stronger than the chat's.
+  @Entry var enigmaStrongDividers = false
 }
 
 /// The small `accentText` dot that marks the selected row.

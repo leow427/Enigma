@@ -181,6 +181,7 @@ struct SettingsView: View {
       navigation
       page
     }
+    .environment(\.enigmaStrongDividers, true)
     .frame(width: size.width, height: size.height)
     .background(palette.background.color)
     .tint(palette.accent.color)
@@ -211,11 +212,11 @@ struct SettingsView: View {
         if !items.isEmpty {
           if let title = group.title {
             Text(title)
-              .font(EnigmaTypography.ui(11, weight: .medium))
-              .foregroundStyle(palette.textTertiary.color)
+              .font(EnigmaTypography.ui(12, weight: .semibold))
+              .foregroundStyle(palette.textSecondary.color)
               .padding(.horizontal, 4)
-              .padding(.top, 10)
-              .padding(.bottom, 2)
+              .padding(.top, 14)
+              .padding(.bottom, 3)
               .accessibilityAddTraits(.isHeader)
           } else {
             Spacer().frame(height: 10)
@@ -443,10 +444,13 @@ struct GeneralSettingsPage: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
+      EnigmaSectionHeader("Look")
       EnigmaRow("Appearance", subtitle: "System follows your Mac.") {
         EnigmaSegmentedControl("Appearance", selection: $appearance.appearance,
                                options: EnigmaAppearance.allCases.map { EnigmaOption($0, $0.title) })
       }
+      EnigmaHairline()
+      EnigmaSectionHeader("New chats")
       EnigmaRow("Start mode", subtitle: "Auto picks a model for each question.", info: Self.newChatsNote) {
         EnigmaMenu("Prefer Start Mode", selection: $startPreferences.mode,
                    options: ChatMode.allCases.map { EnigmaOption($0, $0.displayName) })
@@ -454,10 +458,14 @@ struct GeneralSettingsPage: View {
       EnigmaRow("Show sidebar") {
         EnigmaSwitch("Show sidebar", isOn: $startPreferences.showsSidebar)
       }
+      EnigmaHairline()
+      EnigmaSectionHeader("Commands")
       EnigmaRow("Recognize commands from your wording", subtitle: "Smaller models otherwise need a /.",
                 info: Self.inferCommandsNote) {
         EnigmaSwitch("Recognize commands from your wording", isOn: $infersCommands)
       }
+      EnigmaHairline()
+      EnigmaSectionHeader("Welcome")
       EnigmaRow("Welcome and tour", subtitle: "Your chats, models and sign-ins are kept.") {
         ReplayWelcomeButton(chat: chat)
       }
@@ -547,8 +555,13 @@ struct FilesSettingsPage: View {
 struct PermissionsSettingsPage: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
+      EnigmaSectionHeader("Selection and screen")
       MacPermissionRows()
+      EnigmaHairline()
+      EnigmaSectionHeader("Messages")
       MessagesSettingsSection(part: .permissions)
+      EnigmaHairline()
+      EnigmaSectionHeader("Places and weather")
       EnigmaRow("Location", subtitle: "For nearby places and weather.") {
         Button("Open Settings…") { NSWorkspace.shared.open(LocationService.privacySettingsURL) }
           .enigmaButtonStyle(.secondary)
