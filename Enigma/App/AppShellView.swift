@@ -203,7 +203,7 @@ struct AppShellView: View {
     .clipShape(windowShape)
     // F14 spike: the character's perch on the tour card, inside the stage.
     .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
-      GuidedTourPerch(tour: guidedTour, anchors: anchors)
+      GuidedTourPerch(tour: guidedTour, anchors: anchors, sidebarVisible: shell.isSidebarVisible)
     }
     // One stage for the whole window, so the character can fall from the
     // welcome into the main page.
@@ -772,7 +772,10 @@ struct AppShellView: View {
   /// Where the character sits outside the welcome: beside the latest reply
   /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
-    if guidedTour.isActive && guidedTour.characterOnCard && !shell.isSelectionComposer { return GuidedTourPerch.slot }
+    if guidedTour.isActive && !shell.isSelectionComposer {
+      if guidedTour.characterInScene { return GuidedTourScene.slot }
+      if guidedTour.characterOnCard { return GuidedTourPerch.slot }
+    }
     let home = shell.isSelectionComposer ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
     guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
@@ -790,7 +793,7 @@ struct AppShellView: View {
     switch guidedTour.advance() {
     case .send(let demo):
       draft = ""
-      localChat.playTourExchange(demo) { GuidedTour.shared.demoFinished() }
+      localChat.playTourExchange(demo) { GuidedTour.shared.stepFinished() }
     case .newChat:
       NotificationCenter.default.post(name: .newChatRequested, object: nil)
     case nil:

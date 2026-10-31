@@ -307,10 +307,25 @@ final class EnigmaWelcomeTests: XCTestCase {
       try await saveWelcome("welcome-\(step.rawValue + 1)-\(step)", fixture: fixture, step: step, size: defaultSize)
     }
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
-    for stop in [GuidedTour.Stop.ask, .keys, .selection, .modes, .expect, .permissions, .done] {
+    for stop in [GuidedTour.Stop.ask, .code, .keys, .selection, .messages, .modes, .permissions, .done] {
       try EnigmaSnapshot.save("guided-\(stop)", size: CGSize(width: 360, height: 620)) {
         GuidedTourCard(tour: GuidedTour(), stop: stop, onAdvance: {}, onFinish: {})
           .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
+      }
+    }
+    // F14 spike: the selection stop's scripted scene, beat by beat.
+    let sceneTour = GuidedTour(defaults: UserDefaults(suiteName: "GuidedTourScene-\(UUID())")!)
+    let beats: [(String, TourScene)] = [
+      ("selected", TourScene(phase: .selected)),
+      ("panel", TourScene(phase: .panel, keys: 2, typed: TourScene.question)),
+      ("answered", TourScene(phase: .answered, typed: TourScene.question, reply: TourScene.answer, showsRevision: true)),
+      ("replaced", TourScene(phase: .replaced, typed: TourScene.question, reply: TourScene.answer, showsRevision: true,
+                             revisionStatus: .sent)),
+    ]
+    for (name, scene) in beats {
+      sceneTour.scene = scene
+      try EnigmaSnapshot.save("guided-scene-\(name)", size: CGSize(width: 1040, height: 760)) {
+        GuidedTourScene(tour: sceneTour)
       }
     }
     try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {

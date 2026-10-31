@@ -17,7 +17,11 @@ final class WelcomeSetup: ObservableObject {
   private var started = false
   private var calibrated = false
 
-  init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+  init(defaults: UserDefaults = .standard) {
+    self.defaults = defaults
+    // F14 spike: a tour another test started doesn't carry into this one.
+    if TestHost.isActive { GuidedTour.shared.end() }
+  }
 
   func start(hasInstalledModels: Bool) {
     guard !started else { return }
@@ -180,6 +184,8 @@ extension WelcomeSetup {
 
 enum WelcomeTourStep: Int, CaseIterable {
   case history, composer, commands, files, model, help
+  /// F14 spike: New chat, for the hands-on tour.
+  case newChat
   var target: Self { self == .commands ? .composer : self }
   var title: String {
     switch self {
@@ -189,6 +195,7 @@ enum WelcomeTourStep: Int, CaseIterable {
     case .files: "Bring your files"
     case .model: "Choose how I think"
     case .help: "Help is always here"
+    case .newChat: "Start fresh anytime"
     }
   }
   var detail: String {
@@ -199,6 +206,7 @@ enum WelcomeTourStep: Int, CaseIterable {
     case .files: "Open the file picker to work with a file or folder. Enigma asks for access to what you choose."
     case .model: "Choose Auto, Local, or Cloud, and a model, from the menu beside Send. Local answers on your Mac; Cloud uses your connected provider; Auto selects a route. ⌘K opens it too."
     case .help: "Find keyboard shortcuts here. Settings is nearby for models, connections, and replaying welcome setup. Press Option and Control together to hide or summon Enigma."
+    case .newChat: "Press ⌘N or use New chat to start a new conversation."
     }
   }
 }
@@ -224,8 +232,9 @@ extension Notification.Name {
 // the owner before any spec. Not for main.
 
 /// The tour in the main window, fully scripted: Return or the card's button
-/// takes each next beat. A stop's demos type themselves into the composer,
-/// and sending one plays a scripted reply in a temporary chat.
+/// takes each next beat. A stop has one or more steps: a question that types
+/// itself into the composer and plays a scripted reply in a temporary chat,
+/// a new chat, or a beat of the selection scene's mock document.
 @MainActor
 final class GuidedTour: ObservableObject {
   static let shared = GuidedTour()
@@ -233,66 +242,82 @@ final class GuidedTour: ObservableObject {
   static let progressKey = "guidedTour.stop.spike"
 
   enum Stop: Int, CaseIterable {
-    case ask, command, keys, selection, screen, think, files, messages, newChat, modes, expect, permissions, done
+    case ask, code, keys, selection, files, messages, newChat, modes, permissions, done
   }
 
-  /// Where a stop is: a demo typing, ready to go, its reply playing, or done.
+  /// Where the current step is: typing, ready for Return, playing, or the stop is done.
   enum Beat { case typing, ready, playing, finished }
 
-  /// What a press of Return does in the window.
+  /// What a press of Return asks the window to do.
   enum Action { case send(TourDemo), newChat }
 
   @Published private(set) var stop: Stop?
+  @Published private(set) var stepIndex = 0
   @Published private(set) var beat: Beat = .finished
   /// What the composer shows while a demo types itself.
   @Published private(set) var draft = ""
-  /// The character perches on the card, except while a scripted reply plays.
+  /// The selection stop's mock document and panel.
+  @Published var scene = TourScene()
+  /// The character perches on the card, except while a reply plays or it sits in the scene's panel.
   @Published var characterOnCard = true
+  @Published private(set) var characterInScene = false
   /// Measured by the card, so the character's perch can sit on it.
   @Published var cardHeight: CGFloat = 220
   /// The tour picked up again after a restart, for the card's welcome back.
   @Published private(set) var resumed = false
 
   private let defaults: UserDefaults
-  private var demoIndex = 0
+  /// Tests share the app's defaults, so their tours never save or resume progress.
+  private let persists = !TestHost.isActive
   private var typing: Task<Void, Never>?
+  private var playing: Task<Void, Never>?
   private var lastAdvance = Date.distantPast
   private var newChatObserver: NSObjectProtocol?
+  private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
-    // ⌘N or New chat at the new-chat stop counts as its demo.
+    // ⌘N or New chat at the new-chat step counts as doing it.
     newChatObserver = NotificationCenter.default.addObserver(forName: .newChatRequested, object: nil, queue: .main) { [weak self] _ in
       MainActor.assumeIsolated {
-        guard let self, self.stop == .newChat, self.beat == .ready else { return }
-        self.beat = .finished
+        guard let self, self.beat == .ready, self.currentStep?.kind == .newChat else { return }
+        self.stepFinished()
       }
     }
   }
 
   var isActive: Bool { stop != nil }
 
+  var currentStep: TourStep? {
+    guard let steps = stop?.steps, steps.indices.contains(stepIndex) else { return nil }
+    return steps[stepIndex]
+  }
+
   func begin() { go(.ask) }
 
   /// After a restart mid-tour, picks up at the same stop.
   func resumeIfInterrupted() {
-    guard stop == nil, defaults.object(forKey: Self.progressKey) != nil,
+    guard persists, stop == nil, defaults.object(forKey: Self.progressKey) != nil,
           let saved = Stop(rawValue: defaults.integer(forKey: Self.progressKey)) else { return }
     go(saved)
     resumed = true
   }
 
   func go(_ stop: Stop) {
+    typing?.cancel()
+    playing?.cancel()
     self.stop = stop
-    defaults.set(stop.rawValue, forKey: Self.progressKey)
+    if persists { defaults.set(stop.rawValue, forKey: Self.progressKey) }
     resumed = false
     characterOnCard = true
-    demoIndex = 0
-    startDemo()
+    characterInScene = false
+    scene = TourScene()
+    stepIndex = 0
+    startStep()
   }
 
-  /// Return or the card's button: finishes the typing, takes the stop's
-  /// action, or moves on. Returns what the window should do.
+  /// Return or the card's button: finishes the typing, takes the step, or
+  /// moves on. Returns what the window should do.
   func advance() -> Action? {
     // The composer and the card's button can both see one Return.
     guard Date().timeIntervalSince(lastAdvance) > 0.25 else { return nil }
@@ -302,15 +327,21 @@ final class GuidedTour: ObservableObject {
       finishTyping()
       return nil
     case .ready:
-      if stop == .newChat {
-        beat = .finished
+      guard let step = currentStep else { return nil }
+      switch step.kind {
+      case .send(let demo):
+        beat = .playing
+        draft = ""
+        characterOnCard = false
+        return .send(demo)
+      case .newChat:
+        stepFinished()
         return .newChat
+      case .select, .summon, .askSelection, .replace:
+        beat = .playing
+        play(step.kind)
+        return nil
       }
-      guard let demo = currentDemo else { return nil }
-      beat = .playing
-      draft = ""
-      characterOnCard = false
-      return .send(demo)
     case .playing:
       return nil
     case .finished:
@@ -319,11 +350,11 @@ final class GuidedTour: ObservableObject {
     }
   }
 
-  /// The scripted reply finished: the stop's next demo types, or the stop is done.
-  func demoFinished() {
-    guard beat == .playing, let stop else { return }
-    demoIndex += 1
-    if demoIndex < stop.demos.count { startDemo() } else { beat = .finished }
+  /// The step played out: the next one starts, or the stop is done.
+  func stepFinished() {
+    guard let stop, beat != .finished else { return }
+    stepIndex += 1
+    if stepIndex < stop.steps.count { startStep() } else { beat = .finished }
   }
 
   func next() {
@@ -338,37 +369,44 @@ final class GuidedTour: ObservableObject {
 
   func end() {
     typing?.cancel()
-    defaults.removeObject(forKey: Self.progressKey)
+    playing?.cancel()
+    if persists { defaults.removeObject(forKey: Self.progressKey) }
     stop = nil
     beat = .finished
     draft = ""
+    scene = TourScene()
     characterOnCard = true
+    characterInScene = false
     resumed = false
   }
 
-  private var currentDemo: TourDemo? {
-    guard let demos = stop?.demos, demos.indices.contains(demoIndex) else { return nil }
-    return demos[demoIndex]
-  }
+  // MARK: Steps
 
-  /// Types the current demo into the composer, a character at a time, with a
-  /// pause after a leading `/` so the command list shows.
-  private func startDemo() {
+  /// A question types itself into the composer, or the scene's into its panel.
+  private func startStep() {
     typing?.cancel()
     draft = ""
-    if stop == .newChat { beat = .ready; return }
-    guard let demo = currentDemo else { beat = .finished; return }
+    guard let step = currentStep else { beat = .finished; return }
+    switch step.kind {
+    case .send(let demo): type(demo.prompt, firstStep: stepIndex == 0) { self.draft = $0 }
+    case .askSelection: type(TourScene.question, firstStep: false) { self.scene.typed = $0 }
+    case .newChat, .select, .summon, .replace: beat = .ready
+    }
+  }
+
+  /// Types `text` a character at a time, with a pause after a leading `/` so
+  /// the command list shows.
+  private func type(_ text: String, firstStep: Bool, into show: @escaping @MainActor (String) -> Void) {
     beat = .typing
-    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { finishTyping(); return }
-    let firstDemo = demoIndex == 0
+    guard !reduceMotion else { finishTyping(); return }
     typing = Task { [weak self] in
-      // Time for the character to land on the card first.
-      try? await Task.sleep(for: .milliseconds(firstDemo ? 900 : 500))
+      // Time for the character to land first.
+      try? await Task.sleep(for: .milliseconds(firstStep ? 900 : 500))
       var typed = ""
-      for character in demo.prompt {
-        guard let self, !Task.isCancelled else { return }
+      for character in text {
+        guard self != nil, !Task.isCancelled else { return }
         typed.append(character)
-        self.draft = typed
+        show(typed)
         let pause = typed == "/" ? 1100 : Int.random(in: 28...62)
         try? await Task.sleep(for: .milliseconds(pause))
       }
@@ -379,17 +417,115 @@ final class GuidedTour: ObservableObject {
 
   private func finishTyping() {
     typing?.cancel()
-    guard let demo = currentDemo else { return }
-    draft = demo.prompt
+    switch currentStep?.kind {
+    case .send(let demo)?: draft = demo.prompt
+    case .askSelection?: scene.typed = TourScene.question
+    default: break
+    }
     beat = .ready
   }
+
+  /// One beat of the selection scene.
+  private func play(_ kind: TourStep.Kind) {
+    playing = Task { [weak self] in
+      guard let self else { return }
+      func pause(_ milliseconds: Int) async { try? await Task.sleep(for: .milliseconds(self.reduceMotion ? 0 : milliseconds)) }
+      switch kind {
+      case .select:
+        self.scene.phase = .selected
+        await pause(900)
+      case .summon:
+        self.scene.keys = 1
+        await pause(260)
+        self.scene.keys = 2
+        await pause(320)
+        self.scene.phase = .panel
+        self.characterOnCard = false
+        self.characterInScene = true
+        await pause(700)
+        self.scene.keys = 0
+      case .askSelection:
+        self.scene.phase = .thinking
+        await pause(1100)
+        self.scene.phase = .answered
+        var reply = ""
+        for word in TourScene.answer.split(separator: " ") {
+          guard !Task.isCancelled else { return }
+          reply += (reply.isEmpty ? "" : " ") + word
+          self.scene.reply = reply
+          await pause(45)
+        }
+        await pause(300)
+        self.scene.showsRevision = true
+        await pause(400)
+      case .replace:
+        self.scene.revisionStatus = .applying
+        await pause(700)
+        self.scene.revisionStatus = .sent
+        self.scene.phase = .replaced
+        await pause(500)
+      case .send, .newChat:
+        break
+      }
+      guard !Task.isCancelled else { return }
+      self.stepFinished()
+    }
+  }
+}
+
+/// One step of a stop, named on the card's checklist.
+struct TourStep: Equatable {
+  enum Kind: Equatable {
+    /// A question typed into the composer and sent.
+    case send(TourDemo)
+    case newChat
+    /// The selection scene: select text, tap ⌥ twice, ask, put it back.
+    case select, summon, askSelection, replace
+  }
+
+  var label: String
+  var kind: Kind
+
+  /// The card's button while the step waits for Return.
+  var actionLabel: String {
+    switch kind {
+    case .send, .askSelection: "Send"
+    case .newChat: "New chat"
+    case .select: "Select"
+    case .summon: "Tap ⌥⌥"
+    case .replace: "Replace text"
+    }
+  }
+}
+
+/// The selection stop's mock document and panel, beat by beat.
+struct TourScene: Equatable {
+  enum Phase: Int, Comparable {
+    case document, selected, panel, thinking, answered, replaced
+    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+  }
+
+  var phase = Phase.document
+  /// How many ⌥ presses show.
+  var keys = 0
+  var typed = ""
+  var reply = ""
+  var showsRevision = false
+  var revisionStatus = SelectionRevision.Status.ready
+
+  static let original = "Don’t be late. The boat leaves at 2 sharp."
+  static let revised = "Try to get there a little early, the boat leaves at 2!"
+  static let question = "make this friendlier"
+  static let answer = "Here’s a friendlier version. Replace text puts it back in your draft."
+  static let context = ConversationContext(id: UUID(uuidString: "00000000-0000-0000-0000-00000000F14A")!,
+                                           sourceName: "Saturday plans", text: original)
+  static let revision = UUID(uuidString: "00000000-0000-0000-0000-00000000F14B")!
 }
 
 /// A question the tour types and sends, with what's attached to it and the reply it plays.
 struct TourDemo: Equatable {
   var prompt: String
   var script: TourScript
-  var image: TourImage? = nil
   var attachments: [MessageAttachment] = []
   var thinks = false
 }
@@ -408,12 +544,8 @@ struct TourScript: Equatable {
     phases: [.searching, .readingSources],
     sources: [WebSearchSource(title: "Willis Tower - Wikipedia", url: URL(string: "https://en.wikipedia.org/wiki/Willis_Tower")!)])
 
-  static let weather = TourScript(
-    reply: "Tomorrow in Chicago looks breezy and mostly sunny: a high of 58° and a low of 44°, with a 10% chance of rain. Bring a jacket for the lakefront. (An example: I check the real forecast once the tour is over.)",
-    phases: [.checkingWeather])
-
   static let museums = TourScript(
-    reply: "Here are four near Millennium Park. The Art Institute of Chicago is right next door. The Field Museum, Shedd Aquarium and Adler Planetarium share the Museum Campus, about a 25-minute walk south along the lake.",
+    reply: "Plenty. The Art Institute of Chicago is right next door. The Field Museum, Shedd Aquarium and Adler Planetarium share the Museum Campus, about a 25-minute walk south along the lake.",
     phases: [.findingPlaces],
     places: [
       MapPlace(id: "tour.art", name: "Art Institute of Chicago", coordinate: SearchCoordinate(latitude: 41.8796, longitude: -87.6237), distanceMeters: nil),
@@ -422,20 +554,12 @@ struct TourScript: Equatable {
       MapPlace(id: "tour.adler", name: "Adler Planetarium", coordinate: SearchCoordinate(latitude: 41.8663, longitude: -87.6068), distanceMeters: nil),
     ])
 
-  static let translate = TourScript(
-    reply: "“Where is the Bean?” That’s Cloud Gate, in Millennium Park.",
-    phases: [.thinking])
+  static let weather = TourScript(
+    reply: "Tomorrow in Chicago looks breezy and mostly sunny: a high of 58° and a low of 44°, with a 10% chance of rain. Bring a jacket for the lakefront. (An example: I check the real forecast once the tour is over.)",
+    phases: [.checkingWeather])
 
-  static let edit = TourScript(
-    reply: "Quick heads-up: the meeting moved to 3:00. See you there!",
-    phases: [.thinking])
-
-  static let snapshot = TourScript(
-    reply: "Here’s your Saturday: 10:00 the Art Institute, with the Impressionists on the second floor. 12:30 lunch at Portillo’s. 2:00 the architecture boat tour from the Riverwalk. 5:00 the Bean and Millennium Park. 7:05 the Cubs at Wrigley: take the Red Line to Addison.",
-    phases: [.thinking])
-
-  static let screen = TourScript(
-    reply: "You have the Cubs schedule open in Safari, an email to Jamie about Saturday, and your trip notes. Want me to draft the reply to Jamie with the plan?",
+  static let code = TourScript(
+    reply: "Chicago’s grid counts out from State and Madison, 800 numbers to a mile:\n\n```python\ndef miles_from_downtown(number: int) -> float:\n    \"\"\"Miles from State and Madison for a Chicago address number.\"\"\"\n    return number / 800\n\nprint(miles_from_downtown(3600))  # 4.5: Addison, by Wrigley Field\n```",
     phases: [.thinking])
 
   static let think = TourScript(
@@ -446,68 +570,13 @@ struct TourScript: Equatable {
     reply: "Done. Trip notes.md is now a packing list in three parts: clothes for the lake wind, things for the game, and chargers. I changed only that file, and you can undo it.",
     phases: [.thinking], phaseDuration: 1400)
 
-  static let messages = TourScript(
+  static let readMessages = TourScript(
     reply: "Mom said Sunday dinner is at 6 at her place, and asked if you can bring an Eli’s Cheesecake.",
     phases: [.readingMessages], phaseDuration: 1200)
-}
 
-/// A picture a demo sends, as the screen commands would.
-enum TourImage: Equatable {
-  case notes, desktop
-
-  /// PNG data for the message's preview.
-  @MainActor var pngData: Data? {
-    let renderer = ImageRenderer(content: self == .notes ? AnyView(TourNotesPicture()) : AnyView(TourDesktopPicture()))
-    renderer.scale = 2
-    guard let tiff = renderer.nsImage?.tiffRepresentation else { return nil }
-    return NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
-  }
-}
-
-/// A region of a note, as `/snapshot` would capture it.
-private struct TourNotesPicture: View {
-  var body: some View {
-    VStack(alignment: .leading, spacing: 7) {
-      Text("Saturday ideas").font(.system(size: 15, weight: .bold))
-      ForEach(["Art Institute (Impressionists!)", "Lunch: Portillo’s?", "Architecture boat tour, 2 pm",
-               "The Bean + Millennium Park", "Cubs game 7:05"], id: \.self) { Text("• " + $0) }
-    }
-    .font(.system(size: 13))
-    .foregroundStyle(Color(white: 0.15))
-    .padding(18)
-    .frame(width: 290, alignment: .leading)
-    .background(Color(red: 1, green: 0.96, blue: 0.78))
-  }
-}
-
-/// A whole desktop, as `/screen` would capture it.
-private struct TourDesktopPicture: View {
-  var body: some View {
-    ZStack(alignment: .topLeading) {
-      LinearGradient(colors: [Color(red: 0.16, green: 0.32, blue: 0.55), Color(red: 0.42, green: 0.27, blue: 0.5)],
-                     startPoint: .topLeading, endPoint: .bottomTrailing)
-      window("Safari — Cubs schedule", color: Color(red: 0.05, green: 0.2, blue: 0.5)).offset(x: 18, y: 22)
-      window("Mail — Re: Saturday", color: Color(white: 0.92)).offset(x: 150, y: 70)
-      window("Notes — Saturday ideas", color: Color(red: 1, green: 0.96, blue: 0.78)).offset(x: 60, y: 118)
-    }
-    .frame(width: 340, height: 210)
-    .clipped()
-  }
-
-  private func window(_ title: String, color: Color) -> some View {
-    VStack(spacing: 0) {
-      Text(title)
-        .font(.system(size: 9, weight: .medium))
-        .foregroundStyle(Color(white: 0.25))
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 3)
-        .background(Color(white: 0.97))
-      color
-    }
-    .frame(width: 170, height: 80)
-    .clipShape(RoundedRectangle(cornerRadius: 5))
-    .shadow(radius: 3, y: 1)
-  }
+  static let sendMessage = TourScript(
+    reply: "Here’s your text to Sam: “Running 10 minutes late, see you soon!” It goes only after you approve it.",
+    phases: [.readingMessages, .awaitingApproval], phaseDuration: 1000)
 }
 
 /// A macOS permission the tour asks for at its end, with its live state.
@@ -528,7 +597,7 @@ enum TourPermission: CaseIterable {
     switch self {
     case .accessibility: "⌥⌃ and ⌥⌥ from any app, and putting edits back"
     case .fullDiskAccess: "/messages"
-    case .screenRecording: "/screen and /snapshot"
+    case .screenRecording: "/screen and /snapshot, only when you ask"
     }
   }
 
@@ -575,16 +644,13 @@ extension GuidedTour.Stop {
   var title: String {
     switch self {
     case .ask: "Just ask"
-    case .command: "Or pick a command"
+    case .code: "Code, and thinking it through"
     case .keys: "Always one keystroke away"
     case .selection: "Ask about anything you select"
-    case .screen: "Show me your screen"
-    case .think: "Think it through"
     case .files: "Bring your files"
-    case .messages: "Your Messages"
+    case .messages: "Your Messages, in your own words"
     case .newChat: "Start fresh anytime"
     case .modes: "Auto is on by default"
-    case .expect: "Good to know"
     case .permissions: "Choose what I can do"
     case .done: "You’re all set"
     }
@@ -592,17 +658,14 @@ extension GuidedTour.Stop {
 
   var detail: String {
     switch self {
-    case .ask: "Ask the way you’d ask a friend. I work out on my own when to search the web, find places, check the weather or just answer."
-    case .command: "Start with / to see every command. Picking one makes sure I use that tool."
+    case .ask: "Ask the way you’d ask a friend. I work out on my own when to search the web, find places or check the weather."
+    case .code: "I write and explain code. When you want a specific tool, start with / to pick a command, like /think for a plan or a trade-off."
     case .keys: "I’m built for the keyboard."
-    case .selection: "Select text in any app and tap ⌥ twice. I open right beside it to explain it, /translate it or /edit it."
-    case .screen: "/snapshot lets you drag over part of the screen. /screen takes all of it. I only look when you type one."
-    case .think: "/think gives me time to reason before I answer. Use it for plans, trade-offs and tricky questions."
+    case .selection: "Here’s how it works in any app, like this draft."
     case .files: "Attach files or folders with + or ⇧⌘A. I tidy notes and fix typos, ask before touching code, and you can undo every change."
-    case .messages: "/messages reads and searches your chats, and can send a text for you. Nothing sends until you approve it."
-    case .newChat: "⌘N starts a new chat. Recents keeps your last \(ChatSessionStore.maximumRetainedSessions), and after 5 minutes away I start fresh on my own."
+    case .messages: "Ask about a chat or have me text someone. Nothing sends until you approve it."
+    case .newChat: "⌘N, or New chat in the sidebar. Recents keeps your last \(ChatSessionStore.maximumRetainedSessions) chats, and after 5 minutes away I start fresh on my own."
     case .modes: "I answer on this Mac and use the cloud only when it helps. Switch for one chat from this menu or with ⌘K."
-    case .expect: ""
     case .permissions: "All optional. Turn on what you’re comfortable with."
     case .done: "Press ⌥⌃ in any app to bring me back. Forget a shortcut? Help, at the bottom of the sidebar, lists every one."
     }
@@ -612,7 +675,6 @@ extension GuidedTour.Stop {
   var footnote: String? {
     switch self {
     case .selection: "Needs Accessibility. You choose at the end."
-    case .screen: "Needs Screen Recording. You choose at the end."
     case .messages: "Needs Full Disk Access. You choose at the end."
     case .modes: "Change the default in Settings → General → Start mode."
     case .done: "Replay this tour any time from Settings → General."
@@ -620,38 +682,46 @@ extension GuidedTour.Stop {
     }
   }
 
-  /// What the stop types and sends, in order.
-  var demos: [TourDemo] {
+  /// The stop's steps, in order. More than one shows as a checklist on the card.
+  var steps: [TourStep] {
     switch self {
     case .ask:
-      [TourDemo(prompt: "who designed the Willis Tower?", script: .willis),
-       TourDemo(prompt: "will it rain in Chicago tomorrow?", script: .weather)]
-    case .command: [TourDemo(prompt: "/maps museums near Millennium Park", script: .museums)]
+      [TourStep(label: "Search the web", kind: .send(TourDemo(prompt: "who designed the Willis Tower?", script: .willis))),
+       TourStep(label: "Find places", kind: .send(TourDemo(prompt: "any good museums near Millennium Park?", script: .museums))),
+       TourStep(label: "Check the weather", kind: .send(TourDemo(prompt: "will it rain in Chicago tomorrow?", script: .weather)))]
+    case .code:
+      [TourStep(label: "Write some code", kind: .send(TourDemo(
+         prompt: "write a Python function for how far a Chicago address is from downtown", script: .code))),
+       TourStep(label: "Think it through with /think", kind: .send(TourDemo(
+         prompt: "/think Blue Line or drive to O’Hare at 5 on a Friday?", script: .think, thinks: true)))]
     case .selection:
-      [TourDemo(prompt: "/translate ¿Dónde está el Bean?", script: .translate),
-       TourDemo(prompt: "/edit make this friendlier: Meeting moved to 3. Don’t be late.", script: .edit)]
-    case .screen:
-      [TourDemo(prompt: "/snapshot turn these into a plan for Saturday", script: .snapshot, image: .notes),
-       TourDemo(prompt: "/screen what’s on my screen?", script: .screen, image: .desktop)]
-    case .think:
-      [TourDemo(prompt: "/think Blue Line or drive to O’Hare at 5 on a Friday?", script: .think, thinks: true)]
+      [TourStep(label: "Select text in any app", kind: .select),
+       TourStep(label: "Tap ⌥ twice", kind: .summon),
+       TourStep(label: "Ask in your own words", kind: .askSelection),
+       TourStep(label: "Put it back", kind: .replace)]
     case .files:
-      [TourDemo(prompt: "turn my trip notes into a packing list", script: .files,
-                attachments: [MessageAttachment(name: "Trip notes.md", isDirectory: false)])]
-    case .messages: [TourDemo(prompt: "/messages what did Mom say about Sunday?", script: .messages)]
-    default: []
+      [TourStep(label: "Tidy a file", kind: .send(TourDemo(
+         prompt: "turn my trip notes into a packing list", script: .files,
+         attachments: [MessageAttachment(name: "Trip notes.md", isDirectory: false)])))]
+    case .messages:
+      [TourStep(label: "Read and search", kind: .send(TourDemo(prompt: "what did Mom say about Sunday dinner?", script: .readMessages))),
+       TourStep(label: "Send a text", kind: .send(TourDemo(prompt: "text Sam that I’m running 10 minutes late", script: .sendMessage)))]
+    case .newChat:
+      [TourStep(label: "Start a new chat", kind: .newChat)]
+    case .keys, .modes, .permissions, .done:
+      []
     }
   }
 
   /// The control the stop points at, if any.
   var target: WelcomeTourStep? {
     switch self {
-    case .ask, .command, .selection, .screen, .think, .messages: .composer
+    case .ask, .code, .messages: .composer
     case .files: .files
-    case .newChat: .history
+    case .newChat: .newChat
     case .modes: .model
     case .done: .help
-    case .keys, .expect, .permissions: nil
+    case .keys, .selection, .permissions: nil
     }
   }
 
@@ -659,11 +729,10 @@ extension GuidedTour.Stop {
   var ringsTarget: Bool { target != nil && target != .composer }
 
   var expectations: [String] {
-    guard self == .expect else { return [] }
+    guard self == .modes else { return [] }
     return [
-      "Smaller local models need a / for Messages, edit, translate and think.",
-      "I never look at your screen unless you type /screen or /snapshot.",
       "Nothing leaves your Mac unless you use the cloud or search.",
+      "Smaller local models need a / for Messages, edit, translate and think.",
       "Hard questions go better with a ChatGPT or Claude plan connected.",
     ]
   }
@@ -695,6 +764,12 @@ struct GuidedTourPlacement: Equatable {
     cardOrigin = CGPoint(x: container.width - Self.railWidth + Self.margin,
                          y: min(max(Self.perchRoom, ideal), lowest))
   }
+
+  /// The page between the sidebar and the rail, where the selection scene plays.
+  static func page(in container: CGSize, sidebarVisible: Bool) -> CGRect {
+    let leading = sidebarVisible ? MainPageLayout.sidebarWidth(for: container.width) : 0
+    return CGRect(x: leading, y: 0, width: max(0, container.width - leading - railWidth), height: container.height)
+  }
 }
 
 /// The tour's rail beside the page: the window grows by its width for the
@@ -715,11 +790,13 @@ struct GuidedTourRail: View {
   }
 }
 
-/// The character's perch on the tour card. It sits inside the character's
-/// stage, under the card, at the card's top-left corner.
+/// What the tour draws under the character: the selection scene, and the
+/// character's perch at the card's top-left corner. It's inside the
+/// character's stage, so the character can sit on both.
 struct GuidedTourPerch: View {
   @ObservedObject var tour: GuidedTour
   let anchors: [WelcomeTourStep: Anchor<CGRect>]
+  var sidebarVisible = true
   static let slot: EnigmaCharacterSlotID = "tour.card"
 
   var body: some View {
@@ -727,9 +804,19 @@ struct GuidedTourPerch: View {
       if let stop = tour.stop {
         let placement = GuidedTourPlacement(target: stop.target.flatMap { anchors[$0] }.map { geometry[$0] },
                                             container: geometry.size, cardHeight: tour.cardHeight)
-        Color.clear
-          .enigmaCharacterSlot(id: Self.slot, size: 54)
-          .position(x: placement.cardOrigin.x + 36, y: placement.cardOrigin.y - 22)
+        ZStack(alignment: .topLeading) {
+          if stop == .selection {
+            GuidedTourScene(tour: tour)
+              .frame(width: GuidedTourPlacement.page(in: geometry.size, sidebarVisible: sidebarVisible).width,
+                     height: geometry.size.height)
+              .offset(x: GuidedTourPlacement.page(in: geometry.size, sidebarVisible: sidebarVisible).minX)
+              .transition(.opacity)
+          }
+          Color.clear
+            .enigmaCharacterSlot(id: Self.slot, size: 54)
+            .position(x: placement.cardOrigin.x + 36, y: placement.cardOrigin.y - 22)
+        }
+        .animation(EnigmaMotion.pageChange.animation, value: stop)
       }
     }
     .allowsHitTesting(false)
@@ -803,6 +890,7 @@ struct GuidedTourCard: View {
           .foregroundStyle(palette.textSecondary.color)
           .fixedSize(horizontal: false, vertical: true)
       }
+      if stop.steps.count > 1 { checklist }
       if stop == .keys { GuidedTourKeys() }
       if !stop.expectations.isEmpty {
         VStack(alignment: .leading, spacing: 7) {
@@ -831,9 +919,31 @@ struct GuidedTourCard: View {
     .enigmaEdge(shape)
   }
 
+  /// The stop's steps: done ones checked, the current one marked.
+  private var checklist: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      ForEach(Array(stop.steps.enumerated()), id: \.offset) { index, step in
+        let isDone = tour.stop == stop && (index < tour.stepIndex || tour.beat == .finished)
+        let isCurrent = tour.stop == stop && index == tour.stepIndex && tour.beat != .finished
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(isDone ? "✓" : isCurrent ? "→" : "·")
+            .font(EnigmaTypography.mono(12))
+            .foregroundStyle(isDone || isCurrent ? palette.accentText.color : palette.textTertiary.color)
+            .frame(width: 12)
+          Text(step.label)
+            .font(EnigmaTypography.ui(13, weight: isCurrent ? .semibold : .regular))
+            .foregroundStyle(isCurrent ? palette.textPrimary.color
+                             : isDone ? palette.textSecondary.color : palette.textTertiary.color)
+        }
+      }
+    }
+    .padding(.vertical, 2)
+    .animation(EnigmaMotion.pageChange.animation, value: tour.stepIndex)
+  }
+
   private var primaryLabel: String {
     switch tour.beat {
-    case .typing, .ready: stop == .newChat ? "New chat" : "Send"
+    case .typing, .ready: tour.currentStep?.actionLabel ?? "Next"
     case .playing, .finished: "Next"
     }
   }
@@ -888,13 +998,7 @@ struct GuidedTourKeys: View {
     HStack(spacing: 12) {
       HStack(spacing: 4) {
         ForEach(keys.indices, id: \.self) { index in
-          Text(keys[index])
-            .font(EnigmaTypography.ui(keys[index].count > 1 ? 12 : 16, weight: .medium))
-            .foregroundStyle(palette.textPrimary.color)
-            .frame(minWidth: 30, minHeight: 30)
-            .padding(.horizontal, keys[index].count > 1 ? 6 : 0)
-            .background(palette.surface.color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .enigmaEdge(RoundedRectangle(cornerRadius: 7, style: .continuous))
+          GuidedTourKeycap(key: keys[index])
         }
       }
       .frame(width: 72, alignment: .leading)
@@ -916,6 +1020,25 @@ struct GuidedTourKeys: View {
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)
     }
+  }
+}
+
+/// A large keycap, pressed while `isPressed`.
+struct GuidedTourKeycap: View {
+  let key: String
+  var isPressed = false
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+    Text(key)
+      .font(EnigmaTypography.ui(key.count > 1 ? 12 : 16, weight: .medium))
+      .foregroundStyle(isPressed ? palette.onAccent.color : palette.textPrimary.color)
+      .frame(minWidth: 30, minHeight: 30)
+      .padding(.horizontal, key.count > 1 ? 6 : 0)
+      .background(isPressed ? palette.accent.color : palette.surface.color, in: shape)
+      .enigmaEdge(shape)
+      .scaleEffect(isPressed ? 0.92 : 1)
   }
 }
 
@@ -980,13 +1103,177 @@ struct GuidedTourPermissions: View {
   }
 }
 
+// MARK: Selection scene
+
+/// The selection stop's scripted scene over the page: a draft in another app,
+/// its text selected, ⌥ tapped twice, the selection panel asked in plain
+/// words, and the revision put back into the draft. The panel is built from
+/// the real panel's parts, with the character in its input slot.
+struct GuidedTourScene: View {
+  @ObservedObject var tour: GuidedTour
+  static let slot: EnigmaCharacterSlotID = "tour.scene"
+  private static let space = "guidedTourScene"
+  private static let panelWidth: CGFloat = 540
+  @Environment(\.enigmaPalette) private var palette
+  @State private var selection: CGRect = .zero
+
+  var body: some View {
+    let scene = tour.scene
+    ZStack(alignment: .topLeading) {
+      backdrop
+      VStack(spacing: 18) {
+        // The two ⌥ taps, above the window so they never cover its text.
+        HStack(spacing: 10) {
+          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 1)
+          GuidedTourKeycap(key: "⌥", isPressed: scene.keys >= 2)
+        }
+        .scaleEffect(1.4)
+        .frame(height: 44)
+        .opacity(scene.keys > 0 ? 1 : 0)
+        document(scene)
+      }
+      .frame(maxWidth: .infinity)
+      .padding(.top, 40)
+      if scene.phase >= .panel {
+        // It opens under the selection, as the real panel does.
+        panel(scene)
+          .frame(width: Self.panelWidth)
+          .offset(x: selection.midX - Self.panelWidth / 2, y: selection.maxY + 14)
+          .transition(.opacity.combined(with: .offset(y: -8)))
+      }
+    }
+    .coordinateSpace(.named(Self.space))
+    .animation(.easeInOut(duration: 0.25), value: scene.keys)
+    .animation(EnigmaMotion.pageChange.animation, value: scene.phase)
+    .animation(EnigmaMotion.pageChange.animation, value: scene.showsRevision)
+    .animation(EnigmaMotion.pageChange.animation, value: scene.revisionStatus)
+  }
+
+  /// Another app on the Mac: a soft wallpaper over the page.
+  private var backdrop: some View {
+    RoundedRectangle(cornerRadius: 14, style: .continuous)
+      .fill(LinearGradient(colors: [Color(red: 0.33, green: 0.45, blue: 0.62), Color(red: 0.53, green: 0.43, blue: 0.62)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing))
+      .overlay(alignment: .topLeading) {
+        Text("Another app on your Mac")
+          .font(EnigmaTypography.ui(12, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.85))
+          .padding(16)
+      }
+      .padding(16)
+  }
+
+  private func document(_ scene: TourScene) -> some View {
+    let replaced = scene.phase >= .replaced
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 7) {
+        ForEach([Color(red: 1, green: 0.37, blue: 0.34), Color(red: 1, green: 0.74, blue: 0.18),
+                 Color(red: 0.16, green: 0.79, blue: 0.25)], id: \.self) { color in
+          Circle().fill(color).frame(width: 11, height: 11)
+        }
+        Spacer()
+        Text("Saturday plans").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(white: 0.35))
+        Spacer()
+        Color.clear.frame(width: 47, height: 1)
+      }
+      .padding(.horizontal, 12)
+      .frame(height: 30)
+      .background(Color(white: 0.93))
+      VStack(alignment: .leading, spacing: 12) {
+        Text("Hi Jamie,")
+        Text("Saturday is all set. Let’s meet at the Art Institute at 10, then lunch at Portillo’s.")
+          .fixedSize(horizontal: false, vertical: true)
+        ZStack(alignment: .leading) {
+          // The selection sweeps across the line, as a drag would.
+          Text(TourScene.original)
+            .background(alignment: .leading) {
+              Color(red: 0.70, green: 0.84, blue: 1)
+                .padding(-2)
+                .scaleEffect(x: scene.phase >= .selected ? 1 : 0, anchor: .leading)
+                .animation(.easeInOut(duration: 0.8), value: scene.phase)
+            }
+            .opacity(replaced ? 0 : 1)
+          Text(TourScene.revised)
+            .background(palette.accent.color.opacity(0.22).padding(-2))
+            .opacity(replaced ? 1 : 0)
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { selection = $0 }
+        Text("See you there,\nAlex")
+      }
+      .font(.system(size: 14))
+      .foregroundStyle(Color(white: 0.12))
+      .padding(22)
+    }
+    .frame(width: 480, alignment: .leading)
+    .background(Color.white)
+    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .shadow(color: .black.opacity(0.28), radius: 20, y: 10)
+  }
+
+  /// The selection panel as it opens under the selection, from the real
+  /// panel's selection line and hints.
+  private func panel(_ scene: TourScene) -> some View {
+    let shape = RoundedRectangle(cornerRadius: CompactPanelLayout.cornerRadius, style: .continuous)
+    return VStack(spacing: 0) {
+      EnigmaCompactSelectionLine(contexts: [TourScene.context], isBusy: scene.phase == .thinking, remove: { _ in })
+      HStack(alignment: .center, spacing: 10) {
+        Color.clear
+          .frame(width: CompactPanelLayout.inputSlotSize, height: CompactPanelLayout.inputSlotSize)
+          .enigmaCharacterSlot(id: Self.slot, size: CompactPanelLayout.inputSlotSize)
+        Text(scene.typed.isEmpty ? CompactPanelLayout.placeholder(hasSelection: true) : scene.typed)
+          .font(EnigmaTypography.ui(16))
+          .foregroundStyle(scene.typed.isEmpty ? palette.textTertiary.color : palette.textPrimary.color)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        Text("auto · local")
+          .font(EnigmaTypography.mono(11))
+          .foregroundStyle(palette.textTertiary.color)
+        Text("↵")
+          .font(EnigmaTypography.mono(12))
+          .foregroundStyle(palette.textSecondary.color)
+          .frame(width: 26, height: 22)
+          .background(palette.background.color, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+      }
+      .padding(.leading, 12)
+      .padding(.trailing, 14)
+      .padding(.vertical, 12)
+      if scene.phase >= .thinking {
+        VStack(alignment: .leading, spacing: 12) {
+          if scene.phase == .thinking {
+            EnigmaStatusLine(.busy, "Thinking…")
+          } else {
+            Text(scene.reply)
+              .font(EnigmaTypography.reply)
+              .foregroundStyle(palette.textPrimary.color)
+              .fixedSize(horizontal: false, vertical: true)
+            if scene.showsRevision {
+              SelectionRevisionCard(
+                revision: SelectionRevision(id: TourScene.revision, contextID: TourScene.context.id,
+                                            text: TourScene.revised, automatic: false, status: scene.revisionStatus),
+                disabled: false, update: { _ in }, replace: {})
+              .transition(.opacity)
+            }
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+      }
+      EnigmaCompactHints(hints: CompactPanelHints.hints(isResponding: scene.phase == .thinking),
+                         tag: CompactPanelHints.temporaryTag)
+    }
+    .background(palette.surface.color)
+    .clipShape(shape)
+    .enigmaEdge(shape)
+    .shadow(color: .black.opacity(0.3), radius: 22, y: 10)
+  }
+}
+
 extension LocalChatViewModel {
   /// F14 spike: plays a scripted exchange in a temporary chat that's never saved.
   func playTourExchange(_ demo: TourDemo, onFinish: @escaping @MainActor () -> Void) {
     guard !isBusy else { onFinish(); return }
     if !isTemporaryChat { startTemporaryChat(context: nil) }
     var message = ChatMessage(role: .user, content: demo.prompt)
-    message.imagePreview = demo.image?.pngData
     message.attachments = demo.attachments.isEmpty ? nil : demo.attachments
     message.extendedThinking = demo.thinks ? true : nil
     tourAppend(message, script: demo.script, onFinish: onFinish)

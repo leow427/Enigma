@@ -429,6 +429,7 @@ private extension WelcomeTourStep {
     case .files: "files"
     case .model: "model"
     case .help: "help"
+    case .newChat: "new chat"
     }
   }
 
@@ -440,6 +441,7 @@ private extension WelcomeTourStep {
     case .files: "work with a file or folder"
     case .model: "local, cloud, or auto"
     case .help: "shortcuts and settings"
+    case .newChat: "a new conversation"
     }
   }
 }
