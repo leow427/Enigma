@@ -94,7 +94,7 @@ See the [report](history/2026-10-29-native-search-evaluation.md).
 |---|---|---|---|
 | **ChatGPT via Codex** | Your ChatGPT plan through the Codex CLI. See [ChatGPT-Setup.md](ChatGPT-Setup.md). | Codex's own model list, in Codex's order | The model Codex marks as its default, else the first listed, else `gpt-5.6-luna` |
 | **Claude via Claude Code** | Your Claude plan through Claude Code. See [Claude-Code-Setup.md](Claude-Code-Setup.md). | Sonnet, Opus, Fable and Haiku (latest), which Claude Code resolves to the newest model your plan offers | `sonnet` |
-| **Free models** | Gemini's free tier on your own Google key. See [Free-Models.md](Free-Models.md). | Gemini 3.8 Flash (and Apple's cloud model once available); a spent model moves aside until it resets | `gemini-3.8-flash` |
+| **Free models** | Gemini's free tier on your own Google key. See [Free-Models.md](Free-Models.md). | Gemini 3.8 Flash, then 3.6 Flash and 3.5 Flash-Lite (and Apple's cloud model once available); a spent model moves aside until it resets | `gemini-3.8-flash` |
 | **OpenAI** | Your OpenAI API key | The account's models, filtered to the reviewed list below, in fallback order | First reviewed model in the account's list |
 | **Anthropic** | Your Anthropic API key | The account's models, in Anthropic's order | First model listed |
 | **Gemini** | Your Gemini API key | The account's models that support `generateContent`, in Google's order | First model listed |
@@ -178,7 +178,7 @@ API providers that means the reviewed image list:
   `claude-sonnet-4-5`, `claude-sonnet-4-20250514`, `claude-opus-4-20250514`,
   `claude-3-7-sonnet-20250219`, `claude-3-5-haiku-20241022` and listed
   snapshots.
-- Gemini: `gemini-3.8-flash`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`.
+- Gemini: `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`.
 
 For the subscription routes:
 

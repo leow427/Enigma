@@ -51,9 +51,10 @@ final class FreeModelsTests: XCTestCase {
   // MARK: - Task 3: the Free models provider
 
   func testRankingAndAvailability() {
-    XCTAssertEqual(FreeModelCatalog.ranked, ["gemini-3.8-flash", "apple-pcc"])
+    XCTAssertEqual(FreeModelCatalog.ranked, ["gemini-3.8-flash", "apple-pcc", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
+    XCTAssertEqual(FreeModelCatalog.displayName("gemini-3.5-flash-lite"), "Gemini 3.5 Flash-Lite")
     XCTAssertEqual(FreeModelCatalog.available(hasGeminiKey: true, appleAvailable: false).map(\.id),
-                   ["gemini-3.8-flash"])
+                   ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
     XCTAssertEqual(FreeModelCatalog.available(hasGeminiKey: false, appleAvailable: true).map(\.id), ["apple-pcc"])
     XCTAssertTrue(FreeModelCatalog.available(hasGeminiKey: true, appleAvailable: true).allSatisfy { $0.provider == .free })
   }
@@ -237,7 +238,7 @@ final class FreeModelsTests: XCTestCase {
     settings.autoMayUseFreeGemini = true
     let usage = FreeModelUsage()
     usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(60))
-    XCTAssertNil(settings.autoFreeModelID(now: now, usage: usage), "Apple's model isn't available, so nothing is left")
+    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: usage), "gemini-3.6-flash")
   }
 
   @MainActor
@@ -245,7 +246,10 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     let usage = FreeModelUsage()
     XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage))
-    usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(300))
+    usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(900))
+    usage.markExhausted("gemini-3.6-flash", until: now.addingTimeInterval(300))
+    XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage), "Flash-Lite is still available")
+    usage.markExhausted("gemini-3.5-flash-lite", until: now.addingTimeInterval(600))
     XCTAssertEqual(settings.freeModelsAllOut(now: now, usage: usage), now.addingTimeInterval(300))
     XCTAssertNil(settings.freeModelsAllOut(now: now.addingTimeInterval(301), usage: usage))
   }
@@ -329,7 +333,7 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings(geminiKey: false)
     XCTAssertEqual(settings.models, [])
     try settings.saveAPIKey("test-only-key", for: .gemini)
-    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash"])
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
     try settings.removeAPIKey(for: .gemini)
     XCTAssertEqual(settings.models, [])
   }
@@ -358,7 +362,7 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     let usage = FreeModelUsage()
     XCTAssertNil(settings.freeModelsOutNotice(now: now, usage: usage))
-    for id in ["gemini-3.8-flash"] { usage.markExhausted(id, until: now.addingTimeInterval(60)) }
+    for id in FreeModelCatalog.ranked { usage.markExhausted(id, until: now.addingTimeInterval(60)) }
     XCTAssertEqual(settings.freeModelsOutNotice(now: now, usage: usage),
                    "Free models are out until \(now.addingTimeInterval(60).formatted(date: .omitted, time: .shortened)). Answered on this Mac.")
     settings.preferredProvider = .gemini
@@ -410,7 +414,7 @@ final class FreeModelsTests: XCTestCase {
     XCTAssertEqual(key, "")
     XCTAssertTrue(settings.hasAPIKey(for: .gemini))
     XCTAssertEqual(settings.preferredProvider, .free)
-    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash"])
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
     XCTAssertEqual(settings.preferredModelID, "gemini-3.8-flash")
   }
 

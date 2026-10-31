@@ -89,7 +89,7 @@ extension CloudModelCapabilities {
        "claude-sonnet-4-5", "claude-sonnet-4-5-20250929", "claude-sonnet-4-20250514",
        "claude-opus-4-20250514", "claude-3-7-sonnet-20250219", "claude-3-5-haiku-20241022"]
     case .gemini:
-      ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
+      ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
     case .chatGPT:
       // Codex's own list says which models take images; caches written before it was
       // recorded count as text-only until the next refresh.

@@ -7,7 +7,7 @@ enum FreeModelCatalog {
 
   /// Most capable first. The Gemini entries follow Google's free tier; recheck with each
   /// catalogue update (Task 7 of the F34 plan checks them live).
-  static let ranked = ["gemini-3.8-flash", applePCC]
+  static let ranked = ["gemini-3.8-flash", applePCC, "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
   /// Whether Settings and welcome setup mention Apple's model, including the macOS 26 upgrade line.
   /// Off until the Private Cloud Compute entitlement is granted and the client ships.
@@ -15,6 +15,7 @@ enum FreeModelCatalog {
 
   private static let displayNames = [
     "gemini-3.8-flash": "Gemini 3.8 Flash", applePCC: "Apple's cloud model",
+    "gemini-3.6-flash": "Gemini 3.6 Flash", "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite",
   ]
 
   static func displayName(_ modelID: String) -> String { displayNames[modelID] ?? modelID }
