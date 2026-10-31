@@ -271,6 +271,15 @@ final class AppCommandTests: XCTestCase {
     stays.isInverted = true
     NotificationCenter.default.post(name: .newChatRequested, object: nil)
     await fulfillment(of: [stays], timeout: 0.3)
+    // Return or the card's New chat button takes the step first, then asks for the chat.
+    tour.go(.newChat)
+    try await Task.sleep(for: .milliseconds(300))
+    guard case .newChat = tour.advance() else { return XCTFail("Return at the new-chat stop asks for a new chat") }
+    let staysAfterReturn = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    staysAfterReturn.isInverted = true
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [staysAfterReturn], timeout: 0.3)
+    XCTAssertEqual(tour.stop, .newChat)
   }
 
   @MainActor

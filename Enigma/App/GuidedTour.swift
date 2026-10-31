@@ -67,8 +67,9 @@ final class GuidedTour: ObservableObject {
       MainActor.assumeIsolated {
         guard let self, self.isActive else { return }
         // ⌘N is the new-chat stop's step; anywhere else it leaves the tour.
-        guard self.currentStep?.kind == .newChat else { self.requestFinish(); return }
-        if self.beat == .ready { self.stepFinished() }
+        // Return on the card has already taken the step by the time its new chat arrives.
+        guard self.stop == .newChat else { self.requestFinish(); return }
+        if self.beat == .ready, self.currentStep?.kind == .newChat { self.stepFinished() }
       }
     }
   }
