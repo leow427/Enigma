@@ -13,7 +13,7 @@ enum LocalFileRuntime {
   static func textArguments(model: LocalModel, port: UInt16, key: String, alias: String) throws -> [String] {
     guard model.fileURL.isFileURL, model.fileURL.pathExtension.lowercased() == "gguf",
           FileManager.default.isReadableFile(atPath: model.fileURL.path), executable(for: model) != nil else {
-      throw FileModeError.operation("Local File Mode needs llama-server. Open Settings → Local models → Local file tools → Install, or choose a recommended model with its included runtime. Your files stay on this Mac.")
+      throw FileModeError.operation("Local File Mode needs llama-server. Open Settings → On this Mac → Files → Local file tools → Install, or choose a recommended model with its included runtime. Your files stay on this Mac.")
     }
     return ["-m", model.fileURL.path, "--host", "127.0.0.1", "--port", String(port), "--api-key", key,
       "--alias", alias, "--ctx-size", String(contextWindow(for: model)), "--parallel", "1", "--offline",

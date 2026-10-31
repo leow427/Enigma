@@ -7,6 +7,9 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var globalHotKeyMonitors: [GlobalHotKeyMonitor] = []
   private var panelShortcut: PanelShortcutMonitor?
   private var selectionShortcut: SelectionShortcutMonitor?
+  /// The other kinds each action can be set to in Settings → Shortcuts.
+  private var otherShortcuts: [Any] = []
+  private var shortcutHotKeys: ShortcutHotKeys?
   private var accessibilityWarmer: SelectionAccessibilityWarmer?
   private var settingsWindowController: SettingsWindowController?
   private var subscriptionRefreshTask: Task<Void, Never>?
@@ -94,21 +97,34 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     let menuBarController = MenuBarController(panelController: panelController, updater: .shared)
     menuBarController.install()
 
-    let panelShortcut = PanelShortcutMonitor { [weak self] in
+    // Each global action fires from whichever kind of shortcut
+    // Settings → Shortcuts gave it. With "Same as summon", the summon
+    // shortcut asks about a fresh selection and otherwise opens Enigma.
+    let summon: @MainActor () -> Void = { [weak self] in
       self?.selectionShortcut?.reset()
-      panelController.toggle()
+      if ShortcutStore.shared.selectionSameAsSummon { panelController.summonOrSelect() } else { panelController.toggle() }
     }
+    let select: @MainActor () -> Void = { panelController.summonSelectionContext() }
+    let panelShortcut = PanelShortcutMonitor(action: .summon, handler: summon)
     panelShortcut.start()
     self.panelShortcut = panelShortcut
 
     let accessibilityWarmer = SelectionAccessibilityWarmer()
     accessibilityWarmer.start()
     self.accessibilityWarmer = accessibilityWarmer
-    let selectionShortcut = SelectionShortcutMonitor(firstTap: { accessibilityWarmer.warmFrontmost() }) {
-      panelController.summonSelectionContext()
-    }
+    let selectionShortcut = SelectionShortcutMonitor(action: .selection, firstTap: { accessibilityWarmer.warmFrontmost() },
+                                                     handler: select)
     selectionShortcut.start()
     self.selectionShortcut = selectionShortcut
+    let selectionChord = PanelShortcutMonitor(action: .selection, handler: select)
+    selectionChord.start()
+    let summonDoubleTap = SelectionShortcutMonitor(action: .summon, firstTap: { accessibilityWarmer.warmFrontmost() },
+                                                   handler: summon)
+    summonDoubleTap.start()
+    otherShortcuts = [selectionChord, summonDoubleTap]
+    let shortcutHotKeys = ShortcutHotKeys(handlers: [.summon: summon, .selection: select])
+    shortcutHotKeys.start()
+    self.shortcutHotKeys = shortcutHotKeys
     let selectionBackup = GlobalHotKeyMonitor(hotKey: .selectionContext) { [weak self] in
       self?.selectionShortcut?.reset()
       panelController.summonSelectionContext()
@@ -131,6 +147,9 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     subscriptionRefreshTask?.cancel()
     panelShortcut?.stop()
     selectionShortcut?.stop()
+    (otherShortcuts.first as? PanelShortcutMonitor)?.stop()
+    (otherShortcuts.last as? SelectionShortcutMonitor)?.stop()
+    shortcutHotKeys?.stop()
     accessibilityWarmer?.stop()
     globalHotKeyMonitors.forEach { $0.stop() }
     globalHotKeyMonitors.removeAll()
@@ -144,14 +163,15 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openRequestedSettings(_ notification: Notification) {
-    openSettings(destination: SettingsView.SettingsDestination.requested(notification.object))
+    openSettings(destination: SettingsView.SettingsDestination.requested(notification.object),
+                 opensAdvanced: SettingsView.SettingsDestination.opensAdvanced(notification.object))
   }
 
-  func openSettings(destination: SettingsView.SettingsDestination? = nil) {
+  func openSettings(destination: SettingsView.SettingsDestination? = nil, opensAdvanced: Bool = false) {
     guard panelController?.isCapturingScreen != true else { return }
     if settingsWindowController == nil {
       settingsWindowController = SettingsWindowController()
     }
-    settingsWindowController?.showSettings(destination: destination)
+    settingsWindowController?.showSettings(destination: destination, opensAdvanced: opensAdvanced)
   }
 }

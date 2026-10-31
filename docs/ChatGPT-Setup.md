@@ -7,8 +7,8 @@ alternative; neither route falls back to the other.
 
 ## Setup
 
-1. Open **Settings → Cloud and search → Subscriptions → ChatGPT**, or the
-   **Connect what you use** step of welcome setup. Nothing needs to be
+1. Open **Settings → Cloud → ChatGPT**, or the **Want backup from the
+   cloud?** step of welcome setup. Nothing needs to be
    installed first. If Enigma finds no Codex on this Mac, the row says that
    signing in the first time downloads Codex from OpenAI, and its size.
    **Check sign-in status** shows **Checking…** while it runs and then always
@@ -147,8 +147,8 @@ and tries again in an hour, so the old Codex's list isn't cached. See
 Until you choose a model, Enigma uses the one Codex marks as its default
 (`isDefault` in `model/list`), or the first model listed if none is marked, or
 GPT-5.6 Luna (`gpt-5.6-luna`) before any list has loaded. This default isn't
-saved, so it follows Codex as the list changes. **Advanced cloud settings** in
-Settings → Cloud and search lets you pick another model from the list your
+saved, so it follows Codex as the list changes. **Settings → Cloud →
+Advanced** lets you pick another model from the list your
 account offers, enter a **Manual model ID**, and set **Thinking capacity**
 (None, Minimal, Low, Medium, High, Extra High, Max, or Ultra; the default is
 High). Which models and capacities work depends on your plan and the model. A

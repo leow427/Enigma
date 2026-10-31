@@ -173,7 +173,7 @@ enum ScreenRoutingPolicy {
     if !needsImage { return .text(selected) }
     if selected.isLocal {
       if selected.canUseVision { return .vision(selected) }
-      return .blocked("The selected local model is text-only. Install and select a recommended text-and-image package in Local models. Your screenshot and draft have been kept.")
+      return .blocked("The selected local model is text-only. Install and select a recommended text-and-image package in Settings → On this Mac. Your screenshot and draft have been kept.")
     }
     if selected.canUseVision && request.allowCloudScreenshots && request.hasExplainedCloudPermission {
       return .vision(selected)

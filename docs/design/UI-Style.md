@@ -17,7 +17,8 @@ interactive mockups, is in
   monospace, like command lines.
 - **No boxes around lists.** History rows and Settings navigation are plain
   text. The selected item has a small dot and darker text, not a filled
-  capsule.
+  capsule. Settings pages are the one exception: each group of rows sits on a
+  card (below).
 
 ## Themes and color tokens
 
@@ -121,12 +122,27 @@ glyph is Stop, on the solid Send button.
   the character on the left, and a monospace hint row whose every hint is a
   real shortcut. Sending the first question moves the chat into the window,
   which travels from the panel to its normal frame.
-- **Settings.** Plain-text navigation with a dot on the selected page, a
-  semibold heading, hairline-divided rows, switches, and opaque menus.
-  Appearance is a System / Paper / Ink text control, never pill segments.
+- **Settings.** Plain-text navigation in groups (Enigma, Models, Abilities,
+  Privacy, About) under a search field, with a dot on the selected page; a
+  semibold page heading with a one-line description. Each section is a 13.5 pt
+  semibold heading over a card: `surface` fill, 10 pt corners, a `border`
+  edge, reaching 14 pt past the rows on each side, with faint inset `hairline`
+  dividers between rows. A row has a title and at most one short subtitle; the
+  longer explanation is behind an ⓘ popover beside the title. Rarely needed
+  rows are under the page's **› Advanced** disclosure. Settings uses SF Pro
+  only, no monospace, apart from key caps and commands to paste. Appearance is
+  a System / Paper / Ink text control, never pill segments. Cards are drawn by
+  `.settingsCards(inset:)` from marks rows leave behind, so pages stay flat
+  lists of headings, rows and closing hairlines.
 - **Welcome.** The character large on the first step, then a pinned header
   with the character in a 40 pt slot, a monospace `2/4` counter, hairline
-  rows, and one primary button. A six-stop tour over the main window follows.
+  rows, and one primary button. The character flies between steps and to
+  whatever is clicked.
+- **Tour.** Runs in the main window, which grows by a 352 pt rail on its right
+  for the tour's card; the page keeps its width while the window resizes, and
+  the card sits level with what the stop points at. The card is an opaque
+  `surface` card with a `1/10` counter, a checklist of the stop's steps, and
+  one primary button that Return also presses.
 
 Write shortcuts as the app does: `⌥⌃` opens Enigma, a double-tap of `⌥` asks
 about a selection (people can change the key or turn it off), `⌃⌘S` toggles

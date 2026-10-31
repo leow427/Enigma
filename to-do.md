@@ -870,7 +870,22 @@ performance" in Settings still runs one by hand.
 
 ## Features
 
-### F14. Revamp welcome setup and Settings (most important)
+### F14. ✅ Done: Revamp welcome setup and Settings (most important)
+
+> **Solved:** Setup is four playful slides (a typewriter welcome sign, a
+> model, optional cloud plans, the tour) with the character flying to each
+> step and to clicks. The tour runs in the real main window: a card in a rail
+> beside the page, ten scripted stops with Chicago demos, the selection stop
+> on a pretend "Shmoogle Docs" window with the real panel and Replace text,
+> the Messages stop on the real approval card, and every permission on one
+> optional stop; a restart resumes at the same stop. Existing users get a
+> one-time "See what Enigma can do" invite. Settings has a grouped sidebar
+> with search, twelve pages, rows on cards with ⓘ details and per-page
+> **› Advanced**, every macOS permission on one Permissions page, and
+> **Shortcuts**, where every shortcut can be changed. Spec
+> `docs/superpowers/specs/2026-10-31-f14-welcome-and-settings-design.md`,
+> plan `docs/superpowers/plans/2026-10-31-f14-welcome-and-settings.md`,
+> docs `docs/Welcome-and-Settings.md`. The entry below is the original brief.
 
 The owner's top feature. Welcome setup predates most of what Enigma does now,
 and Settings has grown into a few long pages that are hard to find things in.
@@ -2274,6 +2289,9 @@ thinking off except under **/think** (`enable_thinking`).
 
 ### F13. Personalization tab in Settings (custom instructions)
 
+Home after F14: a new **Personalization** page in the sidebar's **Enigma**
+group, after General.
+
 - A new **Personalization** tab in Settings, like Claude's and ChatGPT's,
   where people add to the system prompt:
   - "What should Enigma know about you?" (for example "I'm a Swift developer
@@ -2293,6 +2311,8 @@ thinking off except under **/think** (`enable_thinking`).
 - The occupation picker (F20) can pre-fill it.
 
 ### F15. Local context size (Advanced)
+
+Home after F14: **Settings → On this Mac → › Advanced**.
 
 - An Advanced setting for how much conversation the local model can see.
   Catalogue packages run with 8,192 tokens today (`recommendedContextSize`),
@@ -2318,6 +2338,13 @@ thinking off except under **/think** (`enable_thinking`).
 - The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
 
 ### F16. Remappable keyboard shortcuts with collision warnings
+
+Mostly done in F14: **Settings → Shortcuts** changes every shortcut (keys,
+modifiers together, or a double tap), refuses Enigma clashes, warns on a short
+list of macOS ones, says when a global shortcut can't be registered, and
+Restore Defaults; Help lists your shortcuts. Left: read system shortcuts with
+`CopySymbolicHotKeys()` instead of the fixed list, and make the compact panel's
+and composer's hint labels read the store.
 
 - Let people change Enigma's shortcuts: show/hide (⌥⌃), the selection
   shortcut (double-tap Option/Command/Shift, backup ⇧⌥Space) and the in-app
@@ -2382,6 +2409,9 @@ thinking off except under **/think** (`enable_thinking`).
 
 ### F19. Model list revamp
 
+Home after F14: **Settings → On this Mac** and setup's **Pick a brain for me**
+step.
+
 - There is no Explore page: the model lists are Settings → Local models
   ("All models") and setup's model step. Revamp those.
 - Add newer models that suit the app better. The catalogue only admits
@@ -2394,6 +2424,10 @@ thinking off except under **/think** (`enable_thinking`).
   `docs/Updating-the-Model-Catalogue.md`. F20 needs the tags.
 
 ### F20. Welcome page asks your occupation
+
+Home after F14: a new slide between the welcome sign and the model step.
+Setup still saves its step as `welcomeSetup.step.v1`, so adding a slide needs
+the migration described below.
 
 - A setup step asks what you do, then suggests models for it. Setup saves its
   progress as a step number (`WelcomeSetup`), so inserting a step would resume

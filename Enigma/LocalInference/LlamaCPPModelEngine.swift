@@ -220,7 +220,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
       let hardware = LocalHardwareProfile.detect(modelsDirectory: installationStore.modelsDirectoryURL)
       guard LocalModelCompatibility.supports(descriptor), hardware.physicalMemory >= descriptor.minimumMemory,
             hardware.inferenceMemoryBudget >= descriptor.estimatedRuntimeMemory else {
-        throw LocalInferenceError.bridgeFailure("The installed text model no longer fits this Mac or runtime. Choose a supported model in Local models.")
+        throw LocalInferenceError.bridgeFailure("The installed text model no longer fits this Mac or runtime. Choose a supported model in Settings → On this Mac.")
       }
     }
     let newHandle = installedModel.fileURL.path.withCString { path in

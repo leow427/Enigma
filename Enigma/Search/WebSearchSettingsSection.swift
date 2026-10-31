@@ -3,7 +3,11 @@ import SwiftUI
 /// Web search in Settings (spec §8, amended for D128): automatic search, on-device search as the
 /// default, Brave as an optional extra with a key in the Keychain, and the blocked sites.
 struct WebSearchSettingsSection: View {
+  /// Settings shows the main rows on Search and maps, Brave and blocked sites under Advanced.
+  enum Part { case all, main, advanced }
+
   @ObservedObject var settings: WebSearchSettings
+  var part = Part.all
   @State private var apiKey = ""
   @State private var error: String?
 
@@ -32,13 +36,23 @@ struct WebSearchSettingsSection: View {
     let search = Self.searchStatus(hasAPIKey: settings.hasAPIKey)
     let key = Self.keyStatus(hasAPIKey: settings.hasAPIKey)
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader(Self.header)
-      EnigmaRow(Self.automaticTitle, subtitle: Self.automaticSubtitle) {
-        EnigmaSwitch(Self.automaticTitle, isOn: $settings.automaticallySearch)
+      if part != .advanced {
+        if part == .all { EnigmaSectionHeader(Self.header) }
+        EnigmaRow(part == .all ? Self.automaticTitle : "Search automatically",
+                  subtitle: part == .all ? Self.automaticSubtitle : "When a question needs fresh information.",
+                  info: part == .all ? nil : Self.automaticSubtitle) {
+          EnigmaSwitch(Self.automaticTitle, isOn: $settings.automaticallySearch)
+        }
+        EnigmaRow(Self.statusTitle, subtitle: Self.statusSubtitle, info: part == .all ? nil : Self.sitesNote) {
+          EnigmaStatusLine(search.0, search.1)
+        }
       }
-      EnigmaRow(Self.statusTitle, subtitle: Self.statusSubtitle) {
-        EnigmaStatusLine(search.0, search.1)
-      }
+      if part != .main { advanced(key: key) }
+    }
+  }
+
+  private func advanced(key: (EnigmaStatusLine.Status, String)) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
       EnigmaRow(Self.braveTitle, subtitle: Self.braveSubtitle) {
         EnigmaStatusLine(key.0, key.1)
       }

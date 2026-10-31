@@ -14,3 +14,4 @@ tests don't cover. Flag dead code, duplicated logic, and needless work.
 Return only blocking and should-fix findings, ranked, each with file:line,
 what's wrong, and how to reproduce or fix it. Don't report nits, style
 preferences or polish. If there are no findings, say so explicitly.
+Never trim a review to save usage; its size follows what it finds.

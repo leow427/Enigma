@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import QuartzCore
 import SwiftUI
 
 struct PanelSizeStore {
@@ -179,8 +180,20 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private var selectionRestingTop: CGFloat?
   /// The frame the latest report set, to tell when someone has moved the panel.
   private var selectionAppliedFrame: NSRect?
-  private var moveTask: Task<Void, Never>?
+  /// A move on the window's spring, stepped on the display's refresh so
+  /// each frame lands on time.
+  private var moveLink: CADisplayLink?
+  /// Ends a move on time when the display isn't refreshing, asleep or locked.
+  private var moveDeadline: Task<Void, Never>?
+  private var moveStart = NSRect.zero
+  /// When the move's first frame was drawn: a slow first tick starts the spring there, not partway in.
+  private var moveBegan: CFTimeInterval?
+  private var moveDuration: Double = 0
   private var moveTarget: NSRect?
+  /// Runs once the current move reaches its target.
+  private var moveCompletion: (() -> Void)?
+  /// Counts the tour's fades, so a finished fade-out can't hide a window shown again since.
+  private var fadeGeneration = 0
 
   private(set) var isCapturingScreen = false
   private var captureHiddenWindows: [NSWindow] = []
@@ -245,13 +258,27 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
+    // The tour's selection stop uses the real panel over a pretend document.
+    NotificationCenter.default.addObserver(self, selector: #selector(tourStepAside), name: .guidedTourStepAside, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(tourComeBack), name: .guidedTourComeBack, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(tourSummon(_:)), name: .guidedTourSummon, object: nil)
     if let welcomeSetup {
-      welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour)
-        .map { $0 || $1 != nil }.removeDuplicates()
+      // The hands-on tour grows the window by its rail.
+      welcomeObservation = welcomeSetup.$isPresented.combineLatest(GuidedTour.shared.$stop)
+        .map { presented, guided -> WelcomeSizing in
+          guided != nil ? .tour : presented ? .welcome : .normal
+        }
+        .removeDuplicates()
+        // The page keeps the window's width from the moment the tour starts,
+        // so its rail never squeezes it before the window has grown.
+        .handleEvents(receiveOutput: { [weak self] sizing in
+          guard let self, sizing == .tour, GuidedTour.shared.pageWidth == nil else { return }
+          GuidedTour.shared.pageWidth = self.panel.frame.width
+        })
         // @Published emits before storing the new value. Resizing synchronously
         // can lay out the hosting view with stale welcome/disabled state.
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] active in self?.setWelcomeSizing(active) }
+        .sink { [weak self] sizing in self?.setWelcomeSizing(sizing) }
     }
     panel.onHide = { [weak self] in
       self?.hide()
@@ -263,6 +290,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   @objc private func beginSelectionReplacement() {
     finishMove()
+    // The tour's pretend paste needs no focus handed back, so the
+    // window fades aside for it.
+    if GuidedTour.shared.stop == .selection { fadeOut(); return }
     // A nonactivating panel can own keyboard focus while the source is already
     // frontmost. Activating that app alone does not release the panel's focus.
     panel.orderOut(nil)
@@ -277,15 +307,28 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       if !panel.isVisible { hide() }
       return
     }
-    hiddenAt = nil
-    panel.orderFrontRegardless()
-    panel.makeKey()
+    if GuidedTour.shared.stop == .selection {
+      fadeIn()
+    } else {
+      hiddenAt = nil
+      panel.orderFrontRegardless()
+      panel.makeKey()
+    }
     NotificationCenter.default.post(name: .panelPresented, object: nil)
   }
 
   private var selectionInvocation: Task<Void, Never>?
 
-  func summonSelectionContext() {
+  /// The summon shortcut, when it also asks about selections: a
+  /// fresh selection opens the selection panel, and anything else the window.
+  func summonOrSelect() {
+    guard !isVisible else { hide(); return }
+    summonSelectionContext(orElse: { [weak self] in self?.show() })
+  }
+
+  func summonSelectionContext(orElse: (() -> Void)? = nil) {
+    // During the tour's selection stop, ⌥⌥ takes its step instead of reading another app.
+    if GuidedTour.shared.stop == .selection { GuidedTour.shared.shortcutPressed(); return }
     guard !isCapturingScreen, selectionInvocation == nil else { return }
     let cursor = NSEvent.mouseLocation
     let visible = (NSScreen.screens.first { NSMouseInRect(cursor, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
@@ -295,12 +338,14 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       guard let self else { return }
       defer { self.selectionInvocation = nil }
       guard !self.isCapturingScreen else { service.discardTarget(); return }
+      if context == nil, let orElse { service.discardTarget(); orElse(); return }
       self.presentSelectionContext(context, cursor: cursor, selection: service.selectionBounds(), visible: visible)
     }
   }
 
   func presentSelectionContext(_ context: ConversationContext?, cursor: NSPoint, selection: NSRect?, visible: NSRect?) {
-    guard normalSize == nil else { return }
+    // The tour's selection stop opens it while the tour has the window enlarged.
+    guard normalSize == nil || GuidedTour.shared.stop == .selection else { return }
     finishMove()
     if selectionNormalFrame == nil { selectionNormalFrame = panel.frame }
     isSelectionComposer = true
@@ -313,6 +358,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
     NotificationCenter.default.post(name: .selectionContextRequested, object: context)
     hiddenAt = nil
+    cancelFade()
     panel.orderFrontRegardless()
     panel.makeKey()
     NotificationCenter.default.post(name: .panelPresented, object: nil)
@@ -357,39 +403,57 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// Moves the panel to `target`: on the spring while it's on screen, or at
   /// once with Reduce Motion. The window's minimum size applies once it's
   /// there, and the content hears that it has settled.
-  private func move(to target: NSRect) {
+  private func move(to target: NSRect, completion: (() -> Void)? = nil) {
     guard !reduceMotion(), panel.isVisible else {
       panel.setFrame(target, display: true)
       panel.minSize = PanelSizeStore.minimumSize
       NotificationCenter.default.post(name: .selectionPanelSettled, object: nil)
+      completion?()
       return
     }
-    let start = panel.frame
+    // A new move starts from wherever the last one had reached.
+    moveLink?.invalidate()
+    moveDeadline?.cancel()
+    moveCompletion = completion
+    moveStart = panel.frame
     moveTarget = target
-    let duration = SelectionPanelMotion.settlingDuration()
-    moveTask = Task { [weak self] in
-      let began = ContinuousClock.now
-      while !Task.isCancelled {
-        guard let self else { return }
-        let elapsed = began.duration(to: .now)
-        let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        guard seconds < duration else { self.finishMove(); return }
-        let progress = SelectionPanelMotion.springProgress(at: seconds)
-        self.panel.setFrame(SelectionPanelMotion.frame(at: progress, from: start, to: target), display: true)
-        try? await Task.sleep(for: .milliseconds(16))
-      }
+    moveBegan = nil
+    moveDuration = SelectionPanelMotion.settlingDuration()
+    let link = panel.displayLink(target: self, selector: #selector(stepMove(_:)))
+    link.add(to: .main, forMode: .common)
+    moveLink = link
+    moveDeadline = Task { [weak self, duration = moveDuration] in
+      try? await Task.sleep(for: .seconds(duration + 0.25))
+      guard !Task.isCancelled else { return }
+      self?.finishMove()
     }
+  }
+
+  /// One step of the move, at the time the frame will reach the screen.
+  @objc private func stepMove(_ link: CADisplayLink) {
+    guard let target = moveTarget else { link.invalidate(); return }
+    let began = moveBegan ?? link.timestamp
+    moveBegan = began
+    let seconds = link.targetTimestamp - began
+    guard seconds < moveDuration else { finishMove(); return }
+    let progress = SelectionPanelMotion.springProgress(at: seconds)
+    panel.setFrame(SelectionPanelMotion.frame(at: progress, from: moveStart, to: target), display: true)
   }
 
   /// A running move jumps to its end.
   private func finishMove() {
-    moveTask?.cancel()
-    moveTask = nil
+    moveLink?.invalidate()
+    moveLink = nil
+    moveDeadline?.cancel()
+    moveDeadline = nil
     guard let target = moveTarget else { return }
     moveTarget = nil
     panel.setFrame(target, display: true)
     panel.minSize = PanelSizeStore.minimumSize
     NotificationCenter.default.post(name: .selectionPanelSettled, object: nil)
+    let completion = moveCompletion
+    moveCompletion = nil
+    completion?()
   }
 
   /// Sending a question, ⌘O, or the Open in window button, at any point in
@@ -405,6 +469,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     let frame = visibleFrame(panel).map { PanelSizeStore.centeredFrame(size: normal.size, in: $0) } ?? normal
     NotificationCenter.default.post(name: .selectionChatOpenedInWindow, object: nil)
     move(to: frame)
+    // A click on the pretend document's card leaves Return with
+    // the document. The chat in the window takes it back.
+    if GuidedTour.shared.stop == .selection { panel.makeKey() }
   }
 
   /// The user started dragging the panel: a running move into the window
@@ -423,6 +490,81 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     selectionAppliedFrame = panel.frame
     guard isSelectionComposer, let visible = visibleFrame(panel) else { return }
     NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
+  }
+
+  /// The window fades aside for the tour's pretend document,
+  /// which rises in its place.
+  @objc private func tourStepAside() {
+    finishMove()
+    fadeOut()
+  }
+
+  /// Back as the window, wherever the tour left it.
+  @objc private func tourComeBack() {
+    if selectionNormalFrame != nil { restoreNormalPanel() }
+    fadeIn()
+  }
+
+  /// Fades the window out, then takes it off the screen.
+  private func fadeOut(duration: Double = 0.22) {
+    fadeGeneration += 1
+    let generation = fadeGeneration
+    guard !reduceMotion(), panel.isVisible else { orderOutQuietly(); return }
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+      panel.animator().alphaValue = 0
+    } completionHandler: { [weak self] in
+      MainActor.assumeIsolated {
+        guard let self, generation == self.fadeGeneration else { return }
+        self.orderOutQuietly()
+      }
+    }
+  }
+
+  /// Brings the window back, fading in if it was away.
+  private func fadeIn(duration: Double = 0.28) {
+    fadeGeneration += 1
+    let reduce = reduceMotion()
+    if !panel.isVisible { panel.alphaValue = reduce ? 1 : 0 }
+    hiddenAt = nil
+    let behavior = panel.animationBehavior
+    panel.animationBehavior = .none
+    panel.orderFrontRegardless()
+    panel.animationBehavior = behavior
+    panel.makeKey()
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = reduce ? 0 : duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      panel.animator().alphaValue = 1
+    }
+  }
+
+  /// A fade-out still running can't take a window shown again away.
+  private func cancelFade() {
+    fadeGeneration += 1
+    guard panel.alphaValue < 1 else { return }
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      panel.animator().alphaValue = 1
+    }
+  }
+
+  /// Off the screen without the system's own animation, back at full opacity for next time.
+  private func orderOutQuietly() {
+    let behavior = panel.animationBehavior
+    panel.animationBehavior = .none
+    panel.orderOut(nil)
+    panel.animationBehavior = behavior
+    panel.alphaValue = 1
+  }
+
+  /// The real panel, under the pretend document's selected line.
+  @objc private func tourSummon(_ notification: Notification) {
+    guard let selection = (notification.object as? NSValue)?.rectValue else { return }
+    let screen = NSScreen.screens.first { $0.frame.intersects(selection) } ?? NSScreen.main
+    presentSelectionContext(TourScene.context, cursor: NSPoint(x: selection.minX, y: selection.minY),
+                            selection: selection, visible: screen?.visibleFrame)
   }
 
   @objc private func restoreNormalPanel() {
@@ -445,6 +587,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       panel.contentView?.layoutSubtreeIfNeeded()
     }
     hiddenAt = nil
+    cancelFade()
     centerOnActiveDisplay()
     panel.orderFrontRegardless()
     panel.makeKey()
@@ -478,6 +621,11 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   func hide() {
+    // Esc or ⌥⌃ during the tour leaves it, as End tour does. The tour's own
+    // step aside orders the window out quietly instead. At the permissions
+    // stop hiding is how people reach System Settings, so the tour waits there,
+    // and a restart for Screen Recording still resumes it.
+    if GuidedTour.shared.isActive, GuidedTour.shared.stop != .permissions { GuidedTour.shared.requestFinish() }
     finishMove()
     // Hiding an already hidden panel keeps the time it was first hidden.
     hiddenAt = hiddenAt ?? now()
@@ -501,21 +649,63 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     sizeStore.save(panel.frame.size)
   }
 
-  private func setWelcomeSizing(_ active: Bool) {
+  private enum WelcomeSizing { case normal, welcome, tour }
+
+  /// The welcome is at least 1280 by 860; the tour adds its rail on the right,
+  /// so the page keeps its width. Back to the saved size after both.
+  private func setWelcomeSizing(_ sizing: WelcomeSizing) {
     let size: NSSize
-    if active {
-      guard normalSize == nil else { return }
-      normalSize = panel.frame.size
-      size = NSSize(width: max(1280, panel.frame.width), height: max(860, panel.frame.height))
-    } else {
+    let animates: Bool
+    switch sizing {
+    case .normal:
       guard let previous = normalSize else { return }
       size = previous
       normalSize = nil
+      animates = true
+    case .welcome, .tour:
+      let base = normalSize ?? panel.frame.size
+      animates = normalSize != nil
+      normalSize = base
+      let width = max(1280, base.width) + (sizing == .tour ? GuidedTourPlacement.railWidth : 0)
+      size = NSSize(width: width, height: max(860, base.height))
     }
     let visible = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
     let frame = visible.map { PanelSizeStore.centeredFrame(size: size, in: $0) }
       ?? NSRect(origin: panel.frame.origin, size: size)
-    panel.setFrame(frame, display: true)
+    // The page keeps its width while the window grows by the tour's rail,
+    // which the window's edge uncovers, and while it shrinks back, until the
+    // window is narrower than the page. Nothing in the page reflows for it.
+    let tour = GuidedTour.shared
+    switch sizing {
+    case .tour:
+      let page = frame.width - GuidedTourPlacement.railWidth
+      // On a screen too narrow for the page and its rail, the page narrows
+      // on the window's spring instead of at once.
+      if animates, let current = tour.pageWidth, abs(current - page) > 0.5 {
+        withAnimation(EnigmaMotion.screenChange.animation) { tour.pageWidth = page }
+      } else {
+        tour.pageWidth = page
+      }
+    case .normal: tour.pageWidth = tour.pageWidth.map { max($0, frame.width) }
+    case .welcome: tour.pageWidth = nil
+    }
+    let settled: (() -> Void)? = sizing == .normal ? { GuidedTour.shared.pageWidth = nil } : nil
+    // Growing for the tour and settling back afterwards move on the window's
+    // spring; the welcome opens at its size.
+    if animates {
+      move(to: frame, completion: settled)
+    } else {
+      panel.setFrame(frame, display: true)
+      settled?()
+    }
+  }
+
+  /// Resized by hand during the tour, the page takes the new
+  /// width beside its rail.
+  func windowDidResize(_ notification: Notification) {
+    guard moveTarget == nil, !isSelectionComposer, GuidedTour.shared.isActive,
+          GuidedTour.shared.pageWidth != nil else { return }
+    GuidedTour.shared.pageWidth = panel.frame.width - GuidedTourPlacement.railWidth
   }
 
   private func centerOnActiveDisplay() {
@@ -588,12 +778,15 @@ private final class SpotlightPanel: NSPanel {
       onHide?()
       return true
     }
-    if let shortcut = PanelShortcut.resolve(
-      characters: event.charactersIgnoringModifiers,
-      modifiers: event.modifierFlags,
-      keyCode: event.keyCode
-    ) {
+    // The shortcuts chosen in Settings → Shortcuts.
+    switch ShortcutStore.shared.action(for: event) {
+    case .panel(let shortcut)?:
       if onShortcut?(shortcut) == true { return true }
+    case .command(let command)?:
+      NotificationCenter.default.post(name: .commandShortcutPressed, object: command)
+      return true
+    default:
+      break
     }
     return super.performKeyEquivalent(with: event)
   }
