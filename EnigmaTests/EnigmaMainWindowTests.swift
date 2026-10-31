@@ -1128,6 +1128,38 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the next stop back in the window", in: view) { tour.stop == .files && window.isVisible }
   }
 
+  /// F14 spike: the tour's text to Sam waits on the real approval card,
+  /// Return in the composer approves it, and nothing is sent.
+  @MainActor
+  func testTourMessagesStopAsksOnTheRealApprovalCard() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.messages)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    tour.press()
+    try await waitForUI("the second question typed", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && tour.beat == .ready
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the approval card, waiting", in: host.view, timeout: .seconds(10)) {
+      host.shows("Send") && host.shows("Don't Send") && tour.currentStep?.kind == .approve && tour.beat == .ready
+    }
+    XCTAssertEqual(tour.currentStep?.actionLabel, "Send")
+    try await Task.sleep(for: .milliseconds(300))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("the reply once it's approved", in: host.view, timeout: .seconds(10)) {
+      !host.shows("Don't Send") && tour.beat == .finished && !fixture.chat.isBusy
+        && fixture.chat.presentationMessages.last?.content.hasPrefix("Sent to Sam") == true
+    }
+    XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
+  }
+
   // MARK: Tour
 
   @MainActor

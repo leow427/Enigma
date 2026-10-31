@@ -254,6 +254,8 @@ final class GuidedTour: ObservableObject {
     case send(TourDemo), newChat
     /// Replace text on the selection stop's revision card.
     case replace
+    /// Send on the approval card.
+    case approveSend
   }
 
   @Published private(set) var stop: Stop?
@@ -269,6 +271,10 @@ final class GuidedTour: ObservableObject {
   @Published var cardHeight: CGFloat = 220
   /// The tour picked up again after a restart, for the card's welcome back.
   @Published private(set) var resumed = false
+  /// The page's width while the window grows for the tour and shrinks back,
+  /// set by the window: the page keeps it, and the window's edge uncovers or
+  /// covers the rail beside it. Nil outside the tour.
+  @Published var pageWidth: CGFloat?
 
   private let defaults: UserDefaults
   /// Tests share the app's defaults, so their tours never save or resume progress.
@@ -291,6 +297,12 @@ final class GuidedTour: ObservableObject {
   }
 
   var isActive: Bool { stop != nil }
+
+  /// Where the rail starts in a window `width` wide: beside the page, which
+  /// keeps its width while the window resizes for the tour.
+  func railMinX(in width: CGFloat) -> CGFloat {
+    pageWidth.map { min($0, width) } ?? width - GuidedTourPlacement.railWidth
+  }
 
   var currentStep: TourStep? {
     guard let steps = stop?.steps, steps.indices.contains(stepIndex) else { return nil }
@@ -363,6 +375,9 @@ final class GuidedTour: ObservableObject {
       case .replace:
         beat = .playing
         return .replace
+      case .approve:
+        beat = .playing
+        return .approveSend
       case .select, .summon:
         beat = .playing
         play(step.kind)
@@ -421,9 +436,9 @@ final class GuidedTour: ObservableObject {
   func replaceInDocument(_ text: String, automatic: Bool) async -> Bool {
     NotificationCenter.default.post(name: .selectionReplacementBegan, object: nil)
     TourDocumentWindow.shared.bringForward()
-    try? await Task.sleep(for: .milliseconds(reduceMotion ? 100 : 450))
+    try? await Task.sleep(for: .milliseconds(reduceMotion ? 100 : 380))
     scene.phase = .replaced
-    try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 1500))
+    try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 1150))
     NotificationCenter.default.post(name: .selectionReplacementEnded,
                                     object: SelectionReplacementEnd(automatic: automatic, sent: true))
     if currentStep?.kind == .replace { stepFinished() }
@@ -446,7 +461,7 @@ final class GuidedTour: ObservableObject {
     switch step.kind {
     case .send(let demo): type(demo.prompt, firstStep: stepIndex == 0)
     case .askSelection: type(TourScene.demo.prompt, firstStep: false)
-    case .newChat, .select, .summon, .replace: beat = .ready
+    case .newChat, .select, .summon, .replace, .approve: beat = .ready
     }
   }
 
@@ -501,7 +516,7 @@ final class GuidedTour: ObservableObject {
         }
         await pause(700)
         self.scene.keys = 0
-      case .send, .askSelection, .newChat, .replace:
+      case .send, .askSelection, .newChat, .replace, .approve:
         break
       }
       guard !Task.isCancelled else { return }
@@ -529,6 +544,8 @@ struct TourStep: Equatable {
     case newChat
     /// The selection stop: select text, tap ⌥ twice, ask, put it back.
     case select, summon, askSelection, replace
+    /// Send on the real approval card of the text the last step asked for.
+    case approve
   }
 
   var label: String
@@ -542,6 +559,7 @@ struct TourStep: Equatable {
     case .select: "Select"
     case .summon: "Tap ⌥⌥"
     case .replace: "Replace text"
+    case .approve: "Send"
     }
   }
 }
@@ -586,6 +604,11 @@ struct TourScript: Equatable {
   var phaseDuration = 900
   /// A revision of the attached selection, for the reply's Revised text card.
   var revision: String? = nil
+  /// A text the reply asks to send, on the real approval card. The reply
+  /// waits for an answer, and nothing is ever sent.
+  var approval: MessagesSendApproval? = nil
+  /// The reply when the text isn't approved.
+  var declined: String? = nil
 
   static let willis = TourScript(
     reply: "Architect Bruce Graham and structural engineer Fazlur Khan of Skidmore, Owings & Merrill. It went up in the early 1970s as the Sears Tower and was the tallest building in the world for nearly 25 years.",
@@ -627,8 +650,12 @@ struct TourScript: Equatable {
     phases: [.thinking], revision: TourScene.revised)
 
   static let sendMessage = TourScript(
-    reply: "Here’s your text to Sam: “Running 10 minutes late, see you soon!” It goes only after you approve it.",
-    phases: [.readingMessages, .awaitingApproval], phaseDuration: 1000)
+    reply: "Sent to Sam: “Running 10 minutes late, see you soon!” (An example: the tour never sends a real text.)",
+    phases: [.readingMessages, .awaitingApproval], phaseDuration: 1000,
+    approval: MessagesSendApproval(conversationName: nil,
+      recipients: [MessagesSendApproval.Recipient(name: "Sam", handle: "+1 (312) 555-0142")],
+      service: "iMessage", text: "Running 10 minutes late, see you soon!", target: .iMessage("+13125550142")),
+    declined: "Okay, I didn’t send it. Nothing goes to anyone until you choose Send.")
 }
 
 /// A macOS permission the tour asks for at its end, with its live state.
@@ -757,7 +784,8 @@ extension GuidedTour.Stop {
          attachments: [MessageAttachment(name: "Trip notes.md", isDirectory: false)])))]
     case .messages:
       [TourStep(label: "Read and search", kind: .send(TourDemo(prompt: "what did Mom say about Sunday dinner?", script: .readMessages))),
-       TourStep(label: "Send a text", kind: .send(TourDemo(prompt: "text Sam that I’m running 10 minutes late", script: .sendMessage)))]
+       TourStep(label: "Ask for a text", kind: .send(TourDemo(prompt: "text Sam that I’m running 10 minutes late", script: .sendMessage))),
+       TourStep(label: "Approve it", kind: .approve)]
     case .newChat:
       [TourStep(label: "Start a new chat", kind: .newChat)]
     case .keys, .modes, .permissions, .done:
@@ -805,7 +833,9 @@ struct GuidedTourPlacement: Equatable {
   let cardWidth: CGFloat
   let cardOrigin: CGPoint
 
-  init(target: CGRect?, container: CGSize, cardHeight: CGFloat) {
+  /// `railMinX` is where the rail starts, beside the page; by default the
+  /// rail is the window's right edge.
+  init(target: CGRect?, container: CGSize, cardHeight: CGFloat, railMinX: CGFloat? = nil) {
     let bounds = CGRect(origin: .zero, size: container)
     let visible = target.map { $0.insetBy(dx: -5, dy: -5).intersection(bounds) }
     highlight = visible.flatMap { $0.isNull ? nil : $0 }
@@ -813,7 +843,7 @@ struct GuidedTourPlacement: Equatable {
     let lowest = max(Self.perchRoom, container.height - cardHeight - Self.margin)
     // Level with the target, or a little above the middle without one.
     let ideal = highlight.map { $0.midY - cardHeight / 2 } ?? (container.height - cardHeight) * 0.42
-    cardOrigin = CGPoint(x: container.width - Self.railWidth + Self.margin,
+    cardOrigin = CGPoint(x: (railMinX ?? container.width - Self.railWidth) + Self.margin,
                          y: min(max(Self.perchRoom, ideal), lowest))
   }
 }
@@ -847,7 +877,8 @@ struct GuidedTourPerch: View {
     GeometryReader { geometry in
       if let stop = tour.stop {
         let placement = GuidedTourPlacement(target: stop.target.flatMap { anchors[$0] }.map { geometry[$0] },
-                                            container: geometry.size, cardHeight: tour.cardHeight)
+                                            container: geometry.size, cardHeight: tour.cardHeight,
+                                            railMinX: tour.railMinX(in: geometry.size.width))
         Color.clear
           .enigmaCharacterSlot(id: Self.slot, size: 54)
           .position(x: placement.cardOrigin.x + 36, y: placement.cardOrigin.y - 22)
@@ -869,7 +900,8 @@ struct GuidedTourOverlay: View {
     GeometryReader { geometry in
       if let stop = tour.stop {
         let target = stop.target.flatMap { anchors[$0] }.map { geometry[$0] }
-        let placement = GuidedTourPlacement(target: target, container: geometry.size, cardHeight: tour.cardHeight)
+        let placement = GuidedTourPlacement(target: target, container: geometry.size, cardHeight: tour.cardHeight,
+                                            railMinX: tour.railMinX(in: geometry.size.width))
         ZStack(alignment: .topLeading) {
           if stop.ringsTarget, let highlight = placement.highlight {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -885,8 +917,10 @@ struct GuidedTourOverlay: View {
             .id(stop)
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
+        // The card moves on its own only for a new stop or a new height. It
+        // follows a window that's growing or shrinking frame by frame.
         .animation(EnigmaMotion.pageChange.animation, value: stop)
-        .animation(EnigmaMotion.pageChange.animation, value: placement)
+        .animation(EnigmaMotion.pageChange.animation, value: tour.cardHeight)
       }
     }
   }
@@ -1150,18 +1184,44 @@ final class TourDocumentWindow {
   private var window: NSPanel?
   /// The selected line, in the content's own space with a top-left origin.
   var selection: CGRect = .zero
+  /// Counts fades, so a finished fade-out can't hide the window opened again since.
+  private var fades = 0
+  private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
+  /// Rises into place as Enigma's window fades aside.
   func open() {
     let window = self.window ?? makeWindow()
     self.window = window
+    fades += 1
     let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
-    if let visible = screen?.visibleFrame {
-      window.setFrame(PanelSizeStore.centeredFrame(size: window.frame.size, in: visible), display: false)
-    }
+    let frame = screen.map { PanelSizeStore.centeredFrame(size: window.frame.size, in: $0.visibleFrame) } ?? window.frame
+    window.setFrame(frame.offsetBy(dx: 0, dy: reduceMotion ? 0 : -16), display: false)
+    window.alphaValue = 0
     window.makeKeyAndOrderFront(nil)
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = reduceMotion ? 0.15 : 0.38
+      context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
+      window.animator().alphaValue = 1
+      window.animator().setFrame(frame, display: true)
+    }
   }
 
-  func close() { window?.orderOut(nil) }
+  /// Fades away, behind Enigma's window.
+  func close() {
+    guard let window, window.isVisible else { return }
+    fades += 1
+    let fade = fades
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = reduceMotion ? 0 : 0.22
+      window.animator().alphaValue = 0
+    } completionHandler: {
+      MainActor.assumeIsolated {
+        guard fade == self.fades else { return }
+        window.orderOut(nil)
+        window.alphaValue = 1
+      }
+    }
+  }
 
   /// Above the other apps while Enigma's window steps aside for a paste.
   func bringForward() { window?.orderFrontRegardless() }
@@ -1179,7 +1239,11 @@ final class TourDocumentWindow {
                                   styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
     panel.title = "Saturday plans"
     panel.isFloatingPanel = true
-    panel.level = .floating
+    // Under Enigma's window and panel, as another app's window is, so it
+    // never covers them, even after a click on its card, and above the rest.
+    panel.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue - 1)
+    // It fades and rises on its own.
+    panel.animationBehavior = .none
     panel.hidesOnDeactivate = false
     panel.isReleasedWhenClosed = false
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -1277,14 +1341,16 @@ struct TourDocumentView: View {
 }
 
 extension LocalChatViewModel {
-  /// F14 spike: plays a scripted exchange in a temporary chat that's never saved.
-  func playTourExchange(_ demo: TourDemo, onFinish: @escaping @MainActor () -> Void) {
+  /// F14 spike: plays a scripted exchange in a temporary chat that's never
+  /// saved. A text it asks to send waits on `confirm`, the real approval card.
+  func playTourExchange(_ demo: TourDemo, confirm: (@MainActor (MessagesSendApproval) async -> Bool)? = nil,
+                        onFinish: @escaping @MainActor () -> Void) {
     guard !isBusy else { onFinish(); return }
     if !isTemporaryChat { startTemporaryChat(context: nil) }
     var message = ChatMessage(role: .user, content: demo.prompt)
     message.attachments = demo.attachments.isEmpty ? nil : demo.attachments
     message.contexts = demo.contexts.isEmpty ? nil : demo.contexts
     message.extendedThinking = demo.thinks ? true : nil
-    tourAppend(message, script: demo.script, onFinish: onFinish)
+    tourAppend(message, script: demo.script, confirm: confirm, onFinish: onFinish)
   }
 }

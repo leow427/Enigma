@@ -2551,7 +2551,9 @@ extension LocalChatViewModel {
   /// Appends the person's message and a reply that plays `script`: its
   /// activity steps, then words streamed in, then the map card. The open chat
   /// is temporary, so none of it is saved.
-  func tourAppend(_ message: ChatMessage, script: TourScript, onFinish: @escaping @MainActor () -> Void) {
+  func tourAppend(_ message: ChatMessage, script: TourScript,
+                  confirm: (@MainActor (MessagesSendApproval) async -> Bool)? = nil,
+                  onFinish: @escaping @MainActor () -> Void) {
     guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { onFinish(); return }
     func update(_ change: (inout ChatMessage) -> Void, id: UUID) {
       guard let s = sessions.firstIndex(where: { $0.id == sessionID }),
@@ -2569,17 +2571,24 @@ extension LocalChatViewModel {
     state = .searching
     Task { @MainActor [weak self] in
       guard let self else { return }
+      var approved = true
       for phase in script.phases {
         activity.apply(.phase(phase))
         if phase == .readingSources { activity.apply(.sourcesDiscovered(script.sources)) }
         update({ $0.activity = activity }, id: replyID)
+        // The reply waits on the approval card, as a real send does.
+        if phase == .awaitingApproval, let approval = script.approval, let confirm {
+          approved = await confirm(approval)
+          continue
+        }
         try? await Task.sleep(for: .milliseconds(script.phaseDuration))
       }
       activity.apply(.phase(.generating))
       update({ $0.activity = activity }, id: replyID)
       state = .streaming
       var text = ""
-      for word in script.reply.split(separator: " ", omittingEmptySubsequences: false) {
+      let replyText = approved ? script.reply : script.declined ?? script.reply
+      for word in replyText.split(separator: " ", omittingEmptySubsequences: false) {
         text += (text.isEmpty ? "" : " ") + word
         update({ $0.content = text }, id: replyID)
         try? await Task.sleep(for: .milliseconds(45))

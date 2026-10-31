@@ -195,6 +195,10 @@ struct AppShellView: View {
             .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -12)))
         }
       }
+      // F14 spike: fading away while the window grows for the tour, the
+      // welcome keeps its width, as the page under it does.
+      .frame(width: guidedTour.pageWidth)
+      .frame(maxWidth: .infinity, alignment: .leading)
       // The welcome fades away over the main page.
       .animation(reduceMotion ? .easeOut(duration: 0.2) : EnigmaMotion.screenChange.animation,
                  value: welcomeSetup.isPresented)
@@ -470,6 +474,8 @@ struct AppShellView: View {
     }
     .onChange(of: guidedTour.stop) { _, stop in
       if stop != nil { shell.isComposerFocused = true }
+      // Leaving the tour's text unapproved doesn't send it.
+      if messages.pendingSend != nil { messages.answer(false) }
     }
     .onReceive(NotificationCenter.default.publisher(for: .guidedTourAction)) { notification in
       if let action = notification.object as? GuidedTour.Action { performTourAction(action) }
@@ -501,28 +507,31 @@ struct AppShellView: View {
   /// The window: the sidebar and the main page on an opaque background.
   private var shellLayout: some View {
     GeometryReader { geometry in
+      let page = tourPageWidth(in: geometry.size.width)
       HStack(spacing: 0) {
-        if shell.isSidebarVisible {
-          sidebar
-            .frame(width: MainPageLayout.sidebarWidth(for: geometry.size.width))
-            .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+        HStack(spacing: 0) {
+          if shell.isSidebarVisible {
+            sidebar
+              .frame(width: MainPageLayout.sidebarWidth(for: page))
+              .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+          }
+          mainColumn
+            // Under Reduce Motion the main column doesn't slide: it takes its
+            // new width at once, so its AppKit views (the message field, Send)
+            // never pass through in-between frames, and only the sidebar fades.
+            .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
         }
-        mainColumn
-          // Under Reduce Motion the main column doesn't slide: it takes its
-          // new width at once, so its AppKit views (the message field, Send)
-          // never pass through in-between frames, and only the sidebar fades.
-          .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
-        // F14 spike: the tour's card sits in a rail beside the page.
-        if showsTourRail {
+        .frame(width: page)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
+                   value: shell.isSidebarVisible)
+        // F14 spike: the tour's card sits in a rail beside the page. The
+        // window's edge uncovers it as the window grows, and covers it again.
+        if showsTourRail || guidedTour.pageWidth != nil {
           GuidedTourRail()
             .frame(width: GuidedTourPlacement.railWidth)
-            .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
         }
       }
-      .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
-                 value: shell.isSidebarVisible)
-      .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
-                 value: showsTourRail)
+      .frame(width: geometry.size.width, alignment: .leading)
     }
     .modifier(EnigmaWindowChrome())
     // The window's minimum height, except while it's the panel or on its way
@@ -797,6 +806,14 @@ struct AppShellView: View {
     guidedTour.isActive && !welcomeSetup.isPresented && !shell.isSelectionComposer
   }
 
+  /// F14 spike: the page's width in a window `width` wide. While the window
+  /// grows for the tour, or shrinks back after it, the page keeps its width,
+  /// so nothing in it reflows, until the window is narrower than the page.
+  private func tourPageWidth(in width: CGFloat) -> CGFloat {
+    if let page = guidedTour.pageWidth { return min(page, width) }
+    return showsTourRail ? max(0, width - GuidedTourPlacement.railWidth) : width
+  }
+
   /// F14 spike: Return or the card's button takes the tour's next beat.
   private func advanceTour() {
     if guidedTour.stop == .done { finishGuidedTour(); return }
@@ -809,7 +826,17 @@ struct AppShellView: View {
     switch action {
     case .send(let demo):
       draft = ""
-      localChat.playTourExchange(demo) { GuidedTour.shared.stepFinished() }
+      // A text to send waits on the real approval card, and the tour moves
+      // on to approving it. Nothing is sent.
+      var confirm: (@MainActor (MessagesSendApproval) async -> Bool)?
+      if demo.script.approval != nil {
+        let messages = messages
+        confirm = { approval in
+          GuidedTour.shared.stepFinished()
+          return await messages.confirm(approval)
+        }
+      }
+      localChat.playTourExchange(demo, confirm: confirm) { GuidedTour.shared.stepFinished() }
       // A send from the selection panel moves its chat into the window, as a real one does.
       if demo.opensInWindow && shell.isSelectionComposer {
         NotificationCenter.default.post(name: .selectionChatOpenInWindowRequested, object: nil)
@@ -823,6 +850,8 @@ struct AppShellView: View {
         return
       }
       Task { await localChat.applySelectionRevision(messageID: id) }
+    case .approveSend:
+      messages.answer(true)
     }
   }
 
