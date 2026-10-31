@@ -137,7 +137,7 @@ actor CloudModelCatalog {
     var request = URLRequest(url: url)
     request.httpMethod = "GET"
     switch provider {
-    case .chatGPT, .claudeCode:
+    case .chatGPT, .claudeCode, .free:
       throw CodexError.invalidResponse
     case .gemini:
       request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
@@ -155,7 +155,7 @@ actor CloudModelCatalog {
     provider: CloudProviderID
   ) throws -> [CloudModel] {
     switch provider {
-    case .chatGPT, .claudeCode:
+    case .chatGPT, .claudeCode, .free:
       throw CodexError.invalidResponse
     case .gemini:
       struct Response: Decodable {

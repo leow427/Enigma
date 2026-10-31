@@ -8,6 +8,7 @@ struct CloudPreferencesStore: @unchecked Sendable {
     static let didAdoptCodexDefault = "aiSpotlight.cloud.didAdoptCodexDefault"
     static let preferredCodexThinkingCapacity = "aiSpotlight.cloud.preferredCodexThinkingCapacity"
     static let preferredClaudeCodeEffort = "aiSpotlight.cloud.preferredClaudeCodeEffort"
+    static let autoMayUseFreeGemini = "aiSpotlight.cloud.autoMayUseFreeGemini"
     static func preferredModel(_ provider: CloudProviderID) -> String {
       "aiSpotlight.cloud.preferredModel.\(provider.rawValue)"
     }
@@ -53,7 +54,7 @@ struct CloudPreferencesStore: @unchecked Sendable {
     switch provider {
     case .chatGPT: return CodexSubscriptionClient.defaultModelID
     case .claudeCode: return ClaudeCodeSubscriptionClient.defaultModelID
-    case .openAI, .anthropic, .gemini: return ""
+    case .openAI, .anthropic, .gemini, .free: return ""
     }
   }
 
@@ -84,6 +85,11 @@ struct CloudPreferencesStore: @unchecked Sendable {
   func setPreferredClaudeCodeEffort(_ effort: ClaudeCodeEffort) {
     defaults.set(effort.rawValue, forKey: Key.preferredClaudeCodeEffort)
   }
+
+  /// Off by default: on Google's free tier, prompts may be used to improve Google's products (F34).
+  func autoMayUseFreeGemini() -> Bool { defaults.bool(forKey: Key.autoMayUseFreeGemini) }
+
+  func setAutoMayUseFreeGemini(_ allowed: Bool) { defaults.set(allowed, forKey: Key.autoMayUseFreeGemini) }
 
   /// A Claude Code the person chose with "Choose Claude Code…", the only path saved.
   func chosenClaudeCodePath() -> String? {
@@ -160,6 +166,13 @@ final class CloudSettingsModel: ObservableObject {
   @Published var claudeCodeEffort: ClaudeCodeEffort {
     didSet { preferences.setPreferredClaudeCodeEffort(claudeCodeEffort) }
   }
+
+  @Published var autoMayUseFreeGemini: Bool {
+    didSet { preferences.setAutoMayUseFreeGemini(autoMayUseFreeGemini) }
+  }
+
+  /// Apple's model on Private Cloud Compute (F34 Task 8). False until its client ships.
+  var isApplePCCAvailable: Bool { false }
 
   @Published private(set) var models: [CloudModel] = []
   @Published private(set) var hasLoadedModelList = false
@@ -250,6 +263,7 @@ final class CloudSettingsModel: ObservableObject {
       : preferences.preferredModel(for: provider)
     codexThinkingCapacity = preferences.preferredCodexThinkingCapacity()
     claudeCodeEffort = preferences.preferredClaudeCodeEffort()
+    autoMayUseFreeGemini = preferences.autoMayUseFreeGemini()
   }
 
   var isConfigured: Bool {
@@ -277,6 +291,7 @@ final class CloudSettingsModel: ObservableObject {
     case .chatGPT: chatGPTAccount != nil
     case .claudeCode: claudeCodeAccount != nil
     case .openAI, .anthropic, .gemini: hasAPIKey(for: provider)
+    case .free: hasAPIKey(for: .gemini) || isApplePCCAvailable
     }
   }
 
@@ -477,7 +492,7 @@ final class CloudSettingsModel: ObservableObject {
   }
 
   func hasAPIKey(for provider: CloudProviderID) -> Bool {
-    guard provider != .chatGPT, provider != .claudeCode else { return false }
+    guard provider != .chatGPT, provider != .claudeCode, provider != .free else { return false }
     return (try? credentialStore.containsAPIKey(for: provider)) ?? false
   }
 
@@ -499,6 +514,7 @@ final class CloudSettingsModel: ObservableObject {
 
   func loadCachedModels() async {
     let provider = preferredProvider
+    if provider == .free { return showFreeModels() }
     if let cached = await catalog.cachedModels(for: provider), provider == preferredProvider {
       models = cached
       hasLoadedModelList = true
@@ -511,6 +527,7 @@ final class CloudSettingsModel: ObservableObject {
 
   func discoverModels(forceRefresh: Bool = false) async {
     let provider = preferredProvider
+    if provider == .free { return showFreeModels() }
     let id = UUID()
     discoveryID = id
     isDiscovering = true
@@ -531,6 +548,14 @@ final class CloudSettingsModel: ObservableObject {
       hasLoadedModelList = false
       discoveryError = error.localizedDescription
     }
+  }
+
+  /// Free models are listed from what is set up on this Mac, without a network call.
+  private func showFreeModels() {
+    models = FreeModelCatalog.available(hasGeminiKey: hasAPIKey(for: .gemini), appleAvailable: isApplePCCAvailable)
+    hasLoadedModelList = true
+    discoveryError = nil
+    selectDefaultModelIfNeeded()
   }
 
   /// The daily background refresh of a subscription route's list: no progress, no error

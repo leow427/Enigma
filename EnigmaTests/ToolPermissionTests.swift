@@ -27,14 +27,14 @@ final class ToolPermissionTests: XCTestCase {
       Route(mode: mode, providerID: provider, modelID: "m", usesNetwork: mode != .local)
     }
     let expected: [CloudProviderID: ToolDestination] = [.chatGPT: .openAI, .openAI: .openAI,
-      .claudeCode: .anthropic, .anthropic: .anthropic, .gemini: .google]
+      .claudeCode: .anthropic, .anthropic: .anthropic, .gemini: .google, .free: .google]
     for provider in CloudProviderID.allCases {
       XCTAssertEqual(ToolDestination(route: route(.cloud, provider.rawValue)), expected[provider], provider.rawValue)
     }
     XCTAssertEqual(ToolDestination(route: route(.local, "llama.cpp")), .thisMac)
     XCTAssertEqual(ToolDestination(route: route(.local, "local")), .thisMac)
     XCTAssertNil(ToolDestination(route: route(.cloud, "someone-else")), "No card names a company Enigma doesn't know")
-    XCTAssertEqual(ToolDestination.allCases.map(\.displayName), ["this Mac", "OpenAI", "Anthropic", "Google"])
+    XCTAssertEqual(ToolDestination.allCases.map(\.displayName), ["this Mac", "OpenAI", "Anthropic", "Google", "Apple"])
   }
 
   func testConversationGrantIsPerSession() {

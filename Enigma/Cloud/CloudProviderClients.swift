@@ -49,7 +49,15 @@ struct CloudProviderRegistry: Sendable {
     case .openAI: openAI
     case .anthropic: anthropic
     case .gemini: gemini
+    case .free: FreeModelsPending()
     }
+  }
+}
+
+// Replaced by the free pool in F34 Task 4.
+private struct FreeModelsPending: ChatProvider {
+  func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
+    AsyncThrowingStream { $0.finish(throwing: CloudProviderError.invalidResponse) }
   }
 }
 

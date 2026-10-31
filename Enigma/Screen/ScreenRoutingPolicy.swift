@@ -94,6 +94,9 @@ extension CloudModelCapabilities {
     case .claudeCode:
       // Each alias resolves to the plan's newest model of its tier, all of which take images.
       ClaudeCodeSubscriptionClient.models.map(\.id)
+    case .free:
+      // Apple's cloud model stays text-only until image input is confirmed live (F34).
+      visionModelIDs(for: .gemini).filter(FreeModelCatalog.ranked.contains)
     }
   }
 }

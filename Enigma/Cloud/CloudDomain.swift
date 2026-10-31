@@ -39,6 +39,8 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   case openAI = "openai"
   case anthropic
   case gemini
+  /// Free models (F34): Gemini's free tier and Apple's cloud model, ranked.
+  case free
 
   var id: Self { self }
 
@@ -49,6 +51,7 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .gemini: "Gemini"
+    case .free: "Free models"
     }
   }
 
@@ -60,6 +63,7 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .gemini: "Gemini"
+    case .free: "Free models"
     }
   }
 

@@ -290,7 +290,8 @@ final class CloudModeTests: XCTestCase {
 
   @MainActor
   func testCloudTrimmingPreservesStoredTranscriptForEveryProvider() async throws {
-    for provider in CloudProviderID.allCases {
+    // Free models join once the pool replaces the stub (F34 Task 4).
+    for provider in CloudProviderID.allCases where provider != .free {
       let root = FileManager.default.temporaryDirectory.appending(path: "CloudContextPersistence-\(UUID())")
       defer { try? FileManager.default.removeItem(at: root) }
       let store = ChatSessionStore(applicationSupportDirectory: root)
