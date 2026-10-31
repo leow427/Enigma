@@ -235,10 +235,13 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(window.frame.size, enlarged)
     controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
     XCTAssertEqual(store.load(), normal)
+    // F14 spike: the hands-on tour grows the window by its rail.
     setup.finish(takeTour: true)
     await settleSizing()
-    XCTAssertEqual(window.frame.size, enlarged)
-    setup.endTour()
+    let touring = PanelSizeStore.centeredFrame(
+      size: NSSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), in: visible).size
+    XCTAssertEqual(window.frame.size, touring)
+    GuidedTour.shared.end()
     await settleSizing()
     XCTAssertEqual(window.frame.size, normal)
     setup.replay()
@@ -351,5 +354,63 @@ final class AppCommandTests: XCTestCase {
     )
 
     XCTAssertEqual(frame, visibleFrame)
+  }
+
+  // MARK: F14 spike: shortcuts you choose
+
+  private func key(_ code: UInt16, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
+    try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+                                   context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false,
+                                   keyCode: code))
+  }
+
+  @MainActor
+  func testDefaultShortcutsAreTodaysAndChangesPersistAndReset() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let expected: [(UInt16, NSEvent.ModifierFlags, PanelShortcut)] = [
+      (45, .command, .newChat), (40, .command, .modePalette), (47, .command, .stopStreaming),
+      (48, .control, .cycleRecentChat), (43, .command, .settings), (1, [.control, .command], .toggleSidebar),
+      (31, .command, .openInWindow), (0, [.shift, .command], .fileMode),
+    ]
+    for (code, flags, shortcut) in expected {
+      XCTAssertEqual(store.action(for: try key(code, flags)), .panel(shortcut), "\(shortcut)")
+    }
+    XCTAssertNil(store.action(for: try key(45, [.command, .shift])), "⇧⌘N is not New chat")
+    XCTAssertEqual(store.binding(.summon)?.display, "⌃⌥")
+
+    let think = KeyBinding.keys("t", [.control, .option])
+    store.set(think, for: .command(.think))
+    store.set(nil, for: .panel(.newChat))
+    XCTAssertEqual(store.action(for: try key(17, [.control, .option])), .command(.think))
+    XCTAssertNil(store.action(for: try key(45, .command)), "New chat's shortcut was removed")
+    let reloaded = ShortcutStore(defaults: defaults)
+    XCTAssertEqual(reloaded.binding(.command(.think)), think)
+    XCTAssertNil(reloaded.binding(.panel(.newChat)))
+    reloaded.reset(.panel(.newChat))
+    XCTAssertEqual(reloaded.action(for: try key(45, .command)), .panel(.newChat))
+    reloaded.selectionSameAsSummon = true
+    XCTAssertNil(reloaded.binding(.selection))
+    reloaded.resetAll()
+    XCTAssertNil(reloaded.binding(.command(.think)))
+    XCTAssertFalse(reloaded.selectionSameAsSummon)
+  }
+
+  @MainActor
+  func testAShortcutThatIsTakenIsRefused() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    XCTAssertEqual(store.conflict(.keys("n", .command), for: .command(.search)), "⌘N is already New chat.")
+    XCTAssertNil(store.conflict(.keys("n", .command), for: .panel(.newChat)), "Its own shortcut is free")
+    XCTAssertEqual(store.conflict(.keys("q", .command), for: .command(.search)), "macOS uses ⌘Q for Quit.")
+    XCTAssertNotNil(store.conflict(ShortcutStore.selectionBackup, for: .summon))
+    XCTAssertEqual(store.conflict(KeyBinding(kind: .chord, modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue),
+                                  for: .selection), "⌃⌥ is already Open or hide Enigma.")
+    XCTAssertNil(store.conflict(.keys("t", [.control, .option]), for: .command(.think)))
+    XCTAssertEqual(KeyBinding(kind: .doubleTap, modifiers: NSEvent.ModifierFlags.option.rawValue).display, "⌥⌥")
   }
 }

@@ -6,9 +6,8 @@ struct ScreenSettingsSection: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Screen")
-      EnigmaRow("Allow screenshots to be sent to cloud models",
-                subtitle: "Off by default. " + ScreenSettings.savedPermissionExplanation) {
+      EnigmaRow("Allow screenshots to be sent to cloud models", subtitle: "Off by default.",
+                info: ScreenSettings.savedPermissionExplanation) {
         EnigmaSwitch("Allow screenshots to be sent to cloud models", isOn: $settings.allowCloudScreenshots)
       }
       EnigmaHairline()

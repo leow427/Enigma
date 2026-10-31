@@ -82,13 +82,16 @@ struct WelcomeSetupView: View {
     .task { await advisor.detectHardware() }
     .onAppear(perform: placeCharacter)
     .onChange(of: setup.step) { old, new in
-      if let transition = WelcomeSetup.characterTransition(from: old, to: new) {
-        character.move(to: WelcomeSetup.characterSlot(for: new).id, transition)
-      }
+      // F14 spike: it flies to each step, from wherever it was perched.
+      character.attention = nil
+      character.move(to: WelcomeSetup.characterSlot(for: new).id, .fly)
       if new == .connections { Task { await cloud.refreshChatGPTAccount() } }
     }
     .onChange(of: chat.modelOperation) { _, operation in if operation == .benchmarking { setup.performanceCheckRan() } }
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
+    // F14 spike: a happy wobble when a model lands or a plan connects.
+    .onChange(of: chat.installedModel?.id) { old, new in if new != nil, old != new { character.poke() } }
+    .onChange(of: cloud.isConfigured) { old, new in if new, !old { character.poke() } }
   }
 
   /// Puts the character in this step's slot. Arriving fresh on the welcome, it
@@ -114,29 +117,22 @@ struct WelcomeSetupView: View {
     return ScrollView {
       VStack(spacing: 0) {
         Color.clear.enigmaCharacterSlot(id: slot.id, size: slot.size)
-        Text("Enigma")
-          .font(EnigmaTypography.ui(34, weight: .semibold))
-          .tracking(-1)
+        Text("Hi, I’m Enigma.")
+          .font(EnigmaTypography.ui(38, weight: .semibold))
+          .tracking(-1.2)
           .foregroundStyle(palette.textPrimary.color)
           .accessibilityAddTraits(.isHeader)
           .padding(.top, compact ? 6 : 22)
-        Text("A small assistant that lives on your Mac.")
-          .font(EnigmaTypography.ui(14.5))
+        Text("A small assistant that lives on your Mac. Ask me anything, any way you like.")
+          .font(EnigmaTypography.ui(15))
           .foregroundStyle(palette.textSecondary.color)
           .padding(.top, compact ? 4 : 8)
-        VStack(alignment: .leading, spacing: 0) {
-          EnigmaCommandLine(command: "⌥⌃ in any app", description: "opens over what you’re doing")
-          if let shortcut = WelcomeSetup.selectionShortcut(modifier: selectionModifier,
-                                                           isEnabled: selectionShortcutEnabled) {
-            EnigmaCommandLine(command: "select, then \(shortcut)", description: "ask about the selection")
-          }
-          EnigmaCommandLine(command: "/screen /search /edit", description: "do things, not just chat")
-        }
-        .frame(width: 440)
-        .padding(.top, compact ? 10 : 24)
+        WelcomeTypewriter(character: character)
+          .frame(width: 520)
+          .padding(.top, compact ? 14 : 30)
         primaryButton("Get started", isEnabled: true) { changeStep { setup.advance() } }
-          .padding(.top, compact ? 10 : 24)
-        EnigmaHint("next: pick a local model, about a minute")
+          .padding(.top, compact ? 14 : 30)
+        EnigmaHint("⌥⌃ opens me in any app · setup takes about a minute")
           .padding(.top, compact ? 6 : 12)
       }
       // The antenna reaches about 25 points above the slot.
@@ -212,9 +208,9 @@ struct WelcomeSetupView: View {
   private var headerCopy: (title: String, subtitle: String) {
     switch setup.step {
     case .welcome: ("Enigma", "A small assistant that lives on your Mac.")
-    case .models: ("Pick a local model", "It answers on this Mac. Choose a balance of speed, capability, and space.")
-    case .connections: ("Connect what you use", "All optional. Connect here, or skip and come back whenever you’re ready.")
-    case .walkthrough: ("Make yourself at home", "Would you like a quick walkthrough?")
+    case .models: ("Pick a brain for me", "It runs right here on your Mac. Bigger thinks deeper; smaller answers faster.")
+    case .connections: ("Want backup from the cloud?", "Use your ChatGPT or Claude plan for the hard stuff. Totally optional.")
+    case .walkthrough: ("Let me show you around", "A quick, hands-on tour. You try each thing yourself.")
     }
   }
 
@@ -251,7 +247,7 @@ struct WelcomeSetupView: View {
       case .connections:
         primaryButton("Continue", isEnabled: true) { changeStep { setup.advance() } }
       case .walkthrough:
-        Button("Finish without the tour") { setup.finish(takeTour: false) }
+        Button("Skip the tour") { setup.finish(takeTour: false) }
           .enigmaButtonStyle(.text)
         primaryButton("Show me around", isEnabled: true) { setup.finish(takeTour: true) }
       }
@@ -268,11 +264,11 @@ struct WelcomeSetupView: View {
       case .install: return "\(size) download, verified before install"
       case .update: return "\(size) update, verified before install"
       case .use: return "already on this Mac"
-      case .proceed: return "next: cloud and search, optional"
+      case .proceed: return "next: cloud plans, optional"
       case nil: return "choose a model, or skip local models"
       }
-    case .connections: return "next: a quick look around"
-    case .walkthrough: return "six stops, leave anytime"
+    case .connections: return "next: a hands-on tour"
+    case .walkthrough: return "\(GuidedTour.Stop.allCases.count) stops, leave anytime"
     }
   }
 
@@ -341,10 +337,12 @@ struct WelcomeSetupView: View {
             skipLocal = false
           }
           .disabled(isModelWorkBusy)
+          .welcomePerch("model.\(assessment.id)", character: character)
       }
       EnigmaRow("Skip local models", subtitle: "Use cloud models only. You can add a local model later in Settings.",
                 selection: skipLocal, action: { skipLocal = true })
         .disabled(!chat.canChangeModels)
+        .welcomePerch("model.skip", character: character)
       EnigmaHairline()
       if advisor.hardware != nil && choices.isEmpty {
         note("No supported model fits the available memory and storage. You can continue with Cloud.")
@@ -383,19 +381,12 @@ struct WelcomeSetupView: View {
 
   private var connections: some View {
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Cloud models")
+      EnigmaSectionHeader("Cloud plans")
       ClaudeCodeConnectionControls(settings: cloud, showsAPIKeyNote: false)
+        .welcomePerch("cloud.claude", character: character)
       ChatGPTConnectionControls(settings: cloud)
-      EnigmaSectionHeader("Search")
-      // Search needs no setup (spec §8). A Brave key, if wanted, is in Settings (D128).
-      EnigmaRow("Web search", subtitle: "Used by /search and automatic search, with sources listed.") {
-        EnigmaStatusLine(.on, "ready · no setup needed")
-      }
-      EnigmaSectionHeader("Mac permissions")
-      MacPermissionRows()
-      Button("More connection settings") { showConnections = true }
-        .enigmaButtonStyle(.text)
-        .padding(.leading, -8)
+        .welcomePerch("cloud.chatgpt", character: character)
+      note("Auto keeps things on this Mac and asks the cloud only when it helps. Search needs no setup at all.")
         .padding(.top, 14)
     }
   }
@@ -404,14 +395,14 @@ struct WelcomeSetupView: View {
 
   private var walkthrough: some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text("Six quick stops show you chat history, the message box, slash commands, files, model choices, and Help. Follow the highlighted controls with Next, or leave the tour anytime.")
+      Text("I’ll show you around the real app. You send a question, try a command, and turn on what you want to use. Every reply in the tour is an example.")
         .font(EnigmaTypography.ui(13.5))
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
       VStack(alignment: .leading, spacing: 0) {
-        ForEach(WelcomeTourStep.allCases, id: \.self) { stop in
-          EnigmaCommandLine(command: stop.stopName, description: stop.stopSummary, commandWidth: 110)
+        ForEach(GuidedTour.Stop.allCases, id: \.self) { stop in
+          EnigmaCommandLine(command: "\(stop.rawValue + 1)", description: stop.title, commandWidth: 30)
         }
       }
       .padding(.top, 14)
@@ -420,7 +411,7 @@ struct WelcomeSetupView: View {
           .padding(.top, 14)
       }
       VStack(alignment: .leading, spacing: 4) {
-        note("Screen, selection, and location permissions are requested when you use those features. You’re in control.")
+        note("The tour helps you turn on Accessibility, Screen Recording and Full Disk Access, only for what you want.")
         note("Replay this setup anytime from Settings → General.")
       }
       .padding(.top, 14)
@@ -438,6 +429,7 @@ private extension WelcomeTourStep {
     case .files: "files"
     case .model: "model"
     case .help: "help"
+    case .newChat: "new chat"
     }
   }
 
@@ -449,6 +441,7 @@ private extension WelcomeTourStep {
     case .files: "work with a file or folder"
     case .model: "local, cloud, or auto"
     case .help: "shortcuts and settings"
+    case .newChat: "a new conversation"
     }
   }
 }
@@ -607,5 +600,112 @@ struct ConnectionSettingsSheet: View {
     }
     .frame(width: Self.size.width, height: Self.size.height)
     .background(palette.background.color)
+  }
+}
+
+// MARK: F14 spike: the character follows clicks, and the welcome types examples
+
+extension View {
+  /// A spot just right of this row where the character lands when the row is clicked.
+  func welcomePerch(_ id: String, character: EnigmaCharacterController) -> some View {
+    let slot = EnigmaCharacterSlotID("welcome.perch." + id)
+    return overlay(alignment: .trailing) {
+      Color.clear
+        .enigmaCharacterSlot(id: slot, size: 38)
+        .offset(x: 62)
+        .allowsHitTesting(false)
+    }
+    .simultaneousGesture(TapGesture().onEnded { character.move(to: slot, .fly) })
+  }
+}
+
+/// A little composer that types what people ask Enigma, plain words and
+/// commands alike, while the character leans in at each keystroke.
+struct WelcomeTypewriter: View {
+  let character: EnigmaCharacterController
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var shown = ""
+  @State private var cursorOn = true
+  static let target: EnigmaCharacterTargetID = "welcome.typewriter"
+  static let examples = [
+    "cafes near me",
+    "/translate this into Spanish",
+    "what did Sam say about Saturday?",
+    "/snapshot what does this error mean?",
+    "will it rain tomorrow?",
+    "/edit make this sound friendlier",
+    "fix the typos in notes.md",
+    "/think plan my week around three deadlines",
+  ]
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 0) {
+        typed
+        Rectangle()
+          .fill(palette.accent.color)
+          .frame(width: 2, height: 19)
+          .opacity(cursorOn ? 1 : 0)
+          .padding(.leading, 1)
+        Spacer(minLength: 0)
+      }
+      .frame(height: 22)
+      HStack(spacing: 16) {
+        Text("+").font(EnigmaTypography.ui(17))
+        Text("/").font(EnigmaTypography.mono(15))
+        Text("● local").font(EnigmaTypography.mono(12))
+        Spacer()
+        Circle().fill(palette.accent.color).frame(width: 26, height: 26)
+          .overlay(Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).foregroundStyle(palette.onAccent.color))
+      }
+      .foregroundStyle(palette.textSecondary.color)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+    .background(palette.surface.color, in: shape)
+    .enigmaEdge(shape)
+    .enigmaCharacterTarget(Self.target)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Examples of what you can ask")
+    .task { await run() }
+  }
+
+  /// The command in `accentText`, the rest in body text, as the composer shows them.
+  private var typed: some View {
+    let parts = shown.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+    let isCommand = shown.hasPrefix("/")
+    var text = AttributedString(shown)
+    text.font = EnigmaTypography.ui(16)
+    text.foregroundColor = palette.textPrimary.color
+    if isCommand, let first = parts.first, let range = text.range(of: first) {
+      text[range].foregroundColor = palette.accentText.color
+      text[range].font = EnigmaTypography.mono(15)
+    }
+    return Text(text)
+  }
+
+  private func run() async {
+    if reduceMotion { shown = Self.examples[0]; return }
+    var index = 0
+    while !Task.isCancelled {
+      let example = Self.examples[index % Self.examples.count]
+      for character in example {
+        shown.append(character)
+        self.character.key(towards: Self.target)
+        try? await Task.sleep(for: .milliseconds(Int.random(in: 45...95)))
+      }
+      for _ in 0..<4 { cursorOn.toggle(); try? await Task.sleep(for: .milliseconds(350)) }
+      cursorOn = true
+      self.character.token()
+      try? await Task.sleep(for: .milliseconds(500))
+      while !shown.isEmpty {
+        shown.removeLast()
+        try? await Task.sleep(for: .milliseconds(18))
+      }
+      try? await Task.sleep(for: .milliseconds(300))
+      index += 1
+    }
   }
 }

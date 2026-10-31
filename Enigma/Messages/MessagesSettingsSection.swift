@@ -1,8 +1,11 @@
 import Contacts
 import SwiftUI
 
-/// Settings → General: what /messages needs from macOS and where its data goes.
+/// What /messages needs from macOS, the chats it may read without asking, and
+/// where its data goes. F14 spike: each part is on its own Settings page.
 struct MessagesSettingsSection: View {
+  enum Part { case permissions, approvals, about }
+  let part: Part
   @State private var fullDiskAccess: Bool?
   @State private var contacts = CNContactStore.authorizationStatus(for: .contacts)
   @ObservedObject var grants: ToolGrantStore = .shared
@@ -26,16 +29,19 @@ struct MessagesSettingsSection: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      permission("Full Disk Access", isEnabled: fullDiskAccess == true,
-                 detail: MessagesPermissionStatus.fullDiskAccessDetail(fullDiskAccess), pane: .fullDiskAccess)
-      permission("Contacts", isEnabled: contacts == .authorized,
-                 detail: MessagesPermissionStatus.contactsDetail, pane: .contacts)
-      EnigmaRow("Automation", subtitle: MessagesPermissionStatus.automationDetail) {
-        settingsButton(for: .automation)
-      }
-      EnigmaHairline()
-      if !grants.alwaysGrants.isEmpty {
-        EnigmaSectionHeader(Self.alwaysAllowedHeading)
+      switch part {
+      case .permissions:
+        permission("Full Disk Access", isEnabled: fullDiskAccess == true, subtitle: "To read your Messages chats.",
+                   detail: MessagesPermissionStatus.fullDiskAccessDetail(fullDiskAccess), pane: .fullDiskAccess)
+        permission("Contacts", isEnabled: contacts == .authorized, subtitle: "To show names instead of numbers.",
+                   detail: MessagesPermissionStatus.contactsDetail, pane: .contacts)
+        EnigmaRow("Automation", subtitle: "To send a text you approve.", info: MessagesPermissionStatus.automationDetail) {
+          settingsButton(for: .automation)
+        }
+      case .approvals:
+        if grants.alwaysGrants.isEmpty {
+          EnigmaRow("Nothing yet", subtitle: "Choose Always on an approval card and it’s listed here.")
+        }
         ForEach(grants.alwaysGrants) { grant in
           let text = Self.rowText(for: grant)
           EnigmaRow(text) {
@@ -45,8 +51,9 @@ struct MessagesSettingsSection: View {
           }
         }
         EnigmaHairline()
+      case .about:
+        EnigmaNote(MessagesPermissionStatus.privacyNote).padding(.vertical, 10)
       }
-      EnigmaNote(MessagesPermissionStatus.privacyNote).padding(.top, 10)
     }
     .onAppear(perform: refresh)
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
@@ -58,9 +65,10 @@ struct MessagesSettingsSection: View {
   }
 
   /// The button shows only while the permission is missing.
-  private func permission(_ title: String, isEnabled: Bool, detail: String, pane: MessagesPrivacyPane) -> some View {
+  private func permission(_ title: String, isEnabled: Bool, subtitle: String, detail: String,
+                          pane: MessagesPrivacyPane) -> some View {
     let status = MacPermissionRows.status(isEnabled: isEnabled)
-    return EnigmaRow(title, subtitle: detail) {
+    return EnigmaRow(title, subtitle: subtitle, info: detail) {
       HStack(spacing: 12) {
         EnigmaStatusLine(status.0, status.1)
         if !isEnabled { settingsButton(for: pane) }

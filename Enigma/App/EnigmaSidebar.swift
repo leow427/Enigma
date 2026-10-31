@@ -81,6 +81,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
           .frame(width: 20, height: 20)
           .background(palette.accent.color, in: Circle())
       }
+      .welcomeTourTarget(.newChat)
 
       Text("Recents")
         .font(EnigmaTypography.ui(11.5, weight: .medium))
@@ -155,6 +156,7 @@ struct EnigmaTopBar: View {
       if let actions = sidebarActions {
         Button(action: actions.newChat) { Image(systemName: "plus") }
           .enigmaIconButtonStyle()
+          .welcomeTourTarget(.newChat)
           .accessibilityLabel("New chat")
           .help("New chat · ⌘N")
           .enigmaTestMarker("Bar new chat")
