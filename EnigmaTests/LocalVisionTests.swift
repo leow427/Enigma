@@ -586,7 +586,7 @@ final class LocalVisionTests: XCTestCase {
     add(attachment)
     try png.write(to: URL(fileURLWithPath: "/tmp/ai-spotlight-vision-download-preview.png"))
     let text = try await ScreenOCRService().recognize(try XCTUnwrap(bitmap.cgImage)).text
-    XCTAssertTrue(text.contains("Local models"), text)
+    XCTAssertTrue(text.contains("On this Mac"), text)
     XCTAssertFalse(text.contains("Image understanding"), text)
     XCTAssertTrue(text.contains("For this Mac"), text)
     XCTAssertTrue(text.contains("All models"), text)
