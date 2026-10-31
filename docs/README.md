@@ -28,7 +28,7 @@ works in the code, its limitations, and which tests cover it.
 | [Testing](Testing.md) | The verification helper, CI, snapshot tests, and opt-in real-model checks |
 | [Distribution](Distribution.md) | Running from Xcode, installing a signed copy, signing, and entitlements |
 | [Updates](Updates.md) | Automatic updates through Sparkle, the What's new? button, moving the app into Applications, the update signing key, and publishing a release with `scripts/release.sh` |
-| [Agent workflow](Agent-Workflow.md) | How every change is built: one worker chat per checkpoint, test-first, with fresh reviewer rounds and one commit |
+| [Agent workflow](Agent-Workflow.md) | The rules for worker chats and the reviewer agents that audit them |
 | [Reviewer](reviewer.md) | The instructions for the read-only reviewer agent that audits a feature diff |
 
 ## Design and history

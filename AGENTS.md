@@ -74,8 +74,8 @@ GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 
 ## Agent Workflow
 
-Every code change is built in checkpoints, one worker chat each, with fresh
-reviewer agents auditing every round. Follow `docs/Agent-Workflow.md`.
+Every code change is built by a worker chat and audited by fresh reviewer
+agents. Follow `docs/Agent-Workflow.md`.
 
 ## Implementation and Test Expectations
 
