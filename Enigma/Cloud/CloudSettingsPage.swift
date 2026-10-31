@@ -45,7 +45,7 @@ struct AdvancedCloudSettings: View {
       EnigmaSectionHeader("Advanced cloud settings")
       EnigmaRow("Preferred provider") {
         EnigmaMenu("Preferred provider", selection: $settings.preferredProvider,
-                   options: CloudProviderID.allCases.map { EnigmaOption($0, $0.displayName) })
+                   options: CloudProviderID.selectableProviders.map { EnigmaOption($0, $0.displayName) })
       }
       EnigmaRow("Preferred model",
                 subtitle: settings.models.isEmpty ? CloudSettingsForm.emptyModelsNotice(in: settings) : nil) {

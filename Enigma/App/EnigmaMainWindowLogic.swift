@@ -286,7 +286,7 @@ struct ModeAndModelMenu {
     switch mode {
     case .auto: "on this Mac, cloud only when needed"
     case .local: "stays on this Mac"
-    case .cloud: "sent to \(provider.displayName)"
+    case .cloud: "sent to \(provider.recipientName)"
     }
   }
 

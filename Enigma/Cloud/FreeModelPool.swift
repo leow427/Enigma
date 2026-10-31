@@ -50,13 +50,15 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
     CloudToolLoop.stream { continuation in
       let chosen = request.route.modelID
       let available = models().filter { id in
-        request.route.mode != .auto || FreeModelCatalog.underlyingProvider(id) == nil || allowsGeminiInAuto()
+        !request.route.isAuto || FreeModelCatalog.underlyingProvider(id) == nil || allowsGeminiInAuto()
       }
       guard !available.isEmpty else { throw CloudProviderError.missingAPIKey(.gemini) }
+      // A choice that isn't set up never reaches here from Settings; Auto's pick may be left out.
       let order = (available.contains(chosen) ? [chosen] : []) + available.filter { $0 != chosen }
       // The model the user chose and why the pool left it, for the notice.
       var left: (model: String, daily: Bool)?
       for id in order {
+        try Task.checkCancellation()
         if usage.isExhausted(id, now: now()) {
           left = left ?? (id, true)
           continue
@@ -70,11 +72,12 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
                               image: request.image, allowsCloudImages: request.allowsCloudImages,
                               providerSearch: request.providerSearch)
         if let left { continuation.yield(.activity(.notice(notice(switchedTo: id, left: left)))) }
+        if id != chosen { continuation.yield(.activity(.answeredBy(FreeModelCatalog.displayName(id)))) }
         var started = false
         do {
           for try await event in start(provider, attempt) {
-            // A daily limit moves the user's choice; a busy model only this request.
-            if !started, left?.daily == true { onSwitch(id) }
+            // A daily limit moves the user's choice; a busy model, or Auto's pick, only this request.
+            if !started, left?.daily == true, !request.route.isAuto { onSwitch(id) }
             started = true
             continuation.yield(event)
           }

@@ -1190,25 +1190,14 @@ struct AppShellView: View {
   /// The mode a chat goes out on: Cloud with every free model out of usage answers on this Mac
   /// instead, saying so above the reply (F34).
   private func chatSendMode() -> ChatMode {
-    guard shell.selectedMode == .cloud, cloudSettings.preferredProvider == .free,
-          localChat.installedModel != nil, let reset = cloudSettings.freeModelsAllOut() else { return shell.selectedMode }
-    localChat.nextReplyNotice = "Free models are out until \(reset.formatted(date: .omitted, time: .shortened)). Answered on this Mac."
+    guard shell.selectedMode == .cloud, localChat.installedModel != nil,
+          let notice = cloudSettings.freeModelsOutNotice() else { return shell.selectedMode }
+    localChat.nextReplyNotice = notice
     return .local
   }
 
-  private var autoCloudConfiguration: AutoRouter.CloudConfiguration? {
-    guard cloudSettings.isConfigured else { return nil }
-    // Free models in Auto: only one Auto may use and that isn't out of usage (F34).
-    let freeModelID = cloudSettings.preferredProvider == .free ? cloudSettings.autoFreeModelID() : nil
-    guard cloudSettings.preferredProvider != .free || freeModelID != nil else { return nil }
-    let modelID = freeModelID ?? cloudSettings.preferredModelID
-    let displayName = cloudSettings.models.first(where: { $0.id == modelID })?.displayName ?? modelID
-    return AutoRouter.CloudConfiguration(
-      provider: cloudSettings.preferredProvider,
-      modelID: modelID,
-      modelDisplayName: displayName
-    )
-  }
+
+  private var autoCloudConfiguration: AutoRouter.CloudConfiguration? { cloudSettings.autoCloudConfiguration() }
 
   private func openConnectionSettings() {
     shell.prepareForSettings()

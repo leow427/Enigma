@@ -72,6 +72,14 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   static let nativeWebSearchProviders: Set<CloudProviderID> = [.chatGPT, .claudeCode]
 
   var supportsNativeWebSearch: Bool { Self.nativeWebSearchProviders.contains(self) }
+
+  /// Who receives what is sent, as privacy cards name it: the company, not the pool (F34).
+  var recipientName: String {
+    self == .free ? "Google (Gemini's free tier)" : displayName
+  }
+
+  /// The providers Settings offers. Free models joins once its Settings row ships (F34 Task 6).
+  static let selectableProviders = allCases.filter { $0 != .free }
 }
 
 struct CloudModel: Codable, Equatable, Identifiable, Sendable {

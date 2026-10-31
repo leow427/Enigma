@@ -159,7 +159,8 @@ struct AutoRouter: Sendable {
     let decision = decideModel(request)
     guard request.webSearchEnabled, let route = decision.route else { return decision }
     return Decision(
-      route: Route(mode: route.mode, providerID: route.providerID, modelID: route.modelID, usesNetwork: true),
+      route: Route(mode: route.mode, providerID: route.providerID, modelID: route.modelID, usesNetwork: true,
+                   isAuto: route.isAuto),
       modelDisplayName: decision.modelDisplayName, reason: decision.reason, limitation: decision.limitation
     )
   }
@@ -303,7 +304,8 @@ struct AutoRouter: Sendable {
         mode: .cloud,
         providerID: cloud.provider.rawValue,
         modelID: cloud.modelID,
-        usesNetwork: true
+        usesNetwork: true,
+        isAuto: true
       ),
       modelDisplayName: cloud.modelDisplayName,
       reason: reason,

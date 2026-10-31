@@ -234,7 +234,8 @@ final class CloudSettingsModel: ObservableObject {
     codexShellLookup: LoginShellToolLookup? = nil,
     installCodex: CodexInstall? = nil,
     claudeCode: ClaudeCodeSubscriptionClient = .live,
-    claudeCodeSignInPollInterval: Duration = .seconds(2)
+    claudeCodeSignInPollInterval: Duration = .seconds(2),
+    notificationCenter: NotificationCenter = .default
   ) {
     self.codex = codex
     self.codexAvailable = codexAvailable ?? { CodexRuntimeConfiguration.executableURL() != nil }
@@ -268,7 +269,7 @@ final class CloudSettingsModel: ObservableObject {
     codexThinkingCapacity = preferences.preferredCodexThinkingCapacity()
     claudeCodeEffort = preferences.preferredClaudeCodeEffort()
     autoMayUseFreeGemini = preferences.autoMayUseFreeGemini()
-    freeSwitchObserver = NotificationCenter.default.addObserver(
+    freeSwitchObserver = notificationCenter.addObserver(
       forName: .freeModelSwitched, object: nil, queue: .main
     ) { [weak self] note in
       guard let modelID = note.object as? String else { return }
@@ -287,6 +288,8 @@ final class CloudSettingsModel: ObservableObject {
   var selectedModelCompatibility: CloudModelCompatibility {
     let id = preferredModelID.trimmingCharacters(in: .whitespacesAndNewlines)
     let compatibility = CloudModelCapabilities.compatibility(provider: preferredProvider, modelID: id)
+    // A free model that isn't set up on this Mac would be swapped for another without a word (F34).
+    if preferredProvider == .free, !models.contains(where: { $0.id == id }) { return id.isEmpty ? .unselected : .unsupported }
     if compatibility == .unverified, preferredProvider != .openAI,
        models.contains(where: { $0.id == id }) {
       return .compatible
@@ -310,6 +313,22 @@ final class CloudSettingsModel: ObservableObject {
     freeModelIDs.first { id in
       (FreeModelCatalog.underlyingProvider(id) == nil || autoMayUseFreeGemini) && !usage.isExhausted(id, now: now)
     }
+  }
+
+  /// The cloud route Auto may take. For Free models, the model Auto may use, or none (F34).
+  func autoCloudConfiguration(now: Date = Date(), usage: FreeModelUsage = .shared) -> AutoRouter.CloudConfiguration? {
+    guard preferredProvider == .free ? hasCloudAccess(for: .free) : isConfigured else { return nil }
+    let modelID = preferredProvider == .free ? autoFreeModelID(now: now, usage: usage) : preferredModelID
+    guard let modelID else { return nil }
+    let displayName = models.first(where: { $0.id == modelID })?.displayName ?? modelID
+    return AutoRouter.CloudConfiguration(provider: preferredProvider, modelID: modelID, modelDisplayName: displayName)
+  }
+
+  /// With Free models chosen and every free model out of usage, the notice a reply answered on
+  /// this Mac shows instead; otherwise nil.
+  func freeModelsOutNotice(now: Date = Date(), usage: FreeModelUsage = .shared) -> String? {
+    guard preferredProvider == .free, let reset = freeModelsAllOut(now: now, usage: usage) else { return nil }
+    return "Free models are out until \(reset.formatted(date: .omitted, time: .shortened)). Answered on this Mac."
   }
 
   /// When every free model is out of usage, the earliest time one comes back; otherwise nil.
@@ -535,12 +554,14 @@ final class CloudSettingsModel: ObservableObject {
     try credentialStore.setAPIKey(trimmedAPIKey, for: provider)
     credentialRevision += 1
     connectionStates[provider] = .idle
+    if provider == .gemini, preferredProvider == .free { showFreeModels() }
   }
 
   func removeAPIKey(for provider: CloudProviderID) throws {
     try credentialStore.removeAPIKey(for: provider)
     credentialRevision += 1
     connectionStates[provider] = .idle
+    if provider == .gemini, preferredProvider == .free { showFreeModels() }
   }
 
   func loadCachedModels() async {

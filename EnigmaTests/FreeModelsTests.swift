@@ -127,7 +127,7 @@ final class FreeModelsTests: XCTestCase {
     let all = try await events(pool(fake, usage: usage, switches: switches).stream(request("gemini-2.5-pro")))
     let time = reset.formatted(date: .omitted, time: .shortened)
     XCTAssertEqual(all.first, .activity(.notice("Switched to Apple's cloud model: Gemini 2.5 Pro reached its free daily limit (resets \(time)).")))
-    XCTAssertEqual(all.dropFirst().first, .token("from apple-pcc"))
+    XCTAssertEqual(Array(all.dropFirst().prefix(2)), [.activity(.answeredBy("Apple's cloud model")), .token("from apple-pcc")])
     XCTAssertEqual(switches.items, ["apple-pcc"])
     XCTAssertEqual(fake.calls, ["gemini:gemini-2.5-pro", "free:apple-pcc"])
     XCTAssertTrue(usage.isExhausted("gemini-2.5-pro", now: now))
@@ -164,7 +164,8 @@ final class FreeModelsTests: XCTestCase {
 
   func testAutoSkipsGeminiWithoutTheToggle() async throws {
     let fake = ScriptedFreeProvider([:])
-    _ = try await events(pool(fake, usage: FreeModelUsage()).stream(request("gemini-2.5-pro", mode: .auto)))
+    // Auto's cloud routes are `.cloud` routes marked `isAuto`, as `AutoRouter` builds them.
+    _ = try await events(pool(fake, usage: FreeModelUsage()).stream(autoRequest("gemini-2.5-pro")))
     XCTAssertEqual(fake.calls, ["free:apple-pcc"])
   }
 
@@ -188,16 +189,19 @@ final class FreeModelsTests: XCTestCase {
 
   @MainActor
   func testSettingsFollowAPoolSwitch() async throws {
+    let center = NotificationCenter()
     let credentials = MemoryCredentials()
     try credentials.setAPIKey("test-only-key", for: .gemini)
     let settings = CloudSettingsModel(
       credentialStore: credentials,
       catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
                                  cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
-      preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false })
+      preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false },
+      notificationCenter: center)
     settings.preferredProvider = .free
     settings.preferredModelID = "gemini-2.5-pro"
-    NotificationCenter.default.post(name: .freeModelSwitched, object: "gemini-2.5-flash")
+    // A private center: the test host's own settings model listens on the default one.
+    center.post(name: .freeModelSwitched, object: "gemini-2.5-flash")
     await Task.yield()
     XCTAssertEqual(settings.preferredModelID, "gemini-2.5-flash")
   }
@@ -251,6 +255,107 @@ final class FreeModelsTests: XCTestCase {
   func testNoFreeModelsMeansNotAllOut() throws {
     XCTAssertNil(try freeSettings(geminiKey: false).freeModelsAllOut(now: now, usage: FreeModelUsage()))
   }
+
+  // MARK: - Review round 1
+
+  private func autoRequest(_ model: String) -> ChatRequest {
+    var route = Route(mode: .cloud, providerID: CloudProviderID.free.rawValue, modelID: model, usesNetwork: true)
+    route.isAuto = true
+    return ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "hi")], route: route)
+  }
+
+  func testAutoRouteKeepsGeminiOutAndSavesNoSwitch() async throws {
+    let fake = ScriptedFreeProvider(["apple-pcc": .fail(CloudProviderError.quotaExhausted(.free, resetsAt: nil))])
+    let switches = SwitchLog()
+    do {
+      _ = try await events(pool(fake, usage: FreeModelUsage(), switches: switches).stream(autoRequest("apple-pcc")))
+      XCTFail("Auto must not step down to Gemini without the toggle")
+    } catch {}
+    XCTAssertEqual(fake.calls, ["free:apple-pcc"])
+    XCTAssertEqual(switches.items, [])
+  }
+
+  func testAutoWithTheToggleStepsDownWithoutSavingTheSwitch() async throws {
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .fail(CloudProviderError.quotaExhausted(.gemini, resetsAt: nil))])
+    let switches = SwitchLog()
+    _ = try await events(pool(fake, usage: FreeModelUsage(), allowsGeminiInAuto: true, switches: switches)
+      .stream(autoRequest("gemini-2.5-pro")))
+    XCTAssertEqual(fake.calls, ["gemini:gemini-2.5-pro", "free:apple-pcc"])
+    XCTAssertEqual(switches.items, [], "Auto's pick never replaces the user's Cloud-mode choice")
+  }
+
+  func testNoRetryOnceAToolHasStarted() async throws {
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .activityThenFail(CloudProviderError.rateLimited(.gemini))])
+    do {
+      _ = try await events(pool(fake, usage: FreeModelUsage()).stream(request("gemini-2.5-pro")))
+      XCTFail("A request whose tool started must not run again")
+    } catch { XCTAssertEqual(error as? CloudProviderError, .rateLimited(.gemini)) }
+    XCTAssertEqual(fake.calls, ["gemini:gemini-2.5-pro"])
+  }
+
+  func testAnsweringModelIsReportedWhenItDiffersFromTheChoice() async throws {
+    let fake = ScriptedFreeProvider(["gemini-2.5-pro": .fail(CloudProviderError.rateLimited(.gemini))])
+    let all = try await events(pool(fake, usage: FreeModelUsage()).stream(request("gemini-2.5-pro")))
+    XCTAssertTrue(all.contains(.activity(.answeredBy("Apple's cloud model"))), "\(all)")
+  }
+
+  @MainActor
+  func testAFreeModelThatIsntSetUpCantBeSent() async throws {
+    let settings = try freeSettings()
+    await settings.loadCachedModels()
+    settings.preferredModelID = "apple-pcc"
+    XCTAssertFalse(settings.selectedModelCompatibility.allowsSending)
+    settings.preferredModelID = "gemini-2.5-flash"
+    XCTAssertTrue(settings.selectedModelCompatibility.allowsSending)
+  }
+
+  @MainActor
+  func testFreeModelListFollowsTheGeminiKey() throws {
+    let settings = try freeSettings(geminiKey: false)
+    XCTAssertEqual(settings.models, [])
+    try settings.saveAPIKey("test-only-key", for: .gemini)
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"])
+    try settings.removeAPIKey(for: .gemini)
+    XCTAssertEqual(settings.models, [])
+  }
+
+  @MainActor
+  func testAutoConfigurationForFreeModels() throws {
+    let settings = try freeSettings()
+    settings.preferredModelID = "gemini-2.5-flash"
+    XCTAssertNil(settings.autoCloudConfiguration(usage: FreeModelUsage()), "Gemini stays out of Auto by default")
+    settings.autoMayUseFreeGemini = true
+    let configuration = settings.autoCloudConfiguration(usage: FreeModelUsage())
+    XCTAssertEqual(configuration?.provider, .free)
+    XCTAssertEqual(configuration?.modelID, "gemini-2.5-pro")
+  }
+
+  @MainActor
+  func testFreeModelsOutNoticeOnlyWhenEveryModelIsOut() throws {
+    let settings = try freeSettings()
+    let usage = FreeModelUsage()
+    XCTAssertNil(settings.freeModelsOutNotice(now: now, usage: usage))
+    for id in ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"] { usage.markExhausted(id, until: now.addingTimeInterval(60)) }
+    XCTAssertEqual(settings.freeModelsOutNotice(now: now, usage: usage),
+                   "Free models are out until \(now.addingTimeInterval(60).formatted(date: .omitted, time: .shortened)). Answered on this Mac.")
+    settings.preferredProvider = .gemini
+    XCTAssertNil(settings.freeModelsOutNotice(now: now, usage: usage), "Only when Free models is the provider")
+  }
+
+  @MainActor
+  func testPrivacyCopyNamesTheCompany() throws {
+    XCTAssertEqual(CloudProviderID.free.recipientName, "Google (Gemini's free tier)")
+    XCTAssertEqual(CloudProviderID.gemini.recipientName, "Gemini")
+    let context = try XCTUnwrap(CGContext(data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let consent = ScreenUploadConsent(attachment: try ScreenAttachment(image: NSImage(cgImage: try XCTUnwrap(context.makeImage()), size: NSSize(width: 4, height: 4))), provider: .free)
+    XCTAssertTrue(consent.explanation.contains("Google (Gemini's free tier)"))
+    XCTAssertTrue(consent.explanation.contains("On Google's free tier, prompts may be used to improve Google's products."))
+  }
+
+  func testFreeModelsStaysOutOfTheProviderMenuUntilItsSetupShips() {
+    XCTAssertFalse(CloudProviderID.selectableProviders.contains(.free))
+  }
 }
 
 final class SwitchLog: @unchecked Sendable {
@@ -263,7 +368,7 @@ final class SwitchLog: @unchecked Sendable {
 /// Answers every free model with one token naming it, unless scripted otherwise. Records each call
 /// as "<route provider>:<model>".
 final class ScriptedFreeProvider: ChatProvider, ToolCallingChatProvider, @unchecked Sendable {
-  enum Script { case fail(Error), tokenThenFail(String, Error) }
+  enum Script { case fail(Error), tokenThenFail(String, Error), activityThenFail(Error) }
   private let lock = NSLock()
   private let scripts: [String: Script]
   private var stored: [String] = []
@@ -277,6 +382,7 @@ final class ScriptedFreeProvider: ChatProvider, ToolCallingChatProvider, @unchec
       switch scripts[model] {
       case .fail(let error)?: continuation.finish(throwing: error)
       case .tokenThenFail(let text, let error)?: continuation.yield(.token(text)); continuation.finish(throwing: error)
+      case .activityThenFail(let error)?: continuation.yield(.activity(.phase(.searching))); continuation.finish(throwing: error)
       case nil: continuation.yield(.token("from \(model)")); continuation.yield(.completed); continuation.finish()
       }
     }

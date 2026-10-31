@@ -1737,6 +1737,7 @@ final class LocalChatViewModel: ObservableObject {
     modelID: String,
     searchEnabled: Bool = false,
     allowsAutomaticSearch: Bool = true,
+    isAuto: Bool = false,
     onAccepted: @escaping @MainActor () -> Void = {}
   ) {
     let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1749,7 +1750,8 @@ final class LocalChatViewModel: ObservableObject {
       mode: .cloud,
       providerID: providerID.rawValue,
       modelID: trimmedModelID,
-      usesNetwork: true
+      usesNetwork: true,
+      isAuto: isAuto
     )
     // F32: a cloud model without native tools can't show the card, so it doesn't take a chat whose
     // message text wasn't allowed for its company.
@@ -1911,7 +1913,7 @@ final class LocalChatViewModel: ObservableObject {
     case .cloud:
       guard let provider = CloudProviderID(rawValue: route.providerID) else { return }
       submitCloud(prompt, provider: provider, modelID: route.modelID, searchEnabled: searchEnabled,
-                  allowsAutomaticSearch: false, onAccepted: onAccepted)
+                  allowsAutomaticSearch: false, isAuto: route.isAuto, onAccepted: onAccepted)
     case .auto:
       break
     }
@@ -2060,8 +2062,9 @@ final class LocalChatViewModel: ObservableObject {
     if message.role == .assistant, let activeRequest {
       activityMessageID = message.id
       message.activity = activity
+      // The free pool may answer on another model than the one chosen (F34).
       message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
-                                   modelName: activeRequest.modelDisplayName,
+                                   modelName: activity?.answeredBy ?? activeRequest.modelDisplayName,
                                    braveSearch: braveSearchRequest == activeRequest.id)
     }
     sessions[index].append(message)

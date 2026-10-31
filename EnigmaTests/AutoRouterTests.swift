@@ -57,6 +57,8 @@ final class AutoRouterTests: XCTestCase {
     let decision = AutoRouter.decide(request(prompt: prompt))
     XCTAssertEqual(decision.route?.mode, .cloud)
     XCTAssertEqual(decision.reason, .requiresAdvancedReasoning)
+    // The free pool reads this to keep Gemini's free tier out of Auto (F34).
+    XCTAssertEqual(decision.route?.isAuto, true)
   }
 
   func testLengthAloneDoesNotEscalateAnOrdinarySummary() {

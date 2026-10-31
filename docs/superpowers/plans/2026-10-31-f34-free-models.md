@@ -248,7 +248,7 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
 **Needs the owner's free Gemini key saved in Enigma. Never put a key in a shell command.**
 
 - [ ] **Step 1:** Send a normal and a tool-using request through Free models. Expect streamed text and a tool call.
-- [ ] **Step 2:** Capture a real daily-limit 429 body: send to the free model with the lowest daily cap until Google refuses, logging only the response body. Replace Task 1's synthetic fixture with it, removing anything that identifies the project. If the quota ID doesn't contain `PerDay`, fix the parser and the test.
+- [ ] **Step 2:** Capture a real daily-limit 429 body: send to the free model with the lowest daily cap until Google refuses, logging only the response body. Replace Task 1's synthetic fixture with it, removing anything that identifies the project. If the quota ID doesn't contain `PerDay`, fix the parser and the test. Also check `RetryInfo.retryDelay` on a daily 429: if Google sends only a short delay (seconds), `resetsAt` must come from Google's daily reset (midnight Pacific) instead, or a daily-limited model returns within a minute.
 - [ ] **Step 3:** Check each `ranked` Gemini ID against the key's model list and Google's free-tier table. Update `ranked` and `docs/Free-Models.md` to match.
 - [ ] **Step 4:** Record results in `docs/history/2026-MM-DD-f34-live-check.md` and commit — `"Check free Gemini models live and use a real 429 body (F34)"`
 
@@ -268,6 +268,8 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
   - Turn `streamResponse` snapshots into `.token` deltas.
   - Map the framework's usage-limit error, or `quotaUsage.isLimitReached`, to `.quotaExhausted(.free, resetsAt: nil)`.
   - Text only.
+  - Before shipping, decide how a step-down from Apple to Gemini (another company) fits the permission cards and `ToolDestination`, which name the company of the chosen model: today every free model is Google's. Raised in review round 1 (2026-10-31).
+  - `CloudProviderID.recipientName` for `.free` says Google; make it name the answering company once Apple can answer.
   - The Settings Apple line shows **Show options** (calling `suggestion.show()`) while `quotaUsage.limitIncreaseSuggestion` exists.
 - [ ] **Step 2:** `isApplePCCAvailable` = `#available(macOS 27, *) && PrivateCloudComputeLanguageModel().isAvailable` (false when compiled without the SDK).
 - [ ] **Step 3:** Pool tests from Task 4 still pass. The app builds with Xcode 27.2 locally, and with the `macos-26` CI (Xcode 26.6) with the file compiled out.

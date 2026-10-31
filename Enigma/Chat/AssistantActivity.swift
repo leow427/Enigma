@@ -7,6 +7,8 @@ enum AssistantActivityEvent: Sendable, Equatable {
   case sourcesSelected([WebSearchSource])
   /// One line shown above the reply, such as a switch to another free model (F34).
   case notice(String)
+  /// The free pool answered on a model other than the chosen one (F34): its display name.
+  case answeredBy(String)
 }
 
 struct AssistantActivity: Sendable, Equatable, Identifiable {
@@ -45,6 +47,7 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
   private(set) var sources: [WebSearchSource] = []
   private(set) var selectedSourceIDs: Set<URL>?
   private(set) var notice: String?
+  private(set) var answeredBy: String?
 
   var sourceSummary: String { "\(sources.count) " + (sources.count == 1 ? "source" : "sources") }
 
@@ -57,6 +60,7 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
   mutating func apply(_ event: AssistantActivityEvent) {
     // A notice can arrive once the reply has ended (the local fallback names itself last).
     if case .notice(let text) = event { notice = text; return }
+    if case .answeredBy(let model) = event { answeredBy = model; return }
     guard !phase.isTerminal else { return }
     switch event {
     case .phase(let next):
@@ -73,7 +77,7 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
       sources = []
       selectedSourceIDs = Set(selected.filter(\.isSafeWebLink).map(\.id))
       apply(.sourcesDiscovered(selected))
-    case .notice: break
+    case .notice, .answeredBy: break
     }
   }
 
