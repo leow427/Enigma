@@ -260,6 +260,23 @@ final class EnigmaSettingsTests: XCTestCase {
     }
   }
 
+  func testSettingsDetailsUseTheUIFont() {
+    XCTAssertEqual(EnigmaTypography.detail(11.5, settings: true), EnigmaTypography.ui(11.5))
+    XCTAssertEqual(EnigmaTypography.detail(11.5, settings: false), EnigmaTypography.mono(11.5))
+  }
+
+  /// Each plan is one row; its longer explanation is behind the row's ⓘ.
+  @MainActor
+  func testCloudSignInIsOneRowPerPlan() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("both plans", in: host.view) { host.shows("ChatGPT") && host.shows("Claude") }
+    XCTAssertTrue(host.shows("About ChatGPT"))
+    XCTAssertTrue(host.shows("About Claude"))
+    XCTAssertEqual(ChatGPTConnectionControls.info.contains("Codex allowance"), true)
+    XCTAssertEqual(ClaudeCodeConnectionControls.info.contains("claude auth logout"), true)
+  }
+
   func testOldDestinationNamesStillOpenTheirPages() {
     typealias Destination = SettingsView.SettingsDestination
     XCTAssertEqual(Destination.requested("general"), .general)

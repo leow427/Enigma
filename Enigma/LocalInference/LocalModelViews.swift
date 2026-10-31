@@ -53,6 +53,7 @@ struct LocalModelOperationView: View {
   @ObservedObject var chat: LocalChatViewModel
   @ObservedObject var advisor: LocalModelAdvisor
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var settingsStyle
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -94,7 +95,7 @@ struct LocalModelOperationView: View {
           Text("first token \(benchmark.metrics.timeToFirstToken, specifier: "%.2f") s · generation \(benchmark.metrics.generationTokensPerSecond, specifier: "%.1f") tokens/s")
           Text("prompt \(benchmark.metrics.promptTokensPerSecond, specifier: "%.0f") tokens/s · peak app memory \(benchmark.metrics.peakMemoryBytes, format: .byteCount(style: .memory))")
         }
-        .font(EnigmaTypography.mono(11))
+        .font(EnigmaTypography.detail(11, settings: settingsStyle))
         .foregroundStyle(palette.textTertiary.color)
         if benchmark.underperformed,
            let faster = advisor.recommendations(installedModels: chat.installedModels).fasterAlternative(to: benchmark.modelID) {

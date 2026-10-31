@@ -617,7 +617,7 @@ struct EnigmaSectionHeader: View {
     Text(title)
       .font(EnigmaTypography.ui(strong ? 13.5 : 11.5, weight: strong ? .semibold : .medium))
       .foregroundStyle((strong ? palette.textPrimary : palette.textTertiary).color)
-      .padding(.top, strong ? 28 : 20)
+      .padding(.top, strong ? 22 : 20)
       .padding(.bottom, strong ? 12 : 4)
       .accessibilityAddTraits(.isHeader)
       .settingsCardMark(.end, at: .top, if: strong)
@@ -732,7 +732,7 @@ struct EnigmaRow<Detail: View, Trailing: View>: View {
             .foregroundStyle(Self.titleColor(selection: selection, in: palette).color)
           if let badge {
             Text(badge)
-              .font(EnigmaTypography.mono(11))
+              .font(EnigmaTypography.detail(11, settings: strong))
               .foregroundStyle(palette.accentText.color)
           }
           if let info { EnigmaInfoButton(title: title, text: info) }
@@ -785,6 +785,7 @@ struct EnigmaInfoButton: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel("About \(title)")
+    .enigmaTestMarker("About \(title)")
     .popover(isPresented: $isShown, arrowEdge: .bottom) {
       Text(text)
         .font(EnigmaTypography.ui(12.5))
@@ -878,6 +879,8 @@ struct EnigmaStatusLine: View {
     status == .problem ? palette.textPrimary : palette.textSecondary
   }
 
+  @Environment(\.enigmaSettingsStyle) private var settingsStyle
+
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 6) {
       Text(status.glyph).fontWeight(status == .problem ? .bold : .regular)
@@ -886,7 +889,7 @@ struct EnigmaStatusLine: View {
         .foregroundStyle((tintsGlyphOnly ? Self.quietTextColor(for: status, in: palette)
                           : status.color(in: palette)).color)
     }
-    .font(EnigmaTypography.mono(11.5))
+    .font(EnigmaTypography.detail(11.5, settings: settingsStyle))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(text)
     .enigmaTestMarker(text)

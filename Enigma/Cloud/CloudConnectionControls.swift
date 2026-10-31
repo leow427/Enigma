@@ -9,6 +9,8 @@ struct ChatGPTConnectionControls: View {
   @ObservedObject var settings: CloudSettingsModel
 
   static let downloadNote = "Signing in the first time downloads Codex from OpenAI · \(CodexRuntime.downloadSize)"
+  /// The longer explanation, behind the row's ⓘ.
+  static let info = "Uses your ChatGPT plan's Codex allowance, not API billing. Plan limits and model availability apply. This is a Codex-powered chat, not the ChatGPT website. Codex securely stores your sign-in on this Mac."
   static let downloadCheckText = "Not signed in · Sign in downloads Codex from OpenAI (\(CodexRuntime.downloadSize))"
 
   static func status(isConnected: Bool, isSelected: Bool = false, isSigningIn: Bool, isDownloading: Bool = false,
@@ -27,7 +29,7 @@ struct ChatGPTConnectionControls: View {
                              isSelected: settings.preferredProvider == .chatGPT, isSigningIn: settings.isSigningIn,
                              isDownloading: settings.isDownloadingCodex, isInstalling: isInstalling)
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaRow("ChatGPT", subtitle: "Through your ChatGPT plan, using Codex") {
+      EnigmaRow("ChatGPT", subtitle: "Through your ChatGPT plan, using Codex", info: Self.info) {
         HStack(spacing: 12) {
           EnigmaStatusLine(status.0, status.1)
           action
@@ -46,8 +48,6 @@ struct ChatGPTConnectionControls: View {
         } else if !settings.isCodexAvailable {
           EnigmaConnectionNote(Self.downloadNote)
         }
-        EnigmaConnectionNote("Uses your ChatGPT plan's Codex allowance, not API billing. Plan limits and model availability apply. This is a Codex-powered chat, not the ChatGPT website.")
-        EnigmaConnectionNote("Codex securely stores your sign-in on this Mac.")
         HStack(spacing: 2) {
           Button(settings.isCheckingChatGPT ? "Checking…" : "Check sign-in status") {
             Task { await settings.checkChatGPTSignIn() }
@@ -114,6 +114,8 @@ struct ClaudeCodeConnectionControls: View {
     "2. Paste the command below and press Return.",
     "3. Come back and choose Check again, then Sign in.",
   ]
+  /// The longer explanation, behind the row's ⓘ.
+  static let info = "Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved. Enigma shares the Claude Code sign-in on this Mac. To disconnect, choose another provider, or run claude auth logout in Terminal to sign out everywhere."
   static let apiKeyNote = "Anthropic's supported way to use Claude in other apps is an Anthropic API key: add one under API keys below."
 
   /// Once the installed Claude Code is found, the wait is for sign-in.
@@ -131,7 +133,7 @@ struct ClaudeCodeConnectionControls: View {
                              isInstalling: settings.isInstallingClaudeCode, isFound: settings.isClaudeCodeAvailable)
     let isMissing = !settings.isClaudeCodeAvailable && settings.claudeCodeAccount == nil
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaRow("Claude", subtitle: "Through your Claude plan, using Claude Code") {
+      EnigmaRow("Claude", subtitle: "Through your Claude plan, using Claude Code", info: Self.info) {
         HStack(spacing: 12) {
           EnigmaStatusLine(status.0, status.1)
           action(isSelected: isSelected)
@@ -148,7 +150,6 @@ struct ClaudeCodeConnectionControls: View {
         } else if settings.isWaitingForClaudeCodeSignIn {
           EnigmaConnectionNote("Finish signing in from Terminal and your browser…")
         }
-        EnigmaConnectionNote("Uses your Claude Pro or Max plan through Claude Code, not API billing. Plan usage limits apply. Claude Code tools, MCP servers, hooks, plugins, and CLAUDE.md files are turned off, and sessions are not saved.")
         if isMissing && !settings.isWaitingForClaudeCodeSignIn {
           EnigmaConnectionNote("Install Claude Code runs Anthropic's installer in Terminal, then signs in.")
           if showsAPIKeyNote { EnigmaConnectionNote(Self.apiKeyNote).enigmaTestMarker("Anthropic API key note") }
@@ -159,7 +160,6 @@ struct ClaudeCodeConnectionControls: View {
             }
           }
         }
-        EnigmaConnectionNote("Enigma shares the Claude Code sign-in on this Mac. To disconnect, choose another provider, or run claude auth logout in Terminal to sign out everywhere.")
         HStack(spacing: 2) {
           Button(settings.isCheckingClaudeCode ? "Checking…" : isMissing ? "Check again" : "Check sign-in status") {
             Task { await settings.checkClaudeCodeSignIn() }

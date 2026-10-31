@@ -258,6 +258,8 @@ struct SettingsView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         SettingsPageHeader(destination: destination)
+          // A page that starts with a card, not a heading, still clears the subtitle.
+          .padding(.bottom, 16)
         pageContent
       }
       .settingsCards(inset: 14)
