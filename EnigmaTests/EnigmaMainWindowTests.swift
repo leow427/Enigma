@@ -1111,10 +1111,18 @@ final class EnigmaMainWindowTests: XCTestCase {
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
       windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
       isARepeat: false, keyCode: 36)))
-    try await waitForUI("the chat in the window with its revision", in: view, timeout: .seconds(10)) {
+    // One wait per condition, so a slow CI machine says which one it was still waiting on.
+    try await waitForUI("the chat moved into the window", in: view, timeout: .seconds(20)) {
       !controller.isSelectionComposer && Host.marker("Compact panel", in: view) == nil
-        && Host.marker("Your message", in: view) != nil && Host.marker("Replace text", in: view) != nil
-        && tour.beat == .ready && tour.currentStep?.kind == .replace
+    }
+    try await waitForUI("the question in the window", in: view, timeout: .seconds(20)) {
+      Host.marker("Your message", in: view) != nil
+    }
+    try await waitForUI("the scripted reply's revision card", in: view, timeout: .seconds(20)) {
+      Host.marker("Replace text", in: view) != nil
+    }
+    try await waitForUI("the replace step ready", in: view, timeout: .seconds(20)) {
+      tour.beat == .ready && tour.currentStep?.kind == .replace
     }
     XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
     tour.press()
