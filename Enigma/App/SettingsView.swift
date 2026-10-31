@@ -133,6 +133,9 @@ struct SettingsView: View {
       }
     }
 
+    /// What Return in the search field opens.
+    static func firstMatch(_ query: String) -> SettingsDestination? { allCases.first { $0.matches(query) } }
+
     func matches(_ query: String) -> Bool {
       let query = query.trimmingCharacters(in: .whitespaces).lowercased()
       return query.isEmpty || title.lowercased().contains(query) || keywords.contains { $0.contains(query) }
@@ -218,7 +221,7 @@ struct SettingsView: View {
     VStack(alignment: .leading, spacing: 2) {
       // Finds a page by its name or what's on it; Return opens the first match.
       EnigmaTextField("Search", text: $query, accessibilityLabel: "Search Settings", onSubmit: {
-        if let first = SettingsDestination.allCases.first(where: { $0.matches(query) }) { select(first) }
+        if let first = SettingsDestination.firstMatch(query) { select(first) }
       })
       .padding(.horizontal, 2)
       .padding(.bottom, 6)

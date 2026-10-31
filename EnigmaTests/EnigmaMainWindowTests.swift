@@ -1130,6 +1130,29 @@ final class EnigmaMainWindowTests: XCTestCase {
 
   /// The tour's text to Sam waits on the real approval card,
   /// Return in the composer approves it, and nothing is sent.
+  /// A tour demo plays in a temporary chat: nothing it says reaches Recents.
+  @MainActor
+  func testNoTourChatReachesRecents() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    let before = fixture.chat.historySessions.map(\.id)
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    try await Task.sleep(for: .milliseconds(300))
+    tour.press()
+    try await waitForUI("the first demo answered", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && !fixture.chat.isBusy
+    }
+    XCTAssertTrue(fixture.chat.isTemporaryChat)
+    XCTAssertEqual(fixture.chat.historySessions.map(\.id), before)
+    tour.end()
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    try await waitForUI("a fresh chat", in: host.view) { !fixture.chat.isTemporaryChat }
+    XCTAssertEqual(fixture.chat.historySessions.map(\.id), before, "Leaving the tour doesn't keep its chat")
+  }
+
   /// The card sits in the rail right of the page; its button and Return each take a beat.
   @MainActor
   func testTourCardSitsInTheRailAndTakesReturnAndItsButton() async throws {

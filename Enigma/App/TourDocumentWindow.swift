@@ -12,6 +12,8 @@ final class TourDocumentWindow {
   static let shared = TourDocumentWindow()
   static let contentSize = NSSize(width: 560 + GuidedTourPlacement.railWidth, height: 560)
   private var window: NSPanel?
+  /// On screen, as the selection stop shows it.
+  var isShowing: Bool { window?.isVisible == true }
   /// The selected line, in the content's own space with a top-left origin.
   var selection: CGRect = .zero
   /// Counts fades, so a finished fade-out can't hide the window opened again since.

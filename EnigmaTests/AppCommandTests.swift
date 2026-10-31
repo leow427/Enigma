@@ -210,6 +210,58 @@ final class AppCommandTests: XCTestCase {
     )
   }
 
+  /// Leaving the tour from any stop puts the window back as it was: its size,
+  /// fully shown, the page at full width, and no pretend document left open.
+  @MainActor
+  func testLeavingTheTourFromAnyStopRestoresTheWindow() async throws {
+    let suite = "TourExit-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = PanelSizeStore(defaults: defaults)
+    let normal = NSSize(width: 900, height: 610)
+    store.save(normal)
+    let setup = WelcomeSetup(defaults: defaults)
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: store, contentView: view, welcomeSetup: setup)
+    let window = try XCTUnwrap(view.window)
+    defer { controller.hide() }
+    setup.start(hasInstalledModels: true)
+    controller.show()
+    let tour = GuidedTour.shared
+    for stop in GuidedTour.Stop.allCases {
+      tour.go(stop)
+      try await Task.sleep(for: .milliseconds(stop == .selection ? 900 : 100))
+      tour.end()
+      let deadline = Date().addingTimeInterval(3)
+      while Date() < deadline, window.alphaValue < 1 || !window.isVisible || window.frame.size != normal
+              || TourDocumentWindow.shared.isShowing {
+        try await Task.sleep(for: .milliseconds(50))
+      }
+      XCTAssertEqual(window.frame.size, normal, "\(stop)")
+      XCTAssertEqual(window.alphaValue, 1, "\(stop)")
+      XCTAssertTrue(window.isVisible, "\(stop)")
+      XCTAssertNil(tour.pageWidth, "\(stop)")
+      XCTAssertFalse(TourDocumentWindow.shared.isShowing, "\(stop)")
+    }
+  }
+
+  @MainActor
+  func testARestartMidTourResumesAtTheSavedStop() throws {
+    let suite = "TourResume-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let before = GuidedTour(defaults: defaults, persists: true)
+    before.go(.messages)
+    // Quitting mid-tour never calls end(), so the stop stays saved.
+    defer { before.end() }
+    let after = GuidedTour(defaults: defaults, persists: true)
+    after.resumeIfInterrupted()
+    XCTAssertEqual(after.stop, .messages)
+    XCTAssertTrue(after.resumed)
+    after.end()
+    XCTAssertNil(UserDefaults.standard.object(forKey: GuidedTour.progressKey), "The test host never saves the tour")
+  }
+
   @MainActor
   func testWelcomeTemporarilyEnlargesPanelThroughTourWithoutSavingItsSize() async throws {
     let suite = "WelcomePanel-\(UUID())"

@@ -294,6 +294,16 @@ final class EnigmaSettingsTests: XCTestCase {
     try await waitForUI("Cloud with Advanced open", in: host.view) { host.shows("Save OpenAI API key") }
   }
 
+  func testSettingsSearchFindsWordsFromDetailsAndAdvanced() {
+    typealias Destination = SettingsView.SettingsDestination
+    XCTAssertEqual(Destination.allCases.filter { $0.matches("brave") }, [.search])
+    XCTAssertTrue(Destination.allCases.filter { $0.matches("api key") }.contains(.cloud))
+    XCTAssertTrue(Destination.allCases.filter { $0.matches("zzz") }.isEmpty)
+    XCTAssertEqual(Destination.firstMatch("messages"), .messages)
+    XCTAssertEqual(Destination.firstMatch("  Accessibility "), .selection)
+    XCTAssertNil(Destination.firstMatch("zzz"))
+  }
+
   func testOldDestinationNamesStillOpenTheirPages() {
     typealias Destination = SettingsView.SettingsDestination
     XCTAssertEqual(Destination.requested("general"), .general)
