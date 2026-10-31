@@ -653,8 +653,8 @@ struct TourScript: Equatable {
     reply: "Sent to Sam: “Running 10 minutes late, see you soon!” (An example: the tour never sends a real text.)",
     phases: [.readingMessages, .awaitingApproval], phaseDuration: 1000,
     approval: MessagesSendApproval(conversationName: nil,
-      recipients: [MessagesSendApproval.Recipient(name: "Sam", handle: "+1 (312) 555-0142")],
-      service: "iMessage", text: "Running 10 minutes late, see you soon!", target: .iMessage("+13125550142")),
+      recipients: [MessagesSendApproval.Recipient(name: "Sam", handle: "123-456-7891")],
+      service: "iMessage", text: "Running 10 minutes late, see you soon!", target: .iMessage("1234567891")),
     declined: "Okay, I didn’t send it. Nothing goes to anyone until you choose Send.")
 }
 
@@ -1381,13 +1381,14 @@ private struct ShmoogleDocsLogo: View {
     ZStack(alignment: .topLeading) {
       ShmooglePage(fold: 6).fill(blue)
       ShmoogleFold(fold: 6).fill(Color(red: 0.63, green: 0.76, blue: 0.98))
-      VStack(alignment: .leading, spacing: 2.5) {
-        ForEach(0..<3, id: \.self) { _ in Capsule().fill(.white).frame(width: 10, height: 1.6) }
-        Capsule().fill(.white).frame(width: 6, height: 1.6)
+      VStack(alignment: .leading, spacing: 2.4) {
+        ForEach(0..<3, id: \.self) { _ in Capsule().fill(.white).frame(width: 11, height: 1.6) }
+        Capsule().fill(.white).frame(width: 7, height: 1.6)
       }
-      .offset(x: 4, y: 10)
+      .offset(x: 4.5, y: 9)
     }
-    .frame(width: 19, height: 25)
+    .frame(width: 20, height: 26)
+    .fixedSize()
   }
 }
 
