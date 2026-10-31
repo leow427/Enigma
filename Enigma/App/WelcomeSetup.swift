@@ -50,6 +50,8 @@ final class WelcomeSetup: ObservableObject {
     defaults.set(true, forKey: Self.completedKey)
     defaults.removeObject(forKey: Self.progressKey)
     defaults.set(true, forKey: "localModelOnboardingDismissed")
+    // Someone who just finished setup has been offered the tour.
+    defaults.set(true, forKey: GuidedTour.inviteKey)
     // The tour starts first, so the window goes straight from the welcome's size to the tour's.
     if takeTour { GuidedTour.shared.begin() }
     isPresented = false

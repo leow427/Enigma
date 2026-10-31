@@ -20,6 +20,25 @@ final class EnigmaWelcomeTests: XCTestCase {
     XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: false))
   }
 
+  /// Someone who finished setup (with or without the tour) or took the tour from
+  /// Replay has seen it: the invite never follows.
+  @MainActor
+  func testFinishingSetupOrTakingTheTourRetiresTheInvite() {
+    for takeTour in [false, true] {
+      let suite = "\(#function)-\(takeTour)"
+      let defaults = UserDefaults(suiteName: suite)!
+      defaults.removePersistentDomain(forName: suite)
+      let setup = WelcomeSetup(defaults: defaults)
+      setup.start(hasInstalledModels: false)
+      setup.finish(takeTour: takeTour)
+      GuidedTour.shared.end()
+      let nextLaunch = WelcomeSetup(defaults: defaults)
+      nextLaunch.start(hasInstalledModels: true)
+      XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true,
+                                            isFreshSetup: !nextLaunch.wasCompletedBeforeLaunch), "takeTour \(takeTour)")
+    }
+  }
+
   @MainActor
   func testSetupInterruptedBeforeTheUpdateResumesWithoutAnInvite() {
     let defaults = UserDefaults(suiteName: #function)!

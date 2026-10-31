@@ -84,7 +84,12 @@ final class GuidedTour: ObservableObject {
     return steps[stepIndex]
   }
 
-  func begin() { go(.ask) }
+  func begin() {
+    // Taking the tour, from Replay too, retires the invite.
+    if persists { defaults.set(true, forKey: Self.inviteKey) }
+    inviteDismissed = true
+    go(.ask)
+  }
 
   /// Existing users, set up before this launch, are invited to the tour once.
   nonisolated static func showsInvite(defaults: UserDefaults, setupCompleted: Bool, isFreshSetup: Bool) -> Bool {
