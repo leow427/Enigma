@@ -14,6 +14,8 @@ final class WelcomeSetup: ObservableObject {
   }
   private let defaults: UserDefaults
   private var started = false
+  /// Setup was already done, or skipped for an existing user, when this launch started it.
+  @Published private(set) var wasCompletedBeforeLaunch = false
   private var calibrated = false
 
   init(defaults: UserDefaults = .standard) {
@@ -25,11 +27,13 @@ final class WelcomeSetup: ObservableObject {
   func start(hasInstalledModels: Bool) {
     guard !started else { return }
     started = true
-    guard !defaults.bool(forKey: Self.completedKey) else { return }
+    wasCompletedBeforeLaunch = defaults.bool(forKey: Self.completedKey)
+    guard !wasCompletedBeforeLaunch else { return }
     // Existing users can opt in through Replay; interrupted new setup resumes.
     if defaults.object(forKey: Self.progressKey) == nil,
        hasInstalledModels || defaults.bool(forKey: "localModelOnboardingDismissed") {
       defaults.set(true, forKey: Self.completedKey)
+      wasCompletedBeforeLaunch = true
       return
     }
     isPresented = true

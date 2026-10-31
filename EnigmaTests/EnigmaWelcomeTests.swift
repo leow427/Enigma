@@ -10,6 +10,45 @@ final class EnigmaWelcomeTests: XCTestCase {
 
   // MARK: Flow logic
 
+  func testInviteShowsOnceToExistingUsersOnly() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    XCTAssertTrue(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: false))
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: true))
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: false, isFreshSetup: false))
+    defaults.set(true, forKey: GuidedTour.inviteKey)
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: false))
+  }
+
+  @MainActor
+  func testSetupInterruptedBeforeTheUpdateResumesWithoutAnInvite() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    defaults.set(WelcomeSetup.Step.models.rawValue, forKey: WelcomeSetup.progressKey)
+    let setup = WelcomeSetup(defaults: defaults)
+    setup.start(hasInstalledModels: true)
+    XCTAssertTrue(setup.isPresented)
+    XCTAssertEqual(setup.step, .models)
+    XCTAssertFalse(setup.wasCompletedBeforeLaunch)
+  }
+
+  @MainActor
+  func testExistingUsersCountAsSetUpBeforeLaunch() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    let migrated = WelcomeSetup(defaults: defaults)
+    migrated.start(hasInstalledModels: true)
+    XCTAssertFalse(migrated.isPresented)
+    XCTAssertTrue(migrated.wasCompletedBeforeLaunch, "Someone with a model from before setup existed")
+    let finished = WelcomeSetup(defaults: defaults)
+    finished.start(hasInstalledModels: false)
+    XCTAssertTrue(finished.wasCompletedBeforeLaunch)
+    let fresh = WelcomeSetup(defaults: UserDefaults(suiteName: #function + ".fresh")!)
+    UserDefaults(suiteName: #function + ".fresh")!.removePersistentDomain(forName: #function + ".fresh")
+    fresh.start(hasInstalledModels: false)
+    XCTAssertFalse(fresh.wasCompletedBeforeLaunch)
+  }
+
   @MainActor
   func testCounterReadsTheStepOutOfFour() {
     XCTAssertEqual(WelcomeSetup.Step.allCases.map(WelcomeSetup.counter(for:)), ["1/4", "2/4", "3/4", "4/4"])

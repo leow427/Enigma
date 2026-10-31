@@ -559,6 +559,13 @@ struct AppShellView: View {
     }
   }
 
+  /// The test host shares the app's defaults, so it never shows the invite.
+  private var showsTourInvite: Bool {
+    !TestHost.isActive && !guidedTour.isActive && !guidedTour.inviteDismissed && !welcomeSetup.isPresented
+      && GuidedTour.showsInvite(defaults: .standard, setupCompleted: true,
+                                isFreshSetup: !welcomeSetup.wasCompletedBeforeLaunch)
+  }
+
   private var mainColumn: some View {
     let examples = SlashCommandExample.examples(available: availableCommands)
     return EnigmaMainColumn(
@@ -567,9 +574,15 @@ struct AppShellView: View {
       availableExamples: examples.count,
       topBar: { topBar },
       header: { style in
-        EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
-                             performStatusAction: performRouteAction, mode: $shell.selectedMode,
-                             isStatusActionEnabled: !localChat.isBusy)
+        VStack(spacing: 14) {
+          EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
+                               performStatusAction: performRouteAction, mode: $shell.selectedMode,
+                               isStatusActionEnabled: !localChat.isBusy)
+          if showsTourInvite {
+            TourInvite { guidedTour.dismissInvite(takeTour: $0) }
+              .transition(.opacity)
+          }
+        }
       },
       conversation: { messageList },
       accessories: { composerAccessories() },

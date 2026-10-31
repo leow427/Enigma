@@ -50,6 +50,9 @@ final class GuidedTour: ObservableObject {
   private let defaults: UserDefaults
   /// Tests share the app's defaults, so their tours never save or resume progress.
   private let persists = !TestHost.isActive
+  /// Set once an existing user takes or declines the tour's invite.
+  nonisolated static let inviteKey = "guidedTour.invite.v1"
+  @Published private(set) var inviteDismissed = false
   private var typing: Task<Void, Never>?
   private var playing: Task<Void, Never>?
   private var lastAdvance = Date.distantPast
@@ -81,6 +84,17 @@ final class GuidedTour: ObservableObject {
   }
 
   func begin() { go(.ask) }
+
+  /// Existing users, set up before this launch, are invited to the tour once.
+  nonisolated static func showsInvite(defaults: UserDefaults, setupCompleted: Bool, isFreshSetup: Bool) -> Bool {
+    setupCompleted && !isFreshSetup && !defaults.bool(forKey: inviteKey)
+  }
+
+  func dismissInvite(takeTour: Bool) {
+    if persists { defaults.set(true, forKey: Self.inviteKey) }
+    inviteDismissed = true
+    if takeTour { begin() }
+  }
 
   /// After a restart mid-tour, picks up at the same stop.
   func resumeIfInterrupted() {
@@ -973,5 +987,24 @@ extension LocalChatViewModel {
     message.contexts = demo.contexts.isEmpty ? nil : demo.contexts
     message.extendedThinking = demo.thinks ? true : nil
     tourAppend(message, script: demo.script, confirm: confirm, onFinish: onFinish)
+  }
+}
+
+/// The one-time invite under the empty chat's greeting.
+struct TourInvite: View {
+  let answer: (_ takeTour: Bool) -> Void
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Text("See what Enigma can do")
+        .font(EnigmaTypography.ui(13))
+        .foregroundStyle(palette.textSecondary.color)
+      Button("Take the tour") { answer(true) }
+        .enigmaButtonStyle(.primary)
+      Button("Not now") { answer(false) }
+        .enigmaButtonStyle(.text)
+    }
+    .enigmaTestMarker("Tour invite")
   }
 }
