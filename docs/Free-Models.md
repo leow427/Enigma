@@ -22,13 +22,17 @@ The same key also serves the **Gemini** API provider under **› Advanced**.
 
 ## Which model answers
 
-The free models, most capable first:
+The free models, in the order Enigma tries them:
 
-1. Gemini 3.8 Flash (the default)
+1. Gemini 3.6 Flash (the default)
 2. Apple's cloud model (macOS 27, once available; text only, skipped for a
    request with an image)
-3. Gemini 3.6 Flash
-4. Gemini 3.5 Flash-Lite
+3. Gemini 3.5 Flash-Lite
+4. Gemini 3.8 Flash
+
+Gemini 3.8 Flash is the most capable but comes last: in a live check on
+2026-10-31 its free tier took 8 to 91 seconds to answer "hi", against under a
+second for 3.6 Flash and 3.5 Flash-Lite. Choose it in ⌘K to try it first.
 
 Each Gemini model has its own free limit, so stepping down buys more use. Older
 Gemini models are left out on purpose (owner, 2026-10-31). A saved choice

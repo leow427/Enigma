@@ -12,7 +12,7 @@ struct FreeModelPool: ChatProvider, ToolCallingChatProvider {
   let gemini: any ChatProvider
   let apple: (any ChatProvider)?
   var usage: FreeModelUsage = .shared
-  /// The free model IDs set up on this Mac, most capable first.
+  /// The free model IDs set up on this Mac, default first.
   let models: @Sendable () -> [String]
   let allowsGeminiInAuto: @Sendable () -> Bool
   let onSwitch: @Sendable (String) -> Void

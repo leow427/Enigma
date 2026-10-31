@@ -5,9 +5,9 @@ import Foundation
 enum FreeModelCatalog {
   static let applePCC = "apple-pcc"
 
-  /// Most capable first. The Gemini entries follow Google's free tier; recheck with each
-  /// catalogue update (Task 7 of the F34 plan checks them live).
-  static let ranked = ["gemini-3.8-flash", applePCC, "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+  /// The default first, then the step-downs. 3.8 Flash is the most capable but comes last: live on
+  /// 2026-10-31 its free tier took 8–91 s for "hi" against 0.8 s for 3.6 Flash (owner chose 3.6).
+  static let ranked = ["gemini-3.6-flash", applePCC, "gemini-3.5-flash-lite", "gemini-3.8-flash"]
 
   /// Whether Settings and welcome setup mention Apple's model, including the macOS 26 upgrade line.
   /// Off until the Private Cloud Compute entitlement is granted and the client ships.

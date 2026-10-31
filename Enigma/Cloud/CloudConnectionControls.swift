@@ -115,7 +115,7 @@ struct FreeModelsConnectionControls: View {
   static let billingNote = "If billing is on for this key, Google charges for these requests."
   static let macOS26Note = "Update to macOS 27 to get Apple's free cloud model."
   /// The longer explanation, behind the row's ⓘ.
-  static let info = "Free models use Gemini's free tier on your own Google key. When one reaches its free limit, Enigma moves to the next most capable one and says so. \(freeTierNote)"
+  static let info = "Free models use Gemini's free tier on your own Google key. When one reaches its free limit, Enigma moves to the next one and says so. \(freeTierNote)"
 
   static func status(hasAccess: Bool, isSelected: Bool) -> (EnigmaStatusLine.Status, String) {
     guard hasAccess else { return (.off, "not set up") }

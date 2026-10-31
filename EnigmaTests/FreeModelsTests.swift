@@ -51,10 +51,10 @@ final class FreeModelsTests: XCTestCase {
   // MARK: - Task 3: the Free models provider
 
   func testRankingAndAvailability() {
-    XCTAssertEqual(FreeModelCatalog.ranked, ["gemini-3.8-flash", "apple-pcc", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
+    XCTAssertEqual(FreeModelCatalog.ranked, ["gemini-3.6-flash", "apple-pcc", "gemini-3.5-flash-lite", "gemini-3.8-flash"])
     XCTAssertEqual(FreeModelCatalog.displayName("gemini-3.5-flash-lite"), "Gemini 3.5 Flash-Lite")
     XCTAssertEqual(FreeModelCatalog.available(hasGeminiKey: true, appleAvailable: false).map(\.id),
-                   ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
+                   ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"])
     XCTAssertEqual(FreeModelCatalog.available(hasGeminiKey: false, appleAvailable: true).map(\.id), ["apple-pcc"])
     XCTAssertTrue(FreeModelCatalog.available(hasGeminiKey: true, appleAvailable: true).allSatisfy { $0.provider == .free })
   }
@@ -266,7 +266,7 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     XCTAssertNil(settings.autoFreeModelID(now: now, usage: FreeModelUsage()))
     settings.autoMayUseFreeGemini = true
-    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: FreeModelUsage()), "gemini-3.8-flash")
+    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: FreeModelUsage()), "gemini-3.6-flash")
   }
 
   @MainActor
@@ -274,8 +274,8 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     settings.autoMayUseFreeGemini = true
     let usage = FreeModelUsage()
-    usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(60))
-    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: usage), "gemini-3.6-flash")
+    usage.markExhausted("gemini-3.6-flash", until: now.addingTimeInterval(60))
+    XCTAssertEqual(settings.autoFreeModelID(now: now, usage: usage), "gemini-3.5-flash-lite")
   }
 
   @MainActor
@@ -283,10 +283,10 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     let usage = FreeModelUsage()
     XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage))
-    usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(900))
-    usage.markExhausted("gemini-3.6-flash", until: now.addingTimeInterval(300))
-    XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage), "Flash-Lite is still available")
-    usage.markExhausted("gemini-3.5-flash-lite", until: now.addingTimeInterval(600))
+    usage.markExhausted("gemini-3.6-flash", until: now.addingTimeInterval(900))
+    usage.markExhausted("gemini-3.5-flash-lite", until: now.addingTimeInterval(300))
+    XCTAssertNil(settings.freeModelsAllOut(now: now, usage: usage), "3.8 Flash is still available")
+    usage.markExhausted("gemini-3.8-flash", until: now.addingTimeInterval(600))
     XCTAssertEqual(settings.freeModelsAllOut(now: now, usage: usage), now.addingTimeInterval(300))
     XCTAssertNil(settings.freeModelsAllOut(now: now.addingTimeInterval(301), usage: usage))
   }
@@ -370,7 +370,7 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings(geminiKey: false)
     XCTAssertEqual(settings.models, [])
     try settings.saveAPIKey("test-only-key", for: .gemini)
-    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"])
     try settings.removeAPIKey(for: .gemini)
     XCTAssertEqual(settings.models, [])
   }
@@ -380,7 +380,7 @@ final class FreeModelsTests: XCTestCase {
     let settings = try freeSettings()
     settings.preferredModelID = "gemini-2.5-pro"
     await settings.loadCachedModels()
-    XCTAssertEqual(settings.preferredModelID, "gemini-3.8-flash")
+    XCTAssertEqual(settings.preferredModelID, "gemini-3.6-flash")
   }
 
   @MainActor
@@ -391,7 +391,7 @@ final class FreeModelsTests: XCTestCase {
     settings.autoMayUseFreeGemini = true
     let configuration = settings.autoCloudConfiguration(usage: FreeModelUsage())
     XCTAssertEqual(configuration?.provider, .free)
-    XCTAssertEqual(configuration?.modelID, "gemini-3.8-flash")
+    XCTAssertEqual(configuration?.modelID, "gemini-3.6-flash")
   }
 
   @MainActor
@@ -451,8 +451,8 @@ final class FreeModelsTests: XCTestCase {
     XCTAssertEqual(key, "")
     XCTAssertTrue(settings.hasAPIKey(for: .gemini))
     XCTAssertEqual(settings.preferredProvider, .free)
-    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
-    XCTAssertEqual(settings.preferredModelID, "gemini-3.8-flash")
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"])
+    XCTAssertEqual(settings.preferredModelID, "gemini-3.6-flash")
   }
 
   func testMenuMarksAFreeModelOutOfUsage() {
