@@ -235,10 +235,13 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(window.frame.size, enlarged)
     controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
     XCTAssertEqual(store.load(), normal)
+    // F14 spike: the hands-on tour grows the window by its rail.
     setup.finish(takeTour: true)
     await settleSizing()
-    XCTAssertEqual(window.frame.size, enlarged)
-    setup.endTour()
+    let touring = PanelSizeStore.centeredFrame(
+      size: NSSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), in: visible).size
+    XCTAssertEqual(window.frame.size, touring)
+    GuidedTour.shared.end()
     await settleSizing()
     XCTAssertEqual(window.frame.size, normal)
     setup.replay()

@@ -220,7 +220,7 @@ struct AppShellView: View {
             .transition(.opacity)
         }
         if guidedTour.isActive && !welcomeSetup.isPresented {
-          GuidedTourOverlay(tour: guidedTour, anchors: anchors, onFinish: finishGuidedTour)
+          GuidedTourOverlay(tour: guidedTour, anchors: anchors, onAdvance: advanceTour, onFinish: finishGuidedTour)
             .transition(.opacity)
         }
       }
@@ -358,7 +358,7 @@ struct AppShellView: View {
         dismissedInferences = []
       }
       // A local model with tools loads while the question is typed (F32).
-      if !welcomeSetup.isPresented {
+      if !welcomeSetup.isPresented && !guidedTour.isActive {
         localChat.warmNativeTurn(draft: new, mode: shell.selectedMode, hasScreenshot: screen.attachment != nil)
       }
       // A nudge toward the composer for each keystroke that adds text.
@@ -447,6 +447,8 @@ struct AppShellView: View {
     .task {
       await localChat.refreshInstalledModel()
       welcomeSetup.start(hasInstalledModels: !localChat.installedModels.isEmpty)
+      // F14 spike: a restart mid-tour, as for Screen Recording, picks up there.
+      if !welcomeSetup.isPresented { guidedTour.resumeIfInterrupted() }
       await modelAdvisor.start(installedModels: localChat.installedModels, presentOnboarding: false)
     }
     .onChange(of: welcomeSetup.isPresented) { _, presented in
@@ -455,11 +457,14 @@ struct AppShellView: View {
       // The character falls from the welcome into the main page's slot.
       if !presented { settleCharacter(.fly) }
     }
-    .onChange(of: guidedTour.pendingDraft) { _, text in
-      guard let text else { return }
+    // F14 spike: the tour types its demos into the composer.
+    .onChange(of: guidedTour.draft) { _, text in
+      guard guidedTour.isActive else { return }
       draft = text
-      guidedTour.pendingDraft = nil
       shell.isComposerFocused = true
+    }
+    .onChange(of: guidedTour.stop) { _, stop in
+      if stop != nil { shell.isComposerFocused = true }
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
@@ -496,9 +501,17 @@ struct AppShellView: View {
           // new width at once, so its AppKit views (the message field, Send)
           // never pass through in-between frames, and only the sidebar fades.
           .transaction(value: shell.isSidebarVisible) { if reduceMotion { $0.animation = nil } }
+        // F14 spike: the tour's card sits in a rail beside the page.
+        if showsTourRail {
+          GuidedTourRail()
+            .frame(width: GuidedTourPlacement.railWidth)
+            .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+        }
       }
       .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
                  value: shell.isSidebarVisible)
+      .animation(reduceMotion ? .easeOut(duration: 0.15) : EnigmaMotion.screenChange.animation,
+                 value: showsTourRail)
     }
     .modifier(EnigmaWindowChrome())
     // The window's minimum height, except while it's the panel or on its way
@@ -766,8 +779,24 @@ struct AppShellView: View {
                                                   activity: localChat.activity) ?? home
   }
 
+  /// F14 spike: the tour's rail shows in the window, not the compact panel.
+  private var showsTourRail: Bool {
+    guidedTour.isActive && !welcomeSetup.isPresented && !shell.isSelectionComposer
+  }
+
+  /// F14 spike: Return or the card's button takes the tour's next beat.
+  private func advanceTour() {
+    if guidedTour.stop == .done { finishGuidedTour(); return }
+    guard let demo = guidedTour.advance() else { return }
+    draft = ""
+    localChat.playTourExchange(prompt: demo.prompt, script: demo.script) {
+      GuidedTour.shared.demoFinished()
+    }
+  }
+
   /// F14 spike: leaves the tour for a fresh chat.
   private func finishGuidedTour() {
+    guard guidedTour.isActive else { return }
     guidedTour.end()
     localChat.newChat()
     draft = ""
@@ -1016,12 +1045,7 @@ struct AppShellView: View {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
     // F14 spike: during the tour a send plays a scripted reply.
     if guidedTour.isActive {
-      let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !text.isEmpty, !localChat.isBusy else { return }
-      draft = ""
-      guidedTour.characterOnCard = false
-      localChat.playTourExchange(prompt: text, script: guidedTour.script(for: text))
-      guidedTour.complete()
+      advanceTour()
       return
     }
     if queuesDraft {

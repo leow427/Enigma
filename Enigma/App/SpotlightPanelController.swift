@@ -246,12 +246,16 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
     if let welcomeSetup {
-      welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour)
-        .map { $0 || $1 != nil }.removeDuplicates()
+      // F14 spike: the hands-on tour grows the window by its rail.
+      welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour, GuidedTour.shared.$stop)
+        .map { presented, tour, guided -> WelcomeSizing in
+          guided != nil ? .tour : presented || tour != nil ? .welcome : .normal
+        }
+        .removeDuplicates()
         // @Published emits before storing the new value. Resizing synchronously
         // can lay out the hosting view with stale welcome/disabled state.
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] active in self?.setWelcomeSizing(active) }
+        .sink { [weak self] sizing in self?.setWelcomeSizing(sizing) }
     }
     panel.onHide = { [weak self] in
       self?.hide()
@@ -501,21 +505,32 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     sizeStore.save(panel.frame.size)
   }
 
-  private func setWelcomeSizing(_ active: Bool) {
+  private enum WelcomeSizing { case normal, welcome, tour }
+
+  /// The welcome is at least 1280 by 860; the tour adds its rail on the right,
+  /// so the page keeps its width. Back to the saved size after both.
+  private func setWelcomeSizing(_ sizing: WelcomeSizing) {
     let size: NSSize
-    if active {
-      guard normalSize == nil else { return }
-      normalSize = panel.frame.size
-      size = NSSize(width: max(1280, panel.frame.width), height: max(860, panel.frame.height))
-    } else {
+    let animates: Bool
+    switch sizing {
+    case .normal:
       guard let previous = normalSize else { return }
       size = previous
       normalSize = nil
+      animates = true
+    case .welcome, .tour:
+      let base = normalSize ?? panel.frame.size
+      animates = normalSize != nil
+      normalSize = base
+      let width = max(1280, base.width) + (sizing == .tour ? GuidedTourPlacement.railWidth : 0)
+      size = NSSize(width: width, height: max(860, base.height))
     }
     let visible = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
     let frame = visible.map { PanelSizeStore.centeredFrame(size: size, in: $0) }
       ?? NSRect(origin: panel.frame.origin, size: size)
-    panel.setFrame(frame, display: true)
+    // Growing for the tour and settling back afterwards move on the window's
+    // spring; the welcome opens at its size.
+    if animates { move(to: frame) } else { panel.setFrame(frame, display: true) }
   }
 
   private func centerOnActiveDisplay() {

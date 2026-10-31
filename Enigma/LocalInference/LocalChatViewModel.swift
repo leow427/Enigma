@@ -2551,14 +2551,14 @@ extension LocalChatViewModel {
   /// Appends the person's message and a reply that plays `script`: its
   /// activity steps, then words streamed in, then the map card. The open chat
   /// is temporary, so none of it is saved.
-  func tourAppend(prompt: String, script: TourScript) {
-    guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { return }
+  func tourAppend(prompt: String, script: TourScript, onFinish: @escaping @MainActor () -> Void) {
+    guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { onFinish(); return }
     func update(_ change: (inout ChatMessage) -> Void, id: UUID) {
       guard let s = sessions.firstIndex(where: { $0.id == sessionID }),
             let m = sessions[s].messages.firstIndex(where: { $0.id == id }) else { return }
       change(&sessions[s].messages[m])
     }
-    guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
+    guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { onFinish(); return }
     sessions[index].messages.append(ChatMessage(role: .user, content: prompt))
     var reply = ChatMessage(role: .assistant, content: "")
     var activity = AssistantActivity(id: reply.id)
@@ -2591,6 +2591,7 @@ extension LocalChatViewModel {
         $0.mapPlaces = script.places
       }, id: replyID)
       state = .idle
+      onFinish()
     }
   }
 }
