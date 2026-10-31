@@ -146,7 +146,7 @@ struct TourDocumentView: View {
   private func document(_ scene: TourScene) -> some View {
     let replaced = scene.phase >= .replaced
     return VStack(alignment: .leading, spacing: 14) {
-      Text("Hi Jamie,")
+      Text("Hi Mette,")
       Text("Saturday is all set. Let’s meet at the Art Institute at 10, then lunch at Portillo’s.")
         .fixedSize(horizontal: false, vertical: true)
       ZStack(alignment: .leading) {
