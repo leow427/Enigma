@@ -106,8 +106,10 @@ Ten stops, some with a checklist of steps:
 10. **You're all set**: Help lists every shortcut, and Settings → General
     replays the tour.
 
-**End tour** or Esc leaves at any stop: the window returns to its normal size
-and the pretend document closes.
+**End tour**, Esc, or ⌘N outside the new-chat stop leaves the tour: the
+window returns to its normal size and the pretend document closes. At the
+permissions stop Esc only hides Enigma, so you can switch the permission on in
+System Settings and come back to the same stop.
 
 ![The permissions stop](design/ui-revamp/screenshots/f14/guided-permissions-paper.png)
 

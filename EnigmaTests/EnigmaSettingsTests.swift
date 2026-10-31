@@ -302,7 +302,7 @@ final class EnigmaSettingsTests: XCTestCase {
       "api keys": .cloud, "keys": .cloud, "keychain": .cloud, "model id": .cloud, "preferred model": .cloud,
       "thinking capacity": .cloud, "sign in": .cloud, "brave search": .search, "double tap": .shortcuts,
       "hotkeys": .shortcuts, "theme": .general, "accessibility": .permissions, "local models": .local,
-      "cloud and search": .cloud,
+      "cloud and search": .cloud, "gpt": .cloud,
     ]
     for (query, page) in expected {
       XCTAssertTrue(page.matches(query), "\(query) should find \(page)")

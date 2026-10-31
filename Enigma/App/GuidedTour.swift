@@ -974,6 +974,7 @@ struct GuidedTourPermissions: View {
           permission.turnOn()
         }
         .enigmaButtonStyle(.secondary)
+        .accessibilityLabel("Turn on \(permission.title)")
       }
     }
   }
