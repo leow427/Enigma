@@ -206,7 +206,7 @@ The conflicts between typed commands still show the errors described in
 `messages`, `think`, `edit` and `translate` on models without native tools. It's off by default, so a new user's
 wording never turns on a command by surprise; turn it on to get these chips. With
 it off, only `search` can still be recognized, and that follows the
-automatic-search setting in **Settings → Cloud and search**.
+automatic-search setting in **Settings → Search and maps**.
 
 ## Screen captures
 

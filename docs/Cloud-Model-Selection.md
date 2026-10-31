@@ -107,13 +107,12 @@ minutes after launch and then once a day, in the background; see
 
 ## Choosing a cloud model
 
-![Settings → Cloud and search](design/ui-revamp/screenshots/phase-10/settings-cloud-paper.png)
+![Settings → Cloud](design/ui-revamp/screenshots/f14/settings-cloud-paper.png)
 
-**Settings → Cloud and search** has **Subscriptions** (ChatGPT and Claude
-sign-in), the Screen and web search sections, **Advanced cloud settings**, and
-**API keys**.
+**Settings → Cloud** has one row each for ChatGPT and Claude sign-in, then
+**› Advanced** with **Provider and model** and **API keys**.
 
-**Advanced cloud settings** holds:
+**Provider and model**, under Advanced, holds:
 
 - **Preferred provider**: the provider Cloud mode and Auto use.
 - **Preferred model**: the provider's listed models. A model ID you typed that
@@ -391,7 +390,7 @@ or paid request:
   ChatGPT and Claude Code gates, kept caches and lists, the quiet Codex install
   over an older, OpenAI-signed system Codex, the app server switching to a new
   Codex only when idle, and surviving a Codex that exits mid-write.
-- `EnigmaSettingsTests`: the Cloud and search page.
+- `EnigmaSettingsTests`: the Cloud page and its Advanced section.
 
 Run one suite with
 `scripts/verify-xcode.sh test -only-testing:EnigmaTests/CloudModelSelectionTests`.

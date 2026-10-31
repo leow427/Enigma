@@ -34,14 +34,14 @@ appear in:
   images** or **text only**, plus **Find a model for this Mac…** (a sheet with
   the same three roles), **Import a text GGUF…** and **Manage models in
   Settings…**.
-- **Settings → Local models**, described below.
+- **Settings → On this Mac**, described below.
 
 One selected model handles local chat, screenshots and search answers. Every
 catalogue package includes image support.
 
-### Settings → Local models
+### Settings → On this Mac
 
-![Settings → Local models](design/ui-revamp/screenshots/phase-10/settings-local-paper.png)
+![Settings → On this Mac](design/ui-revamp/screenshots/f14/settings-local-paper.png)
 
 The page is the one place to choose and manage local models. From the top:
 

@@ -221,8 +221,8 @@ Without permission the panel still opens a temporary chat, explains what's
 missing, and offers **Open Accessibility Settings…**. That button asks macOS for
 access and opens **Privacy & Security → Accessibility** directly, in case macOS
 doesn't show its prompt again. Enable **Enigma** there. The permission's status,
-with a button that opens the same pane, is also in **Settings → Selection**,
-**Settings → General → Permissions**, the welcome setup, and **Help**. Enigma checks again whenever you switch apps or show the
+with a button that opens the same pane, is also in **Settings → Permissions**
+(linked from **Settings → Selection**), the welcome tour, and **Help**. Enigma checks again whenever you switch apps or show the
 panel, so no restart is needed. If an older copy of Enigma is listed, remove it
 and add the app you're running.
 

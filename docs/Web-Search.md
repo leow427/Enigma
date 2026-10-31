@@ -17,14 +17,14 @@ search instead; see [Cloud models' own search](#cloud-models-own-search).
 None. Search works from the first launch, in Local, Cloud and Auto.
 
 **Brave Search, optional.** If you have a Brave Search API key with **LLM
-Context** access, you can paste it into **Settings → Cloud and search → Web
-search → Use Brave Search instead** and choose **Save key**. While a key is
+Context** access, you can paste it into **Settings → Search and maps → Advanced
+→ Use Brave Search instead** and choose **Save key**. While a key is
 saved, web searches go to Brave instead of running on this Mac, and the status
 row reads **Brave in use**; places and weather still use Apple Maps and
 Open-Meteo. Brave bills its usage separately, and the key is stored in the macOS
 Keychain. **Remove key** goes back to on-device search from the next search.
 
-![Web search in Settings → Cloud and search](design/ui-revamp/screenshots/phase-5/settings-cloud-full-paper.png)
+![Settings → Search and maps, with Advanced open](design/ui-revamp/screenshots/f14/settings-search-advanced-paper.png)
 
 ## Automatic search
 
@@ -210,7 +210,7 @@ search the web in this chat?** *This chat includes text from your messages.
 can't check each one.*, with **Don't allow**, **For this conversation** and
 **Always**. ‹provider› is ChatGPT or Claude Code; a grant covers that provider
 only, and **Always** grants are listed, and removable, under **Settings →
-General → Messages → Always allowed**. **Don't allow** sends the question with
+Approvals**. **Don't allow** sends the question with
 no search at all, not even Enigma's. With a grant, a read in that reply goes
 straight to the provider.
 
@@ -248,7 +248,7 @@ region, country and time zone go with that question (Codex's search location
 setting; on Claude Code, a sentence in the instructions); coordinates never
 do. A grant covers that provider only: allowing ChatGPT doesn't allow Claude
 Code, or the OpenAI API. **Always** grants are listed, and removable, under
-**Settings → General → Messages → Always allowed**. **Don't allow**, or
+**Settings → Approvals**. **Don't allow**, or
 location off or unavailable, sends nothing, and the model asks which city you
 mean.
 
@@ -297,7 +297,7 @@ whichever search runs (Brave's results are filtered on this Mac too), and the
 reply already written doesn't change. Apple Maps and Open-Meteo sources can't be
 blocked. A Google News headlines source links Google News itself, so blocking it
 stops the headlines. Blocked sites, at most 500, are listed with **Remove** under
-**Settings → Cloud and search → Web search → Blocked sites**.
+**Settings → Search and maps → Advanced → Blocked sites**.
 
 If searching fails, Enigma doesn't quietly answer without evidence. It shows an
 error and keeps your draft: search sites limiting requests, no connection, an
@@ -372,7 +372,7 @@ and the answer.
 
 ### Location
 
-**Settings → General → Location → Use location for nearby questions** is on by
+**Settings → Search and maps → Use location for nearby questions** is on by
 default. It's used only for a nearby question without a named place: places and
 weather near you. macOS asks for permission the first time. The area is used for
 that question only, is not saved, and requests give up after 20 seconds. The
