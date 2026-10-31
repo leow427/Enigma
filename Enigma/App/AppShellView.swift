@@ -691,7 +691,7 @@ struct AppShellView: View {
       findModel: { Task { await modelAdvisor.replayOnboarding() } },
       importModel: { isModelImporterPresented = true },
       // After the menu has closed and handed focus back, so Settings keeps it.
-      openSettings: { Task { @MainActor in openSettings() } })
+      openSettings: { Task { @MainActor in openModelSettings() } })
   }
 
   // MARK: Compact panel
@@ -1336,6 +1336,14 @@ struct AppShellView: View {
   private func openSettings() {
     shell.prepareForSettings()
     NotificationCenter.default.post(name: .settingsRequested, object: nil)
+  }
+
+  /// The model menu's Advanced settings… (Cloud) or Manage models in Settings… (On this Mac).
+  private func openModelSettings() {
+    shell.prepareForSettings()
+    NotificationCenter.default.post(name: .settingsRequested, object: shell.selectedMode == .cloud
+      ? SettingsView.SettingsRequest(destination: .cloud, opensAdvanced: true) as Any
+      : SettingsView.SettingsDestination.local as Any)
   }
 }
 

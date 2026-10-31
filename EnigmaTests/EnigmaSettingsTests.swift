@@ -277,6 +277,23 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(ClaudeCodeConnectionControls.info.contains("claude auth logout"), true)
   }
 
+  /// The model menu's Advanced settings… lands on Cloud with Advanced open; Cloud alone keeps it closed.
+  @MainActor
+  func testAdvancedSettingsOpensCloudWithAdvancedOpen() async throws {
+    typealias Request = SettingsView.SettingsRequest
+    XCTAssertEqual(SettingsView.SettingsDestination.requested(Request(destination: .cloud, opensAdvanced: true)), .cloud)
+    XCTAssertTrue(SettingsView.SettingsDestination.opensAdvanced(Request(destination: .cloud, opensAdvanced: true)))
+    XCTAssertFalse(SettingsView.SettingsDestination.opensAdvanced(SettingsView.SettingsDestination.cloud))
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    NotificationCenter.default.post(name: .settingsDestinationRequested, object: SettingsView.SettingsDestination.cloud)
+    try await waitForUI("Cloud", in: host.view) { host.shows("Advanced") }
+    XCTAssertFalse(host.shows("Save OpenAI API key"))
+    NotificationCenter.default.post(name: .settingsDestinationRequested,
+                                    object: Request(destination: .cloud, opensAdvanced: true))
+    try await waitForUI("Cloud with Advanced open", in: host.view) { host.shows("Save OpenAI API key") }
+  }
+
   func testOldDestinationNamesStillOpenTheirPages() {
     typealias Destination = SettingsView.SettingsDestination
     XCTAssertEqual(Destination.requested("general"), .general)

@@ -31,6 +31,12 @@ extension SettingsWindowContent where Settings == SettingsView {
 /// Settings. The window it sits in applies the theme.
 struct SettingsView: View {
   /// A Settings page. `.settingsDestinationRequested` with one of these opens it.
+  /// A page with its "› Advanced" already open, like the model menu's Advanced settings….
+  struct SettingsRequest {
+    let destination: SettingsDestination
+    let opensAdvanced: Bool
+  }
+
   enum SettingsDestination: String, CaseIterable, Identifiable {
     // Grouped as Enigma, Models, Abilities, Privacy, then About.
     // The first four raw values are the old pages', so deep links still work.
@@ -38,9 +44,12 @@ struct SettingsView: View {
 
     var id: Self { self }
 
-    /// A destination, its raw value, or "discover" (removed; opens .local). Anything else is nil.
+    static func opensAdvanced(_ object: Any?) -> Bool { (object as? SettingsRequest)?.opensAdvanced == true }
+
+    /// A destination, a request, its raw value, or "discover" (removed; opens .local). Anything else is nil.
     static func requested(_ object: Any?) -> SettingsDestination? {
       if let destination = object as? SettingsDestination { return destination }
+      if let request = object as? SettingsRequest { return request.destination }
       guard let name = object as? String else { return nil }
       return name == "discover" ? .local : SettingsDestination(rawValue: name)
     }
@@ -149,6 +158,8 @@ struct SettingsView: View {
   private let size: CGSize
   @State private var destination: SettingsDestination
   @State private var query = ""
+  /// The page asked for opens its Advanced; any other navigation closes it again.
+  @State private var opensAdvanced = false
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.colorSchemeContrast) private var contrast
@@ -187,11 +198,15 @@ struct SettingsView: View {
     .tint(palette.accent.color)
     .enigmaMenuHost()
     .onReceive(NotificationCenter.default.publisher(for: .settingsDestinationRequested)) { notification in
-      if let requested = SettingsDestination.requested(notification.object) { select(requested) }
+      if let requested = SettingsDestination.requested(notification.object) {
+        select(requested)
+        opensAdvanced = SettingsDestination.opensAdvanced(notification.object)
+      }
     }
   }
 
   private func select(_ item: SettingsDestination) {
+    opensAdvanced = false
     guard item != destination else { return }
     withAnimation(reduceMotion ? nil : EnigmaMotion.pageChange.animation) { destination = item }
   }
@@ -271,6 +286,7 @@ struct SettingsView: View {
     .scrollBounceBehavior(.basedOnSize)
     // Each page gets its own scroll position, and pages cross-fade with a
     // small rise. Reduce Motion keeps only the fade.
+    .environment(\.settingsOpensAdvanced, opensAdvanced)
     .id(destination)
     .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6)))
   }

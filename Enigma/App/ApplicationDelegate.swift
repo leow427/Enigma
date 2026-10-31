@@ -163,14 +163,15 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openRequestedSettings(_ notification: Notification) {
-    openSettings(destination: SettingsView.SettingsDestination.requested(notification.object))
+    openSettings(destination: SettingsView.SettingsDestination.requested(notification.object),
+                 opensAdvanced: SettingsView.SettingsDestination.opensAdvanced(notification.object))
   }
 
-  func openSettings(destination: SettingsView.SettingsDestination? = nil) {
+  func openSettings(destination: SettingsView.SettingsDestination? = nil, opensAdvanced: Bool = false) {
     guard panelController?.isCapturingScreen != true else { return }
     if settingsWindowController == nil {
       settingsWindowController = SettingsWindowController()
     }
-    settingsWindowController?.showSettings(destination: destination)
+    settingsWindowController?.showSettings(destination: destination, opensAdvanced: opensAdvanced)
   }
 }

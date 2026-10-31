@@ -26,10 +26,16 @@ struct SettingsLink: View {
   }
 }
 
+extension EnvironmentValues {
+  /// Set when Settings was asked for a page with its Advanced open.
+  @Entry var settingsOpensAdvanced = false
+}
+
 /// A page's "› Advanced" disclosure, closed until opened.
 struct SettingsAdvanced<Content: View>: View {
   @ViewBuilder var content: () -> Content
   @State private var isOpen = false
+  @Environment(\.settingsOpensAdvanced) private var opensAdvanced
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -54,6 +60,8 @@ struct SettingsAdvanced<Content: View>: View {
       .padding(.top, 22)
       if isOpen { content().transition(.opacity) }
     }
+    .onAppear { if opensAdvanced { isOpen = true } }
+    .onChange(of: opensAdvanced) { _, opens in if opens { isOpen = true } }
   }
 }
 
