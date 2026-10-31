@@ -680,7 +680,9 @@ struct AppShellView: View {
       selectedLocalID: localChat.installedModel?.id,
       cloudProvider: cloudSettings.preferredProvider,
       cloudModels: cloudSettings.models.map {
-        ModeAndModelMenu.CloudChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision)
+        ModeAndModelMenu.CloudChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision,
+          outUntil: $0.provider == .free && FreeModelUsage.shared.isExhausted($0.id, now: Date())
+            ? FreeModelUsage.shared.resetTime($0.id) : nil)
       },
       selectedCloudID: cloudSettings.preferredModelID)
   }

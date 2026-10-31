@@ -123,6 +123,7 @@ struct ChatRouteStatus: Equatable {
       let text = switch provider {
       case .chatGPT: "Sign in with ChatGPT to use your Codex allowance."
       case .claudeCode: "Sign in to Claude Code to use your Claude plan."
+      case .free: "Get a free Gemini key in Settings to use free models."
       default: "Add a \(provider.displayName) API key."
       }
       return ChatRouteStatus(kind: .missing, text: text, action: .openSettings)
@@ -259,6 +260,8 @@ struct ModeAndModelMenu {
     let id: String
     let name: String
     let supportsVision: Bool
+    /// A free model out of usage until then (F34).
+    var outUntil: Date? = nil
   }
 
   struct Actions {
@@ -325,7 +328,8 @@ struct ModeAndModelMenu {
         ? [EnigmaMenuItem(id: AnyHashable("cloud.none"), title: "No discovered models", isEnabled: false) {}]
         : cloudModels.map { model in
           EnigmaMenuItem(id: AnyHashable("cloud.\(model.id)"), title: model.name,
-                         detail: model.supportsVision ? "text + images" : "text only",
+                         detail: model.outUntil.map { "out until \($0.formatted(date: .omitted, time: .shortened))" }
+                           ?? (model.supportsVision ? "text + images" : "text only"),
                          isSelected: model.id == selectedCloudID, isEnabled: !isBusy) {
             actions.selectCloudModel(model.id)
           }

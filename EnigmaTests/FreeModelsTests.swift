@@ -88,7 +88,7 @@ final class FreeModelsTests: XCTestCase {
     let credentials = MemoryCredentials()
     let settings = CloudSettingsModel(
       credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: OfflineTransport(),
                                  cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
       preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false })
     XCTAssertFalse(settings.hasCloudAccess(for: .free))
@@ -194,7 +194,7 @@ final class FreeModelsTests: XCTestCase {
     try credentials.setAPIKey("test-only-key", for: .gemini)
     let settings = CloudSettingsModel(
       credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: OfflineTransport(),
                                  cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
       preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false },
       notificationCenter: center)
@@ -214,7 +214,7 @@ final class FreeModelsTests: XCTestCase {
     if geminiKey { try credentials.setAPIKey("test-only-key", for: .gemini) }
     let settings = CloudSettingsModel(
       credentialStore: credentials,
-      catalog: CloudModelCatalog(credentialStore: credentials, transport: URLSessionCloudTransport.shared,
+      catalog: CloudModelCatalog(credentialStore: credentials, transport: OfflineTransport(),
                                  cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "FreeModels-\(UUID())")),
       preferences: CloudPreferencesStore(defaults: UserDefaults(suiteName: "FreeModels-\(UUID())")!), codexAvailable: { false })
     settings.preferredProvider = .free
@@ -369,8 +369,66 @@ final class FreeModelsTests: XCTestCase {
     XCTAssertTrue(consent.explanation.contains("On Google's free tier, prompts may be used to improve Google's products."))
   }
 
-  func testFreeModelsStaysOutOfTheProviderMenuUntilItsSetupShips() {
-    XCTAssertFalse(CloudProviderID.selectableProviders.contains(.free))
+  // Repointed in Task 6: the Settings row now ships, so Free models is offered.
+  func testFreeModelsIsOfferedInTheProviderMenu() {
+    XCTAssertTrue(CloudProviderID.selectableProviders.contains(.free))
+  }
+
+  // MARK: - Task 6: Settings, welcome setup and ⌘K
+
+  func testFreeModelsRowStatus() {
+    XCTAssertEqual(FreeModelsConnectionControls.status(hasAccess: false, isSelected: false).1, "not set up")
+    XCTAssertEqual(FreeModelsConnectionControls.status(hasAccess: true, isSelected: false).1, "ready")
+    XCTAssertEqual(FreeModelsConnectionControls.status(hasAccess: true, isSelected: true).1, "ready · selected for cloud")
+  }
+
+  func testFreeModelsRowCopy() {
+    XCTAssertEqual(FreeModelsConnectionControls.getKeyTitle, "Get a free Gemini key")
+    XCTAssertEqual(FreeModelsConnectionControls.keyPageURL.absoluteString, "https://aistudio.google.com/apikey")
+    XCTAssertEqual(FreeModelsConnectionControls.autoToggleTitle, "Auto may use free Gemini models")
+    XCTAssertEqual(FreeModelsConnectionControls.freeTierNote,
+                   "On Google's free tier, prompts may be used to improve Google's products.")
+    XCTAssertEqual(FreeModelsConnectionControls.billingNote,
+                   "If billing is on for this key, Google charges for these requests.")
+    XCTAssertEqual(FreeModelsConnectionControls.macOS26Note, "Update to macOS 27 to get Apple's free cloud model.")
+  }
+
+  @MainActor
+  func testPastingAKeySavesSelectsAndListsFreeModels() async throws {
+    let settings = try freeSettings(geminiKey: false)
+    settings.preferredProvider = .chatGPT
+    var key = "  test-only-key  "
+    let error = await FreeModelsConnectionControls.connect(&key, in: settings)
+    XCTAssertNil(error)
+    XCTAssertEqual(key, "")
+    XCTAssertTrue(settings.hasAPIKey(for: .gemini))
+    XCTAssertEqual(settings.preferredProvider, .free)
+    XCTAssertEqual(settings.models.map(\.id), ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"])
+    XCTAssertEqual(settings.preferredModelID, "gemini-2.5-pro")
+  }
+
+  func testMenuMarksAFreeModelOutOfUsage() {
+    let reset = now.addingTimeInterval(600)
+    let menu = ModeAndModelMenu(mode: .cloud, isBusy: false, hasActiveRequest: false, localModels: [], selectedLocalID: nil,
+      cloudProvider: .free,
+      cloudModels: [ModeAndModelMenu.CloudChoice(id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", supportsVision: true, outUntil: reset),
+                    ModeAndModelMenu.CloudChoice(id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", supportsVision: true)],
+      selectedCloudID: "gemini-2.5-flash")
+    let actions = ModeAndModelMenu.Actions(chooseMode: { _ in }, selectLocalModel: { _ in }, selectCloudModel: { _ in },
+                                           findModel: {}, importModel: {}, openSettings: {})
+    let section = menu.sections(actions).first { $0.title == "Free models" }
+    XCTAssertEqual(section?.items.map(\.detail), ["out until \(reset.formatted(date: .omitted, time: .shortened))", "text + images"])
+  }
+
+  func testCloudStatusAsksForAFreeGeminiKey() {
+    let context = ChatRouteStatus.Context(mode: .cloud, cloudProvider: .free)
+    XCTAssertEqual(ChatRouteStatus.make(context), ChatRouteStatus(kind: .missing,
+      text: "Get a free Gemini key in Settings to use free models.", action: .openSettings))
+  }
+
+  func testWelcomeCloudStepMentionsFreeModels() {
+    XCTAssertEqual(WelcomeSetupView.headerCopy(for: .connections).subtitle,
+                   "Use your ChatGPT or Claude plan, or free models, for the hard stuff. Totally optional.")
   }
 }
 
@@ -414,4 +472,12 @@ final class MemoryCredentials: CloudCredentialStore, @unchecked Sendable {
   func apiKey(for provider: CloudProviderID) throws -> String? { lock.withLock { keys[provider] } }
   func setAPIKey(_ apiKey: String, for provider: CloudProviderID) throws { lock.withLock { keys[provider] = apiKey } }
   func removeAPIKey(for provider: CloudProviderID) throws { _ = lock.withLock { keys.removeValue(forKey: provider) } }
+}
+
+/// Every request fails as offline, so no test reaches the network.
+struct OfflineTransport: CloudNetworkTransport {
+  func data(for request: URLRequest) async throws -> CloudDataResponse { throw URLError(.notConnectedToInternet) }
+  func stream(for request: URLRequest) -> AsyncThrowingStream<CloudNetworkEvent, Error> {
+    AsyncThrowingStream { $0.finish(throwing: URLError(.notConnectedToInternet)) }
+  }
 }

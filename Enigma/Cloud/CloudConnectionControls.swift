@@ -101,6 +101,105 @@ struct ChatGPTConnectionControls: View {
   }
 }
 
+/// Free models (F34): Gemini's free tier on the user's own key, and Apple's cloud model once
+/// it ships. The key goes in with one paste: saved, selected and tested.
+struct FreeModelsConnectionControls: View {
+  @ObservedObject var settings: CloudSettingsModel
+  @State private var key = ""
+  @State private var error: String?
+
+  static let getKeyTitle = "Get a free Gemini key"
+  static let keyPageURL = URL(string: "https://aistudio.google.com/apikey")!
+  static let autoToggleTitle = "Auto may use free Gemini models"
+  static let freeTierNote = "On Google's free tier, prompts may be used to improve Google's products."
+  static let billingNote = "If billing is on for this key, Google charges for these requests."
+  static let macOS26Note = "Update to macOS 27 to get Apple's free cloud model."
+  /// The longer explanation, behind the row's ⓘ.
+  static let info = "Free models use Gemini's free tier on your own Google key. When one reaches its free limit, Enigma moves to the next most capable one and says so. \(freeTierNote)"
+
+  static func status(hasAccess: Bool, isSelected: Bool) -> (EnigmaStatusLine.Status, String) {
+    guard hasAccess else { return (.off, "not set up") }
+    return (.on, isSelected ? "ready · selected for cloud" : "ready")
+  }
+
+  /// Saves a pasted key, selects Free models and lists them, then tests the key. Returns the
+  /// error's message on failure.
+  static func connect(_ key: inout String, in settings: CloudSettingsModel) async -> String? {
+    if let error = CloudSettingsForm.saveAPIKey(&key, for: .gemini, in: settings) { return error }
+    settings.preferredProvider = .free
+    await settings.discoverModels()
+    await settings.testConnection(to: .gemini)
+    return nil
+  }
+
+  var body: some View {
+    let hasKey = settings.hasAPIKey(for: .gemini)
+    let status = Self.status(hasAccess: settings.hasCloudAccess(for: .free), isSelected: settings.preferredProvider == .free)
+    VStack(alignment: .leading, spacing: 0) {
+      EnigmaRow("Free models", subtitle: "Gemini's free tier on your own Google key", info: Self.info) {
+        HStack(spacing: 12) {
+          EnigmaStatusLine(status.0, status.1)
+          action(hasKey: hasKey)
+        }
+      }
+      EnigmaConnectionDetails {
+        if !hasKey {
+          HStack(spacing: 8) {
+            EnigmaTextField("Paste your Gemini key", text: $key, isSecure: true,
+                            accessibilityLabel: "Gemini key for free models", onSubmit: save)
+            Button("Save", action: save)
+              .enigmaButtonStyle(.secondary)
+              .disabled(!CloudSettingsForm.canSave(key))
+              .accessibilityLabel("Save Gemini key and use free models")
+          }
+          EnigmaConnectionNote(Self.freeTierNote)
+        } else {
+          EnigmaRow(Self.autoToggleTitle, subtitle: Self.freeTierNote) {
+            EnigmaSwitch(Self.autoToggleTitle, isOn: $settings.autoMayUseFreeGemini)
+          }
+          Button("Remove key") { error = CloudSettingsForm.removeAPIKey(for: .gemini, in: settings) }
+            .enigmaButtonStyle(.text)
+            .accessibilityLabel("Remove Gemini key")
+            .padding(.leading, -8)
+        }
+        EnigmaConnectionNote(Self.billingNote)
+        if FreeModelCatalog.showsApple {
+          if #available(macOS 27, *) {
+            EnigmaConnectionNote(settings.isApplePCCAvailable ? "Apple's cloud model: ready" : "Apple's cloud model needs Apple Intelligence.")
+          } else {
+            EnigmaConnectionNote(Self.macOS26Note)
+          }
+        }
+        if let error { EnigmaStatusLine(.problem, error) }
+      }
+    }
+  }
+
+  @ViewBuilder private func action(hasKey: Bool) -> some View {
+    if !hasKey {
+      Button(Self.getKeyTitle) { NSWorkspace.shared.open(Self.keyPageURL) }
+        .enigmaButtonStyle(.secondary)
+        .accessibilityLabel("Get a free Gemini key from Google AI Studio")
+    } else if settings.preferredProvider != .free {
+      Button("Use Free models") {
+        settings.preferredProvider = .free
+        Task { await settings.discoverModels() }
+      }
+      .enigmaButtonStyle(.secondary)
+    }
+  }
+
+  private func save() {
+    guard CloudSettingsForm.canSave(key) else { return }
+    let pasted = key
+    key = ""
+    Task {
+      var pasted = pasted
+      error = await Self.connect(&pasted, in: settings)
+    }
+  }
+}
+
 /// Claude through the Claude Code sign-in on this Mac, which Claude Code owns.
 /// Claude Code is never bundled: when it is missing, Install runs Anthropic's
 /// official installer in Terminal.

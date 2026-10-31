@@ -9,6 +9,7 @@ struct CloudSettingsPage: View {
     VStack(alignment: .leading, spacing: 0) {
       ChatGPTConnectionControls(settings: settings)
       ClaudeCodeConnectionControls(settings: settings)
+      FreeModelsConnectionControls(settings: settings)
       EnigmaHairline()
       SettingsAdvanced { advanced }
     }

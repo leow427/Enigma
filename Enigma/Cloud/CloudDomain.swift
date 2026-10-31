@@ -78,8 +78,8 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     self == .free ? "Google (Gemini's free tier)" : displayName
   }
 
-  /// The providers Settings offers. Free models joins once its Settings row ships (F34 Task 6).
-  static let selectableProviders = allCases.filter { $0 != .free }
+  /// The providers Settings offers.
+  static let selectableProviders = allCases
 }
 
 struct CloudModel: Codable, Equatable, Identifiable, Sendable {

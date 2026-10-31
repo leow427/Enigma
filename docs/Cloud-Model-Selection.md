@@ -1,9 +1,9 @@
 # Cloud models
 
 Enigma can send a request to a cloud model when you choose Cloud, or when Auto
-decides a request needs more than the local model. It supports five providers:
-ChatGPT via Codex, Claude via Claude Code, and the OpenAI, Anthropic and Gemini
-APIs with your own key. This page covers connecting them, choosing a model, and
+decides a request needs more than the local model. It supports six providers:
+ChatGPT via Codex, Claude via Claude Code, Free models, and the OpenAI,
+Anthropic and Gemini APIs with your own key. This page covers connecting them, choosing a model, and
 how Auto picks between this Mac and the cloud.
 
 ## Modes
@@ -94,6 +94,7 @@ See the [report](history/2026-10-29-native-search-evaluation.md).
 |---|---|---|---|
 | **ChatGPT via Codex** | Your ChatGPT plan through the Codex CLI. See [ChatGPT-Setup.md](ChatGPT-Setup.md). | Codex's own model list, in Codex's order | The model Codex marks as its default, else the first listed, else `gpt-5.6-luna` |
 | **Claude via Claude Code** | Your Claude plan through Claude Code. See [Claude-Code-Setup.md](Claude-Code-Setup.md). | Sonnet, Opus, Fable and Haiku (latest), which Claude Code resolves to the newest model your plan offers | `sonnet` |
+| **Free models** | Gemini's free tier on your own Google key. See [Free-Models.md](Free-Models.md). | Gemini 2.5 Pro, Flash and Flash-Lite, most capable first; spent models move aside until they reset | `gemini-2.5-pro` |
 | **OpenAI** | Your OpenAI API key | The account's models, filtered to the reviewed list below, in fallback order | First reviewed model in the account's list |
 | **Anthropic** | Your Anthropic API key | The account's models, in Anthropic's order | First model listed |
 | **Gemini** | Your Gemini API key | The account's models that support `generateContent`, in Google's order | First model listed |
@@ -353,6 +354,8 @@ documentation, then update `CloudModelCapabilities`, this page and
   releases models.
 - Unknown models get a small context budget even if the provider supports more.
   Codex-listed models without a reviewed entry get conservative limits.
+- Free models' limits are Google's and can change; see
+  [Free-Models.md](Free-Models.md#limitations).
 - Auto's routing uses keyword rules, so it can misjudge a prompt. Choose Local or
   Cloud to override it.
 - Claude Code's aliases are assumed to take images; Claude Code doesn't report
@@ -390,6 +393,7 @@ or paid request:
   ChatGPT and Claude Code gates, kept caches and lists, the quiet Codex install
   over an older, OpenAI-signed system Codex, the app server switching to a new
   Codex only when idle, and surviving a Codex that exits mid-write.
+- `FreeModelsTests`: Free models' ranking, fallback, notices and Settings row.
 - `EnigmaSettingsTests`: the Cloud page and its Advanced section.
 
 Run one suite with

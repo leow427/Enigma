@@ -453,7 +453,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self, cloudCredentials: credentials)
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
     try await host.openAdvanced()
-    try await type("  sk-test-key ", intoFieldAt: 0, of: host)
+    // Field 0 is the Free models row's Gemini key; the OpenAI key field comes next.
+    try await type("  sk-test-key ", intoFieldAt: 1, of: host)
     try host.press("Save OpenAI API key")
     try await waitForUI("the key in the Keychain", in: host.view) {
       (try? credentials.apiKey(for: .openAI)) == "sk-test-key"
@@ -739,7 +740,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self, cloudCredentials: FailingCloudCredentials())
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
     try await host.openAdvanced()
-    let field = try await type("sk-test-key", intoFieldAt: 0, of: host)
+    let field = try await type("sk-test-key", intoFieldAt: 1, of: host)
     try host.press("Save OpenAI API key")
     let message = FailingCloudCredentials.Failure().localizedDescription
     try await waitForUI("the error line", in: host.view) { host.shows(message) }
