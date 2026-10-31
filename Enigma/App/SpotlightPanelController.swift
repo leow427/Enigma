@@ -618,6 +618,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   func hide() {
+    // Esc or ⌥⌃ during the tour leaves it, as End tour does. The tour's own
+    // step aside orders the window out quietly instead.
+    if GuidedTour.shared.isActive { GuidedTour.shared.requestFinish() }
     finishMove()
     // Hiding an already hidden panel keeps the time it was first hidden.
     hiddenAt = hiddenAt ?? now()

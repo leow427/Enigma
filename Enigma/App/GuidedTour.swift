@@ -65,8 +65,10 @@ final class GuidedTour: ObservableObject {
     // ⌘N or New chat at the new-chat step counts as doing it.
     newChatObserver = NotificationCenter.default.addObserver(forName: .newChatRequested, object: nil, queue: .main) { [weak self] _ in
       MainActor.assumeIsolated {
-        guard let self, self.beat == .ready, self.currentStep?.kind == .newChat else { return }
-        self.stepFinished()
+        guard let self, self.isActive else { return }
+        // ⌘N is the new-chat stop's step; anywhere else it leaves the tour.
+        guard self.currentStep?.kind == .newChat else { self.requestFinish(); return }
+        if self.beat == .ready { self.stepFinished() }
       }
     }
   }

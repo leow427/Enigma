@@ -245,6 +245,34 @@ final class AppCommandTests: XCTestCase {
     }
   }
 
+  /// Hiding the window (Esc, ⌥⌃) and ⌘N outside the new-chat stop leave the tour
+  /// the way End tour does; ⌘N at the new-chat stop is that stop's step.
+  @MainActor
+  func testHidingTheWindowOrANewChatLeavesTheTour() async throws {
+    let suite = "TourLeave-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: defaults), contentView: view,
+                                              welcomeSetup: WelcomeSetup(defaults: defaults))
+    defer { controller.hide() }
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    controller.show()
+    tour.go(.ask)
+    let hidden = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    controller.hide()
+    await fulfillment(of: [hidden], timeout: 1)
+    let newChat = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [newChat], timeout: 1)
+    tour.go(.newChat)
+    let stays = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    stays.isInverted = true
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [stays], timeout: 0.3)
+  }
+
   @MainActor
   func testARestartMidTourResumesAtTheSavedStop() throws {
     let suite = "TourResume-\(UUID())"

@@ -87,6 +87,8 @@ final class TourDocumentWindow {
 /// Takes keys, so Return reaches the card's button.
 private final class TourDocumentPanel: NSPanel {
   override var canBecomeKey: Bool { true }
+  /// Esc in the pretend document leaves the tour, so it's never left on screen alone.
+  override func cancelOperation(_ sender: Any?) { GuidedTour.shared.requestFinish() }
 }
 
 /// The pretend document in Enigma's theme, which only its card uses.
