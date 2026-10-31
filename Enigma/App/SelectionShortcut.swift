@@ -4,12 +4,22 @@ import Carbon
 import SwiftUI
 
 enum SelectionModifier: String, CaseIterable, Identifiable {
-  case option, command, shift
+  case option, command, shift, control
   var id: Self { self }
   var title: String { rawValue.capitalized }
-  var symbol: String { switch self { case .option: "⌥"; case .command: "⌘"; case .shift: "⇧" } }
-  var flags: NSEvent.ModifierFlags { switch self { case .option: .option; case .command: .command; case .shift: .shift } }
-  var keyCodes: [UInt16] { switch self { case .option: [58, 61]; case .command: [54, 55]; case .shift: [56, 60] } }
+  var symbol: String { switch self { case .option: "⌥"; case .command: "⌘"; case .shift: "⇧"; case .control: "⌃" } }
+  var flags: NSEvent.ModifierFlags {
+    switch self { case .option: .option; case .command: .command; case .shift: .shift; case .control: .control }
+  }
+  var keyCodes: [UInt16] {
+    switch self { case .option: [58, 61]; case .command: [54, 55]; case .shift: [56, 60]; case .control: [59, 62] }
+  }
+
+  /// The one modifier in `flags`, if it's one that can be double-tapped.
+  init?(flags: NSEvent.ModifierFlags) {
+    guard let modifier = Self.allCases.first(where: { $0.flags == flags }) else { return nil }
+    self = modifier
+  }
 
   /// What captures a selection, to follow "when you": the double tap of the chosen key
   /// while it's on, and the ⇧⌥Space backup, which is always registered.
@@ -19,11 +29,17 @@ enum SelectionModifier: String, CaseIterable, Identifiable {
   }
 }
 
-/// `SelectionModifier.shortcutPhrase` for the chosen key, kept current with the setting.
+/// How you ask about a selection, to follow "when you", kept current with Settings → Shortcuts.
 @MainActor @propertyWrapper struct SelectionShortcutPhrase: DynamicProperty {
-  @AppStorage(SelectionShortcutMonitor.modifierKey) private var modifier = SelectionModifier.option.rawValue
-  @AppStorage(SelectionShortcutMonitor.enabledKey) private var isEnabled = true
-  var wrappedValue: String { SelectionModifier.shortcutPhrase(modifier: modifier, isEnabled: isEnabled) }
+  @ObservedObject private var store = ShortcutStore.shared
+  var wrappedValue: String {
+    if store.selectionSameAsSummon, let summon = store.binding(.summon) { return "press \(summon.display) or ⇧⌥Space" }
+    guard let binding = store.binding(.selection) else { return "press ⇧⌥Space" }
+    if binding.kind == .doubleTap, let modifier = SelectionModifier(flags: binding.flags) {
+      return "double-tap \(modifier.title) or press ⇧⌥Space"
+    }
+    return "press \(binding.display) or ⇧⌥Space"
+  }
 }
 
 struct OptionDoubleTap {
@@ -68,8 +84,8 @@ struct OptionDoubleTap {
 
 @MainActor
 final class SelectionShortcutMonitor {
-  static let modifierKey = "enigma.selection.modifier"
-  static let enabledKey = "enigma.selection.doubleOption.enabled"
+  nonisolated static let modifierKey = "enigma.selection.modifier"
+  nonisolated static let enabledKey = "enigma.selection.doubleOption.enabled"
   static let intervalKey = "enigma.selection.doubleOption.interval"
   private var accessibilityGranted = false
   private var activationObserver: NSObjectProtocol?
@@ -78,9 +94,13 @@ final class SelectionShortcutMonitor {
   private var detector = OptionDoubleTap()
   private let handler: @MainActor () -> Void
   private let firstTap: @MainActor () -> Void
+  /// F14 spike: the action whose double tap this watches for, as chosen in Settings.
+  private let action: ShortcutAction
 
   /// `firstTap` runs when a tap could be the start of a double tap, before it is one.
-  init(firstTap: @escaping @MainActor () -> Void = {}, handler: @escaping @MainActor () -> Void) {
+  init(action: ShortcutAction = .selection, firstTap: @escaping @MainActor () -> Void = {},
+       handler: @escaping @MainActor () -> Void) {
+    self.action = action
     self.firstTap = firstTap
     self.handler = handler
   }
@@ -118,9 +138,11 @@ final class SelectionShortcutMonitor {
   }
 
   private func receive(_ event: NSEvent) {
-    guard UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true,
-          !IsSecureEventInputEnabled() else { detector.reset(); return }
-    let modifier = SelectionModifier(rawValue: UserDefaults.standard.string(forKey: Self.modifierKey) ?? "option") ?? .option
+    let store = ShortcutStore.shared
+    guard !IsSecureEventInputEnabled(), !store.isRecording, let binding = store.binding(action),
+          binding.kind == .doubleTap, let modifier = SelectionModifier(flags: binding.flags) else {
+      detector.reset(); return
+    }
     if detector.modifier != modifier { detector.reset(); detector.modifier = modifier }
     let configured = UserDefaults.standard.double(forKey: Self.intervalKey)
     detector.interval = configured >= 0.2 && configured <= 0.6 ? configured : 0.35

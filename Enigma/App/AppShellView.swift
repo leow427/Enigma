@@ -477,6 +477,12 @@ struct AppShellView: View {
       // Leaving the tour's text unapproved doesn't send it.
       if messages.pendingSend != nil { messages.answer(false) }
     }
+    // F14 spike: a command's own shortcut starts it in the composer, as its example does.
+    .onReceive(NotificationCenter.default.publisher(for: .commandShortcutPressed)) { notification in
+      guard let command = notification.object as? SlashCommand, composerCanType else { return }
+      shell.isComposerFocused = true
+      composerInsertion = SlashCommandInsertion(text: command.token + " ")
+    }
     .onReceive(NotificationCenter.default.publisher(for: .guidedTourAction)) { notification in
       if let action = notification.object as? GuidedTour.Action { performTourAction(action) }
     }

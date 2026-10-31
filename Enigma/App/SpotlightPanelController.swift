@@ -318,7 +318,14 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   private var selectionInvocation: Task<Void, Never>?
 
-  func summonSelectionContext() {
+  /// F14 spike: the summon shortcut, when it also asks about selections: a
+  /// fresh selection opens the selection panel, and anything else the window.
+  func summonOrSelect() {
+    guard !isVisible else { hide(); return }
+    summonSelectionContext(orElse: { [weak self] in self?.show() })
+  }
+
+  func summonSelectionContext(orElse: (() -> Void)? = nil) {
     // F14 spike: during the tour's selection stop, ⌥⌥ takes its step instead of reading another app.
     if GuidedTour.shared.stop == .selection { GuidedTour.shared.shortcutPressed(); return }
     guard !isCapturingScreen, selectionInvocation == nil else { return }
@@ -330,6 +337,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       guard let self else { return }
       defer { self.selectionInvocation = nil }
       guard !self.isCapturingScreen else { service.discardTarget(); return }
+      if context == nil, let orElse { service.discardTarget(); orElse(); return }
       self.presentSelectionContext(context, cursor: cursor, selection: service.selectionBounds(), visible: visible)
     }
   }
@@ -762,12 +770,15 @@ private final class SpotlightPanel: NSPanel {
       onHide?()
       return true
     }
-    if let shortcut = PanelShortcut.resolve(
-      characters: event.charactersIgnoringModifiers,
-      modifiers: event.modifierFlags,
-      keyCode: event.keyCode
-    ) {
+    // F14 spike: the shortcuts chosen in Settings → Shortcuts.
+    switch ShortcutStore.shared.action(for: event) {
+    case .panel(let shortcut)?:
       if onShortcut?(shortcut) == true { return true }
+    case .command(let command)?:
+      NotificationCenter.default.post(name: .commandShortcutPressed, object: command)
+      return true
+    default:
+      break
     }
     return super.performKeyEquivalent(with: event)
   }

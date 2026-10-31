@@ -75,7 +75,7 @@ struct SettingsView: View {
     var subtitle: String {
       switch self {
       case .general: "How Enigma looks and starts."
-      case .shortcuts: "Enigma works from the keyboard, in any app."
+      case .shortcuts: "Enigma works from the keyboard. Change any shortcut."
       case .local: "Models that run on this Mac, with nothing sent anywhere."
       case .cloud: "Optional ChatGPT and Claude, for harder questions."
       case .search: "Web search, places and weather."
@@ -277,7 +277,7 @@ struct SettingsView: View {
     case .general:
       GeneralSettingsPage(appearance: appearance, startPreferences: startPreferences, chat: chat)
     case .shortcuts:
-      KeyboardShortcutsList()
+      ShortcutEditor()
     case .local:
       LocalModelManagerSection(advisor: advisor, chat: chat)
     case .cloud:
