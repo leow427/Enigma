@@ -72,6 +72,11 @@ GitHub Actions currently runs `xcodebuild test` on `macos-26` for pushes to
 `main` and pull requests. It does not run the helper's separate `build` or
 `analyze` actions, so run those locally when they are relevant to the change.
 
+## Agent Workflow
+
+Every code change is built in checkpoints, one worker chat each, with fresh
+reviewer agents auditing every round. Follow `docs/Agent-Workflow.md`.
+
 ## Implementation and Test Expectations
 
 - Follow the existing Swift style and local patterns; use clear, feature-based

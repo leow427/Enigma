@@ -1,15 +1,22 @@
 # F29 agent workflow
 
 F29 is built one checkpoint at a time, on the branch
-`feat/f29-on-device-search`. Each checkpoint goes through the same steps:
+`feat/f29-on-device-search`, following the repository-wide
+[agent workflow](../../../Agent-Workflow.md); this file adds F29's own rules.
+Each checkpoint goes through the same steps:
 
 1. The owner starts a fresh chat with a worker, using the prompt in
    [Starting a checkpoint](#starting-a-checkpoint).
 2. The worker builds it from its brief.
 3. The worker starts a fresh reviewer agent to audit it.
-4. The worker fixes what the reviewer found. Rounds repeat, with a new
-   reviewer each time, until a round finds no Blocker or Should fix, for
-   at most three rounds.
+4. The worker fixes what the reviewer found, then decides whether another
+   round is needed:
+   - Round 2 runs unless round 1 found only small fixes. Small means a
+     wording change, a missing test or a one-line correction, which the
+     worker fixes and checks itself.
+   - Round 3 runs only if round 2 still found real issues.
+   - No round 4. If round 3 still finds a Blocker, fix what you can, then
+     stop and ask the owner before committing.
 5. The worker verifies the result and commits it in one commit, together
    with its row in the progress log in the [plan](../2026-10-27-f29-on-device-web-search.md).
 
@@ -44,9 +51,10 @@ questions, and makes every decision the brief marks for the owner.
   the branch.
 
 **Reviewer:** an agent the worker starts with the Agent tool, set to
-`model: "opus"` and `effort: "xhigh"`. Both settings are required. It
-audits the worker's changes, never edits a file, and reports findings to the
-worker.
+`model: "opus"` and `effort: "xhigh"`, in every round, even if the worker
+runs on a cheaper model. It audits the worker's changes, never edits a file,
+and reports findings to the worker. Never trim a review to save usage; its
+size follows what it finds.
 
 ## Rules for workers
 
@@ -251,12 +259,15 @@ sends:
    `model: "opus"` and `effort: "xhigh"`. Give it the
    workflow file, the brief, `docs/reviewer.md`, and the base commit to diff
    against. Don't add your own account of the changes; it reads the code.
-4. Fix every Blocker and Should fix. Start a new reviewer for each round,
-   until a round has neither, for at most three rounds. If the third round
-   still finds one, fix what you can, then stop and ask the owner before
-   committing. Ask the owner about any finding you think is wrong rather
-   than skipping it. If a round's only finding is one small Should fix, fix
-   it and test it yourself; it needs no further round (owner rule).
+4. Fix every Blocker and Should fix, then:
+   - After round 1: if every finding was small, fix and test them yourself
+     and go to step 5. Otherwise start a new reviewer for round 2.
+   - After round 2: if it still finds real issues, fix them and run round 3.
+     If its findings are small, fix and test them yourself and go to step 5.
+   - After round 3: fix what it found. If a Blocker remains, stop and ask
+     the owner before committing.
+   - Throughout: ask the owner about any finding you think is wrong rather
+     than skipping it. Each round gets a fresh reviewer.
 5. Rerun the brief's exit checks, with the full `test` once. Read the whole
    diff. Check `git status`
    for strays, and check the Hand-off for private data.
