@@ -210,6 +210,104 @@ final class AppCommandTests: XCTestCase {
     )
   }
 
+  /// Leaving the tour from any stop puts the window back as it was: its size,
+  /// fully shown, the page at full width, and no pretend document left open.
+  @MainActor
+  func testLeavingTheTourFromAnyStopRestoresTheWindow() async throws {
+    let suite = "TourExit-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = PanelSizeStore(defaults: defaults)
+    let normal = NSSize(width: 900, height: 610)
+    store.save(normal)
+    let setup = WelcomeSetup(defaults: defaults)
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: store, contentView: view, welcomeSetup: setup)
+    let window = try XCTUnwrap(view.window)
+    defer { controller.hide() }
+    setup.start(hasInstalledModels: true)
+    controller.show()
+    let tour = GuidedTour.shared
+    for stop in GuidedTour.Stop.allCases {
+      tour.go(stop)
+      try await Task.sleep(for: .milliseconds(stop == .selection ? 900 : 100))
+      tour.end()
+      let deadline = Date().addingTimeInterval(3)
+      while Date() < deadline, window.alphaValue < 1 || !window.isVisible || window.frame.size != normal
+              || TourDocumentWindow.shared.isShowing {
+        try await Task.sleep(for: .milliseconds(50))
+      }
+      XCTAssertEqual(window.frame.size, normal, "\(stop)")
+      XCTAssertEqual(window.alphaValue, 1, "\(stop)")
+      XCTAssertTrue(window.isVisible, "\(stop)")
+      XCTAssertNil(tour.pageWidth, "\(stop)")
+      XCTAssertFalse(TourDocumentWindow.shared.isShowing, "\(stop)")
+    }
+  }
+
+  /// Hiding the window (Esc, ⌥⌃) and ⌘N outside the new-chat stop leave the tour
+  /// the way End tour does; ⌘N at the new-chat stop is that stop's step.
+  @MainActor
+  func testHidingTheWindowOrANewChatLeavesTheTour() async throws {
+    let suite = "TourLeave-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: defaults), contentView: view,
+                                              welcomeSetup: WelcomeSetup(defaults: defaults))
+    defer { controller.hide() }
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    controller.show()
+    tour.go(.ask)
+    let hidden = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    controller.hide()
+    await fulfillment(of: [hidden], timeout: 1)
+    // At the permissions stop, hiding is how people reach System Settings: the tour waits.
+    controller.show()
+    tour.go(.permissions)
+    let keeps = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    keeps.isInverted = true
+    controller.hide()
+    await fulfillment(of: [keeps], timeout: 0.3)
+    XCTAssertEqual(tour.stop, .permissions)
+    tour.go(.ask)
+    let newChat = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [newChat], timeout: 1)
+    tour.go(.newChat)
+    let stays = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    stays.isInverted = true
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [stays], timeout: 0.3)
+    // Return or the card's New chat button takes the step first, then asks for the chat.
+    tour.go(.newChat)
+    try await Task.sleep(for: .milliseconds(300))
+    guard case .newChat = tour.advance() else { return XCTFail("Return at the new-chat stop asks for a new chat") }
+    let staysAfterReturn = expectation(forNotification: .guidedTourFinishRequested, object: nil)
+    staysAfterReturn.isInverted = true
+    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    await fulfillment(of: [staysAfterReturn], timeout: 0.3)
+    XCTAssertEqual(tour.stop, .newChat)
+  }
+
+  @MainActor
+  func testARestartMidTourResumesAtTheSavedStop() throws {
+    let suite = "TourResume-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let before = GuidedTour(defaults: defaults, persists: true)
+    before.go(.messages)
+    // Quitting mid-tour never calls end(), so the stop stays saved.
+    defer { before.end() }
+    let after = GuidedTour(defaults: defaults, persists: true)
+    after.resumeIfInterrupted()
+    XCTAssertEqual(after.stop, .messages)
+    XCTAssertTrue(after.resumed)
+    after.end()
+    XCTAssertNil(UserDefaults.standard.object(forKey: GuidedTour.progressKey), "The test host never saves the tour")
+  }
+
   @MainActor
   func testWelcomeTemporarilyEnlargesPanelThroughTourWithoutSavingItsSize() async throws {
     let suite = "WelcomePanel-\(UUID())"
@@ -235,10 +333,13 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(window.frame.size, enlarged)
     controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
     XCTAssertEqual(store.load(), normal)
+    // The hands-on tour grows the window by its rail.
     setup.finish(takeTour: true)
     await settleSizing()
-    XCTAssertEqual(window.frame.size, enlarged)
-    setup.endTour()
+    let touring = PanelSizeStore.centeredFrame(
+      size: NSSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), in: visible).size
+    XCTAssertEqual(window.frame.size, touring)
+    GuidedTour.shared.end()
     await settleSizing()
     XCTAssertEqual(window.frame.size, normal)
     setup.replay()
@@ -352,4 +453,176 @@ final class AppCommandTests: XCTestCase {
 
     XCTAssertEqual(frame, visibleFrame)
   }
+
+  // MARK: Shortcuts you choose
+
+  private func key(_ code: UInt16, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
+    try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+                                   context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false,
+                                   keyCode: code))
+  }
+
+  @MainActor
+  func testSavedKeysHaveTheirFinalNames() {
+    XCTAssertEqual(GuidedTour.progressKey, "guidedTour.stop.v1")
+    XCTAssertEqual(ShortcutStore.overridesKey, "enigma.shortcuts.overrides.v1")
+    XCTAssertEqual(ShortcutStore.sameAsSummonKey, "enigma.shortcuts.selectionSameAsSummon.v1")
+  }
+
+  @MainActor
+  func testDefaultShortcutsAreTodaysAndChangesPersistAndReset() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let expected: [(UInt16, NSEvent.ModifierFlags, PanelShortcut)] = [
+      (45, .command, .newChat), (40, .command, .modePalette), (47, .command, .stopStreaming),
+      (48, .control, .cycleRecentChat), (43, .command, .settings), (1, [.control, .command], .toggleSidebar),
+      (31, .command, .openInWindow), (0, [.shift, .command], .fileMode),
+    ]
+    for (code, flags, shortcut) in expected {
+      XCTAssertEqual(store.action(for: try key(code, flags)), .panel(shortcut), "\(shortcut)")
+    }
+    XCTAssertNil(store.action(for: try key(45, [.command, .shift])), "⇧⌘N is not New chat")
+    XCTAssertEqual(store.binding(.summon)?.display, "⌃⌥")
+
+    let think = KeyBinding.keys("t", [.control, .option])
+    store.set(think, for: .command(.think))
+    store.set(nil, for: .panel(.newChat))
+    XCTAssertEqual(store.action(for: try key(17, [.control, .option])), .command(.think))
+    XCTAssertNil(store.action(for: try key(45, .command)), "New chat's shortcut was removed")
+    let reloaded = ShortcutStore(defaults: defaults)
+    XCTAssertEqual(reloaded.binding(.command(.think)), think)
+    XCTAssertNil(reloaded.binding(.panel(.newChat)))
+    reloaded.reset(.panel(.newChat))
+    XCTAssertEqual(reloaded.action(for: try key(45, .command)), .panel(.newChat))
+    reloaded.selectionSameAsSummon = true
+    XCTAssertNil(reloaded.binding(.selection))
+    reloaded.resetAll()
+    XCTAssertNil(reloaded.binding(.command(.think)))
+    XCTAssertFalse(reloaded.selectionSameAsSummon)
+  }
+
+  @MainActor
+  func testAShortcutThatIsTakenIsRefused() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    XCTAssertEqual(store.conflict(.keys("n", .command), for: .command(.search)),
+                   ShortcutConflict(message: "⌘N is already New chat.", blocks: true))
+    XCTAssertNil(store.conflict(.keys("n", .command), for: .panel(.newChat)), "Its own shortcut is free")
+    XCTAssertEqual(store.conflict(.keys("q", .command), for: .command(.search)),
+                   ShortcutConflict(message: "macOS uses ⌘Q for Quit.", blocks: false))
+    XCTAssertEqual(store.conflict(ShortcutStore.selectionBackup, for: .summon)?.blocks, true)
+    XCTAssertEqual(store.conflict(KeyBinding(kind: .chord, modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue),
+                                  for: .selection)?.message, "⌃⌥ is already Open or hide Enigma.")
+    XCTAssertNil(store.conflict(.keys("t", [.control, .option]), for: .command(.think)))
+    XCTAssertEqual(KeyBinding(kind: .doubleTap, modifiers: NSEvent.ModifierFlags.option.rawValue).display, "⌥⌥")
+  }
+
+  /// Recording never outlives its window: leaving or closing Settings stops it,
+  /// so the global shortcuts and typing elsewhere come back.
+  @MainActor
+  func testRecordingStopsWhenItsWindowLosesFocusOrCloses() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let recorder = ShortcutRecorder(store: store)
+    let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+    for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+      recorder.start(.summon, in: window)
+      XCTAssertTrue(store.isRecording)
+      NotificationCenter.default.post(name: name, object: window)
+      XCTAssertNil(recorder.recording, "\(name.rawValue)")
+      XCTAssertFalse(store.isRecording, "\(name.rawValue)")
+    }
+  }
+
+  @MainActor
+  func testAMacOSShortcutWarnsButIsAllowed() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let conflict = try XCTUnwrap(store.conflict(.keys(" ", .command, keyCode: 49), for: .panel(.newChat)))
+    XCTAssertFalse(conflict.blocks)
+    XCTAssertEqual(conflict.message, "macOS uses ⌘Space for Spotlight.")
+    // macOS takes these keys before Enigma sees them, so a shortcut that works anywhere can't use them.
+    XCTAssertEqual(store.conflict(.keys(" ", .command, keyCode: 49), for: .summon)?.blocks, true)
+  }
+
+  @MainActor
+  func testHelpListsAChangedShortcut() throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    store.set(.keys("j", .command), for: .panel(.newChat))
+    let shortcuts = KeyboardShortcutsHelp.windowShortcuts(store)
+    XCTAssertTrue(shortcuts.contains(KeyboardShortcutsHelp.Shortcut("New chat", "⌘J")), "\(shortcuts)")
+    XCTAssertEqual(KeyboardShortcutsHelp.summon(store).keys, "⌃⌥")
+  }
+
+  /// Changing the default ⌥⌃ to keys another app holds keeps ⌥⌃, and Reset
+  /// clears the note.
+  @MainActor
+  func testAFailedChangeFromTheDefaultKeepsTheDefault() async throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let original = store.binding(.summon)
+    let blocker = GlobalHotKeyMonitor(keyCode: 38, modifiers: UInt32(cmdKey | optionKey | controlKey),
+                                      identifier: 98, name: "test") {}
+    try blocker.start()
+    defer { blocker.stop() }
+    let hotKeys = ShortcutHotKeys(store: store, handlers: [.summon: {}])
+    hotKeys.start()
+    defer { hotKeys.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    store.set(.keys("j", [.control, .option, .command], keyCode: 38), for: .summon)
+    try await Task.sleep(for: .milliseconds(200))
+    XCTAssertEqual(store.binding(.summon), original, "⌥⌃ still works")
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id))
+    store.reset(.summon)
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id), "Reset clears the note")
+    store.failedActions.insert(ShortcutAction.selection.id)
+    store.resetAll()
+    XCTAssertTrue(store.failedActions.isEmpty, "Restore Defaults clears every note")
+  }
+
+  /// A key another app (here, this test) already holds can't be registered:
+  /// the row says so and the shortcut before it keeps working.
+  @MainActor
+  func testAShortcutThatFailsToRegisterSaysSo() async throws {
+    let suite = "ShortcutStoreTest-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+    let store = ShortcutStore(defaults: defaults)
+    let free = KeyBinding.keys("h", [.control, .option, .command], keyCode: 4)
+    let taken = KeyBinding.keys("j", [.control, .option, .command], keyCode: 38)
+    let blocker = GlobalHotKeyMonitor(keyCode: 38, modifiers: UInt32(cmdKey | optionKey | controlKey),
+                                      identifier: 99, name: "test") {}
+    try blocker.start()
+    defer { blocker.stop() }
+    store.set(free, for: .summon)
+    let hotKeys = ShortcutHotKeys(store: store, handlers: [.summon: {}])
+    hotKeys.start()
+    defer { hotKeys.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id))
+    store.set(taken, for: .summon)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id))
+    XCTAssertEqual(hotKeys.registered[.summon], free, "The shortcut before it stays registered")
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(store.binding(.summon), free, "What's saved is what works, so the next launch has it too")
+    XCTAssertTrue(store.failedActions.contains(ShortcutAction.summon.id), "The row still says the new one failed")
+    store.set(.keys("k", [.control, .option, .command], keyCode: 40), for: .summon)
+    XCTAssertFalse(store.failedActions.contains(ShortcutAction.summon.id), "A new choice clears the note")
+    XCTAssertEqual(ShortcutEditor.failureNote, "Couldn’t set this shortcut. Another app may be using it.")
+  }
+
 }

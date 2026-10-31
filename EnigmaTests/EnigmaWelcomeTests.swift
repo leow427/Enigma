@@ -10,6 +10,73 @@ final class EnigmaWelcomeTests: XCTestCase {
 
   // MARK: Flow logic
 
+  /// VoiceOver reads the counter in words and each checklist step's state.
+  @MainActor
+  func testTourCardSpeaksItsCounterAndSteps() {
+    XCTAssertEqual(GuidedTour.Stop.ask.counterLabel, "Stop 1 of \(GuidedTour.Stop.allCases.count)")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: true, isCurrent: false), "done")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: false, isCurrent: true), "current")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: false, isCurrent: false), "to do")
+  }
+
+  func testInviteShowsOnceToExistingUsersOnly() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    XCTAssertTrue(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: false))
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: true))
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: false, isFreshSetup: false))
+    defaults.set(true, forKey: GuidedTour.inviteKey)
+    XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true, isFreshSetup: false))
+  }
+
+  /// Someone who finished setup (with or without the tour) or took the tour from
+  /// Replay has seen it: the invite never follows.
+  @MainActor
+  func testFinishingSetupOrTakingTheTourRetiresTheInvite() {
+    for takeTour in [false, true] {
+      let suite = "\(#function)-\(takeTour)"
+      let defaults = UserDefaults(suiteName: suite)!
+      defaults.removePersistentDomain(forName: suite)
+      let setup = WelcomeSetup(defaults: defaults)
+      setup.start(hasInstalledModels: false)
+      setup.finish(takeTour: takeTour)
+      GuidedTour.shared.end()
+      let nextLaunch = WelcomeSetup(defaults: defaults)
+      nextLaunch.start(hasInstalledModels: true)
+      XCTAssertFalse(GuidedTour.showsInvite(defaults: defaults, setupCompleted: true,
+                                            isFreshSetup: !nextLaunch.wasCompletedBeforeLaunch), "takeTour \(takeTour)")
+    }
+  }
+
+  @MainActor
+  func testSetupInterruptedBeforeTheUpdateResumesWithoutAnInvite() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    defaults.set(WelcomeSetup.Step.models.rawValue, forKey: WelcomeSetup.progressKey)
+    let setup = WelcomeSetup(defaults: defaults)
+    setup.start(hasInstalledModels: true)
+    XCTAssertTrue(setup.isPresented)
+    XCTAssertEqual(setup.step, .models)
+    XCTAssertFalse(setup.wasCompletedBeforeLaunch)
+  }
+
+  @MainActor
+  func testExistingUsersCountAsSetUpBeforeLaunch() {
+    let defaults = UserDefaults(suiteName: #function)!
+    defaults.removePersistentDomain(forName: #function)
+    let migrated = WelcomeSetup(defaults: defaults)
+    migrated.start(hasInstalledModels: true)
+    XCTAssertFalse(migrated.isPresented)
+    XCTAssertTrue(migrated.wasCompletedBeforeLaunch, "Someone with a model from before setup existed")
+    let finished = WelcomeSetup(defaults: defaults)
+    finished.start(hasInstalledModels: false)
+    XCTAssertTrue(finished.wasCompletedBeforeLaunch)
+    let fresh = WelcomeSetup(defaults: UserDefaults(suiteName: #function + ".fresh")!)
+    UserDefaults(suiteName: #function + ".fresh")!.removePersistentDomain(forName: #function + ".fresh")
+    fresh.start(hasInstalledModels: false)
+    XCTAssertFalse(fresh.wasCompletedBeforeLaunch)
+  }
+
   @MainActor
   func testCounterReadsTheStepOutOfFour() {
     XCTAssertEqual(WelcomeSetup.Step.allCases.map(WelcomeSetup.counter(for:)), ["1/4", "2/4", "3/4", "4/4"])
@@ -34,8 +101,8 @@ final class EnigmaWelcomeTests: XCTestCase {
   @MainActor
   func testCharacterGlidesFromTheWelcomeIntoTheStepHeader() {
     XCTAssertEqual(WelcomeSetup.characterSlot(for: .welcome), .hero)
-    XCTAssertEqual(WelcomeSetup.CharacterSlot.hero.size, 150)
-    XCTAssertEqual(WelcomeSetup.CharacterSlot.header.size, 40)
+    XCTAssertEqual(WelcomeSetup.CharacterSlot.hero.size, 170)
+    XCTAssertEqual(WelcomeSetup.CharacterSlot.header.size, 44)
     XCTAssertNotEqual(WelcomeSetup.CharacterSlot.hero.id, WelcomeSetup.CharacterSlot.header.id)
     for step in [WelcomeSetup.Step.models, .connections, .walkthrough] {
       XCTAssertEqual(WelcomeSetup.characterSlot(for: step), .header)
@@ -134,40 +201,6 @@ final class EnigmaWelcomeTests: XCTestCase {
   }
 
   @MainActor
-  func testTourNamesTheSidebarShortcut() {
-    XCTAssertTrue(WelcomeTourStep.history.detail.contains("⌃⌘S"), WelcomeTourStep.history.detail)
-    XCTAssertFalse(WelcomeTourStep.history.detail.contains("Control"), WelcomeTourStep.history.detail)
-    XCTAssertEqual(PanelShortcut.resolve(characters: "s", modifiers: [.control, .command]), .toggleSidebar)
-  }
-
-  func testTourCardStaysInsideTheWindowAndBesideItsTarget() {
-    for container in [CGSize(width: 640, height: 420), CGSize(width: 1200, height: 780)] {
-      let height: CGFloat = 200
-      let top = WelcomeTourPlacement(target: CGRect(x: 20, y: 30, width: 40, height: 30), container: container,
-                                     cardHeight: height)
-      XCTAssertEqual(top.highlight, CGRect(x: 15, y: 25, width: 50, height: 40))
-      XCTAssertEqual(top.cardOrigin.y, top.highlight.maxY + 16, "Below a target in the top half")
-      let bottom = WelcomeTourPlacement(target: CGRect(x: container.width - 300, y: container.height - 60,
-                                                       width: 280, height: 44),
-                                        container: container, cardHeight: height)
-      XCTAssertEqual(bottom.cardOrigin.y + height, bottom.highlight.minY - 16, "Above a target in the bottom half")
-      let missing = WelcomeTourPlacement(target: nil, container: container, cardHeight: height)
-      XCTAssertEqual(missing.highlight.size, .zero)
-      let offscreen = WelcomeTourPlacement(target: CGRect(x: -400, y: -400, width: 10, height: 10),
-                                           container: container, cardHeight: height)
-      XCTAssertEqual(offscreen.highlight.size, .zero, "A target outside the window falls back")
-      for placement in [top, bottom, missing, offscreen] {
-        XCTAssertLessThanOrEqual(placement.cardWidth, WelcomeTourPlacement.maximumCardWidth)
-        let card = CGRect(origin: placement.cardOrigin, size: CGSize(width: placement.cardWidth, height: height))
-        XCTAssertTrue(CGRect(origin: .zero, size: container).insetBy(dx: 15.9, dy: 15.9).contains(card),
-                      "\(card) leaves \(container)")
-      }
-    }
-  }
-
-  // MARK: Rendering
-
-  @MainActor
   func testWelcomeRendersEveryStepAtMinimumAndDefaultPanelSizes() async throws {
     let fixture = try await Fixture(test: self)
     fixture.setup.replay()
@@ -223,10 +256,7 @@ final class EnigmaWelcomeTests: XCTestCase {
         composerEditor(in: view)?.isEditable == false
       }
       fixture.setup.finish(takeTour: exit != 0)
-      if exit == 1 { fixture.setup.endTour() }
-      if exit == 2 {
-        for _ in WelcomeTourStep.allCases { fixture.setup.nextTourStep() }
-      }
+      if exit != 0 { GuidedTour.shared.end() }
       try await waitForUI("new welcome exit \(exit) to enable, focus, and uncover the composer", in: view) {
         guard let composer = composerEditor(in: view) else { return false }
         return composer.isEditable && composer.window?.firstResponder === composer && composerAcceptsClicks(in: view)
@@ -271,11 +301,30 @@ final class EnigmaWelcomeTests: XCTestCase {
     fixture.setup.step = .walkthrough
     try await waitForUI("the walkthrough", in: view) { true }
     try pressReturn()
-    try await waitForUI("Return to take the tour", in: view) { fixture.setup.tour == .history }
+    // Return starts the hands-on tour in the main window.
+    try await waitForUI("Return to take the tour", in: view) { GuidedTour.shared.isActive }
+    GuidedTour.shared.end()
     XCTAssertFalse(fixture.setup.isPresented)
   }
 
   // MARK: Screenshots
+
+  /// The card stays in its rail, level with what it points at,
+  /// with room above it for the character.
+  func testGuidedTourCardStaysInItsRail() {
+    let window = CGSize(width: 1632, height: 860)
+    let railStart = window.width - GuidedTourPlacement.railWidth
+    let composer = CGRect(x: 420, y: 760, width: 680, height: 72)
+    let low = GuidedTourPlacement(target: composer, container: window, cardHeight: 240)
+    XCTAssertGreaterThan(low.cardOrigin.x, railStart)
+    XCTAssertLessThanOrEqual(low.cardOrigin.x + low.cardWidth, window.width - GuidedTourPlacement.margin)
+    XCTAssertEqual(low.cardOrigin.y + 240, window.height - GuidedTourPlacement.margin)
+    let high = GuidedTourPlacement(target: CGRect(x: 420, y: 10, width: 40, height: 20), container: window, cardHeight: 240)
+    XCTAssertEqual(high.cardOrigin.y, GuidedTourPlacement.perchRoom)
+    let middle = GuidedTourPlacement(target: CGRect(x: 420, y: 400, width: 680, height: 60), container: window, cardHeight: 200)
+    XCTAssertEqual(middle.cardOrigin.y + 100, 430)
+    XCTAssertNil(GuidedTourPlacement(target: nil, container: window, cardHeight: 200).highlight)
+  }
 
   @MainActor
   func testSaveWelcomeScreenshots() async throws {
@@ -288,10 +337,25 @@ final class EnigmaWelcomeTests: XCTestCase {
       try await saveWelcome("welcome-\(step.rawValue + 1)-\(step)", fixture: fixture, step: step, size: defaultSize)
     }
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
-    try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {
-      WelcomeTourCard(setup: fixture.setup, step: .commands,
-                            availableCommands: SlashCommand.available())
-        .frame(width: WelcomeTourPlacement.maximumCardWidth)
+    for stop in [GuidedTour.Stop.ask, .code, .keys, .selection, .messages, .modes, .permissions, .done] {
+      try EnigmaSnapshot.save("guided-\(stop)", size: CGSize(width: 360, height: 620)) {
+        GuidedTourCard(tour: GuidedTour(), stop: stop, onAdvance: {}, onFinish: {})
+          .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
+      }
+    }
+    // The selection stop's pretend document, beat by beat.
+    let sceneTour = GuidedTour(defaults: UserDefaults(suiteName: "GuidedTourScene-\(UUID())")!)
+    let beats: [(String, TourScene)] = [
+      ("document", TourScene()),
+      ("selected", TourScene(phase: .selected)),
+      ("keys", TourScene(phase: .selected, keys: 2)),
+      ("replaced", TourScene(phase: .replaced)),
+    ]
+    for (name, scene) in beats {
+      sceneTour.scene = scene
+      try EnigmaSnapshot.save("guided-document-\(name)", size: TourDocumentWindow.contentSize) {
+        TourDocumentView(tour: sceneTour, measures: false)
+      }
     }
   }
 
@@ -497,24 +561,6 @@ extension EnigmaWelcomeTests {
       }
       return search(view)
     }
-  }
-
-  /// Retargeted (CP8, Task 8.4): search needs no setup, so the connections step shows the Web
-  /// search row as ready, with no key field for the character to watch.
-  @MainActor
-  func testConnectionsStepShowsWebSearchReadyWithNoKeyField() async throws {
-    let credentials = RecordingSearchCredentials()
-    let fixture = try await Fixture(test: self, searchCredentials: credentials)
-    fixture.setup.replay()
-    fixture.setup.step = .connections
-    let host = Host(fixture, test: self)
-    try await waitForUI("the Web search row", in: host.view) { host.shows("ready · no setup needed") }
-    XCTAssertTrue(host.shows("Web search"))
-    XCTAssertNil(host.keyField, "No Brave key field in the welcome")
-    XCTAssertFalse(host.shows("Brave"))
-    XCTAssertFalse(host.shows("Get a Brave API key"))
-    XCTAssertEqual(host.character.state, .idle)
-    XCTAssertTrue(credentials.saved.isEmpty)
   }
 
   @MainActor

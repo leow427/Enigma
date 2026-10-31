@@ -174,7 +174,7 @@ final class ShellPresentationTests: XCTestCase {
     shell.isWhatsNewPresented = true
     shell.isComposerFocused = true
 
-    shell.welcomeChanged(isPresented: true, isTourActive: false)
+    shell.welcomeChanged(isPresented: true)
     XCTAssertFalse(shell.isModePalettePresented)
     XCTAssertFalse(shell.isHelpPresented)
     XCTAssertFalse(shell.isWhatsNewPresented)
@@ -182,15 +182,10 @@ final class ShellPresentationTests: XCTestCase {
     XCTAssertEqual(shell.selectedMode, .cloud)
 
     shell.isHelpPresented = true
-    shell.welcomeChanged(isPresented: false, isTourActive: true)
+    shell.welcomeChanged(isPresented: false)
     XCTAssertTrue(shell.isHelpPresented, "Closing Welcome leaves Help alone")
     XCTAssertEqual(shell.selectedMode, .auto)
-    XCTAssertFalse(shell.isComposerFocused, "The tour still has focus")
-
-    shell.tourChanged(isActive: false, isWelcomePresented: false)
     XCTAssertTrue(shell.isComposerFocused)
-    shell.tourChanged(isActive: true, isWelcomePresented: false)
-    XCTAssertFalse(shell.isComposerFocused)
   }
 
   func testActivityExpansionIsTrackedPerActivity() {

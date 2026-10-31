@@ -20,7 +20,6 @@ struct WelcomeSetupView: View {
   @AppStorage(SelectionShortcutMonitor.enabledKey) private var selectionShortcutEnabled = true
   @State private var selectedID: String?
   @State private var skipLocal = false
-  @State private var showConnections = false
   /// Matches the window's corners, so the welcome covers the whole window.
   static let windowRadius: CGFloat = EnigmaWindowChrome.cornerRadius
   private static let columnWidth: CGFloat = 560
@@ -72,23 +71,19 @@ struct WelcomeSetupView: View {
     .background(palette.background.color)
     .clipShape(shape)
     .enigmaEdge(shape)
-    .sheet(isPresented: $showConnections) {
-      ConnectionSettingsSheet(cloud: cloud, advisor: advisor, chat: chat, search: search) {
-        showConnections = false
-      }
-      // A sheet is its own window, so it takes the theme again.
-      .enigmaTheme(appearance)
-    }
     .task { await advisor.detectHardware() }
     .onAppear(perform: placeCharacter)
     .onChange(of: setup.step) { old, new in
-      if let transition = WelcomeSetup.characterTransition(from: old, to: new) {
-        character.move(to: WelcomeSetup.characterSlot(for: new).id, transition)
-      }
+      // It flies to each step, from wherever it was perched.
+      character.attention = nil
+      character.move(to: WelcomeSetup.characterSlot(for: new).id, .fly)
       if new == .connections { Task { await cloud.refreshChatGPTAccount() } }
     }
     .onChange(of: chat.modelOperation) { _, operation in if operation == .benchmarking { setup.performanceCheckRan() } }
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
+    // A happy wobble when a model lands or a plan connects.
+    .onChange(of: chat.installedModel?.id) { old, new in if new != nil, old != new { character.poke() } }
+    .onChange(of: cloud.isConfigured) { old, new in if new, !old { character.poke() } }
   }
 
   /// Puts the character in this step's slot. Arriving fresh on the welcome, it
@@ -114,29 +109,22 @@ struct WelcomeSetupView: View {
     return ScrollView {
       VStack(spacing: 0) {
         Color.clear.enigmaCharacterSlot(id: slot.id, size: slot.size)
-        Text("Enigma")
-          .font(EnigmaTypography.ui(34, weight: .semibold))
-          .tracking(-1)
+        Text("Hi, I’m Enigma.")
+          .font(EnigmaTypography.ui(38, weight: .semibold))
+          .tracking(-1.2)
           .foregroundStyle(palette.textPrimary.color)
           .accessibilityAddTraits(.isHeader)
           .padding(.top, compact ? 6 : 22)
-        Text("A small assistant that lives on your Mac.")
-          .font(EnigmaTypography.ui(14.5))
+        Text("A small assistant that lives on your Mac. Ask me anything, any way you like.")
+          .font(EnigmaTypography.ui(15))
           .foregroundStyle(palette.textSecondary.color)
           .padding(.top, compact ? 4 : 8)
-        VStack(alignment: .leading, spacing: 0) {
-          EnigmaCommandLine(command: "⌥⌃ in any app", description: "opens over what you’re doing")
-          if let shortcut = WelcomeSetup.selectionShortcut(modifier: selectionModifier,
-                                                           isEnabled: selectionShortcutEnabled) {
-            EnigmaCommandLine(command: "select, then \(shortcut)", description: "ask about the selection")
-          }
-          EnigmaCommandLine(command: "/screen /search /edit", description: "do things, not just chat")
-        }
-        .frame(width: 440)
-        .padding(.top, compact ? 10 : 24)
+        WelcomeTypewriter(character: character)
+          .frame(width: 520)
+          .padding(.top, compact ? 14 : 30)
         primaryButton("Get started", isEnabled: true) { changeStep { setup.advance() } }
-          .padding(.top, compact ? 10 : 24)
-        EnigmaHint("next: pick a local model, about a minute")
+          .padding(.top, compact ? 14 : 30)
+        EnigmaHint("⌥⌃ opens me in any app · setup takes about a minute")
           .padding(.top, compact ? 6 : 12)
       }
       // The antenna reaches about 25 points above the slot.
@@ -212,9 +200,9 @@ struct WelcomeSetupView: View {
   private var headerCopy: (title: String, subtitle: String) {
     switch setup.step {
     case .welcome: ("Enigma", "A small assistant that lives on your Mac.")
-    case .models: ("Pick a local model", "It answers on this Mac. Choose a balance of speed, capability, and space.")
-    case .connections: ("Connect what you use", "All optional. Connect here, or skip and come back whenever you’re ready.")
-    case .walkthrough: ("Make yourself at home", "Would you like a quick walkthrough?")
+    case .models: ("Pick a brain for me", "It runs right here on your Mac. Bigger thinks deeper; smaller answers faster.")
+    case .connections: ("Want backup from the cloud?", "Use your ChatGPT or Claude plan for the hard stuff. Totally optional.")
+    case .walkthrough: ("Let me show you around", "A quick, hands-on tour. You try each thing yourself.")
     }
   }
 
@@ -251,7 +239,7 @@ struct WelcomeSetupView: View {
       case .connections:
         primaryButton("Continue", isEnabled: true) { changeStep { setup.advance() } }
       case .walkthrough:
-        Button("Finish without the tour") { setup.finish(takeTour: false) }
+        Button("Skip the tour") { setup.finish(takeTour: false) }
           .enigmaButtonStyle(.text)
         primaryButton("Show me around", isEnabled: true) { setup.finish(takeTour: true) }
       }
@@ -268,11 +256,11 @@ struct WelcomeSetupView: View {
       case .install: return "\(size) download, verified before install"
       case .update: return "\(size) update, verified before install"
       case .use: return "already on this Mac"
-      case .proceed: return "next: cloud and search, optional"
+      case .proceed: return "next: cloud plans, optional"
       case nil: return "choose a model, or skip local models"
       }
-    case .connections: return "next: a quick look around"
-    case .walkthrough: return "six stops, leave anytime"
+    case .connections: return "next: a hands-on tour"
+    case .walkthrough: return "\(GuidedTour.Stop.allCases.count) stops, leave anytime"
     }
   }
 
@@ -341,10 +329,12 @@ struct WelcomeSetupView: View {
             skipLocal = false
           }
           .disabled(isModelWorkBusy)
+          .welcomePerch("model.\(assessment.id)", character: character)
       }
       EnigmaRow("Skip local models", subtitle: "Use cloud models only. You can add a local model later in Settings.",
                 selection: skipLocal, action: { skipLocal = true })
         .disabled(!chat.canChangeModels)
+        .welcomePerch("model.skip", character: character)
       EnigmaHairline()
       if advisor.hardware != nil && choices.isEmpty {
         note("No supported model fits the available memory and storage. You can continue with Cloud.")
@@ -383,19 +373,12 @@ struct WelcomeSetupView: View {
 
   private var connections: some View {
     VStack(alignment: .leading, spacing: 0) {
-      EnigmaSectionHeader("Cloud models")
+      EnigmaSectionHeader("Cloud plans")
       ClaudeCodeConnectionControls(settings: cloud, showsAPIKeyNote: false)
+        .welcomePerch("cloud.claude", character: character)
       ChatGPTConnectionControls(settings: cloud)
-      EnigmaSectionHeader("Search")
-      // Search needs no setup (spec §8). A Brave key, if wanted, is in Settings (D128).
-      EnigmaRow("Web search", subtitle: "Used by /search and automatic search, with sources listed.") {
-        EnigmaStatusLine(.on, "ready · no setup needed")
-      }
-      EnigmaSectionHeader("Mac permissions")
-      MacPermissionRows()
-      Button("More connection settings") { showConnections = true }
-        .enigmaButtonStyle(.text)
-        .padding(.leading, -8)
+        .welcomePerch("cloud.chatgpt", character: character)
+      note("Auto keeps things on this Mac and asks the cloud only when it helps. Search needs no setup at all.")
         .padding(.top, 14)
     }
   }
@@ -404,14 +387,14 @@ struct WelcomeSetupView: View {
 
   private var walkthrough: some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text("Six quick stops show you chat history, the message box, slash commands, files, model choices, and Help. Follow the highlighted controls with Next, or leave the tour anytime.")
+      Text("I’ll show you around the real app. You send a question, try a command, and turn on what you want to use. Every reply in the tour is an example.")
         .font(EnigmaTypography.ui(13.5))
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
       VStack(alignment: .leading, spacing: 0) {
-        ForEach(WelcomeTourStep.allCases, id: \.self) { stop in
-          EnigmaCommandLine(command: stop.stopName, description: stop.stopSummary, commandWidth: 110)
+        ForEach(GuidedTour.Stop.allCases, id: \.self) { stop in
+          EnigmaCommandLine(command: "\(stop.rawValue + 1)", description: stop.title, commandWidth: 30)
         }
       }
       .padding(.top, 14)
@@ -420,192 +403,10 @@ struct WelcomeSetupView: View {
           .padding(.top, 14)
       }
       VStack(alignment: .leading, spacing: 4) {
-        note("Screen, selection, and location permissions are requested when you use those features. You’re in control.")
+        note("The tour helps you turn on Accessibility, Screen Recording and Full Disk Access, only for what you want.")
         note("Replay this setup anytime from Settings → General.")
       }
       .padding(.top, 14)
     }
-  }
-}
-
-private extension WelcomeTourStep {
-  /// The stop as the walkthrough lists it, like a command.
-  var stopName: String {
-    switch self {
-    case .history: "history"
-    case .composer: "message box"
-    case .commands: "/"
-    case .files: "files"
-    case .model: "model"
-    case .help: "help"
-    }
-  }
-
-  var stopSummary: String {
-    switch self {
-    case .history: "your recent chats"
-    case .composer: "type, then ↵ to send"
-    case .commands: "slash commands"
-    case .files: "work with a file or folder"
-    case .model: "local, cloud, or auto"
-    case .help: "shortcuts and settings"
-    }
-  }
-}
-
-// MARK: Tour
-
-/// Where the tour puts its highlight and card in the window: the card sits
-/// below a target in the top half and above one in the bottom half, and always
-/// stays inside the window.
-struct WelcomeTourPlacement: Equatable {
-  static let margin: CGFloat = 16
-  static let maximumCardWidth: CGFloat = 320
-
-  let highlight: CGRect
-  let cardWidth: CGFloat
-  let cardOrigin: CGPoint
-
-  /// With no visible target, the highlight is an empty point near the top center.
-  init(target: CGRect?, container: CGSize, cardHeight: CGFloat) {
-    let margin = Self.margin
-    let bounds = CGRect(origin: .zero, size: container)
-    let visible = target.map { $0.insetBy(dx: -5, dy: -5).intersection(bounds) }
-    let highlight = visible.flatMap { $0.isNull ? nil : $0 }
-      ?? CGRect(x: container.width / 2, y: 24, width: 0, height: 0)
-    let width = max(0, min(Self.maximumCardWidth, container.width - 2 * margin))
-    let x = min(max(margin, highlight.midX - width / 2), container.width - width - margin)
-    let y = highlight.midY > container.height / 2
-      ? max(margin, highlight.minY - cardHeight - margin)
-      : max(margin, min(highlight.maxY + margin, container.height - cardHeight - margin))
-    self.highlight = highlight
-    cardWidth = width
-    cardOrigin = CGPoint(x: x, y: y)
-  }
-}
-
-/// The six-stop tour over the main window. Its anchors are on the main
-/// window's controls.
-struct WelcomeTourOverlay: View {
-  @ObservedObject var setup: WelcomeSetup
-  let anchors: [WelcomeTourStep: Anchor<CGRect>]
-  let availableCommands: [SlashCommand]
-  @Environment(\.enigmaPalette) private var palette
-  @State private var cardHeight: CGFloat = 220
-
-  var body: some View {
-    GeometryReader { geometry in
-      if let step = setup.tour {
-        let placement = WelcomeTourPlacement(target: anchors[step.target].map { geometry[$0] },
-                                             container: geometry.size, cardHeight: cardHeight)
-        let highlight = placement.highlight
-        ZStack(alignment: .topLeading) {
-          Path { path in
-            path.addRect(CGRect(origin: .zero, size: geometry.size))
-            path.addRoundedRect(in: highlight, cornerSize: CGSize(width: 12, height: 12))
-          }
-          .fill(palette.background.color.opacity(0.6), style: FillStyle(eoFill: true))
-          RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(palette.accent.color, lineWidth: 2)
-            .frame(width: highlight.width, height: highlight.height)
-            .position(x: highlight.midX, y: highlight.midY)
-          WelcomeTourCard(setup: setup, step: step, availableCommands: availableCommands)
-            .frame(width: placement.cardWidth)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
-            .offset(x: placement.cardOrigin.x, y: placement.cardOrigin.y)
-        }
-        .contentShape(Rectangle())
-        .onExitCommand { setup.endTour() }
-      }
-    }
-  }
-}
-
-/// One stop's card: an opaque `surface` card with the stop count, End tour, and Next.
-struct WelcomeTourCard: View {
-  @ObservedObject var setup: WelcomeSetup
-  let step: WelcomeTourStep
-  let availableCommands: [SlashCommand]
-  @Environment(\.enigmaPalette) private var palette
-  @AccessibilityFocusState private var isHeadingFocused: Bool
-
-  var body: some View {
-    let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-    VStack(alignment: .leading, spacing: 10) {
-      Text("\(step.rawValue + 1)/\(WelcomeTourStep.allCases.count)")
-        .font(EnigmaTypography.mono(11.5))
-        .foregroundStyle(palette.textTertiary.color)
-        .accessibilityLabel("Stop \(step.rawValue + 1) of \(WelcomeTourStep.allCases.count)")
-      Text(step.title)
-        .font(EnigmaTypography.ui(15, weight: .semibold))
-        .tracking(-0.2)
-        .foregroundStyle(palette.textPrimary.color)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityFocused($isHeadingFocused)
-      Text(step.detail)
-        .font(EnigmaTypography.ui(13))
-        .foregroundStyle(palette.textSecondary.color)
-        .fixedSize(horizontal: false, vertical: true)
-      if step == .commands {
-        VStack(alignment: .leading, spacing: 0) {
-          ForEach(availableCommands) { command in
-            EnigmaCommandLine(command: command.token, description: command.description, commandWidth: 84)
-          }
-        }
-      }
-      HStack(spacing: 12) {
-        Button("End tour") { setup.endTour() }
-          .enigmaButtonStyle(.text)
-          .padding(.leading, -8)
-        Spacer(minLength: 0)
-        Button { setup.nextTourStep() } label: {
-          HStack(spacing: 10) {
-            Text(step == .help ? "Finish setup" : "Next")
-            EnigmaKeycap("↵")
-          }
-        }
-        .enigmaButtonStyle(.primary)
-        .keyboardShortcut(.defaultAction)
-        .enigmaTestMarker("Next tour stop")
-      }
-      .padding(.top, 4)
-    }
-    .padding(16)
-    .background(palette.surface.color, in: shape)
-    .enigmaEdge(shape)
-    .task(id: step) { isHeadingFocused = true }
-  }
-}
-
-/// "More connection settings": Settings on Cloud and search, under a
-/// bar of its own with Back to setup, so the button never covers a row.
-struct ConnectionSettingsSheet: View {
-  static let size = CGSize(width: 820, height: 660)
-  static let barHeight: CGFloat = 48
-
-  let cloud: CloudSettingsModel
-  let advisor: LocalModelAdvisor
-  let chat: LocalChatViewModel
-  let search: WebSearchSettings
-  let back: () -> Void
-  @Environment(\.enigmaPalette) private var palette
-
-  var body: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Text("Connection settings")
-          .font(EnigmaTypography.ui(13, weight: .medium))
-          .foregroundStyle(palette.textSecondary.color)
-        Spacer()
-        Button("Back to setup", action: back).enigmaButtonStyle(.secondary)
-      }
-      .padding(.horizontal, 16)
-      .frame(height: Self.barHeight)
-      EnigmaHairline()
-      SettingsView(settings: cloud, initialDestination: .cloud, advisor: advisor, chat: chat, search: search,
-                         size: CGSize(width: Self.size.width, height: Self.size.height - Self.barHeight))
-    }
-    .frame(width: Self.size.width, height: Self.size.height)
-    .background(palette.background.color)
   }
 }

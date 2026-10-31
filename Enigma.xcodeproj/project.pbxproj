@@ -48,6 +48,13 @@
 		A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */; };
 		F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */; };
 		F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */; };
+		F14A00000000000000000002 /* Enigma/App/GuidedTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */; };
+		F14A00000000000000000004 /* Enigma/App/TourDocumentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */; };
+		F14A00000000000000000006 /* Enigma/App/WelcomeTypewriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */; };
+		F14A00000000000000000008 /* Enigma/App/SettingsPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000007 /* Enigma/App/SettingsPages.swift */; };
+		F14A0000000000000000000A /* Enigma/App/SettingsCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000009 /* Enigma/App/SettingsCards.swift */; };
+		F14A0000000000000000000C /* Enigma/App/ShortcutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A0000000000000000000B /* Enigma/App/ShortcutStore.swift */; };
+		F14A0000000000000000000E /* Enigma/App/ShortcutEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A0000000000000000000D /* Enigma/App/ShortcutEditor.swift */; };
 		F25A00000000000000000004 /* WhatsNewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000003 /* WhatsNewTests.swift */; };
 		F25A00000000000000000006 /* release-notes in Resources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000005 /* release-notes */; };
 		CCBCDDA5026A66956CAF2521 /* Enigma/Chat/AssistantActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */; };
@@ -327,6 +334,13 @@
 		A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ChatCopy.swift"; sourceTree = SOURCE_ROOT; };
 		F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MessageQueue.swift"; sourceTree = SOURCE_ROOT; };
 		F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/WhatsNew.swift"; sourceTree = SOURCE_ROOT; };
+		F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/GuidedTour.swift"; sourceTree = SOURCE_ROOT; };
+		F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/TourDocumentWindow.swift"; sourceTree = SOURCE_ROOT; };
+		F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/WelcomeTypewriter.swift"; sourceTree = SOURCE_ROOT; };
+		F14A00000000000000000007 /* Enigma/App/SettingsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/SettingsPages.swift"; sourceTree = SOURCE_ROOT; };
+		F14A00000000000000000009 /* Enigma/App/SettingsCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/SettingsCards.swift"; sourceTree = SOURCE_ROOT; };
+		F14A0000000000000000000B /* Enigma/App/ShortcutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ShortcutStore.swift"; sourceTree = SOURCE_ROOT; };
+		F14A0000000000000000000D /* Enigma/App/ShortcutEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ShortcutEditor.swift"; sourceTree = SOURCE_ROOT; };
 		F25A00000000000000000005 /* release-notes */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "docs/release-notes"; sourceTree = SOURCE_ROOT; };
 		F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/AssistantActivityView.swift"; sourceTree = SOURCE_ROOT; };
 		BE7F0CAF9ABED510FB4737FA /* Enigma/Chat/EnigmaMessageList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/EnigmaMessageList.swift"; sourceTree = SOURCE_ROOT; };
@@ -631,6 +645,13 @@
 				A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */,
 				F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */,
 				F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */,
+				F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */,
+				F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */,
+				F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */,
+				F14A00000000000000000007 /* Enigma/App/SettingsPages.swift */,
+				F14A00000000000000000009 /* Enigma/App/SettingsCards.swift */,
+				F14A0000000000000000000B /* Enigma/App/ShortcutStore.swift */,
+				F14A0000000000000000000D /* Enigma/App/ShortcutEditor.swift */,
 				F0A5DED03482E1746C25AFB1 /* Enigma/Chat/AssistantActivityView.swift */,
 				BE7F0CAF9ABED510FB4737FA /* Enigma/Chat/EnigmaMessageList.swift */,
 				65E31444F25F2D3405D575EC /* Enigma/Chat/SelectionCards.swift */,
@@ -1059,6 +1080,13 @@
 				A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */,
 				F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */,
 				F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */,
+				F14A00000000000000000002 /* Enigma/App/GuidedTour.swift in Sources */,
+				F14A00000000000000000004 /* Enigma/App/TourDocumentWindow.swift in Sources */,
+				F14A00000000000000000006 /* Enigma/App/WelcomeTypewriter.swift in Sources */,
+				F14A00000000000000000008 /* Enigma/App/SettingsPages.swift in Sources */,
+				F14A0000000000000000000A /* Enigma/App/SettingsCards.swift in Sources */,
+				F14A0000000000000000000C /* Enigma/App/ShortcutStore.swift in Sources */,
+				F14A0000000000000000000E /* Enigma/App/ShortcutEditor.swift in Sources */,
 				CCBCDDA5026A66956CAF2521 /* Enigma/Chat/AssistantActivityView.swift in Sources */,
 				E70853FFCC557A14D16831EA /* Enigma/Chat/EnigmaMessageList.swift in Sources */,
 				85951778BEFF4293A002C497 /* Enigma/Chat/SelectionCards.swift in Sources */,

@@ -44,7 +44,7 @@ notes.md" or "Summarize what this project does".
 
 Without a local model, Local and Auto ask you to choose one or to use Codex.
 Local File Mode also needs the small `llama-server` runtime: install it from
-**Settings → Local models → Files → Local file tools → Install · 11 MB**.
+**Settings → On this Mac → Files → Local file tools → Install · 11 MB**.
 If a compatible runtime is already on this Mac, for example from an installed
 vision model, Enigma uses it instead. The download contains only the runtime and
 sends none of your files.
@@ -95,7 +95,7 @@ Undo restores edited and deleted files, removes created ones, and puts moved fil
 back, including permissions, ACLs and extended attributes such as Finder tags. If
 a file was changed outside Enigma since the task, Undo stops with a conflict
 instead of overwriting your newer work. Changes stay available after restarting
-or deleting the chat: **Settings → Local models → Files → Saved file changes →
+or deleting the chat: **Settings → On this Mac → Files → Saved file changes →
 Review**.
 
 **Stop** ends the task's file access at once and cancels a pending delete

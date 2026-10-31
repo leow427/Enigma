@@ -302,6 +302,8 @@ struct EnigmaCharacterModel: Sendable {
     var elapsed: Double = 0
     var y: Double
     var speed: Double = 0
+    /// A fly's take-off speed, high enough to arc over its slot; nil for an ordinary hop.
+    var launchSpeed: Double? = nil
   }
 
   private struct Drag: Sendable {
@@ -452,6 +454,23 @@ struct EnigmaCharacterModel: Sendable {
       fall = nil
     } else {
       fall = Fall(y: start)
+    }
+  }
+
+  /// Flies to `slot`: a crouch, then a hop high enough to arc over both ends,
+  /// landing on the slot whether it is higher or lower.
+  mutating func fly(to slot: Slot) {
+    let start = y.value
+    self.slot = slot
+    quietTime = 0
+    if drag != nil {
+      fall = nil
+    } else if reduceMotion {
+      place(at: slot, instantly: true)
+    } else {
+      let clearance = max(70, radius.value * 3)
+      let rise = start - (min(start, slot.center.y) - clearance)
+      fall = Fall(y: start, launchSpeed: -(2 * EnigmaMotion.characterGravity * rise).squareRoot())
     }
   }
 
@@ -702,7 +721,8 @@ struct EnigmaCharacterModel: Sendable {
       squash.target = EnigmaCharacterTuning.crouchSquash
       if fall.elapsed > EnigmaCharacterTuning.crouchDuration {
         fall.phase = .air
-        fall.speed = -max(EnigmaCharacterTuning.minimumHopSpeed, radius.value * EnigmaCharacterTuning.hopSpeedPerRadius)
+        fall.speed = fall.launchSpeed
+          ?? -max(EnigmaCharacterTuning.minimumHopSpeed, radius.value * EnigmaCharacterTuning.hopSpeedPerRadius)
         squash.target = 0
         squash.velocity = -5
       }

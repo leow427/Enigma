@@ -53,6 +53,7 @@ struct LocalModelOperationView: View {
   @ObservedObject var chat: LocalChatViewModel
   @ObservedObject var advisor: LocalModelAdvisor
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaSettingsStyle) private var settingsStyle
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -94,7 +95,7 @@ struct LocalModelOperationView: View {
           Text("first token \(benchmark.metrics.timeToFirstToken, specifier: "%.2f") s · generation \(benchmark.metrics.generationTokensPerSecond, specifier: "%.1f") tokens/s")
           Text("prompt \(benchmark.metrics.promptTokensPerSecond, specifier: "%.0f") tokens/s · peak app memory \(benchmark.metrics.peakMemoryBytes, format: .byteCount(style: .memory))")
         }
-        .font(EnigmaTypography.mono(11))
+        .font(EnigmaTypography.detail(11, settings: settingsStyle))
         .foregroundStyle(palette.textTertiary.color)
         if benchmark.underperformed,
            let faster = advisor.recommendations(installedModels: chat.installedModels).fasterAlternative(to: benchmark.modelID) {
@@ -159,7 +160,7 @@ struct LocalModelOnboardingView: View {
           if recommendations.roles.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
               EnigmaStatusLine(.problem, "No suitable model found")
-              Text("No supported text-and-image model fits this Mac’s memory or disk budget. Review Local models for the specific limits. Cloud is also available.")
+              Text("No supported text-and-image model fits this Mac’s memory or disk budget. Review Settings → On this Mac for the specific limits. Cloud is also available.")
                 .font(EnigmaTypography.ui(12))
                 .foregroundStyle(palette.textSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)
