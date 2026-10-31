@@ -3,7 +3,7 @@ import SwiftUI
 /// Web search in Settings (spec §8, amended for D128): automatic search, on-device search as the
 /// default, Brave as an optional extra with a key in the Keychain, and the blocked sites.
 struct WebSearchSettingsSection: View {
-  /// F14 spike: Settings shows the main rows on Search and maps, Brave and blocked sites under Advanced.
+  /// Settings shows the main rows on Search and maps, Brave and blocked sites under Advanced.
   enum Part { case all, main, advanced }
 
   @ObservedObject var settings: WebSearchSettings

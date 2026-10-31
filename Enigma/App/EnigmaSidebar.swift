@@ -6,7 +6,7 @@ import SwiftUI
 struct EnigmaSidebar<DeveloperTools: View>: View {
   let rows: [ChatHistoryRow]
   /// The tour stop on screen, so the sidebar can scroll its target into view.
-  let tourStep: WelcomeTourStep?
+  let tourStep: TourTarget?
   let select: (ChatHistoryRow.Target) -> Void
   let newChat: () -> Void
   let hide: () -> Void
@@ -81,7 +81,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
           .frame(width: 20, height: 20)
           .background(palette.accent.color, in: Circle())
       }
-      .welcomeTourTarget(.newChat)
+      .tourTarget(.newChat)
 
       Text("Recents")
         .font(EnigmaTypography.ui(11.5, weight: .medium))
@@ -100,7 +100,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
         }
       }
     }
-    .welcomeTourTarget(.history)
+    .tourTarget(.history)
   }
 
   private var footer: some View {
@@ -109,7 +109,7 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
         Image(systemName: "questionmark.circle").font(EnigmaTypography.navigationSymbol)
           .foregroundStyle(palette.textSecondary.color)
       }
-      .welcomeTourTarget(.help)
+      .tourTarget(.help)
       .id(Self.helpAnchor)
       EnigmaNavigationRow("Settings", hint: "⌘,", action: openSettings) {
         Image(systemName: "gearshape").font(EnigmaTypography.navigationSymbol)
@@ -147,7 +147,7 @@ struct EnigmaTopBar: View {
       if let actions = sidebarActions {
         Button(action: actions.show) { Image(systemName: "sidebar.left") }
           .enigmaIconButtonStyle()
-          .welcomeTourTarget(.history)
+          .tourTarget(.history)
           .accessibilityLabel("Show chat history")
           .help("Show chat history · ⌃⌘S")
           .enigmaTestMarker("Show chat history")
@@ -156,13 +156,13 @@ struct EnigmaTopBar: View {
       if let actions = sidebarActions {
         Button(action: actions.newChat) { Image(systemName: "plus") }
           .enigmaIconButtonStyle()
-          .welcomeTourTarget(.newChat)
+          .tourTarget(.newChat)
           .accessibilityLabel("New chat")
           .help("New chat · ⌘N")
           .enigmaTestMarker("Bar new chat")
         Button(action: actions.openHelp) { Image(systemName: "questionmark.circle") }
           .enigmaIconButtonStyle()
-          .welcomeTourTarget(.help)
+          .tourTarget(.help)
           .accessibilityLabel("Help")
           .help("Help")
           .enigmaTestMarker("Bar help")

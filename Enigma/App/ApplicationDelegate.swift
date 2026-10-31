@@ -7,7 +7,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var globalHotKeyMonitors: [GlobalHotKeyMonitor] = []
   private var panelShortcut: PanelShortcutMonitor?
   private var selectionShortcut: SelectionShortcutMonitor?
-  /// F14 spike: the other kinds each action can be set to in Settings → Shortcuts.
+  /// The other kinds each action can be set to in Settings → Shortcuts.
   private var otherShortcuts: [Any] = []
   private var shortcutHotKeys: ShortcutHotKeys?
   private var accessibilityWarmer: SelectionAccessibilityWarmer?
@@ -97,7 +97,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     let menuBarController = MenuBarController(panelController: panelController, updater: .shared)
     menuBarController.install()
 
-    // F14 spike: each global action fires from whichever kind of shortcut
+    // Each global action fires from whichever kind of shortcut
     // Settings → Shortcuts gave it. With "Same as summon", the summon
     // shortcut asks about a fresh selection and otherwise opens Enigma.
     let summon: @MainActor () -> Void = { [weak self] in

@@ -929,12 +929,6 @@ final class EnigmaSettingsTests: XCTestCase {
         fixture.settings(destination, size: size)
       }
     }
-    // The welcome's connection settings sheet, with Back to setup in its own bar.
-    try await EnigmaSnapshot.save("settings-connection-sheet", size: ConnectionSettingsSheet.size,
-                                  until: { !fixture.advisor.isDetecting }) {
-      ConnectionSettingsSheet(cloud: fixture.cloud, advisor: fixture.advisor, chat: fixture.chat,
-                                    search: fixture.search) {}
-    }
     // An open menu, opened by a real click.
     for appearance in [EnigmaAppearance.paper, .ink] {
       let host = Host(fixture.settings(.general).enigmaTheme(appearance), test: self)

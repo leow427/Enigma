@@ -29,7 +29,7 @@ enum EnigmaCharacterTransition: Sendable {
   case automatic
   /// A glide on `characterFollow`, whichever way.
   case glide
-  /// A crouch and a high arcing hop that lands on the slot, up or down (F14 spike).
+  /// A crouch and a high arcing hop that lands on the slot, up or down.
   case fly
   /// No motion.
   case instant

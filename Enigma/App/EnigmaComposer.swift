@@ -64,7 +64,7 @@ struct EnigmaComposer: View {
         suggestionPlacement: opensSuggestionsBelow ? .below(gap: Self.belowGap) : .above(gap: Self.aboveGap),
         insertion: insertion, submit: submit)
         .padding(.trailing, 6)
-        .welcomeTourTarget(.composer)
+        .tourTarget(.composer)
       bar
     }
     .padding(.top, 13)
@@ -100,7 +100,7 @@ struct EnigmaComposer: View {
       .accessibilityLabel("Attach files")
       .accessibilityValue(files.selection == nil ? "Off" : "On")
       .help("Attach a file or folder · ⇧⌘A")
-      .welcomeTourTarget(.files)
+      .tourTarget(.files)
       .enigmaTestMarker("Attach files")
 
       Button(action: beginCommand) {
@@ -136,7 +136,7 @@ struct EnigmaComposer: View {
           .lineLimit(1)
           .truncationMode(.middle)
       }
-      .welcomeTourTarget(.model)
+      .tourTarget(.model)
 
       if isResponding && showsQueueButton {
         queueButton.padding(.leading, 6)

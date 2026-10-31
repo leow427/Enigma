@@ -235,7 +235,7 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(window.frame.size, enlarged)
     controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
     XCTAssertEqual(store.load(), normal)
-    // F14 spike: the hands-on tour grows the window by its rail.
+    // The hands-on tour grows the window by its rail.
     setup.finish(takeTour: true)
     await settleSizing()
     let touring = PanelSizeStore.centeredFrame(
@@ -356,12 +356,19 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(frame, visibleFrame)
   }
 
-  // MARK: F14 spike: shortcuts you choose
+  // MARK: Shortcuts you choose
 
   private func key(_ code: UInt16, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
     try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
                                    context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false,
                                    keyCode: code))
+  }
+
+  @MainActor
+  func testSavedKeysHaveTheirFinalNames() {
+    XCTAssertEqual(GuidedTour.progressKey, "guidedTour.stop.v1")
+    XCTAssertEqual(ShortcutStore.overridesKey, "enigma.shortcuts.overrides.v1")
+    XCTAssertEqual(ShortcutStore.sameAsSummonKey, "enigma.shortcuts.selectionSameAsSummon.v1")
   }
 
   @MainActor

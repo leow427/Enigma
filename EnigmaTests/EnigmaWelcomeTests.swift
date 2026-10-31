@@ -134,40 +134,6 @@ final class EnigmaWelcomeTests: XCTestCase {
   }
 
   @MainActor
-  func testTourNamesTheSidebarShortcut() {
-    XCTAssertTrue(WelcomeTourStep.history.detail.contains("⌃⌘S"), WelcomeTourStep.history.detail)
-    XCTAssertFalse(WelcomeTourStep.history.detail.contains("Control"), WelcomeTourStep.history.detail)
-    XCTAssertEqual(PanelShortcut.resolve(characters: "s", modifiers: [.control, .command]), .toggleSidebar)
-  }
-
-  func testTourCardStaysInsideTheWindowAndBesideItsTarget() {
-    for container in [CGSize(width: 640, height: 420), CGSize(width: 1200, height: 780)] {
-      let height: CGFloat = 200
-      let top = WelcomeTourPlacement(target: CGRect(x: 20, y: 30, width: 40, height: 30), container: container,
-                                     cardHeight: height)
-      XCTAssertEqual(top.highlight, CGRect(x: 15, y: 25, width: 50, height: 40))
-      XCTAssertEqual(top.cardOrigin.y, top.highlight.maxY + 16, "Below a target in the top half")
-      let bottom = WelcomeTourPlacement(target: CGRect(x: container.width - 300, y: container.height - 60,
-                                                       width: 280, height: 44),
-                                        container: container, cardHeight: height)
-      XCTAssertEqual(bottom.cardOrigin.y + height, bottom.highlight.minY - 16, "Above a target in the bottom half")
-      let missing = WelcomeTourPlacement(target: nil, container: container, cardHeight: height)
-      XCTAssertEqual(missing.highlight.size, .zero)
-      let offscreen = WelcomeTourPlacement(target: CGRect(x: -400, y: -400, width: 10, height: 10),
-                                           container: container, cardHeight: height)
-      XCTAssertEqual(offscreen.highlight.size, .zero, "A target outside the window falls back")
-      for placement in [top, bottom, missing, offscreen] {
-        XCTAssertLessThanOrEqual(placement.cardWidth, WelcomeTourPlacement.maximumCardWidth)
-        let card = CGRect(origin: placement.cardOrigin, size: CGSize(width: placement.cardWidth, height: height))
-        XCTAssertTrue(CGRect(origin: .zero, size: container).insetBy(dx: 15.9, dy: 15.9).contains(card),
-                      "\(card) leaves \(container)")
-      }
-    }
-  }
-
-  // MARK: Rendering
-
-  @MainActor
   func testWelcomeRendersEveryStepAtMinimumAndDefaultPanelSizes() async throws {
     let fixture = try await Fixture(test: self)
     fixture.setup.replay()
@@ -223,10 +189,7 @@ final class EnigmaWelcomeTests: XCTestCase {
         composerEditor(in: view)?.isEditable == false
       }
       fixture.setup.finish(takeTour: exit != 0)
-      if exit == 1 { fixture.setup.endTour() }
-      if exit == 2 {
-        for _ in WelcomeTourStep.allCases { fixture.setup.nextTourStep() }
-      }
+      if exit != 0 { GuidedTour.shared.end() }
       try await waitForUI("new welcome exit \(exit) to enable, focus, and uncover the composer", in: view) {
         guard let composer = composerEditor(in: view) else { return false }
         return composer.isEditable && composer.window?.firstResponder === composer && composerAcceptsClicks(in: view)
@@ -271,7 +234,7 @@ final class EnigmaWelcomeTests: XCTestCase {
     fixture.setup.step = .walkthrough
     try await waitForUI("the walkthrough", in: view) { true }
     try pressReturn()
-    // F14 spike: Return starts the hands-on tour in the main window.
+    // Return starts the hands-on tour in the main window.
     try await waitForUI("Return to take the tour", in: view) { GuidedTour.shared.isActive }
     GuidedTour.shared.end()
     XCTAssertFalse(fixture.setup.isPresented)
@@ -279,7 +242,7 @@ final class EnigmaWelcomeTests: XCTestCase {
 
   // MARK: Screenshots
 
-  /// F14 spike: the card stays in its rail, level with what it points at,
+  /// The card stays in its rail, level with what it points at,
   /// with room above it for the character.
   func testGuidedTourCardStaysInItsRail() {
     let window = CGSize(width: 1632, height: 860)
@@ -313,7 +276,7 @@ final class EnigmaWelcomeTests: XCTestCase {
           .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
       }
     }
-    // F14 spike: the selection stop's pretend document, beat by beat.
+    // The selection stop's pretend document, beat by beat.
     let sceneTour = GuidedTour(defaults: UserDefaults(suiteName: "GuidedTourScene-\(UUID())")!)
     let beats: [(String, TourScene)] = [
       ("document", TourScene()),
@@ -326,11 +289,6 @@ final class EnigmaWelcomeTests: XCTestCase {
       try EnigmaSnapshot.save("guided-document-\(name)", size: TourDocumentWindow.contentSize) {
         TourDocumentView(tour: sceneTour, measures: false)
       }
-    }
-    try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {
-      WelcomeTourCard(setup: fixture.setup, step: .commands,
-                            availableCommands: SlashCommand.available())
-        .frame(width: WelcomeTourPlacement.maximumCardWidth)
     }
   }
 
@@ -536,25 +494,6 @@ extension EnigmaWelcomeTests {
       }
       return search(view)
     }
-  }
-
-  /// Retargeted (CP8, Task 8.4): search needs no setup, so the connections step shows the Web
-  /// search row as ready, with no key field for the character to watch.
-  @MainActor
-  func testConnectionsStepShowsWebSearchReadyWithNoKeyField() async throws {
-    throw XCTSkip("F14 spike: the connections slide shows only the ChatGPT and Claude plans.")
-    let credentials = RecordingSearchCredentials()
-    let fixture = try await Fixture(test: self, searchCredentials: credentials)
-    fixture.setup.replay()
-    fixture.setup.step = .connections
-    let host = Host(fixture, test: self)
-    try await waitForUI("the Web search row", in: host.view) { host.shows("ready · no setup needed") }
-    XCTAssertTrue(host.shows("Web search"))
-    XCTAssertNil(host.keyField, "No Brave key field in the welcome")
-    XCTAssertFalse(host.shows("Brave"))
-    XCTAssertFalse(host.shows("Get a Brave API key"))
-    XCTAssertEqual(host.character.state, .idle)
-    XCTAssertTrue(credentials.saved.isEmpty)
   }
 
   @MainActor

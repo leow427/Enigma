@@ -2545,7 +2545,7 @@ final class LocalChatViewModel: ObservableObject {
   }
 }
 
-// MARK: F14 spike: scripted tour replies
+// MARK: Scripted tour replies
 
 extension LocalChatViewModel {
   /// Appends the person's message and a reply that plays `script`: its

@@ -94,7 +94,7 @@ final class SelectionShortcutMonitor {
   private var detector = OptionDoubleTap()
   private let handler: @MainActor () -> Void
   private let firstTap: @MainActor () -> Void
-  /// F14 spike: the action whose double tap this watches for, as chosen in Settings.
+  /// The action whose double tap this watches for, as chosen in Settings.
   private let action: ShortcutAction
 
   /// `firstTap` runs when a tap could be the start of a double tap, before it is one.

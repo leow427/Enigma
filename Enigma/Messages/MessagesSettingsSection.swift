@@ -2,7 +2,7 @@ import Contacts
 import SwiftUI
 
 /// What /messages needs from macOS, the chats it may read without asking, and
-/// where its data goes. F14 spike: each part is on its own Settings page.
+/// where its data goes. Each part is on its own Settings page.
 struct MessagesSettingsSection: View {
   enum Part { case permissions, approvals, about }
   let part: Part

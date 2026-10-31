@@ -191,7 +191,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   private var moveTarget: NSRect?
   /// Runs once the current move reaches its target.
   private var moveCompletion: (() -> Void)?
-  /// F14 spike: counts the tour's fades, so a finished fade-out can't hide a window shown again since.
+  /// Counts the tour's fades, so a finished fade-out can't hide a window shown again since.
   private var fadeGeneration = 0
 
   private(set) var isCapturingScreen = false
@@ -257,15 +257,15 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(resizeSelectionComposer(_:)), name: .selectionComposerHeightChanged, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .newChatRequested, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(restoreNormalPanel), name: .selectionPanelResetRequested, object: nil)
-    // F14 spike: the tour's selection stop uses the real panel over a pretend document.
+    // The tour's selection stop uses the real panel over a pretend document.
     NotificationCenter.default.addObserver(self, selector: #selector(tourStepAside), name: .guidedTourStepAside, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(tourComeBack), name: .guidedTourComeBack, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(tourSummon(_:)), name: .guidedTourSummon, object: nil)
     if let welcomeSetup {
-      // F14 spike: the hands-on tour grows the window by its rail.
-      welcomeObservation = welcomeSetup.$isPresented.combineLatest(welcomeSetup.$tour, GuidedTour.shared.$stop)
-        .map { presented, tour, guided -> WelcomeSizing in
-          guided != nil ? .tour : presented || tour != nil ? .welcome : .normal
+      // The hands-on tour grows the window by its rail.
+      welcomeObservation = welcomeSetup.$isPresented.combineLatest(GuidedTour.shared.$stop)
+        .map { presented, guided -> WelcomeSizing in
+          guided != nil ? .tour : presented ? .welcome : .normal
         }
         .removeDuplicates()
         // The page keeps the window's width from the moment the tour starts,
@@ -289,7 +289,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   @objc private func beginSelectionReplacement() {
     finishMove()
-    // F14 spike: the tour's pretend paste needs no focus handed back, so the
+    // The tour's pretend paste needs no focus handed back, so the
     // window fades aside for it.
     if GuidedTour.shared.stop == .selection { fadeOut(); return }
     // A nonactivating panel can own keyboard focus while the source is already
@@ -318,7 +318,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   private var selectionInvocation: Task<Void, Never>?
 
-  /// F14 spike: the summon shortcut, when it also asks about selections: a
+  /// The summon shortcut, when it also asks about selections: a
   /// fresh selection opens the selection panel, and anything else the window.
   func summonOrSelect() {
     guard !isVisible else { hide(); return }
@@ -326,7 +326,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   }
 
   func summonSelectionContext(orElse: (() -> Void)? = nil) {
-    // F14 spike: during the tour's selection stop, ⌥⌥ takes its step instead of reading another app.
+    // During the tour's selection stop, ⌥⌥ takes its step instead of reading another app.
     if GuidedTour.shared.stop == .selection { GuidedTour.shared.shortcutPressed(); return }
     guard !isCapturingScreen, selectionInvocation == nil else { return }
     let cursor = NSEvent.mouseLocation
@@ -466,7 +466,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     let frame = visibleFrame(panel).map { PanelSizeStore.centeredFrame(size: normal.size, in: $0) } ?? normal
     NotificationCenter.default.post(name: .selectionChatOpenedInWindow, object: nil)
     move(to: frame)
-    // F14 spike: a click on the pretend document's card leaves Return with
+    // A click on the pretend document's card leaves Return with
     // the document. The chat in the window takes it back.
     if GuidedTour.shared.stop == .selection { panel.makeKey() }
   }
@@ -489,20 +489,20 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     NotificationCenter.default.post(name: .selectionPanelPlaced, object: panel.frame.minY - visible.minY)
   }
 
-  /// F14 spike: the window fades aside for the tour's pretend document,
+  /// The window fades aside for the tour's pretend document,
   /// which rises in its place.
   @objc private func tourStepAside() {
     finishMove()
     fadeOut()
   }
 
-  /// F14 spike: back as the window, wherever the tour left it.
+  /// Back as the window, wherever the tour left it.
   @objc private func tourComeBack() {
     if selectionNormalFrame != nil { restoreNormalPanel() }
     fadeIn()
   }
 
-  /// F14 spike: fades the window out, then takes it off the screen.
+  /// Fades the window out, then takes it off the screen.
   private func fadeOut(duration: Double = 0.22) {
     fadeGeneration += 1
     let generation = fadeGeneration
@@ -519,7 +519,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     }
   }
 
-  /// F14 spike: brings the window back, fading in if it was away.
+  /// Brings the window back, fading in if it was away.
   private func fadeIn(duration: Double = 0.28) {
     fadeGeneration += 1
     let reduce = reduceMotion()
@@ -537,7 +537,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     }
   }
 
-  /// F14 spike: a fade-out still running can't take a window shown again away.
+  /// A fade-out still running can't take a window shown again away.
   private func cancelFade() {
     fadeGeneration += 1
     guard panel.alphaValue < 1 else { return }
@@ -556,7 +556,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     panel.alphaValue = 1
   }
 
-  /// F14 spike: the real panel, under the pretend document's selected line.
+  /// The real panel, under the pretend document's selected line.
   @objc private func tourSummon(_ notification: Notification) {
     guard let selection = (notification.object as? NSValue)?.rectValue else { return }
     let screen = NSScreen.screens.first { $0.frame.intersects(selection) } ?? NSScreen.main
@@ -692,7 +692,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     }
   }
 
-  /// F14 spike: resized by hand during the tour, the page takes the new
+  /// Resized by hand during the tour, the page takes the new
   /// width beside its rail.
   func windowDidResize(_ notification: Notification) {
     guard moveTarget == nil, !isSelectionComposer, GuidedTour.shared.isActive,
@@ -770,7 +770,7 @@ private final class SpotlightPanel: NSPanel {
       onHide?()
       return true
     }
-    // F14 spike: the shortcuts chosen in Settings → Shortcuts.
+    // The shortcuts chosen in Settings → Shortcuts.
     switch ShortcutStore.shared.action(for: event) {
     case .panel(let shortcut)?:
       if onShortcut?(shortcut) == true { return true }

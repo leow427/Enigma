@@ -458,7 +458,7 @@ struct EnigmaCharacterModel: Sendable {
   }
 
   /// Flies to `slot`: a crouch, then a hop high enough to arc over both ends,
-  /// landing on the slot whether it is higher or lower (F14 spike).
+  /// landing on the slot whether it is higher or lower.
   mutating func fly(to slot: Slot) {
     let start = y.value
     self.slot = slot

@@ -62,7 +62,7 @@ final class GlobalHotKeyMonitor: @unchecked Sendable {
               name: hotKey.displayName, handler: handler)
   }
 
-  /// F14 spike: any key and modifiers, for a shortcut chosen in Settings.
+  /// Any key and modifiers, for a shortcut chosen in Settings.
   init(keyCode: UInt32, modifiers: UInt32, identifier: UInt32, name: String,
        handler: @escaping @MainActor () -> Void) {
     self.keyCode = keyCode
@@ -173,7 +173,7 @@ struct PanelShortcutChord {
 
   private var phase = Phase.idle
   private var armedCounter: UInt32 = 0
-  /// F14 spike: the modifiers pressed together, ⌥⌃ unless chosen in Settings.
+  /// The modifiers pressed together, ⌥⌃ unless chosen in Settings.
   var chord: NSEvent.ModifierFlags = [.option, .control]
   /// A count of key and mouse-button presses system-wide. Global monitors never
   /// see a key another app consumes as a hot key (like Control-Option-Right in
@@ -231,7 +231,7 @@ final class PanelShortcutMonitor {
   private var accessibilityGranted = false
   private var detector = PanelShortcutMonitor.makeDetector()
   private let handler: @MainActor () -> Void
-  /// F14 spike: the action whose chord this watches for, as chosen in Settings.
+  /// The action whose chord this watches for, as chosen in Settings.
   private let action: ShortcutAction
 
   init(action: ShortcutAction = .summon, handler: @escaping @MainActor () -> Void) {
@@ -303,7 +303,7 @@ final class PanelShortcutMonitor {
   }
 }
 
-/// F14 spike: global hot keys for the actions set to keys with modifiers in
+/// Global hot keys for the actions set to keys with modifiers in
 /// Settings → Shortcuts, registered again whenever the shortcuts change.
 @MainActor
 final class ShortcutHotKeys {

@@ -1071,7 +1071,7 @@ final class EnigmaMainWindowTests: XCTestCase {
                                                      from: try XCTUnwrap(composerEditor(in: view)))))
   }
 
-  /// F14 spike: the tour's selection stop runs the real panel over its pretend
+  /// The tour's selection stop runs the real panel over its pretend
   /// document: the window steps aside, ⌥⌥ opens the compact panel with the
   /// draft's line attached, a send moves the chat into the window with a
   /// revision and no model request, and Replace text changes the document
@@ -1128,7 +1128,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the next stop back in the window", in: view) { tour.stop == .files && window.isVisible }
   }
 
-  /// F14 spike: the tour's text to Sam waits on the real approval card,
+  /// The tour's text to Sam waits on the real approval card,
   /// Return in the composer approves it, and nothing is sent.
   @MainActor
   func testTourMessagesStopAsksOnTheRealApprovalCard() async throws {
@@ -1161,49 +1161,6 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   // MARK: Tour
-
-  @MainActor
-  func testTourTargetsAreOnTheNewControls() async throws {
-    let fixture = try await Fixture(test: self)
-    let box = AnchorBox()
-    let size = CGSize(width: 1000, height: 660)
-    let root = fixture.shell().overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
-      GeometryReader { proxy in AnchorProbe(box: box, rects: anchors.mapValues { proxy[$0] }) }
-    }
-    let host = Host(fixture, size: size, test: self, root: AnyView(root))
-    fixture.setup.replay()
-    fixture.setup.finish(takeTour: true)
-    let targets = Set(WelcomeTourStep.allCases.map(\.target))
-    for sidebar in [true, false] {
-      if !sidebar {
-        fixture.setup.endTour()
-        try await clickTestControl("Hide chat history", in: host.view)
-        fixture.setup.replay()
-        fixture.setup.finish(takeTour: true)
-      }
-      try await waitForUI("every tour target with the sidebar \(sidebar ? "shown" : "hidden")", in: host.view) {
-        Set(box.rects.keys).isSuperset(of: targets) && host.shows(sidebar ? "New chat" : "Show chat history")
-      }
-      let bounds = CGRect(origin: .zero, size: size)
-      // The tour's scrim stays inside the rounded window.
-      let image = try host.capture()
-      for corner in [CGPoint(x: 0.5, y: 0.5), CGPoint(x: size.width - 1, y: 0.5), CGPoint(x: 0.5, y: size.height - 1),
-                     CGPoint(x: size.width - 1, y: size.height - 1)] {
-        XCTAssertLessThan(try EnigmaSnapshot.pixel(image, at: corner).opacity, 0.05, "Corner \(corner) is transparent")
-      }
-      for target in targets {
-        let rect = try XCTUnwrap(box.rects[target])
-        XCTAssertFalse(rect.isEmpty, "\(target) has a size")
-        XCTAssertTrue(bounds.contains(rect), "\(target) is inside the window: \(rect)")
-      }
-      let model = try XCTUnwrap(host.marker("Mode and model"))
-      XCTAssertTrue(try XCTUnwrap(box.rects[.model]).insetBy(dx: -1, dy: -1)
-        .contains(host.view.convert(model.bounds, from: model)), "The model stop is the mode and model menu")
-      let attach = try XCTUnwrap(host.marker("Attach files"))
-      XCTAssertTrue(try XCTUnwrap(box.rects[.files]).insetBy(dx: -1, dy: -1)
-        .contains(host.view.convert(attach.bounds, from: attach)), "The files stop is Attach")
-    }
-  }
 
   // MARK: Character
 
@@ -1513,35 +1470,6 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
-  func testTourCardDrawsAboveTheCharacterAndTakesTheClickOnNext() async throws {
-    let fixture = try await Fixture(test: self)
-    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
-    let character = fixture.character
-    fixture.setup.replay()
-    fixture.setup.finish(takeTour: true)
-    let first = try XCTUnwrap(fixture.setup.tour)
-    try await waitForUI("the first tour stop with the character on the main page", in: host.view) {
-      host.shows("Next tour stop") && character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
-    }
-    let next = frameFromTop(of: try XCTUnwrap(host.marker("Next tour stop")), in: host.view)
-    let center = CGPoint(x: next.midX, y: next.midY)
-    try await holdCharacter(character, at: center, in: host.view)
-    let radius = character.model.bodyRadius
-    XCTAssertEqual(try characterBodyPixels(host.capture(), around: center, bodyRadius: radius), 0,
-                   "The tour's card draws over the character")
-
-    try await clickTestControl("Next tour stop", in: host.view)
-    try await waitForUI("the next tour stop", in: host.view) {
-      fixture.setup.tour.map { $0.rawValue == first.rawValue + 1 } == true
-    }
-    XCTAssertTrue(character.model.isDragging, "The click didn't reach the character")
-    fixture.setup.endTour()
-    try await waitForUI("the character where the card was, once the tour ends", in: host.view) {
-      (try? characterBodyPixels(host.capture(), around: center, bodyRadius: radius)) == 2
-    }
-  }
-
-  @MainActor
   func testSlashCommandListHidesTheCharacterItCoversAndTakesTheClickOnItsRow() async throws {
     let fixture = try await Fixture(test: self)
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
@@ -1794,7 +1722,7 @@ extension EnigmaMainWindowTests {
       self.search = search
       let chat = LocalChatViewModel(engine: engine, selectionEditingSettings: selectionEditing,
         replaceSelection: { [pastes] text, contextID, automatic in
-          // F14 spike: the tour's selection takes the app's own path, into its pretend document.
+          // The tour's selection takes the app's own path, into its pretend document.
           if contextID == TourScene.context.id {
             return await SelectionContextService.shared.replace(with: text, contextID: contextID, automatic: automatic)
           }
@@ -1880,12 +1808,12 @@ extension EnigmaMainWindowTests {
 
 /// Records the tour's anchors as rectangles in the window.
 private final class AnchorBox {
-  var rects: [WelcomeTourStep: CGRect] = [:]
+  var rects: [TourTarget: CGRect] = [:]
 }
 
 private struct AnchorProbe: View {
   let box: AnchorBox
-  let rects: [WelcomeTourStep: CGRect]
+  let rects: [TourTarget: CGRect]
 
   var body: some View {
     box.rects = rects
