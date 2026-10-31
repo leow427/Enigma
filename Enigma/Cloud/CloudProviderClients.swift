@@ -11,6 +11,7 @@ struct CloudProviderRegistry: Sendable {
   let chatGPT: any ChatProvider
   let claudeCode: any ChatProvider
   let gemini: any ChatProvider
+  let free: any ChatProvider
 
   init(
     openAI: any ChatProvider, anthropic: any ChatProvider, chatGPT: any ChatProvider,
@@ -21,17 +22,20 @@ struct CloudProviderRegistry: Sendable {
     self.chatGPT = chatGPT
     self.claudeCode = claudeCode ?? ClaudeCodeSubscriptionClient.live
     self.gemini = gemini ?? GeminiContentClient(credentialStore: KeychainCredentialStore(), transport: URLSessionCloudTransport.shared)
+    free = FreeModelPool.live(gemini: self.gemini, credentialStore: KeychainCredentialStore())
   }
 
   init(
     credentialStore: any CloudCredentialStore,
     transport: any CloudNetworkTransport,
     chatGPT: any ChatProvider = CodexSubscriptionClient.live,
-    claudeCode: any ChatProvider = ClaudeCodeSubscriptionClient.live
+    claudeCode: any ChatProvider = ClaudeCodeSubscriptionClient.live,
+    free: (any ChatProvider)? = nil
   ) {
     self.chatGPT = chatGPT
     self.claudeCode = claudeCode
     gemini = GeminiContentClient(credentialStore: credentialStore, transport: transport)
+    self.free = free ?? FreeModelPool.live(gemini: gemini, credentialStore: credentialStore)
     openAI = OpenAIResponsesClient(
       credentialStore: credentialStore,
       transport: transport
@@ -49,6 +53,7 @@ struct CloudProviderRegistry: Sendable {
     case .openAI: openAI
     case .anthropic: anthropic
     case .gemini: gemini
+    case .free: free
     }
   }
 }

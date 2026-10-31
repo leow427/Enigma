@@ -188,6 +188,7 @@ enum ReplyMetaLine {
     case .openAI: "openai"
     case .anthropic: "anthropic"
     case .gemini: "gemini"
+    case .free: FreeModelCatalog.underlyingProvider(origin.modelName) == nil ? "apple" : "gemini"
     case nil: origin.providerID.lowercased()
     }
   }

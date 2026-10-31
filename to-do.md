@@ -1348,6 +1348,47 @@ The spec has every decision, and the checkpoints the work runs in.
 
 **Depends on / blocks:** after F30 (done).
 
+### F34. Free cloud models: Gemini's free tier and Apple's cloud model
+
+**Plan:** [2026-10-31-f34-free-models.md](docs/superpowers/plans/2026-10-31-f34-free-models.md).
+**Spec:** [2026-10-31-f34-free-models-design.md](docs/superpowers/specs/2026-10-31-f34-free-models-design.md).
+
+**Today:** every cloud route needs a ChatGPT or Claude plan or a paid API key
+(`CloudProviderID`, `CloudSettingsModel`). A user with none of them only has the
+local model.
+
+**Wanted:**
+
+- A **Free models** provider (`CloudProviderID.free`) that pools Gemini's free
+  tier (the user's own key) and Apple's model on Private Cloud Compute, ranked
+  by capability (`FreeModelCatalog.ranked`).
+- When a model hits its daily limit, the same request retries on the next
+  ranked model, the switch is saved, and a notice says so. A per-minute limit
+  retries once without saving. No retry once text has streamed.
+- When every free model is out, requests answer on the local model with a
+  notice; never on a paid or subscription route.
+- Auto uses free Gemini models only with **Auto may use free Gemini models**
+  on (off by default). Apple's model is allowed in Auto.
+- Guided Gemini key in Settings and welcome setup; macOS 26 users see that
+  macOS 27 adds Apple's free model.
+
+**Files:** `Enigma/Cloud/FreeModels.swift`, `FreeModelPool.swift`,
+`CloudDomain.swift`, `CloudSettingsModel.swift`, `CloudModelCapabilities.swift`,
+`Enigma/Chat/AssistantActivity.swift`, `Enigma/App/AppShellView.swift`; later
+`ApplePrivateCloudClient.swift`.
+
+**Tests:** `FreeModelsTests`.
+
+**Docs:** new `docs/Free-Models.md`; `docs/Cloud-Model-Selection.md`,
+`docs/Welcome-and-Settings.md`.
+
+**Depends on / blocks:** the Settings and welcome rows wait for F14. Apple's
+model waits for the `com.apple.developer.private-cloud-compute` entitlement
+(owner applies). The live check needs a free Gemini key.
+
+**Out of scope:** 9router; OpenRouter sign-in (a later item if Apple and
+Gemini aren't enough); paid models in the pool.
+
 ### F33. Show "Update available" on the menu bar icon and quietly in the app
 
 **Today:** Enigma already checks for updates once a day through Sparkle

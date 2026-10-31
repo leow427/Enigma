@@ -13,6 +13,8 @@ struct ScreenModel: Sendable, Equatable {
   let isLocal: Bool
   let capabilities: ModelInputCapabilities
   var visionProjectorPath: String? = nil
+  /// Auto picked this cloud model (F34); kept on the route for the free pool.
+  var isAuto = false
   var supportsText: Bool { capabilities.supportsText }
   var supportsVision: Bool { capabilities.supportsVision }
   var canUseVision: Bool {
@@ -22,7 +24,8 @@ struct ScreenModel: Sendable, Equatable {
     route(searchEnabled: false)
   }
   func route(searchEnabled: Bool) -> Route {
-    Route(mode: isLocal ? .local : .cloud, providerID: provider, modelID: id, usesNetwork: !isLocal || searchEnabled)
+    Route(mode: isLocal ? .local : .cloud, providerID: provider, modelID: id, usesNetwork: !isLocal || searchEnabled,
+          isAuto: isAuto)
   }
 }
 
@@ -86,7 +89,7 @@ extension CloudModelCapabilities {
        "claude-sonnet-4-5", "claude-sonnet-4-5-20250929", "claude-sonnet-4-20250514",
        "claude-opus-4-20250514", "claude-3-7-sonnet-20250219", "claude-3-5-haiku-20241022"]
     case .gemini:
-      ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
+      ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
     case .chatGPT:
       // Codex's own list says which models take images; caches written before it was
       // recorded count as text-only until the next refresh.
@@ -94,6 +97,9 @@ extension CloudModelCapabilities {
     case .claudeCode:
       // Each alias resolves to the plan's newest model of its tier, all of which take images.
       ClaudeCodeSubscriptionClient.models.map(\.id)
+    case .free:
+      // Apple's cloud model stays text-only until image input is confirmed live (F34).
+      visionModelIDs(for: .gemini).filter(FreeModelCatalog.ranked.contains)
     }
   }
 }
