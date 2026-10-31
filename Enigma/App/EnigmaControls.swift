@@ -618,7 +618,7 @@ struct EnigmaSectionHeader: View {
       .font(EnigmaTypography.ui(strong ? 13.5 : 11.5, weight: strong ? .semibold : .medium))
       .foregroundStyle((strong ? palette.textPrimary : palette.textTertiary).color)
       .padding(.top, strong ? 28 : 20)
-      .padding(.bottom, strong ? 8 : 4)
+      .padding(.bottom, strong ? 12 : 4)
       .accessibilityAddTraits(.isHeader)
       .settingsCardMark(.end, at: .top, if: strong)
       .enigmaTestMarker(title)
@@ -971,6 +971,7 @@ struct EnigmaStatusLine: View {
 struct EnigmaNote: View {
   let text: String
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.enigmaStrongDividers) private var strong
 
   init(_ text: String) { self.text = text }
 
@@ -980,6 +981,8 @@ struct EnigmaNote: View {
       .foregroundStyle(palette.textSecondary.color)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: .infinity, alignment: .leading)
+      // In Settings a note often sits right above a card.
+      .padding(.bottom, strong ? 12 : 0)
   }
 }
 
