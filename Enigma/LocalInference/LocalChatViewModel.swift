@@ -2545,6 +2545,56 @@ final class LocalChatViewModel: ObservableObject {
   }
 }
 
+// MARK: F14 spike: scripted tour replies
+
+extension LocalChatViewModel {
+  /// Appends the person's message and a reply that plays `script`: its
+  /// activity steps, then words streamed in, then the map card. The open chat
+  /// is temporary, so none of it is saved.
+  func tourAppend(prompt: String, script: TourScript) {
+    guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { return }
+    func update(_ change: (inout ChatMessage) -> Void, id: UUID) {
+      guard let s = sessions.firstIndex(where: { $0.id == sessionID }),
+            let m = sessions[s].messages.firstIndex(where: { $0.id == id }) else { return }
+      change(&sessions[s].messages[m])
+    }
+    guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
+    sessions[index].messages.append(ChatMessage(role: .user, content: prompt))
+    var reply = ChatMessage(role: .assistant, content: "")
+    var activity = AssistantActivity(id: reply.id)
+    reply.activity = activity
+    reply.origin = ReplyOrigin(mode: .local, providerID: "tour", modelName: "example reply")
+    sessions[index].messages.append(reply)
+    let replyID = reply.id
+    state = .searching
+    Task { @MainActor [weak self] in
+      guard let self else { return }
+      for phase in script.phases {
+        activity.apply(.phase(phase))
+        if phase == .readingSources { activity.apply(.sourcesDiscovered(script.sources)) }
+        update({ $0.activity = activity }, id: replyID)
+        try? await Task.sleep(for: .milliseconds(900))
+      }
+      activity.apply(.phase(.generating))
+      update({ $0.activity = activity }, id: replyID)
+      state = .streaming
+      var text = ""
+      for word in script.reply.split(separator: " ", omittingEmptySubsequences: false) {
+        text += (text.isEmpty ? "" : " ") + word
+        update({ $0.content = text }, id: replyID)
+        try? await Task.sleep(for: .milliseconds(45))
+      }
+      activity.apply(.phase(.completed))
+      update({
+        $0.activity = activity
+        $0.searchSources = script.sources.isEmpty ? nil : script.sources
+        $0.mapPlaces = script.places
+      }, id: replyID)
+      state = .idle
+    }
+  }
+}
+
 /// A flagged request's selection proposals, applied to its reply when it finishes.
 private struct NativeProposals {
   let requestID: UUID

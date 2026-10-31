@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 
 struct AppShellView: View {
   @ObservedObject private var welcomeSetup: WelcomeSetup
+  /// F14 spike: the hands-on tour in the main window.
+  @ObservedObject private var guidedTour = GuidedTour.shared
   @ObservedObject private var whatsNew: WhatsNew
   /// System, Paper, or Ink.
   @ObservedObject private var appearance: EnigmaAppearancePreference
@@ -199,6 +201,10 @@ struct AppShellView: View {
     }
     // The welcome stays inside the window's corners.
     .clipShape(windowShape)
+    // F14 spike: the character's perch on the tour card, inside the stage.
+    .overlayPreferenceValue(WelcomeTourAnchors.self) { anchors in
+      GuidedTourPerch(tour: guidedTour, anchors: anchors)
+    }
     // One stage for the whole window, so the character can fall from the
     // welcome into the main page.
     .enigmaCharacterStage(character, tracksPointer: false)
@@ -211,6 +217,10 @@ struct AppShellView: View {
           WelcomeTourOverlay(setup: welcomeSetup, anchors: anchors,
             availableCommands: SlashCommand.available())
             .clipShape(windowShape)
+            .transition(.opacity)
+        }
+        if guidedTour.isActive && !welcomeSetup.isPresented {
+          GuidedTourOverlay(tour: guidedTour, anchors: anchors, onFinish: finishGuidedTour)
             .transition(.opacity)
         }
       }
@@ -359,6 +369,7 @@ struct AppShellView: View {
       // In the open chat it falls into the first reply and moves down to each
       // newer one. Opening another chat, saved or new, puts it there at once.
       guard !welcomeSetup.isPresented, old.slot != new.slot else { return }
+      if guidedTour.isActive || old.slot == GuidedTourPerch.slot { character.move(to: new.slot, .fly); return }
       character.move(to: new.slot, ChatCharacterMove.transition(fromSession: old.session, toSession: new.session,
                                                                 isResponding: localChat.activeRequest != nil))
     }
@@ -442,7 +453,13 @@ struct AppShellView: View {
       shell.welcomeChanged(isPresented: presented, isTourActive: welcomeSetup.tour != nil)
       if !presented { startPreferences.mode = .auto }
       // The character falls from the welcome into the main page's slot.
-      if !presented { settleCharacter(.automatic) }
+      if !presented { settleCharacter(.fly) }
+    }
+    .onChange(of: guidedTour.pendingDraft) { _, text in
+      guard let text else { return }
+      draft = text
+      guidedTour.pendingDraft = nil
+      shell.isComposerFocused = true
     }
     .onChange(of: welcomeSetup.tour) { _, tour in
       shell.tourChanged(isActive: tour != nil, isWelcomePresented: welcomeSetup.isPresented)
@@ -742,10 +759,19 @@ struct AppShellView: View {
   /// Where the character sits outside the welcome: beside the latest reply
   /// in a chat, and otherwise on the main page, or beside the compact panel's input.
   private var windowCharacterSlot: EnigmaCharacterSlotID {
+    if guidedTour.isActive && guidedTour.characterOnCard && !shell.isSelectionComposer { return GuidedTourPerch.slot }
     let home = shell.isSelectionComposer ? CompactPanelLayout.inputSlot : MainWindowCharacter.mainSlot
     guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
                                                   activity: localChat.activity) ?? home
+  }
+
+  /// F14 spike: leaves the tour for a fresh chat.
+  private func finishGuidedTour() {
+    guidedTour.end()
+    localChat.newChat()
+    draft = ""
+    shell.isComposerFocused = true
   }
 
   /// Sends the character to its slot in the window with its state there.
@@ -988,6 +1014,16 @@ struct AppShellView: View {
 
   private func submitDraft(recognizesCommands: Bool = true) {
     guard !welcomeSetup.isPresented, welcomeSetup.tour == nil else { return }
+    // F14 spike: during the tour a send plays a scripted reply.
+    if guidedTour.isActive {
+      let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !text.isEmpty, !localChat.isBusy else { return }
+      draft = ""
+      guidedTour.characterOnCard = false
+      localChat.playTourExchange(prompt: text, script: guidedTour.script(for: text))
+      guidedTour.complete()
+      return
+    }
     if queuesDraft {
       guard canQueueDraft, localChat.queueMessage(visibleDraft, dismissed: dismissedInferences) else { return }
       draft = ""

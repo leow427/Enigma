@@ -29,6 +29,8 @@ enum EnigmaCharacterTransition: Sendable {
   case automatic
   /// A glide on `characterFollow`, whichever way.
   case glide
+  /// A crouch and a high arcing hop that lands on the slot, up or down (F14 spike).
+  case fly
   /// No motion.
   case instant
 }
@@ -216,6 +218,7 @@ final class EnigmaCharacterController: ObservableObject {
       switch transition {
       case .automatic: model.fall(to: slot)
       case .glide: model.place(at: slot, instantly: false)
+      case .fly: model.fly(to: slot)
       case .instant: model.place(at: slot, instantly: true)
       }
     } else {

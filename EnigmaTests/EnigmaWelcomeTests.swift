@@ -288,6 +288,12 @@ final class EnigmaWelcomeTests: XCTestCase {
       try await saveWelcome("welcome-\(step.rawValue + 1)-\(step)", fixture: fixture, step: step, size: defaultSize)
     }
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
+    for stop in [GuidedTour.Stop.ask, .selection, .expect] {
+      try EnigmaSnapshot.save("guided-\(stop)", size: CGSize(width: 380, height: 520)) {
+        GuidedTourCard(tour: GuidedTour(), stop: stop, onFinish: {})
+          .frame(width: WelcomeTourPlacement.maximumCardWidth)
+      }
+    }
     try EnigmaSnapshot.save("tour-card", size: CGSize(width: 380, height: 600)) {
       WelcomeTourCard(setup: fixture.setup, step: .commands,
                             availableCommands: SlashCommand.available())
