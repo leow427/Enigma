@@ -307,8 +307,8 @@ final class EnigmaWelcomeTests: XCTestCase {
       try await saveWelcome("welcome-\(step.rawValue + 1)-\(step)", fixture: fixture, step: step, size: defaultSize)
     }
     try await saveWelcome("welcome-1-welcome-minimum", fixture: fixture, step: .welcome, size: CGSize(width: 640, height: 420))
-    for stop in [GuidedTour.Stop.ask, .selection, .messages, .screen, .expect] {
-      try EnigmaSnapshot.save("guided-\(stop)", size: CGSize(width: 360, height: 560)) {
+    for stop in [GuidedTour.Stop.ask, .keys, .selection, .modes, .expect, .permissions, .done] {
+      try EnigmaSnapshot.save("guided-\(stop)", size: CGSize(width: 360, height: 620)) {
         GuidedTourCard(tour: GuidedTour(), stop: stop, onAdvance: {}, onFinish: {})
           .frame(width: GuidedTourPlacement.railWidth - 2 * GuidedTourPlacement.margin)
       }

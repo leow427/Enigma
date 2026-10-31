@@ -787,10 +787,14 @@ struct AppShellView: View {
   /// F14 spike: Return or the card's button takes the tour's next beat.
   private func advanceTour() {
     if guidedTour.stop == .done { finishGuidedTour(); return }
-    guard let demo = guidedTour.advance() else { return }
-    draft = ""
-    localChat.playTourExchange(prompt: demo.prompt, script: demo.script) {
-      GuidedTour.shared.demoFinished()
+    switch guidedTour.advance() {
+    case .send(let demo):
+      draft = ""
+      localChat.playTourExchange(demo) { GuidedTour.shared.demoFinished() }
+    case .newChat:
+      NotificationCenter.default.post(name: .newChatRequested, object: nil)
+    case nil:
+      break
     }
   }
 

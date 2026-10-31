@@ -2551,7 +2551,7 @@ extension LocalChatViewModel {
   /// Appends the person's message and a reply that plays `script`: its
   /// activity steps, then words streamed in, then the map card. The open chat
   /// is temporary, so none of it is saved.
-  func tourAppend(prompt: String, script: TourScript, onFinish: @escaping @MainActor () -> Void) {
+  func tourAppend(_ message: ChatMessage, script: TourScript, onFinish: @escaping @MainActor () -> Void) {
     guard let sessionID = selectedSessionID, sessions.contains(where: { $0.id == sessionID }) else { onFinish(); return }
     func update(_ change: (inout ChatMessage) -> Void, id: UUID) {
       guard let s = sessions.firstIndex(where: { $0.id == sessionID }),
@@ -2559,7 +2559,7 @@ extension LocalChatViewModel {
       change(&sessions[s].messages[m])
     }
     guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { onFinish(); return }
-    sessions[index].messages.append(ChatMessage(role: .user, content: prompt))
+    sessions[index].messages.append(message)
     var reply = ChatMessage(role: .assistant, content: "")
     var activity = AssistantActivity(id: reply.id)
     reply.activity = activity
@@ -2573,7 +2573,7 @@ extension LocalChatViewModel {
         activity.apply(.phase(phase))
         if phase == .readingSources { activity.apply(.sourcesDiscovered(script.sources)) }
         update({ $0.activity = activity }, id: replyID)
-        try? await Task.sleep(for: .milliseconds(900))
+        try? await Task.sleep(for: .milliseconds(script.phaseDuration))
       }
       activity.apply(.phase(.generating))
       update({ $0.activity = activity }, id: replyID)
