@@ -31,9 +31,9 @@ final class ScreenSettings: ObservableObject {
     allowCloudScreenshots = allow
   }
 
-  static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Cloud and search. Local mode keeps images on this Mac."
+  static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Cloud. Local mode keeps images on this Mac."
   static let ocrExplanation = "OCR reads text on this Mac. In Auto or Cloud, extracted text may go to your text model without uploading an image."
-  static let modelPickerNote = "The normal model picker selects the model for text and images. Install a recommended package in Local models for private visual analysis."
+  static let modelPickerNote = "The normal model picker selects the model for text and images. Install a recommended package in Settings → On this Mac for private visual analysis."
 }
 
 @MainActor

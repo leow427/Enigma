@@ -140,13 +140,13 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
   var errorDescription: String? {
     switch self {
     case .missingAPIKey(let provider):
-      "Add an API key for \(provider.displayName) in Settings → Cloud and search."
+      "Add an API key for \(provider.displayName) in Settings → Cloud."
     case .unsupportedModel(let provider, let modelID):
-      "\(modelID) cannot be used for text chat with \(provider.displayName) in Enigma. Choose a compatible model in Settings → Cloud and search."
+      "\(modelID) cannot be used for text chat with \(provider.displayName) in Enigma. Choose a compatible model in Settings → Cloud."
     case .offline:
       "The cloud provider could not be reached. Check your internet connection."
     case .authenticationFailed(let provider):
-      "\(provider.displayName) rejected the API key. Check it in Settings → Cloud and search."
+      "\(provider.displayName) rejected the API key. Check it in Settings → Cloud."
     case .rateLimited(let provider):
       "\(provider.displayName) is rate limiting this account. Please try again shortly."
     case .invalidResponse:

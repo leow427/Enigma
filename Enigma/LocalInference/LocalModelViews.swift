@@ -160,7 +160,7 @@ struct LocalModelOnboardingView: View {
           if recommendations.roles.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
               EnigmaStatusLine(.problem, "No suitable model found")
-              Text("No supported text-and-image model fits this Mac’s memory or disk budget. Review Local models for the specific limits. Cloud is also available.")
+              Text("No supported text-and-image model fits this Mac’s memory or disk budget. Review Settings → On this Mac for the specific limits. Cloud is also available.")
                 .font(EnigmaTypography.ui(12))
                 .foregroundStyle(palette.textSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)

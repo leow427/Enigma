@@ -320,6 +320,17 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertNil(Destination.firstMatch("zzz"))
   }
 
+  /// Messages elsewhere in the app name the pages as they are now.
+  @MainActor
+  func testAppMessagesUseTheNewPageNames() {
+    let messages = [KeyboardShortcutsHelp.searchNote, ScreenSettings.modelPickerNote,
+                    WebSearchError.missingAPIKey.localizedDescription, WebSearchError.invalidAPIKey.localizedDescription,
+                    CloudProviderError.missingAPIKey(.openAI).localizedDescription]
+    for message in messages {
+      XCTAssertFalse(message.contains("Cloud and search") || message.contains("Local models"), message)
+    }
+  }
+
   func testOldDestinationNamesStillOpenTheirPages() {
     typealias Destination = SettingsView.SettingsDestination
     XCTAssertEqual(Destination.requested("general"), .general)

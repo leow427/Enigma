@@ -440,7 +440,7 @@ final class LocalChatViewModel: ObservableObject {
     self.fileCodex = fileCodex
     self.fileCloudAvailability = fileCloudAvailability ?? {
       if await ScreenConnectivity.shared.isOffline { return .unavailable(reason: "This Mac is offline.") }
-      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Sign in to ChatGPT in Settings → Cloud and search to use Codex.") }
+      guard CodexRuntimeConfiguration.executableURL() != nil else { return .unavailable(reason: "Sign in to ChatGPT in Settings → Cloud to use Codex.") }
       return await fileCodex.fileEditingAvailability(preferredModelID: CloudPreferencesStore().chosenModel(for: .chatGPT))
     }
     self.visionEngine = visionEngine
@@ -733,7 +733,7 @@ final class LocalChatViewModel: ObservableObject {
         return
       }
       guard localToolRuntime(model) else {
-        appleMessages.report("Messages with a local model needs llama-server. Open Settings → Local models → Local file tools → Install, or choose Cloud.")
+        appleMessages.report("Messages with a local model needs llama-server. Open Settings → On this Mac → Files → Local file tools → Install, or choose Cloud.")
         return
       }
     } else {
