@@ -58,7 +58,8 @@ struct SettingsAdvanced<Content: View>: View {
       .accessibilityLabel(isOpen ? "Hide advanced settings" : "Show advanced settings")
       .enigmaTestMarker("Advanced")
       .padding(.top, 22)
-      if isOpen { content().transition(.opacity) }
+      // A card right under the disclosure would touch its label.
+      if isOpen { content().padding(.top, 10).transition(.opacity) }
     }
     .onAppear { if opensAdvanced { isOpen = true } }
     .onChange(of: opensAdvanced) { _, opens in if opens { isOpen = true } }

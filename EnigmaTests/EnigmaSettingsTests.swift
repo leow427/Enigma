@@ -964,6 +964,13 @@ final class EnigmaSettingsTests: XCTestCase {
     }
     // Whole pages: Cloud and search's web search, advanced settings, and API
     // keys; General's location, Messages and Updates.
+    // Every Advanced section, open: its rows sit on cards like the rest.
+    for destination in [SettingsView.SettingsDestination.cloud, .search] {
+      let size = CGSize(width: SettingsView.windowSize.width, height: 1680)
+      try await EnigmaSnapshot.save("settings-\(destination)-advanced", size: size, until: { !fixture.advisor.isDetecting }) {
+        fixture.settings(destination, size: size, opensAdvanced: true)
+      }
+    }
     for (destination, height) in [(SettingsView.SettingsDestination.cloud, 1680.0), (.general, 1400.0)] {
       let size = CGSize(width: SettingsView.windowSize.width, height: height)
       try await EnigmaSnapshot.save("settings-\(destination.rawValue.lowercased().split(separator: " ").first!)-full",
@@ -1105,11 +1112,11 @@ final class EnigmaSettingsTests: XCTestCase {
 
     func settings(_ destination: SettingsView.SettingsDestination = .general,
                   appearance: EnigmaAppearancePreference? = nil,
-                  size: CGSize = SettingsView.windowSize) -> SettingsView {
+                  size: CGSize = SettingsView.windowSize, opensAdvanced: Bool = false) -> SettingsView {
       SettingsView(settings: cloud, appearance: appearance ?? self.appearance, initialDestination: destination,
                          advisor: advisor, chat: chat, search: search, screen: screen,
                          startPreferences: start, selectionEditing: selection, location: location,
-                         updater: updater, size: size)
+                         updater: updater, size: size, opensAdvanced: opensAdvanced)
     }
   }
 

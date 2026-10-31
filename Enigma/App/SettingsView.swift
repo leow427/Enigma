@@ -172,7 +172,7 @@ struct SettingsView: View {
        search: WebSearchSettings = .shared, screen: ScreenSettings = .shared,
        startPreferences: StartPreferences = .shared, selectionEditing: SelectionEditingSettings = .shared,
        location: LocationService = .shared, updater: AppUpdater = .shared,
-       size: CGSize = SettingsView.windowSize) {
+       size: CGSize = SettingsView.windowSize, opensAdvanced: Bool = false) {
     self.settings = settings
     self.appearance = appearance
     self.advisor = advisor
@@ -185,6 +185,7 @@ struct SettingsView: View {
     self.updater = updater
     self.size = size
     _destination = State(initialValue: initialDestination)
+    _opensAdvanced = State(initialValue: opensAdvanced)
   }
 
   var body: some View {
