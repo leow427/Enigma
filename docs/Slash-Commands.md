@@ -126,9 +126,11 @@ Typed commands still work, and turn a choice into a request:
 | `/screen`, `/snapshot` | Unchanged: the capture is sent with no tools, as on other models |
 
 "Must call" uses the provider's forced tool choice where it has one (OpenAI,
-Anthropic without `/think`, Gemini, and `llama-server`'s `required`), and an
-instruction at the end of your message everywhere, since Codex, Claude Code and
-some local models don't always obey the forced choice.
+Anthropic without `/think` on models before Claude Opus 5.5, Sonnet 5.5, Fable
+5.1 and Mythos 5.1, which reject it, Gemini, and `llama-server`'s `required`),
+and an instruction at the end of your message everywhere, since Codex, Claude
+Code, those Anthropic models and some local models can't force a tool or don't
+always obey the forced choice.
 
 Files attached keep File Mode's own tools, and a screenshot attached keeps
 today's screen path with no tools. The conflicts in

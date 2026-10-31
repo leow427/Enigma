@@ -287,6 +287,17 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.first?.content, "/search tide times", "The saved question is unchanged")
   }
 
+  func testAnthropicModelThatCantForceAToolStillAsksForItInWords() async throws {
+    for model in ["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-mythos-5-1"] {
+      let provider = NativeToolProvider(steps: [[.token("Searched.")]])
+      let chat = makeChat(cloud: provider)
+      await chat.refreshInstalledModel()
+      let route = Route(mode: .cloud, providerID: CloudProviderID.anthropic.rawValue, modelID: model, usesNetwork: true)
+      try await send("/search tide times", to: chat, route: route)
+      XCTAssertEqual(provider.toolStreams.values.first?.hasSuffix("Call the web_search tool before you answer."), true, model)
+    }
+  }
+
   func testTypedSearchIsRequiredAndOfferedWithAutomaticSearchOff() async throws {
     let inference = NativeScriptedInference(steps: [.call("web_search", #"{"query":"paris weather"}"#), .text("Sunny.")])
     let chat = makeChat(inference: inference, automaticSearch: false)

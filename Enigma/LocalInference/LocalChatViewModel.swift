@@ -1020,9 +1020,10 @@ final class LocalChatViewModel: ObservableObject {
             let providerSearch = plan.searchBackend == .provider
               ? ProviderSearch(blockedDomains: owner?.searchSettings?.blockedDomainsMostRecentFirst ?? [], location: location)
               : nil
-            // Codex, Claude Code and Anthropic with /think can't force a tool, so the request also
-            // asks in words. The local server adds the same line itself. On provider search,
-            // `web_search` names the provider's own tool, which isn't among the definitions.
+            // Codex, Claude Code, Anthropic with /think and Anthropic's newest models can't force a
+            // tool, so the request also asks in words. The local server adds the same line itself.
+            // On provider search, `web_search` names the provider's own tool, which isn't among the
+            // definitions.
             var history = history
             if let required = toolbox.offeredRequiredTool ?? (providerSearch == nil ? nil : toolbox.requiredTool) {
               history[history.count - 1].content += "\n\n" + LlamaServerVisionEngine.requiredToolInstruction(required)
