@@ -10,6 +10,15 @@ final class EnigmaWelcomeTests: XCTestCase {
 
   // MARK: Flow logic
 
+  /// VoiceOver reads the counter in words and each checklist step's state.
+  @MainActor
+  func testTourCardSpeaksItsCounterAndSteps() {
+    XCTAssertEqual(GuidedTour.Stop.ask.counterLabel, "Stop 1 of \(GuidedTour.Stop.allCases.count)")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: true, isCurrent: false), "done")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: false, isCurrent: true), "current")
+    XCTAssertEqual(GuidedTour.Stop.stepState(isDone: false, isCurrent: false), "to do")
+  }
+
   func testInviteShowsOnceToExistingUsersOnly() {
     let defaults = UserDefaults(suiteName: #function)!
     defaults.removePersistentDomain(forName: #function)

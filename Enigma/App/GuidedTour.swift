@@ -513,6 +513,14 @@ enum TourRelaunch {
 }
 
 extension GuidedTour.Stop {
+  /// The card's `1/10`, as VoiceOver reads it.
+  var counterLabel: String { "Stop \(rawValue + 1) of \(Self.allCases.count)" }
+
+  /// A checklist step's state, as VoiceOver reads it.
+  static func stepState(isDone: Bool, isCurrent: Bool) -> String {
+    isDone ? "done" : isCurrent ? "current" : "to do"
+  }
+
   var title: String {
     switch self {
     case .ask: "Just ask"
@@ -725,6 +733,7 @@ struct GuidedTourCard: View {
   var onAdvance: () -> Void
   var onFinish: () -> Void
   @Environment(\.enigmaPalette) private var palette
+  @AccessibilityFocusState private var titleFocused: Bool
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -735,6 +744,7 @@ struct GuidedTourCard: View {
         Text("\(stop.rawValue + 1)/\(GuidedTour.Stop.allCases.count)")
           .font(EnigmaTypography.mono(11.5))
           .foregroundStyle(palette.textTertiary.color)
+          .accessibilityLabel(stop.counterLabel)
       }
       if tour.resumed {
         Text("Welcome back. Picking up where we left off.")
@@ -745,6 +755,10 @@ struct GuidedTourCard: View {
         .font(EnigmaTypography.ui(17, weight: .semibold))
         .tracking(-0.3)
         .foregroundStyle(palette.textPrimary.color)
+        .accessibilityAddTraits(.isHeader)
+        // VoiceOver moves to each new stop's title, so the stop is announced.
+        .accessibilityFocused($titleFocused)
+        .task(id: stop) { titleFocused = true }
       if !stop.detail.isEmpty {
         Text(stop.detail)
           .font(EnigmaTypography.ui(13.5))
@@ -791,11 +805,14 @@ struct GuidedTourCard: View {
             .font(EnigmaTypography.mono(12))
             .foregroundStyle(isDone || isCurrent ? palette.accentText.color : palette.textTertiary.color)
             .frame(width: 12)
+            .accessibilityHidden(true)
           Text(step.label)
             .font(EnigmaTypography.ui(13, weight: isCurrent ? .semibold : .regular))
             .foregroundStyle(isCurrent ? palette.textPrimary.color
                              : isDone ? palette.textSecondary.color : palette.textTertiary.color)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(GuidedTour.Stop.stepState(isDone: isDone, isCurrent: isCurrent))
       }
     }
     .padding(.vertical, 2)
