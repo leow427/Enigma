@@ -49,9 +49,9 @@ struct SettingsAdvanced<Content: View>: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .padding(.top, 22)
       .accessibilityLabel(isOpen ? "Hide advanced settings" : "Show advanced settings")
       .enigmaTestMarker("Advanced")
+      .padding(.top, 22)
       if isOpen { content().transition(.opacity) }
     }
   }

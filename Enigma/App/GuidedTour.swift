@@ -821,6 +821,7 @@ struct GuidedTourCard: View {
           // Return here too when the composer isn't focused; the tour takes one beat per press.
           .keyboardShortcut(.defaultAction)
           .disabled(tour.beat == .playing)
+          .enigmaTestMarker("Tour next")
       }
     }
   }

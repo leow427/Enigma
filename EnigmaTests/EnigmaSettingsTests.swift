@@ -260,15 +260,17 @@ final class EnigmaSettingsTests: XCTestCase {
     }
   }
 
-  func testDiscoverIsGoneAndItsOldNameOpensLocalModels() {
+  func testOldDestinationNamesStillOpenTheirPages() {
     typealias Destination = SettingsView.SettingsDestination
-    XCTAssertEqual(Destination.allCases.map(\.rawValue), ["general", "local", "cloud", "selection"])
-    XCTAssertEqual(Destination.requested("discover"), .local)
+    XCTAssertEqual(Destination.requested("general"), .general)
     XCTAssertEqual(Destination.requested("local"), .local)
-    XCTAssertEqual(Destination.requested(Destination.cloud), .cloud)
-    XCTAssertNil(Destination.requested("not a destination"))
-    XCTAssertNil(Destination.requested(nil))
+    XCTAssertEqual(Destination.requested("cloud"), .cloud)
+    XCTAssertEqual(Destination.requested("selection"), .selection)
+    XCTAssertEqual(Destination.requested("discover"), .local)
+    XCTAssertEqual(Destination.allCases.map(\.rawValue),
+      ["general", "shortcuts", "local", "cloud", "search", "selection", "screen", "files", "messages", "permissions", "approvals", "about"])
   }
+
 
   @MainActor
   func testNavigationClickSelectsAPage() async throws {
@@ -325,7 +327,7 @@ final class EnigmaSettingsTests: XCTestCase {
   func testUpdateSwitchesAndCheckNowReachTheUpdater() async throws {
     let fixture = try await Fixture(test: self)
     let backend = fixture.updaterBackend
-    let host = Host(fixture.settings(.general, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.about, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
     try await waitForUI("the update switches", in: host.view) { host.shows("Check for updates automatically switch") }
     try host.press("Check for updates automatically switch")
     try await waitForUI("automatic checks off", in: host.view) { !backend.automaticallyChecksForUpdates }
@@ -379,7 +381,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let credentials = ScreenTestCredentialStore()
     let fixture = try await Fixture(test: self, cloudCredentials: credentials)
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    try await type("  sk-test-key ", intoFieldAt: 1, of: host)
+    try await host.openAdvanced()
+    try await type("  sk-test-key ", intoFieldAt: 0, of: host)
     try host.press("Save OpenAI API key")
     try await waitForUI("the key in the Keychain", in: host.view) {
       (try? credentials.apiKey(for: .openAI)) == "sk-test-key"
@@ -664,7 +667,8 @@ final class EnigmaSettingsTests: XCTestCase {
   func testFailedKeySaveShowsTheSameErrorAndKeepsTheKey() async throws {
     let fixture = try await Fixture(test: self, cloudCredentials: FailingCloudCredentials())
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    let field = try await type("sk-test-key", intoFieldAt: 1, of: host)
+    try await host.openAdvanced()
+    let field = try await type("sk-test-key", intoFieldAt: 0, of: host)
     try host.press("Save OpenAI API key")
     let message = FailingCloudCredentials.Failure().localizedDescription
     try await waitForUI("the error line", in: host.view) { host.shows(message) }
@@ -682,6 +686,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self, cloudCredentials: ScreenTestCredentialStore(keys: [.openAI: "bad"]),
                                     transport: transport)
     let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     try await waitForUI("the test button", in: host.view) { host.shows("Test OpenAI API connection") }
     try host.press("Test OpenAI API connection")
     try await waitForUI("the failed test", in: host.view) {
@@ -711,7 +716,8 @@ final class EnigmaSettingsTests: XCTestCase {
   @MainActor
   func testFailedBraveKeySaveShowsTheError() async throws {
     let fixture = try await Fixture(test: self, searchCredentials: FailingSearchCredentials())
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     let field = try await type("brave-key", intoFieldAt: 0, of: host)
     try host.press("Save Brave key")
     let message = FailingSearchCredentials.Failure().localizedDescription
@@ -739,7 +745,8 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertFalse(Section.sitesNote.contains("Mojeek") || Section.sitesNote.contains("Startpage"),
                    "Only the sites the lineup kept")
     let fixture = try await Fixture(test: self)
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     for text in ["Web search", "ready", "Use Brave Search instead", "not used", "Blocked sites", "No blocked sites"] {
       try await waitForUI(text, in: host.view) { host.shows(text) }
     }
@@ -753,7 +760,8 @@ final class EnigmaSettingsTests: XCTestCase {
     let fixture = try await Fixture(test: self)
     fixture.search.block(URL(string: "https://example.com/a")!)
     fixture.search.block(URL(string: "https://www.sample.org/b")!)
-    let host = Host(fixture.settings(.cloud, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    let host = Host(fixture.settings(.search, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await host.openAdvanced()
     try await waitForUI("two blocked rows", in: host.view) { host.shows("example.com") && host.shows("sample.org") }
     XCTAssertFalse(host.shows("No blocked sites"))
     try host.press("Remove example.com")
@@ -1142,6 +1150,12 @@ final class EnigmaSettingsTests: XCTestCase {
     }
 
     func shows(_ name: String) -> Bool { marker(name) != nil }
+
+    /// Opens the page's "› Advanced" disclosure.
+    func openAdvanced(file: StaticString = #filePath, line: UInt = #line) async throws {
+      try await waitForUI("the Advanced disclosure", in: view) { self.shows("Advanced") }
+      try press("Advanced", file: file, line: line)
+    }
 
     /// Whether SwiftUI has control `name` enabled, or nil when it isn't shown.
     func isEnabled(_ name: String) -> Bool? { (marker(name) as? TestControlMarker.Marker)?.isEnabled }

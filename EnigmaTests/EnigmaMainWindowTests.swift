@@ -1130,6 +1130,49 @@ final class EnigmaMainWindowTests: XCTestCase {
 
   /// The tour's text to Sam waits on the real approval card,
   /// Return in the composer approves it, and nothing is sent.
+  /// The card sits in the rail right of the page; its button and Return each take a beat.
+  @MainActor
+  func testTourCardSitsInTheRailAndTakesReturnAndItsButton() async throws {
+    let fixture = try await Fixture(test: self)
+    let size = CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860)
+    let host = Host(fixture, size: size, test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    let button = try XCTUnwrap(host.marker("Tour next"))
+    let frame = button.convert(button.bounds, to: nil)
+    XCTAssertGreaterThanOrEqual(frame.minX, size.width - GuidedTourPlacement.railWidth, "The card is in the rail")
+    try await Task.sleep(for: .milliseconds(300))
+    try await clickTestControl("Tour next", in: host.view)
+    try await waitForUI("the button took the first step", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && tour.beat == .ready
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("Return took the second step", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 2 && tour.beat == .ready
+    }
+  }
+
+  /// A stop with a target puts the card level with it, kept inside the window.
+  func testTourStopsWithATargetSitLevelWithIt() {
+    let container = CGSize(width: 1000 + GuidedTourPlacement.railWidth, height: 780)
+    let height: CGFloat = 220
+    for midY in [120.0, 400, 700] {
+      let target = CGRect(x: 100, y: midY - 20, width: 200, height: 40)
+      let placement = GuidedTourPlacement(target: target, container: container, cardHeight: height, railMinX: 1000)
+      let cardMid = placement.cardOrigin.y + height / 2
+      let lowest = container.height - GuidedTourPlacement.margin
+      let expected = min(max(midY, GuidedTourPlacement.perchRoom + height / 2), lowest - height / 2)
+      XCTAssertEqual(cardMid, expected, accuracy: 0.5, "target at \(midY)")
+      XCTAssertEqual(placement.cardOrigin.x, 1000 + GuidedTourPlacement.margin)
+    }
+  }
+
   @MainActor
   func testTourMessagesStopAsksOnTheRealApprovalCard() async throws {
     let fixture = try await Fixture(test: self)
