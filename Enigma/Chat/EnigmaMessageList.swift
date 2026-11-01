@@ -34,6 +34,8 @@ struct EnigmaMessageList<Revision: View>: View {
   static var exchangeSpacing: CGFloat { 22 }
   static var replySpacing: CGFloat { 16 }
 
+  @Environment(\.enigmaTourDemo) private var isTourDemo
+
   var body: some View {
     GeometryReader { proxy in
       ScrollView {
@@ -59,6 +61,7 @@ struct EnigmaMessageList<Revision: View>: View {
           }
         }
         .frame(maxWidth: MainPageLayout.columnMaximumWidth)
+        .allowsHitTesting(!isTourDemo)
         .padding(.horizontal, 24)
         .padding(.top, 20)
         .padding(.bottom, 14)

@@ -735,7 +735,8 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     case .openInWindow:
       // Only the selection panel's chat opens in the window; elsewhere the key
       // is left unhandled rather than swallowed.
-      guard selectionNormalFrame != nil else { return false }
+      // The tour moves its chat into the window on its own send.
+      guard selectionNormalFrame != nil, !GuidedTour.shared.isActive else { return false }
       openSelectionChatInWindow()
       return true
     case .fileMode: name = .fileModeRequested

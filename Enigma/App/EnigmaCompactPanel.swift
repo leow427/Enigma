@@ -191,6 +191,7 @@ struct EnigmaCompactSelectionLine: View {
         .accessibilityValue(isStatusPresented ? "Shown" : "Hidden")
         .help(context?.title ?? "Selection context and status")
         .enigmaTestMarker("Selection details")
+        .enigmaTestMarker(statusNeedsAttention ? "Selection details needs attention" : "Selection details calm")
       }
       if let context {
         Button { remove(context.id) } label: {

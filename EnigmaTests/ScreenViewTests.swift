@@ -823,8 +823,9 @@ final class ScreenViewTests: XCTestCase {
     func sidebarScroll() -> NSScrollView? {
       descendants(view).compactMap { $0 as? NSScrollView }.first { view.convert($0.bounds, from: $0).minX < 30 }
     }
+    // Settled, not just close: the sidebar slides in, and its last frames sit a fraction of a point off.
     try await waitForUI("the sidebar in place during \(phase)", in: view) {
-      sidebarScroll().map { abs(view.convert($0.bounds, from: $0).minX) < 0.5 } ?? false
+      sidebarScroll().map { view.bounds.contains(view.convert($0.bounds, from: $0)) } ?? false
     }
     let history = try XCTUnwrap(sidebarScroll())
     let historyFrame = view.convert(history.bounds, from: history)

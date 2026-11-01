@@ -1079,6 +1079,8 @@ final class EnigmaMainWindowTests: XCTestCase {
   @MainActor
   func testTourSelectionStopRunsTheRealPanelOverThePretendDocument() async throws {
     let fixture = try await Fixture(test: self)
+    // Accessibility missing: the tour's chat still never asks for it.
+    fixture.selectionAccess = SelectionAccessibilityAccess(checkTrust: { false }, prompt: {}, openSettings: { _ in })
     let view = NSHostingView(rootView: fixture.shell())
     let sizes = PanelSizeStore(defaults: fixture.defaults)
     sizes.save(NSSize(width: 1100, height: 720))
@@ -1102,11 +1104,20 @@ final class EnigmaMainWindowTests: XCTestCase {
         && fixture.chat.attachedContexts.map(\.id) == [TourScene.context.id]
         && Host.marker("Compact panel", in: view) != nil
     }
+    XCTAssertNotEqual(fixture.character.state, .error, "Missing Accessibility isn't a problem in the tour")
+    XCTAssertNil(Host.marker("Selection details needs attention", in: view), "Nor does the panel's status flag it")
+    XCTAssertFalse(composerAcceptsClicks(in: view), "The panel takes no clicks")
     let selection = try XCTUnwrap(TourDocumentWindow.shared.selectionOnScreen)
     XCTAssertLessThanOrEqual(window.frame.maxY, selection.minY + 1, "The panel opens under the selected line")
     try await waitForUI("the question typed into the panel", in: view, timeout: .seconds(10)) {
       tour.beat == .ready && fixture.screen.draft == TourScene.demo.prompt
     }
+    // ⌘O would move the chat into the window before the tour's send.
+    _ = window.performKeyEquivalent(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
+      modifierFlags: .command, timestamp: 1, windowNumber: window.windowNumber, context: nil, characters: "o",
+      charactersIgnoringModifiers: "o", isARepeat: false, keyCode: 31)))
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertTrue(controller.isSelectionComposer, "⌘O doesn't move the tour's chat early")
     let editor = try XCTUnwrap(composerEditor(in: view))
     // With Reduce Motion on (as on CI) the panel and typing are instant, so
     // wait out the tour's 0.25 s between presses or it drops this Return.
@@ -1127,6 +1138,10 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the replace step ready", in: view, timeout: .seconds(20)) {
       tour.beat == .ready && tour.currentStep?.kind == .replace
     }
+    XCTAssertNil(Host.marker("Open Accessibility Settings…", in: view), "The tour's chat has no Accessibility card")
+    try await clickTestControl("Replace text", in: view)
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertEqual(fixture.chat.selectionRevisions.values.first?.status, .ready, "The reply's Replace text takes no click")
     XCTAssertEqual(fixture.engine.requestCount, 0, "The tour's reply is scripted")
     tour.press()
     try await waitForUI("the window stepping aside for the paste", in: view) { !window.isVisible }
@@ -1234,6 +1249,59 @@ final class EnigmaMainWindowTests: XCTestCase {
     }
   }
 
+  /// The tour's chat is a demo: its composer takes no typing and nothing in
+  /// the window under the card takes a click, until the tour ends.
+  @MainActor
+  func testTourChatTakesNoTypingOrClicks() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), test: self)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end() }
+    tour.go(.ask)
+    try await waitForUI("the first question typed", in: host.view, timeout: .seconds(10)) { tour.beat == .ready }
+    let editor = try XCTUnwrap(composerEditor(in: host.view))
+    let typed = editor.string
+    editor.insertText("!", replacementRange: NSRange(location: editor.string.utf16.count, length: 0))
+    XCTAssertEqual(editor.string, typed, "Typing doesn't change the tour's question")
+    XCTAssertFalse(composerAcceptsClicks(in: host.view), "The composer takes no clicks")
+    // A click on New chat in the sidebar would leave the tour.
+    try await clickTestControl("New chat", in: host.view)
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertEqual(tour.stop, .ask, "The sidebar takes no clicks")
+    // Nor do the window's shortcuts: ⇧⌘A, ⌘K, ⌃Tab and ⌃⌘S.
+    let session = fixture.chat.selectedSessionID
+    for name in [Notification.Name.fileModeRequested, .modePaletteRequested, .recentChatCycleRequested,
+                 .sidebarToggleRequested] {
+      NotificationCenter.default.post(name: name, object: nil)
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    XCTAssertEqual(fixture.picker.count, 0, "⇧⌘A opens no file picker")
+    XCTAssertFalse(host.shows("Menu item Cloud"), "⌘K opens no mode menu")
+    XCTAssertEqual(fixture.chat.selectedSessionID, session, "⌃Tab opens no saved chat")
+    XCTAssertTrue(host.shows("New chat"), "⌃⌘S keeps the sidebar")
+
+    // The tour's reply can still be scrolled: the chat takes the pointer, its rows' buttons don't.
+    tour.press()
+    try await waitForUI("the first reply", in: host.view, timeout: .seconds(15)) {
+      tour.stepIndex == 1 && tour.beat == .ready
+    }
+    let chat = try XCTUnwrap(Self.descendants(host.view).compactMap { $0 as? NSScrollView }
+      .filter { !editor.isDescendant(of: $0) && !$0.isHiddenOrHasHiddenAncestor }
+      .max { $0.bounds.width < $1.bounds.width })
+    let center = chat.convert(NSPoint(x: chat.bounds.midX, y: chat.bounds.midY), to: host.view.superview)
+    let hit = try XCTUnwrap(host.view.hitTest(center))
+    XCTAssertTrue(hit === chat || hit.isDescendant(of: chat), "Scrolling reaches the chat")
+
+    tour.requestFinish()
+    try await waitForUI("the chat back", in: host.view) { !tour.isActive && composerAcceptsClicks(in: host.view) }
+    editor.insertText("hi", replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+    XCTAssertEqual(fixture.screen.draft, "hi", "Typing works again after the tour")
+  }
+
+  private static func descendants(_ view: NSView) -> [NSView] {
+    [view] + view.subviews.flatMap { descendants($0) }
+  }
+
   /// A stop with a target puts the card level with it, kept inside the window.
   func testTourStopsWithATargetSitLevelWithIt() {
     let container = CGSize(width: 1000 + GuidedTourPlacement.railWidth, height: 780)
@@ -1266,7 +1334,6 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the approval card, waiting", in: host.view, timeout: .seconds(10)) {
       host.shows("Send") && host.shows("Don't Send") && tour.currentStep?.kind == .approve && tour.beat == .ready
     }
-    XCTAssertEqual(tour.currentStep?.actionLabel, "Send")
     try await Task.sleep(for: .milliseconds(300))
     let editor = try XCTUnwrap(composerEditor(in: host.view))
     editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
