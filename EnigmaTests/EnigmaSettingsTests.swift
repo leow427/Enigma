@@ -876,6 +876,45 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(MessagesPrivacyPane.automation.settingsButtonTitle, "Open Automation Settings…")
   }
 
+  /// An update from a differently signed copy clears, once, only the
+  /// permissions that aren't working, and only for someone who used Enigma
+  /// before; a new install, the same signer, or an unsigned build clear nothing.
+  @MainActor
+  func testUpdateCleanupClearsOnlyStalePermissionsOncePerSigner() throws {
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: #function))
+    defaults.removePersistentDomain(forName: #function)
+    defer { defaults.removePersistentDomain(forName: #function) }
+    var resets: [MacPermission] = []
+    let granted: [MacPermission: Bool?] = [.accessibility: true, .screenRecording: false, .fullDiskAccess: false,
+                                           .contacts: true, .automation: nil]
+    func run(signer: String?, usedBefore: Bool) -> [MacPermission] {
+      PermissionUpdateCleanup.run(defaults: defaults, signer: signer, usedBefore: usedBefore,
+                                  isGranted: { granted[$0] ?? nil }, reset: { resets.append($0) })
+    }
+    XCTAssertEqual(run(signer: nil, usedBefore: true), [], "An unsigned build clears nothing")
+    XCTAssertNil(defaults.string(forKey: PermissionUpdateCleanup.signerKey))
+    XCTAssertEqual(run(signer: "TEAM", usedBefore: false), [], "A new install clears nothing")
+    XCTAssertEqual(resets, [])
+    XCTAssertEqual(run(signer: "TEAM", usedBefore: true), [], "The same signer again clears nothing")
+
+    defaults.removePersistentDomain(forName: #function)
+    XCTAssertEqual(run(signer: "TEAM", usedBefore: true), [.screenRecording, .fullDiskAccess],
+                   "An updater's stale entries; working ones and Automation stay")
+    XCTAssertEqual(resets, [.screenRecording, .fullDiskAccess])
+    XCTAssertEqual(run(signer: "TEAM", usedBefore: true), [], "Once per signer")
+    XCTAssertEqual(run(signer: "OTHER", usedBefore: true), [.screenRecording, .fullDiskAccess], "A new signer again")
+  }
+
+  @MainActor
+  func testEachPermissionResetsItsOwnService() {
+    XCTAssertEqual(MacPermission.allCases.map(\.tccService),
+                   ["Accessibility", "ScreenCapture", "SystemPolicyAllFiles", "AddressBook", "AppleEvents"])
+    XCTAssertNotNil(MacPermission.screenRecording.nextStep)
+    XCTAssertNotNil(MacPermission.fullDiskAccess.nextStep)
+    XCTAssertNil(MacPermission.contacts.nextStep, "Contacts asks in its own dialog")
+    XCTAssertNil(MacPermission.automation.nextStep, "Automation asks in its own dialog")
+  }
+
   // MARK: Shared Cloud logic
 
   @MainActor

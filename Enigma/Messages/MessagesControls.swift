@@ -39,7 +39,7 @@ enum MessagesPermissionStatus {
       : "Required to read and search your Messages history. Enigma opens it read-only."
   }
 
-  static let contactsDetail = "Optional. Shows names instead of phone numbers and finds people by name. macOS asks the first time you use /messages."
-  static let automationDetail = "macOS asks to let Enigma control Messages the first time you approve a send. If you declined, turn on Messages under Enigma."
+  static let contactsDetail = "Optional. Shows names instead of phone numbers and finds people by name. Turn on… asks macOS now; otherwise it asks the first time you use /messages."
+  static let automationDetail = "Lets Enigma send a text you approve. Turn on… opens Messages hidden so macOS can ask now; otherwise it asks the first time you approve a send."
   static let privacyNote = "Every send waits for your approval of the recipient and exact text. With a local model, Messages stays on this Mac, and in Auto so does a typed /messages. A cloud model reads your messages only after you allow it, and the messages and contacts it looks up are sent to that provider."
 }

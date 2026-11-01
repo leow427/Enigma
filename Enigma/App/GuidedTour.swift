@@ -474,14 +474,12 @@ enum TourPermission: CaseIterable {
     }
   }
 
+  /// The same Turn on… as Settings → Permissions.
   func turnOn() {
     switch self {
-    case .accessibility: SelectionAccessibilityAccess.shared.requestAccess()
-    case .screenRecording:
-      // Adds Enigma to the list, so turning it on is one switch.
-      _ = CGRequestScreenCaptureAccess()
-      MacPermissionRows.openScreenSettings()
-    case .fullDiskAccess: NSWorkspace.shared.open(MessagesPrivacyPane.fullDiskAccess.url)
+    case .accessibility: MacPermission.accessibility.turnOn()
+    case .screenRecording: MacPermission.screenRecording.turnOn()
+    case .fullDiskAccess: MacPermission.fullDiskAccess.turnOn()
     }
   }
 }
@@ -926,7 +924,7 @@ struct GuidedTourPermissions: View {
           .overlay(alignment: .top) { EnigmaHairline() }
       }
       EnigmaHairline()
-      Text("Turn on… opens System Settings: switch on Enigma, then come back. If macOS offers to reopen Enigma, Later is fine.")
+      Text("Turn on… opens System Settings: switch on Enigma, then come back. For Full Disk Access, drag Enigma from the Finder window into the list. If macOS offers to reopen Enigma, Later is fine.")
         .font(EnigmaTypography.ui(12.5))
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)
