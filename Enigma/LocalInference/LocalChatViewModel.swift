@@ -539,6 +539,12 @@ final class LocalChatViewModel: ObservableObject {
         await self.refreshInstalledModel()
         // An engine without a commit hook has installed already; still measure only an idle chat.
         try await self.holdChatForModelCommit()
+        // The model just downloaded is the one chat uses, in Auto too.
+        if self.installedModel?.id != descriptor.id, self.installedModels.contains(where: { $0.id == descriptor.id }) {
+          await self.visionEngine.unload()
+          try await engine.selectModel(id: descriptor.id)
+          await self.refreshInstalledModel()
+        }
         if !checkPerformance {
           self.benchmarkNotice = nil
         } else if prediction?.permitsMemoryOverride == true {

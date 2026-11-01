@@ -23,7 +23,7 @@ interactive mockups, is in
 ## Themes and color tokens
 
 Appearance is a System / Paper / Ink choice in Settings → General (key
-`enigma.appearance`, default System). System follows the Mac. Every window
+`enigma.appearance`, default Paper). System follows the Mac. Every window
 and sheet applies it at its root with `.enigmaTheme(_:)`, which sets the
 palette in the environment and the matching color scheme.
 

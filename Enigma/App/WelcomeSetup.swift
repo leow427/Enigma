@@ -149,6 +149,15 @@ extension WelcomeSetup {
     }
   }
 
+  /// A download runs beside chat, so the welcome moves on without waiting
+  /// for it: the tour plays while the model arrives.
+  static func continuesDuringDownload(_ operation: LocalChatViewModel.ModelOperation?) -> Bool {
+    switch operation {
+    case .downloading, .waitingToInstall: true
+    case .installing, .deleting, .benchmarking, nil: false
+    }
+  }
+
   /// A model failure, kept apart from chat errors.
   static func installFailed(_ modelFailure: String?) -> Bool { modelFailure != nil }
 

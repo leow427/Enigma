@@ -724,6 +724,26 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertFalse(chat.isBusy)
   }
 
+  /// A model that finishes downloading becomes the one chat uses, Auto
+  /// included, even when another model was already in use.
+  @MainActor
+  func testADownloadedModelBecomesTheActiveModel() async throws {
+    let root = try temporaryDirectory()
+    let current = LocalModel(id: "current", displayName: "Current", fileURL: URL(fileURLWithPath: "/tmp/current.gguf"))
+    let engine = KeepsActiveModelEngine(active: current)
+    let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: root))
+    await chat.refreshInstalledModel()
+    XCTAssertEqual(chat.installedModel?.id, "current")
+    let finished = expectation(description: "Download finished")
+    let subscription = chat.$modelOperation.dropFirst().sink { if $0 == nil { finished.fulfill() } }
+    defer { subscription.cancel() }
+    let downloaded = catalog.models[0]
+    chat.downloadModel(downloaded, checkPerformance: false)
+    await fulfillment(of: [finished], timeout: 3)
+    XCTAssertEqual(chat.installedModel?.id, downloaded.id)
+    XCTAssertEqual(Set(chat.installedModels.map(\.id)), ["current", downloaded.id])
+  }
+
   @MainActor
   func testBenchmarkFailureAndCancellationKeepVerifiedInstallationUsable() async throws {
     for cancel in [false, true] {
@@ -929,6 +949,32 @@ private actor SelectionTestEngine: LocalModelEngine {
   func download(_ model: LocalModelDescriptor, progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
     throw LocalInferenceError.invalidModelFile
   }
+  nonisolated func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
+    AsyncThrowingStream { $0.finish() }
+  }
+  func unload() async {}
+}
+
+/// Adds a download beside the models it has without making it active, until asked.
+private actor KeepsActiveModelEngine: LocalModelEngine {
+  var models: [LocalModel]
+  var activeID: String?
+
+  init(active: LocalModel) {
+    models = [active]
+    activeID = active.id
+  }
+  func install(_ model: LocalModel) async throws { models.append(model) }
+  func installedModel() async -> LocalModel? { models.first { $0.id == activeID } }
+  func installedModels() async -> [LocalModel] { models }
+  func selectModel(id: String) async throws { activeID = id }
+  func download(_ descriptor: LocalModelDescriptor, progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
+    let model = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+      fileURL: URL(fileURLWithPath: "/tmp/downloaded-fixture.gguf"), catalogDescriptor: descriptor)
+    models.append(model)
+    return model
+  }
+  func benchmark() async throws -> LocalBenchmarkMetrics? { nil }
   nonisolated func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
     AsyncThrowingStream { $0.finish() }
   }

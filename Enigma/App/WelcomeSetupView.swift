@@ -236,8 +236,12 @@ struct WelcomeSetupView: View {
       case .welcome:
         EmptyView()
       case .models:
-        primaryButton(modelActionTitle, isEnabled: modelAction != nil && !isModelWorkBusy,
-                      isDefault: WelcomeSetup.returnPressesModelAction(modelAction), action: performModelAction)
+        if WelcomeSetup.continuesDuringDownload(chat.modelOperation) {
+          primaryButton("Continue", isEnabled: true) { changeStep { setup.advance() } }
+        } else {
+          primaryButton(modelActionTitle, isEnabled: modelAction != nil && !isModelWorkBusy,
+                        isDefault: WelcomeSetup.returnPressesModelAction(modelAction), action: performModelAction)
+        }
       case .connections:
         primaryButton("Continue", isEnabled: true) { changeStep { setup.advance() } }
       case .walkthrough:

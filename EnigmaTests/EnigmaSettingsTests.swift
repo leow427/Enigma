@@ -38,15 +38,15 @@ final class EnigmaSettingsTests: XCTestCase {
   // MARK: Appearance setting
 
   @MainActor
-  func testAppearanceDefaultsToSystemAndIsSaved() throws {
+  func testAppearanceDefaultsToPaperAndIsSaved() throws {
     let defaults = try makeDefaults()
     let preference = EnigmaAppearancePreference(defaults: defaults)
-    XCTAssertEqual(preference.appearance, .system)
+    XCTAssertEqual(preference.appearance, .paper, "Enigma starts in Paper")
     preference.appearance = .ink
     XCTAssertEqual(defaults.string(forKey: EnigmaAppearancePreference.appearanceKey), "ink")
     XCTAssertEqual(EnigmaAppearancePreference(defaults: defaults).appearance, .ink, "A new launch reads it back")
     defaults.set("sepia", forKey: EnigmaAppearancePreference.appearanceKey)
-    XCTAssertEqual(EnigmaAppearancePreference(defaults: defaults).appearance, .system, "Unknown values fall back")
+    XCTAssertEqual(EnigmaAppearancePreference(defaults: defaults).appearance, .paper, "Unknown values fall back")
   }
 
   @MainActor
@@ -79,7 +79,7 @@ final class EnigmaSettingsTests: XCTestCase {
     let controller = SettingsWindowController(contentView: NSView(), appearance: appearance)
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
-    XCTAssertNil(window.appearance, "System follows the Mac")
+    XCTAssertEqual(window.appearance?.name, .aqua, "Paper by default")
     XCTAssertTrue(window.backgroundColor === EnigmaAppearance.windowBackground)
     XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
     XCTAssertEqual(window.titleVisibility, .hidden)
@@ -969,6 +969,15 @@ final class EnigmaSettingsTests: XCTestCase {
   }
 
   // MARK: Shared model logic
+
+  @MainActor
+  func testTheWelcomeMovesOnWhileAModelDownloads() {
+    let progress = ModelDownloadProgress(receivedByteCount: 1, expectedByteCount: 2)
+    XCTAssertTrue(WelcomeSetup.continuesDuringDownload(.downloading(progress)), "The download keeps going behind the tour")
+    XCTAssertTrue(WelcomeSetup.continuesDuringDownload(.waitingToInstall))
+    XCTAssertFalse(WelcomeSetup.continuesDuringDownload(.installing), "Installing is a moment; it waits")
+    XCTAssertFalse(WelcomeSetup.continuesDuringDownload(nil))
+  }
 
   @MainActor
   func testModelActionsFollowEachModelsState() throws {

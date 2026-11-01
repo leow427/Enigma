@@ -163,7 +163,7 @@ Rarely needed settings are under a page's **› Advanced**.
 
 ![Settings, General](design/ui-revamp/screenshots/f14/settings-general-paper.png)
 
-- **General:** **Look → Appearance** (System, Paper, or Ink; see
+- **General:** **Look → Appearance** (System, Paper by default, or Ink; see
   [design/UI-Style.md](design/UI-Style.md)); **New chats → Start mode** (Auto,
   Local, or Cloud) and **Show sidebar**, used at launch, for each new chat, and
   for each selection chat; **Commands → Recognize commands from your wording**

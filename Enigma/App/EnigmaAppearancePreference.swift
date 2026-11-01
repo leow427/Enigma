@@ -17,7 +17,7 @@ final class EnigmaAppearancePreference: ObservableObject {
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
-    appearance = defaults.string(forKey: Self.appearanceKey).flatMap(EnigmaAppearance.init(rawValue:)) ?? .system
+    appearance = defaults.string(forKey: Self.appearanceKey).flatMap(EnigmaAppearance.init(rawValue:)) ?? .paper
   }
 }
 
