@@ -1,4 +1,5 @@
 import Combine
+import CoreLocation
 import Foundation
 import SwiftUI
 import XCTest
@@ -35,6 +36,90 @@ final class WebSearchTests: XCTestCase {
     } catch {
       XCTAssertTrue(error is LocationError)
     }
+  }
+
+  /// The first question waits for macOS's prompt: `denied` while it's up isn't final, the location is
+  /// requested once the answer arrives, and the manager is kept (answers to a released one were lost).
+  func testFirstLocationRequestWaitsForThePromptsAnswer() async throws {
+    let manager = FakeLocationManager()
+    var made = 0
+    let service = LocationService(defaults: makeDefaults(), makeManager: { made += 1; return manager })
+    let request = Task { try await service.currentLocation() }
+    try await waitUntil { manager.authorizationRequests == 1 }
+    XCTAssertEqual(manager.locationRequests, 0, "No location before macOS has an answer")
+    service.locationManager(manager, didFailWithError: CLError(.denied))
+    manager.status = .authorizedAlways
+    service.locationManagerDidChangeAuthorization(manager)
+    XCTAssertEqual(manager.locationRequests, 1)
+    XCTAssertTrue(service.isAllowed)
+    service.locationManager(manager, didFailWithError: CLError(.locationUnknown))
+    do {
+      _ = try await request.value
+      XCTFail("A failed fix must fail the request")
+    } catch {
+      XCTAssertTrue(error is LocationError)
+    }
+    XCTAssertEqual(made, 1)
+  }
+
+  /// An unanswered prompt times the question out but keeps the manager, so the answer counts for the next one.
+  func testUnansweredPromptTimesOutAndKeepsItsAnswerForTheNextQuestion() async throws {
+    let manager = FakeLocationManager()
+    var made = 0
+    let service = LocationService(defaults: makeDefaults(), makeManager: { made += 1; return manager },
+                                  promptTimeout: .milliseconds(50), fixTimeout: .milliseconds(50))
+    do {
+      _ = try await service.currentLocation()
+      XCTFail("An unanswered prompt must time out")
+    } catch {
+      XCTAssertTrue(error is LocationError)
+    }
+    manager.status = .authorizedAlways
+    service.locationManagerDidChangeAuthorization(manager)
+    XCTAssertEqual(manager.locationRequests, 0, "An answer after the timeout requests nothing")
+    let next = Task { try await service.currentLocation() }
+    try await waitUntil { manager.locationRequests == 1 }
+    XCTAssertEqual(manager.authorizationRequests, 1, "Answered: macOS isn't asked again")
+    XCTAssertEqual(made, 1)
+    service.locationManager(manager, didFailWithError: CLError(.locationUnknown))
+    _ = try? await next.value
+  }
+
+  func testDeniedLocationFailsAtOnceWithoutAsking() async {
+    let manager = FakeLocationManager()
+    manager.status = .denied
+    let service = LocationService(defaults: makeDefaults(), makeManager: { manager })
+    do {
+      _ = try await service.currentLocation()
+      XCTFail("Denied location must fail")
+    } catch {
+      XCTAssertTrue(error is LocationError)
+    }
+    XCTAssertEqual(manager.authorizationRequests + manager.locationRequests, 0)
+  }
+
+  /// Turn on…: macOS's prompt while it has no answer, Location Services once it has; never a location.
+  func testTurnOnLocationAsksMacOSThenOpensItsPane() {
+    let manager = FakeLocationManager()
+    var opened: [URL] = []
+    let service = LocationService(defaults: makeDefaults(), makeManager: { manager }, openSettings: { opened.append($0) })
+    service.refreshAuthorization()
+    XCTAssertFalse(service.isAllowed)
+    service.requestAccess()
+    XCTAssertEqual(manager.authorizationRequests, 1)
+    XCTAssertEqual(opened, [])
+    manager.status = .denied
+    service.locationManagerDidChangeAuthorization(manager)
+    XCTAssertEqual(service.authorization, .denied)
+    service.requestAccess()
+    XCTAssertEqual(opened, [LocationService.privacySettingsURL])
+    XCTAssertEqual(manager.authorizationRequests, 1)
+    XCTAssertEqual(manager.locationRequests, 0)
+  }
+
+  private func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    for _ in 0..<200 where !condition() { try await Task.sleep(for: .milliseconds(5)) }
+    XCTAssertTrue(condition(), "Timed out", file: file, line: line)
   }
 
   func testNearbySearchUsesLocationAcrossRoutesWithoutPersistingIt() async throws {
@@ -2041,4 +2126,15 @@ private final class SearchLocation: LocationProviding {
     }
     return location
   }
+}
+
+/// Stands in for Core Location: records what's asked and reports `status`.
+private final class FakeLocationManager: CLLocationManager {
+  var status = CLAuthorizationStatus.notDetermined
+  var authorizationRequests = 0
+  var locationRequests = 0
+  override var authorizationStatus: CLAuthorizationStatus { status }
+  override func requestWhenInUseAuthorization() { authorizationRequests += 1 }
+  override func requestLocation() { locationRequests += 1 }
+  override func stopUpdatingLocation() {}
 }

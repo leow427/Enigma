@@ -451,13 +451,14 @@ struct TourScript: Equatable {
 /// A macOS permission the tour asks for at its end, with its live state.
 @MainActor
 enum TourPermission: CaseIterable {
-  case accessibility, fullDiskAccess, screenRecording
+  case accessibility, fullDiskAccess, screenRecording, location
 
   var title: String {
     switch self {
     case .accessibility: "Accessibility"
     case .fullDiskAccess: "Full Disk Access"
     case .screenRecording: "Screen Recording"
+    case .location: "Location"
     }
   }
 
@@ -467,6 +468,7 @@ enum TourPermission: CaseIterable {
     case .accessibility: "⌥⌃ and ⌥⌥ from any app, and putting edits back"
     case .fullDiskAccess: "/messages"
     case .screenRecording: "/screen and /snapshot, only when you ask"
+    case .location: "Nearby places and weather, only when you ask"
     }
   }
 
@@ -479,6 +481,7 @@ enum TourPermission: CaseIterable {
     case .accessibility: SelectionAccessibilityAccess.shared.isGranted
     case .screenRecording: CGPreflightScreenCaptureAccess()
     case .fullDiskAccess: MessagesPermissionStatus.fullDiskAccess() == true
+    case .location: LocationService.shared.isAllowed
     }
   }
 
@@ -488,6 +491,7 @@ enum TourPermission: CaseIterable {
     case .accessibility: MacPermission.accessibility.turnOn()
     case .screenRecording: MacPermission.screenRecording.turnOn()
     case .fullDiskAccess: MacPermission.fullDiskAccess.turnOn()
+    case .location: LocationService.shared.requestAccess()
     }
   }
 }
@@ -938,13 +942,16 @@ struct GuidedTourPermissions: View {
           .overlay(alignment: .top) { EnigmaHairline() }
       }
       EnigmaHairline()
-      Text("Turn on… opens System Settings: switch on Enigma, then come back. For Full Disk Access, drag Enigma from the Finder window into the list. If macOS offers to reopen Enigma, Later is fine.")
+      Text("Turn on… opens System Settings: switch on Enigma, then come back. Location asks in a macOS dialog first. For Full Disk Access, drag Enigma from the Finder window into the list. If macOS offers to reopen Enigma, Later is fine.")
         .font(EnigmaTypography.ui(12.5))
         .foregroundStyle(palette.textSecondary.color)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
     }
-    .onAppear { check() }
+    .onAppear {
+      LocationService.shared.refreshAuthorization()
+      check()
+    }
     .onReceive(refresh) { _ in check() }
   }
 

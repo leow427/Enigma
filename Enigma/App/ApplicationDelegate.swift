@@ -63,6 +63,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     #endif
     Task.detached(priority: .utility) { OrphanedServers.reap() }
     NSApp.setActivationPolicy(.accessory)
+    SystemSettingsWindowOrder.shared.start()
     // A copy outside Applications cannot update; offer to move it before anything starts.
     if MoveToApplicationsPrompt.runIfNeeded() { return }
     AppUpdater.shared.start()

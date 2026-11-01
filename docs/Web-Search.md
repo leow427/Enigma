@@ -374,8 +374,10 @@ and the answer.
 
 **Settings → Search and maps → Use location for nearby questions** is on by
 default. It's used only for a nearby question without a named place: places and
-weather near you. macOS asks for permission the first time. The area is used for
-that question only, is not saved, and requests give up after 20 seconds. The
+weather near you. macOS asks for permission the first time, or when you choose
+**Turn on…** for Location in Settings → Permissions. The area is used for that
+question only, is not saved, and requests give up after 20 seconds (a minute
+while macOS's prompt waits for an answer). The
 model answering, local or cloud, can get your exact location: when Enigma
 searches for a nearby question, the model gets your area and exact
 coordinates, and is told not to repeat the coordinates; on models that use

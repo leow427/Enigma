@@ -287,19 +287,65 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     }
   }
   @Published private(set) var status = "Location is requested only for nearby questions."
+  /// macOS's answer for Enigma, once the manager exists: see `refreshAuthorization()`.
+  @Published private(set) var authorization = CLAuthorizationStatus.notDetermined
+  var isAllowed: Bool { authorization == .authorizedAlways }
   /// Location Services in System Settings, where access is allowed or denied.
   static let privacySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
   private let defaults: UserDefaults
+  private let makeManager: () -> CLLocationManager
+  private let openSettings: (URL) -> Void
+  /// How long a request waits for macOS's prompt to be answered, then for a location.
+  private let promptTimeout: Duration
+  private let fixTimeout: Duration
+  /// One manager for the app's life: one released while macOS's prompt is up drops the answer, so the
+  /// prompt came back on every question and Enigma never joined the Location Services list.
   private var manager: CLLocationManager?
+  /// The request is waiting for the prompt's answer; macOS reports `denied` meanwhile, which isn't final.
+  private var awaitingAuthorization = false
   private var geocoder: MKReverseGeocodingRequest?
   private var continuation: CheckedContinuation<ApproximateLocation, Error>?
   private var requestID: UUID?
   private var timeout: Task<Void, Never>?
 
-  init(defaults: UserDefaults = .standard) {
+  init(defaults: UserDefaults = .standard, makeManager: @escaping () -> CLLocationManager = { CLLocationManager() },
+       openSettings: @escaping (URL) -> Void = { _ = NSWorkspace.shared.open($0) },
+       promptTimeout: Duration = .seconds(60), fixTimeout: Duration = .seconds(20)) {
     self.defaults = defaults
+    self.makeManager = makeManager
+    self.openSettings = openSettings
+    self.promptTimeout = promptTimeout
+    self.fixTimeout = fixTimeout
     isEnabled = defaults.object(forKey: "location.enabled") as? Bool ?? true
     super.init()
+  }
+
+  /// Made on first use, never at launch, and kept.
+  private func locationManager() -> CLLocationManager {
+    if let manager { return manager }
+    let manager = makeManager()
+    // Precise, for the model (owner, 2026-10-31); search sites, Apple Maps and Open-Meteo get it rounded.
+    manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    manager.delegate = self
+    self.manager = manager
+    authorization = manager.authorizationStatus
+    return manager
+  }
+
+  /// Reads macOS's answer for the Permissions row and the tour; asks nothing.
+  func refreshAuthorization() {
+    authorization = locationManager().authorizationStatus
+  }
+
+  /// Turn on…: macOS's own prompt before it has an answer, Location Services in System Settings after.
+  /// Only asks: no location is requested.
+  func requestAccess() {
+    let manager = locationManager()
+    if manager.authorizationStatus == .notDetermined {
+      manager.requestWhenInUseAuthorization()
+    } else {
+      openSettings(Self.privacySettingsURL)
+    }
   }
 
   func currentLocation() async throws -> ApproximateLocation {
@@ -311,22 +357,17 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
         guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
         self.continuation = continuation
         requestID = id
-        let manager = CLLocationManager()
-        self.manager = manager
-        manager.delegate = self
-        // Precise, for the model (owner, 2026-10-31); search sites, Apple Maps and Open-Meteo get it rounded.
-        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        let manager = locationManager()
         status = "Finding your location…"
-        timeout = Task { [weak self] in
-          do { try await Task.sleep(for: .seconds(20)) } catch { return }
-          guard self?.requestID == id else { return }
-          self?.finish(.failure(LocationError.unavailable))
-        }
         switch manager.authorizationStatus {
         case .denied, .restricted: finish(.failure(LocationError.unavailable))
-        default:
-          // macOS presents its permission prompt when location is first requested.
-          manager.requestLocation()
+        case .notDetermined:
+          // `requestLocation()` alone fails with `denied` while the prompt is up (checked on macOS 27):
+          // ask first, and request the location once macOS has an answer.
+          awaitingAuthorization = true
+          startTimeout(promptTimeout, id: id)
+          manager.requestWhenInUseAuthorization()
+        default: requestFix(manager, id: id)
         }
       }
     } onCancel: {
@@ -337,15 +378,34 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     }
   }
 
+  private func requestFix(_ manager: CLLocationManager, id: UUID) {
+    awaitingAuthorization = false
+    startTimeout(fixTimeout, id: id)
+    manager.requestLocation()
+  }
+
+  private func startTimeout(_ duration: Duration, id: UUID) {
+    timeout?.cancel()
+    timeout = Task { [weak self] in
+      do { try await Task.sleep(for: duration) } catch { return }
+      guard self?.requestID == id else { return }
+      self?.finish(.failure(LocationError.unavailable))
+    }
+  }
+
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     guard self.manager === manager else { return }
-    if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
-      finish(.failure(LocationError.unavailable))
+    authorization = manager.authorizationStatus
+    guard continuation != nil, let id = requestID else { return }
+    switch manager.authorizationStatus {
+    case .denied, .restricted: finish(.failure(LocationError.unavailable))
+    case .notDetermined: return
+    default: if awaitingAuthorization { requestFix(manager, id: id) }
     }
   }
 
   func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-    guard self.manager === manager, geocoder == nil,
+    guard self.manager === manager, continuation != nil, geocoder == nil,
           let location = locations.last(where: { $0.horizontalAccuracy >= 0 && abs($0.timestamp.timeIntervalSinceNow) < 300 }) else { return }
     manager.stopUpdatingLocation()
     // Reverse geocoding gets the rounded coordinate; the exact one stays on the Mac.
@@ -357,8 +417,9 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
       return
     }
     self.geocoder = geocoder
-    geocoder.getMapItems { [weak self, weak manager] items, _ in
-      guard let self, let manager, self.manager === manager else { return }
+    geocoder.getMapItems { [weak self, weak geocoder] items, _ in
+      // The manager outlives requests: an older request's answer must not finish this one.
+      guard let self, let geocoder, self.geocoder === geocoder else { return }
       let address = items?.first?.addressRepresentations
       let area = address?.cityWithContext ?? ""
       self.finish(.success(area.isEmpty ? fallback : ApproximateLocation(latitude: exact.latitude, longitude: exact.longitude, area: area,
@@ -375,7 +436,7 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
   }
 
   func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-    guard self.manager === manager else { return }
+    guard self.manager === manager, !awaitingAuthorization else { return }
     finish(.failure(LocationError.unavailable))
   }
 
@@ -385,9 +446,9 @@ final class LocationService: NSObject, ObservableObject, @MainActor CLLocationMa
     requestID = nil
     timeout?.cancel()
     timeout = nil
+    awaitingAuthorization = false
+    // The manager stays, so a prompt still on screen keeps its answer for the next question.
     manager?.stopUpdatingLocation()
-    manager?.delegate = nil
-    manager = nil
     geocoder?.cancel()
     geocoder = nil
     switch result {

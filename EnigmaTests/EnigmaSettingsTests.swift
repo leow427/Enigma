@@ -1308,6 +1308,50 @@ final class EnigmaSettingsTests: XCTestCase {
       return search(view)
     }
   }
+  /// System Settings is the one app allowed in front of Enigma: its floating windows drop to the normal
+  /// level while it's active and get their own level back when any other app is.
+  @MainActor
+  func testSystemSettingsIsTheOnlyAppInFrontOfEnigma() {
+    let panel = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    panel.level = .floating
+    let tourDocument = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    tourDocument.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue - 1)
+    let plain = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    let order = SystemSettingsWindowOrder(windows: { [panel, tourDocument, plain] })
+    order.applicationActivated(bundleID: "com.apple.finder")
+    XCTAssertEqual(panel.level, .floating, "Other apps never come in front")
+    order.applicationActivated(bundleID: SystemSettingsWindowOrder.systemSettingsBundleID)
+    order.applicationActivated(bundleID: SystemSettingsWindowOrder.systemSettingsBundleID)
+    XCTAssertEqual([panel.level, tourDocument.level, plain.level], [.normal, .normal, .normal])
+    order.applicationActivated(bundleID: Bundle.main.bundleIdentifier)
+    XCTAssertEqual(panel.level, .floating)
+    XCTAssertEqual(tourDocument.level.rawValue, NSWindow.Level.floating.rawValue - 1)
+    XCTAssertEqual(plain.level, .normal)
+    let menu = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    menu.level = .popUpMenu
+    SystemSettingsWindowOrder(windows: { [menu] }).applicationActivated(bundleID: SystemSettingsWindowOrder.systemSettingsBundleID)
+    XCTAssertEqual(menu.level, .popUpMenu, "Only Enigma's floating windows drop behind System Settings")
+  }
+
+  /// Left behind System Settings, the chat window comes forward on the summon shortcut instead of hiding.
+  @MainActor
+  func testSummonBringsForwardAPanelBehindSystemSettings() throws {
+    let view = NSTextField(string: "draft")
+    let controller = SpotlightPanelController(contentView: view)
+    controller.show()
+    defer { controller.hide() }
+    let panel = try XCTUnwrap(view.window)
+    panel.level = .normal
+    let other = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10), styleMask: [.titled], backing: .buffered, defer: false)
+    other.makeKeyAndOrderFront(nil)
+    defer { other.orderOut(nil) }
+    XCTAssertFalse(panel.isKeyWindow)
+    controller.toggle()
+    XCTAssertTrue(controller.isVisible, "A covered panel comes forward")
+    panel.level = .floating
+    controller.toggle()
+    XCTAssertFalse(controller.isVisible, "In front, the shortcut hides it")
+  }
 }
 
 /// A panel that can be key even while another app is active, which happens on

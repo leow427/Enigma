@@ -106,8 +106,8 @@ Ten stops, some with a checklist of steps:
    text, and approve it on the real approval card. Nothing is sent.
 7. **Start fresh anytime**: ⌘N or **New chat**.
 8. **Auto is on by default**: the mode menu (⌘K), and what to expect.
-9. **Choose what I can do**: Accessibility, Full Disk Access and Screen
-   Recording, each with **Turn on…**, all optional. Only Screen Recording
+9. **Choose what I can do**: Accessibility, Full Disk Access, Screen
+   Recording and Location, each with **Turn on…**, all optional. Only Screen Recording
    needs Enigma to restart: it works the next time Enigma opens, or right away
    with **Restart now**, and a restart mid-tour picks up at the same stop.
    Here the window shrinks to the tour's card at the screen's right edge, so
@@ -148,7 +148,11 @@ this Mac**. Connection buttons elsewhere in the app open **Cloud**.
 
 The Settings window is 820 × 680 points. It follows the appearance setting,
 floats at the same level as the chat window, and, like the chat window, asks
-macOS to leave it out of screen captures and sharing (best effort).
+macOS to leave it out of screen captures and sharing (best effort). System
+Settings is the one app allowed in front of them: while it's the active app,
+Enigma's floating windows drop to the normal level, so a permission's pane is
+never hidden behind Enigma. Switching to any other app, Enigma included, floats
+them again.
 
 The sidebar groups the pages: **Enigma** (General, Shortcuts), **Models** (On
 this Mac, Cloud), **Abilities** (Search and maps, Selection, Screen, Files,
@@ -201,7 +205,10 @@ Rarely needed settings are under a page's **› Advanced**.
   with Messages opened hidden for the question; Accessibility and Screen
   Recording add Enigma to their list and open it, with the next step in the
   row; Full Disk Access opens its list and shows Enigma in Finder to drag in.
-  The tour's permissions stop uses the same buttons.
+  Location shows macOS's own prompt until it's answered, and after a denial
+  opens Location Services (macOS lists Enigma there only once it has asked,
+  and that list has no + button). The tour's permissions stop uses the same
+  buttons.
 - **After an update from a differently signed copy** (anything before 0.13,
   which wasn't signed with a Developer ID): on the first launch, for someone
   who used Enigma before, the permissions that aren't working are cleared
@@ -225,7 +232,9 @@ name a place, Enigma can use your approximate location. This only happens as
 part of a search, places lookup or weather check.
 
 - macOS asks for location permission the first time a qualifying question is
-  sent.
+  sent, or when you choose **Turn on…** for Location in Settings → Permissions
+  or the tour. The question waits for your answer, then requests the location;
+  the answer is kept even if you take longer than the question waits.
 - Enigma requests one precise location. It rounds the coordinates to two
   decimal places, about 1 km, before looking up the area name with Apple MapKit
   or sending them to Apple Maps or Open-Meteo. Search sites get only your city.
@@ -235,8 +244,9 @@ part of a search, places lookup or weather check.
 - The location isn't saved with your prompt or reused for later requests, and
   there is no background tracking. The answer may name the area and is saved
   like any other chat.
-- If location is off, denied, or doesn't arrive within 20 seconds, Enigma asks
-  you to include a city or area instead. Stop and New chat cancel a pending
+- If location is off, denied, or doesn't arrive within 20 seconds (a minute
+  while macOS's prompt waits for an answer), Enigma asks you to include a city
+  or area instead. Stop and New chat cancel a pending
   request.
 
 Detection is a local check of common English phrasing such as "near me",

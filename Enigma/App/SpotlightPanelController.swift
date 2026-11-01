@@ -202,6 +202,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// When the user last hid the panel, for `ChatReturnPolicy`; nil while it's shown.
   private(set) var hiddenAt: Date?
   var isVisible: Bool { panel.isVisible && !isCapturingScreen }
+  /// Shown and not left behind System Settings (`SystemSettingsWindowOrder`): the summon shortcut brings a
+  /// covered panel forward instead of hiding it.
+  private var isInFront: Bool { isVisible && (panel.level == .floating || panel.isKeyWindow) }
 
   init(
     sizeStore: PanelSizeStore = PanelSizeStore(),
@@ -322,7 +325,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// The summon shortcut, when it also asks about selections: a
   /// fresh selection opens the selection panel, and anything else the window.
   func summonOrSelect() {
-    guard !isVisible else { hide(); return }
+    guard !isInFront else { hide(); return }
     summonSelectionContext(orElse: { [weak self] in self?.show() })
   }
 
@@ -635,7 +638,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
 
   func toggle() {
     guard !isCapturingScreen else { return }
-    panel.isVisible ? hide() : show()
+    isInFront ? hide() : show()
   }
 
   /// A resize started while the panel moves into the window starts from the
@@ -803,5 +806,46 @@ private final class SpotlightPanel: NSPanel {
       break
     }
     return super.performKeyEquivalent(with: event)
+  }
+}
+
+/// System Settings is the one app allowed in front of Enigma (owner, 2026-11-01): while it's the active
+/// app, Enigma's floating windows drop to the normal level, so a permission's pane is never hidden behind
+/// the chat or Settings. Any other app becoming active, Enigma included, floats them again.
+@MainActor
+final class SystemSettingsWindowOrder {
+  static let shared = SystemSettingsWindowOrder()
+  static let systemSettingsBundleID = "com.apple.systempreferences"
+  private let windows: () -> [NSWindow]
+  /// Each lowered window and the level it returns to.
+  private var lowered: [(window: NSWindow, level: NSWindow.Level)] = []
+  private var observer: NSObjectProtocol?
+
+  init(windows: @escaping () -> [NSWindow] = { NSApp.windows }) {
+    self.windows = windows
+  }
+
+  func start() {
+    guard observer == nil else { return }
+    observer = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+    ) { [weak self] notification in
+      let id = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+      MainActor.assumeIsolated { self?.applicationActivated(bundleID: id) }
+    }
+  }
+
+  func applicationActivated(bundleID: String?) {
+    if bundleID == Self.systemSettingsBundleID {
+      // Up to `.floating` only: never the status item, menus or alerts.
+      for window in windows() where window.level.rawValue > NSWindow.Level.normal.rawValue
+        && window.level.rawValue <= NSWindow.Level.floating.rawValue && !lowered.contains(where: { $0.window === window }) {
+        lowered.append((window, window.level))
+        window.level = .normal
+      }
+    } else {
+      lowered.forEach { $0.window.level = $0.level }
+      lowered = []
+    }
   }
 }

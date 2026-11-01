@@ -199,13 +199,33 @@ struct PermissionsSettingsPage: View {
       MessagesSettingsSection(part: .permissions)
       EnigmaHairline()
       EnigmaSectionHeader("Places and weather")
-      EnigmaRow("Location", subtitle: "For nearby places and weather.") {
-        Button("Open Settings…") { NSWorkspace.shared.open(LocationService.privacySettingsURL) }
-          .enigmaButtonStyle(.secondary)
-          .accessibilityLabel("Open Location Services Settings")
-      }
+      LocationPermissionRow()
       EnigmaHairline()
     }
+  }
+}
+
+/// Location's state, and Turn on… while it's off: macOS's own prompt the first time, its pane after a denial.
+/// macOS lists Enigma in Location Services only once it has asked.
+struct LocationPermissionRow: View {
+  @ObservedObject private var location = LocationService.shared
+
+  var body: some View {
+    let status = MacPermissionRows.status(isEnabled: location.isAllowed)
+    let denied = location.authorization == .denied || location.authorization == .restricted
+    EnigmaRow("Location", subtitle: denied ? "Switch on Enigma in the list, then come back." : "For nearby places and weather.",
+              info: SearchSettingsPage.locationExplanation) {
+      HStack(spacing: 12) {
+        EnigmaStatusLine(status.0, status.1)
+        if !location.isAllowed {
+          Button("Turn on…") { location.requestAccess() }
+            .enigmaButtonStyle(.secondary)
+            .accessibilityLabel("Turn on Location")
+            .enigmaTestMarker("Turn on Location")
+        }
+      }
+    }
+    .onAppear { location.refreshAuthorization() }
   }
 }
 
