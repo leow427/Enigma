@@ -3,6 +3,59 @@
     <channel>
         <title>Enigma</title>
         <item>
+            <title>0.13.1</title>
+            <pubDate>Sat, 31 Oct 2026 23:00:24 -0500</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.13.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# Enigma 0.13.1
+
+Free cloud models, web search that runs on your Mac, a hands-on tour, and a Settings window that's easy to find your way around.
+
+## Before you start: approve Enigma once more
+
+Enigma is now signed and notarized by Apple, so new downloads open without a trip to **Open Anyway**. Because the signature changed, macOS asks for your approvals one more time after this update:
+
+- Enigma clears the old copy's switches for you, which can say on and not work, and asks once on its empty page to turn them on again. **Turn on…** in **Settings → Permissions** does the rest: Contacts and Messages ask in their own dialog, and the others open the right list with Enigma already in it (for Full Disk Access, drag Enigma in from the Finder window it opens).
+- Location asks again the next time Enigma uses it.
+- The first time Enigma reads a saved cloud key or sign-in, macOS asks to use it. Choose **Always Allow**.
+
+Your chats, models and keys are all still there. Future updates keep your approvals.
+
+## New
+
+- **Free cloud models.** Use Gemini in the cloud without a paid plan: choose **Get a free Gemini key** in **Settings → Cloud** or during setup, paste the key, and you're set. When one model reaches its free limit, Enigma moves to the next one and tells you.
+- **Web search on your Mac.** Search now works from the first launch, with no account or key. Enigma looks things up on DuckDuckGo and Wikipedia, reads the pages itself, and hands the best parts to your model, which lists its sources.
+- **Places and weather.** Ask for "cafes near me" or "will it rain tomorrow" and Enigma checks Apple Maps or the forecast. Replies that find places show a small map with numbered pins; click one to open it in Maps. Type **/maps** to look for places directly.
+- **A hands-on tour.** Enigma shows you around the real app: ask about the web, places and weather, write code, ask about text you select in another app, tidy a file, and text someone from Messages, with every reply an example and nothing sent. Already using Enigma? Choose **Take the tour** in a new chat, or replay it any time from **Settings → General**.
+- **Models that pick their own tools.** Larger local models and the cloud models now decide for themselves when to search the web, look up places, check the weather, read Messages or suggest an edit. Anything sensitive asks you first with a card: allow it for this chat, always, or not at all.
+- **ChatGPT and Claude search the web their own way.** Signed in with a ChatGPT or Claude subscription? Those models now use their own web search, with Enigma's places and weather alongside.
+- **Find any setting.** Settings has a page for each part of Enigma, grouped in the sidebar, with a search field that finds a setting by name or by what it does.
+- **Choose your own shortcuts.** **Settings → Shortcuts** lets you change any shortcut: opening Enigma, asking about selected text, every window shortcut, and any slash command. Shortcuts that work in any app can be keys, modifiers pressed together, or a double tap. **Same as summon** lets one shortcut both open Enigma and ask about what you've selected.
+- **Three new local models, now Recommended.** Bonsai 2 4B, 9B and 27B are compact builds of Qwen that see images too. Enigma recommends the best one your Mac runs well: 27B from 18 GB of memory, 9B on 16 GB, and 4B on 8 GB. Bonsai 2 9B and 27B pick their own tools, like the other larger models.
+
+## Improved
+
+- **A friendlier welcome.** Setup is shorter and livelier, and the character follows you from step to step. It checks your Mac before it recommends a model, and while the model downloads you can carry on into the tour. The model you download is the one Enigma uses, in Auto too. New installs start in the light Paper look.
+- **Every permission in one place.** **Settings → Permissions** lists Accessibility, Screen Recording, Full Disk Access, Contacts, Automation and Location. **Turn on…** asks macOS for you, and the tour's permissions stop moves the window aside so System Settings has room.
+- **Faster first replies on this Mac.** While you type, Enigma gets a larger local model ready, so its answer starts in well under a second.
+- **Shorter, clearer settings.** Rows have one short line; the longer explanation is behind ⓘ, and rarely needed options are under **› Advanced** on each page. Groups of settings sit together on cards.
+- **Your location stays rounded.** Search sites, Apple Maps and the weather service only ever get your city or a spot rounded to about 1 km.
+- **Clearer limit messages.** When a cloud model is out of use, Enigma tells you whether it's a daily limit or just a busy minute.
+- **Help shows your shortcuts.** The Help sheet lists the shortcuts you've chosen.
+- **Advanced settings… goes straight there.** In the mode and model menu, it opens Cloud with its advanced options showing.
+- **Brave Search is optional.** Have a Brave key? Add it under **Settings → Search and maps → Advanced** to search with Brave instead.
+
+## Fixed
+
+- Window animations no longer jump ahead when the first frame is slow to draw.
+- The ChatGPT row in Settings now says when ChatGPT is the provider selected for cloud, as Claude's does.
+- **/search** and **/edit** no longer fail on the newest Claude models with your own Anthropic API key.
+- A local model left running after Enigma quit unexpectedly is stopped the next time Enigma opens, freeing its memory.
+]]></description>
+            <enclosure url="https://github.com/leow427/Enigma/releases/download/v0.13.1/Enigma-0.13.1.zip" length="13486323" type="application/octet-stream" sparkle:edSignature="a10qerZ8a6JDD1KlHbpE22NExcbuaArVyH34WUhFbSsRt2u+i4KtY2P6M4KjOajImpyoc1OykhJg2cFyM1vuAg=="/>
+        </item>
+        <item>
             <title>0.12.0</title>
             <pubDate>Mon, 26 Oct 2026 23:07:32 -0500</pubDate>
             <sparkle:version>5</sparkle:version>
