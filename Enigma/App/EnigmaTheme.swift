@@ -75,6 +75,13 @@ struct EnigmaPalette: Equatable, Sendable {
   let characterBody: EnigmaColor
   let characterInk: EnigmaColor
   let warning: EnigmaColor
+  // Syntax colours in code blocks, all readable on `surface`.
+  let codeKeyword: EnigmaColor
+  let codeString: EnigmaColor
+  let codeNumber: EnigmaColor
+  let codeComment: EnigmaColor
+  let codeType: EnigmaColor
+  let codeVariable: EnigmaColor
 
   static let paper = EnigmaPalette(
     background: EnigmaColor(hex: 0xF3EEE4),
@@ -93,7 +100,13 @@ struct EnigmaPalette: Equatable, Sendable {
     accentText: EnigmaColor(hex: 0x4A6A14),
     characterBody: EnigmaColor(hex: 0xC3DE5E),
     characterInk: EnigmaColor(hex: 0x211E19),
-    warning: EnigmaColor(hex: 0xE0A33B)
+    warning: EnigmaColor(hex: 0xE0A33B),
+    codeKeyword: EnigmaColor(hex: 0x8A3B6E),
+    codeString: EnigmaColor(hex: 0x3F6B1A),
+    codeNumber: EnigmaColor(hex: 0xA04A12),
+    codeComment: EnigmaColor(hex: 0x6E685C),
+    codeType: EnigmaColor(hex: 0x1D6375),
+    codeVariable: EnigmaColor(hex: 0x3A4FA0)
   )
 
   static let ink = EnigmaPalette(
@@ -113,7 +126,13 @@ struct EnigmaPalette: Equatable, Sendable {
     accentText: EnigmaColor(hex: 0xCDEB78),
     characterBody: EnigmaColor(hex: 0xC3DE5E),
     characterInk: EnigmaColor(hex: 0xD9D1BF),
-    warning: EnigmaColor(hex: 0xE0A33B)
+    warning: EnigmaColor(hex: 0xE0A33B),
+    codeKeyword: EnigmaColor(hex: 0xE59AC8),
+    codeString: EnigmaColor(hex: 0xB9D877),
+    codeNumber: EnigmaColor(hex: 0xEDA76E),
+    codeComment: EnigmaColor(hex: 0x928C7E),
+    codeType: EnigmaColor(hex: 0x7FCAD6),
+    codeVariable: EnigmaColor(hex: 0xA9B6F2)
   )
 }
 

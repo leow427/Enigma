@@ -51,12 +51,19 @@ given opacity.
 | `characterBody` | `#C3DE5E` | `#C3DE5E` | Character fill |
 | `characterInk` | `#211E19` | `#D9D1BF` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
+| `codeKeyword` | `#8A3B6E` | `#E59AC8` | Code keywords; terminal commands |
+| `codeString` | `#3F6B1A` | `#B9D877` | Code strings; terminal paths |
+| `codeNumber` | `#A04A12` | `#EDA76E` | Code numbers |
+| `codeComment` | `#6E685C` | `#928C7E` | Code comments |
+| `codeType` | `#1D6375` | `#7FCAD6` | Code types; terminal flags |
+| `codeVariable` | `#3A4FA0` | `#A9B6F2` | Code variables, JSON keys, CSS properties |
 
 Rules:
 
 - Text people must read uses `textSecondary` or darker (4.5:1). `textTertiary`
   (3:1) is only for text people don't need to read, like hints and
-  placeholders. `EnigmaThemeTests` checks both on every surface.
+  placeholders. `EnigmaThemeTests` checks both on every surface, and the
+  `code…` tokens at 4.5:1 on `surface`, where code blocks sit.
 - Use at most one `accent`-filled control per view: Send in the composer, the
   primary button on a step or card. Every other button is outlined or text.
 - Never hard-code a color, and never use a material, `glassEffect`, blur,
@@ -108,7 +115,9 @@ glyph is Stop, on the solid Send button.
   Replies are serif text with the character in a 30 pt slot to their left and
   a monospace meta line under them: `model · where it ran · time`, with a
   dimmed copy icon at its right that brightens when the pointer is over the
-  reply. A code block has a header with its language and a Copy icon. Earlier
+  reply. A code block has a header with its language and a Copy icon, and its code
+  is coloured with the `code…` tokens; a terminal block's header has a
+  terminal glyph. Earlier
   replies keep the outline mark where the character stood. Request activity
   is a monospace line that opens to show the steps and sources. Queued
   messages wait under the reply as unfilled bubbles with a dashed `border`

@@ -1063,7 +1063,7 @@ selected and copied in one go.
 - Accessibility: "Copy code", "Copy reply" labels; keep the code block's
   existing "Code" accessibility label. Icons shown on hover must also be
   reachable with Tab and VoiceOver.
-- Syntax highlighting is F8; standalone draft blocks and editing them in place
+- Syntax highlighting is F8 (done); standalone draft blocks and editing them in place
   are F22 (draft blocks aren't drawn as code blocks).
 
 ### F2. ✅ Done: Keep typing while a reply streams
@@ -2116,7 +2116,17 @@ update window, if at all.
 - Accessibility: label it "What's new in Enigma X". Respect Reduce Motion for
   any appear/disappear animation.
 
-### F8. Syntax highlighting and terminal blocks
+### F8. ✅ Done: Syntax highlighting and terminal blocks
+
+> **Solved:** `CodeHighlighter` (`Enigma/Chat/CodeHighlighter.swift`), a small
+> built-in tokenizer, colours Swift, Python, JavaScript/TypeScript, shell,
+> JSON, HTML/XML, CSS and SQL with six new palette tokens (`codeKeyword`,
+> `codeString`, `codeNumber`, `codeComment`, `codeType`, `codeVariable`, in
+> `docs/design/UI-Style.md` and `EnigmaThemeTests`). Terminal blocks get a
+> terminal glyph and coloured commands, flags, paths and variables, with
+> output dimmed in prompt sessions. A streamed block highlights each finished
+> line once (`CodeHighlightCache`). Other languages stay plain. See
+> `docs/Chat.md`.
 
 Builds on F1's code block header.
 

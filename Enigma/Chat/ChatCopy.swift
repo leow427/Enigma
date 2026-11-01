@@ -40,7 +40,7 @@ enum ChatCopy {
 
   /// A line ending in an unescaped backslash: an even run of them is escaped
   /// backslashes, not a continuation.
-  private static func continuesOnNextLine(_ line: Substring) -> Bool {
+  static func continuesOnNextLine(_ line: Substring) -> Bool {
     line.reversed().prefix(while: { $0 == "\\" }).count % 2 == 1
   }
 

@@ -143,6 +143,14 @@ closes an open menu or, with none open, hides the window.
   Copy reply copies the reply's own text only: after `/edit`, the revised
   text in the revision card under it isn't included, and a reply with only
   whitespace has no Copy reply icon.
+- **Syntax colours.** Code in Swift, Python, JavaScript or TypeScript, shell,
+  JSON, HTML or XML, CSS and SQL has its keywords, strings, numbers, comments,
+  types and variables in different colours (the `code…` tokens in
+  `docs/design/UI-Style.md`); other languages and unlabelled blocks stay
+  plain. A terminal block (`bash`, `sh`, `zsh`, `shell` or `console`) has a
+  terminal glyph in its header and colours commands, flags, paths and
+  variables; in a session with `$ ` or `% ` prompt lines, the output lines
+  are dimmed to `textSecondary`. Copy is unchanged.
 - The chat opens at its end and follows new text while you're at the bottom.
   Sending a message always brings it and its reply to the bottom of the view,
   even if you had scrolled up, and the chat follows the reply again; a reply
@@ -410,6 +418,13 @@ their own paths.
   a long reply doesn't get slower to stream. Its blocks are the same as parsing
   the whole reply; link reference definitions and HTML blocks that span empty
   lines fall back to parsing everything.
+- `CodeHighlighter` (`Enigma/Chat/CodeHighlighter.swift`) is a small built-in
+  tokenizer: it reads a code block one line at a time, carrying an open block
+  comment or multi-line string to the next line. `CodeHighlightCache`, kept by
+  each code block view, highlights a streamed block's finished lines once and
+  only its unfinished last line again on each update; it starts over when the
+  code no longer extends what it read, or the language, palette or prompt
+  session changes.
 - `ChatCopy` (`Enigma/Chat/ChatCopy.swift`) decides what the copy buttons
   write: `copyableCode(_:language:)` for the terminal rule, and
   `plainText(_:)` and `richText(_:)` for a reply, both built from the parsed
@@ -575,6 +590,10 @@ evidence fits. See [Web-Search.md](Web-Search.md).
   table cells), RTF fonts, the pasteboard write, the hosted Copy code button
   with its check mark, and the hosted Copy reply button (clickable while dimmed,
   absent while the reply streams or has no text).
+- `EnigmaTests/CodeHighlighterTests.swift`: language hints, each language's
+  tokens, terminal sessions, redirects, here-documents and strings across
+  lines, the palette colours, and the streaming cache matching a fresh
+  highlight and reading only new lines.
 - `EnigmaTests/ChatPersistenceTests.swift`: retention, archive loading, excluded
   fields, and `ChatSessionWriter` coalescing and write ordering.
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,

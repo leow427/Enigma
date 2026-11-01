@@ -4,6 +4,7 @@ import SwiftUI
 // this file only decides how each parsed block looks: serif text with roomy
 // lines, links in `accentText`, and code in monospace on an opaque `surface`
 // with a `border` edge, under a header with its language and a Copy button.
+// Code in a language `CodeHighlighter` knows is coloured with the syntax tokens.
 
 /// How a parsed block's inline text is styled.
 enum ChatMarkdownStyle {
@@ -124,6 +125,8 @@ private struct ChatMarkdownBlockView: View {
   let block: ChatMarkdownBlock
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
+  /// Keeps a streamed code block's finished lines highlighted between updates.
+  @State private var highlights = CodeHighlightCache()
 
   var body: some View {
     let quote = block.components.contains { $0.kind == .blockQuote }
@@ -148,8 +151,15 @@ private struct ChatMarkdownBlockView: View {
       let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
       let code = ChatMarkdownStyle.displayedCode(block)
       let language = ChatMarkdownStyle.languageHint(block)
+      let known = CodeLanguage(hint: language)
       VStack(spacing: 0) {
         HStack(spacing: 8) {
+          if known == .shell {
+            Image(systemName: "terminal")
+              .font(EnigmaTypography.symbol(11))
+              .foregroundStyle(palette.textSecondary.color)
+              .accessibilityHidden(true)
+          }
           Text(verbatim: language ?? "")
             .font(EnigmaTypography.mono(11))
             .foregroundStyle(palette.textSecondary.color)
@@ -164,12 +174,18 @@ private struct ChatMarkdownBlockView: View {
         .padding(.vertical, 3)
         EnigmaHairline()
         ScrollView(.horizontal) {
-          Text(verbatim: code)
-            .font(ChatMarkdownStyle.codeFont)
-            .lineSpacing(3)
-            .foregroundStyle(palette.textPrimary.color)
-            .fixedSize(horizontal: true, vertical: true)
-            .padding(12)
+          Group {
+            if let known {
+              Text(highlights.highlighted(code, language: known, palette: palette))
+            } else {
+              Text(verbatim: code)
+            }
+          }
+          .font(ChatMarkdownStyle.codeFont)
+          .lineSpacing(3)
+          .foregroundStyle(palette.textPrimary.color)
+          .fixedSize(horizontal: true, vertical: true)
+          .padding(12)
         }
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .accessibilityLabel("Code")

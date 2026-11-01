@@ -14,7 +14,7 @@ final class EnigmaThemeTests: XCTestCase {
   }
 
   func testPalettesMatchTheRevampSpecTable() {
-    // Mirrors the color table in docs/design/ui-revamp/README.md.
+    // Mirrors the color table in docs/design/ui-revamp/README.md and UI-Style.md.
     let expected: [(KeyPath<EnigmaPalette, EnigmaColor>, paper: EnigmaColor, ink: EnigmaColor)] = [
       (\.background, EnigmaColor(hex: 0xF3EEE4), EnigmaColor(hex: 0x141512)),
       (\.sidebar, EnigmaColor(hex: 0xE8E1D3), EnigmaColor(hex: 0x0E0F0D)),
@@ -33,8 +33,14 @@ final class EnigmaThemeTests: XCTestCase {
       (\.characterBody, EnigmaColor(hex: 0xC3DE5E), EnigmaColor(hex: 0xC3DE5E)),
       (\.characterInk, EnigmaColor(hex: 0x211E19), EnigmaColor(hex: 0xD9D1BF)),
       (\.warning, EnigmaColor(hex: 0xE0A33B), EnigmaColor(hex: 0xE0A33B)),
+      (\.codeKeyword, EnigmaColor(hex: 0x8A3B6E), EnigmaColor(hex: 0xE59AC8)),
+      (\.codeString, EnigmaColor(hex: 0x3F6B1A), EnigmaColor(hex: 0xB9D877)),
+      (\.codeNumber, EnigmaColor(hex: 0xA04A12), EnigmaColor(hex: 0xEDA76E)),
+      (\.codeComment, EnigmaColor(hex: 0x6E685C), EnigmaColor(hex: 0x928C7E)),
+      (\.codeType, EnigmaColor(hex: 0x1D6375), EnigmaColor(hex: 0x7FCAD6)),
+      (\.codeVariable, EnigmaColor(hex: 0x3A4FA0), EnigmaColor(hex: 0xA9B6F2)),
     ]
-    XCTAssertEqual(expected.count, 17)
+    XCTAssertEqual(expected.count, 23)
     for (token, paper, ink) in expected {
       XCTAssertEqual(EnigmaPalette.paper[keyPath: token], paper, "\(token)")
       XCTAssertEqual(EnigmaPalette.ink[keyPath: token], ink, "\(token)")
@@ -62,6 +68,11 @@ final class EnigmaThemeTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(palette.accentText.contrastRatio(on: surface), 4.5, name)
       }
       XCTAssertGreaterThanOrEqual(palette.onAccent.contrastRatio(on: palette.accent), 4.5, name)
+      // Code blocks sit on `surface`.
+      for syntax in [palette.codeKeyword, palette.codeString, palette.codeNumber,
+                     palette.codeComment, palette.codeType, palette.codeVariable] {
+        XCTAssertGreaterThanOrEqual(syntax.contrastRatio(on: palette.surface), 4.5, name)
+      }
     }
   }
 
