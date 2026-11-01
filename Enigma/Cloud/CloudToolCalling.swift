@@ -266,9 +266,12 @@ extension AnthropicMessagesClient: ToolCallingChatProvider {
           "model": request.route.modelID, "max_tokens": prepared.budget.outputTokens,
           "system": CloudToolLoop.systemPrompt(toolbox), "messages": messages, "tools": tools, "stream": true,
         ]
-        // Extended thinking allows only automatic tool choice.
+        // Extended thinking, and the newest models at all times, allow only automatic tool choice;
+        // the request then asks for the required tool in words alone.
         if ThinkCommand.enabled(in: prepared.messages) { body.merge(Self.thinking(modelID: request.route.modelID)) { $1 } }
-        else if isFirst, let required = toolbox.offeredRequiredTool { body["tool_choice"] = ["type": "tool", "name": required] }
+        else if isFirst, let required = toolbox.offeredRequiredTool, Self.acceptsForcedToolChoice(modelID: request.route.modelID) {
+          body["tool_choice"] = ["type": "tool", "name": required]
+        }
         var assembler = AnthropicToolStreamAssembler()
         let turn = try await CloudToolLoop.streamStep(&assembler, CloudToolLoop.streamPost(messagesURL,
           headers: ["x-api-key": key, "anthropic-version": "2023-06-01"],
