@@ -8,6 +8,8 @@ struct MessagesSettingsSection: View {
   let part: Part
   @State private var fullDiskAccess: Bool?
   @State private var contacts = CNContactStore.authorizationStatus(for: .contacts)
+  @State private var automation: Bool?
+  @State private var asked: Set<MacPermission> = []
   @ObservedObject var grants: ToolGrantStore = .shared
 
   static let alwaysAllowedHeading = "Always allowed"
@@ -31,13 +33,12 @@ struct MessagesSettingsSection: View {
     VStack(alignment: .leading, spacing: 0) {
       switch part {
       case .permissions:
-        permission("Full Disk Access", isEnabled: fullDiskAccess == true, subtitle: "To read your Messages chats.",
-                   detail: MessagesPermissionStatus.fullDiskAccessDetail(fullDiskAccess), pane: .fullDiskAccess)
-        permission("Contacts", isEnabled: contacts == .authorized, subtitle: "To show names instead of numbers.",
-                   detail: MessagesPermissionStatus.contactsDetail, pane: .contacts)
-        EnigmaRow("Automation", subtitle: "To send a text you approve.", info: MessagesPermissionStatus.automationDetail) {
-          settingsButton(for: .automation)
-        }
+        permission(.fullDiskAccess, isEnabled: fullDiskAccess == true, subtitle: "To read your Messages chats.",
+                   detail: MessagesPermissionStatus.fullDiskAccessDetail(fullDiskAccess))
+        permission(.contacts, isEnabled: contacts == .authorized, subtitle: "To show names instead of numbers.",
+                   detail: MessagesPermissionStatus.contactsDetail)
+        permission(.automation, isEnabled: automation == true, subtitle: "To send a text you approve.",
+                   detail: MessagesPermissionStatus.automationDetail, isKnown: automation != nil)
       case .approvals:
         if grants.alwaysGrants.isEmpty {
           EnigmaRow("Nothing yet", subtitle: "Choose Always on an approval card and it’s listed here.")
@@ -57,28 +58,27 @@ struct MessagesSettingsSection: View {
     }
     .onAppear(perform: refresh)
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
+    .onReceive(NotificationCenter.default.publisher(for: .macPermissionChanged)) { _ in refresh() }
   }
 
   private func refresh() {
     contacts = CNContactStore.authorizationStatus(for: .contacts)
     fullDiskAccess = MessagesPermissionStatus.fullDiskAccess()
+    automation = MacPermission.automation.isGranted
   }
 
-  /// The button shows only while the permission is missing.
-  private func permission(_ title: String, isEnabled: Bool, subtitle: String, detail: String,
-                          pane: MessagesPrivacyPane) -> some View {
+  /// Turn on… shows only while the permission is off. Automation's state is
+  /// known only while Messages is open, so until then it shows no status.
+  private func permission(_ permission: MacPermission, isEnabled: Bool, subtitle: String, detail: String,
+                          isKnown: Bool = true) -> some View {
     let status = MacPermissionRows.status(isEnabled: isEnabled)
-    return EnigmaRow(title, subtitle: subtitle, info: detail) {
+    return EnigmaRow(permission.title,
+                     subtitle: !isEnabled && asked.contains(permission) ? permission.nextStep ?? subtitle : subtitle,
+                     info: detail) {
       HStack(spacing: 12) {
-        EnigmaStatusLine(status.0, status.1)
-        if !isEnabled { settingsButton(for: pane) }
+        if isKnown { EnigmaStatusLine(status.0, status.1) }
+        if !isEnabled { MacPermissionRows.turnOnButton(permission) { asked.insert(permission) } }
       }
     }
-  }
-
-  private func settingsButton(for pane: MessagesPrivacyPane) -> some View {
-    Button("Open Settings…") { NSWorkspace.shared.open(pane.url) }
-      .enigmaButtonStyle(.secondary)
-      .accessibilityLabel(pane.settingsButtonTitle)
   }
 }

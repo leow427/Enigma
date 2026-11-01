@@ -192,11 +192,21 @@ Rarely needed settings are under a page's **› Advanced**.
 - **Files:** how attaching and changes work. See [File-Mode.md](File-Mode.md).
 - **Messages:** where your texts go, with links to its permissions and to
   **Approvals**. See [Messages.md](Messages.md).
-- **Permissions:** every macOS permission Enigma uses, with its status and
-  **Open Settings…**: Accessibility and Screen Recording; Full Disk Access,
-  Contacts and Automation for Messages; and Location. If an older copy of
-  Enigma is already listed in System Settings, remove it and add the app
-  you're running, then quit and reopen Enigma.
+- **Permissions:** every macOS permission Enigma uses, with its status and,
+  while it's off, **Turn on…**: Accessibility and Screen Recording; Full Disk
+  Access, Contacts and Automation for Messages; and Location. Turn on… first
+  clears any entry an older copy of Enigma left (it can say on and not apply),
+  then asks macOS directly: its own dialog for Contacts, and for Automation
+  with Messages opened hidden for the question; Accessibility and Screen
+  Recording add Enigma to their list and open it, with the next step in the
+  row; Full Disk Access opens its list and shows Enigma in Finder to drag in.
+  The tour's permissions stop uses the same buttons.
+- **After an update from a differently signed copy** (anything before 0.13,
+  which wasn't signed with a Developer ID): on the first launch, for someone
+  who used Enigma before, the permissions that aren't working are cleared
+  once, and the empty page asks to turn them on again. Working permissions,
+  new installs and debug builds are never touched; the signer is saved
+  (`permissions.signer.v1`) so it never runs twice.
 - **Approvals:** everything you've answered with **Always**, each with where
   the text goes and **Remove**. See [Messages.md](Messages.md#permission-cards).
 - **About:** the version, when Enigma last checked, **Check Now**, and the

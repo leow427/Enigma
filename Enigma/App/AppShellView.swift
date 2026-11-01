@@ -24,6 +24,8 @@ struct AppShellView: View {
   /// Whether a selection chat stays private when opened in the window.
   @ObservedObject private var selectionEditing: SelectionEditingSettings
   @State private var isFileCloudConsentPresented = false
+  /// Permissions an update cleared, for its one-time card.
+  @State private var permissionsAgain: [MacPermission] = []
   @StateObject private var screen: ScreenComposerCoordinator
   @ObservedObject private var screenSettings: ScreenSettings
   @ObservedObject private var connectivity = ScreenConnectivity.shared
@@ -454,6 +456,13 @@ struct AppShellView: View {
     .task {
       await localChat.refreshInstalledModel()
       welcomeSetup.start(hasInstalledModels: !localChat.installedModels.isEmpty)
+      #if !DEBUG
+      if !TestHost.isActive {
+        permissionsAgain = PermissionUpdateCleanup.run(
+          defaults: .standard, signer: PermissionUpdateCleanup.currentSigner(),
+          usedBefore: welcomeSetup.wasCompletedBeforeLaunch, isGranted: { $0.isGranted }, reset: MacPermission.resetEntry)
+      }
+      #endif
       // A restart mid-tour, as for Screen Recording, picks up there.
       if !welcomeSetup.isPresented { guidedTour.resumeIfInterrupted() }
       await modelAdvisor.start(installedModels: localChat.installedModels, presentOnboarding: false)
@@ -590,6 +599,14 @@ struct AppShellView: View {
           if showsTourInvite {
             TourInvite { guidedTour.dismissInvite(takeTour: $0) }
               .transition(.opacity)
+          }
+          if !permissionsAgain.isEmpty && !guidedTour.isActive && !welcomeSetup.isPresented {
+            PermissionsAgainCard(permissions: permissionsAgain, openPermissions: {
+              permissionsAgain = []
+              shell.prepareForSettings()
+              NotificationCenter.default.post(name: .settingsRequested, object: SettingsView.SettingsDestination.permissions)
+            }, dismiss: { permissionsAgain = [] })
+            .transition(.opacity)
           }
         }
         .allowsHitTesting(!guidedTour.isActive)
