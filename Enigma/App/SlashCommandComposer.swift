@@ -355,6 +355,7 @@ private struct CommandTextEditor: NSViewRepresentable {
     context.coordinator.parent = self
     guard let editor = scroll.documentView as? SlashCommandTextView else { return }
     editor.isEditable = isEnabled
+    context.coordinator.rejectsEdits = context.environment.enigmaTourDemo
     editor.submit = submit
     if completion.availableCommands != availableCommands {
       completion.availableCommands = availableCommands
@@ -394,7 +395,12 @@ private struct CommandTextEditor: NSViewRepresentable {
 
   final class Coordinator: NSObject, NSTextViewDelegate {
     var parent: CommandTextEditor
+    /// Read-only keeps Return (the tour's next step) but refuses typing and pastes.
+    var rejectsEdits = false
     init(_ parent: CommandTextEditor) { self.parent = parent }
+    func textView(_ textView: NSTextView, shouldChangeTextIn range: NSRange, replacementString: String?) -> Bool {
+      !rejectsEdits
+    }
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
       guard commandSelector == #selector(NSResponder.insertNewline(_:)), !textView.hasMarkedText() else { return false }
       parent.submit()
@@ -410,4 +416,10 @@ private struct CommandTextEditor: NSViewRepresentable {
       parent.completion.refresh()
     }
   }
+}
+
+extension EnvironmentValues {
+  /// The window shows the tour's demo chat: it scrolls, but its composer takes
+  /// no typing and its messages' buttons take no clicks.
+  @Entry var enigmaTourDemo = false
 }

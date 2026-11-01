@@ -344,18 +344,6 @@ struct TourStep: Equatable {
 
   var label: String
   var kind: Kind
-
-  /// The card's button while the step waits for Return.
-  var actionLabel: String {
-    switch kind {
-    case .send, .askSelection: "Send"
-    case .newChat: "New chat"
-    case .select: "Select"
-    case .summon: "Tap ⌥⌥"
-    case .replace: "Replace text"
-    case .approve: "Send"
-    }
-  }
 }
 
 /// The selection stop's pretend document, beat by beat.
@@ -820,18 +808,16 @@ struct GuidedTourCard: View {
     .animation(EnigmaMotion.pageChange.animation, value: tour.stepIndex)
   }
 
-  private var primaryLabel: String {
-    switch tour.beat {
-    case .typing, .ready: tour.currentStep?.actionLabel ?? "Next"
-    case .playing, .finished: "Next"
-    }
+  /// The green button only moves the tour on, so it never names the demo's action.
+  static func advanceLabel(at stop: GuidedTour.Stop) -> String {
+    stop == .done ? "Start chatting" : "Next"
   }
 
   private var buttons: some View {
     HStack(spacing: 12) {
       if stop == .done {
         Spacer(minLength: 0)
-        Button { onFinish() } label: { HStack(spacing: 10) { Text("Start chatting"); EnigmaKeycap("↵") } }
+        Button { onFinish() } label: { HStack(spacing: 10) { Text(Self.advanceLabel(at: .done)); EnigmaKeycap("↵") } }
           .enigmaButtonStyle(.primary)
           .keyboardShortcut(.defaultAction)
       } else {
@@ -843,7 +829,7 @@ struct GuidedTourCard: View {
           Button("Back") { tour.back() }.enigmaButtonStyle(.text)
             .disabled(tour.beat == .playing)
         }
-        Button { onAdvance() } label: { HStack(spacing: 10) { Text(primaryLabel); EnigmaKeycap("↵") } }
+        Button { onAdvance() } label: { HStack(spacing: 10) { Text(Self.advanceLabel(at: stop)); EnigmaKeycap("↵") } }
           .enigmaButtonStyle(.primary)
           // Return here too when the composer isn't focused; the tour takes one beat per press.
           .keyboardShortcut(.defaultAction)

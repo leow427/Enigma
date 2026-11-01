@@ -114,7 +114,8 @@ struct AppShellView: View {
       }
       // The selection's chat, in the panel or kept in the window, needs
       // Accessibility to replace the selection.
-      if !selectionAccess.isGranted && localChat.isSelectionChat {
+      // Not in the tour's demo chat, which never needs it.
+      if !selectionAccess.isGranted && localChat.isSelectionChat && !guidedTour.isActive {
         AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
       }
       ForEach(localChat.attachedContexts) { context in
@@ -171,7 +172,7 @@ struct AppShellView: View {
   /// The compact selection panel, or the window frame with the sidebar and main page.
   @ViewBuilder private var windowFrame: some View {
     if shell.isSelectionComposer {
-      compactPanel
+      compactPanel.allowsHitTesting(!guidedTour.isActive)
     } else {
       shellLayout
     }
@@ -185,6 +186,9 @@ struct AppShellView: View {
 
   private var welcomeShell: some View {
     windowFrame
+    // The tour's chat is a demo: it scrolls, but its controls take no clicks
+    // and the composer shows what the tour types without taking typing of its own.
+    .environment(\.enigmaTourDemo, guidedTour.isActive)
     .disabled(welcomeSetup.isPresented)
     .accessibilityHidden(welcomeSetup.isPresented)
     .overlay {
@@ -262,11 +266,11 @@ struct AppShellView: View {
       compactOpensOverlaysAbove = CompactPanelLayout.opensOverlaysAbove(roomBelow: roomBelow)
     }
     .onReceive(NotificationCenter.default.publisher(for: .sidebarToggleRequested)) { _ in
-      guard !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented, !guidedTour.isActive else { return }
       shell.isSidebarVisible.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .fileModeRequested)) { _ in
-      guard !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented, !guidedTour.isActive else { return }
       activateFileMode(from: .keyboard)
     }
     .onReceive(NotificationCenter.default.publisher(for: .selectionContextRequested)) { notification in
@@ -282,7 +286,7 @@ struct AppShellView: View {
       localChat.newChat()
     }
     .onReceive(NotificationCenter.default.publisher(for: .modePaletteRequested)) { _ in
-      guard !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented, !guidedTour.isActive else { return }
       shell.isModePalettePresented.toggle()
     }
     .onReceive(NotificationCenter.default.publisher(for: .settingsRequested)) { _ in
@@ -315,7 +319,7 @@ struct AppShellView: View {
       localChat.stopStreaming()
     }
     .onReceive(NotificationCenter.default.publisher(for: .recentChatCycleRequested)) { _ in
-      guard !welcomeSetup.isPresented else { return }
+      guard !welcomeSetup.isPresented, !guidedTour.isActive else { return }
       // The panel stays while the chat can't switch, as when a request or the
       // file picker is running: its chat isn't left half in the window.
       let leavesPanel = shell.isSelectionComposer
@@ -511,6 +515,7 @@ struct AppShellView: View {
         HStack(spacing: 0) {
           if shell.isSidebarVisible {
             sidebar
+              .allowsHitTesting(!guidedTour.isActive)
               .frame(width: MainPageLayout.sidebarWidth(for: page))
               .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
           }
@@ -574,7 +579,7 @@ struct AppShellView: View {
       isEmpty: isChatEmpty,
       showsTopBar: EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton),
       availableExamples: examples.count,
-      topBar: { topBar },
+      topBar: { topBar.allowsHitTesting(!guidedTour.isActive) },
       header: { style in
         VStack(spacing: 14) {
           EnigmaMainPageHeader(style: style, greeting: MainPageGreeting.text(at: .now), status: routeStatusSummary,
@@ -585,15 +590,17 @@ struct AppShellView: View {
               .transition(.opacity)
           }
         }
+        .allowsHitTesting(!guidedTour.isActive)
       },
       conversation: { messageList },
-      accessories: { composerAccessories() },
-      composer: { docked in composer(docked: docked) },
+      accessories: { composerAccessories().allowsHitTesting(!guidedTour.isActive) },
+      composer: { docked in composer(docked: docked).allowsHitTesting(!guidedTour.isActive) },
       examples: { count in
         EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerCanType) { command in
           shell.isComposerFocused = true
           composerInsertion = SlashCommandInsertion(text: command.token + " ")
         }
+        .allowsHitTesting(!guidedTour.isActive)
       })
   }
 
@@ -712,7 +719,7 @@ struct AppShellView: View {
           contexts: localChat.attachedContexts,
           isBusy: localChat.isBusy || selectionContext.isWorking,
           statusNeedsAttention: CompactPanelCharacter.statusNeedsAttention(
-            notice: selectionContext.notice, isAccessibilityGranted: selectionAccess.isGranted),
+            notice: selectionContext.notice, isAccessibilityGranted: selectionAccess.isGranted || guidedTour.isActive),
           isStatusPresented: shell.isSelectionDetailsPresented,
           toggleStatus: { shell.isSelectionDetailsPresented.toggle() },
           remove: { localChat.removeContext(id: $0) },
@@ -793,7 +800,7 @@ struct AppShellView: View {
     CompactPanelCharacter.hasSelectionProblem(
       isPanel: shell.isSelectionComposer,
       hasSelection: !localChat.attachedContexts.isEmpty, notice: selectionContext.notice,
-      isAccessibilityGranted: selectionAccess.isGranted, isTemporaryChat: localChat.isTemporaryChat)
+      isAccessibilityGranted: selectionAccess.isGranted || guidedTour.isActive, isTemporaryChat: localChat.isTemporaryChat)
   }
 
   /// The last request failed, or Auto can't take the next one. A route that's

@@ -81,8 +81,12 @@ width while the window grows and shrinks. The card sits level with what the
 stop points at, and the character perches on it.
 
 Everything is scripted: questions type themselves into the message box, and
-**Return** or the card's button takes each step. Replies are examples, played
+**Return** or the card's **Next** button takes each step. Replies are examples, played
 in a temporary chat that never reaches Recents, and nothing is sent anywhere.
+The chat is only a demo: it scrolls, but the message box takes no typing,
+its buttons and the chat's shortcuts (⇧⌘A, ⌘K, ⌃Tab, ⌃⌘S, ⌘O) do nothing, and it never asks for
+Accessibility; that waits for the Permissions stop and real chats. ⌘N and Esc
+still leave the tour.
 
 ![A tour stop](design/ui-revamp/screenshots/f14/guided-ask-paper.png)
 

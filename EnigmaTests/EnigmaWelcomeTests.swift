@@ -19,6 +19,15 @@ final class EnigmaWelcomeTests: XCTestCase {
     XCTAssertEqual(GuidedTour.Stop.stepState(isDone: false, isCurrent: false), "to do")
   }
 
+  /// The card's green button moves the tour on, so it says Next at every stop
+  /// rather than what the demo does, like Send; the last stop ends the tour.
+  func testTourCardButtonSaysNext() {
+    for stop in GuidedTour.Stop.allCases where stop != .done {
+      XCTAssertEqual(GuidedTourCard.advanceLabel(at: stop), "Next", "\(stop)")
+    }
+    XCTAssertEqual(GuidedTourCard.advanceLabel(at: .done), "Start chatting")
+  }
+
   func testInviteShowsOnceToExistingUsersOnly() {
     let defaults = UserDefaults(suiteName: #function)!
     defaults.removePersistentDomain(forName: #function)
