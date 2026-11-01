@@ -291,6 +291,87 @@ final class AppCommandTests: XCTestCase {
     XCTAssertEqual(tour.stop, .newChat)
   }
 
+  /// At the permissions stop the window shrinks to its card at the screen's
+  /// right edge, out of System Settings' way, and keeps that spot when it's
+  /// shown again; the next stop grows it back.
+  @MainActor
+  func testPermissionsStopShrinksTheWindowToItsCardAtTheRightEdge() async throws {
+    let suite = "TourRail-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = PanelSizeStore(defaults: defaults)
+    let normal = NSSize(width: 900, height: 610)
+    store.save(normal)
+    let setup = WelcomeSetup(defaults: defaults)
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: store, contentView: view, welcomeSetup: setup)
+    let window = try XCTUnwrap(view.window)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end(); controller.hide() }
+    setup.start(hasInstalledModels: true)
+    controller.show()
+    let visible = try XCTUnwrap(window.screen ?? NSScreen.main).visibleFrame
+    let touring = PanelSizeStore.centeredFrame(
+      size: NSSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), in: visible)
+    func settle(_ what: String, _ done: () -> Bool) async throws {
+      let deadline = Date().addingTimeInterval(3)
+      while Date() < deadline, !done() { try await Task.sleep(for: .milliseconds(50)) }
+      XCTAssertTrue(done(), what)
+    }
+    tour.go(.modes)
+    try await settle("the tour's size") { window.frame == touring }
+    tour.go(.permissions)
+    let card = GuidedTourPlacement.railFrame(tour: touring, in: visible)
+    XCTAssertEqual(card.width, GuidedTourPlacement.railWidth)
+    XCTAssertEqual(card.maxX, visible.maxX)
+    XCTAssertEqual(card.height, touring.height)
+    try await settle("the card at the right edge") { window.frame == card }
+    // Hidden to reach System Settings and shown again, it stays out of the way.
+    controller.hide()
+    controller.show()
+    XCTAssertEqual(window.frame, card, "Shown again, the window isn't centered over System Settings")
+    tour.go(.done)
+    try await settle("the tour's size again") { window.frame == touring }
+    tour.end()
+    try await settle("the saved size after the tour") { window.frame.size == normal }
+  }
+
+  /// After a restart at the permissions stop, as Screen Recording asks for,
+  /// the window opens as the card at the right edge, not at the tour's size.
+  @MainActor
+  func testARestartAtThePermissionsStopOpensAsTheCard() async throws {
+    let suite = "TourRailResume-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = PanelSizeStore(defaults: defaults)
+    let normal = NSSize(width: 900, height: 610)
+    store.save(normal)
+    let setup = WelcomeSetup(defaults: defaults)
+    setup.finish(takeTour: false)
+    let view = NSView()
+    let controller = SpotlightPanelController(sizeStore: store, contentView: view, welcomeSetup: setup)
+    let window = try XCTUnwrap(view.window)
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end(); controller.hide() }
+    controller.show()
+    // As the launch's `resumeIfInterrupted()` does.
+    tour.go(.permissions)
+    let visible = try XCTUnwrap(window.screen ?? NSScreen.main).visibleFrame
+    let touring = PanelSizeStore.centeredFrame(
+      size: NSSize(width: 1280 + GuidedTourPlacement.railWidth, height: 860), in: visible)
+    let card = GuidedTourPlacement.railFrame(tour: touring, in: visible)
+    let deadline = Date().addingTimeInterval(3)
+    while Date() < deadline, window.frame != card { try await Task.sleep(for: .milliseconds(50)) }
+    XCTAssertEqual(window.frame, card)
+    controller.hide()
+    controller.show()
+    XCTAssertEqual(window.frame, card)
+    tour.end()
+    let back = Date().addingTimeInterval(3)
+    while Date() < back, window.frame.size != normal { try await Task.sleep(for: .milliseconds(50)) }
+    XCTAssertEqual(window.frame.size, normal)
+  }
+
   @MainActor
   func testARestartMidTourResumesAtTheSavedStop() throws {
     let suite = "TourResume-\(UUID())"

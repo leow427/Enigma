@@ -266,7 +266,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       // The hands-on tour grows the window by its rail.
       welcomeObservation = welcomeSetup.$isPresented.combineLatest(GuidedTour.shared.$stop)
         .map { presented, guided -> WelcomeSizing in
-          guided != nil ? .tour : presented ? .welcome : .normal
+          guided == .permissions ? .rail : guided != nil ? .tour : presented ? .welcome : .normal
         }
         .removeDuplicates()
         // The page keeps the window's width from the moment the tour starts,
@@ -649,7 +649,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
     sizeStore.save(panel.frame.size)
   }
 
-  private enum WelcomeSizing { case normal, welcome, tour }
+  private enum WelcomeSizing { case normal, welcome, tour, rail }
 
   /// The welcome is at least 1280 by 860; the tour adds its rail on the right,
   /// so the page keeps its width. Back to the saved size after both.
@@ -662,16 +662,18 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       size = previous
       normalSize = nil
       animates = true
-    case .welcome, .tour:
+    case .welcome, .tour, .rail:
       let base = normalSize ?? panel.frame.size
       animates = normalSize != nil
       normalSize = base
-      let width = max(1280, base.width) + (sizing == .tour ? GuidedTourPlacement.railWidth : 0)
+      let width = max(1280, base.width) + (sizing == .welcome ? 0 : GuidedTourPlacement.railWidth)
       size = NSSize(width: width, height: max(860, base.height))
     }
     let visible = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-    let frame = visible.map { PanelSizeStore.centeredFrame(size: size, in: $0) }
+    let centered = visible.map { PanelSizeStore.centeredFrame(size: size, in: $0) }
       ?? NSRect(origin: panel.frame.origin, size: size)
+    let frame = sizing == .rail ? visible.map { GuidedTourPlacement.railFrame(tour: centered, in: $0) } ?? centered
+      : centered
     // The page keeps its width while the window grows by the tour's rail,
     // which the window's edge uncovers, and while it shrinks back, until the
     // window is narrower than the page. Nothing in the page reflows for it.
@@ -688,8 +690,17 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       }
     case .normal: tour.pageWidth = tour.pageWidth.map { max($0, frame.width) }
     case .welcome: tour.pageWidth = nil
+    // The page keeps the tour's width off the window's left edge, ready for the next stop.
+    case .rail:
+      tour.pageWidth = tour.pageWidth ?? centered.width - GuidedTourPlacement.railWidth
+      tour.showsOnlyRail = true
     }
-    let settled: (() -> Void)? = sizing == .normal ? { GuidedTour.shared.pageWidth = nil } : nil
+    let settled: (() -> Void)? = switch sizing {
+    case .normal: { GuidedTour.shared.pageWidth = nil; GuidedTour.shared.showsOnlyRail = false }
+    // Resized by hand, the card's window can't be made narrower than the card.
+    case .rail: { [weak self] in self?.panel.minSize = NSSize(width: GuidedTourPlacement.railWidth, height: 420) }
+    case .welcome, .tour: { GuidedTour.shared.showsOnlyRail = false }
+    }
     // Growing for the tour and settling back afterwards move on the window's
     // spring; the welcome opens at its size.
     if animates {
@@ -704,7 +715,7 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
   /// width beside its rail.
   func windowDidResize(_ notification: Notification) {
     guard moveTarget == nil, !isSelectionComposer, GuidedTour.shared.isActive,
-          GuidedTour.shared.pageWidth != nil else { return }
+          !GuidedTour.shared.showsOnlyRail, GuidedTour.shared.pageWidth != nil else { return }
     GuidedTour.shared.pageWidth = panel.frame.width - GuidedTourPlacement.railWidth
   }
 
@@ -719,7 +730,9 @@ final class SpotlightPanelController: NSObject, NSWindowDelegate {
       size: panel.frame.size,
       in: visibleFrame
     )
-    panel.setFrame(centeredFrame, display: true)
+    // At the tour's permissions stop it stays the card at the right edge, clear of System Settings.
+    panel.setFrame(GuidedTour.shared.showsOnlyRail
+                   ? GuidedTourPlacement.railFrame(tour: centeredFrame, in: visibleFrame) : centeredFrame, display: true)
   }
 
   /// Returns false for a shortcut that does nothing here, so it is not consumed.

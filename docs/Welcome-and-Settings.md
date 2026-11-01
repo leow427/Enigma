@@ -109,6 +109,9 @@ Ten stops, some with a checklist of steps:
    Recording, each with **Turn on…**, all optional. Only Screen Recording
    needs Enigma to restart: it works the next time Enigma opens, or right away
    with **Restart now**, and a restart mid-tour picks up at the same stop.
+   Here the window shrinks to the tour's card at the screen's right edge, so
+   System Settings has the rest of the screen, and it opens that way after a
+   restart too; the next stop grows it back.
 10. **You're all set**: Help lists every shortcut, and Settings → General
     replays the tour.
 
