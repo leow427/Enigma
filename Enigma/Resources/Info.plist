@@ -22,6 +22,8 @@
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>EnigmaBugReportEmail</key>
   <string>enigmabugreporting@gmail.com</string>
+  <key>EnigmaBugReportURL</key>
+  <string>https://formspree.io/f/mjyyanzn</string>
   <key>LSMinimumSystemVersion</key>
   <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
   <key>LSUIElement</key>

@@ -48,6 +48,13 @@ final class EnigmaLog: Sendable {
     return [previousFileURL, fileURL].filter { FileManager.default.fileExists(atPath: $0.path) }
   }
 
+  /// The newest whole lines of both files, at most `limit` bytes: the logs of a report sent as text.
+  func text(limit: Int = 32_000) -> String {
+    let data = files.compactMap { try? Data(contentsOf: $0) }.reduce(Data(), +)
+    guard data.count > limit else { return String(decoding: data, as: UTF8.self) }
+    return String(String(decoding: data.suffix(limit), as: UTF8.self).drop { $0 != "\n" }.dropFirst())
+  }
+
   private func append(_ line: Data) {
     let manager = FileManager.default
     try? manager.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)

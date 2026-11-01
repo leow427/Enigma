@@ -18,7 +18,7 @@ works in the code, its limitations, and which tests cover it.
 | [Messages](Messages.md) | Reading, searching, and sending Apple Messages, with setup, and the cards that ask before a model reads a chat |
 | [Slash commands](Slash-Commands.md) | Every composer command, how commands combine, models that choose their own tools, and commands recognized from your wording |
 | [Welcome and Settings](Welcome-and-Settings.md) | Opening Enigma, first-run setup, the Settings window, and keyboard shortcuts |
-| [Bug reports](Bug-Reports.md) | Report a Bug…: the form, what the email includes, how it reaches the mail app, and the event log |
+| [Bug reports](Bug-Reports.md) | Report a Bug…: the form, what a report includes, how it's sent (Formspree, or an email as a fallback), and the event log |
 
 ## Guides
 

@@ -184,7 +184,8 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
       let newController = SettingsWindowController(contentView: SettingsWindowController.hostingView(
         SettingsWindowContent(appearance: .shared) {
           BugReportView(chat: .shared, diagnostics: .current(),
-                        recipient: BugReport.recipient(info: Bundle.main.infoDictionary ?? [:]), close: close,
+                        recipient: BugReport.recipient(info: Bundle.main.infoDictionary ?? [:]),
+                        endpoint: BugReport.endpoint(info: Bundle.main.infoDictionary ?? [:]), close: close,
                         composed: { controller?.window?.level = .normal })
         }))
       newController.window?.title = "Report a Bug"

@@ -23,6 +23,109 @@ final class BugReportTests: XCTestCase {
                    "enigmabugreporting@gmail.com")
   }
 
+  func testEndpointComesFromInfoPlistAndIsHTTPS() {
+    XCTAssertEqual(BugReport.endpoint(info: ["EnigmaBugReportURL": "https://example.com/f/abc"]),
+                   URL(string: "https://example.com/f/abc"))
+    XCTAssertNil(BugReport.endpoint(info: [:]))
+    XCTAssertNil(BugReport.endpoint(info: ["EnigmaBugReportURL": "http://example.com/f/abc"]))
+    XCTAssertEqual(BugReport.endpoint(info: Bundle(for: LocalChatViewModel.self).infoDictionary ?? [:]),
+                   URL(string: "https://formspree.io/f/mjyyanzn"))
+  }
+
+  func testReplyToOnlyForAnAddress() {
+    var report = BugReport()
+    XCTAssertNil(report.replyTo)
+    report.contactEmail = " me@example.com\n"
+    XCTAssertEqual(report.replyTo, "me@example.com")
+    for text in ["me", "me@example", "me @example.com", "a@b.c@d"] {
+      report.contactEmail = text
+      XCTAssertNil(report.replyTo, text)
+    }
+  }
+
+  func testRequestIsAnonymousUnlessAReplyAddressIsGiven() throws {
+    let endpoint = try XCTUnwrap(URL(string: "https://example.com/f/abc"))
+    func fields(_ request: URLRequest) throws -> [String: String] {
+      try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String])
+    }
+    let anonymous = BugReportSender.request(endpoint: endpoint, body: "The body", replyTo: nil)
+    XCTAssertEqual(anonymous.url, endpoint)
+    XCTAssertEqual(anonymous.httpMethod, "POST")
+    XCTAssertEqual(anonymous.value(forHTTPHeaderField: "Accept"), "application/json")
+    XCTAssertEqual(anonymous.value(forHTTPHeaderField: "Content-Type"), "application/json")
+    XCTAssertEqual(try fields(anonymous), ["_subject": "Enigma bug report", "message": "The body"])
+    let named = BugReportSender.request(endpoint: endpoint, body: "The body", replyTo: "me@example.com")
+    XCTAssertEqual(try fields(named)["email"], "me@example.com")
+  }
+
+  func testSendSucceedsOnlyOnA2xx() async throws {
+    let request = URLRequest(url: try XCTUnwrap(URL(string: "https://example.com/f/abc")))
+    let ok = await BugReportSender.send(request, transport: ReportTransport(result: .success(200)))
+    let rejected = await BugReportSender.send(request, transport: ReportTransport(result: .success(422)))
+    let offline = await BugReportSender.send(request, transport: ReportTransport(result: .failure(URLError(.notConnectedToInternet))))
+    XCTAssertTrue(ok)
+    XCTAssertFalse(rejected)
+    XCTAssertFalse(offline)
+  }
+
+  func testSentReportCarriesTheLogsTextInsteadOfAttaching() {
+    var report = BugReport()
+    report.whatHappened = "Crash"
+    report.includesLogs = true
+    let body = report.body(diagnostics: diagnostics, chat: nil, logs: "2026-11-01T20:39:38Z Enigma launched")
+    XCTAssertTrue(body.contains("Logs: below"))
+    XCTAssertTrue(body.hasSuffix("Logs\n2026-11-01T20:39:38Z Enigma launched"))
+    XCTAssertTrue(report.body(diagnostics: diagnostics, chat: nil, logs: "").hasSuffix("Logs\nNo events yet"))
+    report.includesLogs = false
+    let without = report.body(diagnostics: diagnostics, chat: nil, logs: "SECRET-LOG")
+    XCTAssertTrue(without.contains("Logs: not included"))
+    XCTAssertFalse(without.contains("SECRET-LOG"), "Logs stay out unless asked for")
+  }
+
+  @MainActor
+  func testFailedSendOffersEmailAndASentReportCantBeSentTwice() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: "BugReportSend-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let viewModel = LocalChatViewModel(
+      engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
+      sessionStore: ChatSessionStore(applicationSupportDirectory: root), nativeToolsEnabled: false)
+    var draft = BugReport()
+    draft.whatHappened = "The reply stopped."
+    func host(_ status: Result<Int, URLError>) -> NSView {
+      let view = NSHostingView(rootView: BugReportView(
+        chat: viewModel, diagnostics: diagnostics, recipient: "bugs@example.com",
+        endpoint: URL(string: "https://example.com/f/abc"), transport: ReportTransport(result: status), draft: draft,
+        close: {})
+        .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+        .enigmaTheme(.paper)
+        .transaction { $0.disablesAnimations = true })
+      let window = ReportTestWindow(contentRect: NSRect(origin: .zero, size: BugReportView.size),
+                                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = view
+      window.orderFrontRegardless()
+      addTeardownBlock { @MainActor in
+        window.orderOut(nil)
+        window.contentView = nil
+      }
+      return view
+    }
+    func marker(_ name: String, in view: NSView) -> TestControlMarker.Marker? {
+      EnigmaMainWindowTests.Host.marker(name, in: view) as? TestControlMarker.Marker
+    }
+
+    let failing = host(.failure(URLError(.notConnectedToInternet)))
+    XCTAssertNil(marker("Email Instead", in: failing), "Email is only the fallback")
+    try await clickTestControl("Send Report", in: failing)
+    try await waitForUI("the email fallback", in: failing) { marker("Email Instead", in: failing) != nil }
+    XCTAssertEqual(marker("Send Report", in: failing)?.isEnabled, true, "A failed send can be tried again")
+
+    let working = host(.success(200))
+    try await clickTestControl("Send Report", in: working)
+    try await waitForUI("the sent report", in: working) { marker("Send Report", in: working)?.isEnabled == false }
+    XCTAssertNil(marker("Email Instead", in: working))
+  }
+
   @MainActor
   func testOnlyMailGetsTheSharingService() {
     XCTAssertTrue(BugReportMailer.usesMailService(defaultMailApp: "com.apple.mail"))
@@ -49,7 +152,7 @@ final class BugReportTests: XCTestCase {
   func testBodyHasTheFormAndDiagnosticsButNoChatByDefault() {
     var report = BugReport()
     report.whatHappened = "The reply stopped."
-    let body = report.body(diagnostics: diagnostics, chat: chat())
+    let body = report.body(diagnostics: diagnostics, chat: chat(), logs: "")
     XCTAssertTrue(body.contains("What happened\nThe reply stopped."))
     XCTAssertFalse(body.contains("Steps to reproduce"), "Optional fields left empty are left out")
     XCTAssertFalse(body.contains("Contact"))
@@ -69,10 +172,10 @@ final class BugReportTests: XCTestCase {
     report.contactEmail = " me@example.com "
     report.includesLogs = true
     report.includesConversation = true
-    let body = report.body(diagnostics: diagnostics, chat: chat())
+    let body = report.body(diagnostics: diagnostics, chat: chat(), logs: "")
     XCTAssertTrue(body.contains("Steps to reproduce\n1. Ask\n2. Wait"))
     XCTAssertTrue(body.contains("Contact: me@example.com"))
-    XCTAssertTrue(body.contains("Logs: attached"))
+    XCTAssertTrue(body.contains("Logs: below"))
     XCTAssertTrue(body.contains("Conversation (“Crash”, text only)\nYou: Why did it crash?\n\nEnigma: It ran out of memory."))
     XCTAssertFalse(body.contains("secret-plans"), "Attachment names stay out")
     XCTAssertFalse(body.contains("selected secret"), "Selected text stays out")
@@ -82,7 +185,7 @@ final class BugReportTests: XCTestCase {
     var report = BugReport()
     report.whatHappened = "Crash"
     report.includesConversation = true
-    XCTAssertTrue(report.body(diagnostics: diagnostics, chat: nil).contains("Conversation: not included"))
+    XCTAssertTrue(report.body(diagnostics: diagnostics, chat: nil, logs: "").contains("Conversation: not included"))
   }
 
   func testMailtoEncodesEverything() throws {
@@ -146,7 +249,8 @@ final class BugReportTests: XCTestCase {
       engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
       sessionStore: store, nativeToolsEnabled: false)
     try EnigmaSnapshot.save("bug-report", size: BugReportView.size) {
-      BugReportView(chat: viewModel, diagnostics: diagnostics, recipient: "bugs@example.com", close: {})
+      BugReportView(chat: viewModel, diagnostics: diagnostics, recipient: "bugs@example.com",
+                    endpoint: URL(string: "https://example.com/f/abc"), close: {})
     }
     let actions = EnigmaTopBar.SidebarActions(show: {}, openHelp: {}, openSettings: {}, newChat: {})
     try EnigmaSnapshot.save("report-bug-corner", size: CGSize(width: 480, height: EnigmaTopBar.height * 3)) {
@@ -162,6 +266,22 @@ final class BugReportTests: XCTestCase {
         .frame(height: EnigmaTopBar.height)
       }
     }
+  }
+}
+
+private final class ReportTestWindow: NSPanel {
+  override var canBecomeKey: Bool { true }
+}
+
+private struct ReportTransport: CloudNetworkTransport {
+  let result: Result<Int, URLError>
+
+  func data(for request: URLRequest) async throws -> CloudDataResponse {
+    CloudDataResponse(data: Data(), statusCode: try result.get())
+  }
+
+  func stream(for request: URLRequest) -> AsyncThrowingStream<CloudNetworkEvent, Error> {
+    AsyncThrowingStream { $0.finish() }
   }
 }
 
@@ -196,6 +316,18 @@ final class EnigmaLogTests: XCTestCase {
     XCTAssertLessThanOrEqual(try Data(contentsOf: log.previousFileURL).count, 100 + 80)
     let all = try files.map { try String(contentsOf: $0, encoding: .utf8) }.joined()
     XCTAssertFalse(all.contains("event 0"), "Older events roll off")
+  }
+
+  func testTextKeepsTheNewestWholeLinesOfBothFiles() {
+    let log = EnigmaLog(directory: directory, writesFile: true, maximumFileSize: 100)
+    for index in 0..<6 { log.record("event \(index) padded to forty characters…", date: Date(timeIntervalSince1970: 0)) }
+    let all = log.text()
+    XCTAssertTrue(all.hasPrefix("1970-01-01T00:00:00Z event "), all)
+    XCTAssertTrue(all.hasSuffix("event 5 padded to forty characters…\n"), "Previous file first, then the current one")
+    let tail = log.text(limit: 90)
+    XCTAssertLessThanOrEqual(tail.utf8.count, 90)
+    XCTAssertTrue(tail.hasPrefix("1970-01-01T00:00:00Z event 5"), "Starts at a whole line: \(tail)")
+    XCTAssertEqual(EnigmaLog(directory: directory.appending(path: "none"), writesFile: false).text(), "")
   }
 
   func testWritesNothingWhenFileLoggingIsOff() {
