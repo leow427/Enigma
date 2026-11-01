@@ -6,6 +6,16 @@ or don't.
 
 ## Where to find it
 
+- **The chat window's top-right corner**: a small ladybug icon
+  (`ReportBugButton`). Hovering it slides a "Report a bug" label out toward
+  the chat, drawn over its neighbours so nothing moves. It's the last item in
+  the top bar when the bar is shown (sidebar hidden, or What's new? waiting,
+  just left of it). Beside the sidebar it floats in the same spot on an opaque
+  backing, but only while the chat column leaves that corner free
+  (`ReportBugButton.floatsClear(ofChatIn:)`: a main page at least 680 + 2 × 46
+  pt wide); in a narrower window the top bar comes back to hold it, so it never
+  covers a message or a code block's Copy button. It isn't in the compact
+  selection panel or during the guided tour.
 - **Help** (the sidebar's Help button): **Report a Bug…** at the bottom left.
 - **Settings → About → Feedback**: **Report a Bug…**. Searching Settings for
   "bug" or "feedback" finds it.
@@ -86,7 +96,11 @@ settles its model on the way; `testScreenshots` renders the form when
 `ENIGMA_SNAPSHOT_DIR` is set. `EnigmaLogTests` covers the file's lines,
 rolling over and the no-file mode. `EnigmaTextFieldMultilineTests` checks that
 Return inserts a new line in a multi-line field. `AppCommandTests` checks the menu-bar
-command list.
+command list. `EnigmaMainWindowTests.testReportABugSitsInTheCornerClearOfTheChat`
+checks the ladybug's corner, floating clear of the chat in a wide window and in
+the bar in a narrow one, that it opens the form, and that the tour hides it;
+`testWhatsNewSitsTopRight…` checks What's new? sits just left of it;
+`BugReportTests.testScreenshots` also renders the corner, hover label included.
 
 ## Limits
 

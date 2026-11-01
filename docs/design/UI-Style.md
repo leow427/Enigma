@@ -98,7 +98,10 @@ glyph is Stop, on the solid Send button.
   sidebar is shown, the bar appears only when the slot has something in it.
   When it's opened, the button fades out; with the sidebar shown the whole
   bar goes and the page moves up into its place. Under Reduce Motion both
-  happen at once.
+  happen at once. The slot always ends with a ladybug icon button, Report a
+  bug, whose label slides out on hover. Beside the sidebar it floats in the
+  same corner on an opaque `background` backing while the chat column leaves
+  the corner free, and the bar comes back to hold it when it doesn't.
 - **Main page.** The character centered, a time-of-day greeting, a monospace
   status line built from the real route state, the Auto / Local / Cloud text
   control, the composer, and the slash commands as monospace example lines.

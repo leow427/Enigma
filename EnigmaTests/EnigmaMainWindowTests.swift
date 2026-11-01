@@ -1580,7 +1580,11 @@ final class EnigmaMainWindowTests: XCTestCase {
       let button = try XCTUnwrap(host.marker("What's new"))
       let frame = host.view.convert(button.bounds, from: button)
       let top = host.view.isFlipped ? frame.minY : size.height - frame.maxY
-      XCTAssertEqual(size.width - frame.maxX, 12, accuracy: 2, "At the right edge \(label): \(frame)")
+      // Report a bug keeps the corner; What's new? comes and goes just left of it.
+      let bug = try XCTUnwrap(host.marker(ReportBugButton.title))
+      let bugFrame = host.view.convert(bug.bounds, from: bug)
+      XCTAssertEqual(size.width - bugFrame.maxX, 12, accuracy: 2, "Report a bug at the right edge \(label): \(bugFrame)")
+      XCTAssertEqual(bugFrame.minX - frame.maxX, 4, accuracy: 2, "Just left of Report a bug \(label): \(frame)")
       XCTAssertLessThan(top, EnigmaTopBar.height, "In the top bar \(label): \(frame)")
       if !sidebar {
         let settings = try XCTUnwrap(host.marker("Bar settings"))
@@ -1597,6 +1601,42 @@ final class EnigmaMainWindowTests: XCTestCase {
       XCTAssertEqual(host.shows("Show chat history"), !sidebar, "The bar stays while the sidebar is hidden")
       XCTAssertEqual(fixture.defaults.string(forKey: WhatsNew.lastSeenBuildKey), "4")
       host.window.attachedSheet.map { host.window.endSheet($0) }
+    }
+  }
+
+  /// Report a bug sits in the window's top-right corner and opens the form. Beside the sidebar
+  /// it floats there while the chat column leaves the corner free; in a narrower window the
+  /// top bar comes back to hold it, so it never covers a message. The tour hides it.
+  @MainActor
+  func testReportABugSitsInTheCornerClearOfTheChat() async throws {
+    let wide = MainPageLayout.sidebarWidth(for: 1100) + 680 + 2 * ReportBugButton.cornerWidth + 20
+    for (width, floats) in [(wide, true), (CGFloat(820), false)] {
+      let size = CGSize(width: width, height: 660)
+      let label = floats ? "floating at \(width)" : "in the bar at \(width)"
+      let fixture = try await Fixture(test: self)
+      fixture.start.showsSidebar = true
+      let host = Host(fixture, size: size, test: self)
+      try await waitForUI("Report a bug \(label)", in: host.view) { host.shows(ReportBugButton.title) }
+      XCTAssertEqual(host.shows("Bar settings"), false, "The bar keeps only its slot beside the sidebar")
+      let bug = try XCTUnwrap(host.marker(ReportBugButton.title))
+      let frame = host.view.convert(bug.bounds, from: bug)
+      let top = host.view.isFlipped ? frame.minY : size.height - frame.maxY
+      XCTAssertEqual(size.width - frame.maxX, 12, accuracy: 2, "At the right edge \(label): \(frame)")
+      XCTAssertLessThan(top, EnigmaTopBar.height, "In the top bar's row \(label): \(frame)")
+      let mainWidth = width - MainPageLayout.sidebarWidth(for: width)
+      let columnRight = width - (mainWidth - min(680, mainWidth - 48)) / 2
+      XCTAssertEqual(host.shows("Floating report a bug"), floats, "Floating only with room \(label)")
+      if floats { XCTAssertLessThanOrEqual(columnRight, frame.minX, "Clear of the chat column \(label)") }
+      else { XCTAssertGreaterThan(columnRight, frame.minX, "The narrow case is the one that needs the bar") }
+
+      let opened = XCTNSNotificationExpectation(name: .bugReportRequested)
+      try await clickTestControl(ReportBugButton.title, in: host.view)
+      await fulfillment(of: [opened], timeout: 2)
+
+      let tour = GuidedTour.shared
+      tour.go(.ask)
+      try await waitForUI("hidden in the tour \(label)", in: host.view) { !host.shows(ReportBugButton.title) }
+      tour.end()
     }
   }
 
