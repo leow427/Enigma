@@ -30,6 +30,13 @@ final class BugReportTests: XCTestCase {
     XCTAssertFalse(BugReportMailer.usesMailService(defaultMailApp: nil))
   }
 
+  func testFloatsOnlyWhereTheChatColumnLeavesTheCornerFree() {
+    // The column is 680 pt at most, centred; the button takes 46 pt from the right edge.
+    XCTAssertTrue(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 46))
+    XCTAssertFalse(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 46 - 1))
+    XCTAssertFalse(ReportBugButton.floatsClear(ofChatIn: 640))
+  }
+
   func testNeedsWhatHappened() {
     var report = BugReport()
     XCTAssertFalse(report.canSend)
@@ -140,6 +147,20 @@ final class BugReportTests: XCTestCase {
       sessionStore: store, nativeToolsEnabled: false)
     try EnigmaSnapshot.save("bug-report", size: BugReportView.size) {
       BugReportView(chat: viewModel, diagnostics: diagnostics, recipient: "bugs@example.com", close: {})
+    }
+    let actions = EnigmaTopBar.SidebarActions(show: {}, openHelp: {}, openSettings: {}, newChat: {})
+    try EnigmaSnapshot.save("report-bug-corner", size: CGSize(width: 480, height: EnigmaTopBar.height * 3)) {
+      VStack(spacing: 0) {
+        EnigmaTopBar(sidebarActions: actions, whatsNew: nil, reportBug: {})
+        EnigmaTopBar(sidebarActions: nil, whatsNew: (label: "What's new", open: {}), reportBug: {})
+        HStack(spacing: 4) {
+          Spacer()
+          Button {} label: { Image(systemName: "gearshape") }.enigmaIconButtonStyle()
+          ReportBugButton(action: {}, isFloating: true, isHovered: true)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: EnigmaTopBar.height)
+      }
     }
   }
 }

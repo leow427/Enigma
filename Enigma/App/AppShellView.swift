@@ -528,7 +528,9 @@ struct AppShellView: View {
               .frame(width: MainPageLayout.sidebarWidth(for: page))
               .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
           }
-          mainColumn
+          let mainWidth = page - (shell.isSidebarVisible ? MainPageLayout.sidebarWidth(for: page) : 0)
+          mainColumn(mainWidth: mainWidth)
+            .overlay(alignment: .topTrailing) { floatingReportBug(mainWidth: mainWidth) }
             // Under Reduce Motion the main column doesn't slide: it takes its
             // new width at once, so its AppKit views (the message field, Send)
             // never pass through in-between frames, and only the sidebar fades.
@@ -584,11 +586,18 @@ struct AppShellView: View {
                                 isFreshSetup: !welcomeSetup.wasCompletedBeforeLaunch)
   }
 
-  private var mainColumn: some View {
+  /// The top bar shows with the sidebar hidden or What's new? waiting, and also when the chat
+  /// column is too wide for Report a bug to float clear of it.
+  private func showsTopBar(mainWidth: CGFloat) -> Bool {
+    EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton)
+      || !ReportBugButton.floatsClear(ofChatIn: mainWidth)
+  }
+
+  private func mainColumn(mainWidth: CGFloat) -> some View {
     let examples = SlashCommandExample.examples(available: availableCommands)
     return EnigmaMainColumn(
       isEmpty: isChatEmpty,
-      showsTopBar: EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton),
+      showsTopBar: showsTopBar(mainWidth: mainWidth),
       availableExamples: examples.count,
       topBar: { topBar.allowsHitTesting(!guidedTour.isActive) },
       header: { style in
@@ -634,8 +643,25 @@ struct AppShellView: View {
       shell.isWhatsNewPresented = true
       withAnimation(reduceMotion ? nil : EnigmaMotion.screenChange.animation) { whatsNew.open() }
     }
+    let reportBug: (() -> Void)? = guidedTour.isActive ? nil : { openBugReport() }
     return EnigmaTopBar(sidebarActions: shell.isSidebarVisible ? nil : sidebarActions,
-                        whatsNew: whatsNew.showsButton ? (label: whatsNew.accessibilityLabel, open: openWhatsNew) : nil)
+                        whatsNew: whatsNew.showsButton ? (label: whatsNew.accessibilityLabel, open: openWhatsNew) : nil,
+                        reportBug: reportBug)
+  }
+
+  /// Report a bug in the top-right corner while the top bar is hidden, where the bar would put it.
+  @ViewBuilder private func floatingReportBug(mainWidth: CGFloat) -> some View {
+    if !showsTopBar(mainWidth: mainWidth), !guidedTour.isActive {
+      ReportBugButton(action: openBugReport, isFloating: true)
+        .enigmaTestMarker("Floating report a bug")
+        .padding(.horizontal, 12)
+        .frame(height: EnigmaTopBar.height)
+    }
+  }
+
+  private func openBugReport() {
+    shell.prepareForSettings()
+    NotificationCenter.default.post(name: .bugReportRequested, object: nil)
   }
 
   private func composer(docked: Bool) -> some View {

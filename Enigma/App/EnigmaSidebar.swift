@@ -137,6 +137,8 @@ struct EnigmaTopBar: View {
   let sidebarActions: SidebarActions?
   /// What's new?'s VoiceOver label and action, while an update's notes are unread.
   let whatsNew: (label: String, open: () -> Void)?
+  /// The bug report button, last in the slot; nil where it doesn't belong.
+  var reportBug: (() -> Void)? = nil
 
   static let height: CGFloat = 44
 
@@ -180,9 +182,64 @@ struct EnigmaTopBar: View {
           .padding(.leading, sidebarActions == nil ? 0 : 4)
           .transition(.opacity)
       }
+      if let reportBug { ReportBugButton(action: reportBug) }
     }
     .padding(.horizontal, 12)
     .frame(height: Self.height)
+  }
+}
+
+/// Report a bug, in the chat's top-right corner: a ladybug whose label slides out
+/// toward the chat on hover.
+struct ReportBugButton: View {
+  static let title = "Report a bug"
+  /// The corner it takes from the page's right edge: 12 pt inset and a 30 pt button, plus a little air.
+  static let cornerWidth: CGFloat = 46
+
+  /// Whether, floating in the corner, it stays clear of the chat column (680 pt at most, centred) in a
+  /// main page this wide; if not, the top bar holds it instead, so it never covers a message.
+  static func floatsClear(ofChatIn width: CGFloat) -> Bool {
+    width >= MainPageLayout.columnMaximumWidth + 2 * cornerWidth
+  }
+  let action: () -> Void
+  /// Over the chat rather than in the top bar: an opaque backing, so text scrolling under it never shows through.
+  var isFloating = false
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var isHovered: Bool
+
+  init(action: @escaping () -> Void, isFloating: Bool = false, isHovered: Bool = false) {
+    self.action = action
+    self.isFloating = isFloating
+    _isHovered = State(initialValue: isHovered)
+  }
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+    Button(action: action) { Image(systemName: "ladybug") }
+      .enigmaIconButtonStyle()
+      .accessibilityLabel(Self.title)
+      .enigmaTestMarker(Self.title)
+      .background { if isFloating { shape.fill(palette.background.color) } }
+      // Drawn over its neighbours, opaque, so nothing beside it moves.
+      .overlay(alignment: .trailing) {
+        if isHovered {
+          Text(Self.title)
+            .font(EnigmaTypography.mono(11))
+            .foregroundStyle(palette.textSecondary.color)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(palette.background.color, in: shape)
+            .offset(x: -32)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(x: 6)))
+        }
+      }
+      .onHover { hovering in
+        withAnimation(reduceMotion ? nil : EnigmaControlStyle.press.animation) { isHovered = hovering }
+      }
   }
 }
 
