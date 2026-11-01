@@ -535,12 +535,14 @@ struct AppShellView: View {
             .frame(width: GuidedTourPlacement.railWidth)
         }
       }
-      .frame(width: geometry.size.width, alignment: .leading)
+      // While the window is only the tour's rail, the page sits off its left edge.
+      .frame(width: geometry.size.width, alignment: guidedTour.showsOnlyRail ? .trailing : .leading)
     }
     .modifier(EnigmaWindowChrome())
     // The window's minimum height, except while it's the panel or on its way
     // from the panel, which starts smaller.
-    .frame(minWidth: 640, minHeight: shell.isSelectionComposer || shell.isSettlingIntoWindow ? 0 : 420)
+    .frame(minWidth: guidedTour.showsOnlyRail ? GuidedTourPlacement.railWidth : 640,
+           minHeight: shell.isSelectionComposer || shell.isSettlingIntoWindow ? 0 : 420)
   }
 
   private var sidebar: some View {
@@ -831,7 +833,8 @@ struct AppShellView: View {
   /// grows for the tour, or shrinks back after it, the page keeps its width,
   /// so nothing in it reflows, until the window is narrower than the page.
   private func tourPageWidth(in width: CGFloat) -> CGFloat {
-    if let page = guidedTour.pageWidth { return min(page, width) }
+    // Off the window's left edge while the window is only the rail, the page keeps its width.
+    if let page = guidedTour.pageWidth { return guidedTour.showsOnlyRail ? page : min(page, width) }
     return showsTourRail ? max(0, width - GuidedTourPlacement.railWidth) : width
   }
 

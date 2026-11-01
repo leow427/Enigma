@@ -76,10 +76,18 @@ final class GuidedTour: ObservableObject {
 
   var isActive: Bool { stop != nil }
 
+  /// At the permissions stop the window shrinks to the card's rail at the
+  /// screen's right edge, so System Settings has the rest of the screen. Set
+  /// by the window, which clears it only once it has grown back, so the page
+  /// never squeezes into the narrow window on the way.
+  @Published var showsOnlyRail = false
+
   /// Where the rail starts in a window `width` wide: beside the page, which
-  /// keeps its width while the window resizes for the tour.
+  /// keeps its width while the window resizes for the tour, or at the
+  /// window's right edge while the window is only the rail.
   func railMinX(in width: CGFloat) -> CGFloat {
-    pageWidth.map { min($0, width) } ?? width - GuidedTourPlacement.railWidth
+    if showsOnlyRail { return width - GuidedTourPlacement.railWidth }
+    return pageWidth.map { min($0, width) } ?? width - GuidedTourPlacement.railWidth
   }
 
   var currentStep: TourStep? {
@@ -622,6 +630,12 @@ struct GuidedTourPlacement: Equatable {
   let highlight: CGRect?
   let cardWidth: CGFloat
   let cardOrigin: CGPoint
+
+  /// The window at the permissions stop: the tour window's height, the rail's
+  /// width, against the right edge of the screen.
+  static func railFrame(tour: NSRect, in visible: NSRect) -> NSRect {
+    NSRect(x: visible.maxX - railWidth, y: tour.minY, width: railWidth, height: tour.height)
+  }
 
   /// `railMinX` is where the rail starts, beside the page; by default the
   /// rail is the window's right edge.

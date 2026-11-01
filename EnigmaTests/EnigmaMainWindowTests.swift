@@ -1199,6 +1199,44 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   /// A tour demo plays in a temporary chat: nothing it says reaches Recents.
+  /// Leaving the permissions stop, the real window grows back from the card
+  /// without crossing the screen's right edge, and the page never squeezes.
+  @MainActor
+  func testLeavingThePermissionsStopGrowsBackWithoutSqueezingThePage() async throws {
+    let fixture = try await Fixture(test: self)
+    let view = NSHostingView(rootView: fixture.shell())
+    let sizes = PanelSizeStore(defaults: fixture.defaults)
+    sizes.save(NSSize(width: 900, height: 610))
+    let controller = SpotlightPanelController(sizeStore: sizes, contentView: view, welcomeSetup: fixture.setup,
+                                              reduceMotion: { false })
+    controller.show()
+    let tour = GuidedTour.shared
+    addTeardownBlock { @MainActor in tour.end(); controller.hide(); view.window?.contentView = nil }
+    let window = try XCTUnwrap(view.window)
+    let visible = try XCTUnwrap(window.screen ?? NSScreen.main).visibleFrame
+    tour.go(.modes)
+    try await waitForUI("the tour's size", in: view, timeout: .seconds(5)) {
+      window.frame.width > 1000 && tour.pageWidth != nil
+    }
+    try await Task.sleep(for: .milliseconds(800))
+    tour.go(.permissions)
+    try await waitForUI("the card at the right edge", in: view, timeout: .seconds(5)) {
+      abs(window.frame.width - GuidedTourPlacement.railWidth) < 0.5 && abs(window.frame.maxX - visible.maxX) < 0.5
+    }
+    try await Task.sleep(for: .milliseconds(300))
+    let composerWidth = try XCTUnwrap(composerEditor(in: view)).frame.width
+    tour.go(.modes)
+    let deadline = Date().addingTimeInterval(3)
+    var widths: Set<Int> = []
+    while Date() < deadline, tour.showsOnlyRail || window.frame.width < 1000 {
+      XCTAssertLessThanOrEqual(window.frame.maxX, visible.maxX + 0.5, "Growing back stays on the screen")
+      if let editor = composerEditor(in: view) { widths.insert(Int(editor.frame.width.rounded())) }
+      try await Task.sleep(for: .milliseconds(8))
+    }
+    XCTAssertFalse(tour.showsOnlyRail)
+    XCTAssertEqual(widths, [Int(composerWidth.rounded())], "The page keeps its width while the window grows")
+  }
+
   @MainActor
   func testNoTourChatReachesRecents() async throws {
     let fixture = try await Fixture(test: self)
