@@ -12,6 +12,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   private var shortcutHotKeys: ShortcutHotKeys?
   private var accessibilityWarmer: SelectionAccessibilityWarmer?
   private var settingsWindowController: SettingsWindowController?
+  private var bugReportWindowController: SettingsWindowController?
   private var subscriptionRefreshTask: Task<Void, Never>?
 
   override init() {
@@ -61,6 +62,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
       return
     }
     #endif
+    EnigmaLog.event("Enigma \(AppUpdater.versionText(info: Bundle.main.infoDictionary ?? [:])) launched")
     Task.detached(priority: .utility) { OrphanedServers.reap() }
     NSApp.setActivationPolicy(.accessory)
     SystemSettingsWindowOrder.shared.start()
@@ -94,6 +96,8 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
       name: .settingsRequested,
       object: nil
     )
+    NotificationCenter.default.addObserver(self, selector: #selector(openBugReport),
+      name: .bugReportRequested, object: nil)
 
     let panelController = SpotlightPanelController(welcomeSetup: .shared)
     let menuBarController = MenuBarController(panelController: panelController, updater: .shared)
@@ -135,7 +139,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
       try selectionBackup.start()
       globalHotKeyMonitors.append(selectionBackup)
     } catch {
-      NSLog("Unable to register Selection Context shortcut: %@", error.localizedDescription)
+      EnigmaLog.event("Unable to register Selection Context shortcut", error: error)
     }
 
     self.panelController = panelController
@@ -167,6 +171,29 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   @objc private func openRequestedSettings(_ notification: Notification) {
     openSettings(destination: SettingsView.SettingsDestination.requested(notification.object),
                  opensAdvanced: SettingsView.SettingsDestination.opensAdvanced(notification.object))
+  }
+
+  /// The bug report form in its own window, like Settings: the open one keeps its draft.
+  @objc func openBugReport() {
+    guard panelController?.isCapturingScreen != true else { return }
+    let window = bugReportWindowController?.window
+    if window?.isVisible != true, window?.isMiniaturized != true {
+      // Each form closes its own window, never a newer one.
+      weak var controller: SettingsWindowController?
+      let close: @MainActor () -> Void = { controller?.close() }
+      let newController = SettingsWindowController(contentView: SettingsWindowController.hostingView(
+        SettingsWindowContent(appearance: .shared) {
+          BugReportView(chat: .shared, diagnostics: .current(),
+                        recipient: BugReport.recipient(info: Bundle.main.infoDictionary ?? [:]), close: close,
+                        composed: { controller?.window?.level = .normal })
+        }))
+      newController.window?.title = "Report a Bug"
+      newController.window?.setContentSize(BugReportView.size)
+      newController.window?.center()
+      controller = newController
+      bugReportWindowController = newController
+    }
+    bugReportWindowController?.showSettings()
   }
 
   func openSettings(destination: SettingsView.SettingsDestination? = nil, opensAdvanced: Bool = false) {

@@ -363,7 +363,7 @@ final class ShortcutHotKeys {
       monitors.append(monitor)
       return true
     } catch {
-      NSLog("Unable to register %@: %@", binding.display, error.localizedDescription)
+      EnigmaLog.event("Unable to register \(binding.display)", error: error)
       return false
     }
   }

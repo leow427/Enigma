@@ -152,7 +152,7 @@ struct ApplicationMover {
     do {
       try trash(original)
     } catch {
-      NSLog("Unable to move the original Enigma to the Trash: %@", error.localizedDescription)
+      EnigmaLog.event("Unable to move the original Enigma to the Trash", error: error)
     }
   }
 

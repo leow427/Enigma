@@ -218,7 +218,9 @@ Rarely needed settings are under a page's **› Advanced**.
 - **Approvals:** everything you've answered with **Always**, each with where
   the text goes and **Remove**. See [Messages.md](Messages.md#permission-cards).
 - **About:** the version, when Enigma last checked, **Check Now**, and the
-  automatic update switches. See [Updates.md](Updates.md).
+  automatic update switches. See [Updates.md](Updates.md). Under
+  **Feedback**, **Report a Bug…** opens the bug report form; see
+  [Bug-Reports.md](Bug-Reports.md).
 
 ![Settings, Permissions](design/ui-revamp/screenshots/f14/settings-permissions-paper.png)
 
@@ -283,6 +285,8 @@ sidebar is hidden) lists your current shortcuts, with the Accessibility status
 and **Open Accessibility Settings…**. Esc hides the window; Return sends and
 ⇧ Return inserts a new line; ↑ and ↓, then Tab or Return, choose a slash
 command. Slash commands are listed in [Slash-Commands.md](Slash-Commands.md).
+**Report a Bug…** at its bottom left opens the bug report form
+([Bug-Reports.md](Bug-Reports.md)).
 
 ## Privacy and permissions
 

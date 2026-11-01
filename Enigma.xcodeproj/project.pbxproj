@@ -48,6 +48,10 @@
 		A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */; };
 		F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */; };
 		F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */; };
+		F12A00000000000000000002 /* Enigma/App/EnigmaLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12A00000000000000000001 /* Enigma/App/EnigmaLog.swift */; };
+		F12A00000000000000000004 /* Enigma/App/BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12A00000000000000000003 /* Enigma/App/BugReport.swift */; };
+		F12A00000000000000000006 /* Enigma/App/BugReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12A00000000000000000005 /* Enigma/App/BugReportView.swift */; };
+		F12A00000000000000000008 /* BugReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12A00000000000000000007 /* BugReportTests.swift */; };
 		F14A00000000000000000002 /* Enigma/App/GuidedTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */; };
 		F14A00000000000000000004 /* Enigma/App/TourDocumentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */; };
 		F14A00000000000000000006 /* Enigma/App/WelcomeTypewriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */; };
@@ -337,6 +341,10 @@
 		A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ChatCopy.swift"; sourceTree = SOURCE_ROOT; };
 		F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MessageQueue.swift"; sourceTree = SOURCE_ROOT; };
 		F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/WhatsNew.swift"; sourceTree = SOURCE_ROOT; };
+		F12A00000000000000000001 /* Enigma/App/EnigmaLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaLog.swift"; sourceTree = SOURCE_ROOT; };
+		F12A00000000000000000003 /* Enigma/App/BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/BugReport.swift"; sourceTree = SOURCE_ROOT; };
+		F12A00000000000000000005 /* Enigma/App/BugReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/BugReportView.swift"; sourceTree = SOURCE_ROOT; };
+		F12A00000000000000000007 /* BugReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReportTests.swift; sourceTree = "<group>"; };
 		F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/GuidedTour.swift"; sourceTree = SOURCE_ROOT; };
 		F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/TourDocumentWindow.swift"; sourceTree = SOURCE_ROOT; };
 		F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/WelcomeTypewriter.swift"; sourceTree = SOURCE_ROOT; };
@@ -651,6 +659,9 @@
 				A1F100000000000000000001 /* Enigma/Chat/ChatCopy.swift */,
 				F2A000000000000000000001 /* Enigma/Chat/MessageQueue.swift */,
 				F25A00000000000000000001 /* Enigma/App/WhatsNew.swift */,
+				F12A00000000000000000001 /* Enigma/App/EnigmaLog.swift */,
+				F12A00000000000000000003 /* Enigma/App/BugReport.swift */,
+				F12A00000000000000000005 /* Enigma/App/BugReportView.swift */,
 				F14A00000000000000000001 /* Enigma/App/GuidedTour.swift */,
 				F14A00000000000000000003 /* Enigma/App/TourDocumentWindow.swift */,
 				F14A00000000000000000005 /* Enigma/App/WelcomeTypewriter.swift */,
@@ -853,6 +864,7 @@
 				B30000000000000000000001 /* RequestLifecycleTests.swift */,
 				F2A000000000000000000003 /* MessageQueueTests.swift */,
 				F25A00000000000000000003 /* WhatsNewTests.swift */,
+				F12A00000000000000000007 /* BugReportTests.swift */,
 				B60000000000000000000401 /* WebSearchTests.swift */,
 				C20000000000000000000001 /* ChatContextTests.swift */,
 				A1F100000000000000000003 /* ChatCopyTests.swift */,
@@ -1089,6 +1101,9 @@
 				A1F100000000000000000002 /* Enigma/Chat/ChatCopy.swift in Sources */,
 				F2A000000000000000000002 /* Enigma/Chat/MessageQueue.swift in Sources */,
 				F25A00000000000000000002 /* Enigma/App/WhatsNew.swift in Sources */,
+				F12A00000000000000000002 /* Enigma/App/EnigmaLog.swift in Sources */,
+				F12A00000000000000000004 /* Enigma/App/BugReport.swift in Sources */,
+				F12A00000000000000000006 /* Enigma/App/BugReportView.swift in Sources */,
 				F14A00000000000000000002 /* Enigma/App/GuidedTour.swift in Sources */,
 				F14A00000000000000000004 /* Enigma/App/TourDocumentWindow.swift in Sources */,
 				F14A00000000000000000006 /* Enigma/App/WelcomeTypewriter.swift in Sources */,
@@ -1304,6 +1319,7 @@
 				B30000000000000000000002 /* RequestLifecycleTests.swift in Sources */,
 				F2A000000000000000000004 /* MessageQueueTests.swift in Sources */,
 				F25A00000000000000000004 /* WhatsNewTests.swift in Sources */,
+				F12A00000000000000000008 /* BugReportTests.swift in Sources */,
 				B60000000000000000000402 /* WebSearchTests.swift in Sources */,
 				E7A25104ECB5240838E2D32E /* EnigmaTests/SearchRoutingTests.swift in Sources */,
 				0ADFF0883A89DCC9C165E22A /* EnigmaTests/WebSearchLiveTests.swift in Sources */,

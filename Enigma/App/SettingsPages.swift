@@ -255,6 +255,12 @@ struct AboutSettingsPage: View {
           .disabled(!updater.automaticallyChecksForUpdates)
       }
       EnigmaHairline()
+      EnigmaSectionHeader("Feedback")
+      EnigmaRow("Report a bug", subtitle: "Opens an email in your mail app, ready to send.") {
+        Button("Report a Bug…") { NotificationCenter.default.post(name: .bugReportRequested, object: nil) }
+          .enigmaButtonStyle(.secondary)
+      }
+      EnigmaHairline()
     }
   }
 

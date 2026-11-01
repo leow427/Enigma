@@ -43,6 +43,7 @@ final class MenuBarController: NSObject {
     let checkForUpdates = makeItem(.checkForUpdates, action: #selector(checkForUpdates))
     checkForUpdates.identifier = Self.checkForUpdatesID
     menu.addItem(checkForUpdates)
+    menu.addItem(makeItem(.reportBug, action: #selector(reportBug)))
     menu.addItem(makeItem(.settings, action: #selector(openSettings)))
     menu.addItem(.separator())
     menu.addItem(makeItem(.quit, action: #selector(quitApp)))
@@ -81,6 +82,10 @@ final class MenuBarController: NSObject {
 
   @objc private func openSettings() {
     NotificationCenter.default.post(name: .settingsRequested, object: nil)
+  }
+
+  @objc private func reportBug() {
+    NotificationCenter.default.post(name: .bugReportRequested, object: nil)
   }
 
   @objc private func quitApp() {

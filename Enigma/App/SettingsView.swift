@@ -133,7 +133,7 @@ struct SettingsView: View {
       case .messages: ["imessage", "sms", "texts", "full disk access", "contacts"]
       case .permissions: ["accessibility", "screen recording", "full disk access", "contacts", "automation", "location", "privacy"]
       case .approvals: ["always", "allowed", "grants", "privacy"]
-      case .about: ["version", "update", "check for updates"]
+      case .about: ["version", "update", "check for updates", "bug", "report a bug", "feedback"]
       }
     }
 

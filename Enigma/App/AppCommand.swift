@@ -6,6 +6,7 @@ enum AppCommand: String, CaseIterable {
   case privacyHide = "Privacy Hide"
   case restartToUpdate = "Restart to Update"
   case checkForUpdates = "Check for Updates…"
+  case reportBug = "Report a Bug…"
   case settings = "Settings"
   case quit = "Quit"
 }
@@ -32,6 +33,8 @@ extension Notification.Name {
   static let sidebarToggleRequested = Notification.Name("aiSpotlight.sidebarToggleRequested")
   static let fileModeRequested = Notification.Name("aiSpotlight.fileModeRequested")
   static let settingsRequested = Notification.Name("aiSpotlight.settingsRequested")
+  /// Help, Settings → About or the menu-bar menu asked for the bug report form (F12).
+  static let bugReportRequested = Notification.Name("enigma.bugReportRequested")
   static let settingsDestinationRequested = Notification.Name("enigma.settingsDestinationRequested")
   static let newChatRequested = Notification.Name("aiSpotlight.newChatRequested")
   static let modePaletteRequested = Notification.Name("aiSpotlight.modePaletteRequested")

@@ -109,6 +109,25 @@ final class LocalInferenceTests: XCTestCase {
     XCTAssertNil(viewModel.messages[3].activity?.notice)
   }
 
+  /// A request that settles its model on the way logs the change, and bug reports name the model that ran (F12).
+  @MainActor
+  func testRequestLogsTheModelItSettlesOn() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: "RouteLog-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let log = EnigmaLog(directory: directory, writesFile: true)
+    let engine = MockLocalModelEngine(installedModel: fixtureModel(), stream: { _ in
+      AsyncThrowingStream { $0.yield("Hi"); $0.finish() }
+    })
+    let viewModel = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore(), log: log)
+    // Before the model library loads, the request starts on a placeholder name.
+    viewModel.submit("Hello")
+    await waitUntil { viewModel.state == .idle && viewModel.messages.count == 2 }
+    XCTAssertEqual(viewModel.lastRouteName, "Local · Fixture")
+    let text = try log.files.map { try String(contentsOf: $0, encoding: .utf8) }.joined()
+    XCTAssertTrue(text.contains("Request moved to: Local · Fixture"), text)
+    XCTAssertFalse(text.contains("Hello"), text)
+  }
+
   @MainActor
   func testViewModelInstallsSelectedModelThroughEngine() async {
     let engine = MockLocalModelEngine()

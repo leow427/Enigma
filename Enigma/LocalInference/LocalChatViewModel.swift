@@ -71,12 +71,29 @@ final class LocalChatViewModel: ObservableObject {
   var nextReplyNotice: String?
   private var activityMessageID: UUID?
   @Published private(set) var activeRequest: ActiveRequest? {
-    didSet { lastRequestActivityAt = .now }
+    didSet {
+      lastRequestActivityAt = .now
+      // A request can change route on the way, such as an offline screen request answered on this Mac.
+      if let activeRequest, activeRequest != oldValue {
+        lastRouteName = activeRequest.displayName
+        if activeRequest.displayName != oldValue?.displayName || activeRequest.id != oldValue?.id {
+          log.record("Request \(activeRequest.id == oldValue?.id ? "moved to" : "started"): \(activeRequest.displayName)")
+        }
+      }
+    }
   }
+  /// The route and model of the last request this launch, for bug reports (F12).
+  private(set) var lastRouteName: String?
+  /// Events only: never a prompt, a reply or a failure's text.
+  private let log: EnigmaLog
   @Published private(set) var autoRouteDecision: AutoRouter.Decision?
   @Published private(set) var screenRouteDecision: ScreenRoutingPolicy.Decision?
   @Published private(set) var state: State = .idle {
-    didSet { lastRequestActivityAt = .now }
+    didSet {
+      lastRequestActivityAt = .now
+      // The failure's text can quote a provider's reply, so only the fact is logged.
+      if case .failed = state, state != oldValue { log.record("A request failed") }
+    }
   }
   /// When a request last started, streamed, or ended, failed or not. In
   /// memory only: a failure doesn't move its chat in Recents, but it still
@@ -85,7 +102,9 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var modelOperation: ModelOperation?
   /// The last install, delete or model switch failure, apart from the chat's
   /// own `state`. Cleared when the next model operation starts.
-  @Published private(set) var modelFailure: String?
+  @Published private(set) var modelFailure: String? {
+    didSet { if modelFailure != nil, modelFailure != oldValue { log.record("A model install, delete or switch failed") } }
+  }
   @Published private(set) var benchmarkNotice: String?
   private let modelAdvisor: LocalModelAdvisor?
 
@@ -425,8 +444,10 @@ final class LocalChatViewModel: ObservableObject {
     idleUnloadDelay: Duration = LocalModelIdlePolicy.unloadDelay,
     sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) },
     nativeToolsEnabled: Bool = NativeTools.isEnabled,
-    nativeWebSearchProviders: Set<CloudProviderID> = CloudProviderID.nativeWebSearchProviders
+    nativeWebSearchProviders: Set<CloudProviderID> = CloudProviderID.nativeWebSearchProviders,
+    log: EnigmaLog = .shared
   ) {
+    self.log = log
     self.selectionEditingSettings = selectionEditingSettings
     self.replaceSelection = replaceSelection
     self.engine = engine

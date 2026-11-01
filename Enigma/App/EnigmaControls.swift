@@ -551,6 +551,9 @@ struct EnigmaTextField: View {
   var isSecure = false
   /// What VoiceOver calls the field, when the placeholder alone is ambiguous.
   var accessibilityLabel: String?
+  /// Set for a text box where Return starts a new line, like a bug report's description:
+  /// its height, which grows to twice this before it scrolls.
+  var minHeight: CGFloat?
   var onFocusChange: (Bool) -> Void = { _ in }
   var onSubmit: () -> Void = {}
   @Environment(\.enigmaPalette) private var palette
@@ -558,20 +561,24 @@ struct EnigmaTextField: View {
   @FocusState private var isFocused: Bool
 
   init(_ placeholder: String, text: Binding<String>, isSecure: Bool = false, accessibilityLabel: String? = nil,
+       minHeight: CGFloat? = nil,
        onFocusChange: @escaping (Bool) -> Void = { _ in }, onSubmit: @escaping () -> Void = {}) {
     self.placeholder = placeholder
     _text = text
     self.isSecure = isSecure
     self.accessibilityLabel = accessibilityLabel
+    self.minHeight = minHeight
     self.onFocusChange = onFocusChange
     self.onSubmit = onSubmit
   }
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
-    ZStack(alignment: .leading) {
+    ZStack(alignment: minHeight == nil ? .leading : .topLeading) {
       if text.isEmpty {
         Text(placeholder)
+          // Lined up with where TextEditor puts its first character.
+          .padding(.leading, minHeight == nil ? 0 : 5)
           .foregroundStyle(palette.textTertiary.color)
           .allowsHitTesting(false)
           .accessibilityHidden(true)
@@ -597,6 +604,12 @@ struct EnigmaTextField: View {
   @ViewBuilder private var field: some View {
     if isSecure {
       SecureField("", text: $text)
+    } else if let minHeight {
+      // A vertical TextField ends editing on Return; TextEditor inserts a new line.
+      TextEditor(text: $text)
+        .scrollContentBackground(.hidden)
+        .frame(minHeight: minHeight, maxHeight: minHeight * 2)
+        .fixedSize(horizontal: false, vertical: true)
     } else {
       TextField("", text: $text)
     }

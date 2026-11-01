@@ -31,6 +31,12 @@ struct KeyboardShortcutsHelpView: View {
       .scrollBounceBehavior(.basedOnSize)
       EnigmaHairline()
       HStack {
+        Button("Report a Bug…") {
+          dismiss()
+          NotificationCenter.default.post(name: .bugReportRequested, object: nil)
+        }
+        .enigmaButtonStyle(.text)
+        .padding(.leading, -8)
         Spacer()
         Button { dismiss() } label: {
           HStack(spacing: 10) {

@@ -2073,7 +2073,7 @@ keeps commands out of the query.
 
 A small, quiet version line in Settings, such as `Enigma 0.11.0 (build)`.
 `MoveToApplicationsPrompt.swift` already reads `CFBundleShortVersionString`.
-Bug reports (F12) use the same value.
+Bug reports use the same value.
 
 ### F25. ✅ Done: "What's new?" button after an update
 
@@ -2251,41 +2251,6 @@ thinking off except under **/think** (`enable_thinking`).
 - Accessibility: a label such as "Thinking, collapsed" or "Thought for 12
   seconds", and Reduce Motion respected. Update `docs/Chat.md` and add tests
   for each route's parsing and for the panel while streaming and after.
-
-### F12. Bug reporting
-
-- A very short form: what happened, optional steps to reproduce, and optional
-  contact email.
-- An "Include logs" checkbox, **unchecked by default**. Enigma has almost no
-  logs today (a few `NSLog` errors; llama-server and Codex output go to
-  `/dev/null`), so first add event-only logging (`os.Logger`) that never
-  records chat content or model output. `OSLogStore` only reads the current
-  launch, so keep a small rolling log file for earlier ones.
-- An "Include this conversation" toggle, **off by default**, to help
-  understand what happened. Directly under it, a clear note: "Never turn this
-  on if the chat contains anything sensitive, such as passwords, personal or
-  financial details, or private messages."
-  - Lets the user pick which chat (the current one by default) and shows what
-    will be sent before sending.
-  - Sends the chat's text only: no attachments, screenshots, file contents,
-    selected text or Messages data unless they are already in the visible
-    text, and it says so.
-  - Not available for temporary chats (F10), which are never saved.
-- Adds diagnostics automatically: app version (`AppUpdater.versionText`),
-  macOS version, chip and memory, and the active route and model. It never
-  includes chat content unless the user turns on "Include this conversation",
-  and logs must not contain chat content either.
-- Reports go to the owner's email address. Keep it in one place in the app
-  (for example an `Info.plist` key), not in this file.
-- **Delivery (the easiest option):** open a ready-to-send email in the user's
-  mail app with the report filled in (`NSSharingService(named: .composeEmail)`;
-  `mailto:` as a fallback). It needs no account, API key, server or new
-  dependency. Logs attach only when the mail app supports it (Mail does);
-  `mailto:` can't attach, so the fallback puts them in the body or offers
-  "Show log in Finder". A silent in-app form service can replace it later if
-  wanted.
-- Put it in Settings and in the Help sheet (the sidebar's Help button; as a
-  menu-bar app, Enigma has no Help menu), and optionally the menu-bar menu.
 
 ### F13. Personalization tab in Settings (custom instructions)
 

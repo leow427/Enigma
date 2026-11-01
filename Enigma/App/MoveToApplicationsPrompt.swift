@@ -70,7 +70,7 @@ import Darwin
         relaunchTarget = destination
       }
     } catch {
-      NSLog("Unable to move Enigma into Applications: %@", String(describing: error))
+      EnigmaLog.event("Unable to move Enigma into Applications", error: error)
       showFailure(reason: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
       return false
     }
@@ -131,7 +131,7 @@ import Darwin
     do {
       try process.run()
     } catch {
-      NSLog("Unable to start the Enigma relaunch helper: %@", String(describing: error))
+      EnigmaLog.event("Unable to start the Enigma relaunch helper", error: error)
       showFailure(reason: error.localizedDescription)
       return false
     }

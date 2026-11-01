@@ -32,7 +32,7 @@ enum LocalBandwidthProbe {
       commands.commit()
       commands.waitUntilCompleted()
       guard commands.status == .completed else {
-        NSLog("The memory bandwidth test failed: %@", String(describing: commands.error))
+        EnigmaLog.event("The memory bandwidth test failed")
         return nil
       }
       // The first pass warms up the buffers and clocks.
