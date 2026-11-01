@@ -7,6 +7,17 @@ import XCTest
 @testable import Enigma
 
 final class LocalVisionTests: XCTestCase {
+  func testOnlyAdoptedServersInEnigmasFolderAreOrphans() {
+    let root = "/Users/a/Library/Application Support/AI Spotlight"
+    let server = root + "/Models/vision-runtime-1/llama-b11734/llama-server"
+    XCTAssertTrue(OrphanedServers.isOrphan(path: server, parent: 1, root: root))
+    // A live Enigma's server, the user's own Homebrew server, a look-alike folder, another binary.
+    XCTAssertFalse(OrphanedServers.isOrphan(path: server, parent: 4242, root: root))
+    XCTAssertFalse(OrphanedServers.isOrphan(path: "/opt/homebrew/bin/llama-server", parent: 1, root: root))
+    XCTAssertFalse(OrphanedServers.isOrphan(path: root + " Old/llama-server", parent: 1, root: root))
+    XCTAssertFalse(OrphanedServers.isOrphan(path: root + "/Models/llama-cli", parent: 1, root: root))
+  }
+
   func testVisionPairPersistsAndDoesNotReplaceTextSelection() throws {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

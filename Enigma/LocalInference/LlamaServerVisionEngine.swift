@@ -870,3 +870,33 @@ struct LocalVisionRuntime: Sendable {
     return String(decoding: try Data(contentsOf: output), as: UTF8.self)
   }
 }
+
+/// Servers an Enigma that crashed or was force-quit left behind: macOS doesn't stop a child when
+/// its parent dies, so launchd adopts it and it keeps its context memory. A live Enigma's servers
+/// keep it as their parent, so only adopted ones under Enigma's own folder are stopped.
+enum OrphanedServers {
+  static var root: String {
+    FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+      .appending(path: "AI Spotlight").path
+  }
+
+  static func reap() {
+    let count = proc_listallpids(nil, 0)
+    guard count > 0 else { return }
+    var pids = [pid_t](repeating: 0, count: Int(count) + 32)
+    let found = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+    let root = root
+    for pid in pids.prefix(Int(max(found, 0))) where pid > 1 {
+      var info = proc_bsdinfo()
+      let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+      guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { continue }
+      var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+      guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { continue }
+      if isOrphan(path: String(cString: path), parent: info.pbi_ppid, root: root) { Darwin.kill(pid, SIGKILL) }
+    }
+  }
+
+  static func isOrphan(path: String, parent: UInt32, root: String) -> Bool {
+    parent == 1 && path.hasPrefix(root + "/") && (path as NSString).lastPathComponent == "llama-server"
+  }
+}

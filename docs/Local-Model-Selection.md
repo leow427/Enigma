@@ -585,6 +585,11 @@ Key files are in `Enigma/LocalInference/`.
 | Settings UI and the model sheet | `LocalModelManagerSection`, `LocalModelSettingsLogic`, `LocalModelOnboardingView` | `LocalModelManagerSection.swift`, `LocalModelSettingsLogic.swift`, `LocalModelViews.swift` |
 
 Download orchestration and idle unloading live in `LocalChatViewModel.swift`.
+A server stops when Enigma quits normally. One left behind by a crash or
+force quit (launchd adopts it) is stopped on the next launch by
+`OrphanedServers` in `LlamaServerVisionEngine.swift`: only a `llama-server`
+under Enigma's Application Support folder whose parent is launchd.
+
 Install progress is `modelOperation` and install failures are `modelFailure`,
 both separate from the chat's `state`;
 `isBusy` gates chat and counts a model operation only when it holds the
