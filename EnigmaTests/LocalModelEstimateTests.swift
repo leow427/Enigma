@@ -7,9 +7,12 @@ final class LocalModelEstimateTests: XCTestCase {
   func testCacheLayoutsMatchTheGGUFHeaders() {
     XCTAssertEqual(LocalMultimodalProfile.qwen35_2B.cacheLayout,
                    LocalCacheLayout(fullLayers: 6, fullKVHeads: 2, fullHeadDimension: 256))
-    for profile in [LocalMultimodalProfile.qwen35_4B, .qwen35_9B] {
+    for profile in [LocalMultimodalProfile.qwen35_4B, .qwen35_9B, .bonsai2_4B, .bonsai2_9B] {
       XCTAssertEqual(profile.cacheLayout, LocalCacheLayout(fullLayers: 8, fullKVHeads: 4, fullHeadDimension: 256))
     }
+    // Ternary Bonsai 2 27B: 64 blocks like Qwen3.8 27B but no multi-token-prediction layer.
+    XCTAssertEqual(LocalMultimodalProfile.bonsai2_27B.cacheLayout,
+                   LocalCacheLayout(fullLayers: 16, fullKVHeads: 4, fullHeadDimension: 256))
     XCTAssertEqual(LocalMultimodalProfile.qwen36_35BA3B.cacheLayout,
                    LocalCacheLayout(fullLayers: 11, fullKVHeads: 2, fullHeadDimension: 256))
     XCTAssertEqual(LocalMultimodalProfile.qwen38_27B.cacheLayout,
@@ -38,7 +41,7 @@ final class LocalModelEstimateTests: XCTestCase {
       (.qwen35_2B, 100_663_296), (.qwen35_4B, 268_435_456), (.qwen36_35BA3B, 184_549_376),
       (.qwen38_27B, 570_425_344), (.gemma4_12B, 805_306_368), (.gemma4A4B, 587_202_560),
       (.gemma4E4B, 308_281_344), (.gemma4_31B, 2_348_810_240), (.ministral8B, 1_140_850_688),
-      (.ministral14B, 1_342_177_280),
+      (.ministral14B, 1_342_177_280), (.bonsai2_4B, 268_435_456), (.bonsai2_27B, 536_870_912),
     ]
     for (profile, bytes) in expected {
       XCTAssertEqual(profile.cacheLayout.bytes(context: 8192, physicalBatch: profile.physicalBatchSize), bytes,
@@ -94,7 +97,7 @@ final class LocalModelEstimateTests: XCTestCase {
   func testParametersKindsAndFormats() {
     let parameters: [(LocalMultimodalProfile, Double)] = [
       (.qwen35_2B, 2.27), (.qwen35_4B, 4.66), (.qwen35_9B, 9.65), (.gemma4_12B, 12), (.gemma4A4B, 25.2),
-      (.qwen36_35BA3B, 36), (.qwen38_27B, 27.8),
+      (.qwen36_35BA3B, 36), (.qwen38_27B, 27.8), (.bonsai2_4B, 4.66), (.bonsai2_9B, 9.65), (.bonsai2_27B, 27.8),
     ]
     for (profile, value) in parameters { XCTAssertEqual(profile.parameters, value, profile.rawValue) }
     let active: [LocalMultimodalProfile: Double] = [.gemma4A4B: 3.8, .qwen36_35BA3B: 3, .gemma4E4B: 4.5, .gemma4E2B: 2.3]
@@ -108,6 +111,8 @@ final class LocalModelEstimateTests: XCTestCase {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q8_0"])
       } else if profile == .qwen38_27B {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"])
+      } else if profile.rawValue.hasPrefix("bonsai2") {
+        XCTAssertEqual(profile.quantizations, ["Q2_0"], profile.rawValue)
       } else if profile == .qwen35_9B || profile == .qwen36_35BA3B {
         XCTAssertEqual(profile.quantizations, ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"],
                        profile.rawValue)
@@ -119,8 +124,12 @@ final class LocalModelEstimateTests: XCTestCase {
     XCTAssertEqual(LocalMultimodalProfile.qwen35_2B.architecture, "qwen35")
     XCTAssertEqual(LocalMultimodalProfile.qwen38_27B.architecture, "qwen35")
     XCTAssertEqual(LocalMultimodalProfile.qwen36_35BA3B.architecture, "qwen35moe")
-    for profile in [LocalMultimodalProfile.qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen36_35BA3B, .qwen38_27B] {
+    for profile in [LocalMultimodalProfile.qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen36_35BA3B, .qwen38_27B,
+                    .bonsai2_4B, .bonsai2_9B, .bonsai2_27B] {
       XCTAssertEqual(profile.chatTemplate, "qwen3.5", profile.rawValue)
+    }
+    for profile in [LocalMultimodalProfile.bonsai2_4B, .bonsai2_9B, .bonsai2_27B] {
+      XCTAssertEqual(profile.architecture, "qwen35", profile.rawValue)
     }
   }
 
@@ -178,6 +187,16 @@ final class LocalModelEstimateTests: XCTestCase {
     XCTAssertEqual(result.ttft, 0.42, accuracy: 0.01)
     XCTAssertEqual(try package("gemma-4-26b-a4b-q4_k_m").activeWeightBytes, 17_035_039_872 * 3.8 / 25.2, accuracy: 1)
     XCTAssertTrue(try package("gemma-4-26b-a4b-q4_k_m").isMixtureOfExperts)
+  }
+
+  func testTernaryAndOrdinaryRunsNeverCalibrateEachOther() throws {
+    let bonsai = record(id: "bonsai-2-4b-q2_0", architecture: "qwen35", bytes: 1_212_103_520, parameters: 4.66,
+                        speed: 110, prompt: 650, build: 11734, recordedAt: .now - 600)
+    XCTAssertEqual(try estimate("qwen3.5-4b-q8_0", [bonsai]).speed, try estimate("qwen3.5-4b-q8_0").speed)
+    XCTAssertEqual(try estimate("qwen3.5-4b-q8_0", [bonsai, twelveQAT]).speed, 51.61, accuracy: 0.01)
+    XCTAssertEqual(try estimate("bonsai-2-4b-q2_0", [twelveQAT]).speed, try estimate("bonsai-2-4b-q2_0").speed)
+    XCTAssertEqual(try estimate("bonsai-2-9b-q2_0", [bonsai, twelveQAT]).speed,
+                   110 * 1_212_103_520 / 2_556_640_128, accuracy: 0.01)
   }
 
   func testMeasuredRunCalibratesEveryDenseModelWithoutACap() throws {

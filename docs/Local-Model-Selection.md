@@ -1,8 +1,8 @@
 # Local models
 
 Enigma can answer on your Mac with a local text-and-image model, so chats and
-screenshots never leave it. It ships a reviewed catalogue of eleven model
-families (45 pinned packages), picks the smartest one this Mac runs fast, and
+screenshots never leave it. It ships a reviewed catalogue of fourteen model
+families (48 pinned packages), picks the smartest one this Mac runs fast, and
 installs, checks and manages it for you.
 
 ## Choosing a model
@@ -66,7 +66,7 @@ The page is the one place to choose and manage local models. From the top:
    still be installed.
 5. **Files** holds **Local file tools** and **Saved file changes** for File Mode
    (see [File-Mode.md](File-Mode.md)), then **Advanced: Import text GGUF…**.
-   The footer shows the catalogue version (currently 7).
+   The footer shows the catalogue version (currently 8).
 
 **Delete** asks first and removes the model and its support files. Deleting the
 selected model selects another installed one, if any.
@@ -122,7 +122,7 @@ a disk-space failure. Packages over budget are never recommended.
 
 ## The catalogue
 
-Eleven families, reviewed 2026-10-19. Every package runs with an 8,192-token
+Fourteen families, reviewed 2026-10-31. Every package runs with an 8,192-token
 context and is Apache-2.0 licensed. Quality scores are the Artificial Analysis
 Intelligence Index (v4.3.2, October 2026), checked against MMMU-Pro for vision;
 within one model line a larger model never scores below a smaller one, except
@@ -131,25 +131,42 @@ that Gemma 4 31B keeps the index's 15 below the mixture-of-experts Gemma 4
 score; their 8 and 5 are assumptions that place them below Qwen3.5 4B and
 Ministral 3 14B.
 
+The three Bonsai 2 families are PrismML's ternary builds of Qwen3.5 4B, Qwen3.5
+9B and Qwen3.8 27B, with the same architecture as their bases. Each ships one
+package, `Q2_0`, the only ternary packing stock llama.cpp runs (PrismML's
+`PQ2_0` and `PTQ1_0` need its fork). They have no index listing, so each score
+is its base's score above times PrismML's measured vision retention against the
+base in BF16, because images are what local models mostly answer (tool calling
+is the least-kept category for the 4B and 9B). These are vendor figures:
+
+| Family | Base score × vision retention | Overall retention | MMMU-Pro (base) | Source |
+|---|---|---|---|---|
+| Bonsai 2 4B | 13 × 0.913 = 11.9 | 94.6% | 64.86 (68.09) | PrismML whitepaper, October 2026, Tables 6–7 |
+| Bonsai 2 9B | 13.5 × 0.925 = 12.5 | 95.1% | 68.73 (72.43) | the same |
+| Bonsai 2 27B | 28 × 0.928 = 26.0 | 98.2% | 75.49 (81.73) | model card and PrismML 27B report, September 2026 |
+
 | Family | Parameters (active) | Quantizations | Quality | Mainly for |
 |---|---|---|---|---|
-| Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | 8 GB Macs |
+| Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | M1-class 8 GB Macs; Recommended on 16–24 GB Macs at M1-class bandwidth |
 | Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | slower 16 GB Macs; the Faster pick on faster 24 GB Macs |
-| Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | the Faster pick on some 16–24 GB Macs |
+| Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | All models |
 | Ministral 3 8B | 8.5B | Q4_K_M | 5 | All models |
 | Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs: Recommended when fast, else Smarter at IQ4_XS |
-| Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs |
+| Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs from about 200 GB/s |
 | Ministral 3 14B | 13.5B | Q5_K_M, Q8_0 | 6 | All models |
 | Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32 GB Macs |
 | Gemma 4 31B | 31B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 15 | All models |
 | Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | 36–64 GB Macs |
-| Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Max and Ultra chips; 3-bit as Smarter on 24 GB Macs |
+| Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Recommended on Macs with 32 GB or more from about 546 GB/s; IQ4_XS as Smarter on 32 GB or more at about 200–400 GB/s |
+| Bonsai 2 4B | 4.66B, ternary | Q2_0 | 11.9 | Recommended on 8 GB Macs from M2-class bandwidth (about 100 GB/s); Smarter on M1-class 8 GB Macs; the Faster pick on most Macs at 100–150 GB/s |
+| Bonsai 2 9B | 9.65B, ternary | Q2_0 | 12.5 | the Faster pick on 16 GB and 64 GB-plus Macs at about 200–307 GB/s |
+| Bonsai 2 27B | 27.8B, ternary | Q2_0 | 26.0 | Smarter on 24 GB Macs, and on larger ones at 100–150 GB/s; Recommended only in a narrow band near 460 GB/s (about 396–401 measured); Faster on 32 GB or more from about 546 GB/s |
 
 "All models" families are there to choose by hand and get a role only on merit.
-Ministral 3 and Gemma 4 31B get none on the Macs the tests check. Gemma 4 E4B
-is Faster on 16 GB Macs at about 120 to 225 GB/s measured and on 24 GB Macs at
-about 120 to 175 GB/s (for example a 16 GB Mac at 130 GB/s: Recommended
-Qwen3.5 4B Q8_0 at 21.8 tok/s, Faster Gemma 4 E4B at 32.8).
+Ministral 3, Gemma 4 E4B and Gemma 4 31B get none on the Macs the tests check:
+Bonsai 2 4B ranks above Gemma 4 E4B and is faster, so it takes the Faster role
+E4B used to hold (for example a 16 GB Mac at 130 GB/s measured: Recommended
+Qwen3.5 4B Q8_0 at 21.8 tok/s, Faster Bonsai 2 4B at 80.4).
 
 Gemma 4 E4B and 12B are vision and audio models; Enigma sends them text and
 images only, and their rows say **Vision + Audio model · Text and images in
@@ -192,7 +209,9 @@ on the first tool a model chooses) and the first-token check
 0.90 of the eval right, and its first answer text with the tool descriptions
 within 1.15× of the time without them, on the same warm server. Families the
 eval didn't measure keep their starting flags: on from about 9B up, off below,
-as the small models weren't downloaded for the eval.
+as the small models weren't downloaded for the eval. The ternary Bonsai 2 builds
+stay off at every size: PrismML lists malformed or looping tool calls as a known
+issue, and tool calling is the skill their 4B and 9B keep least.
 
 | Family | Native tools | Eval right | First token, with tools / without |
 |---|---|---|---|
@@ -207,6 +226,9 @@ as the small models weren't downloaded for the eval.
 | Gemma 4 31B | On | Not measured | — |
 | Qwen3.6 35B-A3B | On | Not measured | — |
 | Qwen3.8 27B | On | 57 of 60 (0.95) | 1.03× |
+| Bonsai 2 4B | Off | Not measured | — |
+| Bonsai 2 9B | Off | Not measured | — |
+| Bonsai 2 27B | Off | Not measured | — |
 
 Measured on Gemma 4 12B Q5_K_M and Qwen3.8 27B IQ3_XXS. With the tools, the
 first answer text came sooner (0.16 s and 0.36 s against 0.51 s and 0.97 s
@@ -260,6 +282,9 @@ and projector always come from the same repository and revision.
 | Gemma 4 31B | [bartowski/google_gemma-4-31B-it-GGUF](https://huggingface.co/bartowski/google_gemma-4-31B-it-GGUF) | `619aca7589c72be65dd968de8602ad23d68b5c14` | `mmproj-google_gemma-4-31B-it-f16.gguf` |
 | Qwen3.6 35B-A3B | [bartowski/Qwen_Qwen3.6-35B-A3B-GGUF](https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF) | `5c2410d71524f4f72b023ce8daf7a80528226d5f` | `mmproj-Qwen_Qwen3.6-35B-A3B-f16.gguf` |
 | Qwen3.8 27B | [unsloth/Qwen3.8-27B-GGUF](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) | `4ca720788d1e01f1bff70c033e0d0028fd02e502` | `mmproj-F16.gguf` |
+| Bonsai 2 4B | [prism-ml/Ternary-Bonsai-2-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-4B-gguf) | `8d6557168168f91ea6697a4a49ed2ef622b53adb` | `Ternary-Bonsai-2-4B-mmproj-Q8_0.gguf` |
+| Bonsai 2 9B | [prism-ml/Ternary-Bonsai-2-9B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-9B-gguf) | `5b2abb02362efbed46bbe204014b02837778b2c2` | `Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf` |
+| Bonsai 2 27B | [prism-ml/Ternary-Bonsai-2-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf) | `94dd51cdbbec5309ed8b76a12f3268bc4fdceb93` | `Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf` |
 
 Package IDs follow `<family>-<quantization>` (for example `gemma-4-12b-q5_k_m`);
 existing IDs are kept so installed packages and benchmarks carry over. Sizes,
@@ -274,7 +299,7 @@ SHA-256 and each GGUF's largest tensor are in `BundledLocalModels.swift`.
    second). Quality ranks only what passes; it can never outweigh a gate.
 2. **One package per family** (`LocalModelSelector.choice`), the first of:
    - its highest-precision fast package. Precision runs Q8_0, Q5_K_M, Q4_K_M,
-     Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS (`LocalQuantization.precisionOrder`);
+     Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS, Q2_0 (`LocalQuantization.precisionOrder`);
    - when none is fast, its smallest usable package (it fits and reaches 8
      tokens per second) with a quality factor of 0.96 or more, that is IQ4_XS
      or better;
@@ -298,12 +323,17 @@ factor (`LocalQuantization.qualityFactor`, `rankedQualityScore`):
 | Q4_K_M, Q4_0 | 0.97 |
 | IQ4_XS | 0.96 |
 | Q3_K_M, IQ3_S, IQ3_XXS | 0.85 |
+| Q2_0 | 1.00 |
+
+The only Q2_0 packages are the ternary Bonsai 2 packs, whose family score
+already includes the ternary loss, so Q2_0 takes no further cut.
 
 Recommended and Faster are the first fast candidates in this order, and
 Smarter must rank above Recommended. A 3-bit package therefore loses to a
 4-bit family unless it is clearly stronger: Gemma 4 12B at IQ3_XXS (14 × 0.85 =
 11.9) ranks below Qwen3.5 9B at Q4_K_M (13.5 × 0.97 = 13.1), while Qwen3.8 27B
-at IQ3_XXS (28 × 0.85 = 23.8) ranks above every other family. Labels outside
+at IQ3_XXS (28 × 0.85 = 23.8) ranks above every other family but Bonsai 2 27B
+(26.0). Labels outside
 the table (imported GGUFs) keep a factor of 1; they never take part in roles.
 
 Because a slow family offers a 4-bit size when one is usable, it keeps its
@@ -313,10 +343,11 @@ Recommended Qwen3.5 4B Q5_K_M (12.87).
 
 When Recommended is a 3-bit package (factor under 0.96), Smarter also
 considers its own family's smallest usable package of IQ4_XS or better,
-ranked with the other candidates. On a 64 GB Mac at about 400 GB/s,
-Recommended is Qwen3.8 27B IQ3_S (23.8, 24.9 tok/s) and Smarter is Qwen3.8 27B
-IQ4_XS (26.88, 21.1 tok/s), which misses a 2-second first token by
-milliseconds.
+ranked with the other candidates. A fast family never offers that 4-bit size
+otherwise: on a 64 GB Mac at about 400 GB/s measured, Bonsai 2 27B is
+Recommended (26.0, 39.4 tok/s, first token in 1.98 s); Qwen3.8 27B's candidate
+is its fast IQ3_S (23.8), so its IQ4_XS (26.88, 21.1 tok/s, which misses a
+2-second first token by milliseconds) gets no role and there is no Smarter.
 
 `LocalModelRecommendations.roles` holds the non-empty roles in order; Settings,
 Welcome (`WelcomeSetup.choices`) and the ⌘K sheet all render it, so every picker
@@ -343,9 +374,10 @@ Each package's estimated runtime memory (`LocalMultimodalProfile.memory`) is
   their KV heads and head dimensions, and the window. Full-attention layers hold
   all 8,192 tokens. Sliding-window layers hold their window plus the physical
   batch, rounded up to 256 tokens, as llama.cpp sizes them. Hybrid Qwen models
-  (3.5, 3.6, 3.8) hold cache only in their attention layers, counting the
-  multi-token-prediction layer; their small recurrent state is inside the
-  reserve. Gemma's global layers are counted with separate K and V, which is
+  (3.5, 3.6, 3.8, and Bonsai 2) hold cache only in their attention layers,
+  counting the multi-token-prediction layer where the file has one (Bonsai 2
+  27B doesn't); their small recurrent state is inside the reserve. Gemma's
+  global layers are counted with separate K and V, which is
   conservative.
 - **Runtime reserve** is 1.5 GiB for the compute buffer, one image and the
   server.
@@ -395,7 +427,8 @@ minimum Mac memory is its estimate.
 - **Prompt** = 1.3 × bandwidth × 7 ÷ active parameters (billions).
 - **First token** = 256 ÷ prompt speed + 1 ÷ decode speed.
 - **Calibration.** The latest applicable benchmark on this Mac of the same kind
-  (dense or mixture of experts) replaces the starting efficiency, with no cap;
+  (dense or mixture of experts, and ternary or not) replaces the starting
+  efficiency, with no cap;
   a benchmark of the same architecture is preferred. It may only raise the
   prompt factor above 1.3, because the check's short prompt understates prompt
   speed.
@@ -472,6 +505,12 @@ Gemma 4 12B, 26B-A4B and 31B add `--ubatch-size 1024 --image-max-tokens 1024`; e
 other model gets `--image-max-tokens 4096`. One process serves text, OCR, image
 and answer requests; every request carries its full prepared conversation, and
 the server keeps no conversation state between requests beyond its prompt cache.
+b11734 runs the Bonsai 2 `Q2_0` files as they are: it has the `Q2_0` type with
+Metal kernels and applies their Hadamard-folded weights (`prism.hadamard.*`
+header keys it reads itself: version 2 for the 4B, version 1 for the 9B and
+27B); their `qwen3vl_merger` projectors are causal, like Qwen's. The 4B and 27B
+have been run on it with text and screenshot questions; the 27B decoded at about
+25 tokens per second on a 24 GB M5 Pro, inside 9.69 GiB.
 Switching models, cancelling, a failed request, quitting, and deleting all stop
 it.
 
@@ -562,6 +601,12 @@ unloads both engines, just before the atomic install in `LocalModelCatalog`.
   purely limited by memory bandwidth. I-quants cost more to decode, so their
   estimates may be optimistic until that package's own **Check performance**
   runs.
+- Decode speed treats `Q2_0` the same way. Bonsai 2 4B on stock b11734 decoded
+  at about 110 tokens per second on a 24 GB M5 Pro (267 GB/s measured) against
+  an estimate of 165; both are far above the speed bar, but the 27B's estimate
+  may be similarly optimistic until **Check performance** runs. Ternary packages
+  run on their own kernels, so a Bonsai benchmark calibrates only other Bonsai
+  packages, and an ordinary benchmark never calibrates Bonsai.
 
 - Memory and speed figures are estimates, not measurements, until you run
   **Check performance**. A model inside the budget can still be slow when other
@@ -595,12 +640,13 @@ The suites are offline and deterministic; none touches the GPU:
   family drops to 3 bits, the nothing-fast and nothing-fits cases, memory budget
   and Metal limits, safety gates, memory warnings, benchmark scoping, Welcome
   choices, and decoding of older installed records.
-- `LocalModelCatalogueTests`: eleven families and 45 runnable packages, unique
+- `LocalModelCatalogueTests`: fourteen families and 48 runnable packages, unique
   IDs and checksums, consistent family metadata, existing and re-added package
   IDs and pins, re-added packages whose 0.10.1 records (b10797) offer Update, the 3-bit,
-  IQ4 and Gemma 4 31B packages, quality ordering within a line, expected picks
-  on synthetic Macs, and the 24 GB M5 Pro fixture that recommends Gemma 4 12B
-  and offers Qwen3.8 27B IQ3_XXS as Smarter.
+  IQ4, Gemma 4 31B and Bonsai 2 packages, quality ordering within a line,
+  expected picks on synthetic Macs, and the 24 GB M5 Pro fixture that
+  recommends Gemma 4 12B and offers Bonsai 2 27B as Smarter.
+
 - `LocalBandwidthProbeTests`: clamping, a missing Metal device, measuring once
   per fingerprint and power mode, a failed test, and older `hardware.json`
   files. `testMetalProbeOnThisMac` runs the real Metal test only when opted in

@@ -197,11 +197,13 @@ struct WelcomeSetupView: View {
     .padding(.bottom, 12)
   }
 
-  private var headerCopy: (title: String, subtitle: String) {
-    switch setup.step {
+  private var headerCopy: (title: String, subtitle: String) { Self.headerCopy(for: setup.step) }
+
+  static func headerCopy(for step: WelcomeSetup.Step) -> (title: String, subtitle: String) {
+    switch step {
     case .welcome: ("Enigma", "A small assistant that lives on your Mac.")
     case .models: ("Pick a brain for me", "It runs right here on your Mac. Bigger thinks deeper; smaller answers faster.")
-    case .connections: ("Want backup from the cloud?", "Use your ChatGPT or Claude plan for the hard stuff. Totally optional.")
+    case .connections: ("Want backup from the cloud?", "Use your ChatGPT or Claude plan, or free models, for the hard stuff. Totally optional.")
     case .walkthrough: ("Let me show you around", "A quick, hands-on tour. You try each thing yourself.")
     }
   }
@@ -378,6 +380,7 @@ struct WelcomeSetupView: View {
         .welcomePerch("cloud.claude", character: character)
       ChatGPTConnectionControls(settings: cloud)
         .welcomePerch("cloud.chatgpt", character: character)
+      FreeModelsConnectionControls(settings: cloud)
       note("Auto keeps things on this Mac and asks the cloud only when it helps. Search needs no setup at all.")
         .padding(.top, 14)
     }

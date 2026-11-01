@@ -55,10 +55,11 @@ whatever you click. Each step has one primary button, which Return presses.
    ![Pick a local model](design/ui-revamp/screenshots/f14/welcome-2-models-paper.png)
 
 3. **Want backup from the cloud?** Optional: **ChatGPT** and **Claude** use
-   your plan, with the same sign-in rows as **Settings → Cloud** (details
-   behind each row's ⓘ). Search needs no setup at all. See
-   [ChatGPT-Setup.md](ChatGPT-Setup.md) and
-   [Claude-Code-Setup.md](Claude-Code-Setup.md).
+   your plan, and **Free models** uses a free Gemini key, with the same rows
+   as **Settings → Cloud** (details behind each row's ⓘ). Search needs no
+   setup at all. See [ChatGPT-Setup.md](ChatGPT-Setup.md),
+   [Claude-Code-Setup.md](Claude-Code-Setup.md) and
+   [Free-Models.md](Free-Models.md).
 
    ![Cloud plans](design/ui-revamp/screenshots/f14/welcome-3-connections-paper.png)
 
@@ -167,8 +168,8 @@ Rarely needed settings are under a page's **› Advanced**.
   Mac**, **All models**, **Files** (the **Local file tools** runtime and
   **Saved file changes**), and **Advanced: Import text GGUF…**. See
   [Local-Model-Selection.md](Local-Model-Selection.md).
-- **Cloud:** one row each for **ChatGPT** and **Claude**, with their status and
-  one button. **› Advanced** has the preferred provider and model, a manual
+- **Cloud:** one row each for **ChatGPT**, **Claude** and **Free models**, with
+  their status and one button. **› Advanced** has the preferred provider and model, a manual
   model ID, ChatGPT's thinking capacity or Claude's effort, the model list,
   and **API keys** for OpenAI, Anthropic and Gemini. See
   [Cloud-Model-Selection.md](Cloud-Model-Selection.md).

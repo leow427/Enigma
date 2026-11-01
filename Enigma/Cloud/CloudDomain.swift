@@ -39,6 +39,8 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   case openAI = "openai"
   case anthropic
   case gemini
+  /// Free models (F34): Gemini's free tier and Apple's cloud model, ranked.
+  case free
 
   var id: Self { self }
 
@@ -49,6 +51,7 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .gemini: "Gemini"
+    case .free: "Free models"
     }
   }
 
@@ -60,6 +63,7 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case .openAI: "OpenAI"
     case .anthropic: "Anthropic"
     case .gemini: "Gemini"
+    case .free: "Free models"
     }
   }
 
@@ -68,6 +72,14 @@ enum CloudProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
   static let nativeWebSearchProviders: Set<CloudProviderID> = [.chatGPT, .claudeCode]
 
   var supportsNativeWebSearch: Bool { Self.nativeWebSearchProviders.contains(self) }
+
+  /// Who receives what is sent, as privacy cards name it: the company, not the pool (F34).
+  var recipientName: String {
+    self == .free ? "Google (Gemini's free tier)" : displayName
+  }
+
+  /// The providers Settings offers.
+  static let selectableProviders = allCases
 }
 
 struct CloudModel: Codable, Equatable, Identifiable, Sendable {
@@ -130,6 +142,8 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
   case offline
   case authenticationFailed(CloudProviderID)
   case rateLimited(CloudProviderID)
+  /// A daily usage limit (F34): unlike `rateLimited`, waiting a minute won't help.
+  case quotaExhausted(CloudProviderID, resetsAt: Date?)
   case invalidResponse
   case requestFailed(statusCode: Int, message: String?)
   case streamEndedUnexpectedly
@@ -149,6 +163,13 @@ enum CloudProviderError: LocalizedError, Equatable, Sendable {
       "\(provider.displayName) rejected the API key. Check it in Settings → Cloud."
     case .rateLimited(let provider):
       "\(provider.displayName) is rate limiting this account. Please try again shortly."
+    case .quotaExhausted(.free, let resetsAt):
+      "Free limits reached. "
+        + (resetsAt.map { "They reset at \($0.formatted(date: .omitted, time: .shortened))" } ?? "Try again later")
+        + ", or connect another provider in Settings."
+    case .quotaExhausted(let provider, let resetsAt):
+      "\(provider.displayName) reached its free daily limit. "
+        + (resetsAt.map { "It resets at \($0.formatted(date: .omitted, time: .shortened))." } ?? "Try again later.")
     case .invalidResponse:
       "The cloud provider returned an invalid response."
     case .requestFailed(let statusCode, let message):
@@ -211,19 +232,32 @@ func normalizedCloudError(_ error: Error) -> Error {
 func cloudHTTPError(
   provider: CloudProviderID,
   statusCode: Int,
-  data: Data
+  data: Data,
+  now: Date = Date()
 ) -> CloudProviderError {
   switch statusCode {
   case 401, 403:
     return .authenticationFailed(provider)
   case 429:
-    return .rateLimited(provider)
+    return dailyQuotaReset(in: data, now: now).map { .quotaExhausted(provider, resetsAt: $0) } ?? .rateLimited(provider)
   default:
     return .requestFailed(
       statusCode: statusCode,
       message: providerErrorMessage(in: data)
     )
   }
+}
+
+/// For Google's per-day quota failures: the reset time from `RetryInfo`, or `.some(nil)` without one.
+/// Nil for every other body, so per-minute limits and unreadable errors stay `rateLimited`.
+private func dailyQuotaReset(in data: Data, now: Date) -> Date?? {
+  guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let details = (object["error"] as? [String: Any])?["details"] as? [[String: Any]] else { return nil }
+  let quotaIDs = details.flatMap { ($0["violations"] as? [[String: Any]] ?? []).compactMap { $0["quotaId"] as? String } }
+  guard quotaIDs.contains(where: { $0.contains("PerDay") }) else { return nil }
+  let delay = details.lazy.compactMap { $0["retryDelay"] as? String }.first
+    .flatMap { TimeInterval($0.hasSuffix("s") ? String($0.dropLast()) : $0) }
+  return .some(delay.map { now.addingTimeInterval($0) })
 }
 
 private func providerErrorMessage(in data: Data) -> String? {

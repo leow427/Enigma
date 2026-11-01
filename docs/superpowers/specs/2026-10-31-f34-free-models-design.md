@@ -151,7 +151,11 @@ The user can always pick another model in ⌘K; a model out of usage shows
 
 - **⌘K menu**: a **Free models** group in ranked order, each marked **text +
   images** or **text only**, and **out until 9:00** while exhausted.
-- **Settings → Cloud and search → Subscriptions**: a **Free models** row.
+- **Settings → Cloud** (F14's layout): a **Free models** connection row after
+  the ChatGPT and Claude rows, in the same style
+  (`CloudConnectionControls.swift`). Free models also joins the **Preferred
+  provider** menu under **Advanced** (`CloudProviderID.selectableProviders`
+  leaves it out until this row ships).
   - **Gemini**: **Get a free Gemini key** opens Google AI Studio's API key
     page; a paste field saves the key to Keychain, tests it and selects Free
     models in one step, with **Remove**. Uses the same Keychain item as the
@@ -161,9 +165,12 @@ The user can always pick another model in ⌘K; a model out of usage shows
     to get Apple's free cloud model.** Before the entitlement is granted the
     Apple line is hidden on every macOS version.
   - **Auto may use free Gemini models** toggle, off by default.
-- **Welcome setup → Connect what you use**: the same row, so a user with no
-  plan reaches a cloud model during setup. The macOS 26 upgrade line appears
-  here too.
+- **Welcome setup, cloud step** (F14's `.connections` step): the same row
+  after ChatGPT and Claude, so a user with no plan reaches a cloud model
+  during setup. The macOS 26 upgrade line appears here too. The step keeps
+  its title **Want backup from the cloud?** and its subtitle becomes **Use
+  your ChatGPT or Claude plan, or free models, for the hard stuff. Totally
+  optional.** (owner, 2026-10-31).
 
 ## CI
 

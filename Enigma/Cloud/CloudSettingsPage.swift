@@ -9,6 +9,7 @@ struct CloudSettingsPage: View {
     VStack(alignment: .leading, spacing: 0) {
       ChatGPTConnectionControls(settings: settings)
       ClaudeCodeConnectionControls(settings: settings)
+      FreeModelsConnectionControls(settings: settings)
       EnigmaHairline()
       SettingsAdvanced { advanced }
     }
@@ -44,7 +45,7 @@ struct AdvancedCloudSettings: View {
       EnigmaSectionHeader("Provider and model")
       EnigmaRow("Preferred provider") {
         EnigmaMenu("Preferred provider", selection: $settings.preferredProvider,
-                   options: CloudProviderID.allCases.map { EnigmaOption($0, $0.displayName) })
+                   options: CloudProviderID.selectableProviders.map { EnigmaOption($0, $0.displayName) })
       }
       EnigmaRow("Preferred model",
                 subtitle: settings.models.isEmpty ? CloudSettingsForm.emptyModelsNotice(in: settings) : nil) {

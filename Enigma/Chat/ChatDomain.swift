@@ -15,6 +15,11 @@ struct Route: Codable, Sendable, Equatable {
   let providerID: String
   let modelID: String
   let usesNetwork: Bool
+  /// Auto chose this cloud route (F34): the free pool keeps Gemini's free tier out unless the user
+  /// allowed it, and never saves Auto's step-downs as the user's choice. Not encoded.
+  var isAuto = false
+
+  private enum CodingKeys: String, CodingKey { case mode, providerID, modelID, usesNetwork }
 }
 
 /// The approximate location a provider's search may use once the user allows it for that provider

@@ -26,7 +26,7 @@ enum LocalModelCompatibility {
 /// family's quality score each keeps.
 enum LocalQuantization {
   /// Highest precision first.
-  static let precisionOrder = ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS"]
+  static let precisionOrder = ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS", "Q2_0"]
 
   /// Higher is more precise; a label outside `precisionOrder` ranks below every known one.
   static func precision(_ quantization: String) -> Int {
@@ -40,6 +40,8 @@ enum LocalQuantization {
     case "Q4_K_M", "Q4_0": 0.97
     case "IQ4_XS": 0.96
     case "Q3_K_M", "IQ3_S", "IQ3_XXS": 0.85
+    // The only Q2_0 packages are ternary Bonsai packs, whose family score already includes the ternary loss.
+    case "Q2_0": 1
     default: 1
     }
   }
@@ -272,10 +274,13 @@ enum LocalModelSelector {
     return hardware.lowPowerMode ? prior * 0.65 : prior
   }
 
-  /// The latest benchmark of the same kind (dense or mixture-of-experts),
+  /// The latest benchmark of the same kind (dense or mixture-of-experts, ternary or not),
   /// preferring the same architecture. Pass only calibration-applicable runs.
   static func calibration(for model: LocalModelDescriptor, from benchmarks: [LocalModelBenchmark]) -> LocalModelBenchmark? {
-    let kind = benchmarks.filter { $0.calibrationIsMixtureOfExperts == model.isMixtureOfExperts }
+    let ternary = model.resolvedProfile?.isTernary ?? false
+    let kind = benchmarks.filter {
+      $0.calibrationIsMixtureOfExperts == model.isMixtureOfExperts && ($0.calibrationProfile?.isTernary ?? false) == ternary
+    }
     func latest(_ runs: [LocalModelBenchmark]) -> LocalModelBenchmark? { runs.max { $0.recordedAt < $1.recordedAt } }
     return latest(kind.filter { $0.architecture == model.architecture }) ?? latest(kind)
   }

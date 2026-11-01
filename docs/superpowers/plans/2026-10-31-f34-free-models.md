@@ -218,10 +218,11 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
 
 ### Task 6: Settings, welcome setup, ⌘K and docs
 
-**Starts after F14's Settings and welcome revamp is merged to `main`; build on its rows and controls.**
+**F14 is merged (PR #26, 16ffa30) and on this branch (merge 1e76c20). Build on its layout:** Settings → Cloud lists the ChatGPT and Claude connection rows first, then **Advanced** (provider, model, API keys); welcome setup's cloud step is `WelcomeSetupView`'s `.connections` case, which shows `ChatGPTConnectionControls` and `ClaudeCodeConnectionControls`.
 
 **Files:**
-- Modify: the Cloud Settings Subscriptions section and welcome setup's Connect step as they exist after F14; the ⌘K model menu
+- Create: `FreeModelsConnectionControls` in `Enigma/Cloud/CloudConnectionControls.swift`, next to the ChatGPT and Claude rows
+- Modify: `Enigma/Cloud/CloudSettingsPage.swift` (the row after Claude's), `Enigma/App/WelcomeSetupView.swift` (the `.connections` step's row and subtitle), `Enigma/Cloud/CloudDomain.swift` (`selectableProviders` includes `.free` again), the ⌘K model menu
 - Create: `docs/Free-Models.md`
 - Modify: `docs/Cloud-Model-Selection.md`, `docs/Welcome-and-Settings.md`
 - Test: `EnigmaTests/FreeModelsTests.swift`, plus the view test file F14 uses for these rows
@@ -237,6 +238,8 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
   - The billing note reads **If billing is on for this key, Google charges for these requests.**
   - With `showsApple` true on macOS 26, the row says **Update to macOS 27 to get Apple's free cloud model.**
   - ⌘K lists a **Free models** group and marks an exhausted model **out until \(time)**.
+  - The welcome cloud step's subtitle reads **Use your ChatGPT or Claude plan, or free models, for the hard stuff. Totally optional.**
+  - `CloudProviderID.selectableProviders` contains `.free` (repoint `testFreeModelsStaysOutOfTheProviderMenuUntilItsSetupShips`).
 - [ ] **Step 2: Run, expect failures**
 - [ ] **Step 3: Implement** with F14's existing row components. **Get a free Gemini key** opens `https://aistudio.google.com/apikey`. The same row goes in welcome setup.
 - [ ] **Step 4: Run, expect PASS.** Then a manual pass in the app: welcome, Settings, ⌘K, light and dark.
@@ -248,7 +251,7 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
 **Needs the owner's free Gemini key saved in Enigma. Never put a key in a shell command.**
 
 - [ ] **Step 1:** Send a normal and a tool-using request through Free models. Expect streamed text and a tool call.
-- [ ] **Step 2:** Capture a real daily-limit 429 body: send to the free model with the lowest daily cap until Google refuses, logging only the response body. Replace Task 1's synthetic fixture with it, removing anything that identifies the project. If the quota ID doesn't contain `PerDay`, fix the parser and the test.
+- [ ] **Step 2:** Capture a real daily-limit 429 body: send to the free model with the lowest daily cap until Google refuses, logging only the response body. Replace Task 1's synthetic fixture with it, removing anything that identifies the project. If the quota ID doesn't contain `PerDay`, fix the parser and the test. Also check `RetryInfo.retryDelay` on a daily 429: if Google sends only a short delay (seconds), `resetsAt` must come from Google's daily reset (midnight Pacific) instead, or a daily-limited model returns within a minute.
 - [ ] **Step 3:** Check each `ranked` Gemini ID against the key's model list and Google's free-tier table. Update `ranked` and `docs/Free-Models.md` to match.
 - [ ] **Step 4:** Record results in `docs/history/2026-MM-DD-f34-live-check.md` and commit — `"Check free Gemini models live and use a real 429 body (F34)"`
 
@@ -267,7 +270,9 @@ func testFreeAccessFollowsTheGeminiKey() // with an in-memory credential store: 
   - Each `AgentToolbox` definition becomes a `Tool` with `GeneratedContent` arguments and a `GenerationSchema` built from its JSON schema (string, number, integer, boolean, array, object and enum).
   - Turn `streamResponse` snapshots into `.token` deltas.
   - Map the framework's usage-limit error, or `quotaUsage.isLimitReached`, to `.quotaExhausted(.free, resetsAt: nil)`.
-  - Text only.
+  - Text only. The pool skips `apple-pcc` for a request that carries an image (review round 3).
+  - Before shipping, decide how a step-down from Apple to Gemini (another company) fits the permission cards and `ToolDestination`, which name the company of the chosen model: today every free model is Google's. Raised in review round 1 (2026-10-31).
+  - `CloudProviderID.recipientName` for `.free` says Google; make it name the answering company once Apple can answer.
   - The Settings Apple line shows **Show options** (calling `suggestion.show()`) while `quotaUsage.limitIncreaseSuggestion` exists.
 - [ ] **Step 2:** `isApplePCCAvailable` = `#available(macOS 27, *) && PrivateCloudComputeLanguageModel().isAvailable` (false when compiled without the SDK).
 - [ ] **Step 3:** Pool tests from Task 4 still pass. The app builds with Xcode 27.2 locally, and with the `macos-26` CI (Xcode 26.6) with the file compiled out.

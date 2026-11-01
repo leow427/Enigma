@@ -123,7 +123,7 @@ enum NativeSearchEvaluation {
     switch provider {
     case .chatGPT: environment["ENIGMA_CHATGPT_MODEL"] ?? CodexSubscriptionClient.defaultModelID
     case .claudeCode: environment["ENIGMA_CLAUDE_CODE_MODEL"] ?? ClaudeCodeSubscriptionClient.defaultModelID
-    case .openAI, .anthropic, .gemini: ""
+    case .openAI, .anthropic, .gemini, .free: ""
     }
   }
 

@@ -402,7 +402,7 @@ enum NativeToolsEval {
       case .openAI: "ENIGMA_OPENAI_KEY"
       case .anthropic: "ENIGMA_ANTHROPIC_KEY"
       case .gemini: "ENIGMA_GEMINI_KEY"
-      case .chatGPT, .claudeCode: nil
+      case .chatGPT, .claudeCode, .free: nil
       }
     }
 

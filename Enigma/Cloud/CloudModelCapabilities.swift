@@ -87,6 +87,11 @@ enum CloudModelCapabilities {
     case .anthropic:
       return visionModelIDs(for: .anthropic).contains(id)
         ? Metadata(ids: [id], contextWindow: 200_000, maximumOutputTokens: 4_096) : nil
+    case .free:
+      guard FreeModelCatalog.ranked.contains(id) else { return nil }
+      return FreeModelCatalog.underlyingProvider(id) == nil
+        ? Metadata(ids: [id], contextWindow: 32_768, maximumOutputTokens: 4_096)
+        : metadata(provider: .gemini, modelID: id)
     }
   }
 
@@ -103,6 +108,7 @@ enum CloudModelCapabilities {
       + CodexListedModels.shared.models.map(\.id)
     case .claudeCode: ClaudeCodeSubscriptionClient.models.map(\.id)
     case .anthropic, .gemini: visionModelIDs(for: provider)
+    case .free: FreeModelCatalog.ranked
     }
   }
 
@@ -127,6 +133,9 @@ enum CloudModelCapabilities {
     case .gemini:
       return geminiLatestAliases.contains(id)
         || (id.hasPrefix("gemini-2.5") || id.hasPrefix("gemini-3")) && !geminiWithoutTools.contains { id.contains($0) }
+    case .free:
+      return FreeModelCatalog.ranked.contains(id)
+        && (FreeModelCatalog.underlyingProvider(id) == nil || supportsNativeTools(provider: .gemini, modelID: id, lacking: lacking))
     }
   }
 

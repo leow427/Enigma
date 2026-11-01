@@ -320,9 +320,7 @@ extension GeminiContentClient: ToolCallingChatProvider {
          "parameters": Self.geminiSchema(try CloudToolLoop.json(definition.schema))]
       }
       var generationConfig: [String: Any] = ["maxOutputTokens": prepared.budget.outputTokens]
-      if ThinkCommand.enabled(in: prepared.messages) {
-        generationConfig["thinkingConfig"] = model.hasPrefix("gemini-3") ? ["thinkingLevel": "high"] : ["thinkingBudget": 2_048]
-      }
+      generationConfig["thinkingConfig"] = Self.thinkingConfig(model: model, thinks: ThinkCommand.enabled(in: prepared.messages))
       try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
         var body: [String: Any] = [
           "contents": contents, "tools": [["functionDeclarations": declarations]],

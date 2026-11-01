@@ -57,6 +57,17 @@ final class AutoRouterTests: XCTestCase {
     let decision = AutoRouter.decide(request(prompt: prompt))
     XCTAssertEqual(decision.route?.mode, .cloud)
     XCTAssertEqual(decision.reason, .requiresAdvancedReasoning)
+    // The free pool reads this to keep Gemini's free tier out of Auto (F34).
+    XCTAssertEqual(decision.route?.isAuto, true)
+  }
+
+  func testAutoMarkSurvivesTheSearchReroute() {
+    let decision = AutoRouter.decide(AutoRouter.Request(
+      selectedMode: .auto, webSearchEnabled: true,
+      prompt: "Write a Swift function that parses ISO dates and debug its stack trace",
+      contextMessages: [], localModel: localModel, cloud: cloud))
+    XCTAssertEqual(decision.route?.mode, .cloud)
+    XCTAssertEqual(decision.route?.isAuto, true)
   }
 
   func testLengthAloneDoesNotEscalateAnOrdinarySummary() {

@@ -67,6 +67,8 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var installedModels: [LocalModel] = []
   @Published private(set) var contextNotice: String?
   @Published private(set) var activity: AssistantActivity?
+  /// Shown above the next reply, then cleared, such as free models running out (F34).
+  var nextReplyNotice: String?
   private var activityMessageID: UUID?
   @Published private(set) var activeRequest: ActiveRequest? {
     didSet { lastRequestActivityAt = .now }
@@ -1737,6 +1739,7 @@ final class LocalChatViewModel: ObservableObject {
     modelID: String,
     searchEnabled: Bool = false,
     allowsAutomaticSearch: Bool = true,
+    isAuto: Bool = false,
     onAccepted: @escaping @MainActor () -> Void = {}
   ) {
     let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1749,7 +1752,8 @@ final class LocalChatViewModel: ObservableObject {
       mode: .cloud,
       providerID: providerID.rawValue,
       modelID: trimmedModelID,
-      usesNetwork: true
+      usesNetwork: true,
+      isAuto: isAuto
     )
     // F32: a cloud model without native tools can't show the card, so it doesn't take a chat whose
     // message text wasn't allowed for its company.
@@ -1911,7 +1915,7 @@ final class LocalChatViewModel: ObservableObject {
     case .cloud:
       guard let provider = CloudProviderID(rawValue: route.providerID) else { return }
       submitCloud(prompt, provider: provider, modelID: route.modelID, searchEnabled: searchEnabled,
-                  allowsAutomaticSearch: false, onAccepted: onAccepted)
+                  allowsAutomaticSearch: false, isAuto: route.isAuto, onAccepted: onAccepted)
     case .auto:
       break
     }
@@ -2061,8 +2065,9 @@ final class LocalChatViewModel: ObservableObject {
     if message.role == .assistant, let activeRequest {
       activityMessageID = message.id
       message.activity = activity
+      // The free pool may answer on another model than the one chosen (F34).
       message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
-                                   modelName: activeRequest.modelDisplayName,
+                                   modelName: activity?.answeredBy ?? activeRequest.modelDisplayName,
                                    braveSearch: braveSearchRequest == activeRequest.id)
     }
     sessions[index].append(message)
@@ -2309,6 +2314,12 @@ final class LocalChatViewModel: ObservableObject {
           let sessionIndex = sessions.firstIndex(where: { $0.messages.contains(where: { $0.id == messageID }) }),
           let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
     sessions[sessionIndex].messages[messageIndex].activity = updated
+    // The free pool answered on another model than the chosen one (F34).
+    if case .answeredBy(let model) = event, let origin = sessions[sessionIndex].messages[messageIndex].origin {
+      sessions[sessionIndex].messages[messageIndex].origin = ReplyOrigin(
+        mode: origin.mode, providerID: origin.providerID, modelName: model,
+        providerSearch: origin.providerSearch, braveSearch: origin.braveSearch)
+    }
   }
 
   private func locationGrounded(_ messages: [ChatMessage]) -> [ChatMessage] {
@@ -2339,6 +2350,10 @@ final class LocalChatViewModel: ObservableObject {
     activityMessageID = nil
     braveSearchRequest = nil
     activity = AssistantActivity(id: request.id)
+    if let nextReplyNotice {
+      activity?.apply(.notice(nextReplyNotice))
+      self.nextReplyNotice = nil
+    }
     return request
   }
 
