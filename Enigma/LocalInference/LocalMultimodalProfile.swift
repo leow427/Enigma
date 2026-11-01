@@ -33,6 +33,9 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
   case miniCPMV4, miniCPMV45
   case smolVLM2, qwen35_4B, qwen35_9B, miniCPMO45
   case qwen35_2B, qwen36_35BA3B, qwen38_27B
+  /// PrismML's ternary Bonsai 2: Qwen3.5 4B, Qwen3.5 9B and Qwen3.8 27B with
+  /// ternary weights and Hadamard-folded layers, the same architecture as their bases.
+  case bonsai2_4B, bonsai2_9B, bonsai2_27B
 
   static let defaultPhysicalBatch = 512
 
@@ -48,7 +51,7 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     case .miniCPMV4: "llama"
     case .miniCPMV45, .miniCPMO45: "qwen3"
     case .smolVLM2: "llama"
-    case .qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen38_27B: "qwen35"
+    case .qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen38_27B, .bonsai2_4B, .bonsai2_9B, .bonsai2_27B: "qwen35"
     case .qwen36_35BA3B: "qwen35moe"
     }
   }
@@ -62,7 +65,8 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     case .miniCPMV45: "minicpm-v4.5"
     case .miniCPMO45: "minicpm-o4.5"
     case .smolVLM2: "smolvlm2"
-    case .qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen36_35BA3B, .qwen38_27B: "qwen3.5"
+    case .qwen35_2B, .qwen35_4B, .qwen35_9B, .qwen36_35BA3B, .qwen38_27B, .bonsai2_4B, .bonsai2_9B, .bonsai2_27B:
+      "qwen3.5"
     }
   }
 
@@ -75,8 +79,8 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     case .ministral3B: 3.4; case .ministral8B: 8.5; case .ministral14B: 13.5
     case .miniCPMV4: 3.6; case .miniCPMV45: 8.2
     case .miniCPMO45: 9; case .smolVLM2: 2.2
-    case .qwen35_2B: 2.27; case .qwen35_4B: 4.66; case .qwen35_9B: 9.65
-    case .qwen36_35BA3B: 36; case .qwen38_27B: 27.8
+    case .qwen35_2B: 2.27; case .qwen35_4B, .bonsai2_4B: 4.66; case .qwen35_9B, .bonsai2_9B: 9.65
+    case .qwen36_35BA3B: 36; case .qwen38_27B, .bonsai2_27B: 27.8
     }
   }
 
@@ -94,9 +98,13 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
 
   var isMixtureOfExperts: Bool { self == .gemma4A4B || self == .qwen36_35BA3B }
 
+  /// Ternary weights run on different kernels, so their speed never calibrates ordinary packages, or the reverse.
+  var isTernary: Bool { self == .bonsai2_4B || self == .bonsai2_9B || self == .bonsai2_27B }
+
   /// Whether the model chooses Enigma's tools itself on every turn (F32). Every
   /// quantization of a family shares it. Families outside the catalogue stay off,
-  /// and so do the small ones the tool-use eval didn't measure (F32 CP5).
+  /// and so do the small ones the tool-use eval didn't measure (F32 CP5) and the
+  /// ternary Bonsai 2 builds, whose tool calls PrismML lists as a known weak spot.
   var nativeTools: Bool {
     switch self {
     case .qwen35_9B, .gemma4_12B, .ministral14B, .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B: true
@@ -109,6 +117,7 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     switch self {
     case _ where architecture == "gemma4": ["Q4_0", "Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
     case .qwen35_2B: ["Q4_K_M", "Q8_0"]
+    case .bonsai2_4B, .bonsai2_9B, .bonsai2_27B: ["Q2_0"]
     case .qwen38_27B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "IQ3_S", "IQ3_XXS"]
     case .qwen35_9B, .qwen36_35BA3B: ["Q4_K_M", "Q5_K_M", "Q8_0", "IQ4_XS", "Q3_K_M", "IQ3_XXS"]
     default: ["Q4_K_M", "Q5_K_M", "Q8_0"]
@@ -129,9 +138,12 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
     // DeltaNet layers keep a small recurrent state that the runtime reserve
     // covers. The multi-token-prediction layer is an attention layer and counts.
     case .qwen35_2B: LocalCacheLayout(fullLayers: 6, fullKVHeads: 2, fullHeadDimension: 256)
-    case .qwen35_4B, .qwen35_9B: LocalCacheLayout(fullLayers: 8, fullKVHeads: 4, fullHeadDimension: 256)
+    case .qwen35_4B, .qwen35_9B, .bonsai2_4B, .bonsai2_9B:
+      LocalCacheLayout(fullLayers: 8, fullKVHeads: 4, fullHeadDimension: 256)
     case .qwen36_35BA3B: LocalCacheLayout(fullLayers: 11, fullKVHeads: 2, fullHeadDimension: 256)
     case .qwen38_27B: LocalCacheLayout(fullLayers: 17, fullKVHeads: 4, fullHeadDimension: 256)
+    // Bonsai 2 27B ships without Qwen3.8's multi-token-prediction layer.
+    case .bonsai2_27B: LocalCacheLayout(fullLayers: 16, fullKVHeads: 4, fullHeadDimension: 256)
     case .gemma4_12B:
       LocalCacheLayout(fullLayers: 8, fullKVHeads: 1, fullHeadDimension: 512,
                        slidingLayers: 40, slidingKVHeads: 8, slidingHeadDimension: 256, slidingWindow: 1024)

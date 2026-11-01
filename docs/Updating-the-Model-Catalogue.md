@@ -105,6 +105,12 @@ It prints the largest tensor and `block_count`, `attention.head_count_kv`,
 
 - Use the Artificial Analysis Intelligence Index, checked against MMMU-Pro
   for vision, and write the source and date in a comment beside the score.
+- A compressed build of a catalogued model with no index listing (such as
+  PrismML's ternary Bonsai 2) scores its base's score times the publisher's
+  measured vision retention against the base, and the comment says these are
+  vendor figures. Give its quantization a factor of 1 so the loss isn't
+  counted twice.
+
 - Within one model line, a larger model of the same generation never scores
   below a smaller one; correct the score and say so in the comment.
 

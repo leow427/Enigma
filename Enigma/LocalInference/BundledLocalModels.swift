@@ -51,7 +51,7 @@ struct LocalModelFamily: Sendable {
   }
 }
 
-// Catalogue reviewed 2026-10-19 — see docs/Updating-the-Model-Catalogue.md.
+// Catalogue reviewed 2026-10-31 — see docs/Updating-the-Model-Catalogue.md.
 // Sizes and SHA-256 come from the Hugging Face tree API at each revision.
 enum BundledLocalModels {
   static let families: [LocalModelFamily] = [
@@ -273,6 +273,50 @@ enum BundledLocalModels {
         .init(id: "qwen3.8-27b-q8_0", quantization: "Q8_0", file: "Qwen3.8-27B-Q8_0.gguf",
               byteCount: 29047086048, sha256: "a680f44a06920e5d689774823782006aa3acc8db95750323373b24139b67e348",
               largestTensorBytes: 1350860800),
+      ]),
+    // PrismML's ternary Bonsai 2 packs. Each score is its base model's score above times
+    // PrismML's measured vision retention against that base in BF16, because images are what
+    // local models mostly answer. Vendor figures, not an Artificial Analysis listing. Q2_0 is
+    // the only packing stock llama.cpp runs.
+    LocalModelFamily(name: "Bonsai 2 4B", publisher: "PrismML", license: "Apache-2.0", profile: .bonsai2_4B,
+      // PrismML "Ternary Bonsai 2 2B/4B/9B" whitepaper, October 2026, Tables 6–7: vision
+      // retention 91.3% (overall 94.6%; MMMU-Pro 64.86 against 68.09). 13 × 0.913.
+      qualityScore: 11.9,
+      summary: "A ternary build of Qwen3.5 4B, small and fast for quick questions and screenshots.",
+      repository: "prism-ml/Ternary-Bonsai-2-4B-gguf", revision: "8d6557168168f91ea6697a4a49ed2ef622b53adb",
+      projectorFile: "Ternary-Bonsai-2-4B-mmproj-Q8_0.gguf", projectorByteCount: 366894624,
+      projectorSHA256: "db939d5f9b7014137810205e91d05e5f54afd72b0b3af9d33bd7d82f7906a55d", supportsAudio: false,
+      packages: [
+        .init(id: "bonsai-2-4b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-4B-Q2_0.gguf",
+              byteCount: 1212103520, sha256: "64a5183b44921bdb5ac4a6f5f92007821d6ebe5c66997d3c147fd214ab9433d4",
+              largestTensorBytes: 178790400),
+      ]),
+    LocalModelFamily(name: "Bonsai 2 9B", publisher: "PrismML", license: "Apache-2.0", profile: .bonsai2_9B,
+      // PrismML "Ternary Bonsai 2 2B/4B/9B" whitepaper, October 2026, Tables 6–7: vision
+      // retention 92.5% (overall 95.1%; MMMU-Pro 68.73 against 72.43). 13.5 × 0.925.
+      qualityScore: 12.5,
+      summary: "A ternary build of Qwen3.5 9B, for detailed reasoning and documents in a small download.",
+      repository: "prism-ml/Ternary-Bonsai-2-9B-gguf", revision: "5b2abb02362efbed46bbe204014b02837778b2c2",
+      projectorFile: "Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf", projectorByteCount: 624229664,
+      projectorSHA256: "e0cb6f6988cea323ef798cd77d019bbb819af75582f034eaab0e7232314953db", supportsAudio: false,
+      packages: [
+        .init(id: "bonsai-2-9b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-9B-Q2_0.gguf",
+              byteCount: 2556640128, sha256: "1f884aa56aacd2bbbb2e4b7abaead2b1102b74a9c75a23fc33dab916813a384d",
+              largestTensorBytes: 286064640),
+      ]),
+    LocalModelFamily(name: "Bonsai 2 27B", publisher: "PrismML", license: "Apache-2.0", profile: .bonsai2_27B,
+      // Ternary-Bonsai-2-27B-gguf model card and PrismML 27B report, September 2026: vision
+      // retention 92.8% (overall 98.2%, thinking-mode average of 14 benchmarks; MMMU-Pro 75.49
+      // against 81.73). 28 × 0.928.
+      qualityScore: 26,
+      summary: "A ternary build of Qwen3.8 27B that brings strong reasoning to Macs with 24 GB or more.",
+      repository: "prism-ml/Ternary-Bonsai-2-27B-gguf", revision: "94dd51cdbbec5309ed8b76a12f3268bc4fdceb93",
+      projectorFile: "Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf", projectorByteCount: 629246976,
+      projectorSHA256: "6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903", supportsAudio: false,
+      packages: [
+        .init(id: "bonsai-2-27b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-27B-Q2_0.gguf",
+              byteCount: 7626008928, sha256: "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e",
+              largestTensorBytes: 357580800),
       ]),
   ]
 

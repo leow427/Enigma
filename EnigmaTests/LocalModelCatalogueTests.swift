@@ -33,16 +33,17 @@ final class LocalModelCatalogueTests: XCTestCase {
       predictedTokensPerSecond: speed, predictedTimeToFirstToken: 0.8)
   }
 
-  func testCatalogueHasElevenFamiliesAndFortyFivePackages() throws {
+  func testCatalogueHasFourteenFamiliesAndFortyEightPackages() throws {
     XCTAssertEqual(BundledLocalModels.families.map(\.name),
                    ["Qwen3.5 2B", "Qwen3.5 4B", "Gemma 4 E4B", "Ministral 3 8B", "Qwen3.5 9B", "Gemma 4 12B",
-                    "Ministral 3 14B", "Gemma 4 26B-A4B", "Gemma 4 31B", "Qwen3.6 35B-A3B", "Qwen3.8 27B"])
-    XCTAssertEqual(models.count, 45)
+                    "Ministral 3 14B", "Gemma 4 26B-A4B", "Gemma 4 31B", "Qwen3.6 35B-A3B", "Qwen3.8 27B",
+                    "Bonsai 2 4B", "Bonsai 2 9B", "Bonsai 2 27B"])
+    XCTAssertEqual(models.count, 48)
     try LocalModelManifest.bundled.validate()
-    XCTAssertEqual(Set(models.map(\.id)).count, 45)
-    XCTAssertEqual(Set(models.map(\.checksumSHA256)).count, 45)
-    XCTAssertEqual(LocalModelManifest.bundled.version, 7)
-    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 45)
+    XCTAssertEqual(Set(models.map(\.id)).count, 48)
+    XCTAssertEqual(Set(models.map(\.checksumSHA256)).count, 48)
+    XCTAssertEqual(LocalModelManifest.bundled.version, 8)
+    XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 48)
   }
 
   func testEveryPackageIsRunnable() throws {
@@ -116,7 +117,8 @@ final class LocalModelCatalogueTests: XCTestCase {
 
   func testFamilyMetadataIsConsistent() throws {
     let stems = ["qwen3.5-2b-", "qwen3.5-4b-", "gemma-4-e4b-", "ministral-3-8b-", "qwen3.5-9b-", "gemma-4-12b-",
-                 "ministral-3-14b-", "gemma-4-26b-a4b-", "gemma-4-31b-", "qwen3.6-35b-a3b-", "qwen3.8-27b-"]
+                 "ministral-3-14b-", "gemma-4-26b-a4b-", "gemma-4-31b-", "qwen3.6-35b-a3b-", "qwen3.8-27b-",
+                 "bonsai-2-4b-", "bonsai-2-9b-", "bonsai-2-27b-"]
     XCTAssertEqual(stems.count, BundledLocalModels.families.count)
     for (family, stem) in zip(BundledLocalModels.families, stems) {
       let descriptors = family.descriptors
@@ -148,6 +150,38 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertLessThan(try quality("Gemma 4 E4B"), try quality("Gemma 4 12B"))
     XCTAssertLessThan(try quality("Gemma 4 12B"), try quality("Gemma 4 31B"))
     XCTAssertLessThan(try quality("Ministral 3 8B"), try quality("Ministral 3 14B"))
+    XCTAssertLessThan(try quality("Bonsai 2 4B"), try quality("Bonsai 2 9B"))
+    XCTAssertLessThan(try quality("Bonsai 2 9B"), try quality("Bonsai 2 27B"))
+  }
+
+  func testBonsai2ShipsOneTernaryQ2_0PackagePerFamily() throws {
+    // Each score is its base model's score × PrismML's measured vision retention.
+    let expected: [(String, String, String, Int64, String, Double, LocalMultimodalProfile)] = [
+      ("bonsai-2-4b-q2_0", "prism-ml/Ternary-Bonsai-2-4B-gguf", "8d6557168168f91ea6697a4a49ed2ef622b53adb",
+       1_212_103_520, "64a5183b44921bdb5ac4a6f5f92007821d6ebe5c66997d3c147fd214ab9433d4", 11.9, .bonsai2_4B),
+      ("bonsai-2-9b-q2_0", "prism-ml/Ternary-Bonsai-2-9B-gguf", "5b2abb02362efbed46bbe204014b02837778b2c2",
+       2_556_640_128, "1f884aa56aacd2bbbb2e4b7abaead2b1102b74a9c75a23fc33dab916813a384d", 12.5, .bonsai2_9B),
+      ("bonsai-2-27b-q2_0", "prism-ml/Ternary-Bonsai-2-27B-gguf", "94dd51cdbbec5309ed8b76a12f3268bc4fdceb93",
+       7_626_008_928, "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e", 26, .bonsai2_27B),
+    ]
+    for (id, repository, revision, bytes, checksum, quality, profile) in expected {
+      let model = try XCTUnwrap(models.first { $0.id == id }, id)
+      let size = repository.split(separator: "-")[4]
+      XCTAssertEqual(model.downloadURL.absoluteString,
+                     "https://huggingface.co/\(repository)/resolve/\(revision)/Ternary-Bonsai-2-\(size)-Q2_0.gguf", id)
+      XCTAssertEqual(model.projector?.url.lastPathComponent, "Ternary-Bonsai-2-\(size)-mmproj-Q8_0.gguf", id)
+      XCTAssertEqual(model.quantization, "Q2_0", id)
+      XCTAssertEqual(model.expectedByteCount, bytes, id)
+      XCTAssertEqual(model.checksumSHA256, checksum, id)
+      XCTAssertEqual(model.inferenceProfile, profile, id)
+      XCTAssertEqual(model.publisher, "PrismML", id)
+      XCTAssertEqual(model.qualityScore, quality, id)
+      // The ternary loss is in the family score, so Q2_0 takes no further cut.
+      XCTAssertEqual(model.rankedQualityScore, quality, id)
+      XCTAssertEqual(model.modelSupportsAudio, false, id)
+      XCTAssertFalse(profile.usesNonCausalImageAttention, id)
+      XCTAssertTrue(LocalModelCompatibility.supports(model), id)
+    }
   }
 
   func testLeftPackagesAreGone() {
@@ -233,20 +267,26 @@ final class LocalModelCatalogueTests: XCTestCase {
 
   func testExpectedPicksOnSyntheticMacs() {
     let expected: [(Int, Double, String?, String?, String?)] = [
-      (8, 68, "qwen3.5-2b-q4_k_m", nil, nil),
+      // Bonsai 2 4B (3.22 GiB, 11.9) reaches 36.6 tok/s but its first token takes 2.24 s.
+      (8, 68, "qwen3.5-2b-q4_k_m", nil, "bonsai-2-4b-q2_0"),
+      // From M2-class bandwidth Bonsai 2 4B is fast too, so it replaces Qwen3.5 2B as the default.
+      (8, 100, "bonsai-2-4b-q2_0", nil, nil),
       // Qwen3.5 9B misses the speed bar, so its candidate is its smallest usable
       // package of IQ4_XS or better: 13.5 × 0.96 ranks above Qwen3.5 4B Q5_K_M (13 × 0.99).
-      (16, 120, "qwen3.5-4b-q5_k_m", "qwen3.5-2b-q8_0", "qwen3.5-9b-iq4_xs"),
-      // Qwen3.8 27B IQ3_XXS fits at 13.08 GiB and reaches 8 tok/s.
-      (24, 307, "gemma-4-12b-q5_k_m", "qwen3.5-4b-q8_0", "qwen3.8-27b-iq3_xxs"),
+      // Bonsai 2 4B (64.6 tok/s) is 2.6 times as fast and ranks above Qwen3.5 2B.
+      (16, 120, "qwen3.5-4b-q5_k_m", "bonsai-2-4b-q2_0", "qwen3.5-9b-iq4_xs"),
+      // Bonsai 2 27B fits at 9.69 GiB (26 above Qwen3.8 27B IQ3_XXS's 23.8) and
+      // decodes at 26.3 tok/s, but its first token takes 2.97 s.
+      (24, 307, "gemma-4-12b-q5_k_m", "qwen3.5-4b-q8_0", "bonsai-2-27b-q2_0"),
       // Qwen3.6 35B-A3B IQ4_XS fits (18 × 0.96 above Gemma 26B-A4B Q4_K_M's
-      // 17 × 0.97) at 35.8 tok/s, so no family is 1.5 times as fast.
-      (36, 150, "qwen3.6-35b-a3b-iq4_xs", nil, "qwen3.8-27b-iq3_xxs"),
-      // Qwen3.8 27B IQ3_S is fast (24.9 tok/s, first token in 1.99 s); IQ4_XS
-      // misses 2 s by milliseconds and, as a 3-bit Recommended's own 4-bit
-      // size, is Smarter. Qwen3.6 Q8_0 is 2.3 times as fast.
-      (64, 460, "qwen3.8-27b-iq3_s", "qwen3.6-35b-a3b-q8_0", "qwen3.8-27b-iq4_xs"),
-      (128, 614, "qwen3.8-27b-q5_k_m", "qwen3.6-35b-a3b-q8_0", nil),
+      // 17 × 0.97) at 35.8 tok/s; Bonsai 2 4B is 2.3 times as fast.
+      (36, 150, "qwen3.6-35b-a3b-iq4_xs", "bonsai-2-4b-q2_0", "bonsai-2-27b-q2_0"),
+      // Bonsai 2 27B is fast (39.4 tok/s, first token in 1.98 s) and ranks 26
+      // above Qwen3.8 27B's fast IQ3_S (23.8); Qwen3.6 Q8_0 (57.2 tok/s) falls
+      // short of 1.5 times, Qwen3.5 4B Q8_0 (67.0) doesn't. Nothing fits above.
+      (64, 460, "bonsai-2-27b-q2_0", "qwen3.5-4b-q8_0", nil),
+      // Bonsai 2 27B (52.5 tok/s) is 2.6 times as fast and ranks above Qwen3.6.
+      (128, 614, "qwen3.8-27b-q5_k_m", "bonsai-2-27b-q2_0", nil),
     ]
     for (memory, bandwidth, recommended, faster, smarter) in expected {
       let recs = LocalModelSelector.select(manifest: .bundled, hardware: mac(memoryGiB: memory, publishedBandwidth: bandwidth))
@@ -257,7 +297,7 @@ final class LocalModelCatalogueTests: XCTestCase {
     }
   }
 
-  func testOwnersMacRecommendsGemma4_12BAndOffersQwen38AtThreeBits() throws {
+  func testOwnersMacRecommendsGemma4_12BAndOffersBonsai2_27B() throws {
     let recs = LocalModelSelector.select(manifest: .bundled, hardware: ownersMac)
     let recommended = try XCTUnwrap(recs.recommended)
     XCTAssertEqual(recommended.id, "gemma-4-12b-q5_k_m")
@@ -268,15 +308,23 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertEqual(Double(ownersMac.inferenceMemoryBudget) / Double(gib), 14.21, accuracy: 0.01)
     XCTAssertEqual(recs.faster?.id, "qwen3.5-4b-q8_0")
     XCTAssertEqual(recs.faster?.tokensPerSecond ?? 0, 44.67, accuracy: 0.01)
+    // Bonsai 2 27B fits at 9.69 GiB and decodes at 26.3 tok/s, but its first
+    // token takes 2.97 s. It ranks 26, above Qwen3.8 27B's 3-bit candidate.
+    let smarter = try XCTUnwrap(recs.smarter)
+    XCTAssertEqual(smarter.id, "bonsai-2-27b-q2_0")
+    XCTAssertEqual(smarter.tokensPerSecond, 26.26, accuracy: 0.01)
+    XCTAssertEqual(smarter.timeToFirstToken, 2.97, accuracy: 0.01)
+    XCTAssertEqual(smarter.fit, .excellent)
+    XCTAssertEqual(Double(smarter.model.estimatedRuntimeMemory) / Double(gib), 9.69, accuracy: 0.01)
+    XCTAssertEqual(smarter.model.rankedQualityScore, 26, accuracy: 0.0001)
     // Only 3-bit Qwen3.8 27B fits the 14.21 GiB budget (IQ3_S at 14.11 GiB too;
     // IQ4_XS needs 16.17). Neither is fast, so the family offers its smallest.
-    let smarter = try XCTUnwrap(recs.smarter)
-    XCTAssertEqual(smarter.id, "qwen3.8-27b-iq3_xxs")
-    XCTAssertEqual(smarter.tokensPerSecond, 18.31, accuracy: 0.01)
-    XCTAssertEqual(smarter.timeToFirstToken, 2.98, accuracy: 0.01)
-    XCTAssertEqual(smarter.fit, .good)
-    XCTAssertEqual(Double(smarter.model.estimatedRuntimeMemory) / Double(gib), 13.08, accuracy: 0.01)
-    XCTAssertEqual(smarter.model.rankedQualityScore, 23.8, accuracy: 0.0001)
+    let iq3 = try XCTUnwrap(recs.assessments.first { $0.id == "qwen3.8-27b-iq3_xxs" })
+    XCTAssertEqual(iq3.tokensPerSecond, 18.31, accuracy: 0.01)
+    XCTAssertEqual(iq3.timeToFirstToken, 2.98, accuracy: 0.01)
+    XCTAssertEqual(iq3.fit, .good)
+    XCTAssertEqual(Double(iq3.model.estimatedRuntimeMemory) / Double(gib), 13.08, accuracy: 0.01)
+    XCTAssertEqual(iq3.model.rankedQualityScore, 23.8, accuracy: 0.0001)
     let iq3s = try XCTUnwrap(recs.assessments.first { $0.id == "qwen3.8-27b-iq3_s" })
     XCTAssertEqual(Double(iq3s.model.estimatedRuntimeMemory) / Double(gib), 14.11, accuracy: 0.01)
     XCTAssertTrue(iq3s.fit.canRun)
@@ -291,28 +339,28 @@ final class LocalModelCatalogueTests: XCTestCase {
     let calibrated = LocalModelSelector.select(manifest: .bundled, hardware: ownersMac, measurements: runs)
     XCTAssertEqual(calibrated.recommended?.id, "gemma-4-12b-q5_k_m")
     XCTAssertEqual(calibrated.recommended?.tokensPerSecond ?? 0, 27.50, accuracy: 0.01)
-    // The Gemma 4 12B run lifts dense decode efficiency to 0.87, so IQ3_XXS
-    // decodes at 21.16 tok/s; its prompt factor rises only to 1.51, leaving the
-    // first token at 2.58 s, so it stays Smarter rather than Recommended.
+    // Ordinary runs never calibrate ternary packages, so Bonsai 2 27B keeps its
+    // starting estimate and its 2.97 s first token; it stays Smarter.
     let calibratedSmarter = try XCTUnwrap(calibrated.smarter)
-    XCTAssertEqual(calibratedSmarter.id, "qwen3.8-27b-iq3_xxs")
-    XCTAssertEqual(calibratedSmarter.tokensPerSecond, 21.16, accuracy: 0.01)
-    XCTAssertEqual(calibratedSmarter.timeToFirstToken, 2.58, accuracy: 0.01)
+    XCTAssertEqual(calibratedSmarter.id, "bonsai-2-27b-q2_0")
+    XCTAssertEqual(calibratedSmarter.tokensPerSecond, 26.26, accuracy: 0.01)
+    XCTAssertEqual(calibratedSmarter.timeToFirstToken, 2.97, accuracy: 0.01)
     XCTAssertFalse(calibratedSmarter.isFast)
 
     // A run on this Mac showing a quicker first token (its own Check
-    // performance) makes it Recommended: 23.8 ranks above Gemma 4 12B's 13.86.
-    let iq3 = try XCTUnwrap(recs.assessments.first { $0.id == "qwen3.8-27b-iq3_xxs" }).model
+    // performance) makes it Recommended: 26 ranks above Gemma 4 12B's 13.86.
+    let bonsai = smarter.model
     let measured = LocalModelBenchmark(version: 1, llamaBuild: LocalVisionRuntime.build,
-      hardwareFingerprint: ownersMac.fingerprint, lowPowerMode: false, modelID: iq3.id,
-      modelChecksum: iq3.checksumSHA256, modelByteCount: iq3.expectedByteCount, parameterBillions: iq3.parameterBillions,
-      architecture: iq3.architecture, contextSize: 8192, recordedAt: .now - 60,
-      metrics: LocalBenchmarkMetrics(timeToFirstToken: 1.6, generationTokensPerSecond: 21,
-        promptTokensPerSecond: 160, peakMemoryBytes: 13_000_000_000, promptTokenCount: 140,
+      hardwareFingerprint: ownersMac.fingerprint, lowPowerMode: false, modelID: bonsai.id,
+      modelChecksum: bonsai.checksumSHA256, modelByteCount: bonsai.expectedByteCount,
+      parameterBillions: bonsai.parameterBillions, architecture: bonsai.architecture, contextSize: 8192,
+      recordedAt: .now - 60,
+      metrics: LocalBenchmarkMetrics(timeToFirstToken: 1.6, generationTokensPerSecond: 26,
+        promptTokensPerSecond: 160, peakMemoryBytes: 9_000_000_000, promptTokenCount: 140,
         generatedTokenCount: 64, modelLoadSeconds: 4),
-      predictedTokensPerSecond: 18.31, predictedTimeToFirstToken: 2.98)
+      predictedTokensPerSecond: 26.26, predictedTimeToFirstToken: 2.97)
     let promoted = LocalModelSelector.select(manifest: .bundled, hardware: ownersMac, measurements: runs + [measured])
-    XCTAssertEqual(promoted.recommended?.id, "qwen3.8-27b-iq3_xxs")
+    XCTAssertEqual(promoted.recommended?.id, "bonsai-2-27b-q2_0")
     XCTAssertTrue(promoted.recommended?.isMeasured ?? false)
     // Gemma 4 12B at 27.5 tok/s is not 1.5 times as fast; Qwen3.5 4B Q8_0 is.
     XCTAssertEqual(promoted.faster?.id, "qwen3.5-4b-q8_0")

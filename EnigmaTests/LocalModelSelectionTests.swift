@@ -105,7 +105,7 @@ final class LocalModelSelectionTests: XCTestCase {
   func testQuantizationQualityFactors() {
     let factors: [(String, Double)] = [
       ("Q8_0", 1), ("Q5_K_M", 0.99), ("Q4_K_M", 0.97), ("Q4_0", 0.97), ("IQ4_XS", 0.96),
-      ("Q3_K_M", 0.85), ("IQ3_S", 0.85), ("IQ3_XXS", 0.85), ("IQ1_S", 1), ("", 1),
+      ("Q3_K_M", 0.85), ("IQ3_S", 0.85), ("IQ3_XXS", 0.85), ("Q2_0", 1), ("IQ1_S", 1), ("", 1),
     ]
     for (quantization, factor) in factors {
       XCTAssertEqual(LocalQuantization.qualityFactor(quantization), factor, quantization)
@@ -118,10 +118,10 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testPrecisionOrderKnowsEveryShippedQuantization() {
     XCTAssertEqual(LocalQuantization.precisionOrder,
-                   ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS"])
+                   ["Q8_0", "Q5_K_M", "Q4_K_M", "Q4_0", "IQ4_XS", "Q3_K_M", "IQ3_S", "IQ3_XXS", "Q2_0"])
     let ranks = LocalQuantization.precisionOrder.map(LocalQuantization.precision)
     XCTAssertEqual(ranks, ranks.sorted(by: >))
-    XCTAssertLessThan(LocalQuantization.precision("IQ1_S"), LocalQuantization.precision("IQ3_XXS"))
+    XCTAssertLessThan(LocalQuantization.precision("IQ1_S"), LocalQuantization.precision("Q2_0"))
   }
 
   func testFamilyChoiceRanksByPrecisionNotFileSize() throws {
@@ -288,13 +288,14 @@ final class LocalModelSelectionTests: XCTestCase {
 
   func testCatalogPinsEveryQuantizationAndMatchesEmbeddedBuild() throws {
     try catalog.validate()
-    XCTAssertEqual(catalog.models.count, 45)
+    XCTAssertEqual(catalog.models.count, 48)
     XCTAssertEqual(Set(catalog.models.map(\.quantization)),
-                   ["IQ3_XXS", "IQ3_S", "Q3_K_M", "IQ4_XS", "Q4_K_M", "Q5_K_M", "Q8_0"])
-    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google", "Mistral AI"])
+                   ["Q2_0", "IQ3_XXS", "IQ3_S", "Q3_K_M", "IQ4_XS", "Q4_K_M", "Q5_K_M", "Q8_0"])
+    XCTAssertEqual(Set(catalog.models.map(\.maker)), ["Alibaba / Qwen", "Google", "Mistral AI", "PrismML"])
     XCTAssertEqual(Set(catalog.models.compactMap(\.resolvedProfile)),
                    Set([.qwen35_2B, .qwen35_4B, .gemma4E4B, .ministral8B, .qwen35_9B, .gemma4_12B, .ministral14B,
-                        .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B]))
+                        .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B, .bonsai2_4B, .bonsai2_9B,
+                        .bonsai2_27B]))
     for model in catalog.models {
       XCTAssertTrue(LocalModelCompatibility.supports(model))
       XCTAssertTrue(model.supportsVision)
@@ -426,13 +427,14 @@ final class LocalModelSelectionTests: XCTestCase {
     if let faster = first.faster {
       XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5)
     }
-    // At about 78 GB/s only Qwen3.5 4B Q4_K_M is fast. Gemma 4 12B is not, so
-    // its candidate is its smallest usable package of IQ4_XS or better: IQ4_XS
-    // (14 × 0.96 = 13.44, above 12.61).
+    // At about 78 GB/s Qwen3.5 4B Q4_K_M is fast, and Bonsai 2 4B (11.9) is
+    // more than 1.5 times as fast. Gemma 4 12B is not, so its candidate is its
+    // smallest usable package of IQ4_XS or better: IQ4_XS (14 × 0.96 = 13.44, above 12.61).
     XCTAssertEqual(recommended.id, "qwen3.5-4b-q4_k_m")
     XCTAssertEqual(first.smarter?.id, "gemma-4-12b-iq4_xs")
     XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.rankedQualityScore, recommended.model.rankedQualityScore)
-    XCTAssertEqual(first.roles.map(\.id), ["qwen3.5-4b-q4_k_m", "gemma-4-12b-iq4_xs"])
+    XCTAssertEqual(first.faster?.id, "bonsai-2-4b-q2_0")
+    XCTAssertEqual(first.roles.map(\.id), ["qwen3.5-4b-q4_k_m", "bonsai-2-4b-q2_0", "gemma-4-12b-iq4_xs"])
     XCTAssertEqual(Set(first.roles.map(\.id)).count, first.roles.count)
   }
 

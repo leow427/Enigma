@@ -139,7 +139,7 @@ struct LocalModelManifest: Codable, Sendable, Equatable {
     try models.forEach { try $0.validate() }
   }
 
-  static let bundled = LocalModelManifest(version: 7, models: BundledLocalModels.models)
+  static let bundled = LocalModelManifest(version: 8, models: BundledLocalModels.models)
 }
 
 struct ModelDownloadProgress: Sendable, Equatable {
@@ -383,7 +383,7 @@ struct LocalVisionModelDescriptor: Sendable, Equatable, Identifiable {
     for artifact in [model, projector] {
       try artifact.validate()
       let path = artifact.url.pathComponents
-      guard artifact.url.host == "huggingface.co", (path.count == 6 || (path.count == 7 && path[5] == "vision")), ["ggml-org", "Qwen", "google", "mistralai", "openbmb", "unsloth", "bartowski"].contains(path[1]),
+      guard artifact.url.host == "huggingface.co", (path.count == 6 || (path.count == 7 && path[5] == "vision")), ["ggml-org", "Qwen", "google", "mistralai", "openbmb", "unsloth", "bartowski", "prism-ml"].contains(path[1]),
             path[3] == "resolve", path[4].range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil,
             artifact.url.pathExtension == "gguf",
             Array(path.prefix(5)) == Array(model.url.pathComponents.prefix(5)) else {
