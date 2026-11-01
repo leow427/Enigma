@@ -16,7 +16,8 @@ final class WelcomeSetup: ObservableObject {
   private var started = false
   /// Setup was already done, or skipped for an existing user, when this launch started it.
   @Published private(set) var wasCompletedBeforeLaunch = false
-  private var calibrated = false
+  /// The model step checks this Mac once per setup run, before it recommends.
+  @Published private(set) var hasCheckedMac = false
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
@@ -41,7 +42,7 @@ final class WelcomeSetup: ObservableObject {
   }
 
   func replay() {
-    calibrated = false
+    hasCheckedMac = false
     isPresented = true
     step = .welcome
   }
@@ -57,11 +58,15 @@ final class WelcomeSetup: ObservableObject {
     isPresented = false
   }
 
-  /// The first performance check in a setup run calibrates this Mac; installs
-  /// after it skip the check. Only a check that actually ran counts.
-  var needsPerformanceCheck: Bool { !calibrated }
-
-  func performanceCheckRan() { calibrated = true }
+  /// Measures this Mac again, rather than reusing a saved result, so the
+  /// recommendations come from a check made before anything installs.
+  func checkMac(with advisor: LocalModelAdvisor) async {
+    guard !hasCheckedMac else { return }
+    // A detection already running (launch's) would make this one return at once.
+    while advisor.isDetecting { try? await Task.sleep(for: .milliseconds(50)) }
+    await advisor.detectHardware(remeasureBandwidth: true)
+    hasCheckedMac = true
+  }
 
   static func choices(_ recommendations: LocalModelRecommendations, preserving selectedID: String? = nil) -> [LocalModelAssessment] {
     var choices = recommendations.roles.map(\.assessment)
