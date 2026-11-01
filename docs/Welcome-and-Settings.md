@@ -48,9 +48,10 @@ whatever you click. Each step has one primary button, which Return presses.
    choice: **Install model**, **Update model**, **Use this model**, or
    **Continue**. Return never starts a download; click the button instead.
    Downloads are verified before they are installed, and **Continue** appears
-   only once the chosen model is installed, current, and selected. Setup's
-   first performance check calibrates this Mac; installing another model in
-   the same setup skips the check. See
+   only once the chosen model is installed, current, and selected. Before it
+   lists any model, the step checks this Mac (**checking this Mac…**) and
+   recommends from that, so setup installs without a performance check
+   afterwards. See
    [Local-Model-Selection.md](Local-Model-Selection.md).
 
    ![Pick a local model](design/ui-revamp/screenshots/f14/welcome-2-models-paper.png)

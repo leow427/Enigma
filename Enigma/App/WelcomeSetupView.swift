@@ -40,7 +40,7 @@ struct WelcomeSetupView: View {
                              activeID: chat.installedModel?.id, skipLocal: skipLocal)
   }
 
-  private var isModelWorkBusy: Bool { !chat.canChangeModels || advisor.isDetecting }
+  private var isModelWorkBusy: Bool { !chat.canChangeModels || advisor.isDetecting || !setup.hasCheckedMac }
 
   private var characterState: EnigmaCharacterState {
     WelcomeSetup.characterState(for: setup.step, WelcomeSetup.Activity(
@@ -72,6 +72,7 @@ struct WelcomeSetupView: View {
     .clipShape(shape)
     .enigmaEdge(shape)
     .task { await advisor.detectHardware() }
+    .task(id: setup.step) { if setup.step == .models { await setup.checkMac(with: advisor) } }
     .onAppear(perform: placeCharacter)
     .onChange(of: setup.step) { old, new in
       // It flies to each step, from wherever it was perched.
@@ -79,7 +80,6 @@ struct WelcomeSetupView: View {
       character.move(to: WelcomeSetup.characterSlot(for: new).id, .fly)
       if new == .connections { Task { await cloud.refreshChatGPTAccount() } }
     }
-    .onChange(of: chat.modelOperation) { _, operation in if operation == .benchmarking { setup.performanceCheckRan() } }
     .onChange(of: characterState, initial: true) { _, state in character.state = state }
     // A happy wobble when a model lands or a plan connects.
     .onChange(of: chat.installedModel?.id) { old, new in if new != nil, old != new { character.poke() } }
@@ -299,7 +299,8 @@ struct WelcomeSetupView: View {
     case .install, .update:
       guard let selected else { return }
       selectedID = selected.id
-      chat.downloadModel(selected.model, checkPerformance: setup.needsPerformanceCheck)
+      // The model step already checked this Mac; Check performance in Settings tests a model.
+      chat.downloadModel(selected.model, checkPerformance: false)
     case .use:
       guard let selected else { return }
       selectedID = selected.id
@@ -321,7 +322,10 @@ struct WelcomeSetupView: View {
       } else {
         EnigmaStatusLine(.busy, "detecting your Mac…").padding(.top, 8)
       }
-      if !choices.isEmpty { EnigmaSectionHeader("Good fits for this Mac") } else { Spacer().frame(height: 20) }
+      let choices = setup.hasCheckedMac ? choices : []
+      if !setup.hasCheckedMac {
+        EnigmaStatusLine(.busy, "checking this Mac…").padding(.top, 20)
+      } else if !choices.isEmpty { EnigmaSectionHeader("Good fits for this Mac") } else { Spacer().frame(height: 20) }
       let roles = advisor.recommendations(installedModels: chat.installedModels).roles
       ForEach(choices) { assessment in
         LocalModelChoiceRow(assessment: assessment,
@@ -338,7 +342,7 @@ struct WelcomeSetupView: View {
         .disabled(!chat.canChangeModels)
         .welcomePerch("model.skip", character: character)
       EnigmaHairline()
-      if advisor.hardware != nil && choices.isEmpty {
+      if setup.hasCheckedMac && advisor.hardware != nil && choices.isEmpty {
         note("No supported model fits the available memory and storage. You can continue with Cloud.")
           .padding(.top, 10)
       }

@@ -381,14 +381,30 @@ final class EnigmaWelcomeTests: XCTestCase {
   }
 
   @MainActor
-  func testSetupChecksPerformanceOnlyAfterTheFirstCheckRan() throws {
-    let setup = WelcomeSetup(defaults: try defaults())
-    XCTAssertTrue(setup.needsPerformanceCheck)
-    XCTAssertTrue(setup.needsPerformanceCheck, "Asking must not use up the check")
-    setup.performanceCheckRan()
-    XCTAssertFalse(setup.needsPerformanceCheck, "A later install, even one that fails, skips the check")
-    setup.replay()
-    XCTAssertTrue(setup.needsPerformanceCheck, "Replaying setup calibrates again")
+  func testTheModelStepChecksThisMacOncePerSetupBeforeRecommending() async throws {
+    let probes = ProbeCounter()
+    let fixture = try await Fixture(test: self, measureBandwidth: { probes.count += 1; return 400 })
+    XCTAssertEqual(probes.count, 1, "Launch measures once and saves it")
+    fixture.setup.replay()
+    XCTAssertFalse(fixture.setup.hasCheckedMac)
+    await fixture.setup.checkMac(with: fixture.advisor)
+    XCTAssertEqual(probes.count, 2, "Setup measures again, not the saved result")
+    XCTAssertTrue(fixture.setup.hasCheckedMac)
+    await fixture.setup.checkMac(with: fixture.advisor)
+    XCTAssertEqual(probes.count, 2, "Once per setup")
+    fixture.setup.replay()
+    XCTAssertFalse(fixture.setup.hasCheckedMac, "Replaying setup checks again")
+  }
+
+  @MainActor
+  func testTheModelStepShowsItsChoicesOnlyOnceTheMacIsChecked() async throws {
+    let fixture = try await Fixture(test: self)
+    fixture.setup.replay()
+    fixture.setup.step = .models
+    let host = Host(fixture, test: self)
+    try await waitForUI("the choices after the check", in: host.view) {
+      fixture.setup.hasCheckedMac && host.shows("Install model")
+    }
   }
 
   // MARK: Helpers
@@ -440,13 +456,14 @@ final class EnigmaWelcomeTests: XCTestCase {
     let screen = ScreenComposerCoordinator()
 
     init(test: EnigmaWelcomeTests, engine: any LocalModelEngine = WelcomeTestEngine(),
-         searchCredentials: any WebSearchCredentialStore = WelcomeTestSearchCredentials()) async throws {
+         searchCredentials: any WebSearchCredentialStore = WelcomeTestSearchCredentials(),
+         measureBandwidth: (@Sendable () -> Double?)? = nil) async throws {
       let root = FileManager.default.temporaryDirectory.appending(path: "EnigmaWelcomeTests-\(UUID())")
       try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
       defaults = try test.defaults()
       let profile = test.hardware(memory: 32)
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil,
-                                  detect: { _ in profile })
+                                  detect: { _ in profile }, measureBandwidth: measureBandwidth)
       await advisor.detectHardware()
       let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: root))
       self.chat = chat
@@ -589,7 +606,7 @@ extension EnigmaWelcomeTests {
     fixture.setup.replay()
     fixture.setup.step = .models
     let host = Host(fixture, test: self)
-    try await waitForUI("the install button", in: host.view) { host.shows("Install model") }
+    try await waitForUI("the install button", in: host.view) { fixture.setup.hasCheckedMac && host.shows("Install model") }
     try host.press("Skip local models")
     try await waitForUI("Continue after skipping", in: host.view) { host.shows("Continue") }
     XCTAssertFalse(host.shows("Install model"))
@@ -608,7 +625,7 @@ extension EnigmaWelcomeTests {
     let host = Host(fixture, test: self)
     let recommended = try XCTUnwrap(WelcomeSetup.choices(
       fixture.advisor.recommendations(installedModels: [])).first)
-    try await waitForUI("the install button", in: host.view) { host.shows("Install model") }
+    try await waitForUI("the install button", in: host.view) { fixture.setup.hasCheckedMac && host.shows("Install model") }
     try host.pressReturnAsShortcut()
     try host.typeReturn()
     try await Task.sleep(for: .milliseconds(300))
@@ -636,7 +653,7 @@ extension EnigmaWelcomeTests {
     fixture.setup.replay()
     fixture.setup.step = .models
     let host = Host(fixture, test: self)
-    try await waitForUI("the Use button", in: host.view) { host.shows("Use this model") }
+    try await waitForUI("the Use button", in: host.view) { fixture.setup.hasCheckedMac && host.shows("Use this model") }
     // Use keeps Return, since it downloads nothing.
     try host.pressReturnAsShortcut()
     var selections: [String] = []
@@ -678,6 +695,16 @@ extension EnigmaWelcomeTests {
     let downloads = await engine.downloads
     XCTAssertTrue(downloads.isEmpty, "Return in the model sheet must not download")
     XCTAssertEqual(fixture.chat.state, .idle)
+  }
+}
+
+/// Counts bandwidth probes, which run off the main actor.
+private final class ProbeCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var value = 0
+  var count: Int {
+    get { lock.withLock { value } }
+    set { lock.withLock { value = newValue } }
   }
 }
 
