@@ -2,26 +2,35 @@
 
 Enigma can answer on your Mac with a local text-and-image model, so chats and
 screenshots never leave it. It ships a reviewed catalogue of fourteen model
-families (48 pinned packages), picks the smartest one this Mac runs fast, and
-installs, checks and manages it for you.
+families (48 pinned packages), picks the best Bonsai 2 this Mac runs (or,
+without one, the smartest model it runs fast), and installs, checks and manages it for you.
 
 ## Choosing a model
 
 Every picker shows the same three choices for this Mac, in this order:
 
-- **recommended**: the smartest family that fits this Mac's memory and is fast
-  (an estimated 20 tokens per second or more, and a first token within 2 seconds
-  on a 256-token prompt). When nothing is fast, the smartest family that still
-  reaches 8 tokens per second is tagged **best available, expect longer waits**.
-- **faster**: the smartest other family that is at least 1.5 times as fast as
-  Recommended. It's offered only while Recommended is under 40 tokens per
-  second; above that Recommended already feels instant.
+- **recommended**: the best Bonsai 2 that fits this Mac's memory and reaches 8
+  tokens per second, even when it misses the speed bar: Bonsai 2 27B on every
+  Mac with 18 GB or more, Bonsai 2 9B on 16 GB Macs, Bonsai 2 4B on 8 GB Macs
+  (owner's choice, 2026-10-31). Without one, the smartest family that fits and
+  is fast (an estimated 20 tokens per second or more, and a first token within
+  2 seconds on a 256-token prompt). When nothing is fast, the smartest family
+  that still reaches 8 tokens per second is tagged **best available, expect
+  longer waits**.
+- **faster**: another family that is fast and at least 1.5 times as fast as
+  Recommended, a Bonsai 2 when one qualifies, else the smartest. It's offered
+  only while Recommended is under 40 tokens per second; above that Recommended
+  already feels instant.
 - **smarter, slower replies**: the smartest family above Recommended that fits
-  but misses the speed bar, while still reaching 8 tokens per second. When
-  Recommended is a 3-bit package, a 4-bit size of its own family can be
-  Smarter too (see [Ranked quality](#ranked-quality)).
+  but misses the speed bar, while still reaching 8 tokens per second. Above a
+  Bonsai 2 Recommended, any family that ranks higher counts instead, as long
+  as it is slower than the Bonsai, so it never repeats Faster. When Recommended is a 3-bit package, a 4-bit
+  size of its own family can be Smarter too (see
+  [Ranked quality](#ranked-quality)).
 
-Empty roles are left out, and a best-available Recommended is offered alone.
+Empty roles are left out, and a best-available Recommended is offered alone. A
+Bonsai 2 Recommended is tagged **recommended** even when it misses the speed
+bar; its row still says replies take longer.
 When nothing fits, Enigma says **No suitable model found**. The choices
 appear in:
 
@@ -147,26 +156,28 @@ is the least-kept category for the 4B and 9B). These are vendor figures:
 
 | Family | Parameters (active) | Quantizations | Quality | Mainly for |
 |---|---|---|---|---|
-| Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | M1-class 8 GB Macs; Recommended on 16–24 GB Macs at M1-class bandwidth |
-| Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | slower 16 GB Macs; the Faster pick on faster 24 GB Macs |
+| Qwen3.5 2B | 2.27B | Q4_K_M, Q8_0 | 8 | All models |
+| Qwen3.5 4B | 4.66B | Q4_K_M, Q5_K_M, Q8_0 | 13 | Smarter at Q8_0 on 16 GB Macs at about 140–170 GB/s |
 | Gemma 4 E4B | 7.5B (4.5B effective) | Q4_K_M | 9 | All models |
 | Ministral 3 8B | 8.5B | Q4_K_M | 5 | All models |
-| Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | 16 GB Macs: Recommended when fast, else Smarter at IQ4_XS |
-| Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | 24 GB Macs from about 200 GB/s |
+| Qwen3.5 9B | 9.65B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 13.5 | Smarter on 16 GB Macs: IQ4_XS up to about 135 GB/s, Q4_K_M from about 175 GB/s |
+| Gemma 4 12B | 12B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 14 | All models |
 | Ministral 3 14B | 13.5B | Q5_K_M, Q8_0 | 6 | All models |
-| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | 32 GB Macs |
+| Gemma 4 26B-A4B | 25.2B (3.8B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 17 | Smarter on M1-class 32 GB-plus Macs |
 | Gemma 4 31B | 31B | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 15 | All models |
-| Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | 36–64 GB Macs |
-| Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Recommended on Macs with 32 GB or more from about 546 GB/s; IQ4_XS as Smarter on 32 GB or more at about 200–400 GB/s |
-| Bonsai 2 4B | 4.66B, ternary | Q2_0 | 11.9 | Recommended on 8 GB Macs from M2-class bandwidth (about 100 GB/s); Smarter on M1-class 8 GB Macs; the Faster pick on most Macs at 100–150 GB/s |
-| Bonsai 2 9B | 9.65B, ternary | Q2_0 | 12.5 | the Faster pick on 16 GB and 64 GB-plus Macs at about 200–307 GB/s |
-| Bonsai 2 27B | 27.8B, ternary | Q2_0 | 26.0 | Smarter on 24 GB Macs, and on larger ones at 100–150 GB/s; Recommended only in a narrow band near 460 GB/s (about 396–401 measured); Faster on 32 GB or more from about 546 GB/s |
+| Qwen3.6 35B-A3B | 36B (3B), mixture of experts | IQ3_XXS, Q3_K_M, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 18 | All models |
+| Qwen3.8 27B | 27.8B | IQ3_XXS, IQ3_S, IQ4_XS, Q4_K_M, Q5_K_M, Q8_0 | 28 | Smarter on 32 GB or more from about 200 GB/s: IQ4_XS up to about 500 GB/s, Q4_K_M or Q5_K_M on the fastest chips |
+| Bonsai 2 4B | 4.66B, ternary | Q2_0 | 11.9 | Recommended on 8 GB Macs; Faster at about 100–150 GB/s |
+| Bonsai 2 9B | 9.65B, ternary | Q2_0 | 12.5 | Recommended on 16 GB Macs; Faster on 24 GB-plus Macs at about 200–460 GB/s |
+| Bonsai 2 27B | 27.8B, ternary | Q2_0 | 26.0 | Recommended on every Mac with 18 GB or more (about 9 tok/s on a 24 GB base chip, 26 on a 24 GB M5 Pro) |
 
-"All models" families are there to choose by hand and get a role only on merit.
-Ministral 3, Gemma 4 E4B and Gemma 4 31B get none on the Macs the tests check:
-Bonsai 2 4B ranks above Gemma 4 E4B and is faster, so it takes the Faster role
-E4B used to hold (for example a 16 GB Mac at 130 GB/s measured: Recommended
-Qwen3.5 4B Q8_0 at 21.8 tok/s, Faster Bonsai 2 4B at 80.4).
+"All models" families are there to choose by hand. Since Bonsai 2 fills
+Recommended and usually Faster, the other families mostly get a role as Smarter,
+where they rank above the Bonsai Recommended, fit and reach 8 tokens per second.
+They can be Faster too when a Bonsai's own Check performance comes in slow, and
+the old rules apply in full when no Bonsai qualifies. For example, a 32 GB Mac
+at 200 GB/s gets Bonsai 2 27B (17.1 tok/s), Faster Bonsai 2 9B (51.0) and Smarter
+Qwen3.8 27B IQ4_XS (26.88, 9.2 tok/s).
 
 Gemma 4 E4B and 12B are vision and audio models; Enigma sends them text and
 images only, and their rows say **Vision + Audio model · Text and images in
@@ -209,9 +220,9 @@ on the first tool a model chooses) and the first-token check
 0.90 of the eval right, and its first answer text with the tool descriptions
 within 1.15× of the time without them, on the same warm server. Families the
 eval didn't measure keep their starting flags: on from about 9B up, off below,
-as the small models weren't downloaded for the eval. The ternary Bonsai 2 builds
-stay off at every size: PrismML lists malformed or looping tool calls as a known
-issue, and tool calling is the skill their 4B and 9B keep least.
+as the small models weren't downloaded for the eval. Bonsai 2 follows the same
+rule (9B and 27B on, 4B off) by the owner's choice, although PrismML lists
+malformed or looping tool calls on the 27B as a known issue.
 
 | Family | Native tools | Eval right | First token, with tools / without |
 |---|---|---|---|
@@ -227,8 +238,8 @@ issue, and tool calling is the skill their 4B and 9B keep least.
 | Qwen3.6 35B-A3B | On | Not measured | — |
 | Qwen3.8 27B | On | 57 of 60 (0.95) | 1.03× |
 | Bonsai 2 4B | Off | Not measured | — |
-| Bonsai 2 9B | Off | Not measured | — |
-| Bonsai 2 27B | Off | Not measured | — |
+| Bonsai 2 9B | On | Not measured | — |
+| Bonsai 2 27B | On | Not measured | — |
 
 Measured on Gemma 4 12B Q5_K_M and Qwen3.8 27B IQ3_XXS. With the tools, the
 first answer text came sooner (0.16 s and 0.36 s against 0.51 s and 0.97 s
@@ -296,7 +307,8 @@ SHA-256 and each GGUF's largest tensor are in `BundledLocalModels.swift`.
 
 1. **Gates.** A package must fit the memory budget, pass the disk, runtime and
    Metal-buffer checks, and be fast (or, as a fallback, usable at 8 tokens per
-   second). Quality ranks only what passes; it can never outweigh a gate.
+   second; for a Bonsai 2 Recommended, usable is enough). Quality ranks only
+   what passes; it can never outweigh a gate.
 2. **One package per family** (`LocalModelSelector.choice`), the first of:
    - its highest-precision fast package. Precision runs Q8_0, Q5_K_M, Q4_K_M,
      Q4_0, IQ4_XS, Q3_K_M, IQ3_S, IQ3_XXS, Q2_0 (`LocalQuantization.precisionOrder`);
@@ -328,8 +340,8 @@ factor (`LocalQuantization.qualityFactor`, `rankedQualityScore`):
 The only Q2_0 packages are the ternary Bonsai 2 packs, whose family score
 already includes the ternary loss, so Q2_0 takes no further cut.
 
-Recommended and Faster are the first fast candidates in this order, and
-Smarter must rank above Recommended. A 3-bit package therefore loses to a
+Outside the Bonsai 2 preference, Recommended and Faster are the first fast
+candidates in this order, and Smarter must rank above Recommended. A 3-bit package therefore loses to a
 4-bit family unless it is clearly stronger: Gemma 4 12B at IQ3_XXS (14 × 0.85 =
 11.9) ranks below Qwen3.5 9B at Q4_K_M (13.5 × 0.97 = 13.1), while Qwen3.8 27B
 at IQ3_XXS (28 × 0.85 = 23.8) ranks above every other family but Bonsai 2 27B
@@ -339,7 +351,7 @@ the table (imported GGUFs) keep a factor of 1; they never take part in roles.
 Because a slow family offers a 4-bit size when one is usable, it keeps its
 place as Smarter: on a 16 GB Mac at about 104 GB/s, Qwen3.5 9B is fast at no
 size, so its candidate is IQ4_XS (13.5 × 0.96 = 12.96, 15.1 tok/s), above
-Recommended Qwen3.5 4B Q5_K_M (12.87).
+Recommended Bonsai 2 9B (12.5).
 
 When Recommended is a 3-bit package (factor under 0.96), Smarter also
 considers its own family's smallest usable package of IQ4_XS or better,
@@ -645,7 +657,7 @@ The suites are offline and deterministic; none touches the GPU:
   IDs and pins, re-added packages whose 0.10.1 records (b10797) offer Update, the 3-bit,
   IQ4, Gemma 4 31B and Bonsai 2 packages, quality ordering within a line,
   expected picks on synthetic Macs, and the 24 GB M5 Pro fixture that
-  recommends Gemma 4 12B and offers Bonsai 2 27B as Smarter.
+  recommends Bonsai 2 27B and offers Bonsai 2 9B as Faster.
 
 - `LocalBandwidthProbeTests`: clamping, a missing Metal device, measuring once
   per fingerprint and power mode, a failed test, and older `hardware.json`

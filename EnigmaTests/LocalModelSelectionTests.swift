@@ -238,7 +238,9 @@ final class LocalModelSelectionTests: XCTestCase {
         let candidates = families.values.compactMap { LocalModelSelector.choice(in: $0) }
           .sorted(by: LocalModelSelector.qualityOrder)
         if let recommended = recs.recommended {
-          if let bestFast = candidates.first(where: \.isFast) {
+          if let bestBonsai = candidates.first(where: { $0.isUsable && $0.model.resolvedProfile?.isTernary == true }) {
+            XCTAssertEqual(recommended.id, bestBonsai.id, label)
+          } else if let bestFast = candidates.first(where: \.isFast) {
             XCTAssertTrue(recommended.isFast, label)
             XCTAssertEqual(recommended.id, bestFast.id, label)
           } else {
@@ -252,7 +254,9 @@ final class LocalModelSelectionTests: XCTestCase {
           }
           if recommended.tokensPerSecond >= 40 { XCTAssertNil(recs.faster, label) }
           if let smarter = recs.smarter {
-            XCTAssertTrue(smarter.isUsable && !smarter.isFast, label)
+            XCTAssertTrue(smarter.isUsable, label)
+            if recommended.model.resolvedProfile?.isTernary != true { XCTAssertFalse(smarter.isFast, label) }
+            XCTAssertLessThan(smarter.tokensPerSecond, recommended.tokensPerSecond, label)
             XCTAssertGreaterThan(smarter.model.rankedQualityScore, recommended.model.rankedQualityScore, label)
           }
         } else {
@@ -406,7 +410,10 @@ final class LocalModelSelectionTests: XCTestCase {
         if let recommended = results.recommended {
           XCTAssertTrue(recommended.isUsable)
           let fast = results.assessments.filter(\.isFast)
-          if !fast.isEmpty {
+          let usableBonsai = results.assessments.filter { $0.isUsable && $0.model.resolvedProfile?.isTernary == true }
+          if !usableBonsai.isEmpty {
+            XCTAssertEqual(recommended.model.rankedQualityScore, usableBonsai.map(\.model.rankedQualityScore).max())
+          } else if !fast.isEmpty {
             XCTAssertEqual(recommended.model.rankedQualityScore, fast.map(\.model.rankedQualityScore).max())
           }
         }
@@ -420,21 +427,21 @@ final class LocalModelSelectionTests: XCTestCase {
     let first = LocalModelSelector.select(manifest: catalog, hardware: mac)
     mac.chip = "A future chip with an unknown name"
     XCTAssertEqual(first.recommended?.id, LocalModelSelector.select(manifest: catalog, hardware: mac).recommended?.id)
-    mac.performanceCPUCount = 2
-    mac.cpuCount = 2
+    mac.performanceCPUCount = 1
+    mac.cpuCount = 1
     XCTAssertNotEqual(first.recommended?.id, LocalModelSelector.select(manifest: catalog, hardware: mac).recommended?.id)
     let recommended = try XCTUnwrap(first.recommended)
     if let faster = first.faster {
       XCTAssertGreaterThanOrEqual(faster.tokensPerSecond, recommended.tokensPerSecond * 1.5)
     }
-    // At about 78 GB/s Qwen3.5 4B Q4_K_M is fast, and Bonsai 2 4B (11.9) is
-    // more than 1.5 times as fast. Gemma 4 12B is not, so its candidate is its
-    // smallest usable package of IQ4_XS or better: IQ4_XS (14 × 0.96 = 13.44, above 12.61).
-    XCTAssertEqual(recommended.id, "qwen3.5-4b-q4_k_m")
+    // At about 78 GB/s the best usable Bonsai, Bonsai 2 9B (12.5), is Recommended,
+    // and Bonsai 2 4B is more than 1.5 times as fast. Gemma 4 12B is slow, so its
+    // candidate is its smallest usable package of IQ4_XS or better (14 × 0.96 = 13.44, above 12.5).
+    XCTAssertEqual(recommended.id, "bonsai-2-9b-q2_0")
     XCTAssertEqual(first.smarter?.id, "gemma-4-12b-iq4_xs")
     XCTAssertGreaterThan(try XCTUnwrap(first.smarter).model.rankedQualityScore, recommended.model.rankedQualityScore)
     XCTAssertEqual(first.faster?.id, "bonsai-2-4b-q2_0")
-    XCTAssertEqual(first.roles.map(\.id), ["qwen3.5-4b-q4_k_m", "bonsai-2-4b-q2_0", "gemma-4-12b-iq4_xs"])
+    XCTAssertEqual(first.roles.map(\.id), ["bonsai-2-9b-q2_0", "bonsai-2-4b-q2_0", "gemma-4-12b-iq4_xs"])
     XCTAssertEqual(Set(first.roles.map(\.id)).count, first.roles.count)
   }
 
@@ -486,15 +493,15 @@ final class LocalModelSelectionTests: XCTestCase {
     mac.measuredBandwidth = 200
     let original = LocalModelSelector.select(manifest: catalog, hardware: mac)
     let recommended = try XCTUnwrap(original.recommended)
-    // The run also recalibrates every dense estimate, so it is slow enough to
-    // miss the speed bar while smaller packages still pass it.
-    let record = benchmark(model: recommended.model, hardware: mac, speed: 11, promptSpeed: 2_000)
+    // A Bonsai stays Recommended while usable, so the run falls below 8 tok/s; it
+    // also recalibrates the other Bonsai packages, and smaller ones still pass.
+    let record = benchmark(model: recommended.model, hardware: mac, speed: 7, promptSpeed: 2_000)
     XCTAssertTrue(record.underperformed)
     let measured = LocalModelSelector.select(manifest: catalog, hardware: mac, measurements: [record])
     XCTAssertNotEqual(measured.recommended?.id, recommended.id)
     let current = try XCTUnwrap(measured.assessments.first { $0.id == recommended.id })
     XCTAssertTrue(current.isMeasured)
-    XCTAssertEqual(current.tokensPerSecond, 11)
+    XCTAssertEqual(current.tokensPerSecond, 7)
     XCTAssertFalse(current.isFast)
     XCTAssertEqual(LocalModelSelector.assess(recommended.model, hardware: mac,
       measurements: [benchmark(model: recommended.model, hardware: mac, speed: 4)]).fit, .slow)

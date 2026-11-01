@@ -107,7 +107,10 @@ struct LocalModelRoleChoice: Identifiable, Sendable {
   let role: LocalModelRole
   let assessment: LocalModelAssessment
   var id: String { assessment.id }
-  var tag: String { role.tag(isFast: assessment.isFast) }
+  // A Bonsai is Recommended on purpose, never as a best-available fallback.
+  var tag: String {
+    role.tag(isFast: assessment.isFast || (role == .recommended && assessment.model.resolvedProfile?.isTernary == true))
+  }
 }
 
 struct LocalModelRecommendations: Sendable {
@@ -185,15 +188,20 @@ enum LocalModelSelector {
     let allFamilies = grouped.compactMap { family in
       choice(in: family) ?? family.min { $0.model.expectedByteCount < $1.model.expectedByteCount }
     }.sorted(by: qualityOrder)
-    let recommended = candidates.first(where: \.isFast) ?? candidates.first(where: \.isUsable)
+    // Bonsai 2 is Recommended whenever one is usable, even when it misses the speed bar,
+    // and Faster prefers it too, ahead of better-ranked families (owner, 2026-10-31).
+    func isBonsai(_ assessment: LocalModelAssessment) -> Bool { assessment.model.resolvedProfile?.isTernary ?? false }
+    let recommended = candidates.first { isBonsai($0) && $0.isUsable }
+      ?? candidates.first(where: \.isFast) ?? candidates.first(where: \.isUsable)
     var faster: LocalModelAssessment?
     var smarter: LocalModelAssessment?
-    if let recommended, recommended.isFast {
+    if let recommended, recommended.isFast || isBonsai(recommended) {
       if recommended.tokensPerSecond < instantTokensPerSecond {
-        faster = candidates.first {
+        let eligible = candidates.filter {
           $0.isFast && $0.model.familyID != recommended.model.familyID
             && $0.tokensPerSecond >= recommended.tokensPerSecond * fasterSpeedup
         }
+        faster = eligible.first(where: isBonsai) ?? eligible.first
       }
       // A 3-bit Recommended may also be outranked by a 4-bit size of its own family.
       var smarterCandidates = candidates
@@ -201,8 +209,14 @@ enum LocalModelSelector {
          let ownFourBit = smallestUsableFourBit(in: families[recommended.model.familyID] ?? []) {
         smarterCandidates = (smarterCandidates + [ownFourBit]).sorted(by: qualityOrder)
       }
+      // Above a Bonsai, a family whose fast size ranks lower can still offer a slower 4-bit size.
+      if isBonsai(recommended) {
+        smarterCandidates = (smarterCandidates + grouped.compactMap { smallestUsableFourBit(in: $0) }).sorted(by: qualityOrder)
+      }
+      // Above a Bonsai Recommended, any family that ranks higher and is slower keeps a role.
       smarter = smarterCandidates.first {
-        $0.isUsable && !$0.isFast && $0.model.rankedQualityScore > recommended.model.rankedQualityScore
+        $0.isUsable && $0.model.rankedQualityScore > recommended.model.rankedQualityScore
+          && (isBonsai(recommended) ? $0.tokensPerSecond < recommended.tokensPerSecond : !$0.isFast)
       }
     }
     return LocalModelRecommendations(assessments: assessments, recommended: recommended,

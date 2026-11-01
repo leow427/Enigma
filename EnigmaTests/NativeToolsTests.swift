@@ -4,9 +4,10 @@ import XCTest
 final class NativeToolsTests: XCTestCase {
   private static let flaggedFamilies: Set<LocalMultimodalProfile> = [
     .qwen35_9B, .gemma4_12B, .ministral14B, .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B,
+    .bonsai2_9B, .bonsai2_27B,
   ]
   private static let unflaggedFamilies: Set<LocalMultimodalProfile> = [
-    .qwen35_2B, .qwen35_4B, .gemma4E4B, .ministral8B, .bonsai2_4B, .bonsai2_9B, .bonsai2_27B,
+    .qwen35_2B, .qwen35_4B, .gemma4E4B, .ministral8B, .bonsai2_4B,
   ]
 
   func testStartingLocalFlags() {

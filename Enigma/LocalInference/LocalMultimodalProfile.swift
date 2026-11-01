@@ -103,11 +103,12 @@ enum LocalMultimodalProfile: String, Codable, CaseIterable, Sendable {
 
   /// Whether the model chooses Enigma's tools itself on every turn (F32). Every
   /// quantization of a family shares it. Families outside the catalogue stay off,
-  /// and so do the small ones the tool-use eval didn't measure (F32 CP5) and the
-  /// ternary Bonsai 2 builds, whose tool calls PrismML lists as a known weak spot.
+  /// and so do the small ones the tool-use eval didn't measure (F32 CP5). Bonsai 2
+  /// 9B and 27B are on by the owner's choice (2026-10-31), though unmeasured.
   var nativeTools: Bool {
     switch self {
     case .qwen35_9B, .gemma4_12B, .ministral14B, .gemma4A4B, .gemma4_31B, .qwen36_35BA3B, .qwen38_27B: true
+    case .bonsai2_9B, .bonsai2_27B: true
     default: false
     }
   }

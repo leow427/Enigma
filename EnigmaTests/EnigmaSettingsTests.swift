@@ -659,11 +659,11 @@ final class EnigmaSettingsTests: XCTestCase {
 
   @MainActor
   func testInstalledPackageNeedingUpdateCanStillBeUsed() async throws {
-    // The fixture Mac (32 GB at 267 GB/s) recommends Gemma 4 26B-A4B IQ4_XS, so
-    // its stale copy shows Update under For this Mac.
+    // The fixture Mac (32 GB at 267 GB/s) recommends Bonsai 2 27B, so its stale
+    // copy shows Update under For this Mac.
     let mac = hardware(memory: 32, bandwidth: 267)
     let assessment = try XCTUnwrap(LocalModelSelector.select(manifest: .bundled, hardware: mac).assessments
-      .first { $0.id == "gemma-4-26b-a4b-iq4_xs" })
+      .first { $0.id == "bonsai-2-27b-q2_0" })
     var stale = installedModel(for: assessment)
     stale.visionConfiguration?.packageRevision = "old"
     let engine = SettingsRecordingEngine(installed: [stale])
@@ -672,8 +672,8 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertEqual(fixture.advisor.recommendations(installedModels: fixture.chat.installedModels).recommended?.id,
                    assessment.id)
     let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
-    try await waitForUI("the Update button", in: host.view) { host.shows("Update Gemma 4 26B-A4B") }
-    XCTAssertTrue(host.shows("Use Gemma 4 26B-A4B"), "The installed copy stays usable")
+    try await waitForUI("the Update button", in: host.view) { host.shows("Update Bonsai 2 27B") }
+    XCTAssertTrue(host.shows("Use Bonsai 2 27B"), "The installed copy stays usable")
   }
 
   @MainActor

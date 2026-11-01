@@ -40,8 +40,9 @@ whatever you click. Each step has one primary button, which Return presses.
 2. **Pick a brain for me.** Enigma shows this Mac's memory, free storage, and
    chip, then up to three models: the same roles as **Settings → On this
    Mac**, tagged **recommended** (or **best available, expect longer waits**
-   on a Mac where no model is fast), **faster** and **smarter, slower
-   replies**. Each row shows capability, expected speed, and download size.
+   on a Mac where no model is fast and no Bonsai 2 fits and reaches 8 tokens
+   per second), **faster** and
+   **smarter, slower replies**. Each row shows capability, expected speed, and download size.
    Models that don't fit the Mac's memory or storage are never listed. **Skip
    local models** uses cloud models only. The primary button changes with your
    choice: **Install model**, **Update model**, **Use this model**, or
