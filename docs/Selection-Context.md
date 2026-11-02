@@ -231,80 +231,68 @@ and add the app you're running.
 - The shortcut monitor looks only at modifier keys and event types; it doesn't
   record what you type.
 - Text is read only when you invoke the shortcut, and replacement happens only
-  when you ask for it. There is no background selection monitoring.
-- While Enigma has Accessibility permission, it asks every app that comes to the
-  front to turn on its full accessibility support (`AXManualAccessibility`),
-  including apps you never capture from. It does the same for the frontmost app
-  when Enigma starts and on the first tap of the double-tap shortcut. After an app
-  launches or comes to the front, it asks again about 1 s, 3 s and 8 s later while
-  that app is still in front, because a freshly launched Electron app ignores the
-  request until it has finished starting. Chromium and Electron apps such as Slack and Discord build their
-  accessibility tree only when asked and take about 2 s to do it, so this keeps the
-  first capture there from waiting. Enigma reads nothing at that point: no focused
-  element, no text. Electron warns that rendering the accessibility tree can
-  noticeably affect an app's performance, so those apps may use more CPU and
-  memory while it is on. VS Code and the editors built on it are never asked this
-  way: they take it as a screen reader, switch to screen-reader rendering and show
-  a lasting prompt. Enigma recognizes them by bundle ID (VS Code, VS Code Insiders,
-  VSCodium, Cursor, Windsurf) or by VS Code's `product.json` inside the app's
-  bundle (it checks that the file exists and reads nothing from it), and leaves
-  alone any app whose bundle it can't identify. They are asked only when you
-  actually invoke Enigma there, as capture always does.
-- Chromium browsers (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera and Chromium)
-  are also asked with `AXEnhancedUserInterface`, the switch a screen reader such
-  as VoiceOver sets, because Chrome 156 ignores `AXManualAccessibility` and keeps
-  its web pages hidden from Accessibility without it (another project reported the
-  same from Chrome 155). Enigma never switches either one off; Chrome kept its
-  full accessibility tree on for at least 15 minutes idle. If VoiceOver turns
-  `AXEnhancedUserInterface` off when it quits, the tree stays off until Enigma asks
-  again on the next activation or first tap. Window managers such as Rectangle
-  switch it off for each window move and back on afterwards, so Chrome may rebuild
-  its tree after a move (not measured). On
-  Chrome 156 the tree cost about 23 MB with a few tabs open, and resizing its
-  window through Accessibility still worked exactly and at once (checked on
-  2026-10-26). Other apps aren't asked this way, because native apps can animate
-  oddly with it.
+  when you ask for it. There is no background selection monitoring, and Enigma
+  never asks other apps to turn on extra accessibility support.
+- Capture is one quick Accessibility read, then **⌘C**. Enigma asks the front
+  app once for the selection in its focused element (and the web page that
+  contains it). Native apps such as Notes, Mail, Xcode, Preview and Messages
+  usually answer, and the clipboard isn't touched. If nothing comes back, or the
+  app reports no focused element at all (as OpenAI's ChatGPT app does), Enigma
+  copies the selection with **⌘C** and reads it from the clipboard, in any app.
+  Nothing waits for an app's accessibility tree. An app that times out or errors
+  instead of saying what is focused isn't copied from, and before each ⌘C Enigma
+  asks again and sends it only if the focus is still the one it read and still
+  safe, so an app too busy to answer gets no ⌘C. A native text field (one
+  outside any web page) that reports an empty selection isn't sent ⌘C: nothing
+  is selected there, and ⌘C would only play the alert sound.
+- Before the copy, every item and format on your clipboard is saved, and it's
+  put back afterwards unless you pressed ⌘C or ⌘X yourself in the meantime, or
+  something else wrote the clipboard. If the clipboard can't be saved
+  completely, the copy isn't attempted. If the first ⌘C doesn't change the
+  clipboard within 160 ms, it's sent once more (Electron editors sometimes drop
+  the first); if that one doesn't either within 240 ms, nothing was selected and
+  nothing is attached. A field that reports its selection range gets only the
+  first ⌘C. Before restoring, Enigma waits
+  for every ⌘C it sent to land, up to the end of those 400 ms (even when only one
+  was sent), so a slow copy can't overwrite your restored clipboard; a cancelled
+  capture waits the same way and still restores it. A copy that takes longer than that can still land
+  after the restore.
+- While the selection is on the clipboard, a clipboard manager (Maccy, Raycast,
+  Paste) may record it, and Universal Clipboard may offer it to your other
+  devices. Enigma can't mark the source app's copy as temporary.
+- Editors that copy the whole current line when nothing is selected are handled
+  apart. VS Code and editors built on it (VS Code Insiders, VSCodium, Cursor,
+  Windsurf): Enigma uses their copy only when VS Code's own clipboard data says
+  it came from a real selection, and rejects a copy from several cursors with
+  nothing selected. In any other app (another VS Code fork, or the VS Code
+  editor on a web page) a copy whose VS Code clipboard data says it came from an
+  empty selection or several cursors is rejected. JetBrains IDEs, Android
+  Studio, Sublime Text and Zed: ⌘C is sent only when Accessibility reports a
+  nonempty selection. Editors built on CodeMirror (Obsidian, JupyterLab,
+  Overleaf, Joplin) also copy the current line with nothing selected and leave no
+  marker, so there the line can be attached (see [Limitations](#limitations)).
 - Enigma writes one diagnostic line per capture to the system log, with timings
   and fixed labels only: no text, app name or bundle ID (see
   [How it works](#how-it-works)).
 - Password fields, secure text fields, protected content and anything under macOS
-  Secure Event Input are never read or pasted into. That includes a field inside
-  a secure or protected element: Enigma checks the focused element and every
-  element above it, up to the app itself. If Enigma can't tell whether a field is
-  safe, for example because it can't reach the app within 128 levels, it doesn't
-  read it.
-- Apart from Safari's PDF view (below), only the focused element and the web
-  page that contains it are read. For a
-  web page, Enigma asks for the page's own selection (its text markers); it
-  never reads other pages, windows or the rest of the document. When the
-  focused element is itself a web page (a frame or an embedded web view),
-  Enigma reads only that page, never the page around it.
-- A PDF that Safari shows as a page has no focused element and shares no
-  selection. So whenever Safari reports no focused element, Enigma looks through
-  the layout of Safari's front window for a PDF viewer, reading only element
-  roles and their children (at most 200 elements, never their text). If it finds
-  one, it checks the viewer and every element above it as above, and copies the
-  selection with ⌘C.
+  Secure Event Input are never read or pasted into. Enigma checks the focused
+  element and every element above it, up to the app itself; if it finds a secure
+  or protected one, or can't tell (for example because it can't reach the app
+  within 128 levels), it neither reads nor copies. In an app that reports no
+  focused element at all, Enigma relies on Secure Event Input, which password
+  fields turn on, before sending ⌘C or ⌘V; a secure field that doesn't turn it
+  on can't be detected there.
+- Only the focused element and the web page that contains it are read through
+  Accessibility. For a web page, Enigma asks for the page's own selection (its
+  text markers); it never reads other pages, windows or the rest of the
+  document. When the focused element is itself a web page (a frame or an
+  embedded web view), Enigma reads only that page, never the page around it.
 - Typing, clicking, scrolling, pressing a modifier key or switching apps during a
   capture cancels it. Letting go of the shortcut's keys (for example ⇧⌥ after
   ⇧⌥Space) doesn't.
 - The selection is limited to 256,000 bytes; larger selections are refused with a
   notice. A model's context limit can be smaller, in which case the request is
   refused and your draft is kept.
-- Some apps don't expose selected text to Accessibility. For those Enigma may copy
-  the selection with **⌘C** and read it from the clipboard. Every item and format
-  on your clipboard is saved first and put back afterwards, unless you copied
-  something new in the meantime. If the clipboard can't be saved completely, the
-  copy isn't attempted. VS Code and editors built on it (VS Code Insiders,
-  VSCodium, Cursor, Windsurf) copy the whole current line when nothing is
-  selected, so Enigma uses their copy only when VS Code's own clipboard data says
-  it came from a real selection. A copy from several cursors with nothing
-  selected is rejected too, so in that case Enigma reads no text.
-  Enigma doesn't add Electron apps such as Claude, Slack and Discord as cases
-  where ⌘C is allowed despite an empty selection range (as it does for browsers):
-  their selections are read through text markers instead, and a ⌘C there could
-  copy something other than the selection. As for any other app, ⌘C is still
-  tried when the focused element reports no selection range at all.
 
 ### Temporary chats and what is saved
 
@@ -350,115 +338,61 @@ selection may shape the query.
   **⇧⌥Space** as a Carbon hot key, and `PanelShortcutMonitor` handles **⌥⌃**, a tap that fires when Option and Control are
   released after being pressed together with no other key, modifier or click. They
   are started in `ApplicationDelegate` (`Enigma/App/ApplicationDelegate.swift`).
-  `OptionDoubleTap.tap` reports a first complete tap separately from the double
-  tap, and `SelectionShortcutMonitor` calls its `firstTap` closure then.
-  `SelectionAccessibilityWarmer` (also in `Enigma/App/SelectionShortcut.swift`)
-  is called there, and on
-  `NSWorkspace.didActivateApplicationNotification`,
-  `didLaunchApplicationNotification` (for an app that launches in front) and
-  startup, to set `attributes(for:)` on the frontmost app other than Enigma:
-  `AXManualAccessibility`, plus `AXEnhancedUserInterface` for the bundle IDs in
-  `SelectionCapturePolicy.chromiumBrowsers` (`turnOnAccessibility` sets each to
-  true). This happens
-  when Accessibility is granted, skipping the VS Code family
-  (`SelectionCapturePolicy.codeEditors`, or a bundle containing
-  `Contents/Resources/app/product.json`; `isWarmable`) and any app whose bundle ID
-  or bundle URL is unknown. `SelectionWarmHistory` remembers the last warms, by pid
-  and launch date, for the log. After an activation or launch it repeats the set
-  at `retryDelays` (1 s, 3 s, 8 s) while that app is still frontmost and
-  Accessibility is still granted; a newer activation or `stop()` makes earlier
-  retries do nothing. The sets run on a background serial queue with a 0.25 s
-  timeout each, so a slow or hung app can't hold up Enigma's main thread.
   Help's rows and strings are in `KeyboardShortcutsHelp`
   (`Enigma/App/EnigmaMainWindowLogic.swift`) and
   `Enigma/App/KeyboardShortcutsHelpView.swift`.
 - **Diagnostic log.** `SelectionLog` (in `SelectionContextService.swift`) writes one
-  `.notice` line per capture that reaches the source app: focus wait in ms, number
-  of focus reads, whether the tree was cold, selection read time in ms, which
-  source gave the text, whether ⌘C was used, the result (`attached`,
-  `nothingRead`, `notReady`, `tooLarge` or `cancelled`), and, from a snapshot taken
-  before the capture starts waiting, how many seconds earlier the app was last
-  warmed and by what (`lastWarm`, `lastWarmTrigger`) and when its last first-tap
-  warm was (`firstTapWarm`). Each warm writes a `.debug` line with its trigger and
-  the `AXError` code of each attribute it set, comma-separated (Chrome:
-  `-25205,-25208`), which macOS doesn't keep. Nothing logged contains the selected
-  text, its length, or the app's name or bundle ID. Read the capture lines with:
+  `.notice` line per capture that reaches the source app: how long it took in ms,
+  which source gave the text (`none` for a copy), whether ⌘C was used, and the
+  result (`attached`, `nothingRead`, `tooLarge` or `cancelled`). Nothing logged
+  contains the selected text, its length, or the app's name or bundle ID. Read
+  the lines with:
 
   ```sh
   log show --predicate 'subsystem == "com.leow427.AISpotlight" AND category == "selection"' --last 1h
   ```
-
-  and watch the warm lines live during a check with:
-
-  ```sh
-  log stream --level debug --predicate 'subsystem == "com.leow427.AISpotlight" AND category == "selection"'
-  ```
 - **Capture.** `SelectionContextService.capture()` (`Enigma/App/SelectionContextService.swift`)
-  sets the same attributes on the frontmost app (`turnOnAccessibility`) and runs
-  `SelectionCaptureFlow.run`, a generic sequence over the tree that the service
-  feeds with thin closures over the Accessibility calls. Structural lookups (the
-  focused element, parents, roles, ranges, marker ranges) use a 0.15 s messaging
-  timeout and string reads 1 s, instead of the system's 6 s default; the text
-  timeout is longer than the selection retry, so a read that times out ends the
-  retry. The flow waits up to 2.5 s
-  (`focusBudget`, polling every 30 ms with `SelectionCaptureRetry.first(within:)`)
-  for a focused element: a Chromium or Electron tree that was off takes about 2 s
-  to appear, and an Electron app may turn it off again after a while (Chrome,
-  asked with `AXEnhancedUserInterface`, kept it on for at least 15 minutes). A
-  ready app answers on
-  the first read, so it doesn't wait. If an app's whole wait passes with no
-  focused element, `SelectionFocusMemory` remembers that app (in memory, until it
-  quits or reports a focused element) and later captures there wait only 300 ms.
-  The wait stops at once on cancellation, user input, Secure Event Input or a
-  change of frontmost app. The element must
-  pass `SelectionAncestry.isSafe`, which walks up to 128 parents to the app and
-  fails closed on a secure or protected node, a missing parent or never reaching
-  the app (which also ends a parent cycle); after a cold wait an element that
-  doesn't pass yet is retried for the rest of the 2.5 s. `SelectionCapturePolicy.selectionText`
-  then tries, in order, and stops at the first text that isn't blank: the focused
-  element's `AXSelectedText`; `AXStringForRange` or the selected slice of `AXValue`;
-  its `AXSelectedTextMarkerRange` read with `AXStringForTextMarkerRange`; and the
+  runs `SelectionCaptureFlow.read`, one pass over an abstract tree that the
+  service feeds with thin closures over the Accessibility calls. Structural
+  lookups (the focused element, parents, roles, ranges, marker ranges) use a
+  0.15 s messaging timeout and string reads 1 s, instead of the system's 6 s
+  default. `focus` reads the focused element with its `AXError` (`SelectionFocus`):
+  `kAXErrorNoValue`, `kAXErrorAttributeUnsupported` and `kAXErrorNotImplemented`
+  count as nothing focused, and any other error (a timeout, say) sets `refused`
+  and refuses `replace`. The focused element must pass `SelectionAncestry.isSafe`, which walks
+  up to 128 parents to the app and fails closed on a secure or protected node, a
+  missing parent or never reaching the app (which also ends a parent cycle); an
+  unsafe focus sets `refused` and the capture ends without reading or copying.
+  `SelectionCapturePolicy.selectionText` then tries, in order, and stops at the
+  first text that isn't blank: the focused element's `AXSelectedText`;
+  `AXStringForRange` or the selected slice of `AXValue`; its
+  `AXSelectedTextMarkerRange` read with `AXStringForTextMarkerRange`; and the
   same two reads (`AXSelectedText`, then markers) on its nearest `AXWebArea`
   ancestor, unless the focused element is a web area itself. The marker range is
-  an opaque value passed back to the element it came
-  from; no private API is linked. The selection is read up to three times, 30 ms
-  apart, or for up to 750 ms (`coldSelectionBudget`) when the focused element only
-  just appeared. Every read re-checks that the focus and its safety haven't
-  changed; on a warm tree a changed focus ends the capture, while during the cold
-  750 ms the flow follows the new focused element if it passes the same safety
-  check (cold VS Code first reports its web area, then the editor), and that
-  element is the one the rest of the capture uses. Text from markers places the panel with `AXBoundsForTextMarkerRange`.
-  If nothing is read, `SelectionCapturePolicy` decides when the ⌘C
-  fallback is allowed (browser canvas editors yes; editors that copy the whole line
-  on an empty selection, no). VS Code-family editors use the fallback only when
-  VS Code's clipboard metadata (`isFromEmptySelection` and `multicursorText` in
-  `vscode-editor-data`, read from `org.chromium.web-custom-data`) confirms a single
-  real selection; otherwise the copy is discarded. The metadata is read only for
-  those editors. `SelectionPasteboardSnapshot` saves and restores the
-  clipboard. `SelectionInteractionGuard` cancels on user input and tags Enigma's own
+  an opaque value passed back to the element it came from; no private API is
+  linked. Text from markers places the panel with `AXBoundsForTextMarkerRange`,
+  and a range with `AXBoundsForRange`; a copied selection places it beside the
+  pointer. If nothing is read, or nothing is focused, `SelectionCapturePolicy.allowsCopy`
+  allows ⌘C in every app except the line-copy editors above, and
+  `SelectionCopyTransaction` runs it: yield 20 ms so input during the read can
+  cancel, snapshot the clipboard (`SelectionPasteboardSnapshot`), write a
+  marker, post ⌘C to the source process, poll the change count every 20 ms
+  (`attempts`: 160 ms, then one resend and 240 ms; `SelectionCapturePolicy.copyResend`
+  sends none to a native field with an empty range and no resend when the focused
+  element reported a range; each ⌘C first checks `SelectionFocus.isCurrent`), wait for every ⌘C sent to land or its time to run
+  out, read the string, restore. A change count that moves more than once per ⌘C
+  sent means something else wrote the clipboard, and a ⌘C or ⌘X the user pressed
+  (`SelectionInteractionGuard.copied`) means the clipboard is theirs: either
+  way nothing is read and nothing is restored over it. `acceptsCopy` reads VS
+  Code's clipboard metadata (`isFromEmptySelection` and `multicursorText` in
+  `vscode-editor-data`, from `org.chromium.web-custom-data`) in every app, as
+  above.
+  `SelectionInteractionGuard` cancels on user input and tags Enigma's own
   synthetic events; `SelectionInteractionPolicy` decides which events count
   (releasing modifiers doesn't). The result is a `ConversationContext`
   (`Enigma/Chat/ConversationContext.swift`). When nothing is attached,
-  `SelectionCaptureNotice` words the notice: it names the app ("No selected text
-  could be read from Claude…"), or says the app didn't share its text in time when
-  no focused element appeared within the wait.
-- **Safari's PDF view.** Safari shows a PDF opened as a page through a viewer
-  (subrole `AXPDFPluginSubrole`) that never reports a focused element or its
-  selection. So in Safari and Safari Technology Preview only, when the first focus
-  read finds nothing, `SelectionCaptureFlow` looks once in the focused window for
-  that viewer (`SelectionPDFViewer`): breadth-first, queueing only split groups,
-  tab groups, groups and scroll areas (never a web area, a toolbar or the viewer's
-  pages), within 8 levels and 200 elements (the window and each child whose role
-  is read), stopping at the first check after 100 ms, and reading roles,
-  subroles and children only. A viewer that passes the same
-  `SelectionAncestry.isSafe` walk takes the focused element's place: the flow
-  skips the focus wait and the selection reads, yields once (30 ms) so input
-  during the lookup can cancel the capture, and goes to the ⌘C fallback. Finding
-  a safe one also clears Safari from `SelectionFocusMemory`. Before, during and
-  after the copy, `SelectionPDFViewer.isCurrent` replaces the same-focus check: Safari
-  must still be frontmost and report no focused element (exactly
-  `kAXErrorNoValue`; any other error fails), the element must still be a PDF
-  viewer in Safari's focused window, and it must still pass the safety walk.
+  `SelectionCaptureNotice` words the notice and names the app ("No selected text
+  could be read from Claude…").
 - **Placement and panel geometry.** `SpotlightPanelController.summonSelectionContext()`
   (`Enigma/App/SpotlightPanelController.swift`) places the panel with
   `SelectionPanelPlacement`, resizes it from `SelectionComposerReport`s, and moves
@@ -501,7 +435,8 @@ selection may shape the query.
   two Selection settings.
 - **Replacement.** `SelectionContextService.replace(with:contextID:automatic:)` runs
   `SelectionPasteTransaction`: check permission and the source app, activate it,
-  check the focused field, snapshot the clipboard, write the text with transient
+  check the focused field (an app that reports none, such as ChatGPT, relies on the
+  Secure Event Input check), snapshot the clipboard, write the text with transient
   and auto-generated markers, post ⌘V to the source process, wait 600 ms, restore.
   It posts `.selectionReplacementBegan`, which orders the window out, and
   `.selectionReplacementEnded` with a `SelectionReplacementEnd`: after a sent
@@ -514,36 +449,38 @@ selection may shape the query.
 
 ## Limitations
 
-- Capture depends on each app's Accessibility support. Some apps expose nothing,
-  in which case the panel opens with `› no text selected` and a notice that names
-  the app and suggests you copy and paste the text yourself. See
-  [App support](#app-support).
-- The panel can still open about 2 s late in a Chromium or Electron app (Slack,
-  Discord) if you invoke Enigma within about 2 s of the moment the app accepted
-  the request to turn on accessibility, for example right after it launched (the
-  retries ask again at about 1 s, 3 s and 8 s); a key press, click or scroll during
-  that wait cancels the capture. VS Code-family editors aren't pre-warmed, so the first capture there after
-  their accessibility was off still takes about 2 s.
-- Text selected in a PDF that Safari shows as a page is read only by copying it,
-  so it attaches only when Safari's ⌘C copies it, and the panel opens beside the
-  pointer rather than the selection. **Replace text** can't paste into it (there's
-  no focused field) and says the replacement couldn't be sent. Other WebKit apps
-  that show the same viewer aren't searched.
-- Of the Chromium browsers, only Chrome has been checked; the others are assumed
-  to behave the same, and like Chrome they may fall back to ⌘C when the focused
-  element reports an empty selection range. Installed web apps (which run under
-  their own bundle IDs, such as `com.google.Chrome.app.…`) aren't on the list and
-  haven't been tested; they get only `AXManualAccessibility`.
-- An app other than Safari's PDF view that has nothing focused, or never reports
-  a focused element (such as OpenAI's Codex app, below), delays the panel by the full 2.5 s wait once, then by
-  300 ms on later invocations in that app until it reports a focused element.
+- In an app whose Accessibility doesn't share the selection (Chrome and Electron
+  apps such as Slack, Discord and ChatGPT, Safari's PDF view, canvas editors),
+  capture works only as well as that app's ⌘C: the copy briefly puts the text on
+  the clipboard (see [What is read, and when](#what-is-read-and-when)), and the
+  panel opens beside the pointer rather than the selection.
+- With nothing selected, an app that doesn't share its selection is sent ⌘C
+  twice, so the panel opens about 0.4 s later, and an app whose Copy command is
+  unavailable may play the alert sound for each. A native text field that
+  reports an empty selection gets none. With **Same as summon** on, this happens
+  on every summon with nothing selected, and saving the clipboard first makes an
+  app that offered its copy lazily (a large spreadsheet range, say) produce it
+  then.
+- In an editor built on CodeMirror (Obsidian, JupyterLab, Overleaf, Joplin),
+  invoking Enigma with nothing selected attaches the current line, because
+  CodeMirror copies it and leaves no marker saying so. Remove it with **×**.
+- ⌘C and ⌘V are sent as the C and V key codes. On a layout such as Dvorak,
+  where those keys type other letters, the copy and the paste may not work.
+- What ChatGPT (`com.openai.codex`), Chrome and Electron apps such as Slack
+  answer, with their accessibility off, when asked what is focused hasn't been
+  recorded. "No value" (-25212) and "not supported" (-25205, -25208) count as
+  nothing focused, so ⌘C runs; a timeout or any other error means nothing is
+  copied there. The probe prints this answer before it turns anything on.
+- In Finder, ⌘C copies the selected files, so their names are attached as text.
+- Enigma posts ⌘C and ⌘V to the source app's process rather than through the
+  system event stream. Apps that ignore events posted that way haven't been
+  found, but every app hasn't been checked.
 - An app that is busy or stops responding can still hold up the panel: each
-  lookup gives up after 0.15 s and each text read after 1 s, and a text read that
-  times out ends the selection retry, so the delay is bounded (a few seconds at
-  worst) rather than the system's 6 s per call.
+  lookup gives up after 0.15 s and each text read after 1 s, so the delay is
+  bounded (a few seconds at worst) rather than the system's 6 s per call.
 - A very large selection that takes the app longer than 1 s to hand over isn't
-  read through Accessibility; Enigma falls back to ⌘C where that's allowed, and
-  otherwise attaches nothing.
+  read through Accessibility. Enigma copies it with ⌘C only if the app then
+  answers what is focused; an app still busy gets no ⌘C, and nothing is attached.
 - Replacement is a normal paste. An app that is slow to paste may read the
   clipboard after Enigma has restored it, and Enigma can't confirm the paste landed.
 - Automated tests use synthetic fixtures and an `NSTextView`; behavior in specific
@@ -557,6 +494,14 @@ selection may shape the query.
 - Moving the panel by dragging doesn't move it between Spaces.
 
 ## App support
+
+Since November 2026 capture no longer waits for an app's accessibility tree or
+turns it on: an app that doesn't answer the one quick read is copied from with
+⌘C. The table below was recorded before that, while Enigma still turned on each
+app's accessibility support (`AXManualAccessibility`, and in Chromium browsers
+`AXEnhancedUserInterface`). It shows what each app can expose to Accessibility
+once that support is on; without it, Chromium and Electron apps usually go
+straight to ⌘C. Its ⌘C column describes the older, narrower fallback rules.
 
 On 2026-10-23 a signed build with the capture fixes, before pre-warming was
 added, attached the selection in Claude (the message box and a reply), Slack
@@ -603,8 +548,12 @@ was accepted and how long the focused element took to appear (it waits up to
 3 s), the focused element's role and subrole, `AXSelectedText`,
 `AXSelectedTextRange`, `AXStringForRange`, `AXValue`'s length, text markers, its
 text attribute names, and the same for any `AXWebArea` ancestor and how many
-levels up the app is. It only reads, apart from setting those attributes as
-Enigma does; it never touches the clipboard.
+levels up the app is. When nothing is focused it prints the error the app
+returned (`-25212` is "no value", which Enigma treats as nothing focused). It
+only reads, apart from setting those attributes, which Enigma itself no longer
+does; it never touches the clipboard. Setting them turns the app's
+accessibility tree on until the app quits, so a capture after the probe can read
+more through Accessibility than one before it.
 
 ```sh
 swift scripts/selection-probe.swift                      # 5 s to switch apps and select text, then read the frontmost app
@@ -619,12 +568,11 @@ documents.
 
 ## Tests
 
-- `EnigmaTests/SelectionContextTests.swift`: the double-tap detector and its
-  first-tap signal, the accessibility warmer and which attributes it sets, placement,
-  AX fallbacks and their order, the ancestor walk, the capture flow over a fake
-  tree on a simulated clock (cold trees, timeouts, interruptions, unsafe focus,
-  a focus that moves, web areas, a PDF viewer standing in for focus, when ⌘C may
-  follow), the PDF viewer search, the per-app focus memory,
+- `EnigmaTests/SelectionContextTests.swift`: the double-tap detector, placement,
+  AX fallbacks and their order, the ancestor walk, the one-pass capture flow over
+  a fake tree (no focus, unsafe focus, web areas), which apps ⌘C runs in, the ⌘C
+  transaction on a private clipboard (the resend, a late first copy, another
+  write, nothing selected, cancelling, a rejected VS Code copy, the restore),
   which events cancel a capture, the
   capture notices, clipboard preservation, paste transactions
   and their failure paths, which turns carry the selection, **/edit** and

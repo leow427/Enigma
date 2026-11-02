@@ -476,42 +476,6 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertNil(SelectionCapturePolicy.text(in: nil, range: CFRange(location: 0, length: 3)))
   }
 
-  func testLazyAccessibilityReadinessHasABoundedLongerRetryWindow() async {
-    var reads = 0
-    var clock = Duration.zero
-    let result = await SelectionCaptureRetry.first(within: .milliseconds(300), mayContinue: { true }, read: {
-      reads += 1
-      return reads == 6 ? "focused editor" : nil
-    }, now: { clock }, wait: { clock += $0 })
-    XCTAssertEqual(result, "focused editor")
-    XCTAssertEqual(reads, 6)
-    XCTAssertEqual(clock, .milliseconds(150))
-  }
-
-  func testCaptureRetriesReadinessButStopsOnSourceChange() async {
-    var reads = 0
-    var waits = 0
-    var clock = Duration.zero
-    let value: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { true }, read: {
-      reads += 1; return reads == 2 ? "selected text" : nil
-    }, now: { clock }, wait: { waits += 1; clock += $0 })
-    XCTAssertEqual(value, "selected text")
-    XCTAssertEqual(reads, 2)
-    XCTAssertEqual(waits, 1)
-    var unchanged = true
-    reads = 0
-    let missing: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { unchanged },
-      read: { reads += 1; return nil }, now: { clock }, wait: { clock += $0; unchanged = false })
-    XCTAssertNil(missing)
-    XCTAssertEqual(reads, 1)
-    reads = 0
-    clock = .zero
-    let absent: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.quickBudget, mayContinue: { true },
-      read: { reads += 1; return nil }, now: { clock }, wait: { clock += $0 })
-    XCTAssertNil(absent)
-    XCTAssertEqual(reads, 3, "the quick retry is about three reads, 30 ms apart")
-  }
-
   // MARK: - B16: deep trees, cold trees, text markers and named notices
 
   /// A chain where node `i`'s parent is `i + 1` and `application` is the application.
@@ -585,68 +549,21 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(calls, all)
   }
 
-  func testFocusReadinessWaitsForAColdTreeWithinItsBudget() async {
-    var clock = Duration.zero
-    var reads = 0
-    // Slack, VS Code and Discord reported focus about 2.06 s after AXManualAccessibility.
-    let cold: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
-      read: { reads += 1; return clock >= .milliseconds(2_060) ? "focused" : nil },
-      now: { clock }, wait: { clock += $0 })
-    XCTAssertEqual(cold, "focused")
-    XCTAssertGreaterThan(reads, 60)
-    clock = .zero
-    let late: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
-      read: { clock >= .milliseconds(2_600) ? "too late" : nil }, now: { clock }, wait: { clock += $0 })
-    XCTAssertNil(late)
-    XCTAssertEqual(clock, SelectionCaptureFlow.focusBudget, "the last wait is trimmed to the budget")
-  }
-
-  func testFocusReadinessStopsAtOnceWhenCaptureMayNotContinue() async {
-    var clock = Duration.zero
-    var reads = 0
-    var waits = 0
-    var mayContinue = true
-    let interrupted: String? = await SelectionCaptureRetry.first(within: .seconds(3), mayContinue: { mayContinue },
-      read: { reads += 1; return nil }, now: { clock },
-      wait: { waits += 1; clock += $0; if waits == 4 { mayContinue = false } })
-    XCTAssertNil(interrupted)
-    XCTAssertEqual(reads, 4)
-    XCTAssertEqual(clock, .milliseconds(120))
-    reads = 0
-    let refused: String? = await SelectionCaptureRetry.first(within: .seconds(3), mayContinue: { false },
-      read: { reads += 1; return "never" }, now: { clock }, wait: { _ in XCTFail("no wait when refused") })
-    XCTAssertNil(refused)
-    XCTAssertEqual(reads, 0)
-  }
-
-  func testFocusReadinessFastPathReadsOnceWithoutWaiting() async {
-    var reads = 0
-    let value: String? = await SelectionCaptureRetry.first(within: SelectionCaptureFlow.focusBudget, mayContinue: { true },
-      read: { reads += 1; return "focused" }, now: { .zero }, wait: { _ in XCTFail("a ready tree must not wait") })
-    XCTAssertEqual(value, "focused")
-    XCTAssertEqual(reads, 1)
-    XCTAssertLessThan(SelectionCaptureFlow.coldSelectionBudget, SelectionCaptureFlow.focusBudget)
-  }
-
   func testCaptureNoticeNamesTheAppAndFallsBackWithoutOne() {
     XCTAssertEqual(SelectionCaptureNotice.text(for: .nothingRead, appName: "Claude"),
       "No selected text could be read from Claude. If text is selected there, copy it and paste it into this chat.")
-    XCTAssertEqual(SelectionCaptureNotice.text(for: .notReady, appName: "Claude"),
-      "Claude didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
     XCTAssertEqual(SelectionCaptureNotice.text(for: .nothingRead, appName: nil),
       "No selected text could be read from the app. If text is selected there, copy it and paste it into this chat.")
-    XCTAssertEqual(SelectionCaptureNotice.text(for: .notReady, appName: "  "),
-      "The app didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
+    XCTAssertEqual(SelectionCaptureNotice.text(for: .nothingRead, appName: "  "),
+      "No selected text could be read from the app. If text is selected there, copy it and paste it into this chat.")
     XCTAssertEqual(SelectionCaptureNotice.text(for: .noSource, appName: "Claude"),
       "No selected text could be read. Highlight text in the source app and try again. If it still fails, copy the text and paste it into this chat.")
   }
 
-  /// A fake accessibility tree on a simulated clock. Nodes are Ints; `wait` advances the clock.
+  /// A fake accessibility tree. Nodes are Ints.
   @MainActor
   private final class FakeCaptureTree {
-    var clock = Duration.zero
-    var focusAppearsAt = Duration.zero
-    var focusedNode: Int? = 1
+    var focus: SelectionFocus<Int> = .element(1)
     var unsafe: Set<Int> = []
     /// Roles default to AXGroup; node 100 is the application.
     var roles: [Int: String] = [100: kAXApplicationRole as String]
@@ -654,14 +571,8 @@ final class SelectionContextTests: XCTestCase {
     var selectedText: [Int: String] = [:]
     var rangeText: [Int: String] = [:]
     var markerText: [Int: String] = [:]
-    /// The selection only becomes readable at this time.
-    var textAppearsAt = Duration.zero
-    var mayCapture = true
     var calls: [String] = []
-    var selectionReads = 0
-    /// A PDF viewer in the focused window, found only when nothing is focused (Safari's PDF view).
-    var viewer: Int?
-    var viewerLookups = 0
+    var focusReads = 0
 
     /// Puts `node` inside web area `area`, which sits under the application.
     func place(_ node: Int, inWebArea area: Int) {
@@ -672,234 +583,140 @@ final class SelectionContextTests: XCTestCase {
 
     func text(_ table: [Int: String], _ name: String, _ node: Int) -> String? {
       calls.append("\(name)(\(node))")
-      return clock >= textAppearsAt ? table[node] : nil
+      return table[node]
     }
 
     var tree: SelectionCaptureFlow.Tree<Int> {
       SelectionCaptureFlow.Tree(
-        focused: { self.clock >= self.focusAppearsAt ? self.focusedNode : nil },
+        focused: { self.focusReads += 1; return self.focus },
         isSafe: { !self.unsafe.contains($0) },
-        sameFocus: { $0 == self.focusedNode },
         role: { self.roles[$0] ?? "AXGroup" },
         parent: { self.calls.append("parent(\($0))"); return self.parents[$0] },
-        selectedText: { self.selectionReads += 1; return self.text(self.selectedText, "selectedText", $0) },
+        selectedText: { self.text(self.selectedText, "selectedText", $0) },
         rangeText: { self.text(self.rangeText, "rangeText", $0) },
-        markerText: { self.text(self.markerText, "markerText", $0) },
-        pdfViewer: { self.viewerLookups += 1; return self.viewer })
+        markerText: { self.text(self.markerText, "markerText", $0) })
     }
 
-    func run(budget: Duration = SelectionCaptureFlow.focusBudget, appName: String? = "Slack",
-             onWait: (@MainActor () -> Void)? = nil) async -> SelectionCaptureFlow.Outcome<Int> {
-      await SelectionCaptureFlow.run(tree: tree, focusBudget: budget, appName: appName,
-        mayCapture: { self.mayCapture }, now: { self.clock }, wait: { self.clock += $0; onWait?() })
+    func run() -> SelectionCaptureFlow.Outcome<Int> { SelectionCaptureFlow.read(tree: tree) }
+  }
+
+  func testCaptureFlowReadsOnceWithoutWaitingAndLeavesAnEmptySelectionToTheCopy() {
+    let fake = FakeCaptureTree()
+    fake.selectedText[1] = "text"
+    let found = fake.run()
+    XCTAssertEqual(found.selection?.source, .selectedText)
+    XCTAssertEqual(found.selection?.text, "text")
+    XCTAssertEqual(found.element, 1)
+    XCTAssertEqual(fake.focusReads, 1)
+    XCTAssertEqual(fake.calls, ["selectedText(1)"])
+    // Nothing focused (ChatGPT, Safari's PDF view): one read, nothing refused, so ⌘C may run.
+    let unfocused = FakeCaptureTree()
+    unfocused.focus = .nothing
+    let none = unfocused.run()
+    XCTAssertNil(none.element)
+    XCTAssertNil(none.selection)
+    XCTAssertFalse(none.refused)
+    XCTAssertTrue(none.mayCopy)
+    XCTAssertEqual(unfocused.focusReads, 1, "an app with no focused element is never waited for")
+    XCTAssertFalse(found.mayCopy, "no ⌘C once text was read")
+    // A focused element with an empty selection leaves the selection to ⌘C.
+    let empty = FakeCaptureTree()
+    XCTAssertTrue(empty.run().mayCopy)
+  }
+
+  func testFocusErrorsAreUnknownAndOnlyNoValueMeansNothingFocused() {
+    func focus(_ error: AXError, _ element: Int?) -> String {
+      switch SelectionFocus(error: error, element: element) {
+      case .element(let node): "element \(node)"
+      case .nothing: "nothing"
+      case .unknown: "unknown"
+      }
     }
+    XCTAssertEqual(focus(.success, 3), "element 3")
+    for error in [AXError.noValue, .attributeUnsupported, .notImplemented] {
+      XCTAssertEqual(focus(error, nil), "nothing", "\(error.rawValue)")
+    }
+    for error in [AXError.cannotComplete, .apiDisabled, .failure, .illegalArgument, .invalidUIElement] {
+      XCTAssertEqual(focus(error, nil), "unknown", "\(error.rawValue)")
+    }
+    XCTAssertEqual(focus(.success, nil), "unknown")
+    // Paste: a safe element or nothing focused; never an unsafe element or an unknown focus.
+    XCTAssertTrue(SelectionFocus<Int>.element(1).allowsPaste(isSafe: { _ in true }))
+    XCTAssertFalse(SelectionFocus<Int>.element(1).allowsPaste(isSafe: { _ in false }))
+    XCTAssertTrue(SelectionFocus<Int>.nothing.allowsPaste(isSafe: { _ in false }))
+    XCTAssertFalse(SelectionFocus<Int>.unknown.allowsPaste(isSafe: { _ in true }))
   }
 
-  func testCaptureFlowReadsAColdTreeWithTheLongerSelectionRetry() async {
-    let fake = FakeCaptureTree()
-    // Slack's cold tree reported focus after about 2.06 s; its text then took a little longer.
-    fake.focusAppearsAt = .milliseconds(2_060)
-    fake.textAppearsAt = .milliseconds(2_500)
-    fake.selectedText[1] = "cold text"
-    let outcome = await fake.run()
-    XCTAssertEqual(outcome.element, 1)
-    XCTAssertEqual(outcome.selection?.text, "cold text")
-    XCTAssertEqual(outcome.selection?.source, .selectedText)
-    XCTAssertTrue(outcome.foundFocus)
-    XCTAssertFalse(outcome.focusTimedOut)
-    XCTAssertNil(outcome.notice)
-    // Reads at 0, 30, … 2070 ms: the 70th wait finds the focus, then text at 2520 ms.
-    XCTAssertEqual(outcome.timing.focusReads, 70)
-    XCTAssertTrue(outcome.timing.wasCold)
-    XCTAssertEqual(outcome.timing.focusWait, .milliseconds(2_070))
-    XCTAssertEqual(outcome.timing.selectionTime, .milliseconds(450))
+  func testCopyIsSentOnlyWhileTheFocusIsStillTheOneReadAndSafe() {
+    func current(_ now: SelectionFocus<Int>, _ read: Int?, safe: Bool = true) -> Bool {
+      now.isCurrent(read, same: ==, isSafe: { _ in safe })
+    }
+    XCTAssertTrue(current(.element(1), 1))
+    XCTAssertFalse(current(.element(1), 1, safe: false))
+    XCTAssertFalse(current(.element(2), 1), "the focus moved")
+    XCTAssertTrue(current(.nothing, nil))
+    XCTAssertFalse(current(.element(1), nil), "something took focus after the read")
+    XCTAssertFalse(current(.nothing, 1))
+    XCTAssertFalse(current(.unknown, nil), "a busy app that times out gets no ⌘C")
+    XCTAssertFalse(current(.unknown, 1))
   }
 
-  func testCaptureFlowTakesTheWarmSnapshotBeforeWaitingAndTimesTheTimeout() async {
-    let fake = FakeCaptureTree()
-    fake.focusAppearsAt = .milliseconds(90)
-    var snapshotAt: Duration?
-    var focusReadsBeforeSnapshot = -1
-    let snapshot = SelectionWarmSnapshot(sinceWarm: .seconds(4), trigger: .retry, sinceFirstTap: nil)
-    let outcome = await SelectionCaptureFlow.run(tree: fake.tree, focusBudget: SelectionCaptureFlow.focusBudget,
-      appName: "Slack", mayCapture: { true }, lastWarm: {
-        snapshotAt = fake.clock
-        focusReadsBeforeSnapshot = fake.calls.count
-        return snapshot
-      }, now: { fake.clock }, wait: { fake.clock += $0 })
-    XCTAssertEqual(snapshotAt, .zero, "taken before any waiting")
-    XCTAssertEqual(focusReadsBeforeSnapshot, 0)
-    XCTAssertEqual(outcome.timing.lastWarm, snapshot)
-    // A focus timeout still reports how cold the tree was.
-    let none = FakeCaptureTree()
-    none.focusedNode = nil
-    let timedOut = await none.run()
-    XCTAssertTrue(timedOut.timing.wasCold)
-    XCTAssertEqual(timedOut.timing.focusWait, SelectionCaptureFlow.focusBudget)
-    XCTAssertGreaterThan(timedOut.timing.focusReads, 80)
+  func testCopyPlanSkipsRefusedReadsAndEmptyNativeFieldsAndResendsOnlyWithoutACaret() {
+    let empty = CFRange(location: 0, length: 0), selected = CFRange(location: 1, length: 2)
+    func plan(_ range: CFRange?, refused: Bool = false, web: Bool = false, app: String? = "com.example.app") -> Bool? {
+      SelectionCapturePolicy.copyResend(mayCopy: !refused, range: range, inWebContent: web, bundleID: app)
+    }
+    XCTAssertNil(plan(nil, refused: true), "nothing is copied after a refused read")
+    XCTAssertEqual(plan(nil), true, "no focused element or no range: resend allowed")
+    XCTAssertEqual(plan(selected), false, "a field with a caret gets one ⌘C")
+    XCTAssertNil(plan(empty), "a native field reporting an empty range has nothing to copy")
+    XCTAssertEqual(plan(empty, web: true), false, "web content can hide a DOM selection behind an empty range")
+    XCTAssertEqual(plan(empty, app: "com.microsoft.VSCode"), false)
+    XCTAssertNil(plan(nil, app: "com.jetbrains.pycharm"))
   }
 
-  func testCaptureFlowFastPathReadsOnceWithoutWaiting() async {
-    let fake = FakeCaptureTree()
-    fake.selectedText[1] = "ready"
-    let outcome = await fake.run(onWait: { XCTFail("a ready tree must not wait") })
-    XCTAssertEqual(outcome.selection?.text, "ready")
-    XCTAssertEqual(fake.clock, .zero)
-    // A warm tree with no text yet gets only the quick retry, not the cold one.
-    let warm = FakeCaptureTree()
-    warm.selectedText[1] = "late"
-    warm.textAppearsAt = .milliseconds(200)
-    let missed = await warm.run()
-    XCTAssertNil(missed.selection)
-    XCTAssertEqual(warm.clock, SelectionCaptureFlow.quickBudget)
-    XCTAssertEqual(missed.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
+  func testOnlyTheUsersOwnCommandCOrXCountsAsTheirCopy() {
+    XCTAssertTrue(SelectionInteractionPolicy.isUserCopy(type: .keyDown, flags: .command, keyCode: 8, isOwnEvent: false))
+    XCTAssertTrue(SelectionInteractionPolicy.isUserCopy(type: .keyDown, flags: [.command, .shift], keyCode: 7, isOwnEvent: false))
+    XCTAssertFalse(SelectionInteractionPolicy.isUserCopy(type: .keyDown, flags: .command, keyCode: 8, isOwnEvent: true))
+    XCTAssertFalse(SelectionInteractionPolicy.isUserCopy(type: .keyDown, flags: .command, keyCode: 9, isOwnEvent: false))
+    XCTAssertFalse(SelectionInteractionPolicy.isUserCopy(type: .keyDown, flags: [], keyCode: 8, isOwnEvent: false))
+    XCTAssertFalse(SelectionInteractionPolicy.isUserCopy(type: .keyUp, flags: .command, keyCode: 8, isOwnEvent: false))
   }
 
-  func testCaptureFlowReportsNotReadyOnlyWhenTheWholeFocusWaitPassed() async {
-    let fake = FakeCaptureTree()
-    fake.focusedNode = nil
-    let outcome = await fake.run(appName: "Claude")
-    XCTAssertNil(outcome.element)
-    XCTAssertFalse(outcome.foundFocus)
-    XCTAssertTrue(outcome.focusTimedOut)
-    XCTAssertEqual(fake.clock, SelectionCaptureFlow.focusBudget)
-    XCTAssertEqual(outcome.notice,
-      "Claude didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat.")
-    let interrupted = FakeCaptureTree()
-    interrupted.focusedNode = nil
-    let stopped = await interrupted.run(appName: "Claude", onWait: {
-      if interrupted.clock >= .milliseconds(300) { interrupted.mayCapture = false }
-    })
-    XCTAssertFalse(stopped.focusTimedOut)
-    XCTAssertEqual(interrupted.clock, .milliseconds(300))
-    XCTAssertEqual(stopped.notice,
-      "No selected text could be read from Claude. If text is selected there, copy it and paste it into this chat.")
-  }
-
-  func testCaptureFlowStopsReadingWhenTheFocusBecomesUnsafe() async {
-    let fake = FakeCaptureTree()
-    var waitsAfterFocus = 0
-    let outcome = await fake.run(onWait: {
-      guard fake.selectionReads > 0 else { return }
-      waitsAfterFocus += 1
-      fake.unsafe.insert(1) // e.g. the field turned into a password field
-      fake.selectedText[1] = "secret"
-    })
-    XCTAssertEqual(outcome.element, 1)
-    XCTAssertNil(outcome.selection)
-    XCTAssertEqual(fake.selectionReads, 1, "no read after the focus became unsafe")
-    XCTAssertEqual(waitsAfterFocus, 1)
-    // On a cold tree too: the unsafe element is never read again, and nothing safe replaces it.
-    let cold = FakeCaptureTree()
-    cold.focusAppearsAt = .milliseconds(100)
-    let coldOutcome = await cold.run(onWait: {
-      guard cold.selectionReads > 0 else { return }
-      cold.unsafe.insert(1)
-      cold.selectedText[1] = "secret"
-    })
-    XCTAssertNil(coldOutcome.selection)
-    XCTAssertEqual(cold.selectionReads, 1)
-    // Unsafe from the start: never read at all.
+  func testCaptureFlowRefusesAnUnsafeFocusWithoutReadingIt() {
     let secure = FakeCaptureTree()
     secure.unsafe = [1]
     secure.selectedText[1] = "secret"
-    let refused = await secure.run()
+    secure.markerText[1] = "secret"
+    let refused = secure.run()
+    XCTAssertTrue(refused.refused)
+    XCTAssertFalse(refused.mayCopy, "nothing is copied from an unsafe focused element")
     XCTAssertNil(refused.element)
-    XCTAssertTrue(refused.foundFocus)
-    XCTAssertEqual(secure.selectionReads, 0)
-    XCTAssertEqual(secure.clock, SelectionCaptureFlow.quickBudget)
-    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
-  }
-
-  func testCaptureFlowRetriesAnUnsafeColdFocusForTheRestOfTheBudget() async {
-    let fake = FakeCaptureTree()
-    // The focus appears at 1 s but doesn't reach the app until the tree fills in at 2 s.
-    fake.focusAppearsAt = .seconds(1)
-    fake.unsafe = [1]
-    fake.selectedText[1] = "filled in"
-    let outcome = await fake.run(onWait: { if fake.clock >= .seconds(2) { fake.unsafe = [] } })
-    XCTAssertEqual(outcome.element, 1)
-    XCTAssertEqual(outcome.selection?.text, "filled in")
-    // With 10 ms of the budget left, the retry still gets the 60 ms floor.
-    let late = FakeCaptureTree()
-    late.focusAppearsAt = .milliseconds(2_490)
-    late.unsafe = [1]
-    late.selectedText[1] = "just in time"
-    let floor = await late.run(onWait: { if late.clock >= .milliseconds(2_520) { late.unsafe = [] } })
-    XCTAssertEqual(floor.selection?.text, "just in time")
-    // A focus that never becomes safe says nothing could be read.
-    let never = FakeCaptureTree()
-    never.focusAppearsAt = .seconds(1)
-    never.unsafe = [1]
-    let refused = await never.run()
-    XCTAssertNil(refused.element)
-    XCTAssertEqual(never.clock, SelectionCaptureFlow.focusBudget)
-    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Slack"))
-  }
-
-  func testCaptureFlowGivesAFocusFoundOnTheSecondReadTheColdSelectionBudget() async {
-    let fake = FakeCaptureTree()
-    fake.focusAppearsAt = SelectionCaptureFlow.interval
-    fake.textAppearsAt = SelectionCaptureFlow.interval + .milliseconds(720)
-    fake.selectedText[1] = "second read"
-    let outcome = await fake.run()
-    XCTAssertEqual(outcome.selection?.text, "second read")
-    let first = FakeCaptureTree()
-    first.textAppearsAt = .milliseconds(720)
-    first.selectedText[1] = "too late for a warm tree"
-    let warm = await first.run()
-    XCTAssertNil(warm.selection)
-  }
-
-  func testCaptureFlowFollowsAFocusThatMovesOnlyWhileTheTreeIsCold() async {
-    // Cold VS Code first reports its web area as focused, then the editor.
-    let cold = FakeCaptureTree()
-    cold.focusAppearsAt = .milliseconds(60)
-    cold.selectedText[2] = "editor text"
-    let moved = await cold.run(onWait: { if cold.selectionReads > 0 { cold.focusedNode = 2 } })
-    XCTAssertEqual(moved.element, 2, "the element returned is the one the text came from")
-    XCTAssertEqual(moved.selection?.text, "editor text")
-    // The web area is looked up again for the new focus.
-    let pages = FakeCaptureTree()
-    pages.focusAppearsAt = .milliseconds(60)
-    pages.place(1, inWebArea: 7)
-    pages.place(2, inWebArea: 8)
-    pages.selectedText[8] = "new page"
-    var callsBeforeMove = 0
-    let newPage = await pages.run(onWait: {
-      guard pages.selectionReads > 0, pages.focusedNode == 1 else { return }
-      callsBeforeMove = pages.calls.count
-      pages.focusedNode = 2
-    })
-    XCTAssertEqual(newPage.element, 2)
-    XCTAssertEqual(newPage.selection?.text, "new page")
-    XCTAssertEqual(newPage.webArea, 8)
-    XCTAssertFalse(pages.calls.dropFirst(callsBeforeMove).contains { $0.hasSuffix("(7)") }, "\(pages.calls)")
-    // The new focus must be safe too.
-    let unsafe = FakeCaptureTree()
-    unsafe.focusAppearsAt = .milliseconds(60)
-    unsafe.unsafe = [2]
-    unsafe.selectedText[2] = "secret"
-    let refused = await unsafe.run(onWait: { if unsafe.selectionReads > 0 { unsafe.focusedNode = 2 } })
     XCTAssertNil(refused.selection)
-    XCTAssertFalse(unsafe.calls.contains { $0.hasSuffix("(2)") })
-    // A warm tree whose focus moves stops reading: the user moved on.
-    let warm = FakeCaptureTree()
-    warm.selectedText[2] = "elsewhere"
-    let stopped = await warm.run(onWait: { warm.focusedNode = 2 })
-    XCTAssertEqual(stopped.element, 1)
-    XCTAssertNil(stopped.selection)
-    XCTAssertEqual(warm.selectionReads, 1, "the retry checks the focus is unchanged")
+    XCTAssertEqual(secure.calls, [], "an unsafe focused element is never read")
+    // An app that times out or errors instead of saying what is focused isn't copied from either.
+    let busy = FakeCaptureTree()
+    busy.focus = .unknown
+    let unknown = busy.run()
+    XCTAssertTrue(unknown.refused)
+    XCTAssertFalse(unknown.mayCopy)
+    XCTAssertEqual(busy.calls, [])
   }
 
-  func testCaptureFlowReadsTheWebAreaAboveTheFocusAndNotPastAFocusedWebArea() async {
+  func testCaptureFlowReadsTheWebAreaAboveTheFocusAndNotPastAFocusedWebArea() {
     let fake = FakeCaptureTree()
     fake.place(1, inWebArea: 7)
     fake.markerText[7] = "page selection"
-    let outcome = await fake.run()
+    let outcome = fake.run()
     XCTAssertEqual(outcome.selection?.source, .webAreaMarkers)
     XCTAssertEqual(outcome.selection?.text, "page selection")
     XCTAssertEqual(outcome.webArea, 7)
+    XCTAssertFalse(outcome.inWebContent, "worked out only when nothing was read")
+    // Nothing selected inside the web area: the copy may look past its empty range.
+    let blank = FakeCaptureTree()
+    blank.place(1, inWebArea: 7)
+    XCTAssertTrue(blank.run().inWebContent)
     XCTAssertEqual(fake.calls, ["selectedText(1)", "rangeText(1)", "markerText(1)", "parent(1)",
       "selectedText(7)", "markerText(7)"])
     // Deeper: the nearest web area wins, and the walk stops at the application.
@@ -909,14 +726,14 @@ final class SelectionContextTests: XCTestCase {
     nested.roles[9] = SelectionCaptureFlow.webAreaRole
     nested.selectedText[3] = "inner page"
     nested.selectedText[9] = "outer page"
-    let inner = await nested.run()
+    let inner = nested.run()
     XCTAssertEqual(inner.selection?.text, "inner page")
     XCTAssertEqual(inner.webArea, 3)
     let area = FakeCaptureTree()
     area.place(1, inWebArea: 7)
     area.selectedText[7] = "page text"
     area.markerText[1] = "own markers"
-    let own = await area.run()
+    let own = area.run()
     XCTAssertEqual(own.selection?.source, .focusedMarkers)
     XCTAssertNil(own.webArea)
     // A focused web area (a frame or web view) is its own document.
@@ -924,202 +741,17 @@ final class SelectionContextTests: XCTestCase {
     frame.place(1, inWebArea: 7)
     frame.roles[1] = SelectionCaptureFlow.webAreaRole
     frame.selectedText[7] = "enclosing page"
-    let framed = await frame.run()
+    let framed = frame.run()
     XCTAssertNil(framed.selection)
+    XCTAssertTrue(framed.inWebContent, "a focused web area is web content")
     XCTAssertFalse(frame.calls.contains { $0.contains("(7)") || $0.hasPrefix("parent") }, "\(frame.calls)")
     // No web area at all: nothing beyond the focused element is read.
     let plain = FakeCaptureTree()
     plain.parents = [1: 100]
-    let none = await plain.run()
+    let none = plain.run()
     XCTAssertNil(none.selection)
-    XCTAssertEqual(plain.calls, ["selectedText(1)", "rangeText(1)", "markerText(1)", "parent(1)",
-      "selectedText(1)", "rangeText(1)", "markerText(1)", "selectedText(1)", "rangeText(1)", "markerText(1)"])
-  }
-
-  func testTextReadTimeoutOutlastsTheColdSelectionRetry() {
-    // A string read that times out then ends the retry rather than being repeated in it.
-    XCTAssertGreaterThan(Duration.milliseconds(Int(SelectionContextService.textTimeout * 1000)),
-      SelectionCaptureFlow.coldSelectionBudget)
-  }
-
-  func testCaptureFlowAllowsTheCopyFallbackOnlyWhileCaptureMayContinue() async {
-    let quiet = FakeCaptureTree()
-    let allowed = await quiet.run()
-    XCTAssertNil(allowed.selection)
-    XCTAssertTrue(allowed.mayCopy)
-    // The user typed or clicked during the selection retry: no ⌘C afterwards.
-    let typed = FakeCaptureTree()
-    typed.focusAppearsAt = .milliseconds(60)
-    let interrupted = await typed.run(onWait: { if typed.selectionReads > 0 { typed.mayCapture = false } })
-    XCTAssertNil(interrupted.selection)
-    XCTAssertEqual(interrupted.element, 1)
-    XCTAssertFalse(interrupted.mayCopy)
-    let read = FakeCaptureTree()
-    read.selectedText[1] = "text"
-    let found = await read.run()
-    XCTAssertFalse(found.mayCopy, "no fallback once text was read")
-  }
-
-  func testCaptureFlowUsesAPDFViewerAtOnceWhenNothingIsFocused() async {
-    // Safari's PDF view never reports a focused element or its selection to Accessibility.
-    let fake = FakeCaptureTree()
-    fake.focusedNode = nil
-    fake.viewer = 5
-    let outcome = await fake.run(appName: "Safari")
-    XCTAssertEqual(outcome.element, 5)
-    XCTAssertTrue(outcome.isPDFViewer)
-    XCTAssertNil(outcome.selection)
-    XCTAssertTrue(outcome.mayCopy, "the copy is the only way to read the PDF's selection")
-    XCTAssertTrue(outcome.foundFocus, "Safari answered, so later captures there keep the normal wait")
-    XCTAssertFalse(outcome.focusTimedOut)
-    XCTAssertEqual(outcome.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Safari"))
-    XCTAssertEqual(fake.clock, SelectionCaptureFlow.interval, "no focus wait, one yield before ⌘C")
-    XCTAssertEqual(outcome.timing.focusReads, 1)
-    XCTAssertFalse(outcome.timing.wasCold)
-    XCTAssertEqual(fake.selectionReads, 0, "the viewer exposes no selection, so it isn't read")
-    XCTAssertEqual(fake.viewerLookups, 1)
-  }
-
-  func testCaptureFlowRefusesAnUnsafeOrInterruptedPDFViewer() async {
-    let unsafe = FakeCaptureTree()
-    unsafe.focusedNode = nil
-    unsafe.viewer = 5
-    unsafe.unsafe = [5]
-    let refused = await unsafe.run(appName: "Safari")
-    XCTAssertNil(refused.element)
-    XCTAssertFalse(refused.foundFocus, "an unsafe viewer leaves the focus memory as it was")
-    XCTAssertFalse(refused.mayCopy)
-    XCTAssertFalse(refused.focusTimedOut)
-    XCTAssertEqual(refused.notice, SelectionCaptureNotice.text(for: .nothingRead, appName: "Safari"))
-    XCTAssertEqual(unsafe.clock, .zero, "an unsafe viewer isn't waited on")
-    // The user moved on before the flow started: neither focus nor the viewer is read.
-    let moved = FakeCaptureTree()
-    moved.focusedNode = nil
-    moved.viewer = 5
-    moved.mayCapture = false
-    let cancelled = await moved.run(appName: "Safari")
-    XCTAssertNil(cancelled.element)
-    XCTAssertFalse(cancelled.mayCopy)
-    XCTAssertEqual(moved.viewerLookups, 0)
-    // Input during the lookup is seen at the yield before ⌘C, which then never follows.
-    let typed = FakeCaptureTree()
-    typed.focusedNode = nil
-    typed.viewer = 5
-    let late = await typed.run(appName: "Safari", onWait: { typed.mayCapture = false })
-    XCTAssertEqual(late.element, 5)
-    XCTAssertFalse(late.mayCopy)
-  }
-
-  func testCaptureFlowLooksForAPDFViewerOnlyOnceAndNeverWithFocus() async {
-    // A cold Chromium tree has no viewer: one lookup, then the usual wait.
-    let cold = FakeCaptureTree()
-    cold.focusAppearsAt = .milliseconds(600)
-    cold.selectedText[1] = "cold"
-    let outcome = await cold.run()
-    XCTAssertEqual(outcome.element, 1)
-    XCTAssertFalse(outcome.isPDFViewer)
-    XCTAssertEqual(cold.viewerLookups, 1)
-    let none = FakeCaptureTree()
-    none.focusedNode = nil
-    let timedOut = await none.run()
-    XCTAssertTrue(timedOut.focusTimedOut)
-    XCTAssertEqual(none.viewerLookups, 1)
-    // A focused element always wins over a viewer.
-    let focused = FakeCaptureTree()
-    focused.viewer = 5
-    focused.selectedText[1] = "focused"
-    let read = await focused.run()
-    XCTAssertEqual(read.element, 1)
-    XCTAssertFalse(read.isPDFViewer)
-    XCTAssertEqual(focused.viewerLookups, 0)
-  }
-
-  func testPDFViewerSearchFindsSafarisViewerWithinItsBounds() {
-    // Safari 26: AXWindow > AXSplitGroup > AXTabGroup > AXGroup > AXGroup > AXGroup/AXPDFPluginSubrole.
-    var children: [Int: [Int]] = [0: [1, 9, 10], 1: [2, 3], 3: [4], 4: [5], 5: [6], 6: [7]]
-    var roles: [Int: String] = [0: "AXWindow", 1: "AXSplitGroup", 3: "AXTabGroup", 9: "AXToolbar", 10: "AXButton",
-                                7: "AXPage"]
-    var subroles: [Int: String] = [6: SelectionPDFViewer.subrole]
-    var expanded: [Int] = []
-    func find(maximumDepth: Int = SelectionPDFViewer.maximumDepth, maximumNodes: Int = SelectionPDFViewer.maximumNodes,
-              mayContinue: () -> Bool = { true }) -> Int? {
-      expanded = []
-      return SelectionPDFViewer.find(in: 0, maximumDepth: maximumDepth, maximumNodes: maximumNodes,
-        mayContinue: mayContinue, role: { roles[$0] ?? "AXGroup" }, subrole: { subroles[$0] },
-        children: { expanded.append($0); return children[$0] ?? [] })
-    }
-    XCTAssertEqual(find(), 6)
-    XCTAssertEqual(expanded, [0, 1, 2, 3, 4, 5], "never expands a toolbar, a control or the PDF itself")
-    XCTAssertNil(find(maximumDepth: 4), "the viewer is 5 levels down")
-    XCTAssertEqual(find(maximumDepth: 5), 6)
-    // Every element whose role is read counts: the window, 1, 9, 10, 2, 3, 4, 5 and the viewer are 9.
-    XCTAssertNil(find(maximumNodes: 8))
-    XCTAssertEqual(expanded, [0, 1, 2, 3, 4], "no children are read once the budget is spent")
-    XCTAssertEqual(find(maximumNodes: 9), 6)
-    var checks = 0
-    XCTAssertNil(find(mayContinue: { checks += 1; return checks <= 3 }), "stops when its time is up")
-    XCTAssertEqual(expanded, [0], "checked again before each child")
-    // A web page's tree is never searched: a PDF there sits in a page that reports focus.
-    roles[4] = SelectionCaptureFlow.webAreaRole
-    XCTAssertNil(find())
-    XCTAssertFalse(expanded.contains(4))
-    roles[4] = nil
-    // No viewer anywhere, including a window that is itself unreadable.
-    subroles[6] = nil
-    XCTAssertNil(find())
-    children = [:]
-    XCTAssertNil(find())
-    // A container with a thousand controls is read only up to the bounds.
-    children[0] = Array(1_000..<2_000) + [1]
-    var roleReads = 0
-    func countedFind(mayContinue: () -> Bool = { true }) -> Int? {
-      roleReads = 0
-      return SelectionPDFViewer.find(in: 0, mayContinue: mayContinue,
-        role: { roleReads += 1; return roles[$0] ?? ($0 >= 1_000 ? "AXButton" : "AXGroup") },
-        subrole: { subroles[$0] }, children: { children[$0] ?? [] })
-    }
-    XCTAssertNil(countedFind())
-    XCTAssertEqual(roleReads, SelectionPDFViewer.maximumNodes - 1, "the window plus 199 children")
-    checks = 0
-    XCTAssertNil(countedFind(mayContinue: { checks += 1; return checks <= 10 }))
-    XCTAssertEqual(roleReads, 9, "the deadline is checked before each child")
-    XCTAssertEqual(SelectionPDFViewer.bundleIDs, ["com.apple.Safari", "com.apple.SafariTechnologyPreview"])
-    XCTAssertEqual(SelectionPDFViewer.maximumDepth, 8)
-    XCTAssertEqual(SelectionPDFViewer.maximumNodes, 200)
-    XCTAssertEqual(SelectionPDFViewer.budget, .milliseconds(100))
-    for bundleID in SelectionPDFViewer.bundleIDs {
-      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: bundleID))
-    }
-  }
-
-  func testPDFViewerStaysCurrentOnlyWhileEveryConditionHolds() {
-    XCTAssertTrue(SelectionPDFViewer.isCurrent(isFrontmost: { true }, nothingFocused: { true }, isViewer: { true },
-      inFocusedWindow: { true }, isSafe: { true }))
-    // Another app in front, something taking focus (or an unreadable focus), a different
-    // element, another window or tab, or an unsafe ancestor each stop the copy.
-    for failing in 0..<5 {
-      let holds = { (condition: Int) in { condition != failing } }
-      XCTAssertFalse(SelectionPDFViewer.isCurrent(isFrontmost: holds(0), nothingFocused: holds(1), isViewer: holds(2),
-        inFocusedWindow: holds(3), isSafe: holds(4)), "condition \(failing)")
-    }
-    XCTAssertTrue(SelectionPDFViewer.reportsNothingFocused(.noValue))
-    for error in [AXError.success, .cannotComplete, .attributeUnsupported, .invalidUIElement, .apiDisabled] {
-      XCTAssertFalse(SelectionPDFViewer.reportsNothingFocused(error), "\(error.rawValue)")
-    }
-  }
-
-  func testFocusMemoryShortensTheWaitOnlyAfterAFullTimeout() {
-    var memory = SelectionFocusMemory<Int>()
-    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
-    memory.record(42, foundFocus: false, timedOut: false) // interrupted: no evidence
-    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
-    memory.record(42, foundFocus: false, timedOut: true)
-    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.shortFocusBudget)
-    XCTAssertEqual(memory.focusBudget(for: 7), SelectionCaptureFlow.focusBudget)
-    memory.record(42, foundFocus: false, timedOut: true)
-    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.shortFocusBudget)
-    memory.record(42, foundFocus: true, timedOut: false)
-    XCTAssertEqual(memory.focusBudget(for: 42), SelectionCaptureFlow.focusBudget)
+    XCTAssertEqual(plain.calls, ["selectedText(1)", "rangeText(1)", "markerText(1)", "parent(1)"])
+    XCTAssertFalse(none.inWebContent)
   }
 
   func testModifierTrackerIgnoresReleasesButNotAPressAfterThem() {
@@ -1611,174 +1243,6 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertEqual(detector.tap(keyCode: 58, modifiers: [], timestamp: 4.1), .first)
   }
 
-  /// A warmer with a fake frontmost app, scheduler and AX set.
-  @MainActor
-  private final class FakeWarmer {
-    var trusted = true
-    var frontmost: pid_t? = 500
-    var bundleIDs: [pid_t: String] = [:]
-    /// Pids whose bundle can't be identified.
-    var unknown: Set<pid_t> = []
-    /// Bundles that contain VS Code's product.json.
-    var forks: Set<pid_t> = []
-    var enabled: [(pid: pid_t, attributes: [String], trigger: SelectionAccessibilityWarmer.Trigger)] = []
-    var scheduled: [(delay: Duration, action: @MainActor () -> Void)] = []
-    let center = NotificationCenter()
-    var clock = Duration.zero
-    lazy var history = SelectionWarmHistory(now: { [unowned self] in self.clock })
-    lazy var warmer = SelectionAccessibilityWarmer(isTrusted: { [unowned self] in self.trusted }, ownPID: 42,
-      frontmostPID: { [unowned self] in self.frontmost }, appInfo: { [unowned self] pid in
-        self.unknown.contains(pid) ? nil : SelectionWarmedApp(key: SelectionAppKey(pid: pid, launchDate: nil),
-          bundleID: self.bundleIDs[pid] ?? "com.example.app\(pid)", bundleURL: URL(fileURLWithPath: "/Applications/\(pid).app"))
-      }, fileExists: { [unowned self] url in
-        self.forks.contains { url.path == "/Applications/\($0).app/Contents/Resources/app/product.json" }
-      }, enable: { [unowned self] in self.enabled.append(($0, $1, $2)) },
-      schedule: { [unowned self] in self.scheduled.append(($0, $1)) }, center: center, history: history)
-
-    var pids: [pid_t] { enabled.map(\.pid) }
-
-    /// Runs every scheduled retry, in order of delay.
-    func runRetries() {
-      let due = scheduled.sorted { $0.delay < $1.delay }
-      scheduled.removeAll()
-      due.forEach { $0.action() }
-    }
-  }
-
-  func testAccessibilityWarmerSetsOnlyForOtherAppsWhenTrusted() throws {
-    let fake = FakeWarmer()
-    fake.warmer.start()
-    XCTAssertEqual(fake.pids, [500], "the frontmost app is warmed at startup")
-    XCTAssertEqual(fake.enabled.last?.trigger, .startup)
-    let other = try XCTUnwrap(NSWorkspace.shared.runningApplications.first {
-      $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })
-    fake.frontmost = other.processIdentifier
-    fake.center.post(name: NSWorkspace.didActivateApplicationNotification, object: nil,
-      userInfo: [NSWorkspace.applicationUserInfoKey: other])
-    XCTAssertEqual(fake.enabled.last?.pid, other.processIdentifier, "an activated app is warmed")
-    XCTAssertEqual(fake.enabled.last?.trigger, .activation)
-    let count = fake.enabled.count
-    fake.warmer.warm(pid: 42, trigger: .firstTap)
-    fake.warmer.warm(pid: 0, trigger: .firstTap)
-    fake.warmer.appeared(pid: 42, trigger: .activation)
-    fake.trusted = false
-    fake.warmer.warm(pid: 600, trigger: .firstTap)
-    fake.frontmost = 700
-    fake.warmer.warmFrontmost()
-    XCTAssertEqual(fake.enabled.count, count, "skipped: own pid, invalid pid, not trusted")
-    fake.trusted = true
-    fake.warmer.warmFrontmost() // the first tap of the shortcut
-    XCTAssertEqual(fake.enabled.last?.pid, 700)
-    XCTAssertEqual(fake.enabled.last?.trigger, .firstTap)
-    fake.warmer.stop()
-    fake.runRetries()
-    let afterStop = fake.enabled.count
-    fake.center.post(name: NSWorkspace.didActivateApplicationNotification, object: nil,
-      userInfo: [NSWorkspace.applicationUserInfoKey: other])
-    XCTAssertEqual(fake.enabled.count, afterStop)
-  }
-
-  func testAccessibilityWarmerNeverWarmsVSCodeFamilyEditors() {
-    for editor in SelectionCapturePolicy.codeEditors {
-      let fake = FakeWarmer()
-      fake.bundleIDs[500] = editor
-      fake.warmer.start() // startup
-      fake.warmer.appeared(pid: 500, trigger: .activation)
-      fake.warmer.appeared(pid: 500, trigger: .launch)
-      fake.warmer.warmFrontmost() // first tap
-      fake.runRetries()
-      XCTAssertTrue(fake.enabled.isEmpty, editor)
-      XCTAssertTrue(fake.scheduled.isEmpty, editor)
-      fake.warmer.stop()
-    }
-    let other = FakeWarmer()
-    other.bundleIDs[500] = "com.tinyspeck.slackmacgap"
-    other.warmer.warmFrontmost()
-    XCTAssertEqual(other.pids, [500])
-    // A fork that isn't on the list, found by VS Code's product.json in its bundle.
-    let fork = FakeWarmer()
-    fork.forks = [500]
-    fork.warmer.appeared(pid: 500, trigger: .activation)
-    fork.warmer.warmFrontmost()
-    XCTAssertTrue(fork.enabled.isEmpty)
-    XCTAssertTrue(fork.scheduled.isEmpty)
-    // An app whose bundle can't be identified is left alone too.
-    let unknown = FakeWarmer()
-    unknown.unknown = [500]
-    unknown.warmer.appeared(pid: 500, trigger: .activation)
-    unknown.warmer.warmFrontmost()
-    XCTAssertTrue(unknown.enabled.isEmpty)
-    let noURL = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: "com.tinyspeck.slackmacgap",
-                                   bundleURL: nil)
-    XCTAssertFalse(SelectionAccessibilityWarmer.isWarmable(noURL, fileExists: { _ in false }))
-    let noID = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: nil,
-                                  bundleURL: URL(fileURLWithPath: "/Applications/Slack.app"))
-    XCTAssertFalse(SelectionAccessibilityWarmer.isWarmable(noID, fileExists: { _ in false }))
-    let slack = SelectionWarmedApp(key: SelectionAppKey(pid: 500, launchDate: nil), bundleID: "com.tinyspeck.slackmacgap",
-                                   bundleURL: URL(fileURLWithPath: "/Applications/Slack.app"))
-    var checked: [String] = []
-    XCTAssertTrue(SelectionAccessibilityWarmer.isWarmable(slack, fileExists: { checked.append($0.path); return false }))
-    XCTAssertEqual(checked, ["/Applications/Slack.app/Contents/Resources/app/product.json"])
-  }
-
-  func testAccessibilityWarmerAlsoSetsEnhancedUserInterfaceForChromiumBrowsers() {
-    // Chrome 156 rejects AXManualAccessibility (-25205); only AXEnhancedUserInterface built its tree.
-    let both = ["AXManualAccessibility", "AXEnhancedUserInterface"]
-    let fake = FakeWarmer()
-    fake.bundleIDs = [500: "com.google.Chrome", 600: "com.tinyspeck.slackmacgap", 700: "com.apple.Safari"]
-    fake.warmer.appeared(pid: 500, trigger: .activation)
-    fake.runRetries()
-    XCTAssertEqual(fake.enabled.map(\.attributes), Array(repeating: both, count: 4), "the activation and every retry")
-    for pid: pid_t in [600, 700] {
-      fake.frontmost = pid
-      fake.warmer.warmFrontmost()
-      XCTAssertEqual(fake.enabled.last?.pid, pid)
-      XCTAssertEqual(fake.enabled.last?.attributes, ["AXManualAccessibility"], "Electron and native apps")
-    }
-    for browser in ["com.google.Chrome", "com.google.Chrome.canary", "com.microsoft.edgemac", "com.brave.Browser",
-                    "company.thebrowser.Browser"] {
-      XCTAssertEqual(SelectionAccessibilityWarmer.attributes(for: browser), both, browser)
-    }
-    for app in ["com.apple.Safari", "org.mozilla.firefox", "com.tinyspeck.slackmacgap", "com.google.Chrome.helper", nil]
-      as [String?] {
-      XCTAssertEqual(SelectionAccessibilityWarmer.attributes(for: app), ["AXManualAccessibility"], app ?? "nil")
-    }
-    // One set to true per attribute, in order, with each result returned.
-    var sets: [(String, Bool)] = []
-    let results = SelectionAccessibilityWarmer.turnOnAccessibility(AXUIElementCreateApplication(-1), attributes: both) {
-      sets.append(($1 as String, ($2 as? Bool) == true))
-      return sets.count == 1 ? .attributeUnsupported : .notImplemented
-    }
-    XCTAssertEqual(sets.map(\.0), both)
-    XCTAssertEqual(sets.map(\.1), [true, true])
-    XCTAssertEqual(results, [.attributeUnsupported, .notImplemented])
-    // Every Chromium browser may also copy with an empty range, as Chrome and Firefox do.
-    XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: "org.mozilla.firefox"))
-    for browser in SelectionCapturePolicy.chromiumBrowsers {
-      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 0, length: 0), bundleID: browser), browser)
-    }
-  }
-
-  func testAccessibilityWarmerSupersedesRetriesAndObservesLaunches() throws {
-    // Activation then launch for the same app: only the launch's retries run.
-    let fake = FakeWarmer()
-    fake.warmer.appeared(pid: 500, trigger: .activation)
-    fake.warmer.appeared(pid: 500, trigger: .launch)
-    fake.runRetries()
-    XCTAssertEqual(fake.enabled.map(\.trigger), [.activation, .launch, .retry, .retry, .retry])
-    // The launch observer, through the notification center.
-    let observed = FakeWarmer()
-    let other = try XCTUnwrap(NSWorkspace.shared.runningApplications.first {
-      $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })
-    observed.frontmost = other.processIdentifier
-    observed.warmer.start()
-    observed.center.post(name: NSWorkspace.didLaunchApplicationNotification, object: nil,
-      userInfo: [NSWorkspace.applicationUserInfoKey: other])
-    XCTAssertEqual(observed.enabled.map(\.trigger), [.startup, .launch])
-    XCTAssertEqual(observed.scheduled.count, SelectionAccessibilityWarmer.retryDelays.count)
-    observed.warmer.stop()
-  }
-
   func testOnlyACompleteSoloTapCountsAsAFirstTap() {
     // Another modifier with Option, and the chord's release.
     var chord = OptionDoubleTap()
@@ -1802,87 +1266,6 @@ final class SelectionContextTests: XCTestCase {
     var right = OptionDoubleTap()
     XCTAssertEqual(right.tap(keyCode: 61, modifiers: .option, timestamp: 1), .none)
     XCTAssertEqual(right.tap(keyCode: 61, modifiers: [], timestamp: 1.1), .first)
-  }
-
-  func testAccessibilityWarmerRetriesWhileTheSameAppStaysInFront() {
-    let fake = FakeWarmer()
-    fake.frontmost = 500
-    fake.warmer.appeared(pid: 500, trigger: .activation)
-    XCTAssertEqual(fake.scheduled.map(\.delay), SelectionAccessibilityWarmer.retryDelays)
-    fake.runRetries()
-    XCTAssertEqual(fake.pids, [500, 500, 500, 500])
-    XCTAssertEqual(fake.enabled.map(\.trigger), [.activation, .retry, .retry, .retry])
-    // Another app comes to the front: the first app's pending retries do nothing.
-    let switched = FakeWarmer()
-    switched.warmer.appeared(pid: 500, trigger: .activation)
-    switched.frontmost = 600
-    switched.warmer.appeared(pid: 600, trigger: .activation)
-    switched.runRetries()
-    XCTAssertEqual(switched.pids, [500, 600, 600, 600, 600])
-    // Leaving without a new activation (for example to Enigma itself) also stops them.
-    let left = FakeWarmer()
-    left.warmer.appeared(pid: 500, trigger: .activation)
-    left.frontmost = 42
-    left.runRetries()
-    XCTAssertEqual(left.pids, [500])
-    // Trust revoked: retries stop.
-    let revoked = FakeWarmer()
-    revoked.warmer.appeared(pid: 500, trigger: .activation)
-    revoked.trusted = false
-    revoked.runRetries()
-    XCTAssertEqual(revoked.pids, [500])
-    // Own pid and untrusted never schedule anything.
-    let own = FakeWarmer()
-    own.warmer.appeared(pid: 42, trigger: .activation)
-    own.trusted = false
-    own.warmer.appeared(pid: 500, trigger: .activation)
-    XCTAssertTrue(own.scheduled.isEmpty)
-    XCTAssertTrue(own.enabled.isEmpty)
-    // After stop(), nothing scheduled earlier fires.
-    let stopped = FakeWarmer()
-    stopped.warmer.start()
-    stopped.warmer.appeared(pid: 500, trigger: .activation)
-    stopped.warmer.stop()
-    let beforeRetries = stopped.enabled.count
-    stopped.runRetries()
-    XCTAssertEqual(stopped.enabled.count, beforeRetries)
-  }
-
-  func testAccessibilityWarmerRetriesAFrontmostLaunchButNotABackgroundOne() {
-    let fake = FakeWarmer()
-    fake.frontmost = 500
-    fake.warmer.appeared(pid: 600, trigger: .launch)
-    XCTAssertTrue(fake.enabled.isEmpty, "a background launch waits for its own activation")
-    XCTAssertTrue(fake.scheduled.isEmpty)
-    fake.warmer.appeared(pid: 500, trigger: .launch)
-    fake.runRetries()
-    XCTAssertEqual(fake.enabled.map(\.trigger), [.launch, .retry, .retry, .retry])
-  }
-
-  func testWarmHistoryKeepsFirstTapsApartAndIsKeyedByLaunch() {
-    let fake = FakeWarmer()
-    let key = SelectionAppKey(pid: 500, launchDate: nil)
-    XCTAssertEqual(fake.history.snapshot(key), SelectionWarmSnapshot())
-    fake.warmer.warm(pid: 500, trigger: .activation)
-    fake.clock = .milliseconds(1_000)
-    fake.warmer.warmFrontmost() // the first tap must not hide the activation warm
-    fake.clock = .milliseconds(2_400)
-    XCTAssertEqual(fake.history.snapshot(key),
-      SelectionWarmSnapshot(sinceWarm: .milliseconds(2_400), trigger: .activation, sinceFirstTap: .milliseconds(1_400)))
-    fake.warmer.warm(pid: 500, trigger: .retry)
-    XCTAssertEqual(fake.history.snapshot(key).trigger, .retry)
-    XCTAssertEqual(fake.history.snapshot(key).sinceWarm, .zero)
-    // A new app that reuses the pid has no history.
-    XCTAssertEqual(fake.history.snapshot(SelectionAppKey(pid: 500, launchDate: Date(timeIntervalSince1970: 1))),
-                   SelectionWarmSnapshot())
-    fake.trusted = false
-    fake.warmer.warm(pid: 600, trigger: .activation)
-    XCTAssertEqual(fake.history.snapshot(SelectionAppKey(pid: 600, launchDate: nil)), SelectionWarmSnapshot(),
-                   "a skipped warm isn't recorded")
-    XCTAssertEqual(SelectionLog.milliseconds(.milliseconds(2_059)), 2_059)
-    XCTAssertEqual(SelectionLog.milliseconds(.seconds(2) + .microseconds(500)), 2_000)
-    XCTAssertEqual(SelectionLog.seconds(.milliseconds(2_400)), "2.4")
-    XCTAssertEqual(SelectionLog.seconds(nil), "never")
   }
 
   func testDoubleOptionWorksWithCapsLockOn() {
@@ -1921,13 +1304,22 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertFalse(detector.flagsChanged(keyCode: 61, modifiers: [], timestamp: 1.3))
   }
 
-  func testCopyFallbackDistinguishesBrowserCanvasAndNativeEmptySelection() {
+  func testCopyFallbackRunsInEveryAppButLineCopyEditorsNeedARealSelection() {
     let empty = CFRange(location: 0, length: 0)
-    XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.google.Chrome"))
-    XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.apple.Notes"))
-    XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: "com.jetbrains.pycharm"))
-    XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: "com.sublimetext.4"))
-    XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: CFRange(location: 1, length: 2), bundleID: "com.microsoft.VSCode"))
+    let selected = CFRange(location: 1, length: 2)
+    // Any other app, whatever its Accessibility reports, including no focused element at all.
+    for bundleID in ["com.google.Chrome", "com.apple.Notes", "com.openai.codex", "com.tinyspeck.slackmacgap", ""] {
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: bundleID), bundleID)
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: bundleID), bundleID)
+    }
+    XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: nil))
+    // Editors that copy the whole line when nothing is selected.
+    for bundleID in ["com.jetbrains.pycharm", "com.google.android.studio", "com.sublimetext.4", "dev.zed.Zed",
+                     "com.microsoft.VSCodeExploration"] {
+      XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: bundleID), bundleID)
+      XCTAssertFalse(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: bundleID), bundleID)
+      XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: selected, bundleID: bundleID), bundleID)
+    }
     // VS Code-family editors may copy with an empty or missing AX range; the copy is then
     // accepted only when VS Code's clipboard metadata confirms a real selection.
     for bundleID in ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
@@ -1935,6 +1327,199 @@ final class SelectionContextTests: XCTestCase {
       XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: empty, bundleID: bundleID), bundleID)
       XCTAssertTrue(SelectionCapturePolicy.allowsCopy(range: nil, bundleID: bundleID), bundleID)
     }
+  }
+
+  /// A private board holding two items, a simulated clock (one tick per 20 ms wait), and a fake
+  /// ⌘C that copies `copies[n]` on the nth press (nil: dropped) after `delays[n]` ticks.
+  @MainActor
+  private final class FakeCopy {
+    let board = NSPasteboard(name: .init(UUID().uuidString))
+    var copies: [String?] = ["selected"]
+    var delays: [Int] = []
+    var presses = 0
+    var ticks = 0
+    var mayContinue = true
+    var userCopied = false
+    private var pending: [(due: Int, text: String)] = []
+    /// Runs on every tick, after due copies land.
+    var onTick: (FakeCopy) -> Void = { _ in }
+
+    init() {
+      board.clearContents()
+      let first = NSPasteboardItem(), second = NSPasteboardItem()
+      first.setString("original", forType: .string)
+      first.setData(Data([1, 2]), forType: .init("com.example.private"))
+      second.setString("second", forType: .string)
+      board.writeObjects([first, second])
+    }
+
+    func copy(_ text: String) {
+      board.clearContents()
+      board.setString(text, forType: .string)
+    }
+
+    private func deliver() {
+      for copy in pending where copy.due <= ticks { self.copy(copy.text) }
+      pending.removeAll { $0.due <= ticks }
+    }
+
+    func run(resend: Bool = true, accept: @escaping () -> Bool = { true }) async -> String? {
+      let text = await SelectionCopyTransaction.perform(board: board, resend: resend, mayContinue: { self.mayContinue },
+        userCopied: { self.userCopied }, postCopy: {
+          defer { self.presses += 1 }
+          if self.presses < self.copies.count, let text = self.copies[self.presses] {
+            self.pending.append((self.ticks + (self.presses < self.delays.count ? self.delays[self.presses] : 0), text))
+            self.deliver()
+          }
+          return true
+        }, accept: { _ in accept() }, wait: { _ in self.ticks += 1; self.deliver(); self.onTick(self) })
+      // A copy still in flight lands after the transaction ends, over whatever it left behind.
+      for copy in pending { self.copy(copy.text) }
+      pending.removeAll()
+      return text
+    }
+
+    var restored: Bool {
+      board.pasteboardItems?.compactMap { $0.string(forType: .string) } == ["original", "second"]
+        && board.pasteboardItems?.first?.data(forType: .init("com.example.private")) == Data([1, 2])
+    }
+  }
+
+  func testCopyReadsTheSelectionAndRestoresEveryClipboardItem() async {
+    let fake = FakeCopy()
+    defer { fake.board.releaseGlobally() }
+    let text = await fake.run()
+    XCTAssertEqual(text, "selected")
+    XCTAssertEqual(fake.presses, 1)
+    XCTAssertTrue(fake.restored)
+  }
+
+  func testCopyIsSentOnceMoreWhenTheFirstIsDroppedAndStopsWhenNothingIsSelected() async {
+    let dropped = FakeCopy()
+    defer { dropped.board.releaseGlobally() }
+    dropped.copies = [nil, "second try"]
+    let text = await dropped.run()
+    XCTAssertEqual(text, "second try")
+    XCTAssertEqual(dropped.presses, 2)
+    XCTAssertTrue(dropped.restored)
+    let nothing = FakeCopy()
+    defer { nothing.board.releaseGlobally() }
+    nothing.copies = []
+    let none = await nothing.run()
+    XCTAssertNil(none)
+    XCTAssertEqual(nothing.presses, 2, "never more than two ⌘Cs")
+    let budget = SelectionCopyTransaction.attempts.reduce(Duration.zero, +)
+    // One tick to let input cancel first, then the two attempts.
+    XCTAssertEqual(nothing.ticks, 1 + Int(budget / SelectionCopyTransaction.interval))
+    XCTAssertLessThanOrEqual(budget, .milliseconds(400))
+    XCTAssertTrue(nothing.restored)
+    // A field with a reliable caret gets one ⌘C.
+    let caret = FakeCopy()
+    defer { caret.board.releaseGlobally() }
+    caret.copies = []
+    let single = await caret.run(resend: false)
+    XCTAssertNil(single)
+    XCTAssertEqual(caret.presses, 1)
+    XCTAssertEqual(caret.ticks, 1 + Int(budget / SelectionCopyTransaction.interval), "one ⌘C still gets the whole window")
+    XCTAssertTrue(caret.restored)
+  }
+
+  func testASlowSingleOrCancelledCopyIsWaitedForBeforeTheRestore() async {
+    // One ⌘C (a field with a caret) that takes 180 ms, longer than the first attempt.
+    let single = FakeCopy()
+    defer { single.board.releaseGlobally() }
+    single.delays = [9]
+    let text = await single.run(resend: false)
+    XCTAssertEqual(text, "selected")
+    XCTAssertEqual(single.presses, 1)
+    XCTAssertTrue(single.restored)
+    // Cancelled during the first attempt, with the copy landing after it.
+    let cancelled = FakeCopy()
+    defer { cancelled.board.releaseGlobally() }
+    cancelled.delays = [9]
+    cancelled.onTick = { fake in if fake.ticks == 3 { fake.mayContinue = false } }
+    let none = await cancelled.run()
+    XCTAssertNil(none)
+    XCTAssertEqual(cancelled.presses, 1)
+    XCTAssertTrue(cancelled.restored)
+  }
+
+  func testASlowCopyThatIsSentTwiceCannotOverwriteTheRestoredClipboard() async {
+    // Each copy takes 180 ms, longer than the first attempt, so both ⌘Cs land.
+    let slow = FakeCopy()
+    defer { slow.board.releaseGlobally() }
+    slow.copies = ["selected", "selected"]
+    slow.delays = [9, 9]
+    let text = await slow.run()
+    XCTAssertEqual(text, "selected")
+    XCTAssertEqual(slow.presses, 2)
+    XCTAssertTrue(slow.restored, "the second copy landed before the restore, not after it")
+    // The first lands 20 ms after the resend and the second soon after.
+    let late = FakeCopy()
+    defer { late.board.releaseGlobally() }
+    late.copies = ["selected", "selected"]
+    late.delays = [9, 3]
+    let lateText = await late.run()
+    XCTAssertEqual(lateText, "selected")
+    XCTAssertTrue(late.restored)
+  }
+
+  func testCopyNeverReadsOrRestoresOverAnotherWrite() async {
+    // Something else wrote the clipboard as well as the ⌘C: no text, and the newer copy stays.
+    let other = FakeCopy()
+    defer { other.board.releaseGlobally() }
+    other.onTick = { fake in if fake.ticks == 2 { fake.copy("someone else") } }
+    let none = await other.run()
+    XCTAssertNil(none)
+    XCTAssertEqual(other.board.string(forType: .string), "someone else", "the later write stays on the clipboard")
+    XCTAssertFalse(other.restored)
+    // The user pressed ⌘C during the capture: their copy is never read or restored over.
+    let user = FakeCopy()
+    defer { user.board.releaseGlobally() }
+    user.copies = []
+    user.onTick = { fake in
+      guard fake.ticks == 2 else { return }
+      fake.mayContinue = false
+      fake.userCopied = true
+      fake.copy("user copy")
+    }
+    let refused = await user.run()
+    XCTAssertNil(refused)
+    XCTAssertEqual(user.board.string(forType: .string), "user copy")
+    // The clipboard changed while the copy was read: the text isn't used.
+    let changed = FakeCopy()
+    defer { changed.board.releaseGlobally() }
+    let racing = await changed.run(accept: { changed.copy("racing write"); return true })
+    XCTAssertNil(racing)
+    XCTAssertEqual(changed.board.string(forType: .string), "racing write")
+  }
+
+  func testCopyStopsWhenTheUserMovesOnButStillRestoresTheClipboard() async {
+    // The user typed after ⌘C was sent and before it landed: no text, and the copy that lands
+    // afterwards is waited for and then replaced by the saved clipboard.
+    let moved = FakeCopy()
+    defer { moved.board.releaseGlobally() }
+    moved.delays = [3]
+    moved.onTick = { fake in if fake.ticks == 2 { fake.mayContinue = false } }
+    let none = await moved.run()
+    XCTAssertNil(none)
+    XCTAssertEqual(moved.presses, 1, "no second ⌘C after the user moved on")
+    XCTAssertTrue(moved.restored)
+    // Input during the Accessibility read cancels before anything is sent or touched.
+    let before = FakeCopy()
+    defer { before.board.releaseGlobally() }
+    before.onTick = { fake in if fake.ticks == 1 { fake.mayContinue = false } }
+    let count = before.board.changeCount
+    let untouched = await before.run()
+    XCTAssertNil(untouched)
+    XCTAssertEqual(before.presses, 0)
+    XCTAssertEqual(before.board.changeCount, count, "the clipboard isn't touched when capture can't go on")
+    // VS Code reported a copy from an empty selection.
+    let rejected = FakeCopy()
+    defer { rejected.board.releaseGlobally() }
+    let refused = await rejected.run(accept: { false })
+    XCTAssertNil(refused)
+    XCTAssertTrue(rejected.restored)
   }
 
   private static let vscodeSelectedCopyData = Data(base64Encoded: "QAMAAAIAAAAhAAAAYQBwAHAAbABpAGMAYQB0AGkAbwBuAC8AdgBuAGQALgBjAG8AZABlAC4AYwBvAHAAeQBtAGUAdABhAGQAYQB0AGEAAADXAAAAewAiAGkAZAAiADoAIgAwADgAMgBkADUANABhADgALQA1ADUANABlAC0ANABlAGYAOQAtAGEAMQA5AGQALQA3ADkAOQBkAGEAMQA3ADkAMgBhAGUANgAiACwAIgBwAHIAbwB2AGkAZABlAHIAQwBvAHAAeQBNAGkAbQBlAFQAeQBwAGUAcwAiADoAWwAiAGEAcABwAGwAaQBjAGEAdABpAG8AbgAvAHYAbgBkAC4AYwBvAGQAZQAuAGEAZABkAGkAdABpAG8AbgBhAGwALQBlAGQAaQB0AG8AcgAtAGQAYQB0AGEAIgBdACwAIgBkAGUAZgBhAHUAbAB0AFAAYQBzAHQAZQBQAGEAeQBsAG8AYQBkACIAOgB7ACIAbQB1AGwAdABpAGMAdQByAHMAbwByAFQAZQB4AHQAIgA6AG4AdQBsAGwALAAiAHAAYQBzAHQAZQBPAG4ATgBlAHcATABpAG4AZQAiADoAZgBhAGwAcwBlACwAIgBpAHMAQgBsAG8AYwBrACIAOgBmAGEAbABzAGUALAAiAG0AbwBkAGUAIgA6AG4AdQBsAGwAfQB9AAAAEgAAAHYAcwBjAG8AZABlAC0AZQBkAGkAdABvAHIALQBkAGEAdABhAIoAAAB7ACIAdgBlAHIAcwBpAG8AbgAiADoAMQAsACIAaQBkACIAOgAiADkAMAAyAGIAMwAyAGUAZAAtAGEAMQA2ADUALQA0ADYANQAzAC0AOAA3AGMAMAAtAGUANAAyADcAZQA2AGYAOQA0ADgAZABiACIALAAiAGkAcwBGAHIAbwBtAEUAbQBwAHQAeQBTAGUAbABlAGMAdABpAG8AbgAiADoAZgBhAGwAcwBlACwAIgBpAHMAQgBsAG8AYwBrACIAOgBmAGEAbABzAGUALAAiAG0AdQBsAHQAaQBjAHUAcgBzAG8AcgBUAGUAeAB0ACIAOgBuAHUAbABsACwAIgBtAG8AZABlACIAOgAiAGMAcABwACIAfQA=")!
@@ -2019,13 +1604,14 @@ final class SelectionContextTests: XCTestCase {
       XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: line), bundleID)
       XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: selected, bundleID: bundleID, webCustomData: cursors), bundleID)
     }
-    // Other apps are decided by allowsCopy alone; their copies are never filtered by VS Code metadata.
-    for bundleID in ["com.google.Chrome", "com.apple.Notes", nil] as [String?] {
+    // Any other app (a VS Code fork, Monaco on a web page): a copy without VS Code's metadata is
+    // kept, and one the metadata marks as a whole line or several cursors is rejected.
+    for bundleID in ["com.google.Chrome", "com.apple.Notes", "com.example.vscode-fork", nil] as [String?] {
       XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID, webCustomData: nil))
-      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID, webCustomData: line))
-      // Clipboard metadata is never read for other apps.
-      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID,
-        webCustomData: { XCTFail("read web custom data"); return nil }()))
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: nil, bundleID: bundleID, webCustomData: real))
+      XCTAssertTrue(SelectionCapturePolicy.acceptsCopy(range: nil, bundleID: bundleID, webCustomData: single))
+      XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: empty, bundleID: bundleID, webCustomData: line))
+      XCTAssertFalse(SelectionCapturePolicy.acceptsCopy(range: nil, bundleID: bundleID, webCustomData: cursors))
     }
   }
 
