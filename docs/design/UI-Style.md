@@ -34,29 +34,29 @@ given opacity.
 
 | Token | Paper | Ink | Use |
 | --- | --- | --- | --- |
-| `background` | `#F3EEE4` | `#141512` | Window and chat canvas |
-| `sidebar` | `#E8E1D3` | `#0E0F0D` | Sidebar and Settings navigation |
-| `surface` | `#FCFAF5` | `#1E1F1B` | Composer, compact panel, cards |
-| `menu` | `#FFFFFF` | `#282923` | Menus and the model picker, always opaque |
-| `userBubble` | `#E6DFD0` | `#262721` | The person's own messages |
-| `textPrimary` | `#211E19` | `#EFE8D8` | Body text |
-| `textSecondary` | `#5B554A` | `#ABA496` | Supporting text |
-| `textTertiary` | `#827B6D` | `#827D70` | Timestamps, placeholders, hints |
-| `hairline` | `#24201A` at 10% | `#EDE6D6` at 8% | Row dividers |
-| `border` | `#24201A` at 18% | `#EDE6D6` at 15% | Window, card, and menu edges |
-| `hover` | `#24201A` at 5% | `#EDE6D6` at 5% | Hover fill |
-| `accent` | `#3F5A12` | `#CDEB78` | Send, primary buttons, switches |
-| `onAccent` | `#F5F8EA` | `#1A2306` | Text and icons on `accent` |
-| `accentText` | `#4A6A14` | `#CDEB78` | Command names, selection dots, links, the What's new? label |
-| `characterBody` | `#C3DE5E` | `#C3DE5E` | Character fill |
-| `characterInk` | `#211E19` | `#D9D1BF` | Character outline, legs, antenna |
+| `background` | `#F3EEE4` | `#121411` | Window and chat canvas |
+| `sidebar` | `#E8E1D3` | `#0D0F0C` | Sidebar and Settings navigation |
+| `surface` | `#FCFAF5` | `#1A1D19` | Composer, compact panel, cards |
+| `menu` | `#FFFFFF` | `#232721` | Menus and the model picker, always opaque |
+| `userBubble` | `#E6DFD0` | `#21251F` | The person's own messages |
+| `textPrimary` | `#211E19` | `#C8CCBF` | Body text |
+| `textSecondary` | `#5B554A` | `#959B8D` | Supporting text |
+| `textTertiary` | `#827B6D` | `#737968` | Timestamps, placeholders, hints |
+| `hairline` | `#24201A` at 10% | `#C8CCBF` at 8% | Row dividers |
+| `border` | `#24201A` at 18% | `#C8CCBF` at 15% | Window, card, and menu edges |
+| `hover` | `#24201A` at 5% | `#C8CCBF` at 5% | Hover fill |
+| `accent` | `#3F5A12` | `#7E9C6B` | Send, primary buttons, switches |
+| `onAccent` | `#F5F8EA` | `#0F160B` | Text and icons on `accent` |
+| `accentText` | `#4A6A14` | `#9CB687` | Command names, selection dots, links, the What's new? label |
+| `characterBody` | `#C3DE5E` | `#8FAA6A` | Character fill |
+| `characterInk` | `#211E19` | `#BFC3B3` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
-| `codeKeyword` | `#8A3B6E` | `#E59AC8` | Code keywords; terminal commands |
-| `codeString` | `#3F6B1A` | `#B9D877` | Code strings; terminal paths |
-| `codeNumber` | `#A04A12` | `#EDA76E` | Code numbers |
-| `codeComment` | `#6E685C` | `#928C7E` | Code comments |
-| `codeType` | `#1D6375` | `#7FCAD6` | Code types; terminal flags |
-| `codeVariable` | `#3A4FA0` | `#A9B6F2` | Code variables, JSON keys, CSS properties |
+| `codeKeyword` | `#8A3B6E` | `#C09AB6` | Code keywords; terminal commands |
+| `codeString` | `#3F6B1A` | `#A7BF86` | Code strings; terminal paths |
+| `codeNumber` | `#A04A12` | `#D2A57E` | Code numbers |
+| `codeComment` | `#6E685C` | `#828879` | Code comments |
+| `codeType` | `#1D6375` | `#88B8AE` | Code types; terminal flags |
+| `codeVariable` | `#3A4FA0` | `#A6B0D6` | Code variables, JSON keys, CSS properties |
 
 Rules:
 
@@ -191,7 +191,7 @@ or being poked.
 
 ## The character
 
-A flat 2D figure: a lime body with a hole through the middle, an antenna with
+A flat 2D figure: a lime body (a quieter moss green in dark mode) with a hole through the middle, an antenna with
 a ball, three thin legs with dot feet, and a contact shadow. It has no face.
 Its outline is thick and redrawn with a slight jitter 12 times a second.
 

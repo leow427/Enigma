@@ -39,22 +39,22 @@ the given opacity.
 
 | Token | Paper | Ink | Use |
 | --- | --- | --- | --- |
-| `background` | `#F3EEE4` | `#141512` | Window and chat canvas |
-| `sidebar` | `#E8E1D3` | `#0E0F0D` | Sidebar and Settings navigation |
-| `surface` | `#FCFAF5` | `#1E1F1B` | Composer, compact panel |
-| `menu` | `#FFFFFF` | `#282923` | Model picker and other menus, always opaque |
-| `userBubble` | `#E6DFD0` | `#262721` | The user's own messages |
-| `textPrimary` | `#211E19` | `#EFE8D8` | Body text |
-| `textSecondary` | `#5B554A` | `#ABA496` | Supporting text |
-| `textTertiary` | `#827B6D` | `#827D70` | Timestamps, placeholders, hints |
-| `hairline` | `#24201A` at 10% | `#EDE6D6` at 8% | Row dividers |
-| `border` | `#24201A` at 18% | `#EDE6D6` at 15% | Window and menu edges |
-| `hover` | `#24201A` at 5% | `#EDE6D6` at 5% | Hover fill |
-| `accent` | `#3F5A12` | `#CDEB78` | Send button, primary buttons, switches |
-| `onAccent` | `#F5F8EA` | `#1A2306` | Text and icons on `accent` |
-| `accentText` | `#4A6A14` | `#CDEB78` | Command names, selection dots, links |
-| `characterBody` | `#C3DE5E` | `#C3DE5E` | Character fill |
-| `characterInk` | `#211E19` | `#D9D1BF` | Character outline, legs, antenna |
+| `background` | `#F3EEE4` | `#121411` | Window and chat canvas |
+| `sidebar` | `#E8E1D3` | `#0D0F0C` | Sidebar and Settings navigation |
+| `surface` | `#FCFAF5` | `#1A1D19` | Composer, compact panel |
+| `menu` | `#FFFFFF` | `#232721` | Model picker and other menus, always opaque |
+| `userBubble` | `#E6DFD0` | `#21251F` | The user's own messages |
+| `textPrimary` | `#211E19` | `#C8CCBF` | Body text |
+| `textSecondary` | `#5B554A` | `#959B8D` | Supporting text |
+| `textTertiary` | `#827B6D` | `#737968` | Timestamps, placeholders, hints |
+| `hairline` | `#24201A` at 10% | `#C8CCBF` at 8% | Row dividers |
+| `border` | `#24201A` at 18% | `#C8CCBF` at 15% | Window and menu edges |
+| `hover` | `#24201A` at 5% | `#C8CCBF` at 5% | Hover fill |
+| `accent` | `#3F5A12` | `#7E9C6B` | Send button, primary buttons, switches |
+| `onAccent` | `#F5F8EA` | `#0F160B` | Text and icons on `accent` |
+| `accentText` | `#4A6A14` | `#9CB687` | Command names, selection dots, links |
+| `characterBody` | `#C3DE5E` | `#8FAA6A` | Character fill |
+| `characterInk` | `#211E19` | `#BFC3B3` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
 
 `textTertiary` reaches 3:1 on every surface, which is enough for text a
