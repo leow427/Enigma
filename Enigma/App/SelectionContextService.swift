@@ -55,15 +55,13 @@ final class SelectionContextService: ObservableObject {
   var canReplace: Bool { (target != nil || GuidedTour.shared.stop == .selection) && !isWorking }
   func discardTarget() { target = nil; capturedBounds = nil; notice = nil }
 
-  /// Apps whose last capture waited the full focus budget without a focused element,
-  /// kept in memory only, so later invocations there don't wait as long again.
-  private var focusMemory = SelectionFocusMemory<SelectionAppKey>()
   /// Structural lookups (focus, parents, roles, ranges) are quick or the app is busy.
   private static let messagingTimeout: Float = 0.15
-  /// String reads can take longer for a large selection. Longer than `SelectionCaptureFlow.coldSelectionBudget`, so a read that times out
-  /// also ends the selection retry instead of being repeated.
+  /// String reads can take longer for a large selection; one that times out falls through to ⌘C.
   static let textTimeout: Float = 1.0
 
+  /// One quick Accessibility read, then ⌘C in any app. Nothing waits for an app's
+  /// accessibility tree: an app that doesn't answer at once is copied from instead.
   func capture() async -> ConversationContext? {
     guard !isWorking else { return nil }
     isWorking = true
@@ -82,68 +80,59 @@ final class SelectionContextService: ObservableObject {
       return nil
     }
     failureNotice = SelectionCaptureNotice.text(for: .nothingRead, appName: app.localizedName)
-    let application = AXUIElementCreateApplication(app.processIdentifier)
-    AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
-    // Electron apps and Chromium browsers may not expose their focused editor until assistive
-    // access is enabled. Unsupported attributes are harmless; this never grants macOS permission.
-    SelectionAccessibilityWarmer.turnOnAccessibility(
-      application, attributes: SelectionAccessibilityWarmer.attributes(for: app.bundleIdentifier))
     let mayCapture = {
       !Task.isCancelled && !interaction.interrupted && !IsSecureEventInputEnabled()
         && NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
     }
-    let source = SelectionAppKey(pid: app.processIdentifier, launchDate: app.launchDate)
-    let outcome = await SelectionCaptureFlow.run(tree: SelectionCaptureFlow.Tree(
-        focused: { self.element(application, kAXFocusedUIElementAttribute) },
-        isSafe: { self.isSafe($0) },
-        sameFocus: { self.sameFocus(app: app, element: $0) },
-        role: { self.attribute($0, kAXRoleAttribute) as? String },
-        parent: { self.element($0, kAXParentAttribute) },
-        selectedText: { self.selectedText($0) },
-        rangeText: { node in self.selectedRange(node).flatMap { self.textForRange(node, range: $0) } },
-        markerText: { self.markerText($0) },
-        pdfViewer: { SelectionPDFViewer.bundleIDs.contains(app.bundleIdentifier ?? "") ? self.pdfViewer(application) : nil }),
-      focusBudget: focusMemory.focusBudget(for: source), appName: app.localizedName, mayCapture: mayCapture,
-      lastWarm: { SelectionWarmHistory.shared.snapshot(source) })
-    focusMemory.record(source, foundFocus: outcome.foundFocus, timedOut: outcome.focusTimedOut)
-    if let notice = outcome.notice { failureNotice = notice }
-    var result: SelectionLog.Result = outcome.focusTimedOut ? .notReady : .nothingRead
+    guard mayCapture() else { return nil }
+    let started = ContinuousClock.now
+    let application = AXUIElementCreateApplication(app.processIdentifier)
+    AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
+    let outcome = SelectionCaptureFlow.read(tree: SelectionCaptureFlow.Tree(
+      focused: { self.focus(application) },
+      isSafe: { self.isSafe($0) },
+      role: { self.attribute($0, kAXRoleAttribute) as? String },
+      parent: { self.element($0, kAXParentAttribute) },
+      selectedText: { self.selectedText($0) },
+      rangeText: { node in self.selectedRange(node).flatMap { self.textForRange(node, range: $0) } },
+      markerText: { self.markerText($0) }))
+    var result: SelectionLog.Result = .nothingRead
     var usedCopy = false
     defer {
       let final: SelectionLog.Result = result == .nothingRead && !mayCapture() ? .cancelled : result
-      SelectionLog.capture(outcome.timing, source: outcome.selection?.source, usedCopy: usedCopy, result: final)
+      SelectionLog.capture(elapsed: ContinuousClock.now - started, source: outcome.selection?.source,
+                           usedCopy: usedCopy, result: final)
     }
-    guard let element = outcome.element else { return nil }
-    // A PDF viewer is never the focused element; it stays current while nothing else takes focus.
-    let isCurrent: () -> Bool = outcome.isPDFViewer
-      ? { self.isCurrentPDFViewer(element, app: app, application: application) }
-      : { self.sameFocus(app: app, element: element) && self.isSafe(element) }
-    let range = selectedRange(element)
+    let range = outcome.element.flatMap { selectedRange($0) }
     var text = outcome.selection?.text
     if text == nil {
-      // The selection retry can last 750 ms; never clear the clipboard or send ⌘C after the user moved on.
-      guard outcome.mayCopy, mayCapture(),
-            SelectionCapturePolicy.allowsCopy(range: range, bundleID: app.bundleIdentifier) else { return nil }
+      guard mayCapture(), let resend = SelectionCapturePolicy.copyResend(mayCopy: outcome.mayCopy, range: range,
+              inWebContent: outcome.inWebContent, bundleID: app.bundleIdentifier) else { return nil }
       usedCopy = true
-      text = await copySelection(app: app, isCurrent: isCurrent, accept: {
-        SelectionCapturePolicy.acceptsCopy(range: range, bundleID: app.bundleIdentifier, webCustomData: $0())
-      })
+      text = await SelectionCopyTransaction.perform(board: .general, resend: resend, mayContinue: mayCapture,
+        userCopied: { interaction.copied },
+        // Before each ⌘C, the focus must still be what the read saw and still safe; a busy app times out here.
+        postCopy: {
+          self.focus(application).isCurrent(outcome.element, same: { CFEqual($0, $1) }, isSafe: { self.isSafe($0) })
+            && self.postCommand(key: 8, pid: app.processIdentifier)
+        },
+        accept: { SelectionCapturePolicy.acceptsCopy(range: range, bundleID: app.bundleIdentifier, webCustomData: $0()) })
     }
-    guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-          !interaction.interrupted, isCurrent() else { return nil }
+    guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, mayCapture() else { return nil }
     guard text.utf8.count <= 256_000 else {
       notice = "The selection is too large to attach. Select a smaller passage and try again."
       result = .tooLarge
       return nil
     }
     result = .attached
+    // A copy from an app with no readable focused element places the panel beside the pointer.
     switch outcome.selection?.source {
     case .focusedMarkers?:
-      capturedBounds = markerBounds(element)
+      capturedBounds = outcome.element.flatMap { markerBounds($0) }
     case .webAreaSelectedText?, .webAreaMarkers?:
       capturedBounds = outcome.webArea.flatMap { markerBounds($0) }
     case .selectedText?, .rangeText?, nil:
-      if let range, range.length > 0 { capturedBounds = bounds(element: element, range: range) }
+      if let element = outcome.element, let range, range.length > 0 { capturedBounds = bounds(element: element, range: range) }
     }
     let context = ConversationContext(sourceName: app.localizedName ?? "Application", text: text)
     remember(context, from: app)
@@ -217,9 +206,10 @@ final class SelectionContextService: ObservableObject {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid else { return false }
         let application = AXUIElementCreateApplication(target.pid)
         AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
-        guard let focused = self.element(application, kAXFocusedUIElementAttribute) else { return false }
         // Inspect only the current field's password/protected status, not its identity.
-        return self.isSafe(focused)
+        // An app that reports no focused element at all (such as ChatGPT) has no field to inspect;
+        // Secure Event Input, which password fields turn on, is checked in `isAvailable`.
+        return self.focus(application).allowsPaste(isSafe: { self.isSafe($0) })
       },
       postPaste: { self.postCommand(key: 9, pid: $0) },
       settle: { try? await Task.sleep(for: .milliseconds(600)) })
@@ -239,39 +229,6 @@ final class SelectionContextService: ObservableObject {
     return false
   }
 
-  /// `accept` may read the copy's `org.chromium.web-custom-data` before the clipboard is restored.
-  /// `isCurrent` checks that the element is still the one to copy from and still safe.
-  private func copySelection(app: NSRunningApplication, isCurrent: () -> Bool,
-                             accept: (() -> Data?) -> Bool) async -> String? {
-    guard isCurrent(), let snapshot = SelectionPasteboardSnapshot(.general) else { return nil }
-    let interaction = SelectionInteractionGuard()
-    defer { interaction.stop() }
-    let board = NSPasteboard.general
-    board.clearContents()
-    let marker = NSPasteboard.PasteboardType("com.enigma.selection-copy")
-    board.setString(UUID().uuidString, forType: marker)
-    var ownedCount = board.changeCount
-    defer { snapshot.restore(board, ifUnchanged: ownedCount) }
-    for _ in 0..<2 {
-      guard !Task.isCancelled, !interaction.interrupted, isCurrent(), board.changeCount == ownedCount else { return nil }
-      guard postCommand(key: 8, pid: app.processIdentifier) else { return nil }
-      for _ in 0..<20 {
-        try? await Task.sleep(for: .milliseconds(20))
-        guard !Task.isCancelled, !interaction.interrupted, isCurrent() else { return nil }
-        if board.changeCount != ownedCount {
-          // Never retry after any clipboard write, or restore over a newer copy.
-          guard board.changeCount == ownedCount + 1 else { return nil }
-          ownedCount = board.changeCount
-          let text = accept { board.data(forType: SelectionCapturePolicy.webCustomDataType) } ? board.string(forType: .string) : nil
-          return board.changeCount == ownedCount ? text : nil
-        }
-      }
-      // A single retry handles an editor that was not ready for the first Cmd+C.
-      // The source is still focused and the marker has not been consumed.
-    }
-    return nil
-  }
-
   @discardableResult
   private func postCommand(key: CGKeyCode, pid: pid_t) -> Bool {
     let source = CGEventSource(stateID: .privateState)
@@ -283,49 +240,6 @@ final class SelectionContextService: ObservableObject {
       event.postToPid(pid)
     }
     return true
-  }
-
-  private func sameFocus(app: NSRunningApplication, element: AXUIElement) -> Bool {
-    let application = AXUIElementCreateApplication(app.processIdentifier)
-    AXUIElementSetMessagingTimeout(application, Self.messagingTimeout)
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier,
-          let focused = self.element(application, kAXFocusedUIElementAttribute) else { return false }
-    return CFEqual(focused, element)
-  }
-
-  private func pdfViewer(_ application: AXUIElement) -> AXUIElement? {
-    guard let window = element(application, kAXFocusedWindowAttribute) else { return nil }
-    let deadline = SelectionCaptureRetry.uptime() + SelectionPDFViewer.budget
-    return SelectionPDFViewer.find(in: window, mayContinue: { SelectionCaptureRetry.uptime() < deadline },
-      role: { self.attribute($0, kAXRoleAttribute) as? String },
-      subrole: { self.attribute($0, kAXSubroleAttribute) as? String }, children: { self.children($0) })
-  }
-
-  private func isCurrentPDFViewer(_ viewer: AXUIElement, app: NSRunningApplication, application: AXUIElement) -> Bool {
-    SelectionPDFViewer.isCurrent(
-      isFrontmost: { NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier },
-      nothingFocused: {
-        var value: CFTypeRef?
-        return SelectionPDFViewer.reportsNothingFocused(
-          AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &value))
-      },
-      isViewer: { self.attribute(viewer, kAXSubroleAttribute) as? String == SelectionPDFViewer.subrole },
-      inFocusedWindow: {
-        guard let window = self.element(application, kAXFocusedWindowAttribute),
-              let viewerWindow = self.element(viewer, kAXWindowAttribute) else { return false }
-        return CFEqual(window, viewerWindow)
-      },
-      isSafe: { self.isSafe(viewer) })
-  }
-
-  private func children(_ owner: AXUIElement) -> [AXUIElement] {
-    guard let value = attribute(owner, kAXChildrenAttribute), CFGetTypeID(value) == CFArrayGetTypeID() else { return [] }
-    let children = (value as! [AnyObject]).compactMap { child -> AXUIElement? in
-      guard CFGetTypeID(child) == AXUIElementGetTypeID() else { return nil }
-      return (child as! AXUIElement)
-    }
-    for child in children { AXUIElementSetMessagingTimeout(child, Self.messagingTimeout) }
-    return children
   }
 
   private func isSafe(_ element: AXUIElement) -> Bool {
@@ -349,8 +263,7 @@ final class SelectionContextService: ObservableObject {
   }
 
   /// A string read gets a longer timeout than structural lookups: a large selection in
-  /// Chromium, WebKit or Xcode can take a while to serialize. One that times out uses up
-  /// the whole selection retry, so it isn't repeated.
+  /// Chromium, WebKit or Xcode can take a while to serialize. One that times out falls through to ⌘C.
   private func textRead(_ element: AXUIElement, _ read: (inout CFTypeRef?) -> AXError) -> CFTypeRef? {
     AXUIElementSetMessagingTimeout(element, Self.textTimeout)
     defer { AXUIElementSetMessagingTimeout(element, Self.messagingTimeout) }
@@ -361,6 +274,16 @@ final class SelectionContextService: ObservableObject {
   private func attribute(_ element: AXUIElement, _ key: String) -> CFTypeRef? {
     var value: CFTypeRef?
     return AXUIElementCopyAttributeValue(element, key as CFString, &value) == .success ? value : nil
+  }
+
+  /// A timeout or an unexpected error is unknown, so an app too busy to answer is neither
+  /// copied from nor pasted into (see `SelectionFocus.init`).
+  private func focus(_ application: AXUIElement) -> SelectionFocus<AXUIElement> {
+    var value: CFTypeRef?
+    let error = AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &value)
+    let element = value.flatMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil }
+    if let element { AXUIElementSetMessagingTimeout(element, Self.messagingTimeout) }
+    return SelectionFocus(error: error, element: element)
   }
 
   private func element(_ owner: AXUIElement, _ key: String) -> AXUIElement? {
@@ -420,176 +343,107 @@ enum SelectionPanelPlacement {
   }
 }
 
-/// Bounded readiness retries occur only inside a deliberate invocation.
-@MainActor
-enum SelectionCaptureRetry {
-  nonisolated static func uptime() -> Duration { .nanoseconds(Int64(clamping: DispatchTime.now().uptimeNanoseconds)) }
-
-  /// Reads at once, then every `interval` until `budget` has passed. `now` is any
-  /// monotonic time; tests inject a simulated clock that `wait` advances.
-  static func first<Value>(within budget: Duration, interval: Duration = .milliseconds(30),
-                           mayContinue: () -> Bool, read: () -> Value?,
-                           now: () -> Duration = uptime,
-                           wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> Value? {
-    let deadline = now() + budget
-    while true {
-      guard !Task.isCancelled, mayContinue() else { return nil }
-      if let value = read() { return value }
-      let remaining = deadline - now()
-      guard remaining > .zero else { return nil }
-      await wait(min(interval, remaining))
-    }
-  }
-}
-
-/// A diagnostic line per capture and per warm, readable later with `log show`. It holds
-/// timings and fixed labels only: never the selected text, its length, or the app.
+/// A diagnostic line per capture, readable later with `log show`. It holds timings and
+/// fixed labels only: never the selected text, its length, or the app.
 enum SelectionLog {
   static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.leow427.AISpotlight",
                              category: "selection")
 
-  enum Result: String { case attached, nothingRead, notReady, tooLarge, cancelled }
+  enum Result: String { case attached, nothingRead, tooLarge, cancelled }
 
-  static func capture(_ timing: SelectionCaptureFlow.Timing, source: SelectionTextSource?, usedCopy: Bool,
-                      result: Result) {
-    let warm = timing.lastWarm
+  static func capture(elapsed: Duration, source: SelectionTextSource?, usedCopy: Bool, result: Result) {
     logger.notice("""
-      capture focusWaitMs=\(milliseconds(timing.focusWait), privacy: .public) \
-      focusReads=\(timing.focusReads, privacy: .public) cold=\(timing.wasCold, privacy: .public) \
-      selectionMs=\(milliseconds(timing.selectionTime), privacy: .public) \
+      capture ms=\(milliseconds(elapsed), privacy: .public) \
       source=\(source.map { String(describing: $0) } ?? "none", privacy: .public) \
-      copy=\(usedCopy, privacy: .public) result=\(result.rawValue, privacy: .public) \
-      lastWarm=\(seconds(warm.sinceWarm), privacy: .public) \
-      lastWarmTrigger=\(warm.trigger?.rawValue ?? "none", privacy: .public) \
-      firstTapWarm=\(seconds(warm.sinceFirstTap), privacy: .public)
+      copy=\(usedCopy, privacy: .public) result=\(result.rawValue, privacy: .public)
       """)
   }
 
   static func milliseconds(_ duration: Duration) -> Int {
     Int(duration.components.seconds * 1000 + duration.components.attoseconds / 1_000_000_000_000_000)
   }
+}
 
-  /// Seconds ago to one decimal, such as "2.4", or "never".
-  static func seconds(_ duration: Duration?) -> String {
-    guard let duration else { return "never" }
-    return String(format: "%.1f", Double(milliseconds(duration)) / 1000)
+/// What an app reports as focused: an element, nothing at all (`kAXErrorNoValue`), or an error.
+enum SelectionFocus<Node> {
+  case element(Node), nothing, unknown
+
+  /// "No value", or an app that doesn't support focus (a Chromium or Electron app with its
+  /// accessibility off may answer either), means nothing is focused; a timeout or any other
+  /// error is unknown.
+  init(error: AXError, element: Node?) {
+    switch (error, element) {
+    case (.success, let element?): self = .element(element)
+    case (.noValue, _), (.attributeUnsupported, _), (.notImplemented, _): self = .nothing
+    default: self = .unknown
+    }
+  }
+
+  /// A paste may go into a safe focused element, or into an app that reports none (Secure
+  /// Event Input, which password fields turn on, is checked separately); never when unknown.
+  func allowsPaste(isSafe: (Node) -> Bool) -> Bool {
+    switch self {
+    case .element(let focused): isSafe(focused)
+    case .nothing: true
+    case .unknown: false
+    }
+  }
+
+  /// The focus is still `read` (nil: nothing was focused) and still safe.
+  func isCurrent(_ read: Node?, same: (Node, Node) -> Bool, isSafe: (Node) -> Bool) -> Bool {
+    switch (self, read) {
+    case (.nothing, nil): true
+    case (.element(let focused), let read?): same(focused, read) && isSafe(focused)
+    default: false
+    }
   }
 }
 
-/// The capture sequence over an abstract accessibility tree, so its order, budgets
-/// and failure kinds are testable with a fake tree. `SelectionContextService`
-/// supplies thin closures over the real Accessibility calls.
+/// One read of the focused element's selection over an abstract accessibility tree, so
+/// its order and safety rules are testable with a fake tree. Nothing waits: an app whose
+/// tree doesn't answer at once is copied from with ⌘C instead.
 @MainActor
 enum SelectionCaptureFlow {
   nonisolated static let webAreaRole = "AXWebArea"
-  /// How long a just-enabled Chromium or Electron tree gets to report its focused
-  /// element. Measured cold trees took about 2 s (see docs/Selection-Context.md).
-  nonisolated static let focusBudget: Duration = .milliseconds(2_500)
-  /// The focus wait for an app whose last capture never reported a focused element.
-  nonisolated static let shortFocusBudget: Duration = .milliseconds(300)
-  /// About three reads, 30 ms apart, for a tree that answered at once.
-  nonisolated static let quickBudget: Duration = .milliseconds(60)
-  /// The longer selection retry for a tree that only just reported its focus.
-  nonisolated static let coldSelectionBudget: Duration = .milliseconds(750)
-  nonisolated static let interval: Duration = .milliseconds(30)
 
   struct Tree<Node> {
-    var focused: () -> Node?
+    var focused: () -> SelectionFocus<Node>
     /// The focused element and every ancestor up to the app are safe to read.
     var isSafe: (Node) -> Bool
-    /// The node is still the app's focused element.
-    var sameFocus: (Node) -> Bool
     var role: (Node) -> String?
     var parent: (Node) -> Node?
     var selectedText: (Node) -> String?
     /// `AXStringForRange`, or the selected slice of `AXValue`.
     var rangeText: (Node) -> String?
     var markerText: (Node) -> String?
-    /// A PDF viewer in the focused window, read only when the app reports no focused element.
-    var pdfViewer: () -> Node? = { nil }
   }
 
   struct Outcome<Node> {
-    /// The safe focused element, or the safe PDF viewer standing in for it, when there was one.
+    /// The safe focused element, when there was one.
     var element: Node?
     var selection: (source: SelectionTextSource, text: String)?
     /// The web area the selection came from, if it did.
     var webArea: Node?
-    var foundFocus: Bool
-    /// `element` is a PDF viewer standing in for a focused element; only ⌘C can read its selection.
-    var isPDFViewer = false
-    /// The whole focus budget passed, while capture could continue, with no focused element.
-    var focusTimedOut: Bool
-    /// Capture could still continue when the flow ended, so the ⌘C fallback may run.
-    var mayCopy = false
-    /// What to show if nothing ends up attached; nil once text was read.
-    var notice: String?
-    var timing = Timing()
+    /// The focused element isn't safe to read, or the app couldn't say what is focused,
+    /// so nothing may be read or copied.
+    var refused = false
+
+    /// The focused element is a web area or inside one, where an empty AX range can hide a DOM
+    /// selection. Worked out only when nothing was read.
+    var inWebContent = false
+
+    /// Nothing was read and nothing refused, so ⌘C may be sent.
+    var mayCopy: Bool { !refused && selection == nil }
   }
 
-  /// How long each step took, for the diagnostic log.
-  struct Timing: Equatable {
-    var focusWait: Duration = .zero
-    var focusReads = 0
-    var wasCold = false
-    var selectionTime: Duration = .zero
-    /// When the app was last warmed, taken before the capture started waiting.
-    var lastWarm = SelectionWarmSnapshot()
-  }
-
-  static func run<Node>(tree: Tree<Node>, focusBudget: Duration, appName: String?, mayCapture: () -> Bool,
-                        lastWarm: () -> SelectionWarmSnapshot = { SelectionWarmSnapshot() },
-                        now: () -> Duration = SelectionCaptureRetry.uptime,
-                        wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> Outcome<Node> {
-    let nothingRead = SelectionCaptureNotice.text(for: .nothingRead, appName: appName)
-    // A cold Chromium tree builds asynchronously after its accessibility attributes are set.
-    let start = now()
-    let focusDeadline = start + focusBudget
-    var focusReads = 0
-    // Before any waiting, so warms during the capture itself don't hide earlier ones.
-    var timing = Timing(lastWarm: lastWarm())
-    var viewer: Node?
-    guard let focused = await SelectionCaptureRetry.first(within: focusBudget, interval: interval, mayContinue: mayCapture,
-      read: { () -> Node? in
-        focusReads += 1
-        if let focused = tree.focused() { return focused }
-        // Safari's PDF view never reports focus, so waiting for it is pointless. Look once.
-        guard focusReads == 1 else { return nil }
-        viewer = tree.pdfViewer()
-        return viewer
-      }, now: now, wait: wait) else {
-      let timedOut = mayCapture()
-      timing.focusWait = now() - start
-      timing.focusReads = focusReads
-      timing.wasCold = focusReads > 1
-      return Outcome(element: nil, selection: nil, webArea: nil, foundFocus: false, focusTimedOut: timedOut,
-        notice: timedOut ? SelectionCaptureNotice.text(for: .notReady, appName: appName) : nothingRead, timing: timing)
+  static func read<Node>(tree: Tree<Node>) -> Outcome<Node> {
+    let element: Node
+    switch tree.focused() {
+    case .nothing: return Outcome()
+    case .unknown: return Outcome(refused: true)
+    case .element(let node): element = node
     }
-    let wasCold = focusReads > 1
-    timing.focusWait = now() - start
-    timing.focusReads = focusReads
-    timing.wasCold = wasCold
-    if let viewer {
-      // The viewer exposes no selection to Accessibility: go straight to the ⌘C fallback.
-      let safe = tree.isSafe(viewer)
-      // Nothing has yielded since the capture began; let input during the lookup cancel it before any ⌘C.
-      if safe { await wait(interval) }
-      return Outcome(element: safe ? viewer : nil, selection: nil, webArea: nil, foundFocus: safe, isPDFViewer: safe,
-        focusTimedOut: false, mayCopy: safe && mayCapture(), notice: nothingRead, timing: timing)
-    }
-    var safeFocus: Node? = tree.isSafe(focused) ? focused : nil
-    if safeFocus == nil {
-      // A tree still being filled in may not reach the app yet; never read until it does.
-      // After a cold wait, keep trying for what's left of the focus budget.
-      let budget = wasCold ? max(focusDeadline - now(), quickBudget) : quickBudget
-      safeFocus = await SelectionCaptureRetry.first(within: budget, interval: interval, mayContinue: mayCapture, read: {
-        tree.focused().flatMap { tree.isSafe($0) ? $0 : nil }
-      }, now: now, wait: wait)
-    }
-    guard var element = safeFocus else {
-      return Outcome(element: nil, selection: nil, webArea: nil, foundFocus: true, focusTimedOut: false, notice: nothingRead,
-        timing: timing)
-    }
+    guard tree.isSafe(element) else { return Outcome(refused: true) }
     // A focused web area (a page, frame or web view) is its own document: never read the page around it.
     var cachedArea: Node??
     let webArea = { () -> Node? in
@@ -599,93 +453,73 @@ enum SelectionCaptureFlow {
       cachedArea = .some(area)
       return area
     }
-    let selectionStart = now()
-    let selection = await SelectionCaptureRetry.first(within: wasCold ? coldSelectionBudget : quickBudget, interval: interval,
-      mayContinue: { mayCapture() && (wasCold || (tree.sameFocus(element) && tree.isSafe(element))) },
-      read: { () -> (source: SelectionTextSource, text: String)? in
-        if wasCold, !(tree.sameFocus(element) && tree.isSafe(element)) {
-          // Only a tree that just woke up may still move its focus (VS Code first reports its
-          // web area, then the editor): follow it to the new, safe element.
-          guard let moved = tree.focused(), tree.isSafe(moved) else { return nil }
-          element = moved
-          cachedArea = nil
-        }
-        return SelectionCapturePolicy.selectionText(
-          selectedText: { tree.selectedText(element) },
-          rangeText: { tree.rangeText(element) },
-          focusedMarkers: { tree.markerText(element) },
-          webAreaSelectedText: { webArea().flatMap(tree.selectedText) },
-          webAreaMarkers: { webArea().flatMap(tree.markerText) })
-      }, now: now, wait: wait)
-    timing.selectionTime = now() - selectionStart
+    let selection = SelectionCapturePolicy.selectionText(
+      selectedText: { tree.selectedText(element) },
+      rangeText: { tree.rangeText(element) },
+      focusedMarkers: { tree.markerText(element) },
+      webAreaSelectedText: { webArea().flatMap(tree.selectedText) },
+      webAreaMarkers: { webArea().flatMap(tree.markerText) })
     let usedArea: Node? = switch selection?.source {
     case .webAreaSelectedText?, .webAreaMarkers?: webArea()
     default: nil
     }
-    return Outcome(element: element, selection: selection, webArea: usedArea, foundFocus: true, focusTimedOut: false,
-      mayCopy: selection == nil && mayCapture(), notice: selection == nil ? nothingRead : nil, timing: timing)
+    return Outcome(element: element, selection: selection, webArea: usedArea,
+                   inWebContent: selection == nil && (tree.role(element) == webAreaRole || webArea() != nil))
   }
 }
 
-/// Remembers, in memory only, apps whose last capture waited the whole focus budget
-/// without a focused element, so the next capture there waits only briefly.
-struct SelectionFocusMemory<Key: Hashable> {
-  private(set) var unresponsive: Set<Key> = []
+/// ⌘C wrapped in a lossless, ownership-aware clipboard round trip. Every item on the
+/// clipboard is saved first and put back afterwards unless something newer was copied;
+/// if it can't all be saved, nothing is copied. Injectable so tests use a private board.
+@MainActor
+enum SelectionCopyTransaction {
+  /// How long each ⌘C gets to change the clipboard. Electron editors sometimes drop the
+  /// first one, so it is sent once more; with nothing selected the capture ends after both.
+  static let attempts: [Duration] = [.milliseconds(160), .milliseconds(240)]
+  static let interval: Duration = .milliseconds(20)
+  static let marker = NSPasteboard.PasteboardType("com.enigma.selection-copy")
 
-  func focusBudget(for key: Key) -> Duration {
-    unresponsive.contains(key) ? SelectionCaptureFlow.shortFocusBudget : SelectionCaptureFlow.focusBudget
-  }
-
-  mutating func record(_ key: Key, foundFocus: Bool, timedOut: Bool) {
-    if foundFocus { unresponsive.remove(key) } else if timedOut { unresponsive.insert(key) }
-  }
-}
-
-/// Finds Safari's PDF viewer in a window. Safari shows a PDF opened as a page through a
-/// plugin that reports no focused element and no selection, so ⌘C is the only way to
-/// read what is selected there. Only Safari is searched: other WebKit apps can show the
-/// same viewer without it having keyboard focus. The search is breadth-first and bounded,
-/// expands only container elements (never a web area, a toolbar or the viewer's pages),
-/// and reads roles, subroles and children only, never text.
-enum SelectionPDFViewer {
-  static let subrole = "AXPDFPluginSubrole"
-  static let bundleIDs: Set<String> = ["com.apple.Safari", "com.apple.SafariTechnologyPreview"]
-  /// Safari 26 puts the viewer five levels below its window, after 7 containers.
-  static let maximumDepth = 8
-  /// The window and every child whose role is read count, queued or not.
-  static let maximumNodes = 200
-  static let budget: Duration = .milliseconds(100)
-  private static let containerRoles: Set<String> = ["AXSplitGroup", "AXTabGroup", "AXGroup", "AXScrollArea"]
-
-  static func find<Node>(in window: Node, maximumDepth: Int = maximumDepth, maximumNodes: Int = maximumNodes,
-                         mayContinue: () -> Bool = { true }, role: (Node) -> String?, subrole: (Node) -> String?,
-                         children: (Node) -> [Node]) -> Node? {
-    var queue: [(node: Node, depth: Int)] = [(window, 0)]
-    var index = 0, read = 1
-    while index < queue.count, mayContinue() {
-      let (node, depth) = queue[index]
-      index += 1
-      if subrole(node) == Self.subrole { return node }
-      guard depth < maximumDepth, read < maximumNodes else { continue }
-      for child in children(node) {
-        guard read < maximumNodes, mayContinue() else { break }
-        read += 1
-        if let childRole = role(child), containerRoles.contains(childRole) { queue.append((child, depth + 1)) }
+  /// `resend` allows the second ⌘C. `userCopied` reports a ⌘C or ⌘X the user pressed during the
+  /// capture, whose copy must never be restored over. `accept` may read the copy's
+  /// `org.chromium.web-custom-data` before the clipboard is restored.
+  static func perform(board: NSPasteboard, resend: Bool = true, mayContinue: () -> Bool,
+                      userCopied: () -> Bool = { false }, postCopy: () -> Bool, accept: (() -> Data?) -> Bool,
+                      wait: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async -> String? {
+    // Yield once, so input during the Accessibility read cancels the capture before anything is sent.
+    await wait(interval)
+    guard mayContinue(), let snapshot = SelectionPasteboardSnapshot(board) else { return nil }
+    board.clearContents()
+    board.setString(UUID().uuidString, forType: marker)
+    let base = board.changeCount
+    var sent = 0, elapsed = Duration.zero, budget = Duration.zero
+    sending: for limit in resend ? attempts : [attempts[0]] {
+      guard board.changeCount == base, mayContinue(), postCopy() else { break }
+      sent += 1
+      budget += limit
+      while elapsed < budget {
+        await wait(interval)
+        elapsed += interval
+        if board.changeCount != base || !mayContinue() { break sending }
       }
     }
-    return nil
+    // Let every ⌘C sent land, within the whole window even after one ⌘C or a cancel, so a slow
+    // one can't overwrite the restored clipboard.
+    let window = attempts.reduce(Duration.zero, +)
+    while board.changeCount < base + sent, elapsed < window {
+      await wait(interval)
+      elapsed += interval
+    }
+    let count = board.changeCount
+    // More changes than ⌘Cs sent means something else wrote the clipboard: never read or restore over it.
+    let ours = count > base && count <= base + sent && !userCopied()
+    var text: String?
+    if ours, mayContinue(), accept({ board.data(forType: SelectionCapturePolicy.webCustomDataType) }) {
+      text = board.string(forType: .string)
+    }
+    let unchanged = board.changeCount == count
+    if count == base || ours { snapshot.restore(board, ifUnchanged: count) }
+    return unchanged ? text : nil
   }
-
-  /// The viewer is still the one to copy from: the app is frontmost, still reports no focused
-  /// element (an error other than "no value" counts as unknown, so it fails), the element is
-  /// still a PDF viewer in the app's focused window, and it is still safe.
-  static func isCurrent(isFrontmost: () -> Bool, nothingFocused: () -> Bool, isViewer: () -> Bool,
-                        inFocusedWindow: () -> Bool, isSafe: () -> Bool) -> Bool {
-    isFrontmost() && nothingFocused() && isViewer() && inFocusedWindow() && isSafe()
-  }
-
-  /// Only "no value" means nothing is focused; a timeout or any other error is unknown.
-  static func reportsNothingFocused(_ error: AXError) -> Bool { error == .noValue }
 }
 
 /// Walks a focused element's ancestors. Chromium and Electron trees can put the
@@ -741,8 +575,6 @@ enum SelectionCaptureNotice {
     case noSource
     /// The app was asked, but no selected text came back.
     case nothingRead
-    /// The app didn't report a focused element within the wait.
-    case notReady
   }
 
   static func text(for failure: Failure, appName: String?) -> String {
@@ -753,8 +585,6 @@ enum SelectionCaptureNotice {
       return "No selected text could be read. Highlight text in the source app and try again. If it still fails, copy the text and paste it into this chat."
     case .nothingRead:
       return "No selected text could be read from \(name ?? "the app"). If text is selected there, copy it and paste it into this chat."
-    case .notReady:
-      return "\(name ?? "The app") didn't share its text with Enigma in time. Try again, or copy the text and paste it into this chat."
     }
   }
 }
@@ -793,6 +623,8 @@ enum SelectionPasteTransaction {
 private final class SelectionInteractionGuard {
   static let eventMarker: Int64 = 0x454E_4947
   private(set) var interrupted = false
+  /// The user pressed ⌘C or ⌘X themselves, so the clipboard holds their copy.
+  private(set) var copied = false
   private var global: Any?
   private var local: Any?
   /// Releasing the shortcut's modifiers (⇧⌥ after ⇧⌥Space) must not cancel the capture it started.
@@ -816,6 +648,8 @@ private final class SelectionInteractionGuard {
   private func receive(_ event: NSEvent) {
     let isOwn = event.cgEvent?.getIntegerValueField(.eventSourceUserData) == Self.eventMarker
     if modifiers.interrupts(type: event.type, flags: event.modifierFlags, isOwnEvent: isOwn) { interrupted = true }
+    if SelectionInteractionPolicy.isUserCopy(type: event.type, flags: event.modifierFlags, keyCode: event.keyCode,
+                                             isOwnEvent: isOwn) { copied = true }
   }
 }
 
@@ -845,29 +679,22 @@ enum SelectionInteractionPolicy {
     let before = previousFlags.intersection(.deviceIndependentFlagsMask)
     return !before.isSuperset(of: now)
   }
+
+  /// The user pressed ⌘C or ⌘X, so the clipboard is theirs.
+  static func isUserCopy(type: NSEvent.EventType, flags: NSEvent.ModifierFlags, keyCode: UInt16, isOwnEvent: Bool) -> Bool {
+    !isOwnEvent && type == .keyDown && flags.contains(.command) && [7, 8].contains(keyCode)
+  }
 }
 
-/// Browser canvas editors can expose an empty hidden input while DOM text is selected.
-/// Copy is authoritative there. Native copy-line editors require a nonempty AX range.
-/// VS Code-family editors hide their selection from AX and copy the whole line when
-/// nothing is selected, so their copy counts only when VS Code's own metadata confirms a selection.
+/// ⌘C is the fallback in every app. Editors that copy the whole current line when nothing
+/// is selected need a nonempty AX range first. VS Code-family editors hide their selection
+/// from AX, so their copy counts only when VS Code's own metadata confirms a selection; in
+/// any other app (a VS Code fork or Monaco on a web page) a copy that metadata marks as from
+/// an empty selection or several cursors is rejected.
 enum SelectionCapturePolicy {
   static let webCustomDataType = NSPasteboard.PasteboardType("org.chromium.web-custom-data")
   static let codeEditors: Set<String> = ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium",
     "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"]
-  /// Chromium-based browsers. Chrome 156 rejects `AXManualAccessibility` and builds its web
-  /// content tree only for `AXEnhancedUserInterface`, which a screen reader sets (checked on
-  /// 2026-10-26; reported from Chrome 155). The others are assumed to match. Electron apps still honour
-  /// `AXManualAccessibility`, and native apps can animate oddly with the other one, so it
-  /// is kept to these.
-  static let chromiumBrowsers: Set<String> = [
-    "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
-    "org.chromium.Chromium", "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev",
-    "com.microsoft.edgemac.Canary", "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
-    "company.thebrowser.Browser", "company.thebrowser.dia", "com.vivaldi.Vivaldi", "com.vivaldi.Vivaldi.snapshot",
-    "com.operasoftware.Opera", "com.operasoftware.OperaNext", "com.operasoftware.OperaDeveloper",
-    "com.operasoftware.OperaGX", "com.operasoftware.OperaAir"]
-
   static func text(in value: String?, range: CFRange) -> String? {
     guard let value, range.location >= 0, range.length > 0 else { return nil }
     let text = value as NSString
@@ -893,19 +720,26 @@ enum SelectionCapturePolicy {
     return nil
   }
 
+  /// Whether ⌘C may be sent once more, or nil when it mustn't be sent at all: after a refused
+  /// read, in a line-copy editor without a selection, or in a native field (outside web content)
+  /// that reports an empty range, whose Copy is disabled so ⌘C would only play the alert sound.
+  /// A field that reports a range has a reliable caret, so it gets no resend.
+  static func copyResend(mayCopy: Bool, range: CFRange?, inWebContent: Bool, bundleID: String?) -> Bool? {
+    guard mayCopy, allowsCopy(range: range, bundleID: bundleID) else { return nil }
+    if let range, range.length == 0, !inWebContent, !codeEditors.contains(bundleID ?? "") { return nil }
+    return range == nil
+  }
+
   static func allowsCopy(range: CFRange?, bundleID: String?) -> Bool {
     let bundleID = bundleID ?? ""
-    if codeEditors.contains(bundleID) { return true }
-    let browsers = chromiumBrowsers
-      .union(["com.apple.Safari", "com.apple.SafariTechnologyPreview", "org.mozilla.firefox"])
-    if let range { return range.length > 0 || browsers.contains(bundleID) }
-    let lineEditors = ["com.microsoft.VSCode", "com.jetbrains.", "com.sublimetext."]
-    return !lineEditors.contains { bundleID.hasPrefix($0) }
+    let lineEditors = ["com.microsoft.VSCode", "com.jetbrains.", "com.google.android.studio", "com.sublimetext.", "dev.zed."]
+    guard !codeEditors.contains(bundleID), lineEditors.contains(where: bundleID.hasPrefix) else { return true }
+    return (range?.length ?? 0) > 0
   }
 
   static func acceptsCopy(range: CFRange?, bundleID: String?, webCustomData: @autoclosure () -> Data?) -> Bool {
-    guard codeEditors.contains(bundleID ?? "") else { return true }
     let source = VSCodeClipboardMetadata.copySource(webCustomData())
+    guard codeEditors.contains(bundleID ?? "") else { return source != .emptySelection && source != .multicursor }
     if let range, range.length > 0 { return source != .emptySelection }
     return source == .selection
   }

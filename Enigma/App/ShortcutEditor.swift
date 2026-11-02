@@ -109,7 +109,7 @@ struct ShortcutEditor: View {
   @AppStorage(SelectionShortcutMonitor.intervalKey) private var doubleTapInterval = 0.35
 
   static let failureNote = "Couldn’t set this shortcut. Another app may be using it."
-  static let sameAsSummonNote = "Your summon shortcut then attaches text you’ve just selected, and otherwise opens Enigma as usual. Reading a selection can take a moment, up to about 2 seconds the first time in Chrome and other Electron apps, and the selection panel opens under the text rather than in the middle of the screen."
+  static let sameAsSummonNote = "Your summon shortcut then attaches text you’ve just selected, and otherwise opens Enigma as usual. Reading a selection can take a moment, up to about half a second when nothing is selected (some apps then play the alert sound), and the selection panel opens under the text rather than in the middle of the screen."
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {

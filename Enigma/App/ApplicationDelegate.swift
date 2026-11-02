@@ -10,7 +10,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
   /// The other kinds each action can be set to in Settings → Shortcuts.
   private var otherShortcuts: [Any] = []
   private var shortcutHotKeys: ShortcutHotKeys?
-  private var accessibilityWarmer: SelectionAccessibilityWarmer?
   private var settingsWindowController: SettingsWindowController?
   private var bugReportWindowController: SettingsWindowController?
   private var subscriptionRefreshTask: Task<Void, Never>?
@@ -115,17 +114,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     panelShortcut.start()
     self.panelShortcut = panelShortcut
 
-    let accessibilityWarmer = SelectionAccessibilityWarmer()
-    accessibilityWarmer.start()
-    self.accessibilityWarmer = accessibilityWarmer
-    let selectionShortcut = SelectionShortcutMonitor(action: .selection, firstTap: { accessibilityWarmer.warmFrontmost() },
-                                                     handler: select)
+    let selectionShortcut = SelectionShortcutMonitor(action: .selection, handler: select)
     selectionShortcut.start()
     self.selectionShortcut = selectionShortcut
     let selectionChord = PanelShortcutMonitor(action: .selection, handler: select)
     selectionChord.start()
-    let summonDoubleTap = SelectionShortcutMonitor(action: .summon, firstTap: { accessibilityWarmer.warmFrontmost() },
-                                                   handler: summon)
+    let summonDoubleTap = SelectionShortcutMonitor(action: .summon, handler: summon)
     summonDoubleTap.start()
     otherShortcuts = [selectionChord, summonDoubleTap]
     let shortcutHotKeys = ShortcutHotKeys(handlers: [.summon: summon, .selection: select])
@@ -156,7 +150,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     (otherShortcuts.first as? PanelShortcutMonitor)?.stop()
     (otherShortcuts.last as? SelectionShortcutMonitor)?.stop()
     shortcutHotKeys?.stop()
-    accessibilityWarmer?.stop()
     globalHotKeyMonitors.forEach { $0.stop() }
     globalHotKeyMonitors.removeAll()
   }

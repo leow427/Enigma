@@ -12,9 +12,11 @@
 // another.
 //
 // The process running the probe (for example Terminal) needs Accessibility
-// permission. The probe only reads, apart from setting AXManualAccessibility (and
-// AXEnhancedUserInterface in Chromium browsers) as Enigma does, and it never
-// touches the clipboard. Text is reported as a character count unless `--text`
+// permission. It first prints what the app answers before anything is turned on,
+// which is what Enigma sees. It then sets AXManualAccessibility (and
+// AXEnhancedUserInterface in Chromium browsers), which Enigma no longer does and
+// which stays on until the app quits, so quit the app before testing Enigma there.
+// It only reads apart from that, and it never touches the clipboard. Text is reported as a character count unless `--text`
 // is given, so probing a private document doesn't print it.
 import AppKit
 import ApplicationServices
@@ -102,7 +104,7 @@ func describe(_ node: AXUIElement, label: String) -> [String] {
 /// focused element took to appear afterwards.
 var prepared: [pid_t: String] = [:]
 
-/// Keep in step with `SelectionCapturePolicy.chromiumBrowsers`.
+/// Chromium browsers, which build their web tree only for `AXEnhancedUserInterface`.
 let chromiumBrowsers: Set<String> = [
   "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
   "org.chromium.Chromium", "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev",
@@ -117,6 +119,9 @@ func report(_ app: NSRunningApplication) -> [String] {
   AXUIElementSetMessagingTimeout(application, 0.5)
   var lines = ["app: \(app.localizedName ?? "?") bundle=\(app.bundleIdentifier ?? "?") secureInput=\(IsSecureEventInputEnabled())"]
   if prepared[app.processIdentifier] == nil {
+    var cold: CFTypeRef?
+    let coldError = AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &cold)
+    lines.append("before enabling: focused element error \(coldError.rawValue) (0 found, -25212 none, -25205/-25208 unsupported, -25204 timed out)")
     let manual = AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     // Chrome answers notImplemented (-25208) here, yet builds its tree.
     let enhanced = chromiumBrowsers.contains(app.bundleIdentifier ?? "")
@@ -133,7 +138,9 @@ func report(_ app: NSRunningApplication) -> [String] {
   }
   lines.append(prepared[app.processIdentifier]!)
   guard let focused = element(application, kAXFocusedUIElementAttribute) else {
-    lines.append("focused element: none")
+    var none: CFTypeRef?
+    let error = AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &none)
+    lines.append("focused element: none (error \(error.rawValue))")
     // Some Electron apps never report a focused element; look for web areas in the window.
     guard let window = element(application, kAXFocusedWindowAttribute) ?? element(application, kAXMainWindowAttribute) else {
       return lines + ["focused window: none"]
