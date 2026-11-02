@@ -419,15 +419,17 @@ final class FileModeUITests: XCTestCase {
     window.displayIfNeeded()
     let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
-    // The cards' folder glyphs draw in the palette's lime accent text.
+    // The cards' folder glyphs draw in the palette's accent text.
+    let accent = EnigmaPalette.ink.accentText
     let accentPixels = (0..<bitmap.pixelsWide).reduce(0) { total, x in
       total + (0..<bitmap.pixelsHigh).filter { y in
         guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
-        return color.greenComponent > 0.3 && color.greenComponent > color.redComponent * 1.05
-          && color.greenComponent > color.blueComponent * 1.4
+        return abs(color.redComponent - accent.red) < 0.06 && abs(color.greenComponent - accent.green) < 0.06
+          && abs(color.blueComponent - accent.blue) < 0.06
       }.count
     }
-    XCTAssertGreaterThan(accentPixels, 100)
+    // Only the glyphs' solid cores match; their antialiased edges blend into the card.
+    XCTAssertGreaterThan(accentPixels, 50)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: URL(fileURLWithPath: "/tmp/AI-Spotlight-FileMode-Preview.png"))
     let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
