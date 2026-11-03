@@ -119,6 +119,51 @@ itself is unchanged. Add tests in `EnigmaMainWindowTests` (or wherever
 `ModeAndModelMenu` actions are covered) that pick a local and a cloud model
 from Auto and check the mode and the model both change.
 
+### B21. Picking another model mid-chat does nothing, and the mode stays as it was
+
+**Problem:** During a chat, clicking a different model in the mode and model
+menu doesn't work: Auto, or whichever mode was on, stays selected and the
+next reply comes from the same route and model as before.
+
+**Today:** Two causes, not yet confirmed as the whole story; reproduce first,
+noting the mode, whether a reply was running and which model was clicked.
+
+- In Auto, a model pick never changes the mode (B20): `modeAndModelActions`
+  in `AppShellView` only calls `localChat.selectModel(id:)` or sets
+  `cloudSettings.preferredModelID`, never `shell.chooseMode`.
+- While a reply or other chat work runs, every model item is disabled:
+  `ModeAndModelMenu.sections` (`EnigmaMainWindowLogic.swift`) sets
+  `isEnabled: !isBusy` on local and cloud models, and
+  `LocalChatViewModel.selectModel(id:)` returns early unless
+  `canChangeModels`. Only the mode items stay enabled, although the section
+  is titled "Next request" then.
+- The mode itself is only reset to Auto when the welcome closes
+  (`ShellPresentation.welcomeChanged`). After a switch, the chat's messages
+  go to the new route through `ChatContextPreparer.prepare`, which drops the
+  oldest turns that don't fit its budget, with only the omitted-messages
+  notice (see F35).
+
+**Wanted (owner, 2026-11-02):**
+
+- Choosing a model mid-chat, in any mode, switches to it and to its mode
+  (local model → Local, cloud model → Cloud), and the chat stays on that
+  mode and model until the person changes it again. B20's fix covers the
+  Auto part; fix the two together.
+- A pick while a reply runs is accepted and applies to the next request, as
+  the "Next request" title says; the reply in flight keeps its route. A local
+  model loads once the request ends.
+- The new model gets the conversation so far. When it doesn't fit, for
+  example a long cloud chat moved to a small local model, Enigma compacts it
+  with F35's tiers until it fits instead of dropping turns, showing
+  "…compacting context" while it works. F35 currently words its waiting
+  status "Summarizing earlier messages…"; use one wording for both.
+- Tests: picks from Auto, Local and Cloud, idle and during a reply, change
+  the mode and model, and the next request uses them; a later request keeps
+  them. The compaction part goes with F35's tests.
+
+**Depends on / blocks:** the compaction part depends on F35. The switching
+part doesn't and can be fixed with B20 first.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -1513,10 +1558,126 @@ ring, with a screenshot), `docs/Web-Search.md`
 `docs/Local-Model-Selection.md` (automatic window and the Advanced override).
 
 **Depends on / blocks:** none; F13's custom instructions (counted in the
-budget) and F20's long-context recommendations build on it.
+budget), F20's long-context recommendations and B21's compaction after a
+model switch build on it.
 
 **Out of scope:** viewing or editing the summary, `/compact` with a focus
 argument, and windows above 32K on local models.
+
+### F36. Animated weather card for weather answers
+
+**Problem:** a weather answer is only text: the model reads Open-Meteo's
+numbers and types them out. The owner wants a fun, styled card that shows the
+weather at a glance, with the model's description right under it.
+
+**Today:**
+
+- Capable models call `get_weather(place?)` (`WeatherTool` in
+  `Enigma/Search/PlacesAndWeatherTools.swift`), which asks first, fetches
+  Open-Meteo through `OpenMeteoWeather` (`Enigma/Search/WeatherLookup.swift`)
+  and returns `WeatherLookup.report` as JSON text: now (temperature, feels
+  like, conditions, humidity, wind, precipitation), the next 24 hours and the
+  next 7 days. The forecast (`WeatherForecast`) has weather codes, highs and
+  lows, rain chance and amount, sunrise and sunset, UV and wind per day, and
+  codes, temperature and rain chance per hour. It doesn't request `is_day`.
+  `WeatherLookup.description(forCode:)` turns a code into words.
+- Models without native tools take the weather route from their wording
+  (`OnDeviceSearch`, around `weather.forecast(at:)`), which builds
+  `WeatherLookup.excerpt` for the prompt. Time words such as "tomorrow" and
+  "this weekend" are recognised in `LocationService.swift`, but only to find
+  the place.
+- The pattern to follow: the map card. `find_places` results reach the reply
+  as `ChatMessage.mapPlaces` (`ChatDomain.swift`), session-only and never
+  saved (`attachReplyPlaces` in `LocalChatViewModel`). `EnigmaReplyView`
+  (`EnigmaMessageList.swift`) draws `MapCardView` under the reply text once
+  the reply finishes (`ConversationTranscript.Reply.mapPins`).
+
+**Wanted (owner decisions, 2026-11-02):**
+
+- **A fixed card, filled by Enigma:** the card is a SwiftUI view in the app;
+  the model never draws, writes or describes card markup. Its numbers come
+  straight from the Open-Meteo forecast the lookup returned, never from text
+  the model writes, so it can't show a made-up temperature.
+- **The model only chooses the days:** `get_weather` gets an optional date
+  range (ISO dates within the 7-day forecast; the exact argument shape is
+  for the plan), so "this weekend" shows Saturday and Sunday and "this week"
+  shows 7 days. Without it, the card shows today. On the wording route, the
+  same range comes from the question's time words ("tomorrow", "this
+  weekend", "this week", weekday names), reusing `LocationService`'s list. A
+  new argument changes the tool definitions, so check the F32 warm-up still
+  holds.
+- **Two layouts:**
+  - *One day:* place name, the large current temperature, the condition,
+    high and low, feels like, rain chance and wind, plus a small **hourly
+    strip** for the next few hours (time, icon, temperature, rain chance).
+    For a future single day (tomorrow, Friday) it shows that day's high, low
+    and rain chance instead of "now".
+  - *Several days:* one column per day (weekday, icon, high and low, rain
+    chance), in a row that fits the reply's width; 7 days fit the compact
+    panel's width without scrolling.
+- **Illustrated sky:** the card's background follows the condition and time
+  of day: blue by day, warm at sunrise and sunset, dark with stars at night,
+  grey for overcast and rain, pale for snow, dark for storms. Night comes
+  from `is_day` (add it to the current and hourly request) or the day's
+  sunrise and sunset. A multi-day card takes its sky from the first day,
+  each column with its own icon.
+- **Mildly animated, never busy:** clouds drift slowly, rain or snow falls
+  gently, the sun turns slowly, stars twinkle, lightning flickers rarely.
+  Slow loops that stay cheap (low frame rate, paused when the card is off
+  screen or the window isn't visible). Reduce Motion shows a still card.
+- **The description sits right under the card:** the reply's text follows
+  the card. The tool result tells the model the card already shows the
+  numbers, so it writes a short, friendly description (what it's like, what
+  to bring or plan for) instead of reciting every figure.
+- **Card shows at once:** it appears as soon as the weather data arrives,
+  and the description streams in under it, unlike the map card, which waits
+  for the finished reply.
+- **One card per place:** each successful lookup gets its own card, stacked,
+  each titled with its place ("Lisbon or Porto this weekend?" shows two). A
+  lookup that fails or falls back to a web search shows no card.
+- **Session-only, like the map card:** the cards aren't saved; a chat
+  reopened from Recents shows the text only.
+- **The character reacts:** while a weather card is showing on the latest
+  reply, the Enigma character briefly wears something that fits: an umbrella
+  in rain, sunglasses in sun, a scarf in snow. New drawings in the character
+  renderer, sharing whatever costume mechanism F10's ghost uses.
+- Units follow the forecast's units (`MeasurementUnits`). VoiceOver reads the
+  card as one summary ("Lisbon, 18 degrees, partly cloudy, high 21, low 14").
+  Light and dark mode use appearance tokens for the text and frame; the sky
+  keeps its own colours.
+
+**Files:**
+
+- Add: a weather card view (one-day and multi-day layouts, the sky and its
+  animation) beside `Enigma/Chat/MapCard.swift`.
+- Change: `WeatherLookup.swift` (`is_day`, a card model built from
+  `WeatherForecast`), `PlacesAndWeatherTools.swift` (the date range, and
+  handing the forecast to the card), `OnDeviceSearch.swift` (the wording
+  route's card), `ChatDomain.swift` (a session-only field for the cards),
+  `LocalChatViewModel` (attach cards as soon as they arrive),
+  `EnigmaMessageList.swift` and `EnigmaConversationLogic.swift` (card above
+  the reply text), and the character renderer for the costumes.
+- Leave alone: the saved chat format, the map card, and the ask-first
+  permission for weather lookups.
+
+**Tests:** the card model from fixture forecasts: day, night, rain, snow,
+storm, and the date range (today, tomorrow, weekend, week, a range past the
+forecast). `get_weather` with and without the range, and the wording route
+picking days from "tomorrow" and "this weekend". The reply shows the card
+above the text as soon as data arrives, one card per place, none when the
+lookup fails, and none after reopening from Recents. Reduce Motion stills the
+card. The character's costume follows the condition.
+
+**Docs:** `docs/Web-Search.md` → Places and weather (the card, with
+screenshots of one day and several days), and `docs/Chat.md` where the map
+card is described.
+
+**Depends on / blocks:** after F29 (done). Shares the costume drawing work
+with F10.
+
+**Out of scope:** clicking the card to open a weather site or app, weather
+alerts, radar or maps, more than Open-Meteo's 7 days, and saving cards with
+the chat.
 
 ### F34. ✅ Done: Free cloud models: Gemini's free tier and Apple's cloud model
 
