@@ -154,9 +154,8 @@ noting the mode, whether a reply was running and which model was clicked.
   model loads once the request ends.
 - The new model gets the conversation so far. When it doesn't fit, for
   example a long cloud chat moved to a small local model, Enigma compacts it
-  with F35's tiers until it fits instead of dropping turns, showing
-  "…compacting context" while it works. F35 currently words its waiting
-  status "Summarizing earlier messages…"; use one wording for both.
+  with F35's tiers until it fits instead of dropping turns, showing F35's
+  "Summarizing earlier messages…" status while it works.
 - Tests: picks from Auto, Local and Cloud, idle and during a reply, change
   the mode and model, and the next request uses them; a later request keeps
   them. The compaction part goes with F35's tests.
