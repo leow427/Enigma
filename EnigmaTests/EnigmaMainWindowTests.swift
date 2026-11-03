@@ -1575,9 +1575,11 @@ final class EnigmaMainWindowTests: XCTestCase {
     func elsewhereViews() -> [NSView] {
       views(view).filter { $0.acceptsFirstResponder && ($0 as? NSTextView)?.isEditable != true && !($0 is NSScrollView || $0 is NSClipView) }
     }
+    // macOS 26's selectable text takes no focus (CI lists only the composer and the panel), so there it's the panel alone.
+    let expected = ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0)) ? 2 : 1
     try await waitForUI("the reply's selectable text and the panel (focusable: "
                         + "\(views(view).filter(\.acceptsFirstResponder).map { String(describing: type(of: $0)) }))", in: view) {
-      elsewhereViews().count >= 2
+      elsewhereViews().count >= expected
     }
     let elsewhere = elsewhereViews()
     for target in elsewhere {
