@@ -1366,7 +1366,8 @@ limit, Enigma compacts it so the chat carries on instead of ending abruptly.
   separate indicator in the composer.
   - Colour: **green below 70%**, **yellow from 70%**, **red from 90%**, using
     appearance tokens so it reads in light and dark mode. The fill shows the
-    amount too, so colour isn't the only signal.
+    amount too, so colour isn't the only signal. The unfilled part of the ring
+    is grey.
   - Hovering over or clicking the ring shows how much is **left**, for example
     "28% of context left"; at red it adds that earlier messages will be
     summarized. VoiceOver reads the same. Clicking the character itself still
