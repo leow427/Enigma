@@ -193,9 +193,9 @@ final class RequestLifecycleTests: XCTestCase {
     )
     await viewModel.refreshInstalledModel()
     let cloud = AutoRouter.CloudConfiguration(provider: .chatGPT, modelID: "manual")
-    viewModel.submitCloud(String(repeating: "x", count: 40_000), provider: .chatGPT, modelID: "manual")
+    viewModel.submitCloud(String(repeating: "x", count: 210_000), provider: .chatGPT, modelID: "manual")
     guard case .failed = viewModel.state else { return XCTFail("Expected initial context rejection") }
-    for original in ["  Search the web for today's news\n", "  " + String(repeating: "x", count: 40_000) + "\n"] {
+    for original in ["  Search the web for today's news\n", "  " + String(repeating: "x", count: 210_000) + "\n"] {
       var draft = original
       viewModel.submitAuto(draft, cloud: cloud, onAccepted: { draft = "" })
       XCTAssertEqual(draft, original)
