@@ -203,8 +203,8 @@ note stays in the brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 3 | 65,536 cloud cap; `ceil(bytes / 3)` kept (owner); reserves measured: ChatGPT 3,840, Claude Code 1,280 |
-| CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole |
-| CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check waits on owner |
+| CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole; live 8K check passed |
+| CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check passed on 3 models |
 | CP3 | not started | | |
 | CP4 | not started | | |
 | CP5 | not started | | |

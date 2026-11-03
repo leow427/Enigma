@@ -288,7 +288,13 @@ var contextWindow: Int   // now the runtime choice; the package value stays reco
      tests) fails only `AppCommandTests`' two window-layout tests, which fail
      on main on this Mac too, plus a routing test broken by the 256K cloud
      change, fixed in its own commit.
-   - Live check per installed catalogue model: waiting on the owner.
+   - Live check per installed catalogue model (owner approved, 2026-11-03;
+     `F35LiveTests.testEachInstalledModelStartsAtItsChosenSizeAndAnswers`), on
+     a 24 GB Mac (15,255 MB inference budget), preset Automatic: Bonsai 2 27B
+     Q2_0 at 32,768 (12,013 MB estimate), Gemma 4 12B Q5_K_M at 32,768
+     (11,944 MB) and Qwen 3.8 27B IQ3_XXS at 8,192 (14,043 MB, over the
+     comfortable line already at 8K). Each server started with that
+     `--ctx-size` and answered.
 5. **Limitations:**
    - The memory estimates at 16K and 32K come from the cache layouts, not
      measured peaks at those sizes.

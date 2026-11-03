@@ -321,7 +321,12 @@ Codex and Claude Code tool handlers (sizing only).
      reserve, reserves and rebuilt toolboxes untested). Round 3: four Should
      fixes (the reserve on small windows, typed `/messages` untrimmed,
      results under-filled, four behaviours untested). All fixed.
-   - Not run: the live 8K local check (waits for the owner's approval).
+   - Live 8K local check (owner approved, 2026-11-03;
+     `F35LiveTests.testLocal8KModelSearchesSeveralTimesThenAnswers`): Gemma 4
+     12B Q5_K_M held at 8,192 searched five times for a five-city question and
+     answered (310 characters, 38 s). Room left at each search was 6,285,
+     4,203, 2,116, 1,013 then 4,426 tokens, each search asking for half of it
+     up to 2,048, so earlier results were shrunk before the fifth.
 5. **Limitations:**
    - The API "none" tool choices and the withdrawn-step requests are tested
      from fixtures only (no API keys); not checked against the live APIs.
