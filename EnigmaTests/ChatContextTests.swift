@@ -106,14 +106,15 @@ final class ChatContextTests: XCTestCase {
     }
   }
 
-  func testModelMetadataAndAutoSharePolicyWithoutAssumingManual128K() {
+  func testModelMetadataAndAutoSharePolicyAssumeAtLeast256K() {
     for provider in CloudProviderID.allCases {
       for id in ["gpt-5.6-luna", "my-manual-model"] {
         let model = CloudModel(id: id, displayName: id, provider: provider)
         let cloud = AutoRouter.CloudConfiguration(provider: provider, modelID: id)
         XCTAssertEqual(cloud.capabilities.maximumContextTokens, model.contextBudget.contextWindow)
       }
-      XCTAssertLessThan(ModelContextPolicy.cloud(provider: provider, modelID: "manual").contextWindow, 128_000)
+      // Every cloud model is assumed to have at least 256K (owner, 2026-11-03).
+      XCTAssertEqual(ModelContextPolicy.cloud(provider: provider, modelID: "manual").contextWindow, 262_144)
     }
   }
 
@@ -241,10 +242,13 @@ final class ChatContextTests: XCTestCase {
     }
   }
 
-  func testCloudCapNeverExceedsWindowMinusReserves() {
+  func testUnreviewedCloudModelsGetTheMinimumWindowAndTheLatencyCap() {
     let budget = ModelContextPolicy.cloud(provider: .openAI, modelID: "manual-unknown-model", promptTokens: 100)
-    XCTAssertEqual(budget.contextWindow, 8_192)
-    XCTAssertEqual(budget.availableInputTokens, 8_192 - 4_096 - 512 - 100)
+    XCTAssertEqual(budget.contextWindow, ModelContextPolicy.cloudMinimumContextWindow)
+    XCTAssertEqual(ModelContextPolicy.cloudMinimumContextWindow, 262_144)
+    XCTAssertEqual(budget.availableInputTokens, 65_536 - 100, "The input cap, below the window less its reserves")
+    // A reviewed window above the minimum is kept.
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .openAI, modelID: "gpt-4.1").contextWindow, 1_047_576)
   }
 
   func testCloudPrepareCountsSystemPromptAndTools() throws {

@@ -62,6 +62,8 @@ enum ModelContextPolicy {
 
   /// Cloud input is capped for latency, well below the largest windows.
   static let cloudInputLimit = 65_536
+  /// Every cloud model is assumed to have at least this window (owner, 2026-11-03), reviewed or not.
+  static let cloudMinimumContextWindow = 262_144
   /// Text each CLI adds that Enigma never sees, measured 2026-11-03 (Codex 0.164.0: 2,855
   /// tokens; Claude Code 2.1.312: 836), rounded up to the next 1,024, plus 25%.
   static let codexReserve = 3_840
@@ -71,7 +73,7 @@ enum ModelContextPolicy {
     let metadata = CloudModelCapabilities.metadata(provider: provider, modelID: modelID)
     if provider == .chatGPT {
       return ContextBudget(
-        contextWindow: metadata?.contextWindow ?? 32_768,
+        contextWindow: max(cloudMinimumContextWindow, metadata?.contextWindow ?? 0),
         outputTokens: metadata?.maximumOutputTokens ?? 16_384,
         overheadTokens: codexReserve,
         inputLimit: cloudInputLimit, promptTokens: promptTokens
@@ -80,14 +82,14 @@ enum ModelContextPolicy {
     if provider == .claudeCode {
       // Claude Code adds its own protocol text even with a replacement system prompt.
       return ContextBudget(
-        contextWindow: metadata?.contextWindow ?? 65_536,
+        contextWindow: max(cloudMinimumContextWindow, metadata?.contextWindow ?? 0),
         outputTokens: metadata?.maximumOutputTokens ?? 8_192,
         overheadTokens: claudeCodeReserve,
         inputLimit: cloudInputLimit, promptTokens: promptTokens
       )
     }
     return ContextBudget(
-      contextWindow: metadata?.contextWindow ?? 8_192,
+      contextWindow: max(cloudMinimumContextWindow, metadata?.contextWindow ?? 0),
       outputTokens: min(4_096, metadata?.maximumOutputTokens ?? 4_096),
       overheadTokens: 512,
       inputLimit: cloudInputLimit, promptTokens: promptTokens

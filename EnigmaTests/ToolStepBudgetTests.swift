@@ -138,7 +138,7 @@ final class ToolStepBudgetTests: XCTestCase {
     let chat = [ChatMessage(role: .user, content: "Who won the game last night?"),
                 ChatMessage(role: .assistant, content: "The home team won 102 to 98."),
                 ChatMessage(role: .user, content: "And who scored the most points?")]
-    // An unreviewed model gets the default 8,192-token window, less than the cloud reserve.
+    // Unreviewed models: every cloud model is assumed to have at least 256K.
     for (provider, model) in [(CloudProviderID.anthropic, "claude-opus-4-1-20250805"), (.gemini, "gemini-flash-latest")] {
       let request = ChatRequest(sessionID: UUID(), messages: chat,
         route: Route(mode: .cloud, providerID: provider.rawValue, modelID: model, usesNetwork: true))

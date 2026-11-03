@@ -644,8 +644,8 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     let budget = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "sonnet")
     XCTAssertEqual(budget.availableInputTokens, 65_536)
     let manual = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "claude-future-model")
-    XCTAssertLessThan(manual.contextWindow, 128_000)
-    XCTAssertEqual(manual.availableInputTokens, 65_536 - 8_192 - 1_280, "An unlisted window, less reply and protocol room")
+    XCTAssertEqual(manual.contextWindow, 262_144, "An unlisted model gets the 256K minimum")
+    XCTAssertEqual(manual.availableInputTokens, 65_536, "The input cap")
     XCTAssertEqual(CloudModelCapabilities.visionModelIDs(for: .claudeCode), ["sonnet", "opus", "fable", "haiku"])
     XCTAssertFalse(CloudModel(id: "claude-future-model", displayName: "x", provider: .claudeCode).supportsVision,
                    "Full model names typed in stay text-only")

@@ -296,18 +296,19 @@ The refresh updates the menu's list when that provider is preferred.
 
 `ModelContextPolicy.cloud` gives every request a context window, a reply
 reserve, a protocol reserve and a 65,536-token input cap, using
-`CloudModelCapabilities` metadata where it exists. Older messages are trimmed to
-fit; see [Chat.md](Chat.md).
+`CloudModelCapabilities` metadata where it exists. Every window is at least
+262,144 tokens (owner, 2026-11-03): a smaller published one, or an unknown
+model's, is raised to it. Older messages are trimmed to fit; see [Chat.md](Chat.md).
 
 | Route | Reviewed model | Unknown model |
 |---|---|---|
-| OpenAI, Anthropic, Gemini APIs | Published context; reply up to 4,096 tokens; 512 reserved | 8,192-token context; 4,096 reply; 512 reserved |
-| ChatGPT via Codex | Published context and maximum output; 3,840 reserved. A Codex-listed model without a reviewed entry: 128,000 context; 32,000 output; 3,840 reserved | 32,768 context; 16,384 reply; 3,840 reserved |
-| Claude via Claude Code | 200,000 context; 32,000 output; 1,280 reserved | 65,536 context; 8,192 reply; 1,280 reserved |
+| OpenAI, Anthropic, Gemini APIs | Published context, at least 262,144; reply up to 4,096 tokens; 512 reserved | 262,144-token context; 4,096 reply; 512 reserved |
+| ChatGPT via Codex | Published context and maximum output; 3,840 reserved. A Codex-listed model without a reviewed entry: 262,144 context; 32,000 output; 3,840 reserved | 262,144 context; 16,384 reply; 3,840 reserved |
+| Claude via Claude Code | 262,144 context; 32,000 output; 1,280 reserved | 262,144 context; 8,192 reply; 1,280 reserved |
 
-Anthropic models on the image list use a 200,000-token context; Gemini models on
-the image list use 1,048,576. Other listed models from those providers use the
-unknown-model budget.
+Anthropic models on the image list publish a 200,000-token context, used as
+262,144; Gemini models on the image list use 1,048,576. Other listed models from
+those providers use the unknown-model budget.
 
 ### Sources, review date and fallback ordering
 

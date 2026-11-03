@@ -255,7 +255,7 @@ final class CloudModeTests: XCTestCase {
       )
       let base = makeRequest(provider: provider)
       let messages = [
-        ChatMessage(role: .user, content: String(repeating: "old", count: 4_000)),
+        ChatMessage(role: .user, content: String(repeating: "old", count: 70_000)),
         ChatMessage(role: .assistant, content: "old answer"),
       ] + base.messages
       let request = ChatRequest(sessionID: base.sessionID, messages: messages, route: base.route)
@@ -278,7 +278,7 @@ final class CloudModeTests: XCTestCase {
       )
       let base = makeRequest(provider: provider)
       let request = ChatRequest(sessionID: base.sessionID, messages: [
-        ChatMessage(role: .user, content: String(repeating: "x", count: 40_000)),
+        ChatMessage(role: .user, content: String(repeating: "x", count: 210_000)),
       ], route: base.route)
       do {
         _ = try await collect(registry.provider(for: provider).stream(request))

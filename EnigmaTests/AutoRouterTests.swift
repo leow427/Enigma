@@ -254,7 +254,7 @@ final class AutoRouterTests: XCTestCase {
 
   func testLongHistoryIsTrimmableButOversizedCurrentPromptIsRejected() {
     let longHistory = [
-      ChatMessage(role: .user, content: String(repeating: "x", count: 50_000)),
+      ChatMessage(role: .user, content: String(repeating: "x", count: 210_000)),
       ChatMessage(role: .assistant, content: "answer"),
     ]
     let decision = AutoRouter.decide(AutoRouter.Request(
@@ -262,7 +262,7 @@ final class AutoRouterTests: XCTestCase {
     ))
     XCTAssertEqual(decision.route?.mode, .cloud)
     XCTAssertEqual(decision.reason, .exceedsLocalContext)
-    let rejected = AutoRouter.decide(request(prompt: String(repeating: "x", count: 50_000)))
+    let rejected = AutoRouter.decide(request(prompt: String(repeating: "x", count: 210_000)))
     XCTAssertNil(rejected.route)
     XCTAssertEqual(rejected.limitation, .unavailableCapability(.largerContext))
   }

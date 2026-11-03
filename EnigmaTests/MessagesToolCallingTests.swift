@@ -1583,9 +1583,10 @@ extension CloudToolLoopTests {
     case .anthropic: AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
     default: GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
     }
-    var question = ChatMessage(role: .user, content: "What's new?")
+    // Padded so the room left is what an 8,192-token window left: every cloud model now has at
+    // least 256K, so the 65,536 input cap applies (61,952 estimated tokens of padding).
+    var question = ChatMessage(role: .user, content: "What's new?" + String(repeating: "x", count: 185_856))
     question.extendedThinking = thinks
-    // A manual model's 8,192-token window.
     let request = ChatRequest(sessionID: UUID(), messages: [question],
       route: Route(mode: .cloud, providerID: provider.rawValue, modelID: "manual-model", usesNetwork: true))
     let toolbox = toolbox ?? AssistantToolbox(parts: [bulkySearchTool(bytes: 2_000)], requiredTool: "web_search", extraInstructions: [])

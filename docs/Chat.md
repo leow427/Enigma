@@ -588,9 +588,14 @@ for Claude Code 2.1.312. Each reserve is that figure rounded up to the next
 
 | Provider | Context window | Output reserve | Protocol reserve | Input cap |
 |---|---:|---:|---:|---:|
-| OpenAI, Anthropic, Gemini | Reviewed model's published limit; 8,192 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 65,536 |
-| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 32,768 otherwise | 128,000; 16,384 otherwise | 3,840 | 65,536 |
-| Claude via Claude Code | 200,000 for its listed aliases; 65,536 otherwise | 32,000; 8,192 otherwise | 1,280 | 65,536 |
+| OpenAI, Anthropic, Gemini | Reviewed model's published limit, at least 262,144; 262,144 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 65,536 |
+| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 262,144 otherwise | 128,000; 16,384 otherwise | 3,840 | 65,536 |
+| Claude via Claude Code | 262,144 | 32,000; 8,192 otherwise | 1,280 | 65,536 |
+
+Every cloud model is assumed to have a window of at least 262,144 tokens
+(owner, 2026-11-03; `ModelContextPolicy.cloudMinimumContextWindow`): a smaller
+published limit, or none, is raised to it. With the 65,536 input cap, a
+request's room is then the cap less the prompt for every cloud model.
 
 Per-model limits and how models are reviewed are in
 [Cloud-Model-Selection.md](Cloud-Model-Selection.md). These are application
