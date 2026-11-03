@@ -943,12 +943,12 @@ Absorbs the tour work that was F23.
   - One **Advanced** toggle (from the old F14): off shows the active model,
     connections and common switches; on adds Start mode, preferred provider
     and model, manual model ID, thinking/effort, catalogue details, Import
-    text GGUF and later F15/F16. It replaces `AdvancedCloudSettings`' section,
+    text GGUF and later F35/F16. It replaces `AdvancedCloudSettings`' section,
     Local models' Advanced button, and the model menu item, which opens the
     right page with Advanced on.
   - Deep links can target a section; old raw values (`general`, `local`,
     `cloud`, `selection`, and `discover`) still open something sensible.
-  - Room for F13 (Personalization), F15 and F16.
+  - Room for F13 (Personalization), F35 and F16.
   - Keep `docs/design/UI-Style.md`'s look: plain-text nav with a dot,
     hairline rows, no boxes.
 
@@ -976,9 +976,9 @@ and Ink; fix "Settings → …" paths in `Selection-Context.md`, `Messages.md` a
 `Web-Search.md`; update the Welcome and Settings notes in
 `docs/design/UI-Style.md`.
 
-**Depends on / blocks:** do first. F13, F15, F16, F19 and F20 each need a
+**Depends on / blocks:** do first. F13, F35, F16, F19 and F20 each need a
 home in the new Settings; F20 adds a step to the new setup. F29 changes the
-search copy. F6's note sits in the model step.
+search copy. F27's cloud suggestion sits in the model step.
 
 **Out of scope:** the features that will live in the new pages
 (personalization, remappable shortcuts, context size, occupation), changes to
@@ -1203,30 +1203,6 @@ searching the web after a Messages read each ask first in the chat, with
 route. The spec has every decision.
 
 **Depends on / blocks:** comes before F29's remaining checkpoints and F30.
-
-### F31. Trained models for recognizing commands and routing
-
-**Status:** halted (2026-10-28) during CP3. CP0–CP2 are on
-`feat/f31-intent-models` (draft PR #20), not on `main`. Under F32 its models
-could only ever serve small models.
-
-**Spec:** [docs/superpowers/specs/2026-10-27-f31-intent-models-design.md](docs/superpowers/specs/2026-10-27-f31-intent-models-design.md)
-
-**Plan:** [docs/superpowers/plans/2026-10-27-f31-intent-models.md](docs/superpowers/plans/2026-10-27-f31-intent-models.md)
-(checkpoints CP0–CP6, each built by a fresh agent and audited by a fresh
-reviewer)
-
-**Today:** automatic search, the `messages`, `think`, `edit` and `translate`
-chips, and Auto's coding and reasoning checks are guessed from the draft's
-wording by hand-written English rules. They have grown into long exception
-lists and still misfire ("who is Taylor Swift dating" counts as coding).
-
-**Wanted (owner, 2026-10-27):** small Create ML classifiers, one per skill,
-bundled and run on the Mac, inside today's privacy rules. A skill switches
-only if its model beats the rules on an independently written test set and
-gets every must-pass example right. Built first, before the rest of F29.
-
-**Depends on / blocks:** nothing while halted (it used to block F29).
 
 ### F30. ✅ Done: Native web search for cloud models
 
@@ -2033,6 +2009,10 @@ and context size (F35).
 
 ### F27. Keep file edits and message sending off on small local models
 
+> **Check before starting:** this entry predates native tool calling (F32).
+> Messages and files now also reach models through the native toolbox
+> (`NativeToolPlan`, `AssistantToolbox`), so re-trace **Today** on `main`.
+
 **Today:** every local model gets the same skills. Small models make mistakes
 with tools (the wrong file, a bad patch, the wrong recipient or text), and
 people tend to approve what they're shown.
@@ -2128,7 +2108,13 @@ people tend to approve what they're shown.
   compact panel, show it in the hint row, since the details are hidden. Only
   on a change, not at launch; announce it to VoiceOver; fade it, or no
   animation with Reduce Motion. Keep the "file edits and sending messages are
-  off" copy in one constant that F6 shares.
+  off" copy in one constant.
+- **Suggest the cloud on Macs that only run small models (was F6):** in
+  setup's model step and Settings → Local models, when this Mac's best model
+  is blocked by this rule, a quiet note suggests **Free models** or another
+  cloud provider for file edits and sending messages, hidden once any cloud
+  provider is connected. The chat-wide "Local models make more mistakes,
+  especially with tools" line (F37) already covers the general warning.
 - **At the point of use:** attaching files with a blocked model shows **Read
   only** with the real reason (not "Choose a local model"), and asking to send
   a message explains why, with **Switch to Cloud**, instead of failing later.
@@ -2185,109 +2171,11 @@ protected edits"; `docs/Messages.md` → "Choosing a model" and "Tools";
 updates"; `docs/Updating-the-Model-Catalogue.md` → the new field as a review
 step.
 
-**Depends on / blocks:** blocks F6 (its "small" rule and copy) and F18's
-per-model line; F26 and F24 follow its rule.
+**Depends on / blocks:** blocks F18's per-model line; F26 and F24 follow its
+rule.
 
 **Out of scope:** an override for imported models, user-visible thresholds,
 and limiting other tools.
-
-### F6. Warn slow Macs that small local models handle tools poorly
-
-**Today:** nothing tells a person that a small local model is weak at tools.
-The only slow-Mac copy is about speed or fit:
-
-- "No supported model fits…" with a Cloud hint, when
-  `LocalModelRecommendations.roles` is empty and hardware is known
-  (`WelcomeSetupView.models`, and "For this Mac" in
-  `LocalModelManagerSection.swift`).
-- "This model ran slower than expected…" in `LocalModelOperationView`
-  (`LocalModelViews.swift`), shown in setup's model step and in Settings →
-  Local models. It appears only when `LocalModelBenchmark.underperformed` is
-  true (speed under 0.6 of the prediction, or a first token slower than
-  `max(5, 1.75 × predicted)` seconds) and
-  `recommendations.fasterAlternative(to:)` finds a smaller, faster model.
-- The advisor (`LocalModelAdvisor`) has `hardware`, `recommendations(installedModels:)`
-  (roles, assessments) and `latestBenchmark(for:)`, which counts only results
-  on the same hardware, power mode and llama build, under 90 days old.
-- Setup's steps are welcome, models, connections and walkthrough
-  (`WelcomeSetup`). The model step has `choices`, `selected` and
-  `skipLocal`; its footer says "next: cloud and search, optional". The
-  Connections step shows Claude Code, ChatGPT, the Brave key and Mac
-  permissions; API keys are only in "More connection settings".
-- No code asks "is any cloud provider connected?". `CloudSettingsModel.isConfigured`
-  checks only the preferred provider and also needs a compatible chosen
-  model. `hasCloudAccess(for:)` reads `chatGPTAccount` and `claudeCodeAccount`
-  (both `nil` until refreshed; launch refreshes only the preferred one, only
-  in Cloud or Auto) and `hasAPIKey` (Keychain) for OpenAI, Anthropic and
-  Gemini.
-- `LocalModelManagerSection` has no `CloudSettingsModel` and no way to open
-  another Settings page; `.settingsDestinationRequested` with a
-  `SettingsDestination` is the existing way to open one.
-
-**Wanted:**
-
-- One short note, for example: "File edits and sending messages are off with
-  small local models, and other tools may work poorly. Connecting a cloud
-  provider is strongly suggested." It reuses F27's shared copy for the first
-  part. Local web search fetches results before the model answers, so it
-  isn't tool calling and the note doesn't mention it.
-- Show it when the model in question is small by F27's rule (imported models
-  count as small), or its latest applicable benchmark says `underperformed`
-  (whether or not a faster alternative exists; the speed note stays as it
-  is), or no model fits this Mac. Decide from the advisor's existing data; no
-  new heuristic.
-- The model in question is the installed model in use; if none, the row
-  selected in setup, or the recommended one.
-- **Setup's model step:** show it under the list as soon as a small row is
-  selected, before download, and say the Connections step comes next. Hide it
-  when **Skip local models** is chosen. Extend the existing "no model fits"
-  copy rather than adding a second message.
-- **Settings → Local models:** show it in "For this Mac", with a **Cloud and
-  search** button that posts `.settingsDestinationRequested` with `.cloud`.
-  When the note would show, refresh the ChatGPT and Claude Code accounts on
-  appear so a connected person isn't nagged.
-- Never show it once any cloud provider is connected: a ChatGPT or Claude
-  account, or an OpenAI, Anthropic or Gemini key. Add
-  `CloudSettingsModel.hasAnyCloudProvider` (any `CloudProviderID.allCases`
-  with `hasCloudAccess`), not `isConfigured`.
-- No dismiss button and nothing stored: it's a quiet note that goes away once
-  a provider is connected.
-
-**Files:**
-
-- Change `Enigma/Cloud/CloudSettingsModel.swift`: `hasAnyCloudProvider`.
-- Change `Enigma/LocalInference/LocalModelSettingsLogic.swift`: a pure
-  function returning the note's text, or nil.
-- Change `Enigma/LocalInference/LocalModelViews.swift`: a shared view for the
-  note, next to `LocalModelOperationView`.
-- Change `Enigma/LocalInference/LocalModelManagerSection.swift`: take the
-  `CloudSettingsModel`, show the note and button, refresh accounts.
-- Change `Enigma/App/SettingsView.swift`: pass the settings model to the
-  section.
-- Change `Enigma/App/WelcomeSetupView.swift`: show the note in `models`.
-- Don't touch: `LocalModelBenchmark.underperformed` and its thresholds, role
-  selection, `isConfigured`, the Connections step layout, or the Cloud send
-  paths.
-
-**Tests:**
-
-- `LocalModelSelectionTests` and `CloudModelSelectionTests`: the pure
-  function for a small model, a large one, an imported one, `underperformed`
-  with and without a faster alternative, nothing fits, no hardware yet,
-  Skip local models, and each of the five providers connected.
-- `EnigmaWelcomeTests`: the note under a small selected row, hidden with Skip
-  local models.
-- `EnigmaSettingsTests`: the note and its **Cloud and search** button.
-
-**Docs:** `docs/Welcome-and-Settings.md` → "Welcome setup" (the model step)
-and "Local models"; `docs/Local-Model-Selection.md` → "Settings → Local
-models" and "Checking performance".
-
-**Depends on / blocks:** needs F27's rule and shared copy. F18 adds the
-per-model line.
-
-**Out of scope:** F27's chat notice and Read only cards, changing benchmark or
-role thresholds, and opening Connections automatically.
 
 ### F26. Commands that work together: think with search, and search before acting
 
@@ -2553,11 +2441,6 @@ group, after General.
   Temporary chats (F10) still use it.
 - The occupation picker (F20) can pre-fill it.
 
-### F15. Merged into F35: Local context size (Advanced)
-
-The automatic local window and the Advanced override are now part of F35
-(use as much context as the model allows, and compact long chats).
-
 ### F16. Remappable keyboard shortcuts with collision warnings
 
 Mostly done in F14: **Settings → Shortcuts** changes every shortcut (keys,
@@ -2623,7 +2506,7 @@ and composer's hint labels read the store.
     weaker" warning when a much larger size of the same or a better model line
     runs comfortably here (rank with `rankedQualityScore`, with a set
     threshold for "much larger"). Smaller models get noticeably less capable,
-    especially with tools (see F6).
+    especially with tools (see F27).
   - Fine fits keep the current labels (Excellent fit, Good fit, May be slow).
 - Sort by family then size, and mark the recommended pick so people can find
   their way back.
@@ -2701,21 +2584,9 @@ Builds on F1's copy buttons.
   keystroke with no Save or Cancel, and its text isn't kept, so reuse only its
   look.
 
-### F23. Merged into F14: Better, more complete tour
+### F24. Directions and travel times in Apple Maps (later)
 
-The tour work is now part of F14 (welcome setup and Settings revamp).
-
-### F24. Maps integration (later)
-
-Mostly done in F29: `find_places` and `/maps` look up nearby places with
-Apple Maps (`MKLocalSearch`), and a map card under the reply opens a place in
-Maps. Left: travel times and directions (`MKDirections`).
-
-- Eventually: answer place and direction questions with Apple Maps, for
-  example nearby search, travel times and "open in Maps".
-- MapKit (`MKLocalSearch`, `MKDirections`) needs no API key, and
-  `LocationService` already uses MapKit for the approximate location web
-  search uses. Keep location rounded and unsaved as it is now; the rounding
-  makes travel times approximate. Requests go to Apple, so say so in the docs.
-- Likely a new tool or slash command (`/maps`), with the same small-model
-  caveat as F6.
+Places are done (F29: `find_places`, `/maps` and the map card). Left: travel
+times and directions with `MKDirections`, which needs no API key. Keep the
+location rounded and unsaved as now (so travel times are approximate), say in
+the docs that requests go to Apple, and follow F27's small-model rule.
