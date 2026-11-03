@@ -358,6 +358,9 @@ a second request is answered Don't allow) and `ToolPermissionCard.swift`.
 Tapbacks are left out of previews and search, and shown in `get_messages` as a
 short description such as "loved a message".
 
+A message with several lines has its `text` as a list of its lines, so the
+model quotes real line breaks rather than copying JSON's `\n` escape.
+
 ### Model routes
 
 `MessagesIntentPolicy` (`Enigma/Messages/MessagesIntentPolicy.swift`)

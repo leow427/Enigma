@@ -1562,6 +1562,63 @@ final class EnigmaMainWindowTests: XCTestCase {
   }
 
   @MainActor
+  func testEscapeHidesThePanelWhateverHasFocus() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Cats")])
+    let view = NSHostingView(rootView: fixture.shell())
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
+    controller.show()
+    addTeardownBlock { @MainActor in controller.hide(); view.window?.contentView = nil }
+    fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
+    try await waitForUI("the composer", in: view) { composerEditor(in: view)?.isEditable == true }
+    func views(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(views) }
+    // What a click can focus besides the composer: the reply's selectable text and the panel itself.
+    let elsewhere = views(view).filter { $0.acceptsFirstResponder && ($0 as? NSTextView)?.isEditable != true && !($0 is NSScrollView || $0 is NSClipView) }
+    XCTAssertGreaterThanOrEqual(elsewhere.count, 2, "The reply's selectable text and the panel")
+    for target in elsewhere {
+      controller.show()
+      let window = try XCTUnwrap(view.window)
+      XCTAssertTrue(window.makeFirstResponder(target))
+      XCTAssertTrue(window.firstResponder === target)
+      // Through the app, as a key press arrives, not straight to the panel's key handling.
+      NSApp.sendEvent(try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+        windowNumber: window.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+        isARepeat: false, keyCode: 53)))
+      XCTAssertFalse(controller.isVisible, "Escape hides the panel with \(type(of: target)) focused")
+    }
+  }
+
+  @MainActor
+  func testEscapeKeyPressClosesTheMenuAndCommandListBeforeHidingThePanel() async throws {
+    let fixture = try await Fixture(test: self)
+    let view = NSHostingView(rootView: fixture.shell())
+    let controller = SpotlightPanelController(sizeStore: PanelSizeStore(defaults: fixture.defaults), contentView: view, reduceMotion: { true })
+    controller.show()
+    addTeardownBlock { @MainActor in controller.hide(); view.window?.contentView = nil }
+    let window = try XCTUnwrap(view.window)
+    try await waitForUI("the composer", in: view) { composerEditor(in: view)?.isEditable == true }
+    func key(_ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) throws -> NSEvent {
+      try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+        windowNumber: window.windowNumber, context: nil, characters: characters,
+        charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
+    }
+    // Through the app, as a key press arrives, so the panel's sendEvent sees it first.
+    XCTAssertTrue(window.performKeyEquivalent(with: try key("k", keyCode: 40, modifiers: .command)))
+    try await waitForUI("the mode palette", in: view) { Host.marker("Menu item Auto", in: view) != nil }
+    NSApp.sendEvent(try key("\u{1b}", keyCode: 53, modifiers: []))
+    XCTAssertTrue(controller.isVisible, "Escape closes the menu first")
+    try await waitForUI("the menu to close", in: view) { Host.marker("Menu item Auto", in: view) == nil }
+    let editor = try XCTUnwrap(composerEditor(in: view))
+    XCTAssertTrue(window.makeFirstResponder(editor))
+    editor.insertText("/", replacementRange: NSRange(location: 0, length: 0))
+    try await waitForUI("the command list", in: view) { editor.completion?.commands.isEmpty == false }
+    NSApp.sendEvent(try key("\u{1b}", keyCode: 53, modifiers: []))
+    XCTAssertTrue(controller.isVisible, "Escape closes the command list first")
+    XCTAssertEqual(editor.completion?.commands.isEmpty, true)
+    NSApp.sendEvent(try key("\u{1b}", keyCode: 53, modifiers: []))
+    XCTAssertFalse(controller.isVisible, "With nothing open, Escape hides the panel")
+  }
+
+  @MainActor
   func testEscapeClosesTheOpenMenuBeforeHidingThePanel() async throws {
     let fixture = try await Fixture(test: self)
     let view = NSHostingView(rootView: fixture.shell())

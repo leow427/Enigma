@@ -377,6 +377,24 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(earlier["next_before"], .null)
   }
 
+  /// A JSON string writes a line break as the two characters `\n`, which
+  /// models copied into replies, so a multi-line message comes as its lines.
+  func testMultiLineMessageReachesTheModelAsLinesWithoutEscapes() async throws {
+    let date = AppleMessageDate.nanoseconds(MessagesFixture.start.addingTimeInterval(600))
+    MessagesFixture.execute("""
+      INSERT INTO message (ROWID, guid, text, handle_id, date, is_from_me) VALUES
+        (30, 'g30', 'Shopping list:
+      eggs\r
+      
+      milk', 1, \(date), 0);
+      INSERT INTO chat_message_join VALUES (1, 30, \(date));
+      """, at: database.url)
+    let result = await tools().execute(name: "get_messages", arguments: .object(["chat_id": .string(MessagesFixture.aliceChat)]))
+    XCTAssertFalse(result.text.contains(#"\n"#) || result.text.contains(#"\r"#), result.text)
+    let last = try XCTUnwrap(try json(result)["messages"].array?.last)
+    XCTAssertEqual(last["text"].array?.compactMap(\.string), ["Shopping list:", "eggs", "", "milk"])
+  }
+
   func testSearchToolsReturnContextAndContacts() async throws {
     let tools = tools()
     let search = try json(await tools.execute(name: "search_messages", arguments: .object(["query": .string("café")])))

@@ -22,47 +22,6 @@
 
 ## Bug fixes
 
-### B17. Escape doesn't hide the chat unless the text box is focused
-
-**Problem:** Pressing Escape hides the chat only while the text box has focus.
-After clicking anywhere else in Enigma (the conversation, a reply, empty space
-in the panel), Escape does nothing and the chat stays on screen.
-
-**Today:** `SpotlightPanel` (`SpotlightPanelController.swift`) handles Escape
-(key code 53) in `keyDown(with:)` and `performKeyEquivalent(with:)`: it closes
-the command list, an open menu or an `EnigmaEscapeDismissal` first, then calls
-`onHide`. The panel is a `.nonactivatingPanel`. Why the key doesn't reach
-these paths once focus leaves `SlashCommandTextView` is not yet confirmed; check
-whether the panel stays key after the click, and whether another view (for
-example the message list's text views) takes Escape first.
-
-**Wanted:** Once the person has clicked anywhere in Enigma, Escape hides the
-chat, whatever has focus. Escape still closes an open menu, the command list
-or the selection details first, as now. Add a regression test that moves focus
-off the text box and checks Escape hides the panel.
-
-### B19. Replies about a text show "\n" where the message had a line break
-
-**Problem:** When Enigma reads a text message and quotes or summarizes it,
-the reply sometimes shows a literal `\n` where the original message had a new
-line, instead of a line break.
-
-**Today:** `MessagesDatabase` decodes each message's text (from `text` or
-`attributedBody` via `AttributedBodyDecoder`) with real newlines and trims it.
-`MessagesTools` then returns tool results as JSON (`JSONEncoder`), which writes
-each newline as the two characters `\n`. The likely cause, not yet confirmed,
-is that the model copies that escape into its reply. Reproduce first: note the
-route and model, and check whether the `\n` is in the model's reply text or
-introduced by Enigma's own formatting.
-
-**Wanted:** A message's line breaks never appear as a literal `\n` in the
-chat. Where a quoted message had a new line, the reply shows a line break (or
-a space, if that reads better in a summary). Fix it where the escape comes
-from, for example by giving the model message text in a form it won't copy as
-an escape. Don't strip `\n` from replies across the board: code blocks and
-answers about escapes need it. Add a regression test with a multi-line
-message.
-
 ### B21. A long chat moved to a smaller model drops turns instead of compacting
 
 **Problem:** Picking another model mid-chat now switches to it and its mode,

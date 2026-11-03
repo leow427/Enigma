@@ -776,23 +776,31 @@ private final class SpotlightPanel: NSPanel {
   override var canBecomeMain: Bool { false }
 
   override func keyDown(with event: NSEvent) {
-    guard event.keyCode != 53 else {
-      if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return }
-      if EnigmaEscapeDismissal.dismiss(in: self) { return }
-      onHide?()
-      return
-    }
+    guard event.keyCode != 53 else { return handleEscape() }
     super.keyDown(with: event)
+  }
+
+  /// A reply's selectable text takes focus when clicked and keeps Escape, so
+  /// Escape is handled here before it reaches anything but an editable text view
+  /// (the composer, a field), which still gets it for its command list or marked text.
+  override func sendEvent(_ event: NSEvent) {
+    if event.type == .keyDown, event.keyCode == 53, (firstResponder as? NSTextView)?.isEditable != true {
+      return handleEscape()
+    }
+    super.sendEvent(event)
+  }
+
+  private func handleEscape() {
+    // An open menu closes first, as the command list does; so do the compact panel's details.
+    if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return }
+    if EnigmaEscapeDismissal.dismiss(in: self) { return }
+    onHide?()
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
     if event.keyCode == 53 {
       if let editor = firstResponder as? SlashCommandTextView, editor.completion?.dismiss() == true { return true }
-      // An open menu closes first, as the command list does.
-      if EnigmaMenuPresenter.dismissOpenMenu(in: self) { return true }
-      // So do the compact panel's details.
-      if EnigmaEscapeDismissal.dismiss(in: self) { return true }
-      onHide?()
+      handleEscape()
       return true
     }
     // The shortcuts chosen in Settings → Shortcuts.

@@ -70,7 +70,8 @@ you send it; one waiting for you to allow a screenshot upload waits for your
 answer.
 
 **Escape** closes, in order, the command list, an open menu, the details, and then
-the panel. Hiding the panel keeps its chat until you start another one.
+the panel, whatever has focus: after a click on a reply or empty space, too.
+Hiding the panel keeps its chat until you start another one.
 
 ### Moving the panel
 
