@@ -993,6 +993,82 @@ final class ConcurrentModelInstallTests: XCTestCase {
     XCTAssertTrue(chat.canChangeModels)
   }
 
+  /// B21: a model picked mid-reply waits for the reply, then loads before the next request.
+  func testAModelPickedDuringAReplyLoadsOnceTheReplyEnds() async throws {
+    for stops in [false, true] {
+      let (first, firstReply) = AsyncThrowingStream<String, Error>.makeStream()
+      let engine = InstallingEngine(replies: { $0.prompt == "First" ? first : nil })
+      engine.addModel(id: "other")
+      let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+      await chat.refreshInstalledModel()
+      chat.submit("First")
+      firstReply.yield("Partial")
+      try await until { chat.messages.last?.content == "Partial" }
+
+      chat.selectModel(id: "other")
+      XCTAssertEqual(chat.pendingModelID, "other")
+      XCTAssertEqual(chat.installedModel?.id, InstallingEngine.oldID, "The reply in flight keeps its model")
+      XCTAssertEqual(engine.managementCalls, [])
+
+      if stops { chat.stopStreaming() } else { firstReply.finish() }
+      try await until { chat.installedModel?.id == "other" && !chat.isBusy }
+      XCTAssertNil(chat.pendingModelID)
+      XCTAssertEqual(engine.managementCalls, ["select"])
+
+      chat.submit("Second")
+      try await until { chat.activeRequest == nil && chat.messages.last?.content == "Local reply" }
+      XCTAssertEqual(chat.installedModel?.id, "other", "A later request keeps the pick")
+    }
+  }
+
+  /// B21: a pick made while another one loads is loaded after it, and a failed reply's
+  /// error stays showing when a pick made during it loads.
+  func testAModelPickedDuringALoadOrAFailedReplyStillLoads() async throws {
+    let (first, firstReply) = AsyncThrowingStream<String, Error>.makeStream()
+    let engine = InstallingEngine(replies: { $0.prompt == "First" ? first : nil })
+    engine.addModel(id: "other")
+    engine.addModel(id: "third")
+    engine.holdSelections()
+    let chat = LocalChatViewModel(engine: engine, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    chat.submit("First")
+    firstReply.yield("Partial")
+    try await until { chat.messages.last?.content == "Partial" }
+    chat.selectModel(id: "other")
+    firstReply.finish(throwing: MockError.failed)
+    try await until { engine.isSelecting }
+    chat.selectModel(id: "third")
+    XCTAssertEqual(chat.pendingModelID, "third")
+    engine.releaseSelection()
+    try await until { chat.installedModel?.id == "third" && !chat.isBusy }
+    XCTAssertNil(chat.pendingModelID)
+    XCTAssertEqual(engine.managementCalls, ["select", "select"])
+    XCTAssertEqual(chat.state, .failed(MockError.failed.localizedDescription), "The reply's error stays")
+  }
+
+  /// B21: a pick made while other chat work holds it, here the file picker, loads at the
+  /// queue drain that follows, as AppShellView's busy observer runs one.
+  func testAModelPickedWhileTheChatIsHeldLoadsAtTheNextDrain() async throws {
+    let picker = MainWindowTestPicker(nil)
+    picker.holds = true
+    let files = FileModeCoordinator(picker: picker, journalDirectory: FileManager.default.temporaryDirectory
+      .appending(path: "PendingPickJournal-\(UUID().uuidString)"))
+    let engine = InstallingEngine()
+    engine.addModel(id: "other")
+    let chat = LocalChatViewModel(engine: engine, files: files, sessionStore: makeSessionStore())
+    await chat.refreshInstalledModel()
+    let picking = Task { await files.activate(from: .menu) }
+    try await until { chat.isBusy }
+    chat.selectModel(id: "other")
+    XCTAssertEqual(chat.pendingModelID, "other")
+    picker.holds = false
+    await picking.value
+    XCTAssertEqual(chat.pendingModelID, "other", "Nothing ended a reply")
+    chat.drainQueue()
+    try await until { chat.installedModel?.id == "other" && !chat.isBusy }
+    XCTAssertNil(chat.pendingModelID)
+  }
+
   func testRouteStatusShowsTheHeldInstallInsteadOfAnOldChatError() {
     let status = ChatRouteStatus.make(.init(mode: .local, state: .failed("Old reply error"), modelOperation: .installing,
                                             localModelName: "Old"))
@@ -1025,6 +1101,8 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
   private var models = [LocalModel(id: oldID, displayName: "Old", fileURL: URL(fileURLWithPath: "/tmp/old.gguf"))]
   private var selectedID: String? = oldID
   private var gate: CheckedContinuation<Void, Never>?
+  private var holdsSelections = false
+  private var selectionGate: CheckedContinuation<Void, Never>?
   private var downloading = false
   private var waitingToCommit = false
   private var storedRequests: [LocalModelRequest] = []
@@ -1087,7 +1165,29 @@ private final class InstallingEngine: LocalModelEngine, @unchecked Sendable {
   func install(_ model: LocalModel) async throws { lock.withLock { storedManagementCalls.append("install") } }
   func installedModel() async -> LocalModel? { lock.withLock { models.first { $0.id == selectedID } } }
   func installedModels() async -> [LocalModel] { lock.withLock { models } }
-  func selectModel(id: String) async throws { lock.withLock { storedManagementCalls.append("select") } }
+  func selectModel(id: String) async throws {
+    if lock.withLock({ holdsSelections }) {
+      await withCheckedContinuation { continuation in lock.withLock { selectionGate = continuation } }
+    }
+    lock.withLock {
+      storedManagementCalls.append("select")
+      if models.contains(where: { $0.id == id }) { selectedID = id }
+    }
+  }
+  /// Holds each model selection until `releaseSelection()`.
+  func holdSelections() { lock.withLock { holdsSelections = true } }
+  var isSelecting: Bool { lock.withLock { selectionGate != nil } }
+  func releaseSelection() {
+    let gate = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+      holdsSelections = false
+      defer { selectionGate = nil }
+      return selectionGate
+    }
+    gate?.resume()
+  }
+  func addModel(id: String) {
+    lock.withLock { models.append(LocalModel(id: id, displayName: id, fileURL: URL(fileURLWithPath: "/tmp/\(id).gguf"))) }
+  }
   func deleteModel(id: String) async throws { lock.withLock { storedManagementCalls.append("delete") } }
   func benchmark() async throws -> LocalBenchmarkMetrics? {
     lock.withLock { storedManagementCalls.append("benchmark") }

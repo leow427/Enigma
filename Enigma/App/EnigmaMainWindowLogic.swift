@@ -323,8 +323,10 @@ struct ModeAndModelMenu {
         : localModels.map { model in
           EnigmaMenuItem(id: AnyHashable("local.\(model.id)"), title: model.name,
                          detail: model.supportsVision ? "text + images" : "text only",
-                         isSelected: model.id == selectedLocalID, isEnabled: !isBusy && !isManagingModels) {
+                         isSelected: model.id == selectedLocalID, isEnabled: !isManagingModels) {
+            // A pick is for the next request, in that model's mode (B20, B21).
             actions.selectLocalModel(model.id)
+            actions.chooseMode(.local)
           }
         }
       sections.append(EnigmaMenuSection("On this Mac", items: items))
@@ -336,8 +338,9 @@ struct ModeAndModelMenu {
           EnigmaMenuItem(id: AnyHashable("cloud.\(model.id)"), title: model.name,
                          detail: model.outUntil.map { "out until \($0.formatted(date: .omitted, time: .shortened))" }
                            ?? (model.supportsVision ? "text + images" : "text only"),
-                         isSelected: model.id == selectedCloudID, isEnabled: !isBusy) {
+                         isSelected: model.id == selectedCloudID) {
             actions.selectCloudModel(model.id)
+            actions.chooseMode(.cloud)
           }
         }
       sections.append(EnigmaMenuSection(cloudProvider.displayName, items: items))

@@ -310,14 +310,37 @@ final class NativeToolRequestTests: XCTestCase {
   }
 
   func testTypedMessagesWithoutFullDiskAccessReportsAndStartsNothing() async throws {
-    let chat = makeChat(hasFullDiskAccess: false)
-    await chat.refreshInstalledModel()
-    let plan = plan("/messages who texted?", chat: chat)
-    XCTAssertFalse(plan.parts.contains(.messages))
-    chat.submitNative("who texted?", route: Self.localRoute, plan: plan)
-    XCTAssertEqual(chat.appleMessages.issue?.pane, .fullDiskAccess)
-    XCTAssertNil(chat.activeRequest)
-    XCTAssertTrue(chat.messages.isEmpty)
+    for route in [Self.localRoute, Self.cloudRoute] {
+      let chat = makeChat(hasFullDiskAccess: false)
+      await chat.refreshInstalledModel()
+      chat.submitNative("who texted?", route: route, plan: plan("/messages who texted?", chat: chat))
+      XCTAssertEqual(chat.appleMessages.issue?.pane, .fullDiskAccess, "\(route.mode)")
+      XCTAssertNil(chat.activeRequest)
+      XCTAssertTrue(chat.messages.isEmpty)
+    }
+  }
+
+  /// B18: without Full Disk Access the model still gets the Messages tools, so a question about
+  /// texts ends with the settings card instead of a reply saying it has no access.
+  func testMessagesCallWithoutFullDiskAccessShowsTheSettingsCard() async throws {
+    let locked = root.appendingPathComponent("locked.db")
+    try Data("x".utf8).write(to: locked)
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
+    let calls = [("list_conversations", "{}"), ("search_messages", #"{"query":"Saturday"}"#)]
+    for route in [Self.localRoute, Self.cloudRoute] { for (tool, arguments) in calls {
+      let inference = NativeScriptedInference(steps: [.call(tool, arguments), .text("I can't access Messages.")])
+      let provider = NativeToolProvider(steps: [[.call(tool, arguments), .token("I can't access Messages.")]])
+      let chat = makeChat(inference: inference, cloud: provider, messagesDatabase: MessagesDatabase(url: locked),
+                          hasFullDiskAccess: false)
+      await chat.refreshInstalledModel()
+      XCTAssertTrue(plan("What did Sam send me?", chat: chat).parts.contains(.messages))
+      var cards: [ToolPermissionRequest] = []
+      try await send("What did Sam send me?", to: chat, route: route, cards: &cards)
+      let label = "\(route.mode) \(tool)"
+      XCTAssertEqual(chat.appleMessages.issue?.pane, .fullDiskAccess, label)
+      XCTAssertTrue(cards.isEmpty, "A search that can't run asks nothing first: \(label)")
+      XCTAssertFalse(chat.messages.contains { $0.content == "I can't access Messages." }, label)
+    } }
   }
 
   // MARK: Gates
@@ -2049,7 +2072,11 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
         for event in script {
           switch event {
           case .token(let text): continuation.yield(.token(text))
-          case .call(let name, let arguments): _ = await toolbox.execute(name: name, jsonArguments: arguments)
+          case .call(let name, let arguments):
+            // As the real cloud loops do, a missing permission ends the request.
+            if case .messages(let error)? = await toolbox.execute(name: name, jsonArguments: arguments).stop {
+              return continuation.finish(throwing: error)
+            }
           }
         }
         continuation.finish()

@@ -41,37 +41,6 @@ chat, whatever has focus. Escape still closes an open menu, the command list
 or the selection details first, as now. Add a regression test that moves focus
 off the text box and checks Escape hides the panel.
 
-### B18. Without Full Disk Access, a Messages question gets "I don't have access" instead of the settings card
-
-**Problem:** When Enigma doesn't have Full Disk Access, asking about Messages
-(for example "what did Sam send me?", or a typed `/messages`) gets a reply in
-which the model says it can't access Messages. Nothing offers to fix it: the
-person isn't told that Full Disk Access is missing or shown how to turn it on.
-
-**Today:** On a native-tools turn (F32), `LocalChatViewModel.nativeToolPlan`
-passes `hasFullDiskAccess: (try? messagesAccess()) != nil`, and
-`NativeToolPlan.make` (`AssistantToolbox.swift`) only adds the `.messages` part
-when that is true. So without Full Disk Access the model gets no Messages
-tools at all, never reaches `MessagesError.fullDiskAccessRequired`, and answers
-from its own knowledge. A typed `/messages` still sets `messagesRequested`, so
-the model is told the user asked for Messages but has no tool for it. The card
-with the "Open Full Disk Access Settings…" button (`MessagesCards.swift`,
-shown through `appleMessages.report` when a tool fails with an error that has
-a `privacyPane`) only appears when a Messages tool actually runs and fails.
-Check the small-model chip path as well, to confirm it already shows the card.
-
-**Wanted:** When Full Disk Access is missing and the request needs Messages
-(a typed `/messages`, or the model tries to use Messages), Enigma shows the
-Messages card asking the person to turn on Full Disk Access, with the
-"Open Full Disk Access Settings…" button and the quit-and-reopen note, instead
-of a model reply saying it has no access. Requests that don't involve Messages
-are unchanged and don't show the card. One approach to weigh: keep the
-Messages tools in the toolbox without Full Disk Access and have them fail with
-`fullDiskAccessRequired`, which already ends the turn with the card (check this
-doesn't change the tool prefix in a way that hurts the warm-up, F32). Add
-tests for a typed `/messages` and for a model's Messages tool call without
-Full Disk Access, on both a local and a cloud route.
-
 ### B19. Replies about a text show "\n" where the message had a line break
 
 **Problem:** When Enigma reads a text message and quotes or summarizes it,
@@ -94,74 +63,23 @@ an escape. Don't strip `\n` from replies across the board: code blocks and
 answers about escapes need it. Add a regression test with a multi-line
 message.
 
-### B20. Picking a model with Command-K in Auto mode keeps Auto and ignores the pick
+### B21. A long chat moved to a smaller model drops turns instead of compacting
 
-**Problem:** With Auto selected, opening the mode and model menu with
-Command-K and choosing a model, local or cloud, leaves the mode on Auto. The
-next request is still routed by Auto, so the chosen model isn't what answers.
+**Problem:** Picking another model mid-chat now switches to it and its mode,
+also during a reply (fixed with B20 and this item's switching part). But when the conversation so far
+doesn't fit the new model, for example a long cloud chat moved to a small
+local model, its oldest turns are dropped.
 
-**Today:** Command-K (`PanelShortcut.modePalette`) posts
-`.modePaletteRequested`, which toggles `shell.isModePalettePresented` in
-`AppShellView`. The menu's items come from `ModeAndModelMenu.sections`
-(`EnigmaMainWindowLogic.swift`): in Auto it lists both the "On this Mac" and
-the cloud provider's models. Their actions, `modeAndModelActions` in
-`AppShellView`, only change the model: `selectLocalModel` calls
-`localChat.selectModel(id:)` and `selectCloudModel` sets
-`cloudSettings.preferredModelID`. Neither calls `shell.chooseMode`, so
-`shell.selectedMode` stays `.auto` and `AutoRouter` keeps deciding the route.
+**Today:** After a switch, the chat's messages go to the new route through
+`ChatContextPreparer.prepare`, which drops the oldest turns that don't fit its
+budget, with only the omitted-messages notice (see F35).
 
-**Wanted:** Choosing a model by hand switches to that model's mode: a local
-model switches to Local, a cloud model to Cloud, and Auto is no longer
-selected. The same applies wherever the menu is shown (Command-K and the
-mode button), and a pick during a request in flight applies to the next
-request, as the menu's "Next request" title already says. Choosing Auto
-itself is unchanged. Add tests in `EnigmaMainWindowTests` (or wherever
-`ModeAndModelMenu` actions are covered) that pick a local and a cloud model
-from Auto and check the mode and the model both change.
+**Wanted (owner, 2026-11-02):** The new model gets the conversation so far.
+When it doesn't fit, Enigma compacts it with F35's tiers until it fits instead
+of dropping turns, showing F35's "Summarizing earlier messages…" status while
+it works. Tests go with F35's.
 
-### B21. Picking another model mid-chat does nothing, and the mode stays as it was
-
-**Problem:** During a chat, clicking a different model in the mode and model
-menu doesn't work: Auto, or whichever mode was on, stays selected and the
-next reply comes from the same route and model as before.
-
-**Today:** Two causes, not yet confirmed as the whole story; reproduce first,
-noting the mode, whether a reply was running and which model was clicked.
-
-- In Auto, a model pick never changes the mode (B20): `modeAndModelActions`
-  in `AppShellView` only calls `localChat.selectModel(id:)` or sets
-  `cloudSettings.preferredModelID`, never `shell.chooseMode`.
-- While a reply or other chat work runs, every model item is disabled:
-  `ModeAndModelMenu.sections` (`EnigmaMainWindowLogic.swift`) sets
-  `isEnabled: !isBusy` on local and cloud models, and
-  `LocalChatViewModel.selectModel(id:)` returns early unless
-  `canChangeModels`. Only the mode items stay enabled, although the section
-  is titled "Next request" then.
-- The mode itself is only reset to Auto when the welcome closes
-  (`ShellPresentation.welcomeChanged`). After a switch, the chat's messages
-  go to the new route through `ChatContextPreparer.prepare`, which drops the
-  oldest turns that don't fit its budget, with only the omitted-messages
-  notice (see F35).
-
-**Wanted (owner, 2026-11-02):**
-
-- Choosing a model mid-chat, in any mode, switches to it and to its mode
-  (local model → Local, cloud model → Cloud), and the chat stays on that
-  mode and model until the person changes it again. B20's fix covers the
-  Auto part; fix the two together.
-- A pick while a reply runs is accepted and applies to the next request, as
-  the "Next request" title says; the reply in flight keeps its route. A local
-  model loads once the request ends.
-- The new model gets the conversation so far. When it doesn't fit, for
-  example a long cloud chat moved to a small local model, Enigma compacts it
-  with F35's tiers until it fits instead of dropping turns, showing F35's
-  "Summarizing earlier messages…" status while it works.
-- Tests: picks from Auto, Local and Cloud, idle and during a reply, change
-  the mode and model, and the next request uses them; a later request keeps
-  them. The compaction part goes with F35's tests.
-
-**Depends on / blocks:** the compaction part depends on F35. The switching
-part doesn't and can be fixed with B20 first.
+**Depends on / blocks:** depends on F35.
 
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 

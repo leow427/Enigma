@@ -115,8 +115,8 @@ from your wording** on, and it's off by default. See [Slash commands](Slash-Comm
 Local models of about 9B and up, both mixture-of-experts models, and the cloud
 models have a **native tools** flag (see
 [Slash commands](Slash-Commands.md#models-that-choose-their-own-tools)). With
-one of them selected, every message offers the Messages tools while Enigma has
-Full Disk Access, and no files or screenshot are attached. Just ask: "what did
+one of them selected, every message offers the Messages tools when no files or
+screenshot are attached. Just ask: "what did
 Sam say about Saturday?" Nothing is recognized from your wording and no chip is
 shown; the model decides. Typing `/messages` still works: the model is told you
 asked for Messages, and in Auto the request stays on the local model, as above.
@@ -251,7 +251,10 @@ and an **Open Settings…** button for Automation. The rows refresh when you
 return to Enigma. See [Welcome-and-Settings.md](Welcome-and-Settings.md).
 
 If Full Disk Access is missing when you use `/messages`, Enigma explains it and
-offers **Open Full Disk Access Settings…** without starting a request. If
+offers **Open Full Disk Access Settings…** without starting a request. On a
+native-tools model, a question about your texts without Full Disk Access ends
+the same way as soon as the model reaches for Messages, instead of a reply
+saying it has no access. If
 Automation is denied during a send, or Full Disk Access is lost while a request
 runs, the request stops there on every model route: no later tool call runs
 (on Codex, a call already running alongside it may still finish), nothing is

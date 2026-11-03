@@ -17,7 +17,6 @@ struct NativeToolPlan: Equatable, Sendable {
     var hasFiles: Bool
     var hasScreenshot: Bool
     var searchesAutomatically: Bool
-    var hasFullDiskAccess: Bool
     /// The provider's own search may be used (F30, `NativeWebSearch.isAllowed`). Enigma's own search needs no key either (spec §8).
     var providerSearch: Bool = false
     /// The user declined the provider's search in a chat holding message text: no search at all,
@@ -88,7 +87,8 @@ struct NativeToolPlan: Equatable, Sendable {
       plan.offersPlacesAndWeather = true
       plan.requiredTool = "find_places"
     }
-    if inputs.hasFullDiskAccess { plan.parts.insert(.messages) }
+    // Offered without Full Disk Access too: a call then fails with the settings card (B18).
+    plan.parts.insert(.messages)
     if inputs.hasSelection {
       plan.parts.insert(.selection)
       plan.editRequested = inputs.typed.edit

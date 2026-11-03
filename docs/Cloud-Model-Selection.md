@@ -19,8 +19,10 @@ composer's mode and model menu (⌘K also opens it):
 
 The menu also lists the models for the current mode: installed local models
 under **On this Mac**, and the preferred provider's models under its name, each
-marked **text + images** or **text only**. A new choice made while a reply is
-running applies to the next request. The composer shows where the next request
+marked **text + images** or **text only**. Choosing a model switches to its
+mode: a local model to **Local**, a cloud model to **Cloud**, also from Auto.
+The chat then stays on that mode and model until you change it. A new choice
+made while a reply is running applies to the next request. The composer shows where the next request
 runs: **● local** or **○ cloud**. **General → Start mode** sets the mode new
 chats start in (see [Welcome-and-Settings.md](Welcome-and-Settings.md)).
 

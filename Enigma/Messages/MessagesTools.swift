@@ -210,6 +210,7 @@ struct MessagesTools: AgentToolbox {
     let limit = try bounded(arguments["limit"], default: 10, maximum: 20, name: "limit")
     if let gate {
       // A search that can't run never shows a card, and the card shows what is searched.
+      try database.checkAccess()
       query = query.trimmingCharacters(in: .whitespacesAndNewlines)
       guard !query.isEmpty else { throw MessagesError.invalidArguments("query must not be empty.") }
       guard await gate.maySearch(query: query) else {

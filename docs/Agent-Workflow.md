@@ -10,7 +10,10 @@ by fresh reviewer agents. One task per chat.
 3. Start a fresh reviewer with the Agent tool, `model: "opus"` and
    `effort: "xhigh"`. Give it this file, the task, `docs/reviewer.md` and the
    base commit, not your own summary.
-4. Fix every Blocker and Should fix, then:
+4. When a review comes back, tell the owner explicitly what it found that
+   needs fixing: each Blocker and Should fix, in a sentence or two, before or
+   while you fix it. Do this after every round, not only in the final report.
+   Then fix every Blocker and Should fix, and:
    - After round 1: if every finding was small (a wording change, a missing
      test, a one-line correction), fix and test it yourself and stop.
      Otherwise run round 2.

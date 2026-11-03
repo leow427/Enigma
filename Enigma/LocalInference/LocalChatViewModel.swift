@@ -64,6 +64,8 @@ final class LocalChatViewModel: ObservableObject {
     messagesFollowUpSessionID != nil && messagesFollowUpSessionID == selectedSessionID
   }
   @Published private(set) var installedModel: LocalModel?
+  /// A local model picked while a reply ran, loaded once the chat is free (B21).
+  @Published private(set) var pendingModelID: String?
   @Published private(set) var installedModels: [LocalModel] = []
   @Published private(set) var contextNotice: String?
   @Published private(set) var activity: AssistantActivity?
@@ -624,9 +626,19 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   func selectModel(id: String) {
-    guard canChangeModels else { return }
+    selectModel(id: id, keepsFailure: false)
+  }
+
+  /// `keepsFailure`: a pick deferred past a failed reply leaves that reply's error showing.
+  private func selectModel(id: String, keepsFailure: Bool) {
+    guard canChangeModels else {
+      if !isManagingModels { pendingModelID = id == installedModel?.id ? nil : id }
+      return
+    }
+    pendingModelID = nil
     cancelIdleUnload()
     clearModelFailure()
+    let settled: State = if keepsFailure, case .failed = state { state } else { .idle }
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
     Task { [weak self, engine] in
@@ -635,14 +647,24 @@ final class LocalChatViewModel: ObservableObject {
         try await engine.selectModel(id: id)
         guard let self else { return }
         await self.refreshInstalledModel()
-        self.state = .idle
+        self.state = settled
         self.scheduleIdleUnload()
       } catch {
-        self?.state = .idle
+        self?.state = settled
         self?.modelFailure = error.localizedDescription
         self?.scheduleIdleUnload()
       }
+      // A later pick made while this one loaded, then messages queued behind the reply.
+      self?.applyPendingModelSelection()
+      self?.drainQueueSoon()
     }
+  }
+
+  /// Runs wherever the chat may have just freed up: the end of a reply, Stop, a model load
+  /// and every queue drain, which follows each end of busy work.
+  private func applyPendingModelSelection() {
+    guard let pendingModelID, canChangeModels else { return }
+    selectModel(id: pendingModelID, keepsFailure: true)
   }
 
   func deleteModel(id: String) {
@@ -842,8 +864,7 @@ final class LocalChatViewModel: ObservableObject {
   func nativeToolPlan(for typed: ComposerCommands, hasFiles: Bool = false, hasScreenshot: Bool = false) -> NativeToolPlan {
     guard !hasFiles, !hasScreenshot else { return .empty }
     return NativeToolPlan.make(.init(typed: typed, hasSelection: attachedContexts.contains { $0.kind == .selectedText },
-      hasFiles: false, hasScreenshot: false, searchesAutomatically: searchSettings?.automaticallySearch ?? false,
-      hasFullDiskAccess: (try? messagesAccess()) != nil))
+      hasFiles: false, hasScreenshot: false, searchesAutomatically: searchSettings?.automaticallySearch ?? false))
   }
 
   /// How often typing may warm the local model. Well inside the minute after which an idle
@@ -1973,6 +1994,7 @@ final class LocalChatViewModel: ObservableObject {
     task.cancel()
     sessionWriter.flush()
     scheduleIdleUnload()
+    applyPendingModelSelection()
     return task
   }
 
@@ -2512,6 +2534,7 @@ final class LocalChatViewModel: ObservableObject {
     sessionWriter.flush()
     scheduleIdleUnload()
     if error == nil, !Task.isCancelled { queuedInFlight = nil } else { holdQueue() }
+    applyPendingModelSelection()
   }
 
   // MARK: Message queue
@@ -2548,6 +2571,7 @@ final class LocalChatViewModel: ObservableObject {
 
   /// Sends the next queued message if nothing holds the chat. Safe to call any time.
   func drainQueue() {
+    applyPendingModelSelection()
     guard !isBusy, queuedMessageSender != nil, let message = messageQueue.popNext() else { return }
     send(message)
   }

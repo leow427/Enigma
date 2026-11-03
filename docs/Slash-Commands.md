@@ -104,7 +104,8 @@ route, every message offers the model the tools that apply:
 - `find_places` (Apple Maps) and `get_weather` (Open-Meteo), when automatic
   search is on or `/maps` is typed (see
   [Web Search](Web-Search.md#places-and-weather));
-- the Messages tools, while Enigma has Full Disk Access;
+- the Messages tools; without Full Disk Access, a call to one ends the request
+  with the card that opens its settings;
 - `propose_edit` and `propose_translation`, when Selection Context is attached.
 
 The model picks a tool, writes its own arguments, or answers without one.

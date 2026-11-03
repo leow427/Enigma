@@ -101,7 +101,8 @@ route can run). The empty page and the compact panel don't show it.
 - Slash commands such as **/search**, **/think**, **/screen** and **/snapshot**
   apply to one message. See [Slash-Commands.md](Slash-Commands.md).
 - Choosing a mode or model while a request runs applies to the next request; the
-  menu's mode section reads **Next request**.
+  menu's mode section reads **Next request**. A local model picked then loads
+  once the reply ends.
 
 Other shortcuts in the window: **⌃Tab** opens the next recent chat, and **Esc**
 closes an open menu or, with none open, hides the window.
@@ -335,7 +336,7 @@ their own paths.
 
 - `nativeToolPlan(for:)` makes a `NativeToolPlan` (`Enigma/Chat/AssistantToolbox.swift`)
   from the typed commands, the attached selection and the settings (automatic
-  search, Full Disk Access). `submitNative` remakes it for the
+  search). `submitNative` remakes it for the
   route: the search part is `.search(.provider)` when
   `NativeWebSearch.isAllowed` says so (ChatGPT or Claude Code, the pair not
   marked unavailable), and `.search(.enigma)` otherwise, with `find_places` and

@@ -735,7 +735,7 @@ struct AppShellView: View {
       localModels: localChat.installedModels.map {
         ModeAndModelMenu.LocalChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision)
       },
-      selectedLocalID: localChat.installedModel?.id,
+      selectedLocalID: localChat.pendingModelID ?? localChat.installedModel?.id,
       cloudProvider: cloudSettings.preferredProvider,
       cloudModels: cloudSettings.models.map {
         ModeAndModelMenu.CloudChoice(id: $0.id, name: $0.displayName, supportsVision: $0.supportsVision,

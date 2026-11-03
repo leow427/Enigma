@@ -188,7 +188,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     sections[0].items[2].action()
     sections[1].items[1].action()
     sections[2].items.forEach { $0.action() }
-    XCTAssertEqual(calls, ["mode cloud", "local g", "find", "import", "settings"])
+    XCTAssertEqual(calls, ["mode cloud", "local g", "mode local", "find", "import", "settings"])
 
     menu.mode = .cloud
     XCTAssertEqual(menu.label, "sonnet")
@@ -197,7 +197,7 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(sections[2].items.map(\.title), ["Advanced settings…"])
     calls = []
     sections[1].items[0].action()
-    XCTAssertEqual(calls, ["cloud sonnet"])
+    XCTAssertEqual(calls, ["cloud sonnet", "mode cloud"])
 
     menu.mode = .auto
     menu.isBusy = true
@@ -206,7 +206,14 @@ final class EnigmaMainWindowTests: XCTestCase {
     sections = menu.sections(actions)
     XCTAssertEqual(sections.map(\.title), ["Next request", "On this Mac", CloudProviderID.claudeCode.displayName, nil])
     XCTAssertTrue(sections[0].items.allSatisfy(\.isEnabled), "The mode for the next request can change mid-reply")
-    XCTAssertTrue(sections[1...].flatMap(\.items).allSatisfy { !$0.isEnabled }, "Models wait for the reply, as before")
+    XCTAssertTrue(sections[1...2].flatMap(\.items).allSatisfy(\.isEnabled), "A model picked mid-reply is for the next request (B21)")
+    // B20: in Auto, a model pick switches to that model's mode.
+    calls = []
+    sections[1].items[1].action()
+    sections[2].items[0].action()
+    XCTAssertEqual(calls, ["local g", "mode local", "cloud sonnet", "mode cloud"])
+    menu.isManagingModels = true
+    XCTAssertFalse(menu.sections(actions)[1].items.contains(where: \.isEnabled), "Local models still wait for a model install")
 
     menu = ModeAndModelMenu(mode: .auto, isBusy: false, hasActiveRequest: false, localModels: [], selectedLocalID: nil,
                             cloudProvider: .chatGPT, cloudModels: [], selectedCloudID: "")
