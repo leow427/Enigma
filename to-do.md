@@ -1258,6 +1258,10 @@ The spec has every decision, and the checkpoints the work runs in.
 
 ### F35. Use as much context as the model allows, and compact long chats instead of failing
 
+**Plan:** [docs/superpowers/plans/2026-11-03-f35-context-and-compaction.md](docs/superpowers/plans/2026-11-03-f35-context-and-compaction.md)
+(checkpoints CP0–CP5, each built by a fresh agent and audited by a fresh
+reviewer)
+
 **Problem:** some searches fill the context almost at once, and the reply
 ends in an error instead of an answer. Long chats lose their oldest turns
 without warning beyond a notice. The goal: every route uses as much of its
