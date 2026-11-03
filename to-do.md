@@ -1636,6 +1636,51 @@ it goes unnoticed until the user happens to open the menu. See
 pending update and calls `performPendingUpdate`. Update `docs/Updates.md` →
 What users see, with a screenshot.
 
+### F38. Short AI-written chat titles, like other chat apps
+
+**Today:** A chat's title is the first 48 characters of its first message
+(`ChatSession.title(for:)` in `Enigma/Chat/ChatDomain.swift`, set in
+`ChatSession.append` while the title is still "New Chat", and again in
+`LocalChatViewModel.openTemporaryChatInWindow` for panel chats moved to the
+window). Recents (`ChatHistoryList`, `EnigmaSidebar`) shows it as is, so long
+or rambling first prompts make cut-off, unhelpful titles. Documented in
+`docs/Chat.md` → Chat history.
+
+**Wanted:**
+
+- After the first reply of a chat finishes, the chat's own model writes a very
+  short title (about 2–6 words, no quotes or trailing punctuation) summing up
+  what the chat is about, e.g. "Fix Swift build error", "Weekend trip to
+  Lisbon". It replaces the 48-character title in Recents.
+- The 48-character title stays as the instant placeholder and the fallback
+  when the title call fails, is cancelled, returns nothing usable, or the
+  model is unavailable. A chat is titled once; later turns don't retitle it.
+- Latency first: the title call runs only after the reply has finished
+  (`finishGeneration`) and never delays, blocks or queues ahead of the user's
+  next message; a new send cancels a title call still in flight.
+- Privacy: the title is made by the same model and provider the chat already
+  uses, from the first question (and at most the start of the first reply),
+  so nothing goes anywhere the chat hasn't. No extra provider, no extra
+  history kept. Private/temporary selection chats ("Keep selection chats
+  private") are never titled this way, since they're never saved.
+- Reuse the one-shot completion pattern already used for search helpers
+  (`LocalModelSearchAssistant.complete(_:maximumTokens:)` in
+  `LocalChatViewModel.swift`; `SearchModelAssistant`), with a small token cap
+  and temperature 0, rather than a new pipeline. Cloud routes need the same
+  one-shot call through their existing transport.
+- Owner to confirm: whether cloud chats spend an extra (tiny) request on the
+  title (default: yes, same provider), and whether very small local models
+  that write poor titles should keep the 48-character title (default: use
+  the model's title only if it passes the clean-up check: 1–8 words, ≤ 48
+  characters).
+
+**Tests:** `ChatSession` tests for the placeholder and that a generated title
+replaces only the auto title once. `LocalChatViewModel` tests with a stub
+model: title set after the first reply, fallback on failure or empty output,
+cancelled by a new send, never requested for private selection chats, and the
+clean-up (quotes, punctuation, length) of model output. Update
+`docs/Chat.md` → Chat history.
+
 ### F3. Regenerate the latest reply
 
 **Today:** a finished reply's meta line (`ReplyMetaLine.text` in
