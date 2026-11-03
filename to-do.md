@@ -1348,7 +1348,186 @@ The spec has every decision, and the checkpoints the work runs in.
 
 **Depends on / blocks:** after F30 (done).
 
-### F34. Free cloud models: Gemini's free tier and Apple's cloud model
+### F35. Use as much context as the model allows, and compact long chats instead of failing
+
+**Problem:** some searches fill the context almost at once, and the reply
+ends in an error instead of an answer. Long chats lose their oldest turns
+without warning beyond a notice. The goal: every route uses as much of its
+model's real context as is sensible, and when a chat or a turn gets near the
+limit, Enigma compacts it so the chat carries on instead of ending abruptly.
+
+**Today:**
+
+- Budgets: `ContextBudget` and `ModelContextPolicy` (`Enigma/Chat/ChatContext.swift`).
+  `ChatContextPreparer.prepare` keeps the current message and as many complete
+  earlier user/assistant pairs as fit, newest first, and drops the rest; the
+  only trace is `PreparedConversation.notice` ("N earlier messages were
+  omitted…"). Nothing summarizes. If the current message alone doesn't fit, it
+  throws `ChatContextError.oversizedPrompt` ("exceed the selected model's input
+  budget"), and the request fails. Auto's `.exceedsLocalContext`
+  (`AutoRouter.swift`) sends such a turn to cloud when it can.
+- Cloud is capped far below the models: every cloud budget has
+  `inputLimit: 32_768`, and `CloudContext.inputTokenCount` counts one UTF-8
+  byte as one token (its comment says this deliberately overestimates). So a
+  cloud request gets roughly 8–10k real tokens of input even on models with
+  128k–1M windows (`CloudModelCapabilities`). ChatGPT and Claude Code also
+  reserve 8,192 and 16,384 tokens of protocol overhead.
+- Local windows are small: catalogue packages run at 8,192
+  (`recommendedContextSize`), imported models fall back to 4,096
+  (`ModelContextPolicy.localContextWindow`), File Mode clamps to 4,096–16,384
+  (`LocalFileRuntime.contextWindow`), and llama-server caps at 32,768
+  (`LlamaServerVisionEngine`). The manifest, compatibility and memory estimates
+  assume `recommendedContextSize`; a mismatch makes the installed model ask to
+  Update (`LocalModelManifest.swift`).
+- Within a turn, tool results pile up unchecked. `LocalToolAgent.prepare`
+  (`AgentToolLoop.swift`) trims the history once, before the first step
+  (counting a byte as a token, tools and system prompt at about four bytes a
+  token). `runStreaming` then appends every tool result to `history` with no
+  re-check, for up to its step limit. Each native `web_search` call returns up
+  to 2,048 tokens of excerpts on local routes and 8,192 on cloud
+  (`evidenceTokens` in `LocalChatViewModel`, `WebSearchLimits.evidenceTokens`).
+  On an 8,192-token local model, two or three searches overflow the window,
+  llama-server rejects the request, and the turn ends in an error: this is the
+  "filled up immediately" case. The cloud loops in `CloudToolCalling.swift`
+  (`CloudToolLoop`, up to 12 steps) also prepare once and append results
+  unchecked.
+- What carries between turns: search excerpts are request-only and are not
+  saved with the turn. Earlier messages carry their text, plus attached
+  selection contexts while they stay attached (`requestMessages`,
+  `ConversationContextPrompt`). So the cross-turn growth is the chat itself
+  and attached context; the sudden overflow is within a single turn.
+
+**Wanted (owner decisions, 2026-11-02):**
+
+- **Both local and cloud routes**, compacting the same way.
+- **Bigger cloud budgets:** replace the byte-per-token count with a realistic,
+  still conservative estimate (for example about 3 bytes a token for text,
+  with JSON and role wrappers counted), and raise the 32,768 `inputLimit`
+  towards each model's listed window. Keep a cap chosen for latency (Enigma's
+  priority) rather than the full 1M; pick the figure in the plan and document
+  it. Recheck the ChatGPT and Claude Code overhead reserves against what the
+  CLIs actually add.
+- **Bigger local windows, chosen automatically (F15 folded in):** Enigma runs
+  each local model at the largest of 8K, 16K or 32K that the model's trained
+  maximum (a new catalogue field) and this Mac's memory allow, using the KV
+  cache estimate `LocalCacheLayout` already makes. It's a runtime override,
+  not a package change: pass the size to llama-server's `--ctx-size`, the
+  embedded engine and `LocalModel.contextWindow`, and don't let it trip the
+  manifest's Update check. Benchmarks are matched by context size
+  (`LocalModelSelection`), so `LocalModelAdvisor.record` saves the size
+  actually used; a new size gets its own performance check, or its figures
+  say they're for the default size. An optional override under
+  **Settings → On this Mac → › Advanced** (presets such as Smaller 4K /
+  Automatic / Larger 16K / Max 32K, limited by the model and memory) warns
+  before applying a size that may not fit.
+- **No turn fails because tool results filled the context.** Before every
+  tool-loop step (local and cloud), recount the request. When the next step
+  won't fit, first shrink this turn's earlier tool results (keep each search
+  source's title, site and URL, drop its excerpt text), then, if it still
+  won't fit, stop offering tools and ask the model to answer from what it
+  already has. Size each `web_search` result to the room left instead of a
+  fixed 2,048 / 8,192 tokens.
+- **Tiered compaction across turns**, in this order, each only when the one
+  before isn't enough:
+  1. Shrink bulky carried context on older turns (attached selection text, any
+     tool output that is carried) to a short reference.
+  2. Summarize older turns with the route's own model into one short summary
+     that replaces them in requests; the newest turns stay verbatim.
+  3. Drop the oldest turns, as today, only as a last resort.
+- **Timing, for latency:** compaction runs in the background after a reply
+  finishes, once the chat reaches 90% of the input budget (when the context
+  ring below turns red), so it's ready before the next send. If the person sends before it
+  finishes, the send waits for it with a "Summarizing earlier messages…"
+  status; on failure or timeout, that request falls back to dropping turns.
+- **Saved history is unchanged:** the full transcript stays as it is; the
+  summary is kept with the chat (in memory only for temporary chats, which
+  are never written to disk) and is reused until the next compaction.
+- **Visible but quiet:** a small "Earlier messages summarized" line in the
+  chat where compaction happened, replacing today's omitted-messages notice in
+  that case (the notice stays for the last-resort drop). A `/compact` command
+  compacts by hand.
+- **Context ring around the character (owner request, 2026-11-02):** a thin
+  ring drawn around the Enigma character, open only at its feet, like a
+  slightly tall upside-down C (a near-full oval with a small gap at the
+  bottom). It fills from one end of the gap, over the character's head, to
+  the other end, showing the **exact** share of the current route's input
+  budget the chat fills (no rounding to steps): the history the next request
+  would send (after any summary), the system prompt and tool definitions, and,
+  while a reply runs, this turn's tool results. It uses the same count the
+  request does, so the ring and compaction always agree. It replaces a
+  separate indicator in the composer.
+  - Colour: **green below 70%**, **yellow from 70%**, **red from 90%**, using
+    appearance tokens so it reads in light and dark mode. The fill shows the
+    amount too, so colour isn't the only signal.
+  - Hovering over or clicking the ring shows how much is **left**, for example
+    "28% of context left"; at red it adds that earlier messages will be
+    summarized. VoiceOver reads the same. Clicking the character itself still
+    pokes it, and dragging still drags it.
+  - It sits wherever the character rests during a chat: beside the latest
+    reply in the main window, and the input slot in the compact panel. It
+    stays in the slot and fades out while the character is dragged, thrown or
+    moving between slots, and comes back when it settles. Hidden while there's
+    nothing to measure (the empty new-chat page) and in the tour.
+  - It drops back after compaction and follows a change of route or model
+    (the budget changes). Changes animate briefly and respect Reduce Motion.
+- The current message alone can still be too big (for example a huge paste);
+  that keeps today's error and Auto's cloud fallback.
+
+**Files:**
+
+- Change: `Enigma/Chat/ChatContext.swift` (estimates, budgets, compaction
+  tiers), `Enigma/Chat/AgentToolLoop.swift` and
+  `Enigma/Cloud/CloudToolCalling.swift` (per-step budget), `LocalChatViewModel`
+  (evidence sizing, background compaction, the summary per session),
+  `Enigma/Cloud/CloudModelCapabilities.swift`, the local context plumbing
+  (`LocalModelEngine.swift`, `LlamaCPPModelEngine.swift`,
+  `LlamaServerVisionEngine.swift`, `LocalFileInference.swift`,
+  `LocalModelManifest.swift`, `LocalModelAdvisor.swift`,
+  `LocalMultimodalProfile.swift`), the catalogue (trained maximum), the slash
+  command list for `/compact`, the message list for the marker, and the character's
+  slot views (`EnigmaCharacterStage.swift`, the reply and compact-panel
+  slots, fed from `AppShellView`) for the ring.
+- Leave alone: the saved transcript format beyond adding the summary,
+  `recommendedContextSize` in packages, and the Codex / Claude Code CLIs' own
+  context handling.
+
+**Tests:** `ChatContextTests` for the new estimates, the raised cloud caps and
+the tier order (shrink, then summarize, then drop). Tool-loop tests (local and
+cloud, alongside `CloudToolStreamingTests`) where repeated searches would
+overflow: earlier results shrink, then the model answers without tools, and
+the turn never errors. Background compaction: runs past the threshold, a send
+waits for it, failure falls back to dropping, temporary chats keep the summary
+in memory only. Local window choice in `LocalModelEstimateTests` /
+`LocalModelSelectionTests` (memory and trained maximum limit it; the manifest
+doesn't ask to Update). `/compact` and the marker in the main-window tests.
+The ring in `EnigmaMainWindowTests` / `EnigmaConversationTests`: its fill is
+the prepared request's exact fraction, it is green below 70%, yellow at 70%
+and red at 90% (check the boundaries), hover and click show the share left,
+a click on the character still pokes it, it hides on the empty page and
+while the character is away from its slot, and it drops after compaction and
+changes with the route.
+
+**Docs:** `docs/Chat.md` → Context budgets (rewrite, including the context
+ring, with a screenshot), `docs/Web-Search.md`
+(per-call evidence sizing), `docs/Slash-Commands.md` (`/compact`),
+`docs/Local-Model-Selection.md` (automatic window and the Advanced override).
+
+**Depends on / blocks:** none; F13's custom instructions (counted in the
+budget) and F20's long-context recommendations build on it.
+
+**Out of scope:** viewing or editing the summary, `/compact` with a focus
+argument, and windows above 32K on local models.
+
+### F34. ✅ Done: Free cloud models: Gemini's free tier and Apple's cloud model
+
+> **Solved:** A **Free models** provider pools Gemini's free tier on the
+> user's own key, with a guided key in Settings → Cloud and welcome setup.
+> When a model hits its daily limit Enigma moves to the next one and says so;
+> when all are out it answers on the local model. Auto uses free Gemini only
+> with **Auto may use free Gemini models** on. Merged in leow427/Enigma#27,
+> released in 0.13.1. Deferred: Apple's model on Private Cloud Compute (and
+> the macOS 26 note) waits for the entitlement, and a real 429 `retryDelay`
+> hasn't been seen yet. See `docs/Free-Models.md`.
 
 **Plan:** [2026-10-31-f34-free-models.md](docs/superpowers/plans/2026-10-31-f34-free-models.md).
 **Spec:** [2026-10-31-f34-free-models-design.md](docs/superpowers/specs/2026-10-31-f34-free-models-design.md).
@@ -1761,7 +1940,7 @@ works", which describe the replaced prompts.
 **Depends on / blocks:** blocks F13.
 
 **Out of scope:** the Personalization tab (F13), the occupation picker (F20)
-and context size (F15).
+and context size (F35).
 
 ### F27. Keep file edits and message sending off on small local models
 
@@ -2279,38 +2458,16 @@ group, after General.
   It can never replace the built-in safety and tool rules.
 - Cap its length (show a character count) and count it in the context budget
   against the model's real context (`LocalModel.contextWindow`: 8,192 for
-  catalogue models, 4,096 for imported ones, and changeable with F15), since
+  catalogue models, 4,096 for imported ones, and larger with F35), since
   long instructions crowd out chat history.
 - Stored locally only, never sent anywhere except as part of a request.
   Temporary chats (F10) still use it.
 - The occupation picker (F20) can pre-fill it.
 
-### F15. Local context size (Advanced)
+### F15. Merged into F35: Local context size (Advanced)
 
-Home after F14: **Settings → On this Mac → › Advanced**.
-
-- An Advanced setting for how much conversation the local model can see.
-  Catalogue packages run with 8,192 tokens today (`recommendedContextSize`),
-  and imported models fall back to 4,096. File Mode clamps to 4,096–16,384 but
-  in practice uses the same 8,192.
-- **Worth it, with guardrails.** A larger context keeps longer chats and bigger
-  pasted text without trimming, but the KV cache grows with it (more memory),
-  and long prompts take longer to process. A smaller one saves memory on 8 GB
-  Macs.
-- Offer a few presets (for example Smaller 4K / Default 8K / Larger 16K /
-  Max 32K), limited by the model's trained maximum (a new catalogue field) and
-  this Mac's memory. Re-run the memory-fit estimate (`LocalCacheLayout` already
-  models the KV cache per model) and warn before applying a size that may not
-  fit.
-- Make it a runtime override, not a package change: compatibility, memory
-  estimates and the install manifest all assume `recommendedContextSize` is
-  8,192, and a mismatch makes the installed model ask to Update. Pass the
-  chosen size to llama-server's `--ctx-size` and `LocalModel.contextWindow`.
-- Benchmarks are matched by context size (`LocalModelSelection`), so
-  `LocalModelAdvisor.record` must save the size actually used, not
-  `recommendedContextSize`. A new size needs its own performance check, or
-  should say the figures are for the default size.
-- The llama-server runtime caps context at 32,768 (`LlamaServerVisionEngine`).
+The automatic local window and the Advanced override are now part of F35
+(use as much context as the model allows, and compact long chats).
 
 ### F16. Remappable keyboard shortcuts with collision warnings
 
@@ -2410,7 +2567,7 @@ the migration described below.
 - Choices: **Programmer, Writer, General user, Student, Researcher/Analyst**.
   - Student leans toward fast, light models for explanations and studying.
   - Researcher/Analyst leans toward long-context models for summarising
-    documents. Every package runs at 8,192 tokens today, so this needs F15.
+    documents. Every package runs at 8,192 tokens today, so this needs F35.
 - Occupation picks the use-case tags (F19); hardware fit then narrows the
   list, as the recommendations do today (`LocalModelSelector.select`,
   `WelcomeSetup.choices`). Say how it combines with the three recommendation
@@ -2460,6 +2617,10 @@ Builds on F1's copy buttons.
 The tour work is now part of F14 (welcome setup and Settings revamp).
 
 ### F24. Maps integration (later)
+
+Mostly done in F29: `find_places` and `/maps` look up nearby places with
+Apple Maps (`MKLocalSearch`), and a map card under the reply opens a place in
+Maps. Left: travel times and directions (`MKDirections`).
 
 - Eventually: answer place and direction questions with Apple Maps, for
   example nearby search, travel times and "open in Maps".
