@@ -171,10 +171,11 @@ enum LocalModelSelector {
   /// Speed and memory are gates; quality ranks only what passes them.
   static func select(
     manifest: LocalModelManifest, hardware: LocalHardwareProfile,
-    measurements: [LocalModelBenchmark] = [], installedIDs: Set<String> = []
+    measurements: [LocalModelBenchmark] = [], installedIDs: Set<String> = [], contextSizes: [String: Int] = [:]
   ) -> LocalModelRecommendations {
     let assessments = manifest.models.map {
-      assess($0, hardware: hardware, measurements: measurements, installed: installedIDs.contains($0.id))
+      assess($0, hardware: hardware, measurements: measurements, installed: installedIDs.contains($0.id),
+             contextSize: contextSizes[$0.id])
     }
     var families: [String: [LocalModelAssessment]] = [:]
     var familyOrder: [String] = []
@@ -234,11 +235,12 @@ enum LocalModelSelector {
 
   static func assess(
     _ model: LocalModelDescriptor, hardware: LocalHardwareProfile,
-    measurements: [LocalModelBenchmark] = [], installed: Bool = false
+    measurements: [LocalModelBenchmark] = [], installed: Bool = false, contextSize: Int? = nil
   ) -> LocalModelAssessment {
     let usable = measurements.filter { $0.isApplicable(to: hardware) }
+    // A run counts only at the window the model runs at here (F35), the package's when not given.
     let exact = usable.filter { $0.modelChecksum == model.checksumSHA256
-      && $0.contextSize == model.recommendedContextSize }.max { $0.recordedAt < $1.recordedAt }
+      && $0.contextSize == (contextSize ?? model.recommendedContextSize) }.max { $0.recordedAt < $1.recordedAt }
     let estimate = estimate(model, hardware: hardware,
       calibration: measurements.filter { $0.isApplicableForCalibration(to: hardware) })
     let speed = exact?.metrics.generationTokensPerSecond ?? estimate.speed

@@ -24,7 +24,7 @@ extension LocalVisionServing {
 enum LocalVisionModelValidation {
   static func validate(_ model: LocalModel) throws {
     guard let config = model.visionConfiguration,
-          (4096...32768).contains(config.contextWindow),
+          (4096...32768).contains(config.contextWindow), (4096...32768).contains(model.contextWindow),
           model.fileURL.resolvingSymlinksInPath() != config.projectorURL.resolvingSymlinksInPath(),
           FileManager.default.isExecutableFile(atPath: config.serverExecutableURL.path) else {
       throw LocalInferenceError.bridgeFailure("Choose a local vision GGUF, its matching mmproj GGUF, and a current llama-server executable.")
@@ -112,7 +112,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
     let config = model.visionConfiguration!
     return ["-m", model.fileURL.path, "--mmproj", config.projectorURL.path,
             "--host", "127.0.0.1", "--port", String(port), "--api-key", key, "--alias", alias,
-            "--ctx-size", String(config.contextWindow), "--parallel", "1", "--offline", "--no-webui",
+            "--ctx-size", String(model.contextWindow), "--parallel", "1", "--offline", "--no-webui",
             "--jinja", "--no-context-shift", "--cache-ram", "0", "--reasoning-budget", "-1",
             "--fit", "off"] + imageArguments(for: model.catalogDescriptor.flatMap {
               // Installs still on a runtime before the image-batch cap keep its defaults.

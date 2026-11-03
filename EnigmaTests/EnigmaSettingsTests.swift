@@ -302,7 +302,7 @@ final class EnigmaSettingsTests: XCTestCase {
       "api keys": .cloud, "keys": .cloud, "keychain": .cloud, "model id": .cloud, "preferred model": .cloud,
       "thinking capacity": .cloud, "sign in": .cloud, "brave search": .search, "double tap": .shortcuts,
       "hotkeys": .shortcuts, "theme": .general, "accessibility": .permissions, "local models": .local,
-      "cloud and search": .cloud, "gpt": .cloud,
+      "cloud and search": .cloud, "gpt": .cloud, "context size": .local,
     ]
     for (query, page) in expected {
       XCTAssertTrue(page.matches(query), "\(query) should find \(page)")
@@ -590,6 +590,126 @@ final class EnigmaSettingsTests: XCTestCase {
       downloads = await engine.downloads
     }
     XCTAssertEqual(downloads, [recommended.id])
+  }
+
+  // MARK: F35 CP2: Context size under Advanced
+
+  /// Gemma 4 31B on the fixture's 32 GB Mac: 16K is over the comfortable line, 32K over the budget.
+  @MainActor
+  private func contextSizeHost(saved: LocalContextWindowPreference? = nil) async throws -> (Fixture, Host) {
+    let descriptor = try XCTUnwrap(BundledLocalModels.models.first { $0.id == "gemma-4-31b-iq3_xxs" })
+    let model = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+                           fileURL: URL(fileURLWithPath: "/tmp/m.gguf"), catalogDescriptor: descriptor)
+    let fixture = try await Fixture(test: self, engine: SettingsRecordingEngine(installed: [model], selected: model))
+    await fixture.chat.refreshInstalledModel()
+    if let saved { fixture.defaults.set(saved.rawValue, forKey: LocalContextWindowPreference.key) }
+    let host = Host(fixture.settings(.local, size: Self.tall).enigmaTheme(.paper).defaultAppStorage(fixture.defaults),
+                    size: Self.tall, test: self)
+    return (fixture, host)
+  }
+
+  @MainActor
+  func testContextSizeShowsOnlyUnderAdvanced() async throws {
+    let (_, host) = try await contextSizeHost()
+    try await waitForUI("the page", in: host.view) { host.shows("Check this Mac") }
+    XCTAssertFalse(host.shows("Context size: Automatic"))
+    try await host.openAdvanced()
+    try await waitForUI("the Context size row", in: host.view) { host.shows("Context size: Automatic") }
+    for preference in LocalContextWindowPreference.allCases {
+      XCTAssertTrue(host.shows("Context size: \(preference.title)"), preference.title)
+    }
+    XCTAssertEqual(LocalContextSizeRow.title, "Context size")
+    XCTAssertEqual(LocalContextSizeRow.detail,
+                   "Larger sizes remember more of a long chat but use more memory and answer a little slower.")
+    XCTAssertEqual(LocalContextWindowPreference.allCases.map(\.accessibilityLabel),
+                   ["Smaller, 4,096 tokens", "Automatic", "Larger, 16,384 tokens", "Max, 32,768 tokens"])
+    XCTAssertEqual(LocalContextSizeRow.options(model: nil, hardware: nil).compactMap(\.accessibilityLabel),
+                   LocalContextWindowPreference.allCases.map(\.accessibilityLabel))
+    // A preset this Mac's memory rules out is disabled.
+    XCTAssertEqual(host.isEnabled("Context size: Max (32K)"), false)
+    XCTAssertEqual(host.isEnabled("Context size: Larger (16K)"), true)
+    XCTAssertEqual(host.isEnabled("Context size: Smaller (4K)"), false, "Too small for a screenshot")
+  }
+
+  @MainActor
+  func testContextSizeWarnsBeforeAnUncomfortableSize() async throws {
+    let (fixture, host) = try await contextSizeHost()
+    try await host.openAdvanced()
+    try await waitForUI("the Context size row", in: host.view) { host.shows("Context size: Larger (16K)") }
+    try host.press("Context size: Larger (16K)")
+    try await waitForUI("the warning", in: host.view) { host.shows("Use It") }
+    XCTAssertEqual(LocalContextSizeRow.warning, "This size may not fit in this Mac's memory alongside other apps. Use it anyway?")
+    XCTAssertTrue(host.shows("Cancel"))
+    XCTAssertNil(fixture.defaults.string(forKey: LocalContextWindowPreference.key), "Nothing applies before the answer")
+    try host.press("Cancel")
+    try await waitForUI("the warning gone", in: host.view) { !host.shows("Use It") }
+    XCTAssertNil(fixture.defaults.string(forKey: LocalContextWindowPreference.key))
+    try host.press("Context size: Larger (16K)")
+    try await waitForUI("the warning again", in: host.view) { host.shows("Use It") }
+    try host.press("Use It")
+    try await waitForUI("the choice saved", in: host.view) {
+      fixture.defaults.string(forKey: LocalContextWindowPreference.key) == "larger"
+    }
+    XCTAssertFalse(host.shows("Use It"))
+    XCTAssertTrue(LocalContextWindowPreference.isAccepted(.larger, modelID: "gemma-4-31b-iq3_xxs",
+      in: fixture.defaults.string(forKey: LocalContextWindowPreference.acceptedKey) ?? ""))
+    // A size not measured yet gets the performance check; the row waits for it.
+    try await waitForUI("the check finished", in: host.view) { fixture.chat.canChangeModels }
+    // A comfortable size applies at once.
+    try host.press("Context size: Automatic")
+    try await waitForUI("Automatic saved", in: host.view) {
+      fixture.defaults.string(forKey: LocalContextWindowPreference.key) == "automatic"
+    }
+    XCTAssertFalse(host.shows("Use It"))
+  }
+
+  /// The preset is global: a model selected after it was chosen is asked before it runs over the line.
+  @MainActor
+  func testContextSizeAsksAgainForAModelNotYetAnswered() async throws {
+    let (fixture, host) = try await contextSizeHost(saved: .larger)
+    try await host.openAdvanced()
+    try await waitForUI("the warning", in: host.view) { host.shows("Use It") }
+    XCTAssertEqual(LocalContextSizeRow.waitingNote, "Until you choose Use It, this model runs at Automatic.")
+    try host.press("Cancel")
+    try await waitForUI("back to Automatic", in: host.view) {
+      fixture.defaults.string(forKey: LocalContextWindowPreference.key) == "automatic"
+    }
+    XCTAssertFalse(host.shows("Use It"))
+  }
+
+  @MainActor
+  func testContextSizeUseItForAModelNotYetAnswered() async throws {
+    let (fixture, host) = try await contextSizeHost(saved: .larger)
+    try await host.openAdvanced()
+    try await waitForUI("the warning", in: host.view) { host.shows("Use It") }
+    try host.press("Use It")
+    try await waitForUI("the warning answered", in: host.view) { !host.shows("Use It") }
+    XCTAssertEqual(LocalContextWindowPreference.saved(in: fixture.defaults), .larger, "The preset is kept")
+    XCTAssertTrue(LocalContextWindowPreference.isAccepted(.larger, modelID: "gemma-4-31b-iq3_xxs",
+      in: fixture.defaults.string(forKey: LocalContextWindowPreference.acceptedKey) ?? ""))
+  }
+
+  /// A saved preset the selected model rules out says why it runs at Automatic.
+  @MainActor
+  func testContextSizeExplainsARuledOutPreset() async throws {
+    let (_, host) = try await contextSizeHost(saved: .maximum)
+    try await host.openAdvanced()
+    try await waitForUI("the note", in: host.view) { host.shows("Context size ruled out") }
+    XCTAssertEqual(LocalContextSizeRow.ruledOutNote(.maximum),
+                   "This model can't use Max (32K) on this Mac, so it runs at Automatic.")
+    XCTAssertFalse(host.shows("Use It"))
+  }
+
+  @MainActor
+  func testContextSizeRendersInPaperAndInk() async throws {
+    let (fixture, _) = try await contextSizeHost()
+    let size = SettingsView.windowSize
+    for (appearance, palette) in [(EnigmaAppearance.paper, EnigmaPalette.paper), (.ink, .ink)] {
+      let image = try EnigmaSnapshot.render(fixture.settings(.local, size: size, opensAdvanced: true)
+        .enigmaTheme(appearance).defaultAppStorage(fixture.defaults), size: size)
+      try assertPixel(image, at: CGPoint(x: SettingsView.navigationWidth + 12, y: size.height / 2),
+                      is: palette.background, "\(appearance)")
+    }
   }
 
   @MainActor
@@ -1413,10 +1533,14 @@ private actor SettingsRecordingEngine: LocalModelEngine {
   private(set) var selections: [String] = []
   private(set) var deletions: [String] = []
   private var installed: [LocalModel]
+  private let selected: LocalModel?
 
-  init(installed: [LocalModel] = []) { self.installed = installed }
+  init(installed: [LocalModel] = [], selected: LocalModel? = nil) {
+    self.installed = installed
+    self.selected = selected
+  }
   func install(_ model: LocalModel) async throws {}
-  func installedModel() async -> LocalModel? { nil }
+  func installedModel() async -> LocalModel? { selected }
   func installedModels() async -> [LocalModel] { installed }
   func selectModel(id: String) async throws { selections.append(id) }
   func deleteModel(id: String) async throws {

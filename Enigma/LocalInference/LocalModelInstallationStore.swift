@@ -32,6 +32,8 @@ struct LocalModelInstallationStore: Sendable {
   private let modelsDirectory: URL
   private let recordURL: URL
   private let fileOperations: FileOperations
+  /// The window a catalogue package runs at on this Mac (F35); nil keeps the package's.
+  private let contextWindow: @Sendable (LocalModelDescriptor) -> Int?
 
   // Downloads and imports can finish on different executors/store instances.
   // Serialize library transactions, including cleanup, within this process.
@@ -39,13 +41,15 @@ struct LocalModelInstallationStore: Sendable {
 
   var modelsDirectoryURL: URL { modelsDirectory }
 
-  init(modelsDirectory: URL? = nil, fileOperations: FileOperations = FileOperations()) {
+  init(modelsDirectory: URL? = nil, fileOperations: FileOperations = FileOperations(),
+       contextWindow: @escaping @Sendable (LocalModelDescriptor) -> Int? = LocalContextWindowChoice.current) {
     let resolvedDirectory = modelsDirectory ?? FileManager.default
       .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appending(path: "AI Spotlight/Models", directoryHint: .isDirectory)
     self.modelsDirectory = resolvedDirectory
     recordURL = resolvedDirectory.appending(path: "installed-model.json")
     self.fileOperations = fileOperations
+    self.contextWindow = contextWindow
   }
 
   func install(_ model: LocalModel) throws -> LocalModel {
@@ -147,7 +151,8 @@ struct LocalModelInstallationStore: Sendable {
         try? fileOperations.removeItem(projector)
       }
     }
-    return LocalModel(id: record.id, displayName: record.displayName, fileURL: destinationURL, catalogDescriptor: record.catalogDescriptor, visionConfiguration: installedVision)
+    return LocalModel(id: record.id, displayName: record.displayName, fileURL: destinationURL, catalogDescriptor: record.catalogDescriptor, visionConfiguration: installedVision,
+                      runtimeContextWindow: record.catalogDescriptor.flatMap(contextWindow))
   }
 
   func installedModel() -> LocalModel? {
@@ -300,7 +305,8 @@ struct LocalModelInstallationStore: Sendable {
       displayName: record.displayName,
       fileURL: fileURL,
       catalogDescriptor: record.catalogDescriptor,
-      visionConfiguration: record.visionConfiguration
+      visionConfiguration: record.visionConfiguration,
+      runtimeContextWindow: record.catalogDescriptor.flatMap(contextWindow)
     )
   }
 }

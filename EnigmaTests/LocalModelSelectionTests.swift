@@ -528,6 +528,68 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertFalse(LocalModelSelector.assess(changedChecksum, hardware: mac, measurements: [record]).isMeasured)
   }
 
+  // MARK: F35 CP2: benchmarks by the size they ran at
+
+  @MainActor
+  func testRecordSavesRuntimeSize() async throws {
+    let root = try temporaryDirectory()
+    let profile = hardware()
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in profile })
+    await advisor.detectHardware()
+    let descriptor = catalog.models[0]
+    var installed = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+                               fileURL: root.appending(path: "m.gguf"), catalogDescriptor: descriptor)
+    installed.runtimeContextWindow = 16_384
+    advisor.record(benchmark(model: descriptor, hardware: profile).metrics, model: installed, prediction: nil)
+    XCTAssertEqual(advisor.measurements.last?.contextSize, 16_384)
+  }
+
+  func testBenchmarkAtOtherSizeIsNotMeasured() throws {
+    let mac = hardware()
+    let model = catalog.models[0]
+    let record = benchmark(model: model, hardware: mac, speed: 4)
+    XCTAssertTrue(LocalModelSelector.assess(model, hardware: mac, measurements: [record]).isMeasured)
+    XCTAssertTrue(LocalModelSelector.assess(model, hardware: mac, measurements: [record], contextSize: 8_192).isMeasured)
+    let other = LocalModelSelector.assess(model, hardware: mac, measurements: [record], contextSize: 32_768)
+    XCTAssertFalse(other.isMeasured, "Measured at 8K, not at the 32K it now runs at")
+    // The installed window reaches the recommendations.
+    let selection = LocalModelSelector.select(manifest: LocalModelManifest(version: 1, models: [model]), hardware: mac,
+      measurements: [record], installedIDs: [model.id], contextSizes: [model.id: 32_768])
+    XCTAssertEqual(selection.assessments.first?.isMeasured, false)
+  }
+
+  @MainActor
+  func testLatestBenchmarkMatchesSize() async throws {
+    let root = try temporaryDirectory()
+    let profile = hardware()
+    let advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, trust: nil, detect: { _ in profile })
+    await advisor.detectHardware()
+    let descriptor = catalog.models[0]
+    var installed = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+                               fileURL: root.appending(path: "m.gguf"), catalogDescriptor: descriptor)
+    advisor.record(benchmark(model: descriptor, hardware: profile).metrics, model: installed, prediction: nil)
+    XCTAssertNotNil(advisor.latestBenchmark(for: installed))
+    installed.runtimeContextWindow = 32_768
+    XCTAssertNil(advisor.latestBenchmark(for: installed), "A run at 8K isn't this size's")
+    let recommendations = advisor.recommendations(installedModels: [installed])
+    XCTAssertEqual(recommendations.assessments.first { $0.id == descriptor.id }?.isMeasured, false)
+  }
+
+  @MainActor
+  func testManagerRowShowsRuntimeSize() throws {
+    let descriptor = catalog.models[0]
+    var installed = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+                               fileURL: URL(fileURLWithPath: "/tmp/m.gguf"), catalogDescriptor: descriptor)
+    installed.runtimeContextWindow = 32_768
+    XCTAssertEqual(LocalModelSettingsLogic.contextDetail(for: descriptor, installed: [installed]),
+                   "\(descriptor.quantization) · 32768 token context · \(descriptor.performanceClass)")
+    // Not installed: the size it would run at here.
+    XCTAssertEqual(LocalModelSettingsLogic.contextDetail(for: descriptor, installed: [], runtimeSize: { _ in 16_384 }),
+                   "\(descriptor.quantization) · 16384 token context · \(descriptor.performanceClass)")
+    XCTAssertEqual(LocalModelSettingsLogic.contextDetail(for: descriptor, installed: [], runtimeSize: { _ in nil }),
+                   "\(descriptor.quantization) · \(descriptor.recommendedContextSize) token context · \(descriptor.performanceClass)")
+  }
+
   func testFastRealMeasurementsCanPromoteASmarterModelWithoutOverridingMemorySafety() throws {
     var mac = hardware(memory: 24)
     mac.performanceCPUCount = 12

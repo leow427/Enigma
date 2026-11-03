@@ -17,6 +17,14 @@ struct LocalModelActionState: Equatable, Sendable {
 /// The model actions and summary lines behind Local models.
 @MainActor
 enum LocalModelSettingsLogic {
+  /// A package's details line, with the window it runs at here (F35): an installed copy's, else
+  /// `runtimeSize`'s, else the package's.
+  static func contextDetail(for model: LocalModelDescriptor, installed: [LocalModel],
+                            runtimeSize: (LocalModelDescriptor) -> Int? = { _ in nil }) -> String {
+    let size = installed.first { $0.id == model.id }?.contextWindow ?? runtimeSize(model) ?? model.recommendedContextSize
+    return "\(model.quantization) · \(size) token context · \(model.performanceClass)"
+  }
+
   /// The Mac details below the Local models summary, e.g.
   /// "10 CPUs · Metal · 21.3 GB Metal working set".
   static func hardwareDetails(_ hardware: LocalHardwareProfile) -> String {

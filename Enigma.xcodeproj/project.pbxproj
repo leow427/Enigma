@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		45FF105B70D345A25881EC30 /* Enigma/LocalInference/LocalContextWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */; };
 		E2241A085A8D332009EA72F6 /* EnigmaTests/ToolStepBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */; };
 		7102E1805226769007152A38 /* Enigma/Chat/ToolStepBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */; };
 		F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */; };
@@ -304,6 +305,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalContextWindow.swift"; sourceTree = SOURCE_ROOT; };
 		9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ToolStepBudgetTests.swift"; sourceTree = SOURCE_ROOT; };
 		6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolStepBudget.swift"; sourceTree = SOURCE_ROOT; };
 		320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/MapCardTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -616,6 +618,7 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */,
 				9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */,
 				6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */,
 				C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */,
@@ -1086,6 +1089,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45FF105B70D345A25881EC30 /* Enigma/LocalInference/LocalContextWindow.swift in Sources */,
 				7102E1805226769007152A38 /* Enigma/Chat/ToolStepBudget.swift in Sources */,
 				1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */,
 				D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */,

@@ -966,14 +966,17 @@ struct EnigmaOption<Value: Hashable>: Identifiable {
   let title: String
   var detail: String?
   var isEnabled = true
+  /// What VoiceOver reads instead of `title`, where the title abbreviates.
+  var accessibilityLabel: String?
 
   var id: Value { value }
 
-  init(_ value: Value, _ title: String, detail: String? = nil, isEnabled: Bool = true) {
+  init(_ value: Value, _ title: String, detail: String? = nil, isEnabled: Bool = true, accessibilityLabel: String? = nil) {
     self.value = value
     self.title = title
     self.detail = detail
     self.isEnabled = isEnabled
+    self.accessibilityLabel = accessibilityLabel
   }
 }
 
@@ -1076,15 +1079,19 @@ struct EnigmaSegmentedControl<Value: Hashable>: View {
         EnigmaSegment(title: option.title, isSelected: option.value == selection, namespace: underline) {
           selection = option.value
         }
-        .disabled(!option.isEnabled)
         .enigmaTestMarker("\(label): \(option.title)")
+        .disabled(!option.isEnabled)
       }
     }
     // The underline slides without overshoot; Reduce Motion moves it at once.
     .animation(reduceMotion ? nil : EnigmaMotion.pageChange.animation, value: selection)
     .accessibilityRepresentation {
       Picker(label, selection: $selection) {
-        ForEach(options) { option in Text(option.title).tag(option.value) }
+        ForEach(options) { option in
+          Text(option.title)
+            .accessibilityLabel((option.accessibilityLabel ?? option.title) + (option.isEnabled ? "" : ", unavailable"))
+            .tag(option.value)
+        }
       }
       .pickerStyle(.segmented)
     }

@@ -10,8 +10,15 @@ struct LocalModel: Codable, Sendable, Equatable, Identifiable {
   let fileURL: URL
   var catalogDescriptor: LocalModelDescriptor? = nil
   var visionConfiguration: LocalVisionConfiguration? = nil
+  /// The window this Mac runs the model at (F35), set as the library loads it; nil keeps the
+  /// package's. Never written into `visionConfiguration`, whose value the Update check compares.
+  var runtimeContextWindow: Int? = nil
 
-  var contextWindow: Int {
+  /// The window the runtime and every budget use.
+  var contextWindow: Int { runtimeContextWindow ?? packageContextWindow }
+
+  /// The package's own window.
+  var packageContextWindow: Int {
     if let configured = visionConfiguration?.contextWindow, configured > 0 { return configured }
     if let recommended = catalogDescriptor?.recommendedContextSize, recommended > 0 { return recommended }
     return ModelContextPolicy.localContextWindow

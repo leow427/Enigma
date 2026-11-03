@@ -122,7 +122,7 @@ struct SettingsView: View {
       case .general: ["appearance", "theme", "dark mode", "light", "start mode", "auto", "sidebar", "welcome", "replay",
                       "tour", "commands", "wording"]
       case .shortcuts: ["keyboard", "keybinds", "double-tap", "option", "control", "hotkey", "summon", "interval", "speed"]
-      case .local: ["local models", "download", "install", "gguf", "memory", "performance", "import"]
+      case .local: ["local models", "download", "install", "gguf", "memory", "performance", "import", "context size"]
       case .cloud: ["cloud and search", "chatgpt", "gpt", "claude", "codex", "openai", "anthropic", "gemini", "api key", "keychain",
                     "provider", "preferred model", "model id", "manual", "subscription", "plan", "sign in", "sign out",
                     "effort", "thinking capacity"]

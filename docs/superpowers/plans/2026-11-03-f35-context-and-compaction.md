@@ -165,6 +165,8 @@ that use it in the same commit.
 | `ChatContextPreparer.prepare(_:budget:reserving:countTokens:)` (tool turns keep room for a result) | `Enigma/Chat/ChatContext.swift` | CP1 | CP1, CP3 |
 | `LocalModelDescriptor.trainedContextLength` | `LocalModelManifest.swift` | CP2 | CP2 |
 | `LocalContextWindowChoice` | `Enigma/LocalInference/LocalContextWindow.swift` | CP2 | CP2, CP5 |
+| `LocalContextWindowPreference` (saved under `localContextWindowPreference`; Use It per model under `localContextWindowAccepted`); `LocalContextWindowChoice.size(for:model:hardware:)`, `runtimeSize(for:preference:accepted:hardware:)`, `needsWarning`, `current` | `Enigma/LocalInference/LocalContextWindow.swift` | CP2 | CP2 |
+| `LocalModel.runtimeContextWindow` (`contextWindow` is it or `packageContextWindow`); `LocalModelInstallationStore(…contextWindow:)` sets it | `LocalModelEngine.swift`, `LocalModelInstallationStore.swift` | CP2 | CP2–CP5 |
 | `ChatSummary` | `Enigma/Chat/ChatCompaction.swift` | CP3 | CP3–CP5 |
 | `ChatCompactor` | `Enigma/Chat/ChatCompaction.swift` | CP3 | CP3, CP4 |
 | `LocalChatViewModel.contextUsage` | `LocalChatViewModel.swift` | CP3 | CP4, CP5 |
@@ -202,7 +204,7 @@ note stays in the brief.
 | --- | --- | --- | --- |
 | CP0 | done | 3 | 65,536 cloud cap; `ceil(bytes / 3)` kept (owner); reserves measured: ChatGPT 3,840, Claude Code 1,280 |
 | CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole |
-| CP2 | not started | | |
+| CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check waits on owner |
 | CP3 | not started | | |
 | CP4 | not started | | |
 | CP5 | not started | | |

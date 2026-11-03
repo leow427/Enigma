@@ -54,8 +54,9 @@ It reads and prints only; it never writes into the repository.
   file's `lfs.size` and `lfs.oid`). A file missing at the revision stops the
   script.
 - **Headers.** It reads each GGUF header, and the projector's, with HTTP range
-  requests (through `scripts/gguf-header.py`), for the largest tensor, block
-  count, KV heads, head dimensions, sliding window and experts.
+  requests (through `scripts/gguf-header.py`), for the largest tensor, trained
+  context length, block count, KV heads, head dimensions, sliding window and
+  experts. A file without `<arch>.context_length` stops the script.
 - **Labels and IDs.** The quantization label comes from the file name without
   Unsloth's `UD-` prefix (`Qwen3.8-27B-UD-IQ3_XXS.gguf` is `IQ3_XXS`); pass
   `--label <quantization>` right after a `--file` to override it. IDs are
@@ -66,7 +67,10 @@ It reads and prints only; it never writes into the repository.
 It prints three blocks:
 
 1. A `LocalModelFamily` entry for `BundledLocalModels.swift`, packages in size
-   order, with `supportsAudio` from the projector header. Fields you didn't
+   order, with `supportsAudio` from the projector header and
+   `trainedContextLength` from the weights' `<arch>.context_length` (the
+   smallest, with a warning, if the packages disagree). It sets the largest
+   window a package may run at (`LocalContextWindowChoice`). Fields you didn't
    pass print as `<placeholders>`; fill in the quality score and its source
    (step 5). To add sizes to an existing family, paste only the `.init` lines.
 2. The `LocalCacheLayout` for `LocalMultimodalProfile.cacheLayout`: full
@@ -94,7 +98,7 @@ different KV head counts):
 python3 -I scripts/gguf-header.py <resolve URL> <file bytes>
 ```
 
-It prints the largest tensor and `block_count`, `attention.head_count_kv`,
+It prints the largest tensor and `context_length`, `block_count`, `attention.head_count_kv`,
 `attention.key_length`, `attention.value_length`,
 `attention.key_length_swa`, `attention.value_length_swa`,
 `attention.sliding_window`, `attention.sliding_window_pattern`,

@@ -545,8 +545,12 @@ prepared request fills: messages plus prompt, out of the allowance plus prompt.
 
 **Local** (`Enigma/LocalInference/`):
 
-- The context window comes from the model's vision configuration, then its
-  catalog recommendation, then a 4,096-token fallback.
+- The context window is the one chosen for this Mac (F35): the largest of
+  8K, 16K or 32K that the model's trained maximum and this Mac's memory allow,
+  or the size picked under **Settings → On this Mac → › Advanced → Context
+  size** (see [Local-Model-Selection.md](Local-Model-Selection.md#context-size)).
+  Imported models use their vision configuration, then a 4,096-token
+  fallback.
 - The output reserve is 512 tokens, or 2,048 with **/think**.
 - Text-only models run in the embedded engine (`LlamaCPPModelEngine.swift` and
   `Packages/LlamaBridge`). Tokens are counted exactly with the model's chat

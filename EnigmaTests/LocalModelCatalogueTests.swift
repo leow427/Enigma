@@ -42,8 +42,33 @@ final class LocalModelCatalogueTests: XCTestCase {
     try LocalModelManifest.bundled.validate()
     XCTAssertEqual(Set(models.map(\.id)).count, 48)
     XCTAssertEqual(Set(models.map(\.checksumSHA256)).count, 48)
-    XCTAssertEqual(LocalModelManifest.bundled.version, 8)
+    XCTAssertEqual(LocalModelManifest.bundled.version, 9)
     XCTAssertEqual(LocalVisionModelDescriptor.bundled.count, 48)
+  }
+
+  /// F35 CP2: read from each package's GGUF `<arch>.context_length` (scripts/gguf-header.py).
+  func testEveryBundledPackageHasTrainedContextLength() throws {
+    for model in models {
+      let trained = try XCTUnwrap(model.trainedContextLength, model.id)
+      XCTAssertGreaterThanOrEqual(trained, 8_192, model.id)
+    }
+    XCTAssertEqual(models.first { $0.id == "gemma-4-e4b-q4_k_m" }?.trainedContextLength, 131_072)
+    XCTAssertEqual(models.first { $0.id == "qwen3.5-4b-q4_k_m" }?.trainedContextLength, 262_144)
+  }
+
+  func testDescriptorDecodesWithoutTrainedContextLength() throws {
+    let model = try XCTUnwrap(models.first)
+    var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(model)) as? [String: Any])
+    XCTAssertNotNil(object.removeValue(forKey: "trainedContextLength"))
+    let decoded = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: object))
+    XCTAssertNil(decoded.trainedContextLength)
+    try decoded.validate()
+  }
+
+  func testTrainedContextLengthBelowTheRecommendedSizeIsRejected() throws {
+    var model = try XCTUnwrap(models.first)
+    model.trainedContextLength = model.recommendedContextSize - 1
+    XCTAssertThrowsError(try model.validate())
   }
 
   func testEveryPackageIsRunnable() throws {
