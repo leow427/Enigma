@@ -1572,8 +1572,14 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the composer", in: view) { composerEditor(in: view)?.isEditable == true }
     func views(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(views) }
     // What a click can focus besides the composer: the reply's selectable text and the panel itself.
-    let elsewhere = views(view).filter { $0.acceptsFirstResponder && ($0 as? NSTextView)?.isEditable != true && !($0 is NSScrollView || $0 is NSClipView) }
-    XCTAssertGreaterThanOrEqual(elsewhere.count, 2, "The reply's selectable text and the panel")
+    func elsewhereViews() -> [NSView] {
+      views(view).filter { $0.acceptsFirstResponder && ($0 as? NSTextView)?.isEditable != true && !($0 is NSScrollView || $0 is NSClipView) }
+    }
+    try await waitForUI("the reply's selectable text and the panel (focusable: "
+                        + "\(views(view).filter(\.acceptsFirstResponder).map { String(describing: type(of: $0)) }))", in: view) {
+      elsewhereViews().count >= 2
+    }
+    let elsewhere = elsewhereViews()
     for target in elsewhere {
       controller.show()
       let window = try XCTUnwrap(view.window)
