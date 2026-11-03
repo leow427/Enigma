@@ -210,6 +210,12 @@ enum ComposerRouteIndicator: Equatable {
 
   var text: String { self == .local ? "● local" : "○ cloud" }
   var accessibilityLabel: String { self == .local ? "Runs on this Mac" : "Runs in the cloud" }
+
+  /// The line under the docked composer. With no route to run, the general line.
+  static func notice(for route: ComposerRouteIndicator?) -> String {
+    route == .local ? "Local models make more mistakes, especially with tools. Check important info."
+      : "AI can make mistakes. Check important info."
+  }
 }
 
 // MARK: Character

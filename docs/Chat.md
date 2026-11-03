@@ -50,6 +50,12 @@ The composer holds the message field ("Ask anything, or type / for commands"),
 any commands recognized from your wording, the **Mode and model** menu
 (**⌘K**), and **Send**.
 
+Once a chat has started, a small line under the docked composer says how far to
+trust a reply. It follows the **● local** / **○ cloud** indicator: "Local models
+make more mistakes, especially with tools. Check important info." on this Mac,
+and "AI can make mistakes. Check important info." in the cloud (or when no
+route can run). The empty page and the compact panel don't show it.
+
 - **Return** sends; **⇧Return** inserts a new line. Send is available only when
   the draft isn't empty and the selected mode has a usable model.
 - While a reply runs, **Send** becomes **Stop** (also **⌘.**). The field keeps

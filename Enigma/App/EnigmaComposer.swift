@@ -171,6 +171,23 @@ struct EnigmaComposer: View {
   }
 }
 
+/// Under the docked composer, like ChatGPT's: replies can be wrong, more often on local models.
+struct ComposerNotice: View {
+  var route: ComposerRouteIndicator?
+
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    let text = ComposerRouteIndicator.notice(for: route)
+    Text(text)
+      .font(EnigmaTypography.ui(11))
+      .foregroundStyle(palette.textSecondary.color)
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity)
+      .enigmaTestMarker("Composer notice \(text)")
+  }
+}
+
 /// The composer's one `accent` control: a 30 pt rounded square, with the
 /// `accent` focus ring outside it.
 private struct EnigmaSendButtonFocus: ViewModifier {

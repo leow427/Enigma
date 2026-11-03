@@ -1392,6 +1392,17 @@ The spec has every decision, and the checkpoints the work runs in.
 
 **Depends on / blocks:** after F30 (done).
 
+### F37. ✅ Done: "Check important info" notice under the chat box
+
+> **Solved:** once a chat has started, a small `textSecondary` line under the
+> docked composer in the main window says replies can be wrong, worded by the
+> `● local` / `○ cloud` indicator (`ComposerRouteIndicator.notice(for:)`,
+> drawn by `ComposerNotice`): "Local models make more mistakes, especially
+> with tools. Check important info." on local, and "AI can make mistakes.
+> Check important info." on cloud or with no route. Not on the empty page or
+> in the compact panel (owner's choices, 2026-11-02). See `docs/Chat.md` →
+> The composer.
+
 ### F35. Use as much context as the model allows, and compact long chats instead of failing
 
 **Problem:** some searches fill the context almost at once, and the reply

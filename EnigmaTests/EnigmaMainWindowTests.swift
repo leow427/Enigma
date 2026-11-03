@@ -119,6 +119,33 @@ final class EnigmaMainWindowTests: XCTestCase {
     XCTAssertEqual(ComposerRouteIndicator.cloud.text, "○ cloud")
   }
 
+  func testComposerNoticeFollowsTheRoute() {
+    XCTAssertEqual(ComposerRouteIndicator.notice(for: .local),
+                   "Local models make more mistakes, especially with tools. Check important info.")
+    XCTAssertEqual(ComposerRouteIndicator.notice(for: .cloud), "AI can make mistakes. Check important info.")
+    XCTAssertEqual(ComposerRouteIndicator.notice(for: nil), "AI can make mistakes. Check important info.",
+                   "With no route to run, the general line")
+  }
+
+  @MainActor
+  func testComposerNoticeShowsUnderADockedChatAndFollowsTheRoute() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+    let host = Host(fixture, size: CGSize(width: 1200, height: 780), test: self)
+    let local = "Composer notice " + ComposerRouteIndicator.notice(for: .local)
+    let cloud = "Composer notice " + ComposerRouteIndicator.notice(for: .cloud)
+    fixture.chat.newChat()
+    try await waitForUI("the empty page", in: host.view) { host.shows("Routing mode: Auto") && host.shows("Route ● local") }
+    XCTAssertFalse(host.shows(local) || host.shows(cloud), "The empty page keeps its examples under the composer")
+
+    fixture.chat.selectSession(id: fixture.earlierSessionID!)
+    try await waitForUI("the local notice under the docked composer", in: host.view) { host.shows(local) }
+    try await waitForSettledLayout(in: host, "the docked composer", markers: ["Mode and model", local])
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Cloud") }
+    try await clickTestControl("Menu item Cloud", in: host.view)
+    try await waitForUI("the cloud notice", in: host.view) { host.shows(cloud) && !host.shows(local) }
+  }
+
   // MARK: Character
 
   func testCharacterStateFollowsTheWindow() {

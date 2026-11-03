@@ -113,7 +113,8 @@ glyph is Stop, on the solid Send button.
   Typing goes on during a reply; once the field has text, an outlined icon
   Send beside Stop queues the message, so Stop stays the one `accent` control.
   After the first send it springs to the bottom. `⌘K` opens the mode and
-  model menu.
+  model menu. Docked, it has a centered 11 pt `textSecondary` notice under
+  it saying replies can be wrong, worded for the route.
 - **Chat.** The person's messages are right-aligned `userBubble` bubbles.
   Replies are serif text with the character in a 30 pt slot to their left and
   a monospace meta line under them: `model · where it ran · time`, with a

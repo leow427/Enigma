@@ -622,7 +622,13 @@ struct AppShellView: View {
       },
       conversation: { messageList },
       accessories: { composerAccessories().allowsHitTesting(!guidedTour.isActive) },
-      composer: { docked in composer(docked: docked).allowsHitTesting(!guidedTour.isActive) },
+      composer: { docked in
+        VStack(spacing: 6) {
+          composer(docked: docked)
+          if docked { ComposerNotice(route: routeIndicator) }
+        }
+        .allowsHitTesting(!guidedTour.isActive)
+      },
       examples: { count in
         EnigmaCommandExamples(examples: Array(examples.prefix(count)), isEnabled: composerCanType) { command in
           shell.isComposerFocused = true
