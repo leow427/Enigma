@@ -367,6 +367,23 @@ their own paths.
   Mode client. A required tool (typed `/search`, `/edit` or `/translate`) is also
   asked for in words at the end of the last message, for the routes that can't
   force one.
+- Every tool loop Enigma drives (local, OpenAI, Anthropic and Gemini) measures
+  each step before sending it against the request's budget (`ToolStepBudget`,
+  F35), with `ContextEstimate`: local steps message by message as
+  `LocalToolAgent.prepare` counts, API steps from their wire items. A tool
+  turn's history leaves room for one full-size result and the next step
+  (2,560 tokens local, 8,704 cloud, at most half the budget) by dropping older turns first. After a tool result, when fewer than
+  512 tokens would be left (room for the smallest search result and the next
+  step), the turn's earlier `web_search` results shrink: each source keeps its
+  title, site and URL, and its excerpt becomes `(excerpt removed to save space)`.
+  The newest results stay whole, as the model hasn't read them; other tools'
+  results are kept. If that still isn't enough, the step goes without tools:
+  local steps omit them, API steps keep them defined (so earlier calls stay
+  valid) with a "none" tool choice, and the system prompt gains `You can't call
+  any more tools in this turn. Answer now from the results you already have, and
+  say if something you needed is missing.` The step limit still applies. The
+  same budget sizes each `web_search` result (see Web Search). Codex's and
+  Claude Code's own loops, and a provider's own search, are outside it.
 - As on plain turns, the question shows as pending and the draft clears only
   once the request is under way: a cloud turn once it's prepared, a local turn
   at the model's first text or tool call. A failure before that keeps the draft.

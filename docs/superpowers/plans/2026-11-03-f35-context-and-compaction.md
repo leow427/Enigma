@@ -160,8 +160,9 @@ that use it in the same commit.
 | `ContextEstimate.cloudTokens(…)` | `Enigma/Chat/ChatContext.swift` | CP0 | CP0, CP1, CP3 |
 | `ContextUsage` (`usedTokens`, `limitTokens`, `fraction`, `level`, `percentLeft`) | `Enigma/Chat/ChatContext.swift` | CP0 | CP1, CP3–CP5 |
 | `PreparedConversation.usage` | `Enigma/Chat/ChatContext.swift` | CP0 | CP3–CP5 |
-| `ToolStepBudget` | `Enigma/Chat/ToolStepBudget.swift` | CP1 | CP1, CP5 |
-| `WebSearchTool` result sizing (`evidenceTokens(roomLeft:)`) | `Enigma/Search/WebSearchTool.swift` | CP1 | CP1 |
+| `ToolStepBudget` (`measure`, `add`, `decide`, `roomLeft`, `evidenceTokens(cap:)`, optional `usage`); `AgentToolbox.stepBudget` | `Enigma/Chat/ToolStepBudget.swift` | CP1 | CP1, CP5 |
+| `WebSearchTool(search:evidenceCap:stepBudget:…)`, sized by `ToolStepBudget.evidenceTokens(cap:)` | `Enigma/Search/WebSearchTool.swift` | CP1 | CP1 |
+| `ChatContextPreparer.prepare(_:budget:reserving:countTokens:)` (tool turns keep room for a result) | `Enigma/Chat/ChatContext.swift` | CP1 | CP1, CP3 |
 | `LocalModelDescriptor.trainedContextLength` | `LocalModelManifest.swift` | CP2 | CP2 |
 | `LocalContextWindowChoice` | `Enigma/LocalInference/LocalContextWindow.swift` | CP2 | CP2, CP5 |
 | `ChatSummary` | `Enigma/Chat/ChatCompaction.swift` | CP3 | CP3–CP5 |
@@ -200,7 +201,7 @@ note stays in the brief.
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
 | CP0 | done | 3 | 65,536 cloud cap; `ceil(bytes / 3)` kept (owner); reserves measured: ChatGPT 3,840, Claude Code 1,280 |
-| CP1 | not started | | |
+| CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole |
 | CP2 | not started | | |
 | CP3 | not started | | |
 | CP4 | not started | | |

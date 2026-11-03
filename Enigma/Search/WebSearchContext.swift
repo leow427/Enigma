@@ -42,6 +42,27 @@ enum WebSearchExcerpts {
     try encode(excerpts(results, timeZone: timeZone))
   }
 
+  /// The results' JSON at most `maximumTokens` estimated tokens, every field included (F35): the
+  /// excerpts get the largest budget that fits beside the other fields, and trailing sources go
+  /// when even those alone don't fit. Returns the JSON and how many sources it keeps; nil when not
+  /// even one fits.
+  static func json(_ results: [WebSearchResult], timeZone: TimeZone,
+                   maximumTokens: Int) throws -> (text: String, kept: Int)? {
+    for count in stride(from: results.count, to: 0, by: -1) {
+      let kept = Array(results.prefix(count))
+      func encoded(_ budget: Int) throws -> String { try json(fitted(kept, maximumTokens: budget), timeZone: timeZone) }
+      guard ContextEstimate.tokens(try encoded(0)) <= maximumTokens else { continue }
+      // The JSON grows with the excerpt budget, so the largest budget that fits is a binary search.
+      var low = 0, high = maximumTokens
+      while low < high {
+        let middle = (low + high + 1) / 2
+        if ContextEstimate.tokens(try encoded(middle)) <= maximumTokens { low = middle } else { high = middle - 1 }
+      }
+      return (try encoded(low), count)
+    }
+    return nil
+  }
+
   /// Fits results to `maximumTokens` by the words × `tokensPerWord` estimate, sharing it fairly:
   /// short results keep everything, and the rest are cut at a word boundary (D75).
   static func fitted(_ results: [WebSearchResult], maximumTokens: Int) -> [WebSearchResult] {

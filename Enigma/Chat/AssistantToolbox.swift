@@ -115,6 +115,7 @@ struct AssistantToolbox: AgentToolbox {
   private let extraInstructions: [String]
   /// Runs as each call starts, before it executes.
   var onCall: (@Sendable () -> Void)?
+  var stepBudget: ToolStepBudget?
 
   init(parts: [any AgentToolbox], requiredTool: String?, extraInstructions: [String]) {
     self.parts = parts

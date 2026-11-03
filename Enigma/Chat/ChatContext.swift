@@ -161,6 +161,28 @@ enum ChatContextPreparer {
       omittedMessageCount: messages.count - retained.count, budget: budget)
   }
 
+  /// For a tool turn: drops older turns first so `reserve` tokens stay free for the turn's tool
+  /// results (F35), at most half the budget so a small window still keeps some history. A current message too big for that goes alone, with the whole budget, so
+  /// older turns never take the room left. The result carries the real budget, so the loop
+  /// measures against all of it.
+  static func prepare(
+    _ messages: [ChatMessage], budget: ContextBudget, reserving reserve: Int,
+    countTokens: ([ChatMessage]) throws -> Int
+  ) throws -> PreparedConversation {
+    var reserved = budget
+    reserved.promptTokens += min(reserve, budget.availableInputTokens / 2)
+    do {
+      let prepared = try prepare(messages, budget: reserved, countTokens: countTokens)
+      return PreparedConversation(messages: prepared.messages, inputTokenCount: prepared.inputTokenCount,
+                                  omittedMessageCount: prepared.omittedMessageCount, budget: budget)
+    } catch ChatContextError.oversizedPrompt {
+      guard let current = messages.last else { throw ChatContextError.missingCurrentPrompt }
+      let alone = try prepare([current], budget: budget, countTokens: countTokens)
+      return PreparedConversation(messages: alone.messages, inputTokenCount: alone.inputTokenCount,
+                                  omittedMessageCount: messages.count - alone.messages.count, budget: budget)
+    }
+  }
+
   /// A request is a suffix of complete user/assistant turns plus the current user
   /// message. Empty placeholders and unanswered/otherwise orphaned turns stay on
   /// disk, but cannot become misleading context for a later question.
@@ -267,13 +289,14 @@ enum CloudContext {
     if CloudModelCapabilities.compatibility(provider: provider, modelID: request.route.modelID) == .unsupported {
       throw CloudProviderError.unsupportedModel(provider, modelID: request.route.modelID)
     }
-    return try ChatContextPreparer.prepare(
-      request.messages,
-      budget: ModelContextPolicy.cloud(provider: provider, modelID: request.route.modelID,
-                                       promptTokens: fileMode.map { promptTokens(fileMode: $0) }
-                                         ?? promptTokens(provider: provider, toolbox: toolbox)),
-      countTokens: { try inputTokenCount($0, provider: provider) + (request.image == nil ? 0 : 4096) }
-    )
+    let budget = ModelContextPolicy.cloud(provider: provider, modelID: request.route.modelID,
+                                          promptTokens: fileMode.map { promptTokens(fileMode: $0) }
+                                            ?? promptTokens(provider: provider, toolbox: toolbox))
+    let count = { (messages: [ChatMessage]) in try inputTokenCount(messages, provider: provider) + (request.image == nil ? 0 : 4096) }
+    // A tool turn keeps room for one full-size search result (F35).
+    guard toolbox != nil else { return try ChatContextPreparer.prepare(request.messages, budget: budget, countTokens: count) }
+    return try ChatContextPreparer.prepare(request.messages, budget: budget,
+      reserving: ToolStepBudget.reserve(cap: WebSearchLimits.evidenceTokens), countTokens: count)
   }
 }
 

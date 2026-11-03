@@ -30,12 +30,34 @@ enum CloudToolLoop {
     step: (_ isFirst: Bool, _ onText: (String) -> Void) async throws -> Turn,
     deliver: ([(Call, AgentToolResult)]) throws -> Void
   ) async throws {
+    try await run(toolbox: toolbox, budget: nil, count: { 0 }, shrink: { _ in }, emit: emit,
+                  step: { isFirst, _, onText in
+                    try await withoutActuallyEscaping(onText) { try await step(isFirst, $0) }
+                  }, deliver: deliver)
+  }
+
+  /// With a `budget`, each step is measured first (F35): `count` is the request's input as it
+  /// stands, and after tool results that leave no room, `shrink` rewrites the earlier steps'
+  /// `web_search` results (the newest too, with `includingNewest`, when still over), then the step
+  /// is sent without tools (`offersTools` false).
+  static func run(
+    toolbox: any AgentToolbox, budget: ContextBudget?, count: () -> Int, shrink: (_ includingNewest: Bool) -> Void,
+    emit: (ChatEvent) -> Void,
+    step: (_ isFirst: Bool, _ offersTools: Bool, _ onText: (String) -> Void) async throws -> Turn,
+    deliver: ([(Call, AgentToolResult)]) throws -> Void
+  ) async throws {
+    let steps = toolbox.stepBudget ?? ToolStepBudget()
     var emittedText = false
     for index in 0..<maximumSteps {
       try Task.checkCancellation()
+      var offersTools = true
+      if let budget {
+        if index == 0 { steps.measure(budget, usedTokens: count()) }
+        else { offersTools = steps.decide(usedTokens: count(), budget: budget) { shrink($0); return count() } != .answerWithoutTools }
+      }
       let text = StepText(afterEarlierText: emittedText)
       let turn = try await withoutActuallyEscaping(emit) { emit in
-        try await step(index == 0) { delta in
+        try await step(index == 0, offersTools) { delta in
           if let shown = text.append(delta) { emit(.token(shown)) }
         }
       }
@@ -45,6 +67,7 @@ enum CloudToolLoop {
         emit(.completed)
         return
       }
+      guard offersTools else { throw AgentToolError.stepLimit }
       var results: [(Call, AgentToolResult)] = []
       for call in turn.calls {
         emit(.activity(.phase(toolbox.phase(for: call.name))))
@@ -52,6 +75,8 @@ enum CloudToolLoop {
         try Task.checkCancellation()
         // A terminal result ends the request; the model never sees it or makes another call.
         if let error = result.stopError { throw error }
+        // A later call in the same step is sized after this result (F35).
+        steps.add(ContextEstimate.tokens(result.text))
         results.append((call, result))
       }
       emit(.activity(.phase(.thinking)))
@@ -178,6 +203,33 @@ enum CloudToolLoop {
   static func systemPrompt(_ toolbox: any AgentToolbox) -> String {
     ChatResponseStyle.instructions + "\n" + toolbox.instructions
   }
+
+  /// The system prompt of a step: once tools are withdrawn, with the instruction to answer.
+  static func systemPrompt(_ toolbox: any AgentToolbox, offersTools: Bool) -> String {
+    systemPrompt(toolbox) + (offersTools ? "" : "\n" + ToolStepBudget.answerInstruction)
+  }
+
+  /// A provider's request items in estimated tokens, as its JSON goes on the wire.
+  static func estimatedTokens(_ items: [[String: Any]]) -> Int {
+    ContextEstimate.tokens(jsonString(items))
+  }
+
+  /// Where a loop's `web_search` results sit, so earlier ones can shrink (F35). The newest
+  /// step's results stay whole: the model hasn't read them yet.
+  struct SearchResults<Position> {
+    private var earlier: [Position] = []
+    private var latest: [Position] = []
+
+    /// A step's results were delivered; `positions` are its `web_search` results.
+    mutating func delivered(_ positions: [Position]) {
+      earlier += latest
+      latest = positions
+    }
+
+    func shrink(includingLatest: Bool, _ rewrite: (Position) -> Void) {
+      (includingLatest ? earlier + latest : earlier).forEach(rewrite)
+    }
+  }
 }
 
 // MARK: - OpenAI Responses
@@ -193,20 +245,29 @@ extension OpenAIResponsesClient: ToolCallingChatProvider {
         ["type": "function", "name": definition.name, "description": definition.description,
          "parameters": try CloudToolLoop.json(definition.schema)]
       }
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
+      var searches = CloudToolLoop.SearchResults<Int>()
+      try await CloudToolLoop.run(toolbox: toolbox, budget: prepared.budget, count: { CloudToolLoop.estimatedTokens(input) },
+        shrink: { newest in
+          searches.shrink(includingLatest: newest) { index in
+            input[index]["output"] = (input[index]["output"] as? String).map(ToolStepBudget.shrunkSearchResult)
+          }
+        }, emit: { continuation.yield($0) }, step: { isFirst, offersTools, onText in
         var body: [String: Any] = [
-          "model": request.route.modelID, "instructions": CloudToolLoop.systemPrompt(toolbox),
+          "model": request.route.modelID, "instructions": CloudToolLoop.systemPrompt(toolbox, offersTools: offersTools),
           "input": input, "tools": tools, "parallel_tool_calls": false, "store": false,
           "max_output_tokens": prepared.budget.outputTokens, "stream": true,
         ]
         if ThinkCommand.enabled(in: prepared.messages) { body["reasoning"] = ["effort": "high"] }
-        if isFirst, let required = toolbox.offeredRequiredTool { body["tool_choice"] = ["type": "function", "name": required] }
+        // Withdrawn tools stay defined, so the calls already in `input` stay valid.
+        if !offersTools { body["tool_choice"] = "none" }
+        else if isFirst, let required = toolbox.offeredRequiredTool { body["tool_choice"] = ["type": "function", "name": required] }
         var assembler = OpenAIToolStreamAssembler()
         let turn = try await CloudToolLoop.streamStep(&assembler, CloudToolLoop.streamPost(responsesURL,
           headers: ["Authorization": "Bearer \(key)"], body: body, provider: .openAI, transport: transport), onText: onText)
         input += assembler.replayItems
         return turn
       }, deliver: { results in
+        searches.delivered(results.indices.filter { results[$0].0.name == WebSearchTool.name }.map { input.count + $0 })
         input += results.map { call, result in
           ["type": "function_call_output", "call_id": call.id, "output": result.text]
         }
@@ -261,15 +322,28 @@ extension AnthropicMessagesClient: ToolCallingChatProvider {
       let tools = try toolbox.definitions.map { definition -> [String: Any] in
         ["name": definition.name, "description": definition.description, "input_schema": try CloudToolLoop.json(definition.schema)]
       }
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
+      var searches = CloudToolLoop.SearchResults<(message: Int, block: Int)>()
+      try await CloudToolLoop.run(toolbox: toolbox, budget: prepared.budget, count: { CloudToolLoop.estimatedTokens(messages) },
+        shrink: { newest in
+          searches.shrink(includingLatest: newest) { position in
+            guard var blocks = messages[position.message]["content"] as? [[String: Any]] else { return }
+            blocks[position.block]["content"] = (blocks[position.block]["content"] as? String).map(ToolStepBudget.shrunkSearchResult)
+            messages[position.message]["content"] = blocks
+          }
+        }, emit: { continuation.yield($0) }, step: { isFirst, offersTools, onText in
         var body: [String: Any] = [
           "model": request.route.modelID, "max_tokens": prepared.budget.outputTokens,
-          "system": CloudToolLoop.systemPrompt(toolbox), "messages": messages, "tools": tools, "stream": true,
+          "system": CloudToolLoop.systemPrompt(toolbox, offersTools: offersTools), "messages": messages, "tools": tools,
+          "stream": true,
         ]
+        let thinks = ThinkCommand.enabled(in: prepared.messages)
+        if thinks { body.merge(Self.thinking(modelID: request.route.modelID)) { $1 } }
+        // Withdrawn tools stay defined, as the tool_use blocks in `messages` need; "none" isn't a
+        // forced choice, so thinking allows it.
+        if !offersTools { body["tool_choice"] = ["type": "none"] }
         // Extended thinking, and the newest models at all times, allow only automatic tool choice;
         // the request then asks for the required tool in words alone.
-        if ThinkCommand.enabled(in: prepared.messages) { body.merge(Self.thinking(modelID: request.route.modelID)) { $1 } }
-        else if isFirst, let required = toolbox.offeredRequiredTool, Self.acceptsForcedToolChoice(modelID: request.route.modelID) {
+        else if !thinks, isFirst, let required = toolbox.offeredRequiredTool, Self.acceptsForcedToolChoice(modelID: request.route.modelID) {
           body["tool_choice"] = ["type": "tool", "name": required]
         }
         var assembler = AnthropicToolStreamAssembler()
@@ -280,6 +354,7 @@ extension AnthropicMessagesClient: ToolCallingChatProvider {
         messages.append(["role": "assistant", "content": assembler.assistantContent])
         return turn
       }, deliver: { results in
+        searches.delivered(results.indices.filter { results[$0].0.name == WebSearchTool.name }.map { (messages.count, $0) })
         messages.append(["role": "user", "content": results.map { call, result in
           ["type": "tool_result", "tool_use_id": call.id, "content": result.text, "is_error": !result.success] as [String: Any]
         }])
@@ -324,13 +399,26 @@ extension GeminiContentClient: ToolCallingChatProvider {
       }
       var generationConfig: [String: Any] = ["maxOutputTokens": prepared.budget.outputTokens]
       generationConfig["thinkingConfig"] = Self.thinkingConfig(model: model, thinks: ThinkCommand.enabled(in: prepared.messages))
-      try await CloudToolLoop.run(toolbox: toolbox, emit: { continuation.yield($0) }, step: { isFirst, onText in
+      var searches = CloudToolLoop.SearchResults<(content: Int, part: Int, text: String)>()
+      try await CloudToolLoop.run(toolbox: toolbox, budget: prepared.budget, count: { CloudToolLoop.estimatedTokens(contents) },
+        shrink: { newest in
+          searches.shrink(includingLatest: newest) { position in
+            guard var parts = contents[position.content]["parts"] as? [[String: Any]],
+                  var response = parts[position.part]["functionResponse"] as? [String: Any] else { return }
+            response["response"] = ["result": CloudToolLoop.parsedResult(
+              AgentToolResult(text: ToolStepBudget.shrunkSearchResult(position.text), success: true))]
+            parts[position.part]["functionResponse"] = response
+            contents[position.content]["parts"] = parts
+          }
+        }, emit: { continuation.yield($0) }, step: { isFirst, offersTools, onText in
         var body: [String: Any] = [
           "contents": contents, "tools": [["functionDeclarations": declarations]],
-          "systemInstruction": ["parts": [["text": CloudToolLoop.systemPrompt(toolbox)]]],
+          "systemInstruction": ["parts": [["text": CloudToolLoop.systemPrompt(toolbox, offersTools: offersTools)]]],
           "generationConfig": generationConfig,
         ]
-        if isFirst, let required = toolbox.offeredRequiredTool {
+        // Withdrawn tools stay declared, so the calls already in `contents` stay valid.
+        if !offersTools { body["toolConfig"] = ["functionCallingConfig": ["mode": "NONE"]] }
+        else if isFirst, let required = toolbox.offeredRequiredTool {
           body["toolConfig"] = ["functionCallingConfig": ["mode": "ANY", "allowedFunctionNames": [required]]]
         }
         var assembler = GeminiToolStreamAssembler()
@@ -340,6 +428,8 @@ extension GeminiContentClient: ToolCallingChatProvider {
         if let content = assembler.modelContent { contents.append(content) }
         return turn
       }, deliver: { results in
+        searches.delivered(results.indices.filter { results[$0].0.name == WebSearchTool.name }
+          .map { (contents.count, $0, results[$0].1.text) })
         contents.append(["role": "user", "parts": results.map { call, result -> [String: Any] in
           var response: [String: Any] = ["name": call.name, "response": ["result": CloudToolLoop.parsedResult(result)]]
           if !call.id.hasPrefix("gemini-call-") { response["id"] = call.id }
@@ -461,6 +551,7 @@ enum CodexToolMode {
       }
       if stop?.isStopped == true { return AgentToolResult(text: "The request was stopped.", success: false).codex }
       let result = await toolbox.execute(name: name, arguments: params["arguments"])
+      toolbox.stepBudget?.add(ContextEstimate.tokens(result.text))
       // Only a permission stop or a restart is recorded; a call cancelled by a dropped connection
       // must end with Codex's own error, not as Stop.
       switch result.stop {
@@ -526,6 +617,7 @@ enum ClaudeCodeToolMode {
       onCall(name)
       let arguments = message["params"]["arguments"] == .null ? CodexValue.object([:]) : message["params"]["arguments"]
       let output = await toolbox.execute(name: name, arguments: arguments)
+      toolbox.stepBudget?.add(ContextEstimate.tokens(output.text))
       // Thrown rather than answered, so the caller ends the process before the model continues.
       if let error = output.stopError { throw error }
       return result(.object(["content": .array([.object(["type": .string("text"), "text": .string(output.text)])]),

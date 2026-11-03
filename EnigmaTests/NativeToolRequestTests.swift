@@ -427,6 +427,71 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(cloudSearch.requests.map(\.isTypedQuestion), [false])
   }
 
+  /// F35 CP1: one budget per turn, shared by the loop and `web_search`, so a second search in an
+  /// 8K local chat gets what the first left, not the fixed 2,048.
+  func testLocalTurnSizesEachSearchFromTheRoomLeft() async throws {
+    let bulky = (1...3).map { index in
+      WebSearchResult(source: WebSearchSource(title: "Result \(index)", url: URL(string: "https://example.com/\(index)")!),
+                      snippets: [String(repeating: "word ", count: 2_000)])
+    }
+    let search = NativeSearchProvider(results: bulky)
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"news"}"#), .call("web_search", #"{"query":"more news"}"#), .text("Found."),
+    ])
+    let chat = makeChat(inference: inference, search: search)
+    await chat.refreshInstalledModel()
+    try await send("What's new?", to: chat)
+    XCTAssertEqual(chat.messages.last?.content, "Found.")
+    let sizes = search.requests.map(\.maximumTokens)
+    XCTAssertEqual(sizes.count, 2, "Both searches run")
+    XCTAssertEqual(sizes.first, ToolStepBudget.localEvidenceTokens)
+    XCTAssertLessThan(sizes[1], sizes[0])
+    XCTAssertGreaterThanOrEqual(sizes[1], ToolStepBudget.smallestResult)
+  }
+
+  /// F35 CP1: Brave returns at least 1,024 tokens, so a smaller size is fitted on this Mac.
+  func testBraveResultsAreFittedToTheRoomLeft() async throws {
+    let brave = BraveLikeProvider(results: (1...3).map { index in
+      WebSearchResult(source: WebSearchSource(title: "Result \(index)", url: URL(string: "https://example.com/\(index)")!),
+                      snippets: [String(repeating: "word ", count: 2_000)])
+    })
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"a"}"#), .call("web_search", #"{"query":"b"}"#),
+      .call("web_search", #"{"query":"c"}"#), .text("Found."),
+    ])
+    let chat = makeChat(inference: inference, braveSearch: brave)
+    await chat.refreshInstalledModel()
+    try await send("What's new?", to: chat)
+    let sizes = brave.sizes.values
+    XCTAssertEqual(sizes.count, 3)
+    let last = try XCTUnwrap(sizes.last)
+    XCTAssertLessThan(last, BraveSearchClient.minimumTokens)
+    let requests = await inference.requests
+    let result = try XCTUnwrap(requests.last?.messages.last { $0.role == "tool" }?.content)
+    // Brave returned at least 1,024 tokens; the result is cut to the size it was given.
+    XCTAssertLessThanOrEqual(ContextEstimate.tokens(result), last, "Fitted to the size it was given")
+  }
+
+  /// F35 CP1: a chat that fills the budget still leaves its tool turn room for a search.
+  func testFirstSearchRunsWhenHistoryIsFull() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Long")
+    for turn in 0..<20 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+    }
+    try sessionStore.save([saved])
+    let search = NativeSearchProvider(results: Self.searchResults)
+    let inference = NativeScriptedInference(steps: [.call("web_search", #"{"query":"news"}"#), .text("Found.")])
+    let chat = makeChat(inference: inference, search: search, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("/search What's new?", to: chat)
+    XCTAssertNotNil(chat.contextNotice, "Older turns were dropped")
+    let size = try XCTUnwrap(search.requests.first?.maximumTokens, "Not \"no room\"")
+    XCTAssertGreaterThanOrEqual(size, ToolStepBudget.reserve(cap: ToolStepBudget.localEvidenceTokens) / 2)
+  }
+
   func testDeclinedSearchAfterMessagesNeverQueries() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let search = NativeSearchProvider(results: Self.searchResults)
@@ -1162,6 +1227,17 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.content, "Answer.")
   }
 
+  /// F35 CP1: the toolbox made again for the fallback keeps the turn's budget, shared with its search.
+  func testFallbackRunKeepsTheTurnsBudget() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Answer.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.runs.count, 2)
+    let budgets = provider.runs.map(\.stepBudget)
+    XCTAssertNotNil(budgets[0])
+    XCTAssertTrue(budgets[0] === budgets[1], "One budget per turn")
+  }
+
   func testUnavailableAfterReplyStartsDoesNotFallBack() async throws {
     let source = WebSearchSource(title: "A", url: URL(string: "https://a.com/")!)
     for start in [ScriptedSearchProvider.Event.token("Partial."), .call("nope", "{}")] {
@@ -1503,6 +1579,15 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(again.isEmpty)
     XCTAssertNotNil(provider.runs[1].request.providerSearch?.location)
     XCTAssertEqual(location.calls, 2)
+  }
+
+  /// F35 CP1: the toolbox made again after the location card keeps the turn's budget.
+  func testLocationAnswerKeepsTheTurnsBudget() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Try Epoch.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.openAI], locationProvider: NativeLocation(.success(Self.austin)))
+    _ = try await sendNearby(to: chat, route: Self.openAIRoute, provider: provider, answers: [.conversation])
+    XCTAssertNotNil(provider.runs.first?.request.providerSearch?.location)
+    XCTAssertNotNil(provider.runs.first?.stepBudget)
   }
 
   func testLocationDeclinedSendsNothing() async throws {
@@ -2149,4 +2234,15 @@ extension ToolPermission {
 private struct NativeTestPicker: WorkspacePicking {
   let urls: [URL]
   func pick() async -> [URL]? { urls }
+}
+
+/// Answers as Brave does: never fewer than `BraveSearchClient.minimumTokens`.
+final class BraveLikeProvider: WebSearchProvider, @unchecked Sendable {
+  let results: [WebSearchResult]
+  let sizes = LockedSizes()
+  init(results: [WebSearchResult]) { self.results = results }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    sizes.append(request.maximumTokens)
+    return WebSearchExcerpts.fitted(results, maximumTokens: max(BraveSearchClient.minimumTokens, request.maximumTokens))
+  }
 }

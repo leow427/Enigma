@@ -170,8 +170,14 @@ about 1 km; the distances the model sees are measured from your exact location.
   since the model can search for itself.
 
 Enigma doesn't rewrite the model's query. A "near me" query gets your city added
-on this Mac before it goes to the search sites. Results are fitted to 2,048
-tokens on local routes and 8,192 on cloud routes.
+on this Mac before it goes to the search sites. Each call's results are sized
+to the room left in the turn's request: half of it, at most 2,048 tokens on
+local routes and 8,192 on cloud routes, so later calls in a long turn get less.
+With under 256 tokens to give, no search runs and the model is told:
+`No room is left in this conversation for more search results. Answer from what
+you already have.` On ChatGPT and Claude Code, whose own tool loops run the
+turn, Enigma estimates the room from what it sent plus the results it has
+returned so far. A provider's own search sizes its results itself.
 
 **After message text enters a chat** (a Messages read, a search hit, an allowed
 preview, or an earlier `/messages` turn), each `web_search`, `find_places` and

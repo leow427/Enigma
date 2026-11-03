@@ -10,11 +10,14 @@ protocol AgentToolbox: Sendable {
   func phase(for name: String) -> AssistantActivity.Phase
   /// A tool the model must call on its first step, where the provider can force one.
   var requiredTool: String? { get }
+  /// The turn's per-step budget, shared with the tools that size their results by it (F35).
+  var stepBudget: ToolStepBudget? { get }
 }
 
 extension AgentToolbox {
   func phase(for _: String) -> AssistantActivity.Phase { .thinking }
   var requiredTool: String? { nil }
+  var stepBudget: ToolStepBudget? { nil }
 
   /// The required tool, if it is one of this toolbox's definitions.
   var offeredRequiredTool: String? {
@@ -97,9 +100,13 @@ struct LocalToolAgent: Sendable {
     var history = Self.history(messages, toolbox: toolbox)
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
+    let budget = Self.budget(messages, model: model, toolbox: toolbox)
+    let steps = toolbox.stepBudget ?? ToolStepBudget()
+    var searches: [Int] = []
     for step in 0..<maximumSteps {
       try Task.checkCancellation()
-      var response = try await inference.completeTools(messages: history, tools: toolbox.definitions, model: model)
+      let offersTools = Self.prepareStep(&history, step: step, searches: searches, budget: budget, steps: steps)
+      var response = try await inference.completeTools(messages: history, tools: offersTools ? toolbox.definitions : [], model: model)
       try Task.checkCancellation()
       guard response.role == "assistant" else { throw AgentToolError.invalidResponse("The local runtime returned an unexpected message role.") }
       guard let first = response.toolCalls?.first else {
@@ -107,6 +114,7 @@ struct LocalToolAgent: Sendable {
         if let content = response.content, !content.isEmpty { await onText(content) }
         return
       }
+      guard offersTools else { throw AgentToolError.stepLimit }
       // Discarded batch members never enter history and never run.
       let call = AgentToolCall(id: String(format: "tool%05d", step), function: first.function)
       response.toolCalls = [call]
@@ -121,6 +129,7 @@ struct LocalToolAgent: Sendable {
         "success": .bool(result.success), "result": output,
       ])), as: UTF8.self)
       history.append(AgentInferenceMessage(role: "tool", content: content, toolCallID: call.id))
+      if call.function.name == WebSearchTool.name { searches.append(history.count - 1) }
       await onActivity(.phase(.thinking))
     }
     throw AgentToolError.stepLimit
@@ -128,19 +137,56 @@ struct LocalToolAgent: Sendable {
 }
 
 extension LocalToolAgent {
-  /// Drops older turns so a streamed request fits the model's context, as plain turns do: history
-  /// counts a byte as a token, as there, and the system prompt and tool definitions are reserved at
-  /// about four bytes a token. The server checks the exact count before it answers.
+  /// Drops older turns so a streamed request fits the model's context, leaving room for one
+  /// full-size tool result and the next step (F35). Counted with `ContextEstimate`, as the tool
+  /// results are sized; the server checks the exact count before it answers.
   static func prepare(_ messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox) throws -> PreparedConversation {
+    try ChatContextPreparer.prepare(messages, budget: budget(messages, model: model, toolbox: toolbox),
+      reserving: ToolStepBudget.reserve(cap: ToolStepBudget.localEvidenceTokens),
+      countTokens: { $0.reduce(0) { $0 + ContextEstimate.tokens($1.content) + messageTokens } })
+  }
+
+  /// A chat template's wrapper around each message, in estimated tokens.
+  static let messageTokens = 8
+
+  /// The budget `prepare` trims to, which the loops' steps are measured against too.
+  static func budget(_ messages: [ChatMessage], model: LocalModel, toolbox: any AgentToolbox) -> ContextBudget {
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
-    let tools = (try? encoder.encode(CodexValue.array(toolbox.definitions.map(\.llama))))?.count ?? 0
-    let system = ChatResponseStyle.instructions.utf8.count + toolbox.instructions.utf8.count
-      + localInstructions.utf8.count + (ThinkCommand.enabled(in: messages) ? ThinkCommand.guidance.utf8.count : 0)
-    return try ChatContextPreparer.prepare(messages,
-      budget: ContextBudget(contextWindow: model.contextWindow, outputTokens: ThinkCommand.enabled(in: messages) ? 2_048 : 1_024,
-                            overheadTokens: (system + tools) / 4 + 64),
-      countTokens: { $0.reduce(0) { $0 + $1.content.utf8.count + 32 } })
+    let tools = (try? encoder.encode(CodexValue.array(toolbox.definitions.map(\.llama)))).map { String(decoding: $0, as: UTF8.self) } ?? ""
+    let system = ChatResponseStyle.instructions + toolbox.instructions + localInstructions
+      + (ThinkCommand.enabled(in: messages) ? ThinkCommand.guidance : "")
+    return ContextBudget(contextWindow: model.contextWindow, outputTokens: ThinkCommand.enabled(in: messages) ? 2_048 : 1_024,
+                         overheadTokens: ContextEstimate.tokens(system + tools) + 64)
+  }
+
+  /// The history after the system prompt, counted as `prepare` counts the chat, calls included.
+  static func usedTokens(_ history: [AgentInferenceMessage]) -> Int {
+    history.dropFirst().reduce(0) { total, message in
+      total + ContextEstimate.tokens(message.content ?? "") + messageTokens
+        + (message.toolCalls ?? []).reduce(0) { $0 + ContextEstimate.tokens($1.function.name + $1.function.arguments) }
+    }
+  }
+
+  /// Measures the step about to be sent (F35). After a tool result, when the next step won't fit,
+  /// earlier `web_search` results shrink, then the tools are withdrawn with the instruction to
+  /// answer. Returns whether the step offers tools.
+  static func prepareStep(_ history: inout [AgentInferenceMessage], step: Int, searches: [Int],
+                          budget: ContextBudget, steps: ToolStepBudget) -> Bool {
+    guard step > 0 else {
+      steps.measure(budget, usedTokens: usedTokens(history))
+      return true
+    }
+    let decision = steps.decide(usedTokens: usedTokens(history), budget: budget) { includingNewest in
+      // The newest result is the one the model hasn't read yet.
+      for index in searches where includingNewest || index != history.count - 1 {
+        history[index].content = history[index].content.map(ToolStepBudget.shrunkSearchResult)
+      }
+      return usedTokens(history)
+    }
+    guard decision == .answerWithoutTools else { return true }
+    history[0].content = (history[0].content ?? "") + "\n" + ToolStepBudget.answerInstruction
+    return false
   }
 
   /// Reads `runStreaming`'s first step for `messages` into the runtime's prompt cache. False when
@@ -158,12 +204,16 @@ extension LocalToolAgent {
     var history = Self.history(messages, toolbox: toolbox)
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
+    let budget = Self.budget(messages, model: model, toolbox: toolbox)
+    let steps = toolbox.stepBudget ?? ToolStepBudget()
+    var searches: [Int] = []
     var emittedText = false
     for step in 0..<maximumSteps {
       try Task.checkCancellation()
+      let offersTools = Self.prepareStep(&history, step: step, searches: searches, budget: budget, steps: steps)
       let text = CloudToolLoop.StepText(afterEarlierText: emittedText)
       var finished: AgentInferenceMessage?
-      for try await event in inference.streamTools(messages: history, tools: toolbox.definitions, model: model,
+      for try await event in inference.streamTools(messages: history, tools: offersTools ? toolbox.definitions : [], model: model,
                                                    requiredTool: step == 0 ? toolbox.offeredRequiredTool : nil) {
         switch event {
         case .text(let delta):
@@ -182,6 +232,7 @@ extension LocalToolAgent {
       }
       guard response.role == "assistant" else { throw AgentToolError.invalidResponse("The local runtime returned an unexpected message role.") }
       guard let first = response.toolCalls?.first else { return }
+      guard offersTools else { throw AgentToolError.stepLimit }
       // Discarded batch members never enter history and never run.
       let call = AgentToolCall(id: String(format: "tool%05d", step), function: first.function)
       response.toolCalls = [call]
@@ -196,6 +247,7 @@ extension LocalToolAgent {
         "success": .bool(result.success), "result": output,
       ])), as: UTF8.self)
       history.append(AgentInferenceMessage(role: "tool", content: content, toolCallID: call.id))
+      if call.function.name == WebSearchTool.name { searches.append(history.count - 1) }
       await onActivity(.phase(.thinking))
     }
     throw AgentToolError.stepLimit

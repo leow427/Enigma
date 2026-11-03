@@ -3,6 +3,8 @@ import Foundation
 struct BraveSearchClient: WebSearchProvider {
   static let maximumSources = 10
   static let evidenceTokens = 8_192
+  /// Brave's LLM context endpoint returns no fewer tokens than this.
+  static let minimumTokens = 1_024
   static let tokensPerSource = 2_048
   private let credentials: any WebSearchCredentialStore
   private let transport: any CloudNetworkTransport
@@ -48,7 +50,7 @@ struct BraveSearchClient: WebSearchProvider {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue(key, forHTTPHeaderField: "X-Subscription-Token")
     request.httpBody = try JSONEncoder().encode(Parameters(
-      q: query, maximum_number_of_tokens: min(8_192, max(1_024, maximumTokens))
+      q: query, maximum_number_of_tokens: min(8_192, max(Self.minimumTokens, maximumTokens))
     ))
     let response: CloudDataResponse
     do {

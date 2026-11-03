@@ -827,7 +827,10 @@ final class LocalChatViewModel: ObservableObject {
           // The inference-only bridge releases its model before the tool-capable runtime loads it.
           await engine.unload()
           let owner = self
-          try await LocalToolAgent(inference: fileInference).run(messages: history, model: model, toolbox: toolbox,
+          // Older turns go before the tools do (F35).
+          let prepared = try LocalToolAgent.prepare(history, model: model, toolbox: toolbox)
+          owner?.contextNotice = prepared.notice
+          try await LocalToolAgent(inference: fileInference).run(messages: prepared.messages, model: model, toolbox: toolbox,
             onActivity: { event in await owner?.receiveActivity(event, requestID: active.id) }) { text in
             await owner?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
           }
@@ -896,7 +899,7 @@ final class LocalChatViewModel: ObservableObject {
     }
     // Built as the turn builds it; its tools never run.
     let toolbox = nativeToolbox(plan: nativeToolPlan(for: typed), destination: destination, sessionID: UUID(),
-                                responseID: UUID(), requestID: UUID(), evidenceTokens: 2_048)
+                                responseID: UUID(), requestID: UUID(), evidenceTokens: ToolStepBudget.localEvidenceTokens)
     // A stand-in prompt, removed again after trimming: the preparer needs one, and the draft is
     // never read. Whatever the preparer puts before it, such as /think's guidance, stays.
     let standIn = "."
@@ -988,11 +991,14 @@ final class LocalChatViewModel: ObservableObject {
       nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
                                         contextID: selection.id, editRequested: plan.editRequested)
     }
-    let evidenceTokens = local ? 2_048 : WebSearchLimits.evidenceTokens
+    let evidenceTokens = local ? ToolStepBudget.localEvidenceTokens : WebSearchLimits.evidenceTokens
     // Shared by every run of this turn, so a run that starts again can't send the same text twice.
     let sendLedger = MessagesSendLedger()
+    // Each run measures it again before its first step.
+    let stepBudget = ToolStepBudget()
     let toolbox = nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
-                                requestID: active.id, evidenceTokens: evidenceTokens, sendLedger: sendLedger)
+                                requestID: active.id, evidenceTokens: evidenceTokens, stepBudget: stepBudget,
+                                sendLedger: sendLedger)
     let toolNames = toolbox.definitions.map(\.name).joined(separator: ",")
     NativeTools.logger.info("Native turn: \(route.mode.rawValue, privacy: .public) \(route.providerID, privacy: .public); tools \(toolNames, privacy: .public); required \(toolbox.offeredRequiredTool ?? "none", privacy: .public); provider search \(plan.searchBackend == .provider, privacy: .public)")
     state = .preparing
@@ -1060,7 +1066,8 @@ final class LocalChatViewModel: ObservableObject {
           let locationDeclined = locationAnswer?.declined ?? owner?.isLocationDeclined(route: route, sessionID: sessionID) ?? false
           if location != nil || asked || searchApproved || locationDeclined, let owner {
             toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
-                                          requestID: active.id, evidenceTokens: evidenceTokens, location: location,
+                                          requestID: active.id, evidenceTokens: evidenceTokens, stepBudget: stepBudget,
+                                          location: location,
                                           locationDeclined: locationDeclined,
                                           providerSearchApproved: searchApproved, sendLedger: sendLedger)
           }
@@ -1138,6 +1145,7 @@ final class LocalChatViewModel: ObservableObject {
             }
             toolbox = owner?.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
                                            responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
+                                           stepBudget: stepBudget,
                                            location: plan.searchBackend == .provider ? location : nil,
                                            locationDeclined: locationDeclined, providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
           }
@@ -1166,7 +1174,7 @@ final class LocalChatViewModel: ObservableObject {
 
   /// The plan's parts, in a fixed order so a chat's tool prefix stays the same turn after turn.
   private func nativeToolbox(plan: NativeToolPlan, destination: ToolDestination, sessionID: UUID, responseID: UUID,
-                             requestID: UUID, evidenceTokens: Int,
+                             requestID: UUID, evidenceTokens: Int, stepBudget: ToolStepBudget? = nil,
                              location: ProviderSearchLocation? = nil, locationDeclined: Bool = false,
                              providerSearchApproved: Bool = false,
                              sendLedger: MessagesSendLedger? = nil) -> AssistantToolbox {
@@ -1179,15 +1187,15 @@ final class LocalChatViewModel: ObservableObject {
     }
     if plan.parts.contains(.search(.enigma)) {
       parts.append(WebSearchTool(
-        search: { [weak self] query, recency in
+        search: { [weak self] query, recency, maximumTokens in
           guard let self else { throw CancellationError() }
-          let found = try await self.searchReportingProvider(query, writtenQuery: query, maximumTokens: evidenceTokens,
+          let found = try await self.searchReportingProvider(query, writtenQuery: query, maximumTokens: maximumTokens,
                                               requestID: requestID, refinesQuery: false, toolRecency: .some(recency),
                                               skipsLocation: locationDeclined)
-          // The on-device provider collects 1.5 × the budget for the envelope to trim; a tool
-          // result isn't trimmed again, so it keeps F32's budget here (D75). Brave's fits already.
-          return found.usedBrave ? found.results : WebSearchExcerpts.fitted(found.results, maximumTokens: evidenceTokens)
+          // `WebSearchTool` fits whatever comes back to the size it asked for (F35).
+          return found.results
         },
+        evidenceCap: evidenceTokens, stepBudget: stepBudget,
         mayQuery: { [weak self] query in
           guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
           let service = await self?.usesBraveSearch == true ? "Brave" : ToolPermission.searchSitesService
@@ -1242,7 +1250,9 @@ final class LocalChatViewModel: ObservableObject {
         await self?.receiveNativeProposal(proposal, requestID: requestID)
       })
     }
-    return AssistantToolbox(parts: parts, requiredTool: plan.requiredTool, extraInstructions: plan.extraInstructions)
+    var toolbox = AssistantToolbox(parts: parts, requiredTool: plan.requiredTool, extraInstructions: plan.extraInstructions)
+    toolbox.stepBudget = stepBudget
+    return toolbox
   }
 
   /// Merges a search's sources onto the reply and saves them; a provider's are capped at `limit` (F30).
