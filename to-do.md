@@ -1434,6 +1434,11 @@ argument, and windows above 32K on local models.
 
 ### F36. Animated weather card for weather answers
 
+**Design:** [docs/design/f36-weather-card/README.md](docs/design/f36-weather-card/README.md)
+(approved 2026-11-03: flat sky, split card, weather costumes; renders in Paper
+and Ink, reference SwiftUI). It decides the look; where it differs from the
+list below, the design wins.
+
 **Problem:** a weather answer is only text: the model reads Open-Meteo's
 numbers and types them out. The owner wants a fun, styled card that shows the
 weather at a glance, with the model's description right under it.
