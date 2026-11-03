@@ -331,8 +331,9 @@ final class CloudModelSelectionTests: XCTestCase {
       XCTAssertEqual(AutoRouter.CloudConfiguration(provider: .openAI, modelID: id).capabilities.maximumContextTokens, window)
       XCTAssertEqual(budget.outputTokens, 4_096)
       XCTAssertEqual(budget.overheadTokens, 512)
-      let wrapper = try CloudContext.inputTokenCount([ChatMessage(role: .user, content: "x")], provider: .openAI) - 1
-      let maximum = budget.availableInputTokens - wrapper
+      // F35: about three serialized bytes a token, after Enigma's own system prompt.
+      let wrapper = try CloudContext.encodedMessages([ChatMessage(role: .user, content: "x")]).count - 1
+      let maximum = 3 * (try CloudContext.prepare(request(modelID: id)).budget.availableInputTokens) - wrapper
       for length in [maximum - 1, maximum] {
         let prepared = try CloudContext.prepare(request(modelID: id, prompt: String(repeating: "x", count: length)))
         XCTAssertLessThanOrEqual(prepared.inputTokenCount + budget.outputTokens + budget.overheadTokens, window)

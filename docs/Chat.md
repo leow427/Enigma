@@ -521,7 +521,10 @@ built by `ChatContextPreparer` (`Enigma/Chat/ChatContext.swift`):
   (`ConversationContextPrompt` in `Enigma/Chat/ConversationContext.swift`).
 
 A `ContextBudget` gives the input allowance as the smaller of an input cap and
-`context window − output reserve − protocol reserve`.
+`context window − output reserve − protocol reserve`, less Enigma's own system
+prompt and tool definitions for the request (`promptTokens`), which count as
+used. `PreparedConversation.usage` (`ContextUsage`) is the share of the budget a
+prepared request fills: messages plus prompt, out of the allowance plus prompt.
 
 **Local** (`Enigma/LocalInference/`):
 
@@ -543,16 +546,34 @@ A `ContextBudget` gives the input allowance as the smaller of an input cap and
   turns, which reuse the cached system prompt and tool definitions (see
   [Local models](Local-Model-Selection.md#runtimes)).
 
-**Cloud** (`ModelContextPolicy.cloud` and `CloudContext`): input is counted as one
-token per UTF-8 byte of the serialized messages, which deliberately overestimates,
-plus 4,096 tokens for an image. No tokenizer or network call is used. Every cloud
-client checks the budget again before sending.
+**Cloud** (`ModelContextPolicy.cloud`, `ContextEstimate` and `CloudContext`): input
+is estimated as `ceil(bytes / 3)` of the messages as the client serializes them
+(role wrappers and JSON escaping included), plus 4,096 tokens for an image. The
+system prompt and tool definitions the route's client sends are estimated the
+same way and count as used (`CloudContext.promptTokens`). No tokenizer or network
+call is used. Every cloud client checks the budget again before sending.
+
+The estimate stays above OpenAI's tokenizer for English, code and JSON (checked
+against `o200k_base` and `cl100k_base`). Digit-heavy text, and non-Latin text on
+older tokenizers, can run over it; the input cap and reserves leave room for that
+on the large windows, but a long message of mostly digits on a small-window model
+can still be rejected by the provider.
+
+Input is capped at **65,536 tokens** even on models with 1M-token windows: a
+longer prompt is slower to answer, and Enigma's priority is latency.
+
+The protocol reserve covers text a CLI adds that Enigma never sees. It was
+measured on 2026-11-03 by sending a one-word message with Enigma's settings, with
+and without tools, and taking the input-token count the CLI reported less
+Enigma's estimate of what it sent: about 2,860 tokens for Codex 0.164.0 and 840
+for Claude Code 2.1.312. Each reserve is that figure rounded up to the next
+1,024, plus 25%.
 
 | Provider | Context window | Output reserve | Protocol reserve | Input cap |
 |---|---:|---:|---:|---:|
-| OpenAI, Anthropic, Gemini | Reviewed model's published limit; 8,192 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 32,768 |
-| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 32,768 otherwise | 128,000; 16,384 otherwise | 8,192 | 32,768 |
-| Claude via Claude Code | 200,000 for its listed aliases; 65,536 otherwise | 32,000; 8,192 otherwise | 16,384 | 32,768 |
+| OpenAI, Anthropic, Gemini | Reviewed model's published limit; 8,192 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 65,536 |
+| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 32,768 otherwise | 128,000; 16,384 otherwise | 3,840 | 65,536 |
+| Claude via Claude Code | 200,000 for its listed aliases; 65,536 otherwise | 32,000; 8,192 otherwise | 1,280 | 65,536 |
 
 Per-model limits and how models are reviewed are in
 [Cloud-Model-Selection.md](Cloud-Model-Selection.md). These are application
@@ -576,10 +597,10 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - A queued message that can't start when its turn comes, for example because
   the selected mode has no usable model, holds the queue with no message of
   its own; the route status line says what's missing.
-- Cloud history trimming uses a conservative byte count, so it can keep less
-  history than the provider would actually accept. Unreviewed or manually entered
-  models get small default windows.
-- Every request's input is capped at 32,768 tokens for cloud models, however large
+- Cloud history trimming uses an estimate (three bytes a token), not the
+  provider's tokenizer. Unreviewed or manually entered models get small default
+  windows.
+- Every request's input is capped at 65,536 tokens for cloud models, however large
   the model's window.
 - Screenshots and request activity aren't saved, so they're gone after a relaunch.
 - The chat lays out every message on each update while a reply streams, so a

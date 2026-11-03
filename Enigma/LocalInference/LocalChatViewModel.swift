@@ -1080,7 +1080,7 @@ final class LocalChatViewModel: ObservableObject {
             if let required = toolbox.offeredRequiredTool ?? (providerSearch == nil ? nil : toolbox.requiredTool) {
               history[history.count - 1].content += "\n\n" + LlamaServerVisionEngine.requiredToolInstruction(required)
             }
-            let prepared = try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: history, route: route))
+            let prepared = try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: history, route: route), toolbox: toolbox)
             owner?.contextNotice = prepared.notice
             // As on plain cloud turns, a prepared request is under way.
             accept()

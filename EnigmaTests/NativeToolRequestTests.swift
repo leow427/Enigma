@@ -277,6 +277,26 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(provider.toolNames.values.contains("web_search"))
   }
 
+  /// F35 CP0: the view model counts the toolbox's prompt and tools, as the client does, so its
+  /// notice names every message the request leaves out.
+  func testNearLimitCloudTurnIsPreparedAsTheClientPreparesIt() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Long")
+    for turn in 0..<80 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+    }
+    try sessionStore.save([saved])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.toolStreams.values.count, 1)
+    XCTAssertEqual(provider.clientPreparation.values, ["kept"])
+    XCTAssertNotNil(chat.contextNotice, "The chat is over the 65,536-token cap")
+  }
+
   func testCloudTurnAlsoAsksForTheRequiredToolInWords() async throws {
     let provider = NativeToolProvider(steps: [[.token("Searched.")]])
     let chat = makeChat(cloud: provider)
@@ -2054,6 +2074,8 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
   let plainStreams = LockedStrings()
   let toolNames = LockedStrings()
   let requiredTools = LockedStrings()
+  /// F35: "kept" when the real clients' preparation, with this toolbox, keeps every message sent.
+  let clientPreparation = LockedStrings()
 
   init(steps: [[Event]]) { self.steps = steps }
 
@@ -2064,6 +2086,8 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
 
   func stream(_ request: ChatRequest, toolbox: any AgentToolbox) -> AsyncThrowingStream<ChatEvent, Error> {
     toolStreams.append(request.messages.last?.content ?? "")
+    let prepared = try? CloudContext.prepare(request, toolbox: toolbox)
+    clientPreparation.append(prepared?.messages == request.messages ? "kept" : "trimmed")
     toolbox.definitions.forEach { toolNames.append($0.name) }
     if let required = toolbox.offeredRequiredTool { requiredTools.append(required) }
     let script = lock.withLock { () -> [Event] in steps.isEmpty ? [] : steps.removeFirst() }

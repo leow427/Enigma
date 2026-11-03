@@ -214,7 +214,7 @@ until you sign in again or choose another provider.
   a day before retrying).
 - The daily refresh asks only for the sign-in status and the model list; it
   never starts a turn.
-- Enigma sends the conversation as a bounded JSON transcript, up to 32,768
+- Enigma sends the conversation as a bounded JSON transcript, up to 65,536
   input tokens. Your chats stay in Enigma's own history; OpenAI's data policies
   apply to what Codex sends.
 

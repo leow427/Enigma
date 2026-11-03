@@ -79,21 +79,26 @@ final class ChatContextTests: XCTestCase {
       }
       let limit = ModelContextPolicy.cloud(provider: provider, modelID: "manual").availableInputTokens
       XCTAssertThrowsError(try CloudContext.prepare(request([
-        ChatMessage(role: .user, content: String(repeating: "x", count: limit + 1)),
+        ChatMessage(role: .user, content: String(repeating: "x", count: 3 * limit + 1)),
       ], provider: provider, model: "manual")))
     }
   }
 
   func testCloudSerializedInputJustUnderAtAndOverBudget() throws {
     for provider in CloudProviderID.allCases {
-      let budget = ModelContextPolicy.cloud(provider: provider, modelID: "manual")
-      let wrapperCount = try CloudContext.inputTokenCount([ChatMessage(role: .user, content: "x")], provider: provider) - 1
-      let maximumLength = budget.availableInputTokens - wrapperCount
+      // F35: about three serialized bytes a token, after Enigma's own system prompt.
+      let budget = ModelContextPolicy.cloud(provider: provider, modelID: "manual",
+                                            promptTokens: CloudContext.promptTokens(provider: provider, toolbox: nil))
+      let one = [ChatMessage(role: .user, content: "x")]
+      let wrapperBytes = (provider == .chatGPT || provider == .claudeCode
+        ? try CloudContext.codexPrompt(one).utf8.count : try CloudContext.encodedMessages(one).count) - 1
+      let maximumLength = 3 * budget.availableInputTokens - wrapperBytes
       for length in [maximumLength - 1, maximumLength] {
         let prepared = try CloudContext.prepare(request([
           ChatMessage(role: .user, content: String(repeating: "x", count: length)),
         ], provider: provider, model: "manual"))
-        XCTAssertEqual(prepared.inputTokenCount, length + wrapperCount)
+        XCTAssertEqual(prepared.inputTokenCount, (length + wrapperBytes + 2) / 3)
+        XCTAssertEqual(prepared.budget, budget)
       }
       XCTAssertThrowsError(try CloudContext.prepare(request([
         ChatMessage(role: .user, content: String(repeating: "x", count: maximumLength + 1)),
@@ -149,6 +154,202 @@ final class ChatContextTests: XCTestCase {
 
   private func prepare(_ messages: [ChatMessage]) throws -> PreparedConversation {
     try ChatContextPreparer.prepare(messages, budget: budget) { $0.reduce(0) { $0 + $1.content.utf8.count } }
+  }
+
+  // MARK: - F35 CP0: the estimate, the usage and the cloud caps
+
+  func testEstimateIsCeilingOfBytesOverThree() {
+    XCTAssertEqual(ContextEstimate.tokens(""), 0)
+    XCTAssertEqual(ContextEstimate.tokens("a"), 1)
+    XCTAssertEqual(ContextEstimate.tokens("abc"), 1)
+    XCTAssertEqual(ContextEstimate.tokens("abcd"), 2)
+    XCTAssertEqual(ContextEstimate.tokens("é"), 1, "2 UTF-8 bytes")
+    XCTAssertEqual(ContextEstimate.tokens("日本語"), 3, "9 UTF-8 bytes")
+    XCTAssertEqual(ContextEstimate.tokens("日本語é"), 4, "11 UTF-8 bytes")
+  }
+
+  func testCloudEstimateCountsRoleWrappersAndEscaping() throws {
+    let messages = [
+      ChatMessage(role: .user, content: "He said \"hi\"\nthen \"left\"\n\n"),
+      ChatMessage(role: .assistant, content: "Noted.\n\"Fine\""),
+      ChatMessage(role: .user, content: "And then?"),
+    ]
+    let plain = ContextEstimate.tokens(messages.map(\.content).joined())
+    for provider in CloudProviderID.allCases {
+      XCTAssertGreaterThan(try ContextEstimate.cloudTokens(messages, provider: provider), plain, "\(provider)")
+      XCTAssertEqual(try CloudContext.inputTokenCount(messages, provider: provider),
+                     try ContextEstimate.cloudTokens(messages, provider: provider))
+    }
+  }
+
+  /// Real counts from OpenAI's tiktoken 0.12 (`o200k_base` and `cl100k_base`, the larger of the
+  /// two), measured 2026-11-03. Digit-heavy text runs over ceil(bytes / 3); these kinds don't.
+  func testEstimateStaysAboveRealTokenizerForSamples() {
+    let samples: [(text: String, tokens: Int)] = [
+      ("The quick brown fox jumps over the lazy dog. Enigma keeps chats short, private and fast, and it answers in a few sentences unless you ask for more.", 33),
+      ("func greet(_ name: String) -> String {\n  let trimmed = name.trimmingCharacters(in: .whitespaces)\n  return trimmed.isEmpty ? \"Hello!\" : \"Hello, \" + trimmed + \"!\"\n}", 45),
+      (#"[{"content":"What is the capital of France?","role":"user"},{"content":"Paris.","role":"assistant"},{"content":"And its population?","role":"user"}]"#, 36),
+    ]
+    XCTAssertEqual(samples.map(\.text.utf8.count), [147, 162, 148], "The samples are the measured ones")
+    for sample in samples {
+      XCTAssertGreaterThanOrEqual(ContextEstimate.tokens(sample.text), sample.tokens)
+    }
+  }
+
+  func testUsageFractionLevelsAndPercentLeft() {
+    let cases: [(used: Int, level: ContextUsage.Level, left: Int)] = [
+      (0, .normal, 100), (699, .normal, 30), (700, .high, 30), (714, .high, 28), (899, .high, 10),
+      (900, .full, 10), (1_000, .full, 0), (1_500, .full, 0),
+    ]
+    for item in cases {
+      let usage = ContextUsage(usedTokens: item.used, limitTokens: 1_000)
+      XCTAssertEqual(usage.fraction, min(1, Double(item.used) / 1_000), "\(item.used)")
+      XCTAssertEqual(usage.level, item.level, "\(item.used)")
+      XCTAssertEqual(usage.percentLeft, item.left, "\(item.used)")
+    }
+    XCTAssertEqual(ContextUsage(usedTokens: 699_999, limitTokens: 1_000_000).level, .normal)
+    XCTAssertEqual(ContextUsage(usedTokens: 899_999, limitTokens: 1_000_000).level, .high)
+  }
+
+  func testPromptTokensCountAsUsedAndReduceRoom() throws {
+    let budget = ContextBudget(contextWindow: 1_000, outputTokens: 100, overheadTokens: 100, promptTokens: 50)
+    XCTAssertEqual(budget.availableInputTokens, 750)
+    let count: ([ChatMessage]) -> Int = { $0.reduce(0) { $0 + $1.content.utf8.count } }
+    let prepared = try ChatContextPreparer.prepare([ChatMessage(role: .user, content: String(repeating: "x", count: 600))],
+                                                   budget: budget, countTokens: count)
+    XCTAssertEqual(prepared.usage, ContextUsage(usedTokens: 650, limitTokens: 800))
+    XCTAssertThrowsError(try ChatContextPreparer.prepare([ChatMessage(role: .user, content: String(repeating: "x", count: 751))],
+                                                         budget: budget, countTokens: count))
+    var capped = budget
+    capped.inputLimit = 500
+    XCTAssertEqual(capped.availableInputTokens, 450, "The cap includes the prompt")
+  }
+
+  func testZeroLimitIsFull() {
+    let usage = ContextUsage(usedTokens: 0, limitTokens: 0)
+    XCTAssertEqual(usage.fraction, 1)
+    XCTAssertEqual(usage.level, .full)
+    XCTAssertEqual(usage.percentLeft, 0)
+    XCTAssertEqual(ContextBudget(contextWindow: 100, outputTokens: 50, overheadTokens: 0, promptTokens: 80).availableInputTokens, 0)
+  }
+
+  func testCloudInputCapIsLatencyCap() {
+    for (provider, id) in [(CloudProviderID.openAI, "gpt-4.1"), (.chatGPT, "gpt-5.6-luna")] {
+      XCTAssertGreaterThanOrEqual(ModelContextPolicy.cloud(provider: provider, modelID: id).contextWindow, 1_000_000)
+      XCTAssertEqual(ModelContextPolicy.cloud(provider: provider, modelID: id, promptTokens: 1_234).availableInputTokens,
+                     65_536 - 1_234, "\(provider)")
+    }
+  }
+
+  func testCloudCapNeverExceedsWindowMinusReserves() {
+    let budget = ModelContextPolicy.cloud(provider: .openAI, modelID: "manual-unknown-model", promptTokens: 100)
+    XCTAssertEqual(budget.contextWindow, 8_192)
+    XCTAssertEqual(budget.availableInputTokens, 8_192 - 4_096 - 512 - 100)
+  }
+
+  func testCloudPrepareCountsSystemPromptAndTools() throws {
+    let messages = [ChatMessage(role: .user, content: "Hello")]
+    for provider in CloudProviderID.allCases {
+      let plain = try CloudContext.prepare(request(messages, provider: provider, model: "manual"))
+      XCTAssertGreaterThanOrEqual(plain.budget.promptTokens, ContextEstimate.tokens(ChatResponseStyle.instructions), "\(provider)")
+      XCTAssertEqual(plain.usage.usedTokens, plain.inputTokenCount + plain.budget.promptTokens)
+      let tools = try CloudContext.prepare(request(messages, provider: provider, model: "manual"), toolbox: SampleToolbox())
+      let definitions = ContextEstimate.tokens(SampleToolbox.longDescription)
+      XCTAssertGreaterThan(tools.budget.promptTokens, plain.budget.promptTokens + definitions, "\(provider)")
+      XCTAssertEqual(tools.usage.usedTokens, tools.inputTokenCount + tools.budget.promptTokens)
+      XCTAssertEqual(tools.usage.limitTokens, plain.usage.limitTokens, "The prompt moves room from free to used")
+    }
+  }
+
+  /// Reported input for a one-word message less Enigma's estimate of what it sent, measured
+  /// 2026-11-03 with and without a toolbox: Codex 0.164.0 2,855 and 2,702; Claude Code 2.1.312
+  /// 836 and 767. The larger, rounded up to the next 1,024, plus 25%.
+  func testCLIReservesMatchMeasurement() {
+    func reserve(_ measured: Int) -> Int { (measured + 1_023) / 1_024 * 1_024 * 5 / 4 }
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-5.6-luna").overheadTokens, reserve(2_855))
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .claudeCode, modelID: "sonnet").overheadTokens, reserve(836))
+    XCTAssertEqual(reserve(2_855), 3_840)
+    XCTAssertEqual(reserve(836), 1_280)
+    for provider in [CloudProviderID.openAI, .anthropic, .gemini, .free] {
+      XCTAssertEqual(ModelContextPolicy.cloud(provider: provider, modelID: "manual").overheadTokens, 512)
+    }
+  }
+
+  /// The counted prompt covers what each client really sends, so a client's prompt can't grow uncounted.
+  func testPromptTokensCoverWhatEachClientSends() async throws {
+    func json(_ value: CodexValue) throws -> String { String(decoding: try JSONEncoder().encode(value), as: UTF8.self) }
+    func argument(_ arguments: [String], _ name: String) -> String {
+      arguments.firstIndex(of: name).map { arguments[$0 + 1] } ?? ""
+    }
+    let toolbox = SampleToolbox()
+    let codexTools = try json(.array(toolbox.definitions.map(\.codex)))
+
+    for provider in [CloudProviderID.openAI, .anthropic, .gemini, .free] {
+      XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: provider, toolbox: nil),
+                                  ContextEstimate.tokens(ChatResponseStyle.instructions))
+      XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: provider, toolbox: toolbox),
+                                  ContextEstimate.tokens(CloudToolLoop.systemPrompt(toolbox)) + ContextEstimate.tokens(codexTools))
+    }
+
+    let plain = ClaudeCodeRuntime.chatArguments(model: "sonnet", effort: .automatic)
+    XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .claudeCode, toolbox: nil),
+                                ContextEstimate.tokens(argument(plain, "--system-prompt")))
+    let list = try await ClaudeCodeToolMode.respond(to: .object(["id": .number(1), "method": .string("tools/list")]), toolbox: toolbox)
+    for search in [nil, ProviderSearch(blockedDomains: [], location: nil)] {
+      let tools = ClaudeCodeRuntime.toolArguments(model: "sonnet", effort: .automatic, toolbox: toolbox, providerSearch: search)
+      XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .claudeCode, toolbox: toolbox),
+                                  ContextEstimate.tokens(argument(tools, "--system-prompt")) + ContextEstimate.tokens(try json(list["result"])))
+    }
+
+    let thread = CodexSubscriptionClient.threadParameters(model: "gpt-5.6-luna")
+    XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .chatGPT, toolbox: nil),
+      ContextEstimate.tokens((thread["baseInstructions"].string ?? "") + (thread["developerInstructions"].string ?? "")))
+    // `CodexToolMode.threadParameters` writes its workspace folder, so its text is rebuilt here from the same parts.
+    let toolBase = "You are Enigma, a helpful general-purpose assistant.\n" + ChatResponseStyle.instructions
+    let toolDeveloper = toolbox.instructions + "\nUse only the supplied tools and web search. You cannot run commands or read files."
+    XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .chatGPT, toolbox: toolbox),
+      ContextEstimate.tokens(toolBase + toolDeveloper) + ContextEstimate.tokens(codexTools))
+  }
+
+  func testCodexTurnIsBoundedWithItsToolbox() throws {
+    let request = request(longChat(), provider: .chatGPT, model: "gpt-5.6-luna")
+    let withTools = try CloudContext.prepare(request, toolbox: SampleToolbox())
+    XCTAssertLessThan(withTools.messages.count, try CloudContext.prepare(request).messages.count, "The tools take a turn's room")
+    let turn = try CodexSubscriptionClient.turnParameters(threadID: "t", request: request, isolatedTools: true, toolbox: SampleToolbox())
+    XCTAssertEqual(turn["input"], .array([.object(["type": .string("text"), "text": .string(try CloudContext.codexPrompt(withTools.messages))])]))
+  }
+
+  func testCodexFileModeCountsItsInstructionsAndTools() throws {
+    let folder = FileManager.default.temporaryDirectory.appending(path: "f35-\(UUID().uuidString)", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let selection = WorkspaceSelection(attachments: [try .select(folder)])
+    let thread = CodexFileMode.threadParameters(model: "gpt-5.6-luna", selection: selection)
+    let sent = ContextEstimate.tokens((thread["baseInstructions"].string ?? "") + (thread["developerInstructions"].string ?? ""))
+      + ContextEstimate.tokens(String(decoding: try JSONEncoder().encode(thread["dynamicTools"]), as: UTF8.self))
+    XCTAssertEqual(CloudContext.promptTokens(fileMode: selection), sent)
+    XCTAssertGreaterThan(sent, CloudContext.promptTokens(provider: .chatGPT, toolbox: nil) + 1_000, "Ten file tools and their instructions")
+    let request = request(longChat(), provider: .chatGPT, model: "gpt-5.6-luna")
+    let fileMode = try CloudContext.prepare(request, fileMode: selection)
+    XCTAssertEqual(fileMode.budget.promptTokens, sent)
+    XCTAssertLessThan(fileMode.messages.count, try CloudContext.prepare(request).messages.count)
+    let turn = try CodexSubscriptionClient.turnParameters(threadID: "t", request: request, workspace: selection)
+    XCTAssertEqual(turn["input"], .array([.object(["type": .string("text"), "text": .string(try CloudContext.codexPrompt(fileMode.messages))])]))
+  }
+
+  func testLongChatKeepsMoreTurnsThanBefore() throws {
+    var messages: [ChatMessage] = []
+    for turn in 0..<40 {
+      messages.append(ChatMessage(role: .user, content: "Question \(turn): " + String(repeating: "about the plan ", count: 68)))
+      messages.append(ChatMessage(role: .assistant, content: "Answer \(turn): " + String(repeating: "the plan holds ", count: 68)))
+    }
+    messages.append(ChatMessage(role: .user, content: "And now?"))
+    XCTAssertGreaterThan(try CloudContext.encodedMessages(messages).count, 2 * 32_768, "One byte a token kept under half")
+    for (provider, id) in [(CloudProviderID.openAI, "gpt-4.1"), (.chatGPT, "gpt-5.6-luna")] {
+      let prepared = try CloudContext.prepare(request(messages, provider: provider, model: id))
+      XCTAssertEqual(prepared.omittedMessageCount, 0, "\(provider)")
+      XCTAssertEqual(prepared.messages.count, 81)
+    }
   }
 
   private func request(_ messages: [ChatMessage], provider: CloudProviderID, model: String) -> ChatRequest {
@@ -312,4 +513,25 @@ struct SplitMix: RandomNumberGenerator {
     z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
     return z ^ (z >> 31)
   }
+}
+
+/// A toolbox whose definitions are longer than a turn of `longChat`, shared by F35's tests.
+struct SampleToolbox: AgentToolbox {
+  static let longDescription = String(repeating: "Looks up a fact. ", count: 300)
+  let instructions = "Use lookup for facts."
+  var definitions: [AgentToolDefinition] {
+    [AgentToolDefinition(name: "lookup", description: Self.longDescription,
+                         properties: ["query": .object(["type": .string("string")])], required: ["query"])]
+  }
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult { AgentToolResult(text: "{}", success: true) }
+}
+
+/// 80 turns of about 1,000 estimated tokens each, past the 65,536-token cap, then a question.
+func longChat() -> [ChatMessage] {
+  var messages: [ChatMessage] = []
+  for turn in 0..<80 {
+    messages.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+    messages.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+  }
+  return messages + [ChatMessage(role: .user, content: "Now?")]
 }

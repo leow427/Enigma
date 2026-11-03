@@ -577,8 +577,8 @@ struct ClaudeCodeSubscriptionClient: ChatProvider {
     }
   }
 
-  static func prompt(for request: ChatRequest) throws -> String {
-    let prepared = try CloudContext.prepare(request)
+  static func prompt(for request: ChatRequest, toolbox: (any AgentToolbox)? = nil) throws -> String {
+    let prepared = try CloudContext.prepare(request, toolbox: toolbox)
     return try CloudContext.codexPrompt(prepared.messages)
   }
 

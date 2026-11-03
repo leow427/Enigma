@@ -199,7 +199,7 @@ note stays in the brief.
 
 | Checkpoint | Status | Review rounds | Notes |
 | --- | --- | --- | --- |
-| CP0 | not started | | |
+| CP0 | done | 3 | 65,536 cloud cap; `ceil(bytes / 3)` kept (owner); reserves measured: ChatGPT 3,840, Claude Code 1,280 |
 | CP1 | not started | | |
 | CP2 | not started | | |
 | CP3 | not started | | |

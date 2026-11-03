@@ -187,7 +187,7 @@ extension OpenAIResponsesClient: ToolCallingChatProvider {
     CloudToolLoop.stream { continuation in
       guard request.route.providerID == CloudProviderID.openAI.rawValue else { throw CloudProviderError.invalidResponse }
       guard let key = try credentialStore.apiKey(for: .openAI), !key.isEmpty else { throw CloudProviderError.missingAPIKey(.openAI) }
-      let prepared = try CloudContext.prepare(request)
+      let prepared = try CloudContext.prepare(request, toolbox: toolbox)
       var input = try MultimodalSerialization.messages(prepared.messages, image: nil, format: .openAIResponses)
       let tools = try toolbox.definitions.map { definition -> [String: Any] in
         ["type": "function", "name": definition.name, "description": definition.description,
@@ -256,7 +256,7 @@ extension AnthropicMessagesClient: ToolCallingChatProvider {
     CloudToolLoop.stream { continuation in
       guard request.route.providerID == CloudProviderID.anthropic.rawValue else { throw CloudProviderError.invalidResponse }
       guard let key = try credentialStore.apiKey(for: .anthropic), !key.isEmpty else { throw CloudProviderError.missingAPIKey(.anthropic) }
-      let prepared = try CloudContext.prepare(request)
+      let prepared = try CloudContext.prepare(request, toolbox: toolbox)
       var messages = try MultimodalSerialization.messages(prepared.messages, image: nil, format: .anthropic)
       let tools = try toolbox.definitions.map { definition -> [String: Any] in
         ["name": definition.name, "description": definition.description, "input_schema": try CloudToolLoop.json(definition.schema)]
@@ -316,7 +316,7 @@ extension GeminiContentClient: ToolCallingChatProvider {
       let model = request.route.modelID
       guard model.range(of: #"^[a-zA-Z0-9._-]+$"#, options: .regularExpression) != nil else { throw CloudProviderError.invalidResponse }
       let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):streamGenerateContent?alt=sse")!
-      let prepared = try CloudContext.prepare(request)
+      let prepared = try CloudContext.prepare(request, toolbox: toolbox)
       var contents = try MultimodalSerialization.messages(prepared.messages, image: nil, format: .gemini)
       let declarations = try toolbox.definitions.map { definition -> [String: Any] in
         ["name": definition.name, "description": definition.description,
@@ -566,7 +566,7 @@ extension ClaudeCodeSubscriptionClient: ToolCallingChatProvider {
         var sources = NativeWebSearchSources()
         do {
           guard request.route.providerID == CloudProviderID.claudeCode.rawValue else { throw ClaudeCodeError.invalidResponse }
-          let prompt = try Self.prompt(for: request)
+          let prompt = try Self.prompt(for: request, toolbox: toolbox)
           let selectedEffort = ThinkCommand.enabled(in: request.messages) ? effort().forExtendedThinking : effort()
           let running = try runtime.launch(arguments: ClaudeCodeRuntime.toolArguments(
             model: request.route.modelID, effort: selectedEffort, toolbox: toolbox, providerSearch: providerSearch),

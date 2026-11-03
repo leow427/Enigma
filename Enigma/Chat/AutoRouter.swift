@@ -225,11 +225,12 @@ struct AutoRouter: Sendable {
     // selected GGUF's real template/tokenizer and effective runtime context.
     let localInputCount = candidateMessages.reduce(request.additionalInputTokens) { $0 + $1.content.utf8.count + 32 }
     if localInputCount > localBudget.availableInputTokens {
-      var cloudBudget = ModelContextPolicy.cloud(provider: cloud.provider, modelID: cloud.modelID)
+      var cloudBudget = ModelContextPolicy.cloud(provider: cloud.provider, modelID: cloud.modelID,
+        promptTokens: CloudContext.promptTokens(provider: cloud.provider, toolbox: nil))
       cloudBudget = ContextBudget(
         contextWindow: min(cloudBudget.contextWindow, cloud.capabilities.maximumContextTokens),
         outputTokens: cloudBudget.outputTokens, overheadTokens: cloudBudget.overheadTokens,
-        inputLimit: cloudBudget.inputLimit
+        inputLimit: cloudBudget.inputLimit, promptTokens: cloudBudget.promptTokens
       )
       // A long saved transcript is trimmable; reject only when the latest prompt
       // cannot fit. Final preparation applies the same shared policy before send.

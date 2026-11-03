@@ -619,12 +619,33 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertEqual(settings.claudeCodeLookedIn, "~/somewhere and PATH", "\"Looked in\" comes from the injected runtime")
   }
 
+  /// F35 CP0: tool mode sends the history trimmed with its toolbox's prompt and tools counted.
+  func testToolModeSendsHistoryTrimmedWithItsToolbox() async throws {
+    let root = try temporaryDirectory()
+    let input = root.appending(path: "input")
+    let client = try client(root: root, script: """
+      #!/bin/sh
+      /usr/bin/head -n 2 > '\(input.path)'
+      /usr/bin/printf '%s\\n' '{"type":"result","subtype":"success","is_error":false,"result":"Fine"}'
+      exec /bin/sleep 10
+      """)
+    let request = ChatRequest(sessionID: UUID(), messages: longChat(),
+      route: Route(mode: .cloud, providerID: CloudProviderID.claudeCode.rawValue, modelID: "sonnet", usesNetwork: true))
+    _ = try await events(client.stream(request, toolbox: SampleToolbox()))
+    let prompt = try ClaudeCodeSubscriptionClient.prompt(for: request, toolbox: SampleToolbox())
+    XCTAssertEqual(prompt, try CloudContext.codexPrompt(CloudContext.prepare(request, toolbox: SampleToolbox()).messages))
+    XCTAssertLessThan(prompt.utf8.count, try ClaudeCodeSubscriptionClient.prompt(for: request).utf8.count)
+    let lines = try String(contentsOf: input, encoding: .utf8).split(separator: "\n")
+    let message = try JSONDecoder().decode(CodexValue.self, from: Data(try XCTUnwrap(lines.last).utf8))
+    XCTAssertEqual(message["message"]["content"], .array([.object(["type": .string("text"), "text": .string(prompt)])]))
+  }
+
   func testClaudeCodeBudgetLeavesRoomForReplies() {
     let budget = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "sonnet")
-    XCTAssertEqual(budget.availableInputTokens, 32_768)
+    XCTAssertEqual(budget.availableInputTokens, 65_536)
     let manual = ModelContextPolicy.cloud(provider: .claudeCode, modelID: "claude-future-model")
     XCTAssertLessThan(manual.contextWindow, 128_000)
-    XCTAssertEqual(manual.availableInputTokens, 32_768)
+    XCTAssertEqual(manual.availableInputTokens, 65_536 - 8_192 - 1_280, "An unlisted window, less reply and protocol room")
     XCTAssertEqual(CloudModelCapabilities.visionModelIDs(for: .claudeCode), ["sonnet", "opus", "fable", "haiku"])
     XCTAssertFalse(CloudModel(id: "claude-future-model", displayName: "x", provider: .claudeCode).supportsVision,
                    "Full model names typed in stay text-only")

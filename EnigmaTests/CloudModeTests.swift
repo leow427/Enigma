@@ -331,7 +331,8 @@ final class CloudModeTests: XCTestCase {
       defer { try? FileManager.default.removeItem(at: root) }
       let store = ChatSessionStore(applicationSupportDirectory: root)
       let original = [
-        ChatMessage(role: .user, content: String(repeating: "old", count: 20_000)),
+        // F35: past every route's 65,536-token cap at about three bytes a token.
+        ChatMessage(role: .user, content: String(repeating: "old", count: 70_000)),
         ChatMessage(role: .assistant, content: "old reply"),
         ChatMessage(role: .user, content: "recent"),
         ChatMessage(role: .assistant, content: "recent reply"),

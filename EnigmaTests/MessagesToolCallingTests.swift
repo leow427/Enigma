@@ -232,6 +232,31 @@ final class CloudToolLoopTests: XCTestCase {
     XCTAssertEqual((response["response"] as? [String: Any]).flatMap { ($0["result"] as? [String: Any])?["answer"] as? String }, "42")
   }
 
+  /// F35 CP0: each API tool loop counts its toolbox's prompt and tools when it trims history.
+  func testAPIToolLoopsTrimHistoryWithTheirToolbox() async throws {
+    let answers: [(CloudProviderID, String, [String: Any], String)] = [
+      (.openAI, "gpt-4.1", ["status": "completed", "output": [["type": "message", "role": "assistant",
+        "content": [["type": "output_text", "text": "Done."]]]]], "input"),
+      (.anthropic, "claude-sonnet-4-6", ["content": [["type": "text", "text": "Done."]], "stop_reason": "end_turn"], "messages"),
+      (.gemini, "gemini-3-flash", ["candidates": [["content": ["role": "model", "parts": [["text": "Done."]]], "finishReason": "STOP"]]], "contents"),
+    ]
+    for (provider, model, answer, key) in answers {
+      let transport = QueuedTransport([answer])
+      let request = ChatRequest(sessionID: UUID(), messages: longChat(),
+        route: Route(mode: .cloud, providerID: provider.rawValue, modelID: model, usesNetwork: true))
+      let client: any ToolCallingChatProvider = switch provider {
+      case .openAI: OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+      case .anthropic: AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+      default: GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
+      }
+      _ = try await collect(client.stream(request, toolbox: SampleToolbox()))
+      let sent = try XCTUnwrap(transport.bodies.first?[key] as? [[String: Any]], "\(provider)")
+      let withTools = try CloudContext.prepare(request, toolbox: SampleToolbox())
+      XCTAssertEqual(sent.count, withTools.messages.count, "\(provider)")
+      XCTAssertLessThan(sent.count, try CloudContext.prepare(request).messages.count, "\(provider)")
+    }
+  }
+
   func testLoopStopsAtTheStepLimit() async throws {
     let looping: [String: Any] = ["content": [["type": "tool_use", "id": "t", "name": "lookup", "input": ["query": "x"]]]]
     let transport = QueuedTransport(Array(repeating: looping, count: CloudToolLoop.maximumSteps))

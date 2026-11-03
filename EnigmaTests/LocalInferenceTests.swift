@@ -401,7 +401,8 @@ final class LocalInferenceTests: XCTestCase {
     let probe = ChatArchiveWriteProbe(store: store)
     let viewModel = LocalChatViewModel(engine: engine, sessionStore: store,
       sessionWriter: ChatSessionWriter(write: probe.write))
-    let original = "  " + String(repeating: "x", count: 40_000) + "\n"
+    // F35: past every cloud route's 65,536-token cap at about three bytes a token.
+    let original = "  " + String(repeating: "x", count: 200_000) + "\n"
     var draft = original
     viewModel.submit(draft, onAccepted: { draft = "" })
     await waitUntil { if case .failed = viewModel.state { return true }; return false }

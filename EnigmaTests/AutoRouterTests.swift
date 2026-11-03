@@ -238,6 +238,20 @@ final class AutoRouterTests: XCTestCase {
     XCTAssertEqual(webDecision.reason, .requiresWebSearch)
   }
 
+  /// F35 CP0: Auto's cloud check counts the system prompt, as the request will.
+  func testCloudContextCheckCountsTheSystemPrompt() throws {
+    let prompt = CloudContext.promptTokens(provider: .openAI, toolbox: nil)
+    let room = ModelContextPolicy.cloud(provider: .openAI, modelID: "cloud-model", promptTokens: prompt).availableInputTokens
+    let wrapper = try CloudContext.encodedMessages([ChatMessage(role: .user, content: "")]).count
+    // One estimated token more than the room left after the prompt, and well within the room without it.
+    let fits = AutoRouter.decide(request(prompt: String(repeating: "x", count: 3 * room - wrapper), cloud: cloud))
+    XCTAssertEqual(fits.reason, .exceedsLocalContext)
+    XCTAssertEqual(fits.route?.mode, .cloud)
+    let over = AutoRouter.decide(request(prompt: String(repeating: "x", count: 3 * room + 3 - wrapper), cloud: cloud))
+    XCTAssertNil(over.route)
+    XCTAssertEqual(over.limitation, .unavailableCapability(.largerContext))
+  }
+
   func testLongHistoryIsTrimmableButOversizedCurrentPromptIsRejected() {
     let longHistory = [
       ChatMessage(role: .user, content: String(repeating: "x", count: 50_000)),

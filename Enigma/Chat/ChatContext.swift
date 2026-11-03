@@ -5,9 +5,52 @@ struct ContextBudget: Equatable, Sendable {
   let outputTokens: Int
   let overheadTokens: Int
   var inputLimit: Int = .max
+  /// Enigma's own system prompt and tool definitions for this request, counted as used.
+  var promptTokens: Int = 0
 
   var availableInputTokens: Int {
-    max(0, min(inputLimit, contextWindow - outputTokens - overheadTokens))
+    max(0, min(inputLimit, contextWindow - outputTokens - overheadTokens) - promptTokens)
+  }
+}
+
+/// Cloud requests have no tokenizer here; local routes keep their exact tokenizer counts.
+enum ContextEstimate {
+  /// ceil(bytes / 3) of `text`: conservative for English, code and JSON on current tokenizers.
+  static func tokens(_ text: String) -> Int {
+    (text.utf8.count + 2) / 3
+  }
+
+  /// The cloud request's messages as the client serializes them (roles, JSON escaping).
+  static func cloudTokens(_ messages: [ChatMessage], provider: CloudProviderID) throws -> Int {
+    if provider == .chatGPT || provider == .claudeCode { return tokens(try CloudContext.codexPrompt(messages)) }
+    return tokens(String(decoding: try CloudContext.encodedMessages(messages), as: UTF8.self))
+  }
+}
+
+/// The share of a route's input budget a prepared request fills. Requests, compaction and
+/// the context ring all read this, so they agree.
+struct ContextUsage: Equatable, Sendable {
+  enum Level: Equatable, Sendable { case normal, high, full }
+
+  static let highFraction = 0.70
+  static let fullFraction = 0.90
+
+  let usedTokens: Int
+  let limitTokens: Int
+
+  var fraction: Double {
+    guard limitTokens > 0 else { return 1 }
+    return min(1, max(0, Double(usedTokens) / Double(limitTokens)))
+  }
+
+  var level: Level {
+    fraction >= Self.fullFraction ? .full : fraction >= Self.highFraction ? .high : .normal
+  }
+
+  /// Rounded down; integer arithmetic so 28.6% left is 28, never 29 from a rounding error.
+  var percentLeft: Int {
+    guard limitTokens > 0 else { return 0 }
+    return max(0, (limitTokens - usedTokens) * 100 / limitTokens)
   }
 }
 
@@ -17,14 +60,21 @@ enum ModelContextPolicy {
   static let localContextWindow = 4_096
   static let localOutputTokens = 512
 
-  static func cloud(provider: CloudProviderID, modelID: String) -> ContextBudget {
+  /// Cloud input is capped for latency, well below the largest windows.
+  static let cloudInputLimit = 65_536
+  /// Text each CLI adds that Enigma never sees, measured 2026-11-03 (Codex 0.164.0: 2,855
+  /// tokens; Claude Code 2.1.312: 836), rounded up to the next 1,024, plus 25%.
+  static let codexReserve = 3_840
+  static let claudeCodeReserve = 1_280
+
+  static func cloud(provider: CloudProviderID, modelID: String, promptTokens: Int = 0) -> ContextBudget {
     let metadata = CloudModelCapabilities.metadata(provider: provider, modelID: modelID)
     if provider == .chatGPT {
       return ContextBudget(
         contextWindow: metadata?.contextWindow ?? 32_768,
         outputTokens: metadata?.maximumOutputTokens ?? 16_384,
-        overheadTokens: 8_192,
-        inputLimit: 32_768
+        overheadTokens: codexReserve,
+        inputLimit: cloudInputLimit, promptTokens: promptTokens
       )
     }
     if provider == .claudeCode {
@@ -32,15 +82,15 @@ enum ModelContextPolicy {
       return ContextBudget(
         contextWindow: metadata?.contextWindow ?? 65_536,
         outputTokens: metadata?.maximumOutputTokens ?? 8_192,
-        overheadTokens: 16_384,
-        inputLimit: 32_768
+        overheadTokens: claudeCodeReserve,
+        inputLimit: cloudInputLimit, promptTokens: promptTokens
       )
     }
     return ContextBudget(
       contextWindow: metadata?.contextWindow ?? 8_192,
       outputTokens: min(4_096, metadata?.maximumOutputTokens ?? 4_096),
       overheadTokens: 512,
-      inputLimit: 32_768
+      inputLimit: cloudInputLimit, promptTokens: promptTokens
     )
   }
 }
@@ -77,6 +127,11 @@ struct PreparedConversation: Equatable, Sendable {
   var notice: String? {
     guard omittedMessageCount > 0 else { return nil }
     return "\(omittedMessageCount) earlier messages were omitted from this request to fit the model's context or keep complete turns. Saved chat history is unchanged."
+  }
+
+  var usage: ContextUsage {
+    ContextUsage(usedTokens: inputTokenCount + budget.promptTokens,
+                 limitTokens: budget.availableInputTokens + budget.promptTokens)
   }
 }
 
@@ -175,14 +230,36 @@ enum CloudContext {
     return "Continue this conversation:\n" + String(decoding: try encodedMessages(messages), as: UTF8.self)
   }
 
-  /// One UTF-8 byte per token deliberately overestimates text tokenization,
-  /// including JSON escaping/role wrappers. Hidden protocol text has its own reserve.
   static func inputTokenCount(_ messages: [ChatMessage], provider: CloudProviderID) throws -> Int {
-    if provider == .chatGPT || provider == .claudeCode { return try codexPrompt(messages).utf8.count }
-    return try encodedMessages(messages).count
+    try ContextEstimate.cloudTokens(messages, provider: provider)
   }
 
-  static func prepare(_ request: ChatRequest) throws -> PreparedConversation {
+  /// The system prompt and tool definitions the provider's client sends with `toolbox` (or
+  /// without tools). Claude Code's prompts hold every line of Codex's, so they bound both CLIs;
+  /// text the CLIs add themselves is the policy's reserve.
+  static func promptTokens(provider: CloudProviderID, toolbox: (any AgentToolbox)?) -> Int {
+    let system = switch (provider, toolbox) {
+    case (.chatGPT, nil), (.claudeCode, nil): ClaudeCodeRuntime.systemPrompt
+    case (.chatGPT, let toolbox?), (.claudeCode, let toolbox?): ClaudeCodeToolMode.systemPrompt(toolbox, providerSearch: true)
+    case (_, nil): ChatResponseStyle.instructions
+    case (_, let toolbox?): CloudToolLoop.systemPrompt(toolbox)
+    }
+    let tools = toolbox.map { toolbox in
+      (try? JSONEncoder().encode(CodexValue.array(toolbox.definitions.map(\.codex)))).map { String(decoding: $0, as: UTF8.self) } ?? ""
+    } ?? ""
+    return ContextEstimate.tokens(system) + ContextEstimate.tokens(tools)
+  }
+
+  /// Codex File Mode's thread: its instructions, the attached selection and the file tools.
+  static func promptTokens(fileMode selection: WorkspaceSelection) -> Int {
+    let thread = CodexFileMode.threadParameters(model: "", selection: selection)
+    let tools = (try? JSONEncoder().encode(thread["dynamicTools"])).map { String(decoding: $0, as: UTF8.self) } ?? ""
+    return ContextEstimate.tokens((thread["baseInstructions"].string ?? "") + (thread["developerInstructions"].string ?? ""))
+      + ContextEstimate.tokens(tools)
+  }
+
+  static func prepare(_ request: ChatRequest, toolbox: (any AgentToolbox)? = nil,
+                      fileMode: WorkspaceSelection? = nil) throws -> PreparedConversation {
     try ScreenRequestGuard.validateCloud(request)
     guard let provider = CloudProviderID(rawValue: request.route.providerID) else {
       throw CloudProviderError.invalidResponse
@@ -192,7 +269,9 @@ enum CloudContext {
     }
     return try ChatContextPreparer.prepare(
       request.messages,
-      budget: ModelContextPolicy.cloud(provider: provider, modelID: request.route.modelID),
+      budget: ModelContextPolicy.cloud(provider: provider, modelID: request.route.modelID,
+                                       promptTokens: fileMode.map { promptTokens(fileMode: $0) }
+                                         ?? promptTokens(provider: provider, toolbox: toolbox)),
       countTokens: { try inputTokenCount($0, provider: provider) + (request.image == nil ? 0 : 4096) }
     )
   }
