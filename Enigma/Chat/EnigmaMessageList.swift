@@ -87,6 +87,9 @@ struct EnigmaMessageList<Revision: View>: View {
     case .message(let message):
       EnigmaUserMessage(message: message)
         .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 18)))
+    case .summaryMarker:
+      EnigmaFootnote(text: ConversationTranscript.summaryMarkerText)
+        .transition(.opacity)
     case .reply(let reply):
       EnigmaReplyView(reply: reply, expandedActivity: activityExpansion(reply.activity?.id ?? reply.id)) {
         if let message = reply.message { revision(message) }

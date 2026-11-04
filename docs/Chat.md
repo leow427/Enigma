@@ -609,6 +609,71 @@ Web search evidence is fitted into the same budget: it takes up to half of what'
 left after the current question, and recent history is added only after the
 evidence fits. See [Web-Search.md](Web-Search.md).
 
+#### Compaction
+
+When a chat doesn't fit, `ChatCompactor` (`Enigma/Chat/ChatCompaction.swift`)
+compacts the request copy the way Codex and Claude Code do (owner, 2026-11-03:
+as small as stays useful, so a long local chat keeps working). Every send path
+(local, local with tools, cloud, cloud with tools, Screen and search grounding)
+runs it through one preparation in `LocalChatViewModel`, with the route's own
+count, so compaction and the request always agree.
+
+1. **Summarize everything.** Every turn, the newest too, is summarized by the
+   route's own model, with no tools, into handoff notes of at most 300 words:
+   what the user wants and has decided, their preferences, key facts, what's
+   open and where the latest exchange left off. Each summary request is one user
+   message with the instruction and the turns as JSON (a 1,024-token answer
+   allowance in the embedded local engine; other runtimes and cloud clients keep
+   their usual allowance). The status reads "Summarizing earlier messages…". When
+   the turns are too many for one summary request, they go in at most two
+   chunks of the newest turns, run oldest first, the second folding in the
+   first; older turns past them, or past a turn too big for a summary request
+   on its own, are left out, as Codex trims what it summarizes (when the newest
+   turn is that big, nothing is summarized). If a chunk fails, the summary covers
+   only the turns before it.
+   A summary that is empty, over 900 tokens by the route's count (beyond what a
+   one-character message counts, so a system prompt or an image isn't charged to
+   it), or fails is not used.
+2. **Keep what the notes can't.** As Codex does, the user's latest messages are
+   kept word for word, newest first, up to 400 tokens by the cloud estimate
+   (about 150 words), the first that doesn't fit cut to the room left; replies
+   aren't kept. As Claude Code rereads recent files, the context attached to the
+   latest summarized message that had any (a selection, say) is sent again in
+   full when it takes at most a quarter of the input budget.
+3. **Drop.** Whatever still doesn't fit is dropped oldest first, as before, with
+   the omitted-messages notice. The summary turn goes last: when grounding or a
+   tool loop prepares a compacted request again, later turns go before it.
+
+In requests the summarized turns become one user message: "The earlier
+conversation was compacted to save space. Your handoff notes on it:", the notes,
+the user's latest messages as JSON and any attached context, followed by an
+assistant `Understood.`, so turns still alternate on every provider. After
+compaction a chat uses roughly a tenth to a fifth of its budget (more with
+attached context), plus the new message.
+
+The summary (`ChatSummary`: its notes, the user's latest messages, the last
+message it covers and when; its attached context stays in memory, like a
+message's own) is
+kept with the chat, as the optional `summary` in `chats.json`, and in memory only
+for a temporary chat. It goes with every later request, on any route, until the
+chat needs compacting again; the new summary then folds the old one in. Its
+copy of attached context goes only while that context is still attached. A saved
+summary is never shown or edited.
+
+In Auto, a long chat stays on this Mac and is compacted there, but Auto keeps
+the latest exchange whole: the chat as it is, or, compacted, the summary (or the
+longest it may become), the newest turn and the current message, must fit
+locally. When they don't,
+Auto answers in the cloud and says so above the reply: "Answered in the cloud:
+the latest messages are too long for this Mac." Local mode always stays local.
+
+The chat shows a quiet "Earlier messages summarized" line after the last message
+the summary covers. Summarized turns don't count as omitted: the notice appears
+only when the last-resort drop also left turns out. `/compact` summarizes on
+request (see [Slash-Commands.md](Slash-Commands.md)). `LocalChatViewModel.contextUsage`
+holds the selected chat's `ContextUsage` after each preparation, for the context
+ring (CP5).
+
 ## Limitations
 
 - History is best effort. There are no backups or retries, a failed save shows no

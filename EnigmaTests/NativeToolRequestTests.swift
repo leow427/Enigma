@@ -288,6 +288,7 @@ final class NativeToolRequestTests: XCTestCase {
     }
     try sessionStore.save([saved])
     let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    provider.plainReply = ""  // F35 CP3: an unusable summary, so the chat is trimmed as before.
     let chat = makeChat(cloud: provider, sessionStore: sessionStore)
     chat.selectSession(id: saved.id)
     await chat.refreshInstalledModel()
@@ -295,6 +296,153 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(provider.toolStreams.values.count, 1)
     XCTAssertEqual(provider.clientPreparation.values, ["kept"])
     XCTAssertNotNil(chat.contextNotice, "The chat is over the 65,536-token cap")
+  }
+
+  /// F35 CP3: a tool turn sends the chat's saved summary in place of the turns it covers, and a
+  /// chat that needs one is summarized on the tool runtime with no tools.
+  func testToolTurnUsesSummary() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Summarized")
+    for turn in 0..<3 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.summary = ChatSummary(text: "Saved notes.", throughMessageID: saved.messages[1].id, createdAt: .now)
+    try sessionStore.save([saved])
+    let inference = NativeScriptedInference(steps: [.text("Done.")])
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat)
+    let first = await inference.requests.first
+    let sent = try XCTUnwrap(first).messages.dropFirst().map { $0.content ?? "" }
+    XCTAssertEqual(Array(sent.prefix(2)), [ChatCompactor.summaryPrefix + "\n\nSaved notes.", ChatCompactor.summaryReply])
+    XCTAssertFalse(sent.contains("Question 0"), "The summarized turn isn't sent")
+    XCTAssertTrue(sent.contains("Question 1"))
+
+    // A chat past the budget: the first call is the summary, with no tools.
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_000)))
+    }
+    try sessionStore.save([long])
+    let summarizing = NativeScriptedInference(steps: [.text("Fresh notes."), .text("Done.")])
+    let longChat = makeChat(inference: summarizing, sessionStore: sessionStore)
+    longChat.selectSession(id: long.id)
+    await longChat.refreshInstalledModel()
+    try await send("Hi", to: longChat)
+    let requests = await summarizing.requests
+    XCTAssertEqual(requests.first?.tools, [])
+    XCTAssertTrue(requests.first?.messages.last?.content?.hasPrefix(ChatCompactor.instruction) == true)
+    XCTAssertTrue(requests.dropFirst().first?.messages.dropFirst().first?.content?.hasPrefix(ChatCompactor.summaryPrefix + "\n\nFresh notes.") == true)
+    XCTAssertEqual(longChat.selectedSession?.summary?.text, "Fresh notes.")
+  }
+
+  /// F35 CP3: typing warms the prefix the turn will send, with the chat's summary.
+  func testWarmUpUsesTheSavedSummary() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Summarized")
+    for turn in 0..<3 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.summary = ChatSummary(text: "Saved notes.", throughMessageID: saved.messages[1].id, createdAt: .now)
+    try sessionStore.save([saved])
+    let inference = NativeScriptedInference()
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    XCTAssertTrue(chat.warmNativeTurn(draft: "Hi", mode: .local, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    let warmed = await inference.warms[0].messages.dropFirst().map { $0.content ?? "" }
+    XCTAssertEqual(Array(warmed.prefix(2)), [ChatCompactor.summaryPrefix + "\n\nSaved notes.", ChatCompactor.summaryReply])
+    XCTAssertFalse(warmed.contains("Question 0"))
+  }
+
+  /// F35 CP3: a chat holding message text asks before its text goes to the cloud, even to summarize it.
+  func testLongCloudToolTurnAsksBeforeSummarizing() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 20_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 20_000)))
+    }
+    long.holdsMessageText = true
+    try sessionStore.save([long])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    var cards: [ToolPermissionRequest] = []
+    try await send("Hi", to: chat, route: Self.cloudRoute, answers: [.deny], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission), [.shareMessageText])
+    XCTAssertTrue(provider.plainStreams.values.isEmpty, "No summary request before the permission")
+    XCTAssertTrue(provider.toolStreams.values.isEmpty)
+    XCTAssertNil(chat.selectedSession?.summary)
+  }
+
+  /// F35 CP3: a cloud tool turn sends the compacted chat, summarized by the plain client.
+  func testCloudToolTurnSendsTheCompactedChat() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    // About 80,000 estimated tokens, past the 65,536 cap.
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 20_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 20_000)))
+    }
+    try sessionStore.save([long])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertTrue(provider.plainStreams.values.first?.hasPrefix(ChatCompactor.instruction) == true, "Summarized with no tools")
+    XCTAssertEqual(chat.selectedSession?.summary?.text, "Plain cloud.")
+    XCTAssertEqual(provider.clientPreparation.values, ["kept"], "The tool request is the compacted chat")
+    XCTAssertNil(chat.contextNotice)
+  }
+
+  /// F35 CP3: typed /messages on a local model compacts on the tool runtime first.
+  func testTypedMessagesCompactsALongChat() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_000)))
+    }
+    try sessionStore.save([long])
+    let inference = NativeScriptedInference(steps: [.text("Fresh notes."), .text("Done.")])
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Who texted me?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    let requests = await inference.requests
+    XCTAssertEqual(requests.first?.tools, [])
+    XCTAssertTrue(requests.first?.messages.last?.content?.hasPrefix(ChatCompactor.instruction) == true)
+    XCTAssertTrue(requests.dropFirst().first?.messages.dropFirst().first?.content?.hasPrefix(ChatCompactor.summaryPrefix + "\n\nFresh notes.") == true)
+  }
+
+  /// F35 CP3: /compact never sends a chat holding message text where that wasn't allowed.
+  func testCompactKeepsMessageTextWhereItWasAllowed() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Held")
+    for turn in 0..<4 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.holdsMessageText = true
+    try sessionStore.save([saved])
+    let provider = NativeToolProvider(steps: [])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    XCTAssertFalse(chat.messageTextMayGo(to: Self.cloudRoute))
+    await chat.compactNow(route: Self.cloudRoute)
+    XCTAssertTrue(provider.plainStreams.values.isEmpty && provider.toolStreams.values.isEmpty, "Nothing was sent")
+    XCTAssertEqual(chat.state, .failed(NativeToolsError.messageTextStays.localizedDescription))
+    XCTAssertNil(chat.selectedSession?.summary)
   }
 
   func testCloudTurnAlsoAsksForTheRequiredToolInWords() async throws {
@@ -482,7 +630,8 @@ final class NativeToolRequestTests: XCTestCase {
     }
     try sessionStore.save([saved])
     let search = NativeSearchProvider(results: Self.searchResults)
-    let inference = NativeScriptedInference(steps: [.call("web_search", #"{"query":"news"}"#), .text("Found.")])
+    // F35 CP3: an unusable summary first, so the chat is trimmed as before.
+    let inference = NativeScriptedInference(steps: [.text(""), .call("web_search", #"{"query":"news"}"#), .text("Found.")])
     let chat = makeChat(inference: inference, search: search, sessionStore: sessionStore)
     chat.selectSession(id: saved.id)
     await chat.refreshInstalledModel()
@@ -2157,6 +2306,8 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
   private var steps: [[Event]]
   let toolStreams = LockedStrings()
   let plainStreams = LockedStrings()
+  /// F35 CP3: what a plain stream answers, such as a summary request.
+  var plainReply = "Plain cloud."
   let toolNames = LockedStrings()
   let requiredTools = LockedStrings()
   /// F35: "kept" when the real clients' preparation, with this toolbox, keeps every message sent.
@@ -2166,7 +2317,8 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
 
   func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
     plainStreams.append(request.messages.last?.content ?? "")
-    return AsyncThrowingStream { $0.yield(.token("Plain cloud.")); $0.finish() }
+    let reply = plainReply
+    return AsyncThrowingStream { $0.yield(.token(reply)); $0.finish() }
   }
 
   func stream(_ request: ChatRequest, toolbox: any AgentToolbox) -> AsyncThrowingStream<ChatEvent, Error> {

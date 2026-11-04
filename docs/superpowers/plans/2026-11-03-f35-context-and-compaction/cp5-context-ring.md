@@ -76,11 +76,13 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   `UI-Style.md` and to `EnigmaThemeTests` (≥ 3:1 against `surface` for the
   three fill colours, as non-text graphics).
 - **Hover and click:** hovering the ring shows a tooltip with the plan's
-  "Ring help" copy; clicking it shows the same text in a small popover. Its
+  "Ring help" copy; clicking it shows a small popover with the plan's "Ring
+  popover" token line (`12K of 32K tokens used`, owner request 2026-11-03)
+  above the same help text. Its
   hit area is the ring's stroke widened to 8 pt, outside the character's
   handle, so a click on the character still pokes it and dragging still
   drags. The ring is its own accessibility element, labelled
-  `Context` with the help text as its value.
+  `Context` with the popover's two lines as its value.
 - **Visibility:** shown when `contextUsage` is non-nil, the character is
   present and at rest in a reply or compact-panel slot, not on the empty
   page, not in the tour or welcome. While `isAwayFromSlot` it fades out over
@@ -99,7 +101,8 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   89.9% warning, 90% contextFull); `testRingFillIsExactFraction` (no
   steps); `testRingGapIsAtTheBottom`; `testNewTokensMeetContrast`; the help
   text at 71.4% used ("28% of context left") and at 92% used, with the
-  summary sentence.
+  summary sentence; `testRingTokenLineFormatsThousands` (640, 8,192 → `8.2K`,
+  12,345 → `12K`, 65,536 → `66K`, as `<U> of <L> tokens used`).
 
 ### Task 5.2: On the stage
 
@@ -107,7 +110,8 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   `testRingFillIsThePreparedRequestsFraction` (a local and a cloud route);
   `testRingShowsBesideLatestReply` and `testRingShowsInCompactPanelSlot`;
   `testRingHiddenOnEmptyPageAndInTour`; `testRingFadesWhileDraggedAndReturns`;
-  `testClickOnCharacterStillPokes`; `testClickOnRingShowsShareLeft`;
+  `testClickOnCharacterStillPokes`; `testClickOnRingShowsShareLeft` (the token
+  line and the share left);
   `testRingDropsAfterCompaction`; `testRingChangesWithRoute`;
   `testRingUpdatesDuringToolTurn`; `testRingVoiceOverLabel`.
 

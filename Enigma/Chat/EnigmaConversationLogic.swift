@@ -13,14 +13,19 @@ struct ConversationTranscript: Equatable {
     /// Something the person sent.
     case message(ChatMessage)
     case reply(Reply)
+    /// After the last message the chat's summary covers (F35); its id is derived from that message's.
+    case summaryMarker(UUID)
 
     var id: UUID {
       switch self {
       case .message(let message): message.id
       case .reply(let reply): reply.id
+      case .summaryMarker(let id): id
       }
     }
   }
+
+  static let summaryMarkerText = "Earlier messages summarized"
 
   struct Reply: Equatable {
     /// The request's id while it prepares and once its reply is written, so
@@ -62,8 +67,9 @@ struct ConversationTranscript: Equatable {
   let rows: [Row]
 
   /// `messages` are the chat's presentation messages, `activity` the running
-  /// request's, and `isResponding` whether a request is running.
-  init(messages: [ChatMessage], activity: AssistantActivity?, isResponding: Bool) {
+  /// request's, and `isResponding` whether a request is running. `summarizedThrough` is the
+  /// last message the chat's summary covers.
+  init(messages: [ChatMessage], activity: AssistantActivity?, isResponding: Bool, summarizedThrough: UUID? = nil) {
     var rows: [Row] = []
     for message in messages {
       switch message.role {
@@ -88,6 +94,17 @@ struct ConversationTranscript: Equatable {
       let running = isResponding && index == rows.count - 1
       rows[index] = .reply(Reply(id: reply.id, message: reply.message, activity: reply.activity, isLatest: true,
                                  isInProgress: running))
+    }
+    if let through = summarizedThrough, let index = rows.firstIndex(where: {
+      switch $0 {
+      case .message(let message): message.id == through
+      case .reply(let reply): reply.message?.id == through
+      case .summaryMarker: false
+      }
+    }) {
+      var marker = through.uuid
+      marker.0 ^= 0xFF
+      rows.insert(.summaryMarker(UUID(uuid: marker)), at: index + 1)
     }
     self.rows = rows
   }

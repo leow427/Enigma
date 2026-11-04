@@ -3,6 +3,8 @@ import Foundation
 /// The same catalog drives execution, syntax coloring, and completion.
 enum SlashCommand: String, CaseIterable, Identifiable {
   case search, screen, snapshot, think, edit, translate, messages, maps
+  /// An action on the chat (F35), not a modifier of a message: only a draft of just `/compact`.
+  case compact
 
   var id: String { rawValue }
   var token: String { "/" + rawValue }
@@ -16,6 +18,7 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     case .translate: "Translate to English or a language you name"
     case .messages: "Read, search, and send your Messages"
     case .maps: "Find places with Apple Maps"
+    case .compact: "Summarize earlier messages to free up context"
     }
   }
 
@@ -44,9 +47,16 @@ enum SlashCommand: String, CaseIterable, Identifiable {
   static func tokens(in text: String) -> [Token] {
     let source = text as NSString
     return ranges(in: text).compactMap { range in
-      guard let command = SlashCommand(rawValue: String(source.substring(with: range).dropFirst()).lowercased()) else { return nil }
+      guard let command = SlashCommand(rawValue: String(source.substring(with: range).dropFirst()).lowercased()),
+            command != .compact || isAlone(range, in: text) else { return nil }
       return Token(command: command, range: range)
     }
+  }
+
+  /// Nothing but whitespace around `range`.
+  private static func isAlone(_ range: NSRange, in text: String) -> Bool {
+    let source = text as NSString
+    return source.replacingCharacters(in: range, with: "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   static func removing(_ commands: Set<SlashCommand>, from text: String) -> String {
@@ -66,7 +76,7 @@ enum SlashCommand: String, CaseIterable, Identifiable {
     }) else { return nil }
     let prefix = source.substring(with: NSRange(location: range.location + 1,
       length: selection.location - range.location - 1)).lowercased()
-    let matches = availableCommands.filter { $0.rawValue.hasPrefix(prefix) }
+    let matches = availableCommands.filter { $0.rawValue.hasPrefix(prefix) && ($0 != .compact || isAlone(range, in: text)) }
     guard !matches.isEmpty else { return nil }
     return Completion(range: range, commands: matches)
   }

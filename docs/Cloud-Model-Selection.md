@@ -39,8 +39,11 @@ Auto picks a route from the request itself, without asking another model:
    [Web-Search.md](Web-Search.md).
    This rule is skipped when the local model chooses its own tools, since the
    model can search for itself.
-3. If the conversation won't fit the local model's context, Auto uses the cloud,
-   provided the latest message fits the cloud budget.
+3. If the latest message, the newest turn and the chat's summary (or the
+   longest it may become) won't fit the local model's context, Auto uses the
+   cloud, provided it fits the cloud budget, and says so above the reply. Older
+   turns alone keep a chat on this Mac, where they are compacted
+   (F35; see [Chat](Chat.md#compaction)).
 4. Coding requests (for example "write a function", "debug", "stack trace", or a
    language name such as Swift or Python) go to the cloud.
 5. Demanding reasoning goes to the cloud: words such as "analyze", "prove" or

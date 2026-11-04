@@ -1067,7 +1067,8 @@ struct AppShellView: View {
 
   private var conversationTranscript: ConversationTranscript {
     ConversationTranscript(messages: localChat.presentationMessages.map(localChat.selectionDisplayMessage),
-                           activity: localChat.activity, isResponding: localChat.activeRequest != nil)
+                           activity: localChat.activity, isResponding: localChat.activeRequest != nil,
+                           summarizedThrough: localChat.selectedSession?.summary?.throughMessageID)
   }
 
   private func activityExpansion(_ id: UUID) -> Binding<Bool> {
@@ -1227,7 +1228,25 @@ struct AppShellView: View {
         draft = ComposerSubmission.draftAfterAcceptance(current: draft, sent: originalDraft)
       }
       rememberSentDraft(originalDraft)
+    case .compact:
+      draft = ""
+      if let route = compactRoute() { Task { await localChat.compactNow(route: route) } }
     }
+  }
+
+  /// The model `/compact` summarizes with: the selected route; in Auto, this Mac's model, else Auto's cloud.
+  private func compactRoute() -> Route? {
+    let mode = shell.selectedMode
+    if mode != .cloud, let model = localChat.installedModel {
+      return Route(mode: .local, providerID: "local", modelID: model.id, usesNetwork: false)
+    }
+    if mode == .auto {
+      return autoCloudConfiguration.map { Route(mode: .cloud, providerID: $0.provider.rawValue, modelID: $0.modelID, usesNetwork: true,
+                                                isAuto: true) }
+    }
+    let modelID = cloudSettings.preferredModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+    return mode == .cloud && !modelID.isEmpty
+      ? Route(mode: .cloud, providerID: cloudSettings.preferredProvider.rawValue, modelID: modelID, usesNetwork: true) : nil
   }
 
   /// Sends a chat message on the selected route. The resolved draft already
@@ -1267,7 +1286,7 @@ struct AppShellView: View {
     let intent = ComposerIntent.resolve(intentContext(draft: message.text, hasFileSelection: false, hasScreenshot: false,
                                                       dismissed: message.dismissed))
     switch ComposerSubmission.plan(intent, hasFileSelection: false, hasScreenshot: false, canSubmit: canSubmit) {
-    case .none, .captureScreen, .screenAttachment, .fileConflict, .files, .nothingToFind, .mapsConflict:
+    case .none, .captureScreen, .screenAttachment, .fileConflict, .files, .nothingToFind, .mapsConflict, .compact:
       return
     case .messagesConflict:
       messages.report(ComposerSubmission.messagesConflictMessage)
@@ -1324,7 +1343,8 @@ struct AppShellView: View {
       additionalInputTokens: attachment.ocrText.utf8.count + 512
         + (ScreenRoutingPolicy.requiresVision(prompt: prompt, ocr: ScreenOCRResult(text: attachment.ocrText,
           confidence: attachment.ocrConfidence)) ? 4096 : 0),
-      cloud: connectivity.isOffline ? nil : autoCloudConfiguration)) : nil
+      cloud: connectivity.isOffline ? nil : autoCloudConfiguration,
+      summary: localChat.appliedSummary.map(ChatCompactor.rendered))) : nil
     if let limitation = automatic?.limitation {
       screen.error = limitation.message
       return

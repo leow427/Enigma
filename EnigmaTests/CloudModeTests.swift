@@ -331,11 +331,12 @@ final class CloudModeTests: XCTestCase {
       defer { try? FileManager.default.removeItem(at: root) }
       let store = ChatSessionStore(applicationSupportDirectory: root)
       let original = [
-        // F35: past every route's 65,536-token cap at about three bytes a token.
-        ChatMessage(role: .user, content: String(repeating: "old", count: 70_000)),
+        ChatMessage(role: .user, content: "old"),
         ChatMessage(role: .assistant, content: "old reply"),
-        ChatMessage(role: .user, content: "recent"),
-        ChatMessage(role: .assistant, content: "recent reply"),
+        // F35: past every route's 65,536-token cap at about three bytes a token. The newest turn
+        // (CP3), so nothing fits a summary request and turns are dropped.
+        ChatMessage(role: .user, content: String(repeating: "big", count: 70_000)),
+        ChatMessage(role: .assistant, content: "big reply"),
       ]
       try store.save([ChatSession(messages: original)])
       let persistedOriginal = store.load()[0].messages
@@ -354,11 +355,11 @@ final class CloudModeTests: XCTestCase {
         credentialStore: MockCredentialStore(keys: [provider == .free ? .gemini : provider: "fixture-key"]),
         transport: transport,
         chatGPT: ContextCompletionProvider(onRequest: { request in
-          XCTAssertEqual(request.messages.map(\.content), ["recent", "recent reply", "current"])
+          XCTAssertEqual(request.messages.map(\.content), ["current"])
           ended.fulfill()
         }),
         claudeCode: ContextCompletionProvider(onRequest: { request in
-          XCTAssertEqual(request.messages.map(\.content), ["recent", "recent reply", "current"])
+          XCTAssertEqual(request.messages.map(\.content), ["current"])
           ended.fulfill()
         })
       )
@@ -371,8 +372,9 @@ final class CloudModeTests: XCTestCase {
       // Free models only send a model that is set up (F34).
       viewModel.submitCloud(draft, provider: provider, modelID: provider == .free ? "gemini-3.8-flash" : "manual",
                             onAccepted: { draft = "" })
-      XCTAssertEqual(draft, "")
+      // F35 CP3: compaction is tried first (the newest turn is too big to summarize), so acceptance is async.
       await fulfillment(of: [ended], timeout: 2)
+      XCTAssertEqual(draft, "")
       await viewModel.sessionWriter.waitForPendingWrites()
       XCTAssertEqual(Array(store.load()[0].messages.prefix(4)), persistedOriginal)
       XCTAssertEqual(store.load()[0].messages.count, 6)

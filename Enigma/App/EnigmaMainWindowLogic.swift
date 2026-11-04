@@ -374,7 +374,7 @@ struct SlashCommandExample: Equatable, Identifiable {
   var id: SlashCommand { command }
 
   /// The order the main page lists commands in, most useful first.
-  static let order: [SlashCommand] = [.screen, .search, .edit, .translate, .think, .snapshot, .messages, .maps]
+  static let order: [SlashCommand] = [.screen, .search, .edit, .translate, .think, .snapshot, .messages, .maps, .compact]
 
   static func example(for command: SlashCommand) -> SlashCommandExample {
     switch command {
@@ -386,6 +386,7 @@ struct SlashCommandExample: Equatable, Identifiable {
     case .translate: SlashCommandExample(command: command, argument: "\"Bạn khỏe không?\"", result: "\"How are you?\"")
     case .messages: SlashCommandExample(command: command, argument: "\"what did Sam say?\"", result: "from your Messages")
     case .maps: SlashCommandExample(command: command, argument: "bookshops", result: "places from Apple Maps")
+    case .compact: SlashCommandExample(command: command, argument: nil, result: "earlier messages summarized")
     }
   }
 

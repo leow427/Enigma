@@ -143,21 +143,33 @@ enum ChatContextPreparer {
     _ messages: [ChatMessage], budget: ContextBudget,
     countTokens: ([ChatMessage]) async throws -> Int
   ) async throws -> PreparedConversation {
-    let canonical = try prepare(messages, budget: budget, countTokens: { _ in 0 }).messages
+    var canonical = try prepare(messages, budget: budget, countTokens: { _ in 0 }).messages
     var retained = [canonical[canonical.count - 1]]
     try Task.checkCancellation()
     var count = try await countTokens(retained)
     guard count >= 0, count <= budget.availableInputTokens else {
       throw ChatContextError.oversizedPrompt(inputLimit: budget.availableInputTokens)
     }
+    // As in `prepare`, a compacted chat's summary turn is the last thing dropped.
+    var head: [ChatMessage] = []
+    if canonical.count > 2, ChatCompactor.isSummaryTurn(Array(canonical.prefix(2))) {
+      let summary = Array(canonical.prefix(2))
+      canonical.removeFirst(2)
+      let candidateCount = try await countTokens(summary + retained)
+      if candidateCount >= 0, candidateCount <= budget.availableInputTokens {
+        head = summary
+        count = candidateCount
+      }
+    }
     for start in stride(from: canonical.count - 3, through: 0, by: -2) {
       try Task.checkCancellation()
       let candidate = Array(canonical[start...])
-      let candidateCount = try await countTokens(candidate)
+      let candidateCount = try await countTokens(head + candidate)
       guard candidateCount >= 0, candidateCount <= budget.availableInputTokens else { break }
       retained = candidate
       count = candidateCount
     }
+    retained = head + retained
     try Task.checkCancellation()
     return PreparedConversation(messages: retained, inputTokenCount: count,
       omittedMessageCount: messages.count - retained.count, budget: budget)
@@ -207,32 +219,54 @@ enum ChatContextPreparer {
       throw ChatContextError.oversizedPrompt(inputLimit: budget.availableInputTokens)
     }
 
-    var turns: [[ChatMessage]] = []
-    var index = 0
-    while index + 1 < messages.count - 1 {
-      let user = messages[index]
-      let assistant = messages[index + 1]
-      if user.role == .user, assistant.role == .assistant,
-         !user.content.isEmpty, !assistant.content.isEmpty {
-        turns.append([user, assistant])
-        index += 2
-      } else {
-        index += 1
+    // A compacted chat's summary turn (F35) is the last thing dropped, not the first: it stands
+    // for the whole earlier chat.
+    var ranges = turnRanges(messages)
+    var head: [ChatMessage] = []
+    if let first = ranges.first, ChatCompactor.isSummaryTurn(Array(messages[first])) {
+      ranges.removeFirst()
+      let candidate = Array(messages[first]) + retained
+      let candidateCount = try countTokens(candidate)
+      if candidateCount <= budget.availableInputTokens {
+        head = Array(messages[first])
+        tokenCount = candidateCount
       }
     }
-    for turn in turns.reversed() {
-      let candidate = turn + retained
+    for turn in ranges.reversed().map({ Array(messages[$0]) }) {
+      let candidate = head + turn + retained
       let candidateCount = try countTokens(candidate)
       guard candidateCount <= budget.availableInputTokens else { break }
-      retained = candidate
+      retained = turn + retained
       tokenCount = candidateCount
     }
+    retained = head + retained
     return PreparedConversation(
       messages: retained,
       inputTokenCount: tokenCount,
       omittedMessageCount: messages.count - retained.count,
       budget: budget
     )
+  }
+}
+
+extension ChatContextPreparer {
+  /// The complete user/assistant turns before the current (last) message, oldest first, by
+  /// position in `messages` (expanded, as requests are counted).
+  static func turnRanges(_ messages: [ChatMessage]) -> [Range<Int>] {
+    var ranges: [Range<Int>] = []
+    var index = 0
+    while index + 1 < messages.count - 1 {
+      let user = messages[index]
+      let assistant = messages[index + 1]
+      if user.role == .user, assistant.role == .assistant,
+         !user.content.isEmpty, !assistant.content.isEmpty {
+        ranges.append(index..<index + 2)
+        index += 2
+      } else {
+        index += 1
+      }
+    }
+    return ranges
   }
 }
 

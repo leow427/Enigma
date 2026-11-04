@@ -74,6 +74,8 @@ struct ComposerCommands: Equatable {
   let messages: Bool
   /// Find places with Apple Maps (F29): wins over /search.
   let maps: Bool
+  /// The whole draft is `/compact` (F35).
+  let compact: Bool
 
   init(_ draft: String) {
     let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
@@ -86,6 +88,7 @@ struct ComposerCommands: Equatable {
     edit = commands.contains(.edit) && !translate
     messages = commands.contains(.messages)
     maps = commands.contains(.maps)
+    compact = commands.contains(.compact)
   }
 
   var hasPrompt: Bool { !prompt.isEmpty || edit || translate }

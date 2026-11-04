@@ -20,6 +20,8 @@ enum ComposerSubmission: Equatable {
   case nothingToFind
   /// /maps can't be combined with a screenshot (spec §6.3).
   case mapsConflict
+  /// `/compact` on its own: summarize the chat's earlier messages, sending nothing (F35).
+  case compact
 
   static let fileConflictMessage = "Turn off Screen, Web Search, and Messages to work with your attached files."
   static let messagesConflictMessage =
@@ -52,6 +54,7 @@ enum ComposerSubmission: Equatable {
   static func plan(_ intent: ComposerIntent, hasFileSelection: Bool, hasScreenshot: Bool,
                    canSubmit: @autoclosure () -> Bool) -> ComposerSubmission {
     let typed = intent.typed
+    if typed.compact { return canSubmit() ? .compact : .none }
     if hasFileSelection {
       if hasScreenshot || typed.screen || typed.search || typed.maps || typed.messages { return .fileConflict }
       return .files(prompt: intent.draftWithInferredCommands)

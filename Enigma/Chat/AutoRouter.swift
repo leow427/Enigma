@@ -97,6 +97,8 @@ struct AutoRouter: Sendable {
     let cloud: CloudConfiguration?
     /// The model searches for itself with its tools (F32), so a lookup never blocks or reroutes.
     let modelChoosesSearch: Bool
+    /// The chat's saved summary (F35), which goes with every request.
+    var summary: String? = nil
 
     init(
       selectedMode: ChatMode,
@@ -108,8 +110,10 @@ struct AutoRouter: Sendable {
       localCapabilities: ModelCapabilities? = nil,
       additionalInputTokens: Int = 0,
       cloud: CloudConfiguration?,
-      modelChoosesSearch: Bool = false
+      modelChoosesSearch: Bool = false,
+      summary: String? = nil
     ) {
+      self.summary = summary
       self.selectedMode = selectedMode
       self.webSearchEnabled = webSearchEnabled
       self.prompt = prompt
@@ -217,13 +221,22 @@ struct AutoRouter: Sendable {
     }
 
     let candidateMessages = request.contextMessages + [ChatMessage(role: .user, content: request.prompt)]
+    // A long chat is compacted on this Mac (F35), but Auto keeps the latest exchange whole (owner,
+    // 2026-11-03): the chat as it is, or, when compacted, the summary (or the longest it may
+    // become), the newest turn and the current message, must fit, or the turn goes to the cloud.
+    let turns = ChatContextPreparer.turnRanges(candidateMessages).map { request.contextMessages[$0] }
+    let summary = [request.summary, turns.count > 1 ? ChatCompactor.summaryStandIn : nil]
+      .compactMap { $0 }.max { $0.utf8.count < $1.utf8.count }
+    let compacted = (summary.map(ChatCompactor.summaryTurn) ?? []) + turns.suffix(1).joined()
+      + [ChatMessage(role: .user, content: request.prompt)]
+    let whole = (request.summary.map(ChatCompactor.summaryTurn) ?? []) + candidateMessages
     let localBudget = ContextBudget(
       contextWindow: request.localCapabilities.maximumContextTokens,
       outputTokens: ModelContextPolicy.localOutputTokens, overheadTokens: 256
     )
     // This is a cheap conservative routing estimate. Local acceptance uses the
     // selected GGUF's real template/tokenizer and effective runtime context.
-    let localInputCount = candidateMessages.reduce(request.additionalInputTokens) { $0 + $1.content.utf8.count + 32 }
+    let localInputCount = [whole, compacted].map { $0.reduce(request.additionalInputTokens) { $0 + $1.content.utf8.count + 32 } }.min()!
     if localInputCount > localBudget.availableInputTokens {
       var cloudBudget = ModelContextPolicy.cloud(provider: cloud.provider, modelID: cloud.modelID,
         promptTokens: CloudContext.promptTokens(provider: cloud.provider, toolbox: nil))

@@ -2236,12 +2236,18 @@ final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @uncheck
   private var replies: [AsyncThrowingStream<String, Error>.Continuation] = []
 
   private var withholds = false
+  private var window = 4_096
   private var preparationGates: [UUID: CheckedContinuation<Void, Never>] = [:]
   private var holdsPreparation = false
 
   init(model: LocalModel?) { self.model = model }
 
   var requestCount: Int { lock.withLock { requests } }
+  /// The window preparation counts against (F35): a long chat that isn't meant to be summarized sets a larger one.
+  var contextWindow: Int {
+    get { lock.withLock { window } }
+    set { lock.withLock { window = newValue } }
+  }
   /// The engine reports no model, as when it's removed after the chat last
   /// looked: a question then fails while it's prepared, before it's accepted.
   var withholdsModel: Bool {
@@ -2278,7 +2284,7 @@ final class MainWindowTestEngine: LocalModelEngine, LocalVisionServing, @uncheck
     }
     try Task.checkCancellation()
     return try ChatContextPreparer.prepare(
-      request.messages, budget: ContextBudget(contextWindow: 4_096, outputTokens: request.maximumTokenCount, overheadTokens: 256),
+      request.messages, budget: ContextBudget(contextWindow: contextWindow, outputTokens: request.maximumTokenCount, overheadTokens: 256),
       countTokens: { $0.reduce(0) { $0 + $1.content.utf8.count + 32 } })
   }
 
@@ -2386,5 +2392,147 @@ extension EnigmaMainWindowTests {
     XCTAssertTrue(requests.last?.tools.contains("get_messages") == true)
     XCTAssertTrue(requests.last?.messages.first?.content?.contains(AssistantToolbox.typedMessagesInstruction) == true)
     XCTAssertEqual(fixture.engine.requestCount, 0, "Today's ungated Messages loop never ran")
+  }
+}
+
+// F35 CP3: the summary marker in the chat, and /compact.
+extension EnigmaMainWindowTests {
+  private static let markerName = "Chat footnote " + ConversationTranscript.summaryMarkerText
+
+  /// `turns` exchanges; each message is `bytes` long.
+  private static func chatSession(turns: Int, bytes: Int = 20) -> ChatSession {
+    var session = ChatSession(title: "Chat")
+    for turn in 0..<turns {
+      session.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: max(0, bytes - 11))))
+      session.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: max(0, bytes - 9))))
+    }
+    return session
+  }
+
+  @MainActor
+  private func openChat(_ session: ChatSession) async throws -> (Fixture, Host, SlashCommandTextView) {
+    let fixture = try await Fixture(test: self, sessions: [session])
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    fixture.chat.selectSession(id: session.id)
+    try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
+    return (fixture, host, try XCTUnwrap(composerEditor(in: host.view)))
+  }
+
+  @MainActor
+  private func send(_ text: String, in host: Host, editor: SlashCommandTextView, fixture: Fixture) async throws {
+    editor.insertText(text, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+    try await waitForUI("the draft", in: host.view) { fixture.screen.draft == text }
+    editor.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+  }
+
+  /// Answers the engine's next stream with `text`, once `count` streams have started.
+  @MainActor
+  private func answer(_ text: String, request count: Int, fixture: Fixture, host: Host) async throws {
+    try await waitForUI("stream \(count)", in: host.view) { fixture.engine.requestCount == count }
+    fixture.engine.send(text)
+    fixture.engine.finish()
+  }
+
+  @MainActor
+  func testMarkerAppearsAfterSummarizedMessages() async throws {
+    var session = Self.chatSession(turns: 4)
+    let through = session.messages[3]
+    session.summary = ChatSummary(text: "Notes.", throughMessageID: through.id, createdAt: .now)
+    let transcript = ConversationTranscript(messages: session.messages, activity: nil, isResponding: false,
+                                            summarizedThrough: through.id)
+    let index = try XCTUnwrap(transcript.rows.firstIndex { if case .summaryMarker = $0 { true } else { false } })
+    XCTAssertEqual(transcript.rows[index - 1].id, through.id, "Right after the last summarized message")
+    XCTAssertEqual(transcript.rows.count, session.messages.count + 1)
+    XCTAssertFalse(Set(transcript.rows.map(\.id)).count < transcript.rows.count, "Row ids stay unique")
+
+    let (_, host, _) = try await openChat(session)
+    try await waitForUI("the marker", in: host.view) { host.shows(Self.markerName) }
+  }
+
+  @MainActor
+  func testMarkerReplacesOmittedNotice() async throws {
+    // Six turns of 800 bytes are past the fixture's 3,328 tokens of input (a byte a token).
+    let (fixture, host, editor) = try await openChat(Self.chatSession(turns: 6, bytes: 400))
+    XCTAssertFalse(host.shows(Self.markerName))
+    try await send("Next question", in: host, editor: editor, fixture: fixture)
+    // The turns don't fit one summary request here, so they're summarized in chunks, then answered.
+    var chunks = 0
+    while true {
+      try await waitForUI("stream \(chunks + 1)", in: host.view) { fixture.engine.requestCount == chunks + 1 }
+      guard fixture.engine.lastRequest?.messages.first?.content.hasPrefix(ChatCompactor.instruction) == true else { break }
+      chunks += 1
+      fixture.engine.send("Notes \(chunks).")
+      fixture.engine.finish()
+    }
+    fixture.engine.send("Reply.")
+    fixture.engine.finish()
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Reply." }
+    XCTAssertGreaterThan(chunks, 1)
+    XCTAssertTrue(fixture.engine.lastRequest?.messages.first?.content.hasPrefix(ChatCompactor.summaryPrefix) == true)
+    XCTAssertEqual(fixture.chat.selectedSession?.summary?.text, "Notes \(chunks).")
+    XCTAssertNil(fixture.chat.contextNotice, "Summarized turns aren't reported as omitted")
+    try await waitForUI("the marker", in: host.view) { host.shows(Self.markerName) }
+  }
+
+  @MainActor
+  func testDroppedTurnsStillShowNotice() async throws {
+    let (fixture, host, editor) = try await openChat(Self.chatSession(turns: 6, bytes: 400))
+    try await send("Next question", in: host, editor: editor, fixture: fixture)
+    try await answer("", request: 1, fixture: fixture, host: host)  // An empty summary is unusable.
+    try await answer("Reply.", request: 2, fixture: fixture, host: host)
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil && fixture.chat.messages.last?.content == "Reply." }
+    XCTAssertNotNil(fixture.chat.contextNotice, "The last-resort drop keeps its notice")
+    XCTAssertNil(fixture.chat.selectedSession?.summary)
+    XCTAssertFalse(host.shows(Self.markerName))
+  }
+
+  @MainActor
+  func testCompactCommandSummarizes() async throws {
+    let session = Self.chatSession(turns: 4)
+    let (fixture, host, editor) = try await openChat(session)
+    // After the command list, which takes the first Return, closes.
+    try await send("/compact ", in: host, editor: editor, fixture: fixture)
+    try await waitForUI("summarizing", in: host.view) {
+      fixture.chat.activity?.status == "Summarizing earlier messages…" && fixture.engine.requestCount == 1
+    }
+    XCTAssertEqual(fixture.screen.draft, "", "The command is used up")
+    let request = try XCTUnwrap(fixture.engine.lastRequest)
+    XCTAssertEqual(request.messages.count, 1)
+    XCTAssertTrue(request.messages[0].content.hasPrefix(ChatCompactor.instruction))
+    XCTAssertFalse(request.messages[0].content.contains("/compact"), "The command isn't sent to the model")
+    fixture.engine.send("Notes.")
+    fixture.engine.finish()
+    try await waitForUI("the marker", in: host.view) { fixture.chat.activeRequest == nil && host.shows(Self.markerName) }
+    XCTAssertEqual(fixture.chat.selectedSession?.summary?.throughMessageID, session.messages.last?.id, "Every turn")
+    XCTAssertEqual(fixture.chat.messages.count, session.messages.count, "Nothing was sent as a message")
+    XCTAssertNil(fixture.chat.contextNotice)
+  }
+
+  @MainActor
+  func testCompactCommandWithNoTurnsSaysNothingToSummarize() async throws {
+    let (fixture, host, editor) = try await openChat(Self.chatSession(turns: 0))
+    // After the command list, which takes the first Return, closes.
+    try await send("/compact ", in: host, editor: editor, fixture: fixture)
+    try await waitForUI("the note", in: host.view) { fixture.chat.contextNotice == "Nothing to summarize yet." }
+    XCTAssertEqual(fixture.engine.requestCount, 0)
+    XCTAssertNil(fixture.chat.selectedSession?.summary)
+  }
+
+  @MainActor
+  func testCompactIsListedWithDescription() {
+    XCTAssertEqual(SlashCommand.compact.description, "Summarize earlier messages to free up context")
+    XCTAssertEqual(SlashCommand.completion(in: "/com", selection: NSRange(location: 4, length: 0))?.commands, [.compact])
+    XCTAssertNil(SlashCommand.completion(in: "hi /com", selection: NSRange(location: 7, length: 0)),
+                 "Offered only on its own")
+    XCTAssertEqual(SlashCommand.tokens(in: " /compact ").map(\.command), [.compact])
+    XCTAssertTrue(SlashCommand.tokens(in: "/compact this chat").isEmpty, "With other text it isn't a command")
+    XCTAssertEqual(ComposerSubmission.plan(.init(draft: "/compact"), canSubmit: true), .compact)
+    XCTAssertEqual(ComposerSubmission.plan(.init(draft: "/compact this chat"), canSubmit: true),
+                   .chat(prompt: "/compact this chat", searchEnabled: false))
+    let example = SlashCommandExample.example(for: .compact)
+    XCTAssertNil(example.argument, "The example line is just /compact")
+    XCTAssertTrue(SlashCommandExample.order.contains(.compact))
   }
 }

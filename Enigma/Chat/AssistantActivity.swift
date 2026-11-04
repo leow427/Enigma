@@ -15,6 +15,8 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
   enum Phase: String, Sendable, Equatable {
     case analyzing, refiningSearch, searching, readingSources, thinking, generating
     case readingMessages, awaitingApproval
+    /// Compacting the chat before it goes (F35).
+    case summarizing
     /// `find_places` and `get_weather` (F29): searching, with their own text (D82).
     case findingPlaces, checkingWeather
     case completed, cancelled, failed
@@ -31,6 +33,7 @@ struct AssistantActivity: Sendable, Equatable, Identifiable {
       case .findingPlaces: "Finding places…"
       case .checkingWeather: "Checking the weather…"
       case .awaitingApproval: "Waiting for your approval…"
+      case .summarizing: "Summarizing earlier messages…"
       case .completed: "Activity"
       case .cancelled: "Stopped"
       case .failed: "Request failed"

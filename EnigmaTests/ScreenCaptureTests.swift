@@ -444,7 +444,8 @@ private final class CaptureModeProbe: ScreenCapturing {
 @MainActor
 final class SlashCommandTests: XCTestCase {
   func testCommandsAtEveryPositionAndCase() {
-    for command in SlashCommand.allCases {
+    // /compact is a command only on its own (F35); `testCompactIsListedWithDescription` covers it.
+    for command in SlashCommand.allCases where command != .compact {
       for draft in [command.token + " hello", "hello " + command.token + " world", "hello " + command.token.uppercased()] {
         XCTAssertEqual(SlashCommand.tokens(in: draft).map(\.command), [command])
         XCTAssertFalse(ComposerCommands(draft).prompt.lowercased().contains(command.token))

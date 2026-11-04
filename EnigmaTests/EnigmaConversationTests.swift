@@ -491,6 +491,8 @@ final class EnigmaConversationTests: XCTestCase {
         content: "Earlier message \(index). " + String(repeating: "A longer reply with wrapping text. ", count: 1 + index % 5)))
     }
     let fixture = try await Fixture(test: self, sessions: [session])
+    // F35 CP3: room for the whole long chat, so it isn't summarized (that would use the reply's stream).
+    fixture.engine.contextWindow = 32_768
     let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
     fixture.chat.selectSession(id: try XCTUnwrap(fixture.earlierSessionID))
     func observer() -> ConversationScrollObserver.ObserverView? { Self.scrollObserver(in: host.view) }
@@ -630,6 +632,8 @@ final class EnigmaConversationTests: XCTestCase {
           content: "Earlier message \(index). " + String(repeating: "A longer reply with wrapping text. ", count: 1 + index % 5)))
       }
       let fixture = try await Fixture(test: self, sessions: [session])
+      // F35 CP3: room for the whole long chat, so it isn't summarized.
+      fixture.engine.contextWindow = 32_768
       fixture.animates = true
       fixture.reduceMotion = reduceMotion
       let host = Host(fixture, size: CGSize(width: 1000, height: 760), test: self)

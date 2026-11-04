@@ -17,6 +17,7 @@ work anywhere in a message and are highlighted as you type.
 | `/edit` | Revise selected text with your instructions | With Selection Context attached, returns one revised version of the selected text in a card you can edit and use to replace the selection. See [Selection Context](Selection-Context.md). |
 | `/translate` | Translate to English or a language you name | Translates the text you give, or the selected text when you give none. English unless you name another language, as in `/translate this to Spanish`. Always read-only. |
 | `/messages` | Read, search, and send your Messages | Gives the model the Messages tools for this message only. Sending still needs your approval. See [Messages](Messages.md). |
+| `/compact` | Summarize earlier messages to free up context | Summarizes every turn of the chat with the selected model, whatever the chat's usage, and sends nothing else. Shows "Summarizing earlier messages…" while it runs, then "Earlier messages summarized" in the chat. With no complete turn it says "Nothing to summarize yet.", and if the summary fails, "Couldn't summarize earlier messages. Try again." In Auto it uses this Mac's model, or Auto's cloud model when there's none. See [Chat](Chat.md#compaction). |
 
 Every command applies to the message it's in. The next message goes back to
 normal behavior, including the automatic-search setting.
@@ -76,6 +77,9 @@ welcome tour: search needs no setup.
 - If both `/screen` and `/snapshot` appear, `/snapshot` wins.
 - If both `/edit` and `/translate` appear, `/translate` wins and the request
   stays read-only.
+- `/compact` is an action on the chat, not part of a message: it's a command
+  only when it's the whole draft, and the list offers it only then. With other
+  text it stays as typed and is sent.
 
 ## Combining commands
 

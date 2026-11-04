@@ -500,6 +500,8 @@ private actor ScriptedToolInference: LocalToolInference {
   private func recordRequiredTool(_ name: String?) { requiredTools.append(name) }
 
   func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    // F35 CP3: a summary request (no tools) gets an unusable summary, so a long chat is trimmed as before.
+    if tools.isEmpty { return AgentInferenceMessage(role: "assistant", content: "") }
     requests.append(messages)
     if requests.count == 1 {
       return AgentInferenceMessage(role: "assistant", content: "ignored", toolCalls: [
