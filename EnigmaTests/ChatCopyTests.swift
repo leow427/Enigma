@@ -394,7 +394,7 @@ final class ChatCopyTests: XCTestCase {
   }
 
   @MainActor
-  func testRegenerateShowsOnTheLatestReplyOnly() async throws {
+  func testRegenerateShowsUnderEveryReply() async throws {
     let board = scratchPasteboard()
     let messages = [ChatMessage(role: .user, content: "One"), ChatMessage(role: .assistant, content: "First"),
                     ChatMessage(role: .user, content: "Two"), ChatMessage(role: .assistant, content: "Second")]
@@ -408,9 +408,9 @@ final class ChatCopyTests: XCTestCase {
       CopyHost(EnigmaReplyView(reply: $0, regenerate: { _ in }, canRegenerate: true) { EmptyView() }, pasteboard: board, test: self)
     }
     for host in hosts { try await waitForUI("the reply", in: host.view) { host.shows("Copy reply") } }
-    XCTAssertFalse(hosts[0].shows(ChatRegenerateButton.label), "An earlier reply can't be regenerated")
+    XCTAssertTrue(hosts[0].shows(ChatRegenerateButton.label), "An earlier reply can be regenerated")
     XCTAssertTrue(hosts[1].shows(ChatRegenerateButton.label))
-    XCTAssertEqual(replies[1].regeneratesFrom, messages[2].id)
+    XCTAssertEqual(replies.map(\.regeneratesFrom), [messages[0].id, messages[2].id])
   }
 }
 

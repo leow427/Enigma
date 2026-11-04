@@ -2145,7 +2145,9 @@ final class LocalChatViewModel: ObservableObject {
           let index = session.messages.firstIndex(where: { $0.id == id && $0.role == .user }) else { return }
     let question = session.messages[index]
     let replaced = session.messages[index...]
-    let searched = replaced.contains { !($0.searchSources?.isEmpty ?? true) }
+    // Only the replaced turn's own reply decides, not the later turns it drops.
+    let searched = session.messages[(index + 1)...].prefix { $0.role != .user }
+      .contains { !($0.searchSources?.isEmpty ?? true) }
     pendingResend = PendingResend(saved: session, replacedIDs: Set(replaced.map(\.id)), searched: searched, removed: removed)
     send((question.extendedThinking == true ? "/think " : "") + (text ?? question.content), searched)
     // A route that started nothing leaves the chat as it was.
@@ -2159,6 +2161,10 @@ final class LocalChatViewModel: ObservableObject {
     guard let index = sessions.firstIndex(where: { $0.id == resend.saved.id }) else { return }
     let dropped = sessions[index].messages.filter { resend.replacedIDs.contains($0.id) }
     sessions[index].messages.removeAll { resend.replacedIDs.contains($0.id) }
+    // A summary that covered a dropped message no longer matches the chat (F35).
+    if let through = sessions[index].summary?.throughMessageID, resend.replacedIDs.contains(through) {
+      sessions[index].summary = nil
+    }
     for message in dropped { selectionRevisions[message.id] = nil }
     resend.removed(Set(dropped.flatMap { [$0.id, $0.activity?.id].compactMap { $0 } }))
   }

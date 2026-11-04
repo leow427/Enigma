@@ -168,7 +168,7 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(meta(nil), time, "A reply from an earlier session shows what it recorded")
   }
 
-  func testOnlyTheLatestPlainChatReplyCanBeRegenerated() {
+  func testEveryPlainChatReplyCanBeRegenerated() {
     func turn(_ question: ChatMessage, reply: String = "Answer") -> [ChatMessage] {
       [question, ChatMessage(role: .assistant, content: reply)]
     }
@@ -184,9 +184,9 @@ final class EnigmaConversationTests: XCTestCase {
       return message
     }
     let first = kind(.chat), latest = kind(.chat)
-    XCTAssertEqual(regenerates(turn(first) + turn(latest)), [nil, latest.id], "The latest reply only")
-    XCTAssertEqual(regenerates(turn(first) + turn(latest), isResponding: true), [nil, nil], "Not while it runs")
-    XCTAssertEqual(regenerates(turn(first) + [latest]), [nil], "Not once a newer question waits")
+    XCTAssertEqual(regenerates(turn(first) + turn(latest)), [first.id, latest.id], "Earlier replies too")
+    XCTAssertEqual(regenerates(turn(first) + turn(latest), isResponding: true), [first.id, nil], "Not the one running")
+    XCTAssertEqual(regenerates(turn(first) + [latest]), [first.id])
     // A reopened chat has no turn kind; its saved text decides.
     let reopened = kind(nil)
     XCTAssertEqual(regenerates(turn(reopened)), [reopened.id])
@@ -200,12 +200,17 @@ final class EnigmaConversationTests: XCTestCase {
     var selection = kind(nil)
     selection.contexts = [ConversationContext(sourceName: "Notes", text: "teh fox")]
     XCTAssertEqual(regenerates(turn(selection)), [nil], "A message that carried a selection")
-    let summarized = turn(kind(.chat))
+    let summarized = turn(kind(.chat)) + turn(kind(.chat))
     XCTAssertEqual(ConversationTranscript(messages: summarized, activity: nil, isResponding: false,
                                           summarizedThrough: summarized[1].id).rows.compactMap { row -> UUID?? in
       if case .reply(let reply) = row { return .some(reply.regeneratesFrom) }
       return nil
-    }, [nil], "Not once the chat's summary covers the turn")
+    }, [nil, summarized[2].id], "Not a turn the chat's summary covers")
+    XCTAssertEqual(ConversationTranscript(messages: summarized, activity: nil, isResponding: false,
+                                          summarizedThrough: UUID()).rows.compactMap { row -> UUID?? in
+      if case .reply(let reply) = row { return .some(reply.regeneratesFrom) }
+      return nil
+    }, [summarized[0].id, summarized[2].id], "A summary whose message is gone covers nothing")
   }
 
   @MainActor

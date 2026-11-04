@@ -26,7 +26,7 @@ struct EnigmaMessageList<Revision: View>: View {
   /// like the note that a chat kept from the panel is now saved. It's never
   /// part of the transcript.
   var footnote: String? = nil
-  /// Regenerates the latest reply from its question's id (F3); nil draws no button.
+  /// Regenerates a reply from its question's id (F3), dropping what came after; nil draws no button.
   var regenerate: ((UUID) -> Void)? = nil
   /// Whether Regenerate can run now: not while a reply runs or messages wait.
   var canRegenerate = false
@@ -302,6 +302,11 @@ struct EnigmaReplyView<Revision: View>: View {
           ChatMarkdownView(content: reply.content)
             .enigmaTestMarker("Reply")
         }
+        // Right under the reply's text (owner, 2026-11-04).
+        if let regenerate, let question = reply.regeneratesFrom {
+          ChatRegenerateButton(isEmphasized: isHovered) { regenerate(question) }
+            .disabled(!canRegenerate)
+        }
         revision()
         if let pins = reply.mapPins {
           MapCardView(pins: pins)
@@ -315,10 +320,6 @@ struct EnigmaReplyView<Revision: View>: View {
               .truncationMode(.middle)
               .enigmaTestMarker("Reply meta")
             Spacer(minLength: 0)
-            if let regenerate, let question = reply.regeneratesFrom {
-              ChatRegenerateButton(isEmphasized: isHovered) { regenerate(question) }
-                .disabled(!canRegenerate)
-            }
             if !reply.content.allSatisfy(\.isWhitespace) {
               ChatCopyButton(label: "Copy reply", isEmphasized: isHovered, size: CGSize(width: 24, height: 18)) {
                 .reply(reply.content)
