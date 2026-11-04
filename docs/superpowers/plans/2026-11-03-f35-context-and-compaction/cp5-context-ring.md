@@ -179,10 +179,12 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
    test pass (15 tests). Full suite: 2,351 tests, 46 skipped; the only failures
    are the two `AppCommandTests` window-layout tests that fail on this Mac on
    main too, and a CP4 selection test fixed in c00aa42. `analyze` succeeded.
+   - **Screenshot** (owner approved, 2026-11-03): `testScreenshots` saves
+     `conversation-context-ring` in Paper and Ink (`docs/images/`), linked from
+     `docs/Chat.md`; F35 moved to done in `to-do.md`.
 5. **Limitations:** the tour hiding isn't tested, and the empty-page guard in
    `ringUsage` is a backstop (a new chat already clears `contextUsage`), so
    removing it fails no test. Switching chats hides the ring until the next
    send. No route-change recount or live tool-turn updates (above);
-   no docs screenshot and no merge to `main` yet (both need the owner's
-   approval); F35 not yet moved to done in `to-do.md`.
+   the live look at the real app wasn't done.
 6. **For the next step:** the merge to `main` and the screenshot wait on the owner.

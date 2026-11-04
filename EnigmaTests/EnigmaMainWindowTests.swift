@@ -1905,6 +1905,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     // A reply running, with two messages queued under it and the next one typed.
     fixture.chat.submit("And how small can it get before quality drops?")
     try await waitForUI("the reply running", in: host.view) { fixture.chat.activeRequest != nil }
+    // The context ring before the model menu (F35).
+    try await snapshot("conversation-context-ring", host, fixture) { host.shows("Context ring") }
     XCTAssertTrue(fixture.chat.queueMessage("Which quantization should I pick for 16 GB?"))
     XCTAssertTrue(fixture.chat.queueMessage("Compare Q4_K_M and Q5_K_M."))
     fixture.screen.draft = "And for 8 GB?"

@@ -684,6 +684,8 @@ used" above the same line. VoiceOver reads "Context" with both lines. It
 updates after each send and compaction (animated over 0.25 s, at once with
 Reduce Motion), and is hidden on the empty page and in the tour.
 
+![The context ring before the mode and model menu](images/conversation-context-ring-paper.png)
+
 **In the background.** After a reply finishes normally (not on Stop or an
 error), a chat at 90% or more of its input budget is summarized right away, on
 the route that answered, so the next send needn't wait. One compaction runs per

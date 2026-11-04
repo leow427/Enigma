@@ -210,4 +210,4 @@ note stays in the brief.
 | CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check passed on 3 models |
 | CP3 | done | 5 | Redesigned after round 3 (owner): every turn summarized as Codex and Claude Code do, latest user messages and attached context kept; at most 2 chunks; Auto keeps the latest exchange whole, else cloud with a notice; `/compact`; live checks passed (Gemma 12B at 8K, Codex) |
 | CP4 | done | 2 | After a reply at 90%, on the route that answered; a send waits up to 30 s, else drops turns; Stop cancels both; another chat's local send cancels the run |
-| CP5 | ring done, merge pending | 1 | Moved to a small ring in the composer (owner); darker Paper yellow `contextHigh` (owner); no route-change recount |
+| CP5 | done | 1 | Moved to a small ring in the composer (owner); darker Paper yellow `contextHigh` (owner); no route-change recount |
