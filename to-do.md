@@ -2490,26 +2490,37 @@ Builds on F1's code block header.
   re-highlighting the whole block per token, without flicker or layout jumps.
 - F22's draft blocks aren't code and aren't highlighted.
 
-### F9. Edit a sent message, and rewind the chat
+### F9. Edit a sent message
 
 **Today:** sent messages are static (`EnigmaUserMessage` in
-`EnigmaMessageList.swift`); there's no way to change one or go back.
+`EnigmaMessageList.swift`); there's no way to change one. F3's Regenerate
+already has the truncate-and-resend path:
+`LocalChatViewModel.resend(fromUserMessage:text:send:removed:)` drops a user
+turn and everything after it once the new reply's first token arrives
+(`commitResend`, in memory and on disk, clearing an F35 summary that covered a
+dropped message), and takes an optional `text`. `regenerateReply(from:)` in
+`AppShellView` calls it.
 
-**Wanted (like ChatGPT and Claude):**
+**Wanted (owner, 2026-11-04; like ChatGPT and Claude):**
 
-- **Edit:** hover a sent message, click a pencil, change the text and send.
-  Everything after that message is replaced by a new reply to the edited one.
-- **Rewind:** go back to an earlier point in the chat and continue from there,
-  dropping the later messages (with a confirmation, or Undo).
+- **The pencil is the only way back.** There is no separate Rewind: editing a
+  message is rewinding the chat to it. Hover a sent message, click a pencil,
+  change the text in place and send. That message and everything after it are
+  replaced by the edited message and a new reply to it.
+- Cancel (a button, or Escape) leaves the chat exactly as it was. Nothing is
+  removed until the edited message's reply starts, as with Regenerate, so a
+  route that fails to start loses nothing. No confirmation or Undo.
+- Reuse `resend(fromUserMessage:text:)` with the edited text; don't build a
+  second truncate path. Truncating must also drop the removed messages'
+  selection revisions and expanded activity state.
 - Optional later: keep the earlier versions as branches ("2 / 3" arrows)
   instead of discarding them, for edits and regenerated replies (F3) alike.
-- One truncate-and-resend path serves this and F3. Truncating must also drop
-  the removed messages' selection revisions and expanded activity state.
 - Edge cases: screenshots and selection context aren't saved and attachments
   are kept by name only, so start with plain chat turns (as F3 does); actions
-  already taken (File Mode edits, sent iMessages) can't be undone by
-  rewinding, so say so instead of implying they were reversed; disabled while
-  a reply is streaming; history saving and temporary chats.
+  already taken (File Mode edits, sent iMessages) can't be undone by editing
+  an earlier message, so say so instead of implying they were reversed; the
+  pencil is disabled while a reply is streaming, when Regenerate would be
+  (`canRegenerate`), and in the tour; history saving and temporary chats.
 
 ### F10. Temporary chat (ghost mode)
 
