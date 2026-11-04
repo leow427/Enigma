@@ -577,8 +577,10 @@ struct ClaudeCodeSubscriptionClient: ChatProvider {
     }
   }
 
-  static func prompt(for request: ChatRequest) throws -> String {
-    let prepared = try CloudContext.prepare(request)
+  static func prompt(for request: ChatRequest, toolbox: (any AgentToolbox)? = nil) throws -> String {
+    let prepared = try CloudContext.prepare(request, toolbox: toolbox)
+    // Claude Code's own loop runs the turn; its tools size their results from what it was sent (F35).
+    toolbox?.stepBudget?.measure(prepared.budget, usedTokens: prepared.inputTokenCount)
     return try CloudContext.codexPrompt(prepared.messages)
   }
 

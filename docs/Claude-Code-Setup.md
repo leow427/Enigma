@@ -107,7 +107,7 @@ out of both Enigma and the CLI.
   `--disable-slash-commands`, and `--no-session-persistence`. Enigma's system
   prompt replaces Claude Code's own.
 - Enigma sends the conversation on standard input as a bounded JSON transcript,
-  up to 32,768 input tokens, and reads streamed text deltas. **Stop**
+  up to 65,536 input tokens, and reads streamed text deltas. **Stop**
   terminates the process. Anthropic's data policies apply.
 - With a screenshot, the process also gets `--input-format stream-json`, and
   standard input is one stream-json user message (`{"type":"user",…}`) whose

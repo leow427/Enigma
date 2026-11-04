@@ -22,6 +22,8 @@ struct LocalModelFamily: Sendable {
   let projectorByteCount: Int64
   let projectorSHA256: String
   let supportsAudio: Bool
+  /// The GGUF header's `<arch>.context_length`, the same for every package of the family (F35).
+  let trainedContextLength: Int
   let packages: [Package]
 
   var parameters: Double { profile.parameters }
@@ -46,7 +48,7 @@ struct LocalModelFamily: Sendable {
         parameterBillions: parameters, minimumMemory: memory, recommendedMemory: memory, projector: projector,
         runtimeBuild: LocalVisionRuntime.build, publisher: publisher, modelSummary: summary,
         inferenceProfile: profile, advertisedMemoryRange: nil, modelSupportsAudio: supportsAudio,
-        activeParameterBillions: activeParameters)
+        activeParameterBillions: activeParameters, trainedContextLength: trainedContextLength)
     }
   }
 }
@@ -62,6 +64,7 @@ enum BundledLocalModels {
       repository: "unsloth/Qwen3.5-2B-GGUF", revision: "f6d5376be1edb4d416d56da11e5397a961aca8ae",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 668227264,
       projectorSHA256: "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "qwen3.5-2b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.5-2B-Q4_K_M.gguf", byteCount: 1280835840,
               sha256: "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223", largestTensorBytes: 417177600),
@@ -75,6 +78,7 @@ enum BundledLocalModels {
       repository: "unsloth/Qwen3.5-4B-GGUF", revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 672423616,
       projectorSHA256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "qwen3.5-4b-q4_k_m", quantization: "Q4_K_M", file: "Qwen3.5-4B-Q4_K_M.gguf", byteCount: 2740937888,
               sha256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4", largestTensorBytes: 521472000),
@@ -90,6 +94,7 @@ enum BundledLocalModels {
       repository: "unsloth/gemma-4-E4B-it-GGUF", revision: "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 990372672,
       projectorSHA256: "ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51", supportsAudio: true,
+      trainedContextLength: 131072,
       packages: [
         .init(id: "gemma-4-e4b-q4_k_m", quantization: "Q4_K_M", file: "gemma-4-E4B-it-Q4_K_M.gguf", byteCount: 4977171584,
               sha256: "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87", largestTensorBytes: 1937768448),
@@ -101,6 +106,7 @@ enum BundledLocalModels {
       repository: "mistralai/Ministral-3-8B-Instruct-2512-GGUF", revision: "0102285ad796bd99af90f58de616092e5630e970",
       projectorFile: "Ministral-3-8B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 858283168,
       projectorSHA256: "e799380f596d152ff4026a72d409ecc89c96cd437676804bc3f2ab3bd6b486ec", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "ministral-3-8b-q4_k_m", quantization: "Q4_K_M", file: "Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
               byteCount: 5198911904, sha256: "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761",
@@ -114,6 +120,7 @@ enum BundledLocalModels {
       repository: "unsloth/Qwen3.5-9B-GGUF", revision: "3885219b6810b007914f3a7950a8d1b469d598a5",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 918166080,
       projectorSHA256: "f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "qwen3.5-9b-iq3_xxs", quantization: "IQ3_XXS", file: "Qwen3.5-9B-UD-IQ3_XXS.gguf", byteCount: 4016235744,
               sha256: "40d0f32cd3030b04f0784139a589fb63e876cfbf8667d56311b79783c74fd149", largestTensorBytes: 699269120),
@@ -135,6 +142,7 @@ enum BundledLocalModels {
       repository: "unsloth/gemma-4-12b-it-GGUF", revision: "fc034cfff751157913579611efad8462ac1be606",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 175115840,
       projectorSHA256: "91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e", supportsAudio: true,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "gemma-4-12b-iq3_xxs", quantization: "IQ3_XXS", file: "gemma-4-12b-it-UD-IQ3_XXS.gguf", byteCount: 4639716160,
               sha256: "0cf13ac91a6c1b1aaaeae633181c75af0f1fa3da1a89abf2086038e105c789f0", largestTensorBytes: 432537600),
@@ -156,6 +164,7 @@ enum BundledLocalModels {
       repository: "mistralai/Ministral-3-14B-Instruct-2512-GGUF", revision: "74fac473c43357d7fb2671713608183cc72496d0",
       projectorFile: "Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 879258784,
       projectorSHA256: "ab7616148b7081030fd38e410c9213ce8346a8b0588291c8ca279058e78cfae7", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "ministral-3-14b-q5_k_m", quantization: "Q5_K_M", file: "Ministral-3-14B-Instruct-2512-Q5_K_M.gguf",
               byteCount: 9621091904, sha256: "f16fef77021df0d4c22e69140a2038478370492f51867b6237699918ae711000",
@@ -171,6 +180,7 @@ enum BundledLocalModels {
       repository: "bartowski/google_gemma-4-26B-A4B-it-GGUF", revision: "10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d",
       projectorFile: "mmproj-google_gemma-4-26B-A4B-it-f16.gguf", projectorByteCount: 1193058528,
       projectorSHA256: "41cdabd1e8066e983ee6c288eb0117777376223ee0279cadcd67b2295e4d975f", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "gemma-4-26b-a4b-iq3_xxs", quantization: "IQ3_XXS", file: "google_gemma-4-26B-A4B-it-IQ3_XXS.gguf",
               byteCount: 12160200320, sha256: "61a9be08df2dd3ee5e98b23f1f548530c05ec89e02647a650f2ad447fcc83998",
@@ -199,6 +209,7 @@ enum BundledLocalModels {
       repository: "bartowski/google_gemma-4-31B-it-GGUF", revision: "619aca7589c72be65dd968de8602ad23d68b5c14",
       projectorFile: "mmproj-google_gemma-4-31B-it-f16.gguf", projectorByteCount: 1198956736,
       projectorSHA256: "3e3f3f593b34bb4f518ada3e7999e4cbcd2a5864fa86ebc23fad3cbc4fbeba40", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "gemma-4-31b-iq3_xxs", quantization: "IQ3_XXS", file: "google_gemma-4-31B-it-IQ3_XXS.gguf",
               byteCount: 12981709152, sha256: "c9f34994715a016cd0bcd7ff4c1f5710718bbcc25d40796302db0a89b6d0d8ea",
@@ -226,6 +237,7 @@ enum BundledLocalModels {
       repository: "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF", revision: "5c2410d71524f4f72b023ce8daf7a80528226d5f",
       projectorFile: "mmproj-Qwen_Qwen3.6-35B-A3B-f16.gguf", projectorByteCount: 899283296,
       projectorSHA256: "67924785ff1885c2b34c15d0e52979e991acca64221694ba2cc3a6474a053fb4", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "qwen3.6-35b-a3b-iq3_xxs", quantization: "IQ3_XXS", file: "Qwen_Qwen3.6-35B-A3B-IQ3_XXS.gguf",
               byteCount: 15761446528, sha256: "4eb30af2df0dde76fe8d0a60f0e88f285ee668dcb1b8da892ee5c13dd6b00399",
@@ -253,6 +265,7 @@ enum BundledLocalModels {
       repository: "unsloth/Qwen3.8-27B-GGUF", revision: "4ca720788d1e01f1bff70c033e0d0028fd02e502",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 927607488,
       projectorSHA256: "cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         // The repository's only 3-bit, IQ4, Q4 and Q5 files are Unsloth Dynamic quantizations.
         .init(id: "qwen3.8-27b-iq3_xxs", quantization: "IQ3_XXS", file: "Qwen3.8-27B-UD-IQ3_XXS.gguf",
@@ -286,6 +299,7 @@ enum BundledLocalModels {
       repository: "prism-ml/Ternary-Bonsai-2-4B-gguf", revision: "8d6557168168f91ea6697a4a49ed2ef622b53adb",
       projectorFile: "Ternary-Bonsai-2-4B-mmproj-Q8_0.gguf", projectorByteCount: 366894624,
       projectorSHA256: "db939d5f9b7014137810205e91d05e5f54afd72b0b3af9d33bd7d82f7906a55d", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "bonsai-2-4b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-4B-Q2_0.gguf",
               byteCount: 1212103520, sha256: "64a5183b44921bdb5ac4a6f5f92007821d6ebe5c66997d3c147fd214ab9433d4",
@@ -299,6 +313,7 @@ enum BundledLocalModels {
       repository: "prism-ml/Ternary-Bonsai-2-9B-gguf", revision: "5b2abb02362efbed46bbe204014b02837778b2c2",
       projectorFile: "Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf", projectorByteCount: 624229664,
       projectorSHA256: "e0cb6f6988cea323ef798cd77d019bbb819af75582f034eaab0e7232314953db", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "bonsai-2-9b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-9B-Q2_0.gguf",
               byteCount: 2556640128, sha256: "1f884aa56aacd2bbbb2e4b7abaead2b1102b74a9c75a23fc33dab916813a384d",
@@ -313,6 +328,7 @@ enum BundledLocalModels {
       repository: "prism-ml/Ternary-Bonsai-2-27B-gguf", revision: "94dd51cdbbec5309ed8b76a12f3268bc4fdceb93",
       projectorFile: "Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf", projectorByteCount: 629246976,
       projectorSHA256: "6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903", supportsAudio: false,
+      trainedContextLength: 262144,
       packages: [
         .init(id: "bonsai-2-27b-q2_0", quantization: "Q2_0", file: "Ternary-Bonsai-2-27B-Q2_0.gguf",
               byteCount: 7626008928, sha256: "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e",

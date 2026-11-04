@@ -198,6 +198,7 @@ struct TranscriptPreview: View {
         switch row {
         case .message(let message): EnigmaUserMessage(message: message)
         case .reply(let reply): EnigmaReplyView(reply: reply, expandedActivity: expandsActivity ? .constant(true) : nil)
+        case .summaryMarker: EnigmaFootnote(text: ConversationTranscript.summaryMarkerText)
         }
       }
     }

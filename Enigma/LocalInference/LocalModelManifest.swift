@@ -31,6 +31,8 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var modelSupportsAudio: Bool? = nil
   /// Parameters read per token; nil in records saved before 0.11, meaning dense.
   var activeParameterBillions: Double? = nil
+  /// The GGUF's `<arch>.context_length` (F35); nil in records and catalogues saved before it.
+  var trainedContextLength: Int? = nil
 
   var summary: String {
     modelSummary ?? (supportsVision ? "A local model for general text answers and screenshot understanding."
@@ -104,7 +106,8 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
           publisher.map({ !$0.isEmpty && $0.count <= 100 }) ?? true,
           modelSummary.map({ !$0.isEmpty && $0.count <= 300 && !$0.contains("\n") }) ?? true,
           minimumMemory >= estimatedRuntimeMemory, recommendedMemory >= minimumMemory,
-          activeParameterBillions.map({ $0.isFinite && $0 > 0 && $0 <= parameterBillions }) ?? true else {
+          activeParameterBillions.map({ $0.isFinite && $0 > 0 && $0 <= parameterBillions }) ?? true,
+          trainedContextLength.map({ (recommendedContextSize...16_777_216).contains($0) }) ?? true else {
       throw LocalModelCatalogError.invalidManifest(id)
     }
     if let projector {
@@ -139,7 +142,7 @@ struct LocalModelManifest: Codable, Sendable, Equatable {
     try models.forEach { try $0.validate() }
   }
 
-  static let bundled = LocalModelManifest(version: 8, models: BundledLocalModels.models)
+  static let bundled = LocalModelManifest(version: 9, models: BundledLocalModels.models)
 }
 
 struct ModelDownloadProgress: Sendable, Equatable {

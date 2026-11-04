@@ -1301,7 +1301,17 @@ The spec has every decision, and the checkpoints the work runs in.
 > in the compact panel (owner's choices, 2026-11-02). See `docs/Chat.md` →
 > The composer.
 
-### F35. Use as much context as the model allows, and compact long chats instead of failing
+### F35. ✅ Done: Use as much context as the model allows, and compact long chats instead of failing
+
+> **Solved:** Cloud requests are counted realistically and capped at 65,536
+> tokens; local models run at 8K, 16K or 32K by memory, with a Context size
+> choice under Advanced. Tool loops shrink earlier search results, then answer
+> without tools, so a turn no longer fails because results filled the context.
+> Long chats are summarized into handoff notes instead of losing turns, in the
+> background after a reply at 90%, and by hand with `/compact`. A small ring in
+> the composer shows how full the context is. Built in checkpoints CP0–CP5 on
+> `feat/f35-context`.
+
 
 **Plan:** [docs/superpowers/plans/2026-11-03-f35-context-and-compaction.md](docs/superpowers/plans/2026-11-03-f35-context-and-compaction.md)
 (checkpoints CP0–CP5, each built by a fresh agent and audited by a fresh

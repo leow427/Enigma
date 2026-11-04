@@ -4,7 +4,7 @@
 Usage: python3 -I scripts/gguf-header.py <resolve URL> <file bytes>
 
 Reads only the header (metadata and tensor infos) with HTTP Range requests in
-4 MiB steps and prints the largest tensor and the cache-layout keys that
+4 MiB steps and prints the largest tensor, the trained context length and the cache-layout keys that
 docs/Updating-the-Model-Catalogue.md asks for. Standard library only.
 scripts/add-catalogue-model.py reuses `HeaderReader`, `RemoteFile` and
 `read_header`.
@@ -25,7 +25,7 @@ MAX_METADATA_COUNT = 100_000
 MAX_TENSOR_COUNT = 100_000
 MAX_DIMENSIONS = 8
 LAYOUT_KEYS = [
-    "block_count", "attention.head_count_kv", "attention.key_length", "attention.value_length",
+    "context_length", "block_count", "attention.head_count_kv", "attention.key_length", "attention.value_length",
     "attention.key_length_swa", "attention.value_length_swa",
     "attention.sliding_window", "attention.sliding_window_pattern", "full_attention_interval",
     "nextn_predict_layers", "expert_count", "expert_used_count",

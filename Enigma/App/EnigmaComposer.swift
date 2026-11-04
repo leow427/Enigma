@@ -39,6 +39,8 @@ struct EnigmaComposer: View {
   /// Commands recognized from the draft's wording, shown as chips after the route.
   var inferredCommands: [SlashCommand] = []
   var dismissInferred: (SlashCommand) -> Void = { _ in }
+  /// The chat's share of its context, for the ring; nil hides it.
+  var contextUsage: ContextUsage?
 
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
@@ -128,6 +130,8 @@ struct EnigmaComposer: View {
       }
 
       Spacer(minLength: 8)
+
+      if let contextUsage { ContextRing(usage: contextUsage) }
 
       EnigmaMenu("Mode and model", sections: menu.sections(menuActions), style: .plain,
                  accessibilityValue: menu.label, isPresented: $isMenuPresented, returnFocus: menuClosed,

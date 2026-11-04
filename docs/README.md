@@ -7,7 +7,7 @@ works in the code, its limitations, and which tests cover it.
 
 | Page | What it covers |
 | --- | --- |
-| [Chat](Chat.md) | The main window, composer, streaming replies, activity and sources, chat history, and how much context each request carries |
+| [Chat](Chat.md) | The main window, composer, streaming replies, activity and sources, chat history, how much context each request carries, compaction and the context ring |
 | [Local models](Local-Model-Selection.md) | The bundled model catalogue, how Enigma picks the model for this Mac, which models choose their own tools, and installing and managing it |
 | [Cloud models](Cloud-Model-Selection.md) | Auto, Local, and Cloud modes, cloud providers, model compatibility, and context budgets |
 | [Free models](Free-Models.md) | Free cloud models on a free Gemini key, and how Enigma moves to the next one when a limit is reached |

@@ -1552,7 +1552,7 @@ final class WebSearchTests: XCTestCase {
     for local in [true, false] {
       let search = SearchSpy(results: fixtureResults)
       let model = makeModel(search: search)
-      let prompt = String(repeating: "x", count: 50_000)
+      let prompt = String(repeating: "x", count: 210_000)
       if local {
         model.submit(prompt, searchEnabled: true)
         await finish(model)

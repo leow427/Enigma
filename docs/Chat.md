@@ -371,6 +371,23 @@ their own paths.
   Mode client. A required tool (typed `/search`, `/edit` or `/translate`) is also
   asked for in words at the end of the last message, for the routes that can't
   force one.
+- Every tool loop Enigma drives (local, OpenAI, Anthropic and Gemini) measures
+  each step before sending it against the request's budget (`ToolStepBudget`,
+  F35), with `ContextEstimate`: local steps message by message as
+  `LocalToolAgent.prepare` counts, API steps from their wire items. A tool
+  turn's history leaves room for one full-size result and the next step
+  (2,560 tokens local, 8,704 cloud, at most half the budget) by dropping older turns first. After a tool result, when fewer than
+  512 tokens would be left (room for the smallest search result and the next
+  step), the turn's earlier `web_search` results shrink: each source keeps its
+  title, site and URL, and its excerpt becomes `(excerpt removed to save space)`.
+  The newest results stay whole, as the model hasn't read them; other tools'
+  results are kept. If that still isn't enough, the step goes without tools:
+  local steps omit them, API steps keep them defined (so earlier calls stay
+  valid) with a "none" tool choice, and the system prompt gains `You can't call
+  any more tools in this turn. Answer now from the results you already have, and
+  say if something you needed is missing.` The step limit still applies. The
+  same budget sizes each `web_search` result (see Web Search). Codex's and
+  Claude Code's own loops, and a provider's own search, are outside it.
 - As on plain turns, the question shows as pending and the draft clears only
   once the request is under way: a cloud turn once it's prepared, a local turn
   at the model's first text or tool call. A failure before that keeps the draft.
@@ -525,12 +542,19 @@ built by `ChatContextPreparer` (`Enigma/Chat/ChatContext.swift`):
   (`ConversationContextPrompt` in `Enigma/Chat/ConversationContext.swift`).
 
 A `ContextBudget` gives the input allowance as the smaller of an input cap and
-`context window − output reserve − protocol reserve`.
+`context window − output reserve − protocol reserve`, less Enigma's own system
+prompt and tool definitions for the request (`promptTokens`), which count as
+used. `PreparedConversation.usage` (`ContextUsage`) is the share of the budget a
+prepared request fills: messages plus prompt, out of the allowance plus prompt.
 
 **Local** (`Enigma/LocalInference/`):
 
-- The context window comes from the model's vision configuration, then its
-  catalog recommendation, then a 4,096-token fallback.
+- The context window is the one chosen for this Mac (F35): the largest of
+  8K, 16K or 32K that the model's trained maximum and this Mac's memory allow,
+  or the size picked under **Settings → On this Mac → › Advanced → Context
+  size** (see [Local-Model-Selection.md](Local-Model-Selection.md#context-size)).
+  Imported models use their vision configuration, then a 4,096-token
+  fallback.
 - The output reserve is 512 tokens, or 2,048 with **/think**.
 - Text-only models run in the embedded engine (`LlamaCPPModelEngine.swift` and
   `Packages/LlamaBridge`). Tokens are counted exactly with the model's chat
@@ -547,16 +571,39 @@ A `ContextBudget` gives the input allowance as the smaller of an input cap and
   turns, which reuse the cached system prompt and tool definitions (see
   [Local models](Local-Model-Selection.md#runtimes)).
 
-**Cloud** (`ModelContextPolicy.cloud` and `CloudContext`): input is counted as one
-token per UTF-8 byte of the serialized messages, which deliberately overestimates,
-plus 4,096 tokens for an image. No tokenizer or network call is used. Every cloud
-client checks the budget again before sending.
+**Cloud** (`ModelContextPolicy.cloud`, `ContextEstimate` and `CloudContext`): input
+is estimated as `ceil(bytes / 3)` of the messages as the client serializes them
+(role wrappers and JSON escaping included), plus 4,096 tokens for an image. The
+system prompt and tool definitions the route's client sends are estimated the
+same way and count as used (`CloudContext.promptTokens`). No tokenizer or network
+call is used. Every cloud client checks the budget again before sending.
+
+The estimate stays above OpenAI's tokenizer for English, code and JSON (checked
+against `o200k_base` and `cl100k_base`). Digit-heavy text, and non-Latin text on
+older tokenizers, can run over it; the input cap and reserves leave room for that
+on the large windows, but a long message of mostly digits on a small-window model
+can still be rejected by the provider.
+
+Input is capped at **65,536 tokens** even on models with 1M-token windows: a
+longer prompt is slower to answer, and Enigma's priority is latency.
+
+The protocol reserve covers text a CLI adds that Enigma never sees. It was
+measured on 2026-11-03 by sending a one-word message with Enigma's settings, with
+and without tools, and taking the input-token count the CLI reported less
+Enigma's estimate of what it sent: about 2,860 tokens for Codex 0.164.0 and 840
+for Claude Code 2.1.312. Each reserve is that figure rounded up to the next
+1,024, plus 25%.
 
 | Provider | Context window | Output reserve | Protocol reserve | Input cap |
 |---|---:|---:|---:|---:|
-| OpenAI, Anthropic, Gemini | Reviewed model's published limit; 8,192 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 32,768 |
-| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 32,768 otherwise | 128,000; 16,384 otherwise | 8,192 | 32,768 |
-| Claude via Claude Code | 200,000 for its listed aliases; 65,536 otherwise | 32,000; 8,192 otherwise | 16,384 | 32,768 |
+| OpenAI, Anthropic, Gemini | Reviewed model's published limit, at least 262,144; 262,144 otherwise | 4,096 (lower if the model's maximum is lower), sent as the max-output parameter | 512 | 65,536 |
+| ChatGPT via Codex | 1,050,000 for the reviewed GPT-5.6 models; 262,144 otherwise | 128,000; 16,384 otherwise | 3,840 | 65,536 |
+| Claude via Claude Code | 262,144 | 32,000; 8,192 otherwise | 1,280 | 65,536 |
+
+Every cloud model is assumed to have a window of at least 262,144 tokens
+(owner, 2026-11-03; `ModelContextPolicy.cloudMinimumContextWindow`): a smaller
+published limit, or none, is raised to it. With the 65,536 input cap, a
+request's room is then the cap less the prompt for every cloud model.
 
 Per-model limits and how models are reviewed are in
 [Cloud-Model-Selection.md](Cloud-Model-Selection.md). These are application
@@ -565,6 +612,94 @@ policy; they don't certify a provider's real limits or your account's access.
 Web search evidence is fitted into the same budget: it takes up to half of what's
 left after the current question, and recent history is added only after the
 evidence fits. See [Web-Search.md](Web-Search.md).
+
+#### Compaction
+
+When a chat doesn't fit, `ChatCompactor` (`Enigma/Chat/ChatCompaction.swift`)
+compacts the request copy the way Codex and Claude Code do (owner, 2026-11-03:
+as small as stays useful, so a long local chat keeps working). Every send path
+(local, local with tools, cloud, cloud with tools, Screen and search grounding)
+runs it through one preparation in `LocalChatViewModel`, with the route's own
+count, so compaction and the request always agree.
+
+1. **Summarize everything.** Every turn, the newest too, is summarized by the
+   route's own model, with no tools, into handoff notes of at most 300 words:
+   what the user wants and has decided, their preferences, key facts, what's
+   open and where the latest exchange left off. Each summary request is one user
+   message with the instruction and the turns as JSON (a 1,024-token answer
+   allowance in the embedded local engine; other runtimes and cloud clients keep
+   their usual allowance). The status reads "Summarizing earlier messages…". When
+   the turns are too many for one summary request, they go in at most two
+   chunks of the newest turns, run oldest first, the second folding in the
+   first; older turns past them, or past a turn too big for a summary request
+   on its own, are left out, as Codex trims what it summarizes (when the newest
+   turn is that big, nothing is summarized). If a chunk fails, the summary covers
+   only the turns before it.
+   A summary that is empty, over 900 tokens by the route's count (beyond what a
+   one-character message counts, so a system prompt or an image isn't charged to
+   it), or fails is not used.
+2. **Keep what the notes can't.** As Codex does, the user's latest messages are
+   kept word for word, newest first, up to 400 tokens by the cloud estimate
+   (about 150 words), the first that doesn't fit cut to the room left; replies
+   aren't kept. As Claude Code rereads recent files, the context attached to the
+   latest summarized message that had any (a selection, say) is sent again in
+   full when it takes at most a quarter of the input budget.
+3. **Drop.** Whatever still doesn't fit is dropped oldest first, as before, with
+   the omitted-messages notice. The summary turn goes last: when grounding or a
+   tool loop prepares a compacted request again, later turns go before it.
+
+In requests the summarized turns become one user message: "The earlier
+conversation was compacted to save space. Your handoff notes on it:", the notes,
+the user's latest messages as JSON and any attached context, followed by an
+assistant `Understood.`, so turns still alternate on every provider. After
+compaction a chat uses roughly a tenth to a fifth of its budget (more with
+attached context), plus the new message.
+
+The summary (`ChatSummary`: its notes, the user's latest messages, the last
+message it covers and when; its attached context stays in memory, like a
+message's own) is
+kept with the chat, as the optional `summary` in `chats.json`, and in memory only
+for a temporary chat. It goes with every later request, on any route, until the
+chat needs compacting again; the new summary then folds the old one in. Its
+copy of attached context goes only while that context is still attached. A saved
+summary is never shown or edited.
+
+In Auto, a long chat stays on this Mac and is compacted there, but Auto keeps
+the latest exchange whole: the chat as it is, or, compacted, the summary (or the
+longest it may become), the newest turn and the current message, must fit
+locally. When they don't,
+Auto answers in the cloud and says so above the reply: "Answered in the cloud:
+the latest messages are too long for this Mac." Local mode always stays local.
+
+The chat shows a quiet "Earlier messages summarized" line after the last message
+the summary covers. Summarized turns don't count as omitted: the notice appears
+only when the last-resort drop also left turns out. `/compact` summarizes on
+request (see [Slash-Commands.md](Slash-Commands.md)). `LocalChatViewModel.contextUsage`
+holds the selected chat's `ContextUsage` after each preparation, for the context
+ring.
+
+**The context ring.** A small ring in the main window's composer, before the
+mode and model menu, fills clockwise from the top with the exact
+share of the input budget the chat's last prepared request used: green below
+70%, `contextHigh` yellow from 70%, `contextFull` red from 90%, the rest grey.
+Hovering shows "<N>% of context left", adding "Earlier messages will be
+summarized." from 90%; clicking it opens a popover with "<U> of <L> tokens
+used" above the same line. VoiceOver reads "Context" with both lines. It
+updates after each send and compaction (animated over 0.25 s, at once with
+Reduce Motion), and is hidden on the empty page and in the tour.
+
+![The context ring before the mode and model menu](images/conversation-context-ring-paper.png)
+
+**In the background.** After a reply finishes normally (not on Stop or an
+error), a chat at 90% or more of its input budget is summarized right away, on
+the route that answered, so the next send needn't wait. One compaction runs per
+chat at a time. Its summary is kept only if the chat still exists and still
+starts with the messages it summarized; otherwise it's discarded silently. A
+send made while it runs waits for it with "Summarizing earlier messages…", for
+up to 30 seconds; Stop cancels both. If it fails or times out (it's cancelled
+then), that request drops turns as before instead of summarizing again. The log
+records its start, finish, failure and timeout with durations and token counts
+only.
 
 ## Limitations
 
@@ -580,10 +715,10 @@ evidence fits. See [Web-Search.md](Web-Search.md).
 - A queued message that can't start when its turn comes, for example because
   the selected mode has no usable model, holds the queue with no message of
   its own; the route status line says what's missing.
-- Cloud history trimming uses a conservative byte count, so it can keep less
-  history than the provider would actually accept. Unreviewed or manually entered
-  models get small default windows.
-- Every request's input is capped at 32,768 tokens for cloud models, however large
+- Cloud history trimming uses an estimate (three bytes a token), not the
+  provider's tokenizer. Unreviewed or manually entered models get small default
+  windows.
+- Every request's input is capped at 65,536 tokens for cloud models, however large
   the model's window.
 - Screenshots and request activity aren't saved, so they're gone after a relaunch.
 - The chat lays out every message on each update while a reply streams, so a

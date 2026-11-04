@@ -21,7 +21,9 @@ enum LocalFileRuntime {
   }
 
   static func contextWindow(for model: LocalModel) -> Int {
-    model.visionConfiguration?.contextWindow ?? max(4_096, min(16_384, model.catalogDescriptor?.recommendedContextSize ?? 8_192))
+    // The window chosen for this Mac (F35), else the package's.
+    model.runtimeContextWindow ?? model.visionConfiguration?.contextWindow
+      ?? max(4_096, min(16_384, model.catalogDescriptor?.recommendedContextSize ?? 8_192))
   }
 
   static func validateBudget(promptTokens: Int, maximumTokens: Int, contextWindow: Int) throws {

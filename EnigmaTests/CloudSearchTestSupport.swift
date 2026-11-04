@@ -27,6 +27,8 @@ final class ScriptedSearchProvider: ChatProvider, ToolCallingChatProvider, @unch
     let toolNames: [String]
     let instructions: String
     let requiredTool: String?
+    /// The turn's budget, shared by every run of the turn (F35).
+    var stepBudget: ToolStepBudget? = nil
   }
 
   /// A tool result the provider received.
@@ -54,7 +56,8 @@ final class ScriptedSearchProvider: ChatProvider, ToolCallingChatProvider, @unch
   func stream(_ request: ChatRequest, toolbox: any AgentToolbox) -> AsyncThrowingStream<ChatEvent, Error> {
     let script = lock.withLock { () -> [Event] in
       recordedRuns.append(Run(request: request, toolNames: toolbox.definitions.map(\.name),
-                              instructions: toolbox.instructions, requiredTool: toolbox.requiredTool))
+                              instructions: toolbox.instructions, requiredTool: toolbox.requiredTool,
+                              stepBudget: toolbox.stepBudget))
       return scripts.isEmpty ? [] : scripts.removeFirst()
     }
     let beforeStop = beforeStop

@@ -389,12 +389,12 @@ final class CodexSubscriptionTests: XCTestCase {
     addTeardownBlock { CodexListedModels.shared.replace(with: []) }
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .chatGPT, modelID: "gpt-6-sol"), .compatible)
     let listed = ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-6-sol")
-    XCTAssertEqual(listed.contextWindow, CloudModelCapabilities.codexListedContextWindow)
+    XCTAssertEqual(listed.contextWindow, max(CloudModelCapabilities.codexListedContextWindow, 262_144))
     XCTAssertEqual(listed.outputTokens, CloudModelCapabilities.codexListedOutputTokens)
     XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-5.6-luna").contextWindow, 1_050_000,
                    "Reviewed limits are kept")
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .chatGPT, modelID: "gpt-7-unlisted"), .unverified)
-    XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-7-unlisted").contextWindow, 32_768)
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .chatGPT, modelID: "gpt-7-unlisted").contextWindow, 262_144)
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .openAI, modelID: "gpt-6-sol"), .unverified,
                    "Codex's list says nothing about the API")
   }
@@ -886,7 +886,7 @@ final class CodexSubscriptionTests: XCTestCase {
     let transport = MockCodexTransport(turnNotifications: [completion("completed")])
     let base = request()
     let messages = [
-      ChatMessage(role: .user, content: String(repeating: "old", count: 20_000)),
+      ChatMessage(role: .user, content: String(repeating: "old", count: 70_000)),
       ChatMessage(role: .assistant, content: "old answer"),
     ] + base.messages
     let fullRequest = ChatRequest(sessionID: base.sessionID, messages: messages, route: base.route)
@@ -905,7 +905,7 @@ final class CodexSubscriptionTests: XCTestCase {
     let transport = MockCodexTransport()
     let base = request()
     let oversized = ChatRequest(sessionID: base.sessionID, messages: [
-      ChatMessage(role: .user, content: String(repeating: "x", count: 40_000)),
+      ChatMessage(role: .user, content: String(repeating: "x", count: 210_000)),
     ], route: base.route)
     do {
       _ = try await collect(CodexSubscriptionClient(transport: transport).stream(oversized))

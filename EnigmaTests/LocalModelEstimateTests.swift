@@ -290,3 +290,148 @@ final class LocalModelEstimateTests: XCTestCase {
     XCTAssertFalse(four.isFast)
   }
 }
+
+
+/// F35 CP2: the window each local model runs at.
+final class LocalContextWindowTests: XCTestCase {
+  /// The catalogue tests' Mac: about 3/5 of memory for inference, within 4/5 of Metal's working set.
+  private func mac(_ gib: Int64) -> LocalHardwareProfile {
+    let memory = gib * LocalHardwareProfile.gib
+    let workingSet = Int64(Double(memory) * (gib <= 16 ? 2.0 / 3.0 : 0.74))
+    return LocalHardwareProfile(physicalMemory: memory, isAppleSilicon: true, hasMetal: true, hasUnifiedMemory: true,
+      chip: "Fixture chip", device: "Fixture Mac", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 500 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: workingSet,
+      metalMaximumBufferLength: workingSet * 3 / 4, lowPowerMode: false)
+  }
+
+  private func package(_ id: String) throws -> LocalModelDescriptor {
+    try XCTUnwrap(BundledLocalModels.models.first { $0.id == id }, id)
+  }
+
+  private func installed(_ descriptor: LocalModelDescriptor) -> LocalModel {
+    LocalModel(id: descriptor.id, displayName: descriptor.displayName, fileURL: URL(fileURLWithPath: "/tmp/m.gguf"),
+               catalogDescriptor: descriptor)
+  }
+
+  func testAutomaticPicksLargestThatFitsMemory() throws {
+    // Comfortable lines: 8 GB 3.4 GB, 16 GB 7.3 GB, 24 GB 12.2 GB, 36 GB 18.3 GB, 64 GB 32.5 GB.
+    let small = try package("qwen3.5-2b-q4_k_m")
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: small, hardware: mac(16)), 32_768)
+    let ministral = try package("ministral-3-8b-q4_k_m")   // 8.8 GB at 8K, 9.9 at 16K, 12.2 at 32K
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: ministral, hardware: mac(16)), 8_192)
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: ministral, hardware: mac(24)), 16_384)
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: ministral, hardware: mac(36)), 32_768)
+    let large = try package("gemma-4-31b-iq3_xxs")         // 18.7 GB at 8K, 20.7 at 32K
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: large, hardware: mac(36)), 8_192)
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: large, hardware: mac(64)), 32_768)
+    // A larger window never makes a model uncomfortable.
+    for descriptor in BundledLocalModels.models {
+      for gib: Int64 in [8, 16, 24, 36, 64] {
+        let hardware = mac(gib)
+        let size = LocalContextWindowChoice.automatic(for: descriptor, hardware: hardware)
+        guard size > 8_192 else { continue }
+        let memory = try XCTUnwrap(LocalContextWindowChoice.memory(descriptor, size: size))
+        XCTAssertLessThanOrEqual(memory, hardware.inferenceMemoryBudget * 4 / 5, "\(descriptor.id) on \(gib) GB")
+      }
+    }
+  }
+
+  func testAutomaticRespectsTrainedMaximum() throws {
+    var ministral = try package("ministral-3-8b-q4_k_m")
+    ministral.trainedContextLength = 16_384
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: ministral, hardware: mac(64)), 16_384)
+    // An installed record saved before the field reads the bundled package's.
+    ministral.trainedContextLength = nil
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: ministral, hardware: mac(64)), 32_768)
+    // Unknown anywhere: 8,192.
+    let unknown = LocalModelDescriptor(id: "other", displayName: ministral.displayName, downloadURL: ministral.downloadURL,
+      expectedByteCount: ministral.expectedByteCount, license: ministral.license, checksumSHA256: String(repeating: "c", count: 64),
+      revision: ministral.revision, quantization: ministral.quantization, architecture: ministral.architecture,
+      chatTemplate: ministral.chatTemplate, minimumLlamaBuild: ministral.minimumLlamaBuild,
+      estimatedRuntimeMemory: ministral.estimatedRuntimeMemory, largestTensorBytes: ministral.largestTensorBytes,
+      recommendedContextSize: 8_192, qualityScore: 1, performanceClass: "Vision", parameterBillions: ministral.parameterBillions,
+      minimumMemory: ministral.minimumMemory, recommendedMemory: ministral.recommendedMemory, projector: ministral.projector,
+      runtimeBuild: ministral.runtimeBuild, inferenceProfile: ministral.inferenceProfile)
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: unknown, hardware: mac(64)), 8_192)
+  }
+
+  func testAutomaticNeverBelow8KForCatalogueModels() throws {
+    for descriptor in BundledLocalModels.models {
+      XCTAssertGreaterThanOrEqual(LocalContextWindowChoice.automatic(for: descriptor, hardware: mac(8)), 8_192, descriptor.id)
+    }
+    // Over the comfortable line even at 8K, it stays at 8K.
+    XCTAssertEqual(LocalContextWindowChoice.automatic(for: try package("gemma-4-31b-iq3_xxs"), hardware: mac(8)), 8_192)
+  }
+
+  func testPresetsDisabledByTrainedMaximum() throws {
+    var model = try package("qwen3.5-2b-q4_k_m")
+    model.trainedContextLength = 16_384
+    let sizes = LocalContextWindowPreference.allCases.map {
+      LocalContextWindowChoice.size(for: $0, model: installed(model), hardware: mac(64))
+    }
+    XCTAssertEqual(sizes, [nil, 16_384, 16_384, nil])
+    model.trainedContextLength = 8_192
+    XCTAssertEqual(LocalContextWindowChoice.size(for: .larger, model: installed(model), hardware: mac(64)), nil)
+    // Memory rules a size out too: over the whole inference budget (9.2 GB on 16 GB).
+    let ministral = installed(try package("ministral-3-8b-q4_k_m"))
+    XCTAssertEqual(LocalContextWindowPreference.allCases.map {
+      LocalContextWindowChoice.size(for: $0, model: ministral, hardware: mac(16))
+    }, [nil, 8_192, nil, nil])
+    // Under a ruled-out preference, the runtime uses Automatic.
+    XCTAssertEqual(LocalContextWindowChoice.runtimeSize(for: try package("ministral-3-8b-q4_k_m"), preference: .maximum,
+                                                        accepted: "", hardware: mac(16)), 8_192)
+    // An imported model keeps its own window, and the presets are ruled out.
+    let imported = LocalModel(id: "imported", displayName: "Imported", fileURL: URL(fileURLWithPath: "/tmp/i.gguf"))
+    XCTAssertEqual(LocalContextWindowPreference.allCases.map {
+      LocalContextWindowChoice.size(for: $0, model: imported, hardware: mac(64))
+    }, [nil, 4_096, nil, nil])
+  }
+
+  /// A screenshot's image tokens don't fit in 4K, so only text packages offer Smaller.
+  func testSmallerIsOnlyForTextPackages() throws {
+    var model = try package("qwen3.5-2b-q4_k_m")
+    XCTAssertNil(LocalContextWindowChoice.size(for: .smaller, model: installed(model), hardware: mac(64)))
+    model.projector = nil
+    XCTAssertEqual(LocalContextWindowChoice.size(for: .smaller, model: installed(model), hardware: mac(64)), 4_096)
+  }
+
+  /// The preset is global: a model whose warning wasn't answered Use It runs at Automatic.
+  func testUnansweredWarningRunsAtAutomatic() throws {
+    let ministral = try package("ministral-3-8b-q4_k_m")
+    XCTAssertEqual(LocalContextWindowChoice.runtimeSize(for: ministral, preference: .maximum, accepted: "", hardware: mac(24)), 16_384)
+    let accepted = LocalContextWindowPreference.accepting(.maximum, modelID: ministral.id, in: "other=larger")
+    XCTAssertEqual(accepted, "other=larger\n\(ministral.id)=maximum")
+    XCTAssertEqual(LocalContextWindowPreference.accepting(.maximum, modelID: ministral.id, in: accepted), accepted)
+    XCTAssertEqual(LocalContextWindowChoice.runtimeSize(for: ministral, preference: .maximum, accepted: accepted, hardware: mac(24)), 32_768)
+    // Use It for one preset doesn't answer another.
+    XCTAssertFalse(LocalContextWindowPreference.isAccepted(.larger, modelID: ministral.id, in: accepted))
+  }
+
+  func testWarningWhenPresetIsOverComfortableMemory() throws {
+    // On 24 GB: 32K needs 12.23 GB, over the 12.20 comfortable line but within the 15.3 budget.
+    let ministral = installed(try package("ministral-3-8b-q4_k_m"))
+    XCTAssertTrue(LocalContextWindowChoice.needsWarning(.maximum, model: ministral, hardware: mac(24)))
+    XCTAssertFalse(LocalContextWindowChoice.needsWarning(.larger, model: ministral, hardware: mac(24)))
+    XCTAssertFalse(LocalContextWindowChoice.needsWarning(.automatic, model: ministral, hardware: mac(24)))
+    XCTAssertFalse(LocalContextWindowChoice.needsWarning(.maximum, model: ministral, hardware: mac(36)))
+    // A ruled-out preset is disabled, not warned about.
+    XCTAssertFalse(LocalContextWindowChoice.needsWarning(.maximum, model: ministral, hardware: mac(16)))
+    // Over the line already at 8K, a smaller size uses less, so it doesn't warn; a larger one does.
+    let large = installed(try package("gemma-4-31b-iq3_xxs"))
+    var textOnly = try package("gemma-4-31b-iq3_xxs")
+    textOnly.projector = nil
+    XCTAssertFalse(LocalContextWindowChoice.needsWarning(.smaller, model: installed(textOnly), hardware: mac(36)))
+    XCTAssertTrue(LocalContextWindowChoice.needsWarning(.larger, model: large, hardware: mac(36)))
+  }
+
+  func testPresetLabels() {
+    XCTAssertEqual(LocalContextWindowPreference.allCases.map(\.title), ["Smaller (4K)", "Automatic", "Larger (16K)", "Max (32K)"])
+    XCTAssertEqual(LocalContextWindowPreference.allCases.map(\.fixedSize), [4_096, nil, 16_384, 32_768])
+    let defaults = UserDefaults(suiteName: "LocalContextWindowTests")!
+    defaults.removePersistentDomain(forName: "LocalContextWindowTests")
+    XCTAssertEqual(LocalContextWindowPreference.saved(in: defaults), .automatic)
+    defaults.set("maximum", forKey: LocalContextWindowPreference.key)
+    XCTAssertEqual(LocalContextWindowPreference.saved(in: defaults), .maximum)
+    defaults.removePersistentDomain(forName: "LocalContextWindowTests")
+  }
+}

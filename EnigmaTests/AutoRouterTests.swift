@@ -238,9 +238,23 @@ final class AutoRouterTests: XCTestCase {
     XCTAssertEqual(webDecision.reason, .requiresWebSearch)
   }
 
+  /// F35 CP0: Auto's cloud check counts the system prompt, as the request will.
+  func testCloudContextCheckCountsTheSystemPrompt() throws {
+    let prompt = CloudContext.promptTokens(provider: .openAI, toolbox: nil)
+    let room = ModelContextPolicy.cloud(provider: .openAI, modelID: "cloud-model", promptTokens: prompt).availableInputTokens
+    let wrapper = try CloudContext.encodedMessages([ChatMessage(role: .user, content: "")]).count
+    // One estimated token more than the room left after the prompt, and well within the room without it.
+    let fits = AutoRouter.decide(request(prompt: String(repeating: "x", count: 3 * room - wrapper), cloud: cloud))
+    XCTAssertEqual(fits.reason, .exceedsLocalContext)
+    XCTAssertEqual(fits.route?.mode, .cloud)
+    let over = AutoRouter.decide(request(prompt: String(repeating: "x", count: 3 * room + 3 - wrapper), cloud: cloud))
+    XCTAssertNil(over.route)
+    XCTAssertEqual(over.limitation, .unavailableCapability(.largerContext))
+  }
+
   func testLongHistoryIsTrimmableButOversizedCurrentPromptIsRejected() {
     let longHistory = [
-      ChatMessage(role: .user, content: String(repeating: "x", count: 50_000)),
+      ChatMessage(role: .user, content: String(repeating: "x", count: 210_000)),
       ChatMessage(role: .assistant, content: "answer"),
     ]
     let decision = AutoRouter.decide(AutoRouter.Request(
@@ -248,9 +262,43 @@ final class AutoRouterTests: XCTestCase {
     ))
     XCTAssertEqual(decision.route?.mode, .cloud)
     XCTAssertEqual(decision.reason, .exceedsLocalContext)
-    let rejected = AutoRouter.decide(request(prompt: String(repeating: "x", count: 50_000)))
+    let rejected = AutoRouter.decide(request(prompt: String(repeating: "x", count: 210_000)))
     XCTAssertNil(rejected.route)
     XCTAssertEqual(rejected.limitation, .unavailableCapability(.largerContext))
+  }
+
+  /// F35 CP3 (owner, 2026-11-03): a long chat is compacted on this Mac, so it stays local, but Auto
+  /// keeps the latest exchange whole: the newest turn, the summary and the current message must fit.
+  func testOlderTurnsStayLocalButTheNewestTurnAndTheSummaryMustFit() {
+    let big = String(repeating: "x", count: 30_000)
+    let older = (0..<6).flatMap { _ in
+      [ChatMessage(role: .user, content: big), ChatMessage(role: .assistant, content: "answer")]
+    }
+    let recent = (0..<2).flatMap { _ in
+      [ChatMessage(role: .user, content: "short"), ChatMessage(role: .assistant, content: "answer")]
+    }
+    var request = AutoRouter.Request(selectedMode: .auto, prompt: "Continue", contextMessages: older + recent,
+                                     localModel: localModel, cloud: cloud)
+    XCTAssertEqual(AutoRouter.decide(request).route?.mode, .local)
+    request.summary = String(repeating: "s", count: 200_000)
+    XCTAssertEqual(AutoRouter.decide(request).reason, .exceedsLocalContext, "The summary goes with the request")
+    let newest = AutoRouter.Request(selectedMode: .auto, prompt: "Continue", contextMessages: recent + older.suffix(4),
+                                    localModel: localModel, cloud: cloud)
+    XCTAssertEqual(AutoRouter.decide(newest).reason, .exceedsLocalContext, "The newest turn always goes")
+  }
+
+  /// A chat that fits whole stays local: the compacted estimate only matters when it doesn't.
+  func testAChatThatFitsWholeStaysLocal() {
+    let probe = AutoRouter.Request(selectedMode: .auto, prompt: "Continue", contextMessages: [], localModel: localModel, cloud: cloud)
+    let available = ContextBudget(contextWindow: probe.localCapabilities.maximumContextTokens,
+                                  outputTokens: ModelContextPolicy.localOutputTokens, overheadTokens: 256).availableInputTokens
+    let history = [
+      ChatMessage(role: .user, content: "Hi"), ChatMessage(role: .assistant, content: "Hello"),
+      ChatMessage(role: .user, content: String(repeating: "x", count: available - 1_000)), ChatMessage(role: .assistant, content: "OK"),
+    ]
+    let decision = AutoRouter.decide(AutoRouter.Request(selectedMode: .auto, prompt: "Continue", contextMessages: history,
+                                                        localModel: localModel, cloud: cloud))
+    XCTAssertEqual(decision.route?.mode, .local)
   }
 
   private let localModel = LocalModel(

@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A30D584A0357A3F6E7D6886F /* EnigmaTests/ChatCompactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BDC58AF99817F5A69B2474D /* EnigmaTests/ChatCompactionTests.swift */; };
+		11BE1AB5DD3D7D3A82BD7DB7 /* Enigma/Chat/ChatCompaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6FA405F5BC28849AFF928B /* Enigma/Chat/ChatCompaction.swift */; };
+		1FDBB74921638856875A06A7 /* EnigmaTests/F35LiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D538FEF6AC260697E7C388 /* EnigmaTests/F35LiveTests.swift */; };
+		45FF105B70D345A25881EC30 /* Enigma/LocalInference/LocalContextWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */; };
+		E2241A085A8D332009EA72F6 /* EnigmaTests/ToolStepBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */; };
+		7102E1805226769007152A38 /* Enigma/Chat/ToolStepBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */; };
 		F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */; };
 		2B4D6297296D33B185A6DDFF /* EnigmaTests/WeatherCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B140E3B77B422B61B304713D /* EnigmaTests/WeatherCardTests.swift */; };
 		155304E6FA7871D103301197 /* Enigma/Chat/MapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */; };
@@ -75,6 +81,7 @@
 		1901987355208F91135CBFF4 /* EnigmaTests/EnigmaMainWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7B6F1531233451C5223B89 /* EnigmaTests/EnigmaMainWindowTests.swift */; };
 		78FC9AB08F32145AC031E35E /* Enigma/App/KeyboardShortcutsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B43869ED5B6C1E5FB321397 /* Enigma/App/KeyboardShortcutsHelpView.swift */; };
 		77CED3F11DA2C07E5AFB8FDC /* Enigma/App/EnigmaMainPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56BF7D0073AF0C3510561470 /* Enigma/App/EnigmaMainPage.swift */; };
+		F94B9B449590B097CAF0EDD3 /* Enigma/App/ContextRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE44100C6F391C28CEF1E3C /* Enigma/App/ContextRing.swift */; };
 		E54A7390F93C84BD9D766232 /* Enigma/App/EnigmaComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FEFD9495A0C00C077FDD9 /* Enigma/App/EnigmaComposer.swift */; };
 		BEB703A6ED5E3CC6B0ADA784 /* Enigma/App/EnigmaSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF6103E01F7B2775855F179 /* Enigma/App/EnigmaSidebar.swift */; };
 		4DC6842798E6A6D965A6026D /* Enigma/App/EnigmaMainWindowLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986CB99157D968506FA6560B /* Enigma/App/EnigmaMainWindowLogic.swift */; };
@@ -306,6 +313,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6BDC58AF99817F5A69B2474D /* EnigmaTests/ChatCompactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ChatCompactionTests.swift"; sourceTree = SOURCE_ROOT; };
+		8B6FA405F5BC28849AFF928B /* Enigma/Chat/ChatCompaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ChatCompaction.swift"; sourceTree = SOURCE_ROOT; };
+		C8D538FEF6AC260697E7C388 /* EnigmaTests/F35LiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/F35LiveTests.swift"; sourceTree = SOURCE_ROOT; };
+		66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/LocalInference/LocalContextWindow.swift"; sourceTree = SOURCE_ROOT; };
+		9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ToolStepBudgetTests.swift"; sourceTree = SOURCE_ROOT; };
+		6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolStepBudget.swift"; sourceTree = SOURCE_ROOT; };
 		320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/MapCardTests.swift"; sourceTree = SOURCE_ROOT; };
 		B140E3B77B422B61B304713D /* EnigmaTests/WeatherCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WeatherCardTests.swift"; sourceTree = SOURCE_ROOT; };
 		9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MapCard.swift"; sourceTree = SOURCE_ROOT; };
@@ -373,6 +386,7 @@
 		DD7B6F1531233451C5223B89 /* EnigmaTests/EnigmaMainWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/EnigmaMainWindowTests.swift"; sourceTree = SOURCE_ROOT; };
 		4B43869ED5B6C1E5FB321397 /* Enigma/App/KeyboardShortcutsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/KeyboardShortcutsHelpView.swift"; sourceTree = SOURCE_ROOT; };
 		56BF7D0073AF0C3510561470 /* Enigma/App/EnigmaMainPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaMainPage.swift"; sourceTree = SOURCE_ROOT; };
+		7DE44100C6F391C28CEF1E3C /* Enigma/App/ContextRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ContextRing.swift"; sourceTree = SOURCE_ROOT; };
 		BD7FEFD9495A0C00C077FDD9 /* Enigma/App/EnigmaComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaComposer.swift"; sourceTree = SOURCE_ROOT; };
 		4FF6103E01F7B2775855F179 /* Enigma/App/EnigmaSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaSidebar.swift"; sourceTree = SOURCE_ROOT; };
 		986CB99157D968506FA6560B /* Enigma/App/EnigmaMainWindowLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaMainWindowLogic.swift"; sourceTree = SOURCE_ROOT; };
@@ -620,6 +634,12 @@
 		A70000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				6BDC58AF99817F5A69B2474D /* EnigmaTests/ChatCompactionTests.swift */,
+				8B6FA405F5BC28849AFF928B /* Enigma/Chat/ChatCompaction.swift */,
+				C8D538FEF6AC260697E7C388 /* EnigmaTests/F35LiveTests.swift */,
+				66121C4E58CF557ED3805E4F /* Enigma/LocalInference/LocalContextWindow.swift */,
+				9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */,
+				6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */,
 				C5F9040CD3A3C58FD5A64C27 /* Enigma/Search/WeatherLookup.swift */,
 				000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */,
 				4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */,
@@ -665,6 +685,7 @@
 				DD7B6F1531233451C5223B89 /* EnigmaTests/EnigmaMainWindowTests.swift */,
 				4B43869ED5B6C1E5FB321397 /* Enigma/App/KeyboardShortcutsHelpView.swift */,
 				56BF7D0073AF0C3510561470 /* Enigma/App/EnigmaMainPage.swift */,
+				7DE44100C6F391C28CEF1E3C /* Enigma/App/ContextRing.swift */,
 				BD7FEFD9495A0C00C077FDD9 /* Enigma/App/EnigmaComposer.swift */,
 				586CBA5DBB839B890F7674C0 /* EnigmaTests/EnigmaCompactPanelTests.swift */,
 				A71CB691CF9A262879F0FAC5 /* Enigma/App/EnigmaCompactPanel.swift */,
@@ -1092,6 +1113,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				11BE1AB5DD3D7D3A82BD7DB7 /* Enigma/Chat/ChatCompaction.swift in Sources */,
+				45FF105B70D345A25881EC30 /* Enigma/LocalInference/LocalContextWindow.swift in Sources */,
+				7102E1805226769007152A38 /* Enigma/Chat/ToolStepBudget.swift in Sources */,
 				1ED0BB083869BE602DF41500 /* Enigma/Search/WeatherLookup.swift in Sources */,
 				D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */,
 				836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */,
@@ -1140,6 +1164,7 @@
 				4772B8D9B8DA7F7B695C9F69 /* Enigma/Files/FileCards.swift in Sources */,
 				78FC9AB08F32145AC031E35E /* Enigma/App/KeyboardShortcutsHelpView.swift in Sources */,
 				77CED3F11DA2C07E5AFB8FDC /* Enigma/App/EnigmaMainPage.swift in Sources */,
+				F94B9B449590B097CAF0EDD3 /* Enigma/App/ContextRing.swift in Sources */,
 				E54A7390F93C84BD9D766232 /* Enigma/App/EnigmaComposer.swift in Sources */,
 				BEB703A6ED5E3CC6B0ADA784 /* Enigma/App/EnigmaSidebar.swift in Sources */,
 				4DC6842798E6A6D965A6026D /* Enigma/App/EnigmaMainWindowLogic.swift in Sources */,
@@ -1283,6 +1308,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A30D584A0357A3F6E7D6886F /* EnigmaTests/ChatCompactionTests.swift in Sources */,
+				1FDBB74921638856875A06A7 /* EnigmaTests/F35LiveTests.swift in Sources */,
+				E2241A085A8D332009EA72F6 /* EnigmaTests/ToolStepBudgetTests.swift in Sources */,
 				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
 				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
 				F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */,

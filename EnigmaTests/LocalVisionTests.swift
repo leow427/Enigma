@@ -64,6 +64,109 @@ final class LocalVisionTests: XCTestCase {
     XCTAssertFalse(args.contains("--ubatch-size"))
   }
 
+  // MARK: F35 CP2: the window chosen for this Mac
+
+  func testServerGetsChosenCtxSize() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    func ctxSize() throws -> String {
+      let args = try LlamaServerVisionEngine.arguments(model: model, port: 55432, key: "fixture", alias: "test")
+      return args[try XCTUnwrap(args.firstIndex(of: "--ctx-size")) + 1]
+    }
+    XCTAssertEqual(try ctxSize(), "8192", "The package's window")
+    model.runtimeContextWindow = 32_768
+    XCTAssertEqual(try ctxSize(), "32768")
+    model.runtimeContextWindow = 65_536
+    XCTAssertThrowsError(try ctxSize(), "The 4,096–32,768 range still applies")
+  }
+
+  func testFileModeUsesChosenWindow() throws {
+    var text = LocalModel(id: "text", displayName: "Text", fileURL: URL(fileURLWithPath: "/tmp/t.gguf"),
+                          catalogDescriptor: try XCTUnwrap(LocalModelManifest.bundled.models.first))
+    XCTAssertEqual(LocalFileRuntime.contextWindow(for: text), 8_192)
+    text.runtimeContextWindow = 32_768
+    XCTAssertEqual(LocalFileRuntime.contextWindow(for: text), 32_768, "No 16,384 clamp below 32K")
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var vision = try fixture(in: directory)
+    vision.runtimeContextWindow = 16_384
+    XCTAssertEqual(LocalFileRuntime.contextWindow(for: vision), 16_384)
+    XCTAssertNoThrow(try LocalFileRuntime.validateBudget(promptTokens: 20_000, maximumTokens: 4_096,
+                                                         contextWindow: LocalFileRuntime.contextWindow(for: text)))
+  }
+
+  func testEmbeddedEngineGetsChosenWindow() {
+    var model = LocalModel(id: "text", displayName: "Text", fileURL: URL(fileURLWithPath: "/tmp/t.gguf"),
+                           catalogDescriptor: LocalModelManifest.bundled.models.first)
+    XCTAssertEqual(LlamaCPPModelEngine.requestedContext(nil, model: model), 8_192)
+    model.runtimeContextWindow = 16_384
+    XCTAssertEqual(LlamaCPPModelEngine.requestedContext(nil, model: model), 16_384)
+    XCTAssertEqual(LlamaCPPModelEngine.requestedContext(4_096, model: model), 4_096, "A test's fixed size wins")
+  }
+
+  func testBudgetsUseChosenWindow() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var model = try fixture(in: directory)
+    model.runtimeContextWindow = 32_768
+    XCTAssertEqual(model.contextWindow, 32_768)
+    XCTAssertEqual(model.packageContextWindow, 8_192)
+    let messages = [ChatMessage(role: .user, content: "Hi")]
+    let toolbox = AssistantToolbox(parts: [], requiredTool: nil, extraInstructions: [])
+    XCTAssertEqual(LocalToolAgent.budget(messages, model: model, toolbox: toolbox).contextWindow, 32_768)
+    XCTAssertEqual(try LocalToolAgent.prepare(messages, model: model, toolbox: toolbox).budget.contextWindow, 32_768)
+    XCTAssertEqual(try LlamaServerVisionEngine.prepare(messages: messages, image: nil, model: model).budget.contextWindow, 32_768)
+    let request = AutoRouter.Request(selectedMode: .auto, prompt: "Hi", contextMessages: messages, localModel: model, cloud: nil)
+    XCTAssertEqual(request.localCapabilities.maximumContextTokens, 32_768)
+  }
+
+  func testChosenWindowDoesNotRequireUpdate() throws {
+    let descriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first)
+    var installed = LocalModel(id: descriptor.id, displayName: descriptor.displayName,
+      fileURL: URL(fileURLWithPath: "/tmp/m.gguf"), catalogDescriptor: descriptor,
+      visionConfiguration: LocalVisionConfiguration(projectorURL: URL(fileURLWithPath: "/tmp/p.gguf"),
+        serverExecutableURL: URL(fileURLWithPath: "/usr/bin/true"), contextWindow: descriptor.recommendedContextSize,
+        packageRevision: descriptor.packageRevision))
+    XCTAssertFalse(descriptor.requiresUpdate(installed))
+    installed.runtimeContextWindow = 32_768
+    XCTAssertFalse(descriptor.requiresUpdate(installed), "The runtime size never trips the Update check")
+    // Written into the vision configuration, it would.
+    installed.visionConfiguration?.contextWindow = 32_768
+    XCTAssertTrue(descriptor.requiresUpdate(installed))
+  }
+
+  func testChangingPreferenceReloadsRuntime() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let suite = "LocalVisionTests-\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let hardware = LocalHardwareProfile(physicalMemory: 64 * LocalHardwareProfile.gib, isAppleSilicon: true,
+      hasMetal: true, hasUnifiedMemory: true, chip: "Fixture", device: "Fixture", cpuCount: 12, performanceCPUCount: 8,
+      availableDiskBytes: 200 * LocalHardwareProfile.gib, metalRecommendedWorkingSet: nil,
+      metalMaximumBufferLength: 8 * LocalHardwareProfile.gib, lowPowerMode: false)
+    let store = LocalModelInstallationStore(modelsDirectory: directory.appendingPathComponent("Models"),
+      contextWindow: { descriptor in
+        LocalContextWindowChoice.runtimeSize(for: descriptor, preference: .saved(in: UserDefaults(suiteName: suite)!),
+                                             accepted: "", hardware: hardware)
+      })
+    var input = try fixture(in: directory)
+    input.catalogDescriptor = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "qwen3.5-2b-q4_k_m" })
+    let installed = try store.install(input)
+    XCTAssertEqual(installed.contextWindow, 32_768, "Automatic on a 64 GB Mac")
+    XCTAssertEqual(store.installedModel(), installed)
+    XCTAssertEqual(installed.visionConfiguration?.contextWindow, 8_192, "The package's value is unchanged")
+    defaults.set(LocalContextWindowPreference.larger.rawValue, forKey: LocalContextWindowPreference.key)
+    let changed = try XCTUnwrap(store.installedModel())
+    XCTAssertEqual(changed.contextWindow, 16_384)
+    // The server starts again for a model that isn't the one it runs; the embedded engine for a new size.
+    XCTAssertNotEqual(changed, installed)
+    XCTAssertNotEqual(LlamaCPPModelEngine.requestedContext(nil, model: changed),
+                      LlamaCPPModelEngine.requestedContext(nil, model: installed))
+    XCTAssertEqual(try LlamaServerVisionEngine.arguments(model: changed, port: 1, key: "k", alias: "a").drop { $0 != "--ctx-size" }.dropFirst().first, "16384")
+  }
+
   func testGemmaLaunchKeepsWholeScreenshotsInOneBatch() throws {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

@@ -179,4 +179,135 @@ var contextWindow: Int   // now the runtime choice; the package value stays reco
 
 ## Hand-off
 
-_To be filled in by the CP2 worker._
+1. **Summary:** each catalogue model now runs at the largest of 8K, 16K or
+   32K that its trained maximum and this Mac's memory allow, within 4/5 of the
+   inference budget, or at the size picked under **Settings → On this Mac →
+   › Advanced → Context size**. The size is set on `LocalModel` as the
+   library loads it (`runtimeContextWindow`) and reaches llama-server's
+   `--ctx-size`, the embedded engine, File Mode and every budget, never the
+   installed `visionConfiguration`, so Update isn't offered. Benchmarks record
+   and match the size they ran at. Every bundled package carries its GGUF
+   `context_length`.
+2. **Files:**
+   - `Enigma/LocalInference/LocalContextWindow.swift` (new):
+     `LocalContextWindowPreference`, `LocalContextWindowChoice`.
+   - `Enigma/LocalInference/LocalModelManifest.swift`: `trainedContextLength`
+     (optional, validated), bundled manifest version 9.
+     `BundledLocalModels.swift`: `LocalModelFamily.trainedContextLength`, set
+     for all 14 families.
+   - `LocalModelEngine.swift`: `LocalModel.runtimeContextWindow`,
+     `packageContextWindow`; `contextWindow` is the runtime one.
+     `LocalModelInstallationStore.swift`: a `contextWindow:` resolver
+     (default `LocalContextWindowChoice.current`) sets it on every model it
+     returns.
+   - `LlamaServerVisionEngine.swift`: `--ctx-size` and validation use
+     `model.contextWindow`. `LocalFileInference.swift`: File Mode uses the
+     runtime size (no 16,384 clamp). `LlamaCPPModelEngine.swift`:
+     `requestedContext(_:model:)`, and the engine loads again when the size
+     changes.
+   - `LocalModelAdvisor.swift`, `LocalModelSelection.swift`: benchmarks record
+     `model.contextWindow`; `latestBenchmark`, `assess(…contextSize:)` and
+     `select(…contextSizes:)` match it.
+   - `LocalModelSettingsLogic.swift`: `contextDetail(for:installed:runtimeSize:)`.
+     `LocalModelManagerSection.swift`: Model details show the runtime size; a
+     `SettingsAdvanced` with `LocalContextSizeRow`.
+   - `EnigmaControls.swift`: `EnigmaOption.accessibilityLabel`, read by
+     `EnigmaSegmentedControl`'s VoiceOver picker; a segment's test marker now
+     sits inside its `.disabled`, so it reports the option's state.
+     `SettingsView.swift`: "context size" finds On this Mac.
+   - `scripts/gguf-header.py` prints `context_length`;
+     `scripts/add-catalogue-model.py` prints `trainedContextLength` and stops
+     without it.
+   - Tests: `LocalModelCatalogueTests`, `LocalModelEstimateTests` (new class
+     `LocalContextWindowTests`), `LocalVisionTests`, `LocalModelSelectionTests`,
+     `EnigmaSettingsTests`, `scripts/tests/test_add_catalogue_model.py`.
+   - Docs: `docs/Local-Model-Selection.md` (Context size, benchmarks by size,
+     catalogue version), `docs/Updating-the-Model-Catalogue.md`,
+     `docs/Chat.md` (local budgets), the plan's Interface map.
+3. **Decisions:**
+   - **The trained maximum is per family** (`LocalModelFamily.trainedContextLength`),
+     read from each family's first package with `gguf-header.py` on
+     2026-11-03: Gemma 4 E4B 131,072, every other family 262,144. All are
+     above 32K, so today only memory limits the choice.
+   - **Installed records are snapshots** of the descriptor they were installed
+     with, so one saved before the field reads the bundled catalogue's package
+     with the same ID and checksum; unknown is 8,192.
+   - **Where the size is set:** the installation store, the one place models
+     are loaded, through an injected resolver. The app's resolver reads the
+     preference from standard defaults and this Mac's memory (detected once);
+     under the test host it is inert, so tests never depend on the
+     developer's Mac or saved choice.
+   - **Smaller (4K) is 4,096,** below the 8K floor Automatic keeps; the
+     server's 4,096–32,768 range still applies. It is disabled for vision
+     packages (owner, 2026-11-03), since a screenshot's image tokens don't fit,
+     so today it only applies to text-only packages. A saved preset that a
+     model rules out runs that model at Automatic.
+   - **The preset is global, Use It is per model** (`localContextWindowAccepted`,
+     `id=preset` lines). A model selected later that the preset puts over its
+     comfortable line runs at Automatic until its warning is answered Use It;
+     the row shows the warning again, and Cancel there sets the preset back
+     to Automatic.
+   - **A new size gets Check performance** when the selected model has no
+     benchmark at it, so recommendations and speeds are measured, not
+     guessed.
+   - **Disabled vs. warned:** a preset over the whole inference budget, or
+     above the trained maximum, is disabled; one over the comfortable line
+     asks first, but only when it is larger than Automatic's size (a model
+     over the line already at 8K doesn't warn for 4K).
+   - **The warning is inline** in the row (status line, **Use It**,
+     **Cancel**), like the page's other memory warnings, not a modal alert;
+     VoiceOver announces it. The row is disabled until this Mac's memory is
+     known and while the model is busy.
+   - **Applying** saves the preference and refreshes the view model's
+     installed model; the server starts again at the next request because
+     its loaded model no longer equals the selected one, and the embedded
+     engine because its size differs.
+   - **Recommendations** match benchmarks at an installed package's runtime
+     size; a package not installed has no benchmarks, so it keeps the
+     package's size.
+   - **Imported models** keep their own window, and every preset but
+     Automatic is disabled for them.
+4. **Verification:**
+   - New tests: `LocalContextWindowTests` (Automatic by memory and trained
+     maximum, the 8K floor, presets ruled out, Smaller only for text
+     packages, the warning line, unanswered warnings run at Automatic, the
+     labels); in `LocalModelCatalogueTests`, every package's trained length,
+     decoding without it, and one below the recommended size rejected; in
+     `LocalVisionTests`, `--ctx-size`, File Mode, the embedded engine and the
+     budgets use the chosen size, it never trips Update, and a changed
+     preference reloads the runtime; in `LocalModelSelectionTests`, benchmarks
+     record and match the size; in `EnigmaSettingsTests`, the row under
+     Advanced, disabled presets, the warning's Use It and Cancel, asking again
+     for a model not yet answered (Cancel and Use It), the ruled-out note and
+     rendering in Paper and Ink; `scripts/tests/test_add_catalogue_model.py`.
+   - Two review rounds (round 1: 5 Should fix; round 2: 4 Should fix, no
+     Blockers). Round 2's fixes were small and tested here, without a third
+     round.
+   - Exit checks: the six affected classes (198 tests) pass; the full
+     `verify-xcode.sh build` and `analyze` pass; the full `test` run (2,279
+     tests) fails only `AppCommandTests`' two window-layout tests, which fail
+     on main on this Mac too, plus a routing test broken by the 256K cloud
+     change, fixed in its own commit.
+   - Live check per installed catalogue model (owner approved, 2026-11-03;
+     `F35LiveTests.testEachInstalledModelStartsAtItsChosenSizeAndAnswers`), on
+     a 24 GB Mac (15,255 MB inference budget), preset Automatic: Bonsai 2 27B
+     Q2_0 at 32,768 (12,013 MB estimate), Gemma 4 12B Q5_K_M at 32,768
+     (11,944 MB) and Qwen 3.8 27B IQ3_XXS at 8,192 (14,043 MB, over the
+     comfortable line already at 8K). Each server started with that
+     `--ctx-size` and answered.
+5. **Limitations:**
+   - The memory estimates at 16K and 32K come from the cache layouts, not
+     measured peaks at those sizes.
+   - The fit check at load (`LocalModelSelector.assess` in
+     `LlamaServerVisionEngine.load`) still uses the package's 8K estimate.
+   - Settings shows the size chosen for the selected model; another installed
+     model's row shows its own.
+   - Benchmarks recorded before CP2 ran at 8,192, so on a Mac where Automatic
+     is now 16K or 32K they no longer match: the measured speed falls back to
+     an estimate until **Check performance** runs again. Nothing runs it on
+     its own (it would load the model unasked).
+   - The resolver reads this Mac's memory once per launch; **Check this Mac**
+     updates Settings, but the runtime keeps the launch-time figure.
+6. **For the next checkpoint:** `LocalModel.contextWindow` is the runtime
+   size everywhere, so CP3–CP5 read it as before;
+   `LocalModel.packageContextWindow` is the package's.

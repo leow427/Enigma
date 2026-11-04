@@ -105,7 +105,8 @@ final class LocalModelAdvisor: ObservableObject {
       return LocalModelRecommendations(assessments: [], recommended: nil, faster: nil, smarter: nil)
     }
     return LocalModelSelector.select(manifest: manifest, hardware: hardware,
-      measurements: measurements, installedIDs: Set(installedModels.map(\.id)))
+      measurements: measurements, installedIDs: Set(installedModels.map(\.id)),
+      contextSizes: Dictionary(installedModels.map { ($0.id, $0.contextWindow) }) { first, _ in first })
   }
 
   func confirmDownload(_ model: LocalModelDescriptor, installedModels: [LocalModel]) async throws -> LocalModelAssessment {
@@ -125,7 +126,7 @@ final class LocalModelAdvisor: ObservableObject {
       hardwareFingerprint: hardware.fingerprint, lowPowerMode: hardware.lowPowerMode,
       modelID: model.id, modelChecksum: descriptor?.checksumSHA256 ?? "unverified-import",
       modelByteCount: descriptor?.expectedByteCount ?? 0, parameterBillions: descriptor?.parameterBillions ?? 0,
-      architecture: descriptor?.architecture ?? "unverified", contextSize: descriptor?.recommendedContextSize ?? ModelContextPolicy.localContextWindow,
+      architecture: descriptor?.architecture ?? "unverified", contextSize: model.contextWindow,
       recordedAt: .now, metrics: metrics,
       predictedTokensPerSecond: prediction?.tokensPerSecond ?? metrics.generationTokensPerSecond,
       predictedTimeToFirstToken: prediction?.timeToFirstToken ?? metrics.timeToFirstToken,
@@ -145,7 +146,8 @@ final class LocalModelAdvisor: ObservableObject {
   func latestBenchmark(for model: LocalModel?) -> LocalModelBenchmark? {
     guard let model, let hardware else { return nil }
     return measurements.last { $0.modelID == model.id && $0.isApplicable(to: hardware)
-      && $0.modelChecksum == (model.catalogDescriptor?.checksumSHA256 ?? "unverified-import") }
+      && $0.modelChecksum == (model.catalogDescriptor?.checksumSHA256 ?? "unverified-import")
+      && $0.contextSize == model.contextWindow }
   }
 
   func dismissOnboarding() {

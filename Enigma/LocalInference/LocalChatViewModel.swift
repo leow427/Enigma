@@ -55,7 +55,10 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var sessions: [ChatSession]
   /// The tour's scripted reply while it plays.
   private var tourReply: Task<Void, Never>?
-  @Published private(set) var selectedSessionID: UUID?
+  @Published private(set) var selectedSessionID: UUID? {
+    // Another chat has its own usage, known after its next preparation.
+    didSet { if oldValue != nil, selectedSessionID != oldValue { contextUsage = nil } }
+  }
   /// The chat whose last accepted request used Messages, typed or recognized. It lets a
   /// follow-up like "send her a message saying …" carry Messages over. In memory only:
   /// cleared by any other accepted request, a new chat, and switching chats.
@@ -68,9 +71,13 @@ final class LocalChatViewModel: ObservableObject {
   @Published private(set) var pendingModelID: String?
   @Published private(set) var installedModels: [LocalModel] = []
   @Published private(set) var contextNotice: String?
+  /// The selected chat's share of its route's budget, after its last preparation (F35).
+  @Published private(set) var contextUsage: ContextUsage?
+  private let compactor = ChatCompactor()
   @Published private(set) var activity: AssistantActivity?
   /// Shown above the next reply, then cleared, such as free models running out (F34).
   var nextReplyNotice: String?
+  static let longContextNotice = "Answered in the cloud: the latest messages are too long for this Mac."
   private var activityMessageID: UUID?
   @Published private(set) var activeRequest: ActiveRequest? {
     didSet {
@@ -95,6 +102,8 @@ final class LocalChatViewModel: ObservableObject {
       lastRequestActivityAt = .now
       // The failure's text can quote a provider's reply, so only the fact is logged.
       if case .failed = state, state != oldValue { log.record("A request failed") }
+      // A notice is about the reply it was set for; one that never started mustn't label a later one.
+      if case .failed = state { nextReplyNotice = nil }
     }
   }
   /// When a request last started, streamed, or ended, failed or not. In
@@ -143,6 +152,16 @@ final class LocalChatViewModel: ObservableObject {
     sessions.filter { $0.id != temporarySessionID && (!$0.messages.isEmpty || $0.id == selectionSessionID) }
   }
   var messages: [ChatMessage] { selectedSession?.messages ?? [] }
+
+  /// The selected chat's summary as requests send it: its copy of attached context only while
+  /// that context is still attached, as `requestMessages` does for earlier messages.
+  var appliedSummary: ChatSummary? { summaryAsSent(selectedSession?.summary) }
+
+  private func summaryAsSent(_ summary: ChatSummary?) -> ChatSummary? {
+    guard var summary else { return nil }
+    summary.attached = summary.attached?.filter { context in attachedContexts.contains { $0.id == context.id } }
+    return summary
+  }
 
   private var requestMessages: [ChatMessage] { messages.map { message in
     var copy = message
@@ -640,6 +659,8 @@ final class LocalChatViewModel: ObservableObject {
     pendingModelID = nil
     cancelIdleUnload()
     clearModelFailure()
+    // A background run on the old model would hold the engine the switch needs.
+    for run in compactions.values where run.isLocal { run.task.cancel() }
     let settled: State = if keepsFailure, case .failed = state { state } else { .idle }
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
@@ -735,6 +756,8 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         self?.receiveActivity(.phase(.thinking), requestID: active.id)
         if local, let model {
+          // The engine may be busy with this chat's background run (F35).
+          await self?.waitBeforeEngine(sessionID, requestID: active.id)
           // The inference-only bridge releases its model before the tool-capable runtime loads it.
           await engine.unload()
           let owner = self
@@ -807,7 +830,7 @@ final class LocalChatViewModel: ObservableObject {
       return
     }
     let userMessage = contextualMessage(prompt)
-    let history = (requestMessages + [userMessage]).map(ConversationContextPrompt.expand)
+    let history = requestMessages + [ConversationContextPrompt.expand(userMessage)]
     let toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
@@ -826,15 +849,28 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         self?.receiveActivity(.phase(.thinking), requestID: active.id)
         if local, let model {
+          // The engine may be busy with this chat's background run (F35).
+          await self?.waitBeforeEngine(sessionID, requestID: active.id)
           // The inference-only bridge releases its model before the tool-capable runtime loads it.
           await engine.unload()
           let owner = self
-          try await LocalToolAgent(inference: fileInference).run(messages: history, model: model, toolbox: toolbox,
+          guard let chat = owner else { throw CancellationError() }
+          // Older turns go before the tools do (F35).
+          let prepared = try await chat.compactedRequest(history, sessionID: sessionID, requestID: active.id,
+            prepare: { try LocalToolAgent.prepare($0, model: model, toolbox: toolbox) },
+            summary: { chat.toolRuntimeSummary($0, model: model) }).prepared
+          chat.show(prepared)
+          try await LocalToolAgent(inference: fileInference).run(messages: prepared.messages, model: model, toolbox: toolbox,
             onActivity: { event in await owner?.receiveActivity(event, requestID: active.id) }) { text in
             await owner?.appendFileText(text, messageID: responseID, sessionID: sessionID, requestID: active.id)
           }
-        } else if let provider {
-          let request = ChatRequest(sessionID: sessionID, messages: history, route: route)
+        } else if let provider, let owner = self, let providerID = CloudProviderID(rawValue: route.providerID) {
+          let plain = owner.cloudProviders.provider(for: providerID)
+          let compaction = try await owner.compactedRequest(history, sessionID: sessionID, requestID: active.id,
+            prepare: { try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: $0, route: route), toolbox: toolbox) },
+            summary: { plain.textStream(ChatRequest(sessionID: UUID(), messages: $0.messages, route: route)) })
+          owner.show(compaction.prepared)
+          let request = ChatRequest(sessionID: sessionID, messages: compaction.messages, route: route)
           for try await event in provider.stream(request, toolbox: toolbox) {
             try Task.checkCancellation()
             switch event {
@@ -890,7 +926,7 @@ final class LocalChatViewModel: ObservableObject {
           let model = installedModel, model.id != unwarmableModelID else { return false }
     let route = Route(mode: .local, providerID: "local", modelID: model.id, usesNetwork: false)
     let typed = ComposerCommands(draft)
-    guard NativeTools.isCapable(route: route, localModel: model), !typed.screen,
+    guard NativeTools.isCapable(route: route, localModel: model), !typed.screen, !typed.compact,
           let destination = ToolDestination(route: route) else { return false }
     let commands = Set(SlashCommand.tokens(in: draft).map(\.command))
     if let lastWarmUp, lastWarmUp.commands == commands, lastWarmUp.at.duration(to: .now) < Self.warmUpInterval {
@@ -898,14 +934,15 @@ final class LocalChatViewModel: ObservableObject {
     }
     // Built as the turn builds it; its tools never run.
     let toolbox = nativeToolbox(plan: nativeToolPlan(for: typed), destination: destination, sessionID: UUID(),
-                                responseID: UUID(), requestID: UUID(), evidenceTokens: 2_048)
+                                responseID: UUID(), requestID: UUID(), evidenceTokens: ToolStepBudget.localEvidenceTokens)
     // A stand-in prompt, removed again after trimming: the preparer needs one, and the draft is
     // never read. Whatever the preparer puts before it, such as /think's guidance, stays.
     let standIn = "."
     var message = ThinkCommand.message(draft)
     message.content = standIn
     guard !toolbox.definitions.isEmpty,
-          var messages = try? LocalToolAgent.prepare(requestMessages.map(ConversationContextPrompt.expand) + [message],
+          // As the turn will send it, with the chat's summary in place of the turns it covers (F35).
+          var messages = try? LocalToolAgent.prepare(ChatCompactor.applying(appliedSummary, to: requestMessages + [message]),
                                                      model: model, toolbox: toolbox).messages,
           let last = messages.indices.last, messages[last].content.hasSuffix(standIn) else { return false }
     messages[last].content.removeLast(standIn.count)
@@ -981,7 +1018,8 @@ final class LocalChatViewModel: ObservableObject {
     if selection != nil, let draft = userMessage.selectionDraft, let note = ConversationContextPrompt.draftNote(draft) {
       requestMessage.content += note
     }
-    let history = requestMessages.map(ConversationContextPrompt.expand) + [requestMessage]
+    // Earlier turns stay unexpanded, so compaction can keep their attached context apart (F35).
+    let history = requestMessages + [requestMessage]
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : route.modelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
@@ -990,11 +1028,14 @@ final class LocalChatViewModel: ObservableObject {
       nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
                                         contextID: selection.id, editRequested: plan.editRequested)
     }
-    let evidenceTokens = local ? 2_048 : WebSearchLimits.evidenceTokens
+    let evidenceTokens = local ? ToolStepBudget.localEvidenceTokens : WebSearchLimits.evidenceTokens
     // Shared by every run of this turn, so a run that starts again can't send the same text twice.
     let sendLedger = MessagesSendLedger()
+    // Each run measures it again before its first step.
+    let stepBudget = ToolStepBudget()
     let toolbox = nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
-                                requestID: active.id, evidenceTokens: evidenceTokens, sendLedger: sendLedger)
+                                requestID: active.id, evidenceTokens: evidenceTokens, stepBudget: stepBudget,
+                                sendLedger: sendLedger)
     let toolNames = toolbox.definitions.map(\.name).joined(separator: ",")
     NativeTools.logger.info("Native turn: \(route.mode.rawValue, privacy: .public) \(route.providerID, privacy: .public); tools \(toolNames, privacy: .public); required \(toolbox.offeredRequiredTool ?? "none", privacy: .public); provider search \(plan.searchBackend == .provider, privacy: .public)")
     state = .preparing
@@ -1013,10 +1054,14 @@ final class LocalChatViewModel: ObservableObject {
                               onAccepted: onAccepted)
         }
         if local, let model {
-          let prepared = try LocalToolAgent.prepare(history, model: model, toolbox: toolbox)
-          owner?.contextNotice = prepared.notice
-          // The inference-only bridge lets go of its model; the server plain turns use stays loaded.
+          guard let chat = owner else { throw CancellationError() }
+          await chat.waitBeforeEngine(sessionID, requestID: active.id)
+          // The inference-only bridge lets go of its model before the server summarizes or answers.
           await engine.unload()
+          let prepared = try await chat.compactedRequest(history, sessionID: sessionID, requestID: active.id,
+            prepare: { try LocalToolAgent.prepare($0, model: model, toolbox: toolbox) },
+            summary: { chat.toolRuntimeSummary($0, model: model) }).prepared
+          chat.show(prepared)
           // A local request is under way at the model's first text or tool call.
           try await LocalToolAgent(inference: fileInference).runStreaming(messages: prepared.messages, model: model,
             toolbox: toolbox, onActivity: { event in
@@ -1034,6 +1079,13 @@ final class LocalChatViewModel: ObservableObject {
             try Task.checkCancellation()
             guard allowed else { throw NativeToolsError.messageTextStays }
           }
+          // Compacted once, after the chat may go to this company; each run below prepares it again.
+          guard let chat = owner, let providerID = CloudProviderID(rawValue: route.providerID) else { throw CancellationError() }
+          let plain = chat.cloudProviders.provider(for: providerID)
+          let compacted = try await chat.compactedRequest(history, sessionID: sessionID, requestID: active.id,
+            prepare: { try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: $0, route: route), toolbox: toolbox) },
+            summary: { plain.textStream(ChatRequest(sessionID: UUID(), messages: $0.messages, route: route)) })
+          let compactedHistory = compacted.messages
           var plan = plan, toolbox = toolbox
           // In a chat holding message text, or on a typed /messages turn, the provider's search runs
           // only once the user allows it for this provider; declined, the turn doesn't search
@@ -1062,7 +1114,8 @@ final class LocalChatViewModel: ObservableObject {
           let locationDeclined = locationAnswer?.declined ?? owner?.isLocationDeclined(route: route, sessionID: sessionID) ?? false
           if location != nil || asked || searchApproved || locationDeclined, let owner {
             toolbox = owner.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID, responseID: responseID,
-                                          requestID: active.id, evidenceTokens: evidenceTokens, location: location,
+                                          requestID: active.id, evidenceTokens: evidenceTokens, stepBudget: stepBudget,
+                                          location: location,
                                           locationDeclined: locationDeclined,
                                           providerSearchApproved: searchApproved, sendLedger: sendLedger)
           }
@@ -1078,12 +1131,12 @@ final class LocalChatViewModel: ObservableObject {
             // tool, so the request also asks in words. The local server adds the same line itself.
             // On provider search, `web_search` names the provider's own tool, which isn't among the
             // definitions.
-            var history = history
+            var history = compactedHistory
             if let required = toolbox.offeredRequiredTool ?? (providerSearch == nil ? nil : toolbox.requiredTool) {
               history[history.count - 1].content += "\n\n" + LlamaServerVisionEngine.requiredToolInstruction(required)
             }
-            let prepared = try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: history, route: route))
-            owner?.contextNotice = prepared.notice
+            let prepared = try CloudContext.prepare(ChatRequest(sessionID: sessionID, messages: history, route: route), toolbox: toolbox)
+            chat.show(prepared)
             // As on plain cloud turns, a prepared request is under way.
             accept()
             owner?.recordReplySearch(provider: providerSearch != nil, messageID: responseID, sessionID: sessionID,
@@ -1140,6 +1193,7 @@ final class LocalChatViewModel: ObservableObject {
             }
             toolbox = owner?.nativeToolbox(plan: plan, destination: destination, sessionID: sessionID,
                                            responseID: responseID, requestID: active.id, evidenceTokens: evidenceTokens,
+                                           stepBudget: stepBudget,
                                            location: plan.searchBackend == .provider ? location : nil,
                                            locationDeclined: locationDeclined, providerSearchApproved: searchApproved, sendLedger: sendLedger) ?? toolbox
           }
@@ -1168,7 +1222,7 @@ final class LocalChatViewModel: ObservableObject {
 
   /// The plan's parts, in a fixed order so a chat's tool prefix stays the same turn after turn.
   private func nativeToolbox(plan: NativeToolPlan, destination: ToolDestination, sessionID: UUID, responseID: UUID,
-                             requestID: UUID, evidenceTokens: Int,
+                             requestID: UUID, evidenceTokens: Int, stepBudget: ToolStepBudget? = nil,
                              location: ProviderSearchLocation? = nil, locationDeclined: Bool = false,
                              providerSearchApproved: Bool = false,
                              sendLedger: MessagesSendLedger? = nil) -> AssistantToolbox {
@@ -1181,15 +1235,15 @@ final class LocalChatViewModel: ObservableObject {
     }
     if plan.parts.contains(.search(.enigma)) {
       parts.append(WebSearchTool(
-        search: { [weak self] query, recency in
+        search: { [weak self] query, recency, maximumTokens in
           guard let self else { throw CancellationError() }
-          let found = try await self.searchReportingProvider(query, writtenQuery: query, maximumTokens: evidenceTokens,
+          let found = try await self.searchReportingProvider(query, writtenQuery: query, maximumTokens: maximumTokens,
                                               requestID: requestID, refinesQuery: false, toolRecency: .some(recency),
                                               skipsLocation: locationDeclined)
-          // The on-device provider collects 1.5 × the budget for the envelope to trim; a tool
-          // result isn't trimmed again, so it keeps F32's budget here (D75). Brave's fits already.
-          return found.usedBrave ? found.results : WebSearchExcerpts.fitted(found.results, maximumTokens: evidenceTokens)
+          // `WebSearchTool` fits whatever comes back to the size it asked for (F35).
+          return found.results
         },
+        evidenceCap: evidenceTokens, stepBudget: stepBudget,
         mayQuery: { [weak self] query in
           guard await coordinator.store.hasMessageText(session: sessionID) else { return true }
           let service = await self?.usesBraveSearch == true ? "Brave" : ToolPermission.searchSitesService
@@ -1247,7 +1301,9 @@ final class LocalChatViewModel: ObservableObject {
         await self?.receiveNativeProposal(proposal, requestID: requestID)
       })
     }
-    return AssistantToolbox(parts: parts, requiredTool: plan.requiredTool, extraInstructions: plan.extraInstructions)
+    var toolbox = AssistantToolbox(parts: parts, requiredTool: plan.requiredTool, extraInstructions: plan.extraInstructions)
+    toolbox.stepBudget = stepBudget
+    return toolbox
   }
 
   /// Merges a search's sources onto the reply and saves them; a provider's are capped at `limit` (F30).
@@ -1527,10 +1583,13 @@ final class LocalChatViewModel: ObservableObject {
     contextNotice = nil
     state = .preparing
     pendingUserMessage = userMessage
+    let compactedSession = selectedSessionID
 
     generationTask = Task { [weak self, engine] in
       do {
         try Task.checkCancellation()
+        // The engine may be busy with this chat's background run, so wait for it first.
+        await self?.waitBeforeEngine(compactedSession, requestID: active.id)
         let model = await engine.installedModel()
         try Task.checkCancellation()
         guard let owner = self, owner.activeRequest?.id == active.id else { return }
@@ -1542,7 +1601,13 @@ final class LocalChatViewModel: ObservableObject {
           route: Route(mode: .local, providerID: "local", modelID: model.id, usesNetwork: searchEnabled),
           modelDisplayName: model.displayName
         )
-        var prepared = try await engine.prepare(request)
+        let maximumTokens = request.maximumTokenCount
+        let compaction = try await owner.compactedRequest(request.messages, sessionID: compactedSession, requestID: active.id,
+          prepare: { try await engine.prepare(LocalModelRequest(messages: $0, maximumTokenCount: maximumTokens)) },
+          prepareSummary: { try await engine.prepare(LocalModelRequest(messages: $0, maximumTokenCount: ChatCompactor.summaryOutputTokens)) },
+          summary: { engine.stream(LocalModelRequest(messages: $0.messages, maximumTokenCount: ChatCompactor.summaryOutputTokens,
+                                                     temperature: 0.2)) })
+        var prepared = compaction.prepared
         var sources: [WebSearchSource]?
         if searchEnabled {
           try Task.checkCancellation()
@@ -1553,7 +1618,7 @@ final class LocalChatViewModel: ObservableObject {
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
           owner.state = .preparing
-          let grounded = try await WebSearchContext.prepare(messages: owner.locationGrounded(request.messages), results: results) {
+          let grounded = try await WebSearchContext.prepare(messages: owner.locationGrounded(compaction.messages), results: results) {
             try await engine.prepare(LocalModelRequest(messages: $0))
           }
           prepared = grounded.prepared
@@ -1565,7 +1630,7 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
         let sessionID = owner.ensureSelectedSession()
-        owner.contextNotice = prepared.notice
+        owner.show(prepared)
         owner.append(userMessage, to: sessionID)
         owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: sources), to: sessionID)
         owner.messagesFollowUpSessionID = nil
@@ -1637,6 +1702,7 @@ final class LocalChatViewModel: ObservableObject {
     var pending = userMessage
     pending.imagePreview = attachment?.makeMessagePreview()
     pendingUserMessage = pending
+    let compactedSession = selectedSessionID
     generationTask = Task { [weak self, engine] in
       guard let owner = self else { return }
       var acceptedSession: UUID?
@@ -1648,6 +1714,7 @@ final class LocalChatViewModel: ObservableObject {
         } else { image = nil }
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
+        await owner.waitBeforeEngine(compactedSession, requestID: active.id)
         var target = model
         let requestImage = image
         var requestHistory = history
@@ -1692,7 +1759,14 @@ final class LocalChatViewModel: ObservableObject {
               }
             }
             // Validate the full question and screenshot budget before contacting a search provider.
-            var prepared = try await prepare(requestHistory, requestImage)
+            // The original history: an offline retry must not compact the compacted copy again.
+            let compaction = try await owner.compactedRequest(history, sessionID: compactedSession, requestID: active.id,
+              prepare: { try await prepare($0, requestImage) },
+              prepareSummary: { try await prepare($0, nil) },
+              summary: { try await owner.screenOutput($0, image: nil, target: target, localModel: localModel, activeID: active.id,
+                                                      cloudUploadAllowed: cloudUploadAllowed, temperature: 0.2) })
+            var prepared = compaction.prepared
+            requestHistory = compaction.messages
             var sources: [WebSearchSource]?
             if searchEnabled {
               try Task.checkCancellation()
@@ -1746,7 +1820,7 @@ final class LocalChatViewModel: ObservableObject {
             let output = try await owner.screenOutput(prepared, image: requestImage, target: target,
               localModel: localModel, activeID: active.id, cloudUploadAllowed: cloudUploadAllowed,
               temperature: searchEnabled ? 0.2 : 0.7)
-            owner.contextNotice = prepared.notice
+            owner.show(prepared)
             owner.activeRequest = ActiveRequest(id: active.id, route: route, modelDisplayName: target.id)
             for try await fragment in output {
               try Task.checkCancellation()
@@ -1860,10 +1934,11 @@ final class LocalChatViewModel: ObservableObject {
       state = .failed(error.localizedDescription)
       return
     }
-    if searchEnabled {
-      submitCloudWithSearch(
-        userMessage, route: route, onAccepted: onAccepted
-      )
+    // Searching, a saved summary and a chat compaction could fit need the asynchronous preparation (F35).
+    let history = requestMessages + [userMessage]
+    if searchEnabled || selectedSession?.summary != nil
+      || (!ChatCompactor.keepsEveryTurn(prepared, of: history) && ChatCompactor.canCompact(history, existing: nil)) {
+      submitCloudPreparing(userMessage, route: route, searches: searchEnabled, onAccepted: onAccepted)
       return
     }
     let sessionID = ensureSelectedSession()
@@ -1871,7 +1946,7 @@ final class LocalChatViewModel: ObservableObject {
     let active = beginGeneration(route: route, modelDisplayName: trimmedModelID, userMessage: userMessage)
     append(userMessage, to: sessionID)
     append(ChatMessage(id: responseID, role: .assistant, content: ""), to: sessionID)
-    contextNotice = prepared.notice
+    show(prepared)
     state = .preparing
     let provider = cloudProviders.provider(for: providerID)
     let request = ChatRequest(sessionID: sessionID, messages: prepared.messages, route: route)
@@ -1906,42 +1981,58 @@ final class LocalChatViewModel: ObservableObject {
     onAccepted()
   }
 
-  private func submitCloudWithSearch(
-    _ userMessage: ChatMessage, route: Route, onAccepted: @escaping @MainActor () -> Void
+  /// A cloud send that compacts its chat, and searches, before it's accepted.
+  private func submitCloudPreparing(
+    _ userMessage: ChatMessage, route: Route, searches: Bool, onAccepted: @escaping @MainActor () -> Void
   ) {
     let history = requestMessages + [userMessage]
+    let compactedSession = selectedSessionID
     let active = beginGeneration(route: route, modelDisplayName: route.modelID, userMessage: userMessage)
-    state = .searching
+    state = searches ? .searching : .preparing
     pendingUserMessage = userMessage
     generationTask = Task { [weak self] in
       do {
         try Task.checkCancellation()
-        guard let owner = self, owner.activeRequest?.id == active.id else { return }
-        let results = try await owner.search(userMessage.content, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
-        try Task.checkCancellation()
-        guard owner.activeRequest?.id == active.id else { return }
-        let grounded = try await WebSearchContext.prepare(messages: owner.locationGrounded(history), results: results) {
-          try CloudContext.prepare(ChatRequest(sessionID: UUID(), messages: $0, route: route))
+        guard let owner = self, owner.activeRequest?.id == active.id,
+              let providerID = CloudProviderID(rawValue: route.providerID) else { return }
+        let provider = owner.cloudProviders.provider(for: providerID)
+        let prepare = { (messages: [ChatMessage]) in
+          try CloudContext.prepare(ChatRequest(sessionID: UUID(), messages: messages, route: route))
+        }
+        let compaction = try await owner.compactedRequest(history, sessionID: compactedSession, requestID: active.id,
+          prepare: prepare,
+          summary: { provider.textStream(ChatRequest(sessionID: UUID(), messages: $0.messages, route: route)) })
+        var prepared = compaction.prepared
+        let responseID = UUID()
+        var sources: [WebSearchSource]?
+        if searches {
+          try Task.checkCancellation()
+          guard owner.activeRequest?.id == active.id else { return }
+          owner.state = .searching
+          let results = try await owner.search(userMessage.content, maximumTokens: WebSearchLimits.evidenceTokens, requestID: active.id)
+          try Task.checkCancellation()
+          guard owner.activeRequest?.id == active.id else { return }
+          let grounded = try await WebSearchContext.prepare(
+            messages: owner.locationGrounded(compaction.messages), results: results) { try prepare($0) }
+          prepared = grounded.prepared
+          sources = grounded.sources
+          owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
+          owner.addWeatherCards(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
+          owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
         }
         try Task.checkCancellation()
-        guard owner.activeRequest?.id == active.id,
-              let providerID = CloudProviderID(rawValue: route.providerID) else { return }
+        guard owner.activeRequest?.id == active.id else { return }
         let sessionID = owner.ensureSelectedSession()
-        let responseID = UUID()
-        owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
-        owner.addWeatherCards(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
-        owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
-        owner.contextNotice = grounded.prepared.notice
+        owner.show(prepared)
         owner.state = .preparing
         owner.append(userMessage, to: sessionID)
-        owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: grounded.sources), to: sessionID)
+        owner.append(ChatMessage(id: responseID, role: .assistant, content: "", searchSources: sources), to: sessionID)
         owner.messagesFollowUpSessionID = nil
         onAccepted()
         try Task.checkCancellation()
         guard owner.activeRequest?.id == active.id else { return }
-        let request = ChatRequest(sessionID: sessionID, messages: grounded.prepared.messages, route: route)
-        let provider = owner.cloudProviders.provider(for: providerID)
-        self?.receiveActivity(.phase(.thinking), requestID: active.id)
+        let request = ChatRequest(sessionID: sessionID, messages: prepared.messages, route: route)
+        owner.receiveActivity(.phase(.thinking), requestID: active.id)
         for try await event in provider.stream(request) {
           try Task.checkCancellation()
           guard owner.activeRequest?.id == active.id else { return }
@@ -1982,7 +2073,8 @@ final class LocalChatViewModel: ObservableObject {
         selectedMode: .auto, webSearchEnabled: searchEnabled,
         prompt: ConversationContextPrompt.expand(contextualMessage(prompt, responseInstructions: false)).content,
         webSearchPrompt: prompt, contextMessages: autoRoutingContextMessages,
-        localModel: installedModel, cloud: cloud, modelChoosesSearch: localFlagged
+        localModel: installedModel, cloud: cloud, modelChoosesSearch: localFlagged,
+        summary: appliedSummary.map(ChatCompactor.rendered)
       ))
       : AutoRouter.localFallback(localModel: installedModel)
     // A chat holding message text stays where that text was allowed, as Auto /messages stays on this Mac.
@@ -1991,6 +2083,8 @@ final class LocalChatViewModel: ObservableObject {
     }
     autoRouteDecision = decision
     guard let route = decision.route else { return }
+    // Owner, 2026-11-03: say why a long chat left this Mac.
+    if decision.reason == .exceedsLocalContext, route.mode == .cloud { nextReplyNotice = Self.longContextNotice }
     if nativeToolsEnabled, NativeTools.isCapable(route: route, localModel: installedModel) {
       // A search chip shown for an unflagged local model counts as a typed /search here.
       let typed = ComposerCommands((searchEnabled ? "/search " : "") + prompt)
@@ -2117,7 +2211,8 @@ final class LocalChatViewModel: ObservableObject {
     // Focus changes and reading an open chat do not extend the model's lifetime.
     // File picking and applying a finished selection also do not use inference.
     // A download doesn't use the engine, so it doesn't keep the model loaded.
-    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, modelOperation?.blocksChat != true else { return }
+    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, compactions.isEmpty,
+          modelOperation?.blocksChat != true else { return }
     switch state {
     case .idle, .failed: break
     default: return
@@ -2128,7 +2223,8 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         guard let self else { return }
         self.idleUnloadTask = nil
-        guard self.activeRequest == nil, self.generationTask == nil, self.modelOperation?.blocksChat != true else { return }
+        guard self.activeRequest == nil, self.generationTask == nil, self.compactions.isEmpty,
+              self.modelOperation?.blocksChat != true else { return }
         // The server manages its own idle timer on its actor, where it can check
         // active inference atomically. A UI timer must not terminate a new request.
         await engine.unload()
@@ -2568,6 +2664,7 @@ final class LocalChatViewModel: ObservableObject {
     selectionEditRequest = nil
     attachReplyPlaces()
     receiveActivity(.phase(error == nil ? .completed : .failed), requestID: id)
+    let finishedRoute = activeRequest?.route
     activeRequest = nil
     activity = nil
     activityMessageID = nil
@@ -2577,7 +2674,296 @@ final class LocalChatViewModel: ObservableObject {
     sessionWriter.flush()
     scheduleIdleUnload()
     if error == nil, !Task.isCancelled { queuedInFlight = nil } else { holdQueue() }
+    // A model pick waiting for this reply (B21) changes the route, so nothing compacts on the old one.
+    let switchesModel = pendingModelID != nil
     applyPendingModelSelection()
+    if error == nil, !Task.isCancelled, !switchesModel, let finishedRoute { compactInBackground(route: finishedRoute) }
+  }
+
+  // MARK: Compaction (F35)
+
+  /// The one preparation every send path runs: compacts `history` with the route's own `prepare`,
+  /// summarizing with the route's model (`summary` streams a prepared request, with no tools),
+  /// and keeps a new summary with the chat. The path shows what it sends with `show(_:)`.
+  private func compactedRequest(
+    _ history: [ChatMessage], sessionID: UUID?, requestID: UUID, force: Bool = false,
+    prepare: ([ChatMessage]) async throws -> PreparedConversation,
+    summary: (PreparedConversation) async throws -> AsyncThrowingStream<String, Error>
+  ) async throws -> ChatCompactor.Result {
+    try await compactedRequest(history, sessionID: sessionID, requestID: requestID, force: force, prepare: prepare,
+                               prepareSummary: prepare, summary: summary)
+  }
+
+  /// `prepareSummary` prepares the summary request: no image, the summary's own output allowance.
+  private func compactedRequest(
+    _ history: [ChatMessage], sessionID: UUID?, requestID: UUID, force: Bool = false,
+    prepare: ([ChatMessage]) async throws -> PreparedConversation,
+    prepareSummary: ([ChatMessage]) async throws -> PreparedConversation,
+    summary: (PreparedConversation) async throws -> AsyncThrowingStream<String, Error>
+  ) async throws -> ChatCompactor.Result {
+    // A background compaction still running is waited for; if it failed or timed out, this
+    // request drops turns instead of summarizing again.
+    var waited: Bool?
+    if let sessionID { waited = await waitForCompaction(of: sessionID, requestID: requestID) }
+    if waited == nil, skipsSummary.remove(requestID) != nil { waited = false }
+    try Task.checkCancellation()
+    guard activeRequest?.id == requestID else { throw CancellationError() }
+    let existing = summaryAsSent(sessionID.flatMap { id in sessions.first { $0.id == id }?.summary })
+    let result = try await compactor.compact(history, existing: existing, force: force, prepare: prepare,
+                                             prepareSummary: prepareSummary) { messages, existing in
+      if waited == false { throw CompactionSkipped() }
+      receiveActivity(.phase(.summarizing), requestID: requestID)
+      let request = try await prepareSummary([ChatCompactor.summaryRequest(messages, existing: existing)])
+      return try await Self.summaryText(summary(request))
+    }
+    try Task.checkCancellation()
+    guard activeRequest?.id == requestID else { throw CancellationError() }
+    // The request itself is next: the status no longer says it's summarizing.
+    if !force, activity?.phase == .summarizing { receiveActivity(.phase(.thinking), requestID: requestID) }
+    if let summary = result.newSummary, let sessionID { keep(summary, in: sessionID) }
+    return result
+  }
+
+  static let nothingToSummarize = "Nothing to summarize yet."
+  static let summaryFailed = "Couldn't summarize earlier messages. Try again."
+
+  /// `/compact`: summarizes the selected chat's turns on `route`, whatever its usage. Nothing is sent to the model but the summary request.
+  func compactNow(route: Route) async {
+    guard !isBusy else { return }
+    let history = requestMessages
+    guard let sessionID = selectedSessionID, ChatCompactor.canSummarize(history, existing: selectedSession?.summary) else {
+      contextNotice = Self.nothingToSummarize
+      return
+    }
+    // As on every send: a chat holding message text goes only where that was allowed.
+    guard messageTextMayGo(to: route) else {
+      state = .failed(NativeToolsError.messageTextStays.localizedDescription)
+      return
+    }
+    let localModel = route.mode == .local ? installedModel : nil
+    if route.mode == .local, localModel == nil { return }
+    let active = beginGeneration(route: route, modelDisplayName: localModel?.displayName ?? route.modelID,
+                                 userMessage: ChatMessage(role: .user, content: ""))
+    contextNotice = nil
+    state = .preparing
+    receiveActivity(.phase(.summarizing), requestID: active.id)
+    // The preparer needs a current message; this one is never sent.
+    let standIn = ChatMessage(role: .user, content: ".")
+    let summaryBefore = selectedSession?.summary
+    let task = Task { [weak self] in
+      guard let owner = self else { return }
+      do {
+        let steps = try owner.compactionSteps(route: route, localModel: localModel, sessionID: sessionID, requestID: active.id)
+        if steps.unloadsEngine { await owner.engine.unload() }
+        let result = try await owner.compactedRequest(history + [standIn], sessionID: sessionID, requestID: active.id,
+                                                      force: true, prepare: steps.prepare,
+                                                      prepareSummary: steps.prepareSummary, summary: steps.summary)
+        owner.contextUsage = result.prepared.usage
+        // A background run waited for may have summarized everything already.
+        if result.newSummary == nil, owner.sessions.first(where: { $0.id == sessionID })?.summary == summaryBefore {
+          owner.contextNotice = Self.summaryFailed
+        }
+      } catch is CancellationError {
+      } catch {
+        if owner.activeRequest?.id == active.id { owner.contextNotice = Self.summaryFailed }
+      }
+      await owner.finishGeneration(id: active.id)
+    }
+    generationTask = task
+    await task.value
+  }
+
+  private struct CompactionSteps {
+    /// The local model summarizes on another runtime, so the embedded one is unloaded first.
+    let unloadsEngine: Bool
+    /// Counts as the next send does.
+    let prepare: ([ChatMessage]) async throws -> PreparedConversation
+    /// Prepares the summary request as it goes: no image, the summary's own allowance.
+    let prepareSummary: ([ChatMessage]) async throws -> PreparedConversation
+    let summary: (PreparedConversation) async throws -> AsyncThrowingStream<String, Error>
+  }
+
+  /// How a chat on `route` is counted and summarized.
+  private func compactionSteps(route: Route, localModel: LocalModel?, sessionID: UUID, requestID: UUID) throws -> CompactionSteps {
+    // A route whose turns have tools is counted with the toolbox its next turn would get, so the
+    // usage shown is the next send's; a local one summarizes on the tool runtime, so the model
+    // isn't loaded twice.
+    let destination = nativeToolsEnabled && NativeTools.isCapable(route: route, localModel: localModel)
+      ? ToolDestination(route: route) : nil
+    let nextToolbox = destination.map {
+      nativeToolbox(plan: nativeToolPlan(for: ComposerCommands("")), destination: $0, sessionID: sessionID, responseID: UUID(),
+                    requestID: requestID, evidenceTokens: localModel == nil ? WebSearchLimits.evidenceTokens : ToolStepBudget.localEvidenceTokens)
+    }
+    let noTools = destination.map { nativeToolbox(plan: .empty, destination: $0, sessionID: sessionID, responseID: UUID(),
+                                                  requestID: requestID, evidenceTokens: ToolStepBudget.localEvidenceTokens) }
+    let (engine, visionEngine) = (engine, visionEngine)
+    if let model = localModel, let toolbox = nextToolbox, let noTools {
+      return CompactionSteps(unloadsEngine: true,
+                             prepare: { try LocalToolAgent.prepare($0, model: model, toolbox: toolbox) },
+                             prepareSummary: { try LocalToolAgent.prepare($0, model: model, toolbox: noTools) },
+                             summary: { [unowned self] in toolRuntimeSummary($0, model: model) })
+    } else if let model = localModel, model.supportsVision {
+      let prepare: ([ChatMessage]) async throws -> PreparedConversation = {
+        try await visionEngine.prepare(messages: $0, image: nil, model: model)
+      }
+      return CompactionSteps(unloadsEngine: true, prepare: prepare, prepareSummary: prepare,
+                             summary: { visionEngine.stream(messages: $0.messages, image: nil, model: model, temperature: 0.2) })
+    } else if localModel != nil {
+      return CompactionSteps(
+        unloadsEngine: false,
+        prepare: { try await engine.prepare(LocalModelRequest(messages: $0)) },
+        prepareSummary: { try await engine.prepare(LocalModelRequest(messages: $0, maximumTokenCount: ChatCompactor.summaryOutputTokens)) },
+        summary: { engine.stream(LocalModelRequest(messages: $0.messages, maximumTokenCount: ChatCompactor.summaryOutputTokens,
+                                                   temperature: 0.2)) })
+    }
+    guard let providerID = CloudProviderID(rawValue: route.providerID) else { throw CloudProviderError.invalidResponse }
+    let provider = cloudProviders.provider(for: providerID)
+    return CompactionSteps(
+      unloadsEngine: false,
+      prepare: { try CloudContext.prepare(ChatRequest(sessionID: UUID(), messages: $0, route: route), toolbox: nextToolbox) },
+      prepareSummary: { try CloudContext.prepare(ChatRequest(sessionID: UUID(), messages: $0, route: route)) },
+      summary: { provider.textStream(ChatRequest(sessionID: UUID(), messages: $0.messages, route: route)) })
+  }
+
+  // MARK: Background compaction (F35 CP4)
+
+  private struct BackgroundCompaction {
+    let id = UUID()
+    /// Runs on this Mac's model, so it holds the local engine another chat's send or a model switch needs.
+    let isLocal: Bool
+    /// True when a summary was kept with the chat.
+    let task: Task<Bool, Never>
+  }
+
+  /// One per chat, by session ID.
+  @Published private var compactions: [UUID: BackgroundCompaction] = [:]
+  /// The selected chat is compacting in the background.
+  var isCompacting: Bool { selectedSessionID.map { compactions[$0] != nil } ?? false }
+  nonisolated static let compactionWait: Duration = .seconds(30)
+  private struct CompactionSkipped: Error {}
+
+  /// After a reply: a chat at 90% or more of its budget is summarized now, so the next send needn't wait.
+  func compactInBackground(route: Route) {
+    guard contextUsage?.level == .full, let sessionID = selectedSessionID, compactions[sessionID] == nil,
+          tourReply == nil, let session = selectedSession, messageTextMayGo(to: route) else { return }
+    let localModel = route.mode == .local ? installedModel : nil
+    if route.mode == .local, localModel == nil { return }
+    let history = requestMessages + [ChatMessage(role: .user, content: ".")]
+    // The result is kept only while the chat still starts with what was summarized.
+    let prefix = session.messages
+    let existing = summaryAsSent(session.summary)
+    let run = BackgroundCompaction(isLocal: localModel != nil, task: Task { [weak self] in
+      guard let self else { return false }
+      let started = ContinuousClock.now
+      log.record("Background compaction started")
+      var kept = false
+      do {
+        let steps = try compactionSteps(route: route, localModel: localModel, sessionID: sessionID, requestID: UUID())
+        if steps.unloadsEngine { await engine.unload() }
+        let result = try await compactor.compact(history, existing: existing, force: true, prepare: steps.prepare,
+                                                 prepareSummary: steps.prepareSummary) { messages, existing in
+          let request = try await steps.prepareSummary([ChatCompactor.summaryRequest(messages, existing: existing)])
+          return try await Self.summaryText(steps.summary(request))
+        }
+        try Task.checkCancellation()
+        if let summary = result.newSummary,
+           let current = sessions.first(where: { $0.id == sessionID }), current.messages.starts(with: prefix) {
+          keep(summary, in: sessionID)
+          if selectedSessionID == sessionID { contextUsage = result.prepared.usage }
+          kept = true
+        }
+        log.record("Background compaction \(kept ? "finished" : "discarded") in \(started.duration(to: .now)), \(result.prepared.inputTokenCount) tokens")
+      } catch is CancellationError {
+        log.record("Background compaction cancelled after \(started.duration(to: .now))")
+      } catch {
+        log.record("Background compaction failed after \(started.duration(to: .now))")
+      }
+      return kept
+    })
+    compactions[sessionID] = run
+    cancelIdleUnload()
+    Task { [weak self] in
+      _ = await run.task.value
+      guard let self, compactions[sessionID]?.id == run.id else { return }
+      compactions[sessionID] = nil
+      scheduleIdleUnload()
+    }
+  }
+
+  /// Requests whose early wait (`waitBeforeEngine`) found the run failed or timed out.
+  private var skipsSummary: Set<UUID> = []
+
+  /// Waits for the chat's background run before a send's first engine call, which would
+  /// otherwise queue silently behind it on the engine actor.
+  private func waitBeforeEngine(_ sessionID: UUID?, requestID: UUID) async {
+    // Another chat's run gives way: that chat compacts on its own next send instead.
+    await cancelLocalCompactions(except: sessionID)
+    guard let sessionID, let waited = await waitForCompaction(of: sessionID, requestID: requestID) else { return }
+    if !waited { skipsSummary.insert(requestID) }
+  }
+
+  /// Cancels the local runs of chats other than `sessionID`, and waits for them to let go of the engine.
+  private func cancelLocalCompactions(except sessionID: UUID? = nil) async {
+    for (id, run) in compactions where id != sessionID && run.isLocal {
+      run.task.cancel()
+      _ = await run.task.value
+    }
+  }
+
+  /// Waits up to 30 s for the chat's background compaction, cancelling it on timeout or Stop.
+  /// True when its summary was kept, false when it failed or timed out, nil when none ran.
+  private func waitForCompaction(of sessionID: UUID, requestID: UUID) async -> Bool? {
+    guard let run = compactions[sessionID] else { return nil }
+    receiveActivity(.phase(.summarizing), requestID: requestID)
+    let timeout = Task { [sleep, log] in
+      guard (try? await sleep(Self.compactionWait)) != nil else { return }
+      log.record("Background compaction timed out")
+      run.task.cancel()
+    }
+    defer { timeout.cancel() }
+    return await withTaskCancellationHandler { await run.task.value } onCancel: { run.task.cancel() }
+  }
+
+  /// A summary's text, stopped past 8 KB: that is over its limit anyway.
+  private static func summaryText(_ stream: AsyncThrowingStream<String, Error>) async throws -> String {
+    var text = ""
+    for try await fragment in stream {
+      try Task.checkCancellation()
+      text += fragment
+      if text.utf8.count > 8_192 { break }
+    }
+    return text
+  }
+
+  /// A summary on the runtime tool turns use, with no tools, so the model isn't loaded twice.
+  private func toolRuntimeSummary(_ prepared: PreparedConversation, model: LocalModel) -> AsyncThrowingStream<String, Error> {
+    let messages = prepared.messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
+    return AsyncThrowingStream { [fileInference] continuation in
+      let task = Task {
+        do {
+          let reply = try await fileInference.completeTools(messages: messages, tools: [], model: model)
+          continuation.yield(reply.content ?? "")
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
+  /// Saved with the chat, unless it's temporary; a chat whose messages changed meanwhile keeps its old one.
+  private func keep(_ summary: ChatSummary, in sessionID: UUID) {
+    guard let index = sessions.firstIndex(where: { $0.id == sessionID }),
+          sessions[index].messages.contains(where: { $0.id == summary.throughMessageID }) else { return }
+    sessions[index].summary = summary
+    persistSessions()
+  }
+
+  /// The request a send prepared: its omitted-messages notice, and its usage for the context ring.
+  private func show(_ prepared: PreparedConversation) {
+    contextNotice = prepared.notice
+    contextUsage = prepared.usage
   }
 
   // MARK: Message queue

@@ -7,6 +7,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
   private let contextSize: Int32?
   private var engineHandle: AISLlamaEngineHandle?
   private var loadedModelURL: URL?
+  private var loadedContext: Int32?
 
   init(
     installationStore: LocalModelInstallationStore = LocalModelInstallationStore(),
@@ -210,12 +211,13 @@ actor LlamaCPPModelEngine: LocalModelEngine {
     guard !installedModel.supportsVision else {
       throw LocalInferenceError.bridgeFailure("This vision profile uses llama-server instead of the embedded text engine.")
     }
-    if let engineHandle, loadedModelURL == installedModel.fileURL {
+    let requestedContext = Self.requestedContext(contextSize, model: installedModel)
+    // A new window chosen in Settings loads the model again at the next request (F35).
+    if let engineHandle, loadedModelURL == installedModel.fileURL, loadedContext == requestedContext {
       return engineHandle
     }
 
     releaseEngine()
-    let requestedContext = contextSize ?? Int32(clamping: installedModel.contextWindow)
     if let descriptor = installedModel.catalogDescriptor {
       let hardware = LocalHardwareProfile.detect(modelsDirectory: installationStore.modelsDirectoryURL)
       guard LocalModelCompatibility.supports(descriptor), hardware.physicalMemory >= descriptor.minimumMemory,
@@ -232,6 +234,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
 
     engineHandle = newHandle
     loadedModelURL = installedModel.fileURL
+    loadedContext = requestedContext
     return newHandle
   }
 
@@ -266,6 +269,13 @@ actor LlamaCPPModelEngine: LocalModelEngine {
     }
     engineHandle = nil
     loadedModelURL = nil
+    loadedContext = nil
+  }
+
+  /// The window the embedded engine is created with: a test's fixed size, else the model's,
+  /// which is the one chosen for this Mac (F35).
+  static func requestedContext(_ contextSize: Int32?, model: LocalModel) -> Int32 {
+    contextSize ?? Int32(clamping: model.contextWindow)
   }
 }
 

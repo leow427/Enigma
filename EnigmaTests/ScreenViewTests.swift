@@ -26,7 +26,8 @@ final class ScreenViewTests: XCTestCase {
     await Task.yield()
     view.layoutSubtreeIfNeeded()
     XCTAssertEqual(editor.string, text)
-    XCTAssertEqual(editor.completion?.commands, SlashCommand.allCases)
+    // The draft has other text, so /compact isn't offered (F35).
+    XCTAssertEqual(editor.completion?.commands, SlashCommand.allCases.filter { $0 != .compact })
     let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
@@ -420,7 +421,9 @@ final class ScreenViewTests: XCTestCase {
     }
     let stream = AsyncThrowingStream<String, Error>.makeStream()
     let started = expectation(description: "Screen request reaches local text model")
-    let model = LocalModel(id: "text", displayName: "Qwen2.5 3B Instruct Q8_0", fileURL: directory.appendingPathComponent("text.gguf"))
+    var model = LocalModel(id: "text", displayName: "Qwen2.5 3B Instruct Q8_0", fileURL: directory.appendingPathComponent("text.gguf"))
+    // F35 CP3: room for the whole long history, so it isn't summarized (that would use the reply's stream).
+    model.runtimeContextWindow = 32_768
     let engine = PanelScreenEngine(model: model, response: stream.stream, started: { started.fulfill() })
     let search = PanelSearch()
     let store = ChatSessionStore(applicationSupportDirectory: directory)
@@ -612,7 +615,7 @@ final class ScreenViewTests: XCTestCase {
       await Task.yield()
       view.layoutSubtreeIfNeeded()
       // Retargeted (CP8): /search and /maps are offered with no key.
-      XCTAssertEqual(field.completion?.commands, SlashCommand.allCases)
+      XCTAssertEqual(field.completion?.commands, SlashCommand.allCases.filter { $0 != .compact })
       XCTAssertEqual(view.convert(field.bounds, from: field), composerFrame,
                      "Suggestions must not resize or move the compact composer")
       XCTAssertEqual(field.font?.pointSize, 15, "The composer's field is 15 pt at every width")

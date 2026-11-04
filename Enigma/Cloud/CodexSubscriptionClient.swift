@@ -169,7 +169,7 @@ struct CodexSubscriptionClient: ChatProvider {
         }
         do {
           guard request.route.providerID == CloudProviderID.chatGPT.rawValue else { throw CodexError.invalidResponse }
-          let prepared = try CloudContext.prepare(request)
+          let prepared = try CloudContext.prepare(request, toolbox: toolbox, fileMode: fileTools?.workspace.selection)
           // The screenshot, if any, stays with the bounded request; `turnParameters` checks it again.
           let boundedRequest = ChatRequest(sessionID: request.sessionID, messages: prepared.messages, route: request.route,
                                            image: request.image, allowsCloudImages: request.allowsCloudImages)
@@ -234,7 +234,7 @@ struct CodexSubscriptionClient: ChatProvider {
                 threadID: id,
                 request: boundedRequest,
                 thinkingCapacity: ThinkCommand.enabled(in: request.messages) ? thinkingCapacity().forExtendedThinking : thinkingCapacity(),
-                workspace: selection, isolatedTools: toolbox != nil
+                workspace: selection, isolatedTools: toolbox != nil, toolbox: toolbox
               )
             )
           }.value
@@ -361,11 +361,12 @@ struct CodexSubscriptionClient: ChatProvider {
     request: ChatRequest,
     thinkingCapacity: CodexThinkingCapacity = defaultThinkingCapacity,
     workspace: WorkspaceSelection? = nil,
-    isolatedTools: Bool = false
+    isolatedTools: Bool = false,
+    toolbox: (any AgentToolbox)? = nil
   ) throws -> CodexValue {
     var params: [String: CodexValue] = [
       "threadId": .string(threadID),
-      "input": .array(try input(for: request)),
+      "input": .array(try input(for: request, toolbox: toolbox, fileMode: workspace)),
     ]
     params["effort"] = .string(thinkingCapacity.rawValue)
     if let workspace {
@@ -380,16 +381,20 @@ struct CodexSubscriptionClient: ChatProvider {
     return .object(params)
   }
 
-  static func prompt(for request: ChatRequest) throws -> String {
-    let prepared = try CloudContext.prepare(request)
+  static func prompt(for request: ChatRequest, toolbox: (any AgentToolbox)? = nil,
+                     fileMode: WorkspaceSelection? = nil) throws -> String {
+    let prepared = try CloudContext.prepare(request, toolbox: toolbox, fileMode: fileMode)
+    // Codex's own loop runs the turn; its tools size their results from what it was sent (F35).
+    toolbox?.stepBudget?.measure(prepared.budget, usedTokens: prepared.inputTokenCount)
     return try CloudContext.codexPrompt(prepared.messages)
   }
 
   /// The turn's input items: a screenshot, when the request has one, as an inline data URL
   /// (never a file on disk), then the text. `prompt(for:)` has already checked the image
   /// may go to this model; the serializer checks its format and size.
-  static func input(for request: ChatRequest) throws -> [CodexValue] {
-    let text = try prompt(for: request)
+  static func input(for request: ChatRequest, toolbox: (any AgentToolbox)? = nil,
+                    fileMode: WorkspaceSelection? = nil) throws -> [CodexValue] {
+    let text = try prompt(for: request, toolbox: toolbox, fileMode: fileMode)
     let images: [CodexValue] = try MultimodalSerialization.parts(text: text, image: request.image).compactMap { part in
       guard case .image(let image) = part else { return nil }
       return .object(["type": .string("image"), "url": .string(image.dataURL), "detail": .null])

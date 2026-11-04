@@ -63,8 +63,9 @@ The page is the one place to choose and manage local models. From the top:
 2. **For this Mac**: up to three rows tagged **recommended**, **faster** and
    **smarter, slower replies**. Each shows its fit, publisher, download size
    and estimated or measured speed, with **Install**, **Update**, **Use** or
-   **Selected**. **Model details** adds the quantization, context size,
-   estimated memory and a **Model card and license** link.
+   **Selected**. **Model details** adds the quantization, the context size it
+   runs at on this Mac (see [Context size](#context-size)), estimated memory
+   (at the package's 8,192-token size) and a **Model card and license** link.
 3. **On this Mac**: every installed model, from the catalogue or not, with
    **Use** (or **Selected**) and **Delete**. Catalogue packages show their
    quantization and publisher; packages that have left the catalogue and
@@ -75,7 +76,8 @@ The page is the one place to choose and manage local models. From the top:
    still be installed.
 5. **Files** holds **Local file tools** and **Saved file changes** for File Mode
    (see [File-Mode.md](File-Mode.md)), then **Advanced: Import text GGUF…**.
-   The footer shows the catalogue version (currently 8).
+   The footer shows the catalogue version (currently 9).
+6. **› Advanced** (closed until opened) holds **Context size** (see below).
 
 **Delete** asks first and removes the model and its support files. Deleting the
 selected model selects another installed one, if any.
@@ -121,6 +123,44 @@ Packages installed above the memory budget skip the automatic check; Enigma
 says **Installed. Memory use may be high; choose Check Performance when you are
 ready to test it.**
 
+### Context size
+
+Each local model runs at the largest of 8K, 16K or 32K tokens that its trained
+maximum and this Mac's memory allow (`LocalContextWindowChoice`, F35): the
+largest size whose memory estimate stays within 4/5 of the inference budget
+(the "comfortable" line), so a larger window never makes a recommended model
+uncomfortable. Catalogue models never go below 8K. The trained maximum is the
+package's GGUF `context_length` (every catalogue family is trained on 131,072
+tokens or more); a package with none counts as 8,192, and imported models keep
+their own window.
+
+It's a runtime choice, not a package change. It reaches llama-server's
+`--ctx-size`, the embedded engine and every context budget, and is never
+written into the installed package, so it never shows **Update**.
+
+**Settings → On this Mac → › Advanced → Context size** overrides it: **Smaller
+(4K)**, **Automatic**, **Larger (16K)** or **Max (32K)**. A preset the model's
+trained maximum or this Mac's memory rules out is disabled, and so is Smaller
+for vision packages (every catalogue package today): a screenshot's image
+tokens don't fit in 4K. One over the comfortable line, and larger than
+Automatic's, asks first: **This size may not fit in this Mac's memory alongside
+other apps. Use it anyway?** with **Use It** and **Cancel**. A new size applies
+at the next request, which starts the local runtime again; nothing is
+downloaded. When the size the selected model runs at changes and it hasn't
+been measured at the new size, **Check performance** runs for it, as after an
+install. Benchmarks from before F35 were measured at 8,192, so on a Mac where
+Automatic is now larger, the speed shown is an estimate until **Check
+performance** runs again.
+
+The preset is one setting for every model, but **Use It** is remembered per
+model (`localContextWindowAccepted`). A model selected later that the saved
+preset puts over its comfortable line runs at Automatic, and the row shows the
+warning again with **Until you choose Use It, this model runs at Automatic.**;
+**Cancel** there sets the preset back to Automatic. A saved preset a model
+rules out runs at Automatic for that model, and the row says so: **This model
+can't use Max (32K) on this Mac, so it runs at Automatic.** VoiceOver reads a
+ruled-out preset as unavailable.
+
 ### Memory warnings
 
 You can install any runnable catalogue package even when it exceeds the memory
@@ -131,8 +171,9 @@ a disk-space failure. Packages over budget are never recommended.
 
 ## The catalogue
 
-Fourteen families, reviewed 2026-10-31. Every package runs with an 8,192-token
-context and is Apache-2.0 licensed. Quality scores are the Artificial Analysis
+Fourteen families, reviewed 2026-10-31. Every package is built for an 8,192-token
+context, runs at the size chosen for this Mac (see [Context size](#context-size)),
+and is Apache-2.0 licensed. Quality scores are the Artificial Analysis
 Intelligence Index (v4.3.2, October 2026), checked against MMMU-Pro for vision;
 within one model line a larger model never scores below a smaller one, except
 that Gemma 4 31B keeps the index's 15 below the mixture-of-experts Gemma 4
@@ -384,7 +425,7 @@ Each package's estimated runtime memory (`LocalMultimodalProfile.memory`) is
 - **KV cache (F16).** Each profile records its cache layout from the GGUF
   header (`LocalCacheLayout`): full-attention layers, sliding-window layers,
   their KV heads and head dimensions, and the window. Full-attention layers hold
-  all 8,192 tokens. Sliding-window layers hold their window plus the physical
+  every token of the context size. Sliding-window layers hold their window plus the physical
   batch, rounded up to 256 tokens, as llama.cpp sizes them. Hybrid Qwen models
   (3.5, 3.6, 3.8, and Bonsai 2) hold cache only in their attention layers,
   counting the multi-token-prediction layer where the file has one (Bonsai 2
@@ -449,7 +490,10 @@ minimum Mac memory is its estimate.
   Mac. Benchmarks of packages that left the catalogue still count; imported
   GGUFs never do.
 - **Exact measurements.** A benchmark of the exact package (same checksum and
-  context) on the current runtime build overrides both estimates. The latest
+  context size) on the current runtime build overrides both estimates.
+  Benchmarks record the size the model ran at, and an installed package is
+  matched at the size it runs at now: a run at another size doesn't count, so
+  after a new size the model shows its estimate until a new check runs. The latest
   100 benchmarks are kept.
 
 ### Install transaction
@@ -511,7 +555,7 @@ name is kept so existing installs carry over.
 
 Catalogue packages run in `llama-server` from llama.cpp build b11734
 (`LocalVisionRuntime`), launched on loopback with the model, projector,
-`--ctx-size 8192`, `--parallel 1`, `--offline`, `--no-webui`, `--jinja`,
+`--ctx-size` at the size chosen for this Mac, `--parallel 1`, `--offline`, `--no-webui`, `--jinja`,
 `--no-context-shift`, `--cache-ram 0`, `--reasoning-budget -1` and `--fit off`.
 Gemma 4 12B, 26B-A4B and 31B add `--ubatch-size 1024 --image-max-tokens 1024`; every
 other model gets `--image-max-tokens 4096`. One process serves text, OCR, image

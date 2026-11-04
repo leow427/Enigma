@@ -277,6 +277,174 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(provider.toolNames.values.contains("web_search"))
   }
 
+  /// F35 CP0: the view model counts the toolbox's prompt and tools, as the client does, so its
+  /// notice names every message the request leaves out.
+  func testNearLimitCloudTurnIsPreparedAsTheClientPreparesIt() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Long")
+    for turn in 0..<80 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+    }
+    try sessionStore.save([saved])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    provider.plainReply = ""  // F35 CP3: an unusable summary, so the chat is trimmed as before.
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.toolStreams.values.count, 1)
+    XCTAssertEqual(provider.clientPreparation.values, ["kept"])
+    XCTAssertNotNil(chat.contextNotice, "The chat is over the 65,536-token cap")
+  }
+
+  /// F35 CP3: a tool turn sends the chat's saved summary in place of the turns it covers, and a
+  /// chat that needs one is summarized on the tool runtime with no tools.
+  func testToolTurnUsesSummary() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Summarized")
+    for turn in 0..<3 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.summary = ChatSummary(text: "Saved notes.", throughMessageID: saved.messages[1].id, createdAt: .now)
+    try sessionStore.save([saved])
+    let inference = NativeScriptedInference(steps: [.text("Done.")])
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat)
+    let first = await inference.requests.first
+    let sent = try XCTUnwrap(first).messages.dropFirst().map { $0.content ?? "" }
+    XCTAssertEqual(Array(sent.prefix(2)), [ChatCompactor.summaryPrefix + "\n\nSaved notes.", ChatCompactor.summaryReply])
+    XCTAssertFalse(sent.contains("Question 0"), "The summarized turn isn't sent")
+    XCTAssertTrue(sent.contains("Question 1"))
+
+    // A chat past the budget: the first call is the summary, with no tools.
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_000)))
+    }
+    try sessionStore.save([long])
+    let summarizing = NativeScriptedInference(steps: [.text("Fresh notes."), .text("Done.")])
+    let longChat = makeChat(inference: summarizing, sessionStore: sessionStore)
+    longChat.selectSession(id: long.id)
+    await longChat.refreshInstalledModel()
+    try await send("Hi", to: longChat)
+    let requests = await summarizing.requests
+    XCTAssertEqual(requests.first?.tools, [])
+    XCTAssertTrue(requests.first?.messages.last?.content?.hasPrefix(ChatCompactor.instruction) == true)
+    XCTAssertTrue(requests.dropFirst().first?.messages.dropFirst().first?.content?.hasPrefix(ChatCompactor.summaryPrefix + "\n\nFresh notes.") == true)
+    XCTAssertEqual(longChat.selectedSession?.summary?.text, "Fresh notes.")
+  }
+
+  /// F35 CP3: typing warms the prefix the turn will send, with the chat's summary.
+  func testWarmUpUsesTheSavedSummary() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Summarized")
+    for turn in 0..<3 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.summary = ChatSummary(text: "Saved notes.", throughMessageID: saved.messages[1].id, createdAt: .now)
+    try sessionStore.save([saved])
+    let inference = NativeScriptedInference()
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    XCTAssertTrue(chat.warmNativeTurn(draft: "Hi", mode: .local, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    let warmed = await inference.warms[0].messages.dropFirst().map { $0.content ?? "" }
+    XCTAssertEqual(Array(warmed.prefix(2)), [ChatCompactor.summaryPrefix + "\n\nSaved notes.", ChatCompactor.summaryReply])
+    XCTAssertFalse(warmed.contains("Question 0"))
+  }
+
+  /// F35 CP3: a chat holding message text asks before its text goes to the cloud, even to summarize it.
+  func testLongCloudToolTurnAsksBeforeSummarizing() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 20_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 20_000)))
+    }
+    long.holdsMessageText = true
+    try sessionStore.save([long])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    var cards: [ToolPermissionRequest] = []
+    try await send("Hi", to: chat, route: Self.cloudRoute, answers: [.deny], cards: &cards)
+    XCTAssertEqual(cards.map(\.permission), [.shareMessageText])
+    XCTAssertTrue(provider.plainStreams.values.isEmpty, "No summary request before the permission")
+    XCTAssertTrue(provider.toolStreams.values.isEmpty)
+    XCTAssertNil(chat.selectedSession?.summary)
+  }
+
+  /// F35 CP3: a cloud tool turn sends the compacted chat, summarized by the plain client.
+  func testCloudToolTurnSendsTheCompactedChat() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    // About 80,000 estimated tokens, past the 65,536 cap.
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 20_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 20_000)))
+    }
+    try sessionStore.save([long])
+    let provider = NativeToolProvider(steps: [[.token("Done.")]])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertTrue(provider.plainStreams.values.first?.hasPrefix(ChatCompactor.instruction) == true, "Summarized with no tools")
+    XCTAssertEqual(chat.selectedSession?.summary?.text, "Plain cloud.")
+    XCTAssertEqual(provider.clientPreparation.values, ["kept"], "The tool request is the compacted chat")
+    XCTAssertNil(chat.contextNotice)
+  }
+
+  /// F35 CP3: typed /messages on a local model compacts on the tool runtime first.
+  func testTypedMessagesCompactsALongChat() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var long = ChatSession(title: "Long")
+    for turn in 0..<6 {
+      long.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_000)))
+      long.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_000)))
+    }
+    try sessionStore.save([long])
+    let inference = NativeScriptedInference(steps: [.text("Fresh notes."), .text("Done.")])
+    let chat = makeChat(inference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: long.id)
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Who texted me?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    let requests = await inference.requests
+    XCTAssertEqual(requests.first?.tools, [])
+    XCTAssertTrue(requests.first?.messages.last?.content?.hasPrefix(ChatCompactor.instruction) == true)
+    XCTAssertTrue(requests.dropFirst().first?.messages.dropFirst().first?.content?.hasPrefix(ChatCompactor.summaryPrefix + "\n\nFresh notes.") == true)
+  }
+
+  /// F35 CP3: /compact never sends a chat holding message text where that wasn't allowed.
+  func testCompactKeepsMessageTextWhereItWasAllowed() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Held")
+    for turn in 0..<4 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn)"))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn)"))
+    }
+    saved.holdsMessageText = true
+    try sessionStore.save([saved])
+    let provider = NativeToolProvider(steps: [])
+    let chat = makeChat(cloud: provider, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    XCTAssertFalse(chat.messageTextMayGo(to: Self.cloudRoute))
+    await chat.compactNow(route: Self.cloudRoute)
+    XCTAssertTrue(provider.plainStreams.values.isEmpty && provider.toolStreams.values.isEmpty, "Nothing was sent")
+    XCTAssertEqual(chat.state, .failed(NativeToolsError.messageTextStays.localizedDescription))
+    XCTAssertNil(chat.selectedSession?.summary)
+  }
+
   func testCloudTurnAlsoAsksForTheRequiredToolInWords() async throws {
     let provider = NativeToolProvider(steps: [[.token("Searched.")]])
     let chat = makeChat(cloud: provider)
@@ -405,6 +573,72 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(cloudSearch.requests.map(\.maximumTokens), [BraveSearchClient.evidenceTokens])
     XCTAssertEqual(cloudSearch.requests.map(\.route), [.web])
     XCTAssertEqual(cloudSearch.requests.map(\.isTypedQuestion), [false])
+  }
+
+  /// F35 CP1: one budget per turn, shared by the loop and `web_search`, so a second search in an
+  /// 8K local chat gets what the first left, not the fixed 2,048.
+  func testLocalTurnSizesEachSearchFromTheRoomLeft() async throws {
+    let bulky = (1...3).map { index in
+      WebSearchResult(source: WebSearchSource(title: "Result \(index)", url: URL(string: "https://example.com/\(index)")!),
+                      snippets: [String(repeating: "word ", count: 2_000)])
+    }
+    let search = NativeSearchProvider(results: bulky)
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"news"}"#), .call("web_search", #"{"query":"more news"}"#), .text("Found."),
+    ])
+    let chat = makeChat(inference: inference, search: search)
+    await chat.refreshInstalledModel()
+    try await send("What's new?", to: chat)
+    XCTAssertEqual(chat.messages.last?.content, "Found.")
+    let sizes = search.requests.map(\.maximumTokens)
+    XCTAssertEqual(sizes.count, 2, "Both searches run")
+    XCTAssertEqual(sizes.first, ToolStepBudget.localEvidenceTokens)
+    XCTAssertLessThan(sizes[1], sizes[0])
+    XCTAssertGreaterThanOrEqual(sizes[1], ToolStepBudget.smallestResult)
+  }
+
+  /// F35 CP1: Brave returns at least 1,024 tokens, so a smaller size is fitted on this Mac.
+  func testBraveResultsAreFittedToTheRoomLeft() async throws {
+    let brave = BraveLikeProvider(results: (1...3).map { index in
+      WebSearchResult(source: WebSearchSource(title: "Result \(index)", url: URL(string: "https://example.com/\(index)")!),
+                      snippets: [String(repeating: "word ", count: 2_000)])
+    })
+    let inference = NativeScriptedInference(steps: [
+      .call("web_search", #"{"query":"a"}"#), .call("web_search", #"{"query":"b"}"#),
+      .call("web_search", #"{"query":"c"}"#), .text("Found."),
+    ])
+    let chat = makeChat(inference: inference, braveSearch: brave)
+    await chat.refreshInstalledModel()
+    try await send("What's new?", to: chat)
+    let sizes = brave.sizes.values
+    XCTAssertEqual(sizes.count, 3)
+    let last = try XCTUnwrap(sizes.last)
+    XCTAssertLessThan(last, BraveSearchClient.minimumTokens)
+    let requests = await inference.requests
+    let result = try XCTUnwrap(requests.last?.messages.last { $0.role == "tool" }?.content)
+    // Brave returned at least 1,024 tokens; the result is cut to the size it was given.
+    XCTAssertLessThanOrEqual(ContextEstimate.tokens(result), last, "Fitted to the size it was given")
+  }
+
+  /// F35 CP1: a chat that fills the budget still leaves its tool turn room for a search.
+  func testFirstSearchRunsWhenHistoryIsFull() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Long")
+    for turn in 0..<20 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+    }
+    try sessionStore.save([saved])
+    let search = NativeSearchProvider(results: Self.searchResults)
+    // F35 CP3: an unusable summary first, so the chat is trimmed as before.
+    let inference = NativeScriptedInference(steps: [.text(""), .call("web_search", #"{"query":"news"}"#), .text("Found.")])
+    let chat = makeChat(inference: inference, search: search, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    try await send("/search What's new?", to: chat)
+    XCTAssertNotNil(chat.contextNotice, "Older turns were dropped")
+    let size = try XCTUnwrap(search.requests.first?.maximumTokens, "Not \"no room\"")
+    XCTAssertGreaterThanOrEqual(size, ToolStepBudget.reserve(cap: ToolStepBudget.localEvidenceTokens) / 2)
   }
 
   func testDeclinedSearchAfterMessagesNeverQueries() async throws {
@@ -1142,6 +1376,17 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.content, "Answer.")
   }
 
+  /// F35 CP1: the toolbox made again for the fallback keeps the turn's budget, shared with its search.
+  func testFallbackRunKeepsTheTurnsBudget() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.fail(.webSearchUnavailable(.anthropic))], [.token("Answer.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.anthropic])
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    XCTAssertEqual(provider.runs.count, 2)
+    let budgets = provider.runs.map(\.stepBudget)
+    XCTAssertNotNil(budgets[0])
+    XCTAssertTrue(budgets[0] === budgets[1], "One budget per turn")
+  }
+
   func testUnavailableAfterReplyStartsDoesNotFallBack() async throws {
     let source = WebSearchSource(title: "A", url: URL(string: "https://a.com/")!)
     for start in [ScriptedSearchProvider.Event.token("Partial."), .call("nope", "{}")] {
@@ -1503,6 +1748,15 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertTrue(again.isEmpty)
     XCTAssertNotNil(provider.runs[1].request.providerSearch?.location)
     XCTAssertEqual(location.calls, 2)
+  }
+
+  /// F35 CP1: the toolbox made again after the location card keeps the turn's budget.
+  func testLocationAnswerKeepsTheTurnsBudget() async throws {
+    let provider = ScriptedSearchProvider(runs: [[.token("Try Epoch.")]])
+    let chat = makeChat(cloud: provider, nativeWebSearchProviders: [.openAI], locationProvider: NativeLocation(.success(Self.austin)))
+    _ = try await sendNearby(to: chat, route: Self.openAIRoute, provider: provider, answers: [.conversation])
+    XCTAssertNotNil(provider.runs.first?.request.providerSearch?.location)
+    XCTAssertNotNil(provider.runs.first?.stepBudget)
   }
 
   func testLocationDeclinedSendsNothing() async throws {
@@ -2072,18 +2326,25 @@ final class NativeToolProvider: ChatProvider, ToolCallingChatProvider, @unchecke
   private var steps: [[Event]]
   let toolStreams = LockedStrings()
   let plainStreams = LockedStrings()
+  /// F35 CP3: what a plain stream answers, such as a summary request.
+  var plainReply = "Plain cloud."
   let toolNames = LockedStrings()
   let requiredTools = LockedStrings()
+  /// F35: "kept" when the real clients' preparation, with this toolbox, keeps every message sent.
+  let clientPreparation = LockedStrings()
 
   init(steps: [[Event]]) { self.steps = steps }
 
   func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
     plainStreams.append(request.messages.last?.content ?? "")
-    return AsyncThrowingStream { $0.yield(.token("Plain cloud.")); $0.finish() }
+    let reply = plainReply
+    return AsyncThrowingStream { $0.yield(.token(reply)); $0.finish() }
   }
 
   func stream(_ request: ChatRequest, toolbox: any AgentToolbox) -> AsyncThrowingStream<ChatEvent, Error> {
     toolStreams.append(request.messages.last?.content ?? "")
+    let prepared = try? CloudContext.prepare(request, toolbox: toolbox)
+    clientPreparation.append(prepared?.messages == request.messages ? "kept" : "trimmed")
     toolbox.definitions.forEach { toolNames.append($0.name) }
     if let required = toolbox.offeredRequiredTool { requiredTools.append(required) }
     let script = lock.withLock { () -> [Event] in steps.isEmpty ? [] : steps.removeFirst() }
@@ -2145,4 +2406,15 @@ extension ToolPermission {
 private struct NativeTestPicker: WorkspacePicking {
   let urls: [URL]
   func pick() async -> [URL]? { urls }
+}
+
+/// Answers as Brave does: never fewer than `BraveSearchClient.minimumTokens`.
+final class BraveLikeProvider: WebSearchProvider, @unchecked Sendable {
+  let results: [WebSearchResult]
+  let sizes = LockedSizes()
+  init(results: [WebSearchResult]) { self.results = results }
+  func search(_ request: WebSearchRequest) async throws -> [WebSearchResult] {
+    sizes.append(request.maximumTokens)
+    return WebSearchExcerpts.fitted(results, maximumTokens: max(BraveSearchClient.minimumTokens, request.maximumTokens))
+  }
 }

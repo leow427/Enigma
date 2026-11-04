@@ -62,6 +62,7 @@ def gguf(metadata, tensors):
 GEMMA = {
     "general.architecture": "gemma4",
     "gemma4.block_count": 6,
+    "gemma4.context_length": 131072,
     "gemma4.attention.head_count_kv": [8, 8, 2, 8, 8, 2],
     "gemma4.attention.key_length": 512,
     "gemma4.attention.value_length": 512,
@@ -135,6 +136,7 @@ EXPECTED = """\
       repository: "example/Fixture-GGUF", revision: "0123456789abcdef0123456789abcdef01234567",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 900000000,
       projectorSHA256: "3e3f3f593b34bb4f518ada3e7999e4cbcd2a5864fa86ebc23fad3cbc4fbeba40", supportsAudio: false,
+      trainedContextLength: 131072,
       packages: [
         .init(id: "fixture-7b-iq3_xxs", quantization: "IQ3_XXS", file: "Fixture-7B-UD-IQ3_XXS.gguf",
               byteCount: 3500000000, sha256: "c9f34994715a016cd0bcd7ff4c1f5710718bbcc25d40796302db0a89b6d0d8ea",
@@ -284,6 +286,27 @@ class AddCatalogueModelTests(unittest.TestCase):
             header.HeaderReader(lambda start, count: data[start:start + count]), 4_000_000_000)
         self.assertEqual((largest, name), (2_500_000_000, "token_embd.weight"))
         self.assertEqual(metadata["gemma4.block_count"], 6)
+
+    def test_header_script_prints_the_trained_context_length(self):
+        data = FILES["Fixture-7B-Q4_K_M.gguf"]
+        out = io.StringIO()
+        reader = lambda url: header.HeaderReader(lambda start, count: data[start:start + count])
+        original, header.RemoteFile = header.RemoteFile, reader
+        try:
+            sys.argv, saved = ["gguf-header.py", "https://example.com/f.gguf", "4000000000"], sys.argv
+            stdout, sys.stdout = sys.stdout, out
+            header.main()
+        finally:
+            header.RemoteFile, sys.argv, sys.stdout = original, saved, stdout
+        self.assertIn("gemma4.context_length 131072\n", out.getvalue())
+
+    def test_a_package_without_a_context_length_fails(self):
+        network = Network()
+        network.files["Fixture-7B-Q4_K_M.gguf"] = gguf({key: value for key, value in GEMMA.items()
+                                                        if key != "gemma4.context_length"}, [("token_embd.weight", 0)])
+        with self.assertRaises(SystemExit):
+            run("--repo", REPO, "--revision", REVISION, "--projector", "mmproj-F16.gguf",
+                "--file", "Fixture-7B-Q4_K_M.gguf", network=network)
 
 
 if __name__ == "__main__":

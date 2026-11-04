@@ -135,6 +135,8 @@ struct ChatSession: Codable, Sendable, Equatable, Identifiable {
   /// Message text from Messages entered this chat (F32), so a capable model's web searches
   /// ask first, after a relaunch too. Only this flag is saved, never the text or any grant.
   var holdsMessageText: Bool? = nil
+  /// The earlier turns' summary (F35), reused in every request until the chat is compacted again.
+  var summary: ChatSummary? = nil
 
   init(
     id: UUID = UUID(),

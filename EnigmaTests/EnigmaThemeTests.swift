@@ -33,6 +33,9 @@ final class EnigmaThemeTests: XCTestCase {
       (\.characterBody, EnigmaColor(hex: 0xC3DE5E), EnigmaColor(hex: 0x8FAA6A)),
       (\.characterInk, EnigmaColor(hex: 0x211E19), EnigmaColor(hex: 0xBFC3B3)),
       (\.warning, EnigmaColor(hex: 0xE0A33B), EnigmaColor(hex: 0xE0A33B)),
+      (\.contextHigh, EnigmaColor(hex: 0xB8800F), EnigmaColor(hex: 0xE0A33B)),
+      (\.contextFull, EnigmaColor(hex: 0xB3261E), EnigmaColor(hex: 0xE06C5F)),
+      (\.contextTrack, EnigmaColor(hex: 0x24201A, opacity: 0.14), EnigmaColor(hex: 0xC8CCBF, opacity: 0.16)),
       (\.codeKeyword, EnigmaColor(hex: 0x8A3B6E), EnigmaColor(hex: 0xC09AB6)),
       (\.codeString, EnigmaColor(hex: 0x3F6B1A), EnigmaColor(hex: 0xA7BF86)),
       (\.codeNumber, EnigmaColor(hex: 0xA04A12), EnigmaColor(hex: 0xD2A57E)),
@@ -40,7 +43,7 @@ final class EnigmaThemeTests: XCTestCase {
       (\.codeType, EnigmaColor(hex: 0x1D6375), EnigmaColor(hex: 0x88B8AE)),
       (\.codeVariable, EnigmaColor(hex: 0x3A4FA0), EnigmaColor(hex: 0xA6B0D6)),
     ]
-    XCTAssertEqual(expected.count, 23)
+    XCTAssertEqual(expected.count, 26)
     for (token, paper, ink) in expected {
       XCTAssertEqual(EnigmaPalette.paper[keyPath: token], paper, "\(token)")
       XCTAssertEqual(EnigmaPalette.ink[keyPath: token], ink, "\(token)")
@@ -121,5 +124,56 @@ final class EnigmaThemeTests: XCTestCase {
       XCTAssertGreaterThan(spring.dampingFraction, 0)
       XCTAssertLessThan(spring.dampingFraction, 0.85)
     }
+  }
+}
+
+/// The composer's context ring (F35 CP5).
+final class ContextRingTests: XCTestCase {
+  private func usage(_ fraction: Double) -> ContextUsage {
+    ContextUsage(usedTokens: Int((fraction * 10_000).rounded()), limitTokens: 10_000)
+  }
+
+  func testRingLevelColours() {
+    for palette in [EnigmaPalette.paper, .ink] {
+      XCTAssertEqual(ContextRing.color(for: usage(0.699).level, palette: palette), palette.accent)
+      XCTAssertEqual(ContextRing.color(for: usage(0.70).level, palette: palette), palette.contextHigh)
+      XCTAssertEqual(ContextRing.color(for: usage(0.899).level, palette: palette), palette.contextHigh)
+      XCTAssertEqual(ContextRing.color(for: usage(0.90).level, palette: palette), palette.contextFull)
+    }
+  }
+
+  func testRingFillIsExactFraction() {
+    XCTAssertEqual(ContextUsage(usedTokens: 1_234, limitTokens: 3_328).fraction, 1_234.0 / 3_328, accuracy: 1e-12)
+  }
+
+  func testNewTokensMeetContrast() {
+    // Non-text graphics: 3:1 against the composer's surface.
+    for (name, palette) in [("paper", EnigmaPalette.paper), ("ink", .ink)] {
+      for color in [palette.accent, palette.contextHigh, palette.contextFull] {
+        XCTAssertGreaterThanOrEqual(color.contrastRatio(on: palette.surface), 3, name)
+      }
+    }
+  }
+
+  func testRingHelpText() {
+    XCTAssertEqual(ContextRing.help(ContextUsage(usedTokens: 714, limitTokens: 1_000)), "28% of context left")
+    XCTAssertEqual(ContextRing.help(ContextUsage(usedTokens: 92, limitTokens: 100)),
+                   "8% of context left. Earlier messages will be summarized.")
+  }
+
+  func testRingTokenLineFormatsThousands() {
+    XCTAssertEqual(ContextRing.tokenLine(ContextUsage(usedTokens: 640, limitTokens: 8_192)), "640 of 8.2K tokens used")
+    XCTAssertEqual(ContextRing.tokenLine(ContextUsage(usedTokens: 12_345, limitTokens: 65_536)), "12K of 66K tokens used")
+    XCTAssertEqual(ContextRing.tokens(9_999), "10K")
+    XCTAssertEqual(ContextRing.tokens(9_949), "9.9K")
+    XCTAssertEqual(ContextRing.tokens(1_250), "1.3K")
+    XCTAssertEqual(ContextRing.tokens(999), "999")
+  }
+
+  func testRingVoiceOverValue() {
+    XCTAssertEqual(ContextRing.accessibilityValue(ContextUsage(usedTokens: 640, limitTokens: 8_192)),
+                   "640 of 8.2K tokens used\n92% of context left")
+    XCTAssertEqual(ContextRing.accessibilityValue(ContextUsage(usedTokens: 92, limitTokens: 100)),
+                   "92 of 100 tokens used\n8% of context left. Earlier messages will be summarized.")
   }
 }

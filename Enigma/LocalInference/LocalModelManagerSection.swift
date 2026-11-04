@@ -9,6 +9,8 @@ struct LocalModelManagerSection: View {
   @ObservedObject var chat: LocalChatViewModel
   @State private var isImporterPresented = false
   @State private var pendingDeletion: LocalModel?
+  @AppStorage(LocalContextWindowPreference.key) private var contextPreference = LocalContextWindowPreference.automatic
+  @AppStorage(LocalContextWindowPreference.acceptedKey) private var contextAccepted = ""
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.enigmaSettingsStyle) private var settingsStyle
 
@@ -98,6 +100,7 @@ struct LocalModelManagerSection: View {
         .padding(.leading, -8)
         .padding(.top, 8)
       EnigmaHint("approved model catalog · version \(advisor.manifest.version)").padding(.top, 6)
+      SettingsAdvanced { LocalContextSizeRow(advisor: advisor, chat: chat) }
     }
     .task { await LocalModelSettingsLogic.prepare(advisor: advisor, chat: chat) }
     .fileImporter(isPresented: $isImporterPresented,
@@ -150,7 +153,10 @@ struct LocalModelManagerSection: View {
         }
         EnigmaDisclosure("Model details") {
           VStack(alignment: .leading, spacing: 2) {
-            mono("\(model.quantization) · \(model.recommendedContextSize) token context · \(model.performanceClass)")
+            mono(LocalModelSettingsLogic.contextDetail(for: model, installed: chat.installedModels) { descriptor in
+              advisor.hardware.map { LocalContextWindowChoice.runtimeSize(for: descriptor, preference: contextPreference,
+                                                                                     accepted: contextAccepted, hardware: $0) }
+            })
             mono("Estimated memory \(model.estimatedRuntimeMemory.formatted(.byteCount(style: .memory))) · Minimum Mac memory \(model.minimumMemory.formatted(.byteCount(style: .memory)))")
             Link("Model card and license", destination: model.downloadURL
               .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent())
@@ -220,5 +226,109 @@ struct LocalModelManagerSection: View {
       .font(EnigmaTypography.detail(11, settings: settingsStyle))
       .foregroundStyle((color ?? palette.textTertiary).color)
       .fixedSize(horizontal: false, vertical: true)
+  }
+}
+
+/// Settings → On this Mac → › Advanced: the window local models run at (F35). A size over the
+/// comfortable memory line asks first; one the model or memory rules out is disabled.
+struct LocalContextSizeRow: View {
+  @ObservedObject var advisor: LocalModelAdvisor
+  @ObservedObject var chat: LocalChatViewModel
+  @AppStorage(LocalContextWindowPreference.key) private var preference = LocalContextWindowPreference.automatic
+  @AppStorage(LocalContextWindowPreference.acceptedKey) private var accepted = ""
+  @State private var pending: LocalContextWindowPreference?
+
+  static let title = "Context size"
+  static let detail = "Larger sizes remember more of a long chat but use more memory and answer a little slower."
+  static let warning = "This size may not fit in this Mac's memory alongside other apps. Use it anyway?"
+  static let waitingNote = "Until you choose Use It, this model runs at Automatic."
+
+  static func ruledOutNote(_ preference: LocalContextWindowPreference) -> String {
+    "This model can't use \(preference.title) on this Mac, so it runs at Automatic."
+  }
+
+  var body: some View {
+    let asking = pending ?? unanswered
+    VStack(alignment: .leading, spacing: 0) {
+      EnigmaRow(Self.title, subtitle: Self.detail) {
+        EnigmaSegmentedControl(Self.title, selection: Binding(get: { pending ?? preference }, set: { choose($0) }),
+                               options: Self.options(model: chat.installedModel, hardware: advisor.hardware))
+          .fixedSize()
+      }
+      if let asking {
+        VStack(alignment: .leading, spacing: 8) {
+          EnigmaStatusLine(.problem, pending == nil ? "\(Self.warning) \(Self.waitingNote)" : Self.warning)
+          HStack(spacing: 8) {
+            Button("Use It") { apply(asking) }
+              .enigmaButtonStyle(.secondary)
+              .enigmaTestMarker("Use It")
+            Button("Cancel") { if pending == nil { apply(.automatic) } else { pending = nil } }
+              .enigmaButtonStyle(.text)
+              .enigmaTestMarker("Cancel")
+          }
+        }
+        .padding(.bottom, 10)
+      } else if let model = chat.installedModel, let hardware = advisor.hardware,
+                LocalContextWindowChoice.size(for: preference, model: model, hardware: hardware) == nil {
+        EnigmaNote(Self.ruledOutNote(preference)).padding(.bottom, 10).enigmaTestMarker("Context size ruled out")
+      }
+      EnigmaHairline()
+    }
+    // Until this Mac's memory is known nothing can be ruled out or warned about.
+    .disabled(!chat.canChangeModels || advisor.hardware == nil)
+    .onChange(of: pending) { _, asking in
+      if asking != nil { AccessibilityNotification.Announcement(Self.warning).post() }
+    }
+    // A question about one model doesn't carry over to another.
+    .onChange(of: chat.installedModel?.id) { pending = nil }
+  }
+
+  /// The saved preset is over the line for the selected model, which hasn't been answered yet.
+  private var unanswered: LocalContextWindowPreference? {
+    guard let model = chat.installedModel, let hardware = advisor.hardware,
+          LocalContextWindowChoice.needsWarning(preference, model: model, hardware: hardware),
+          !LocalContextWindowPreference.isAccepted(preference, modelID: model.id, in: accepted) else { return nil }
+    return preference
+  }
+
+  /// Without a selected model or this Mac's hardware, nothing is ruled out yet.
+  static func options(model: LocalModel?, hardware: LocalHardwareProfile?) -> [EnigmaOption<LocalContextWindowPreference>] {
+    LocalContextWindowPreference.allCases.map { preference in
+      let allowed = preference == .automatic || model.flatMap { model in
+        hardware.map { LocalContextWindowChoice.size(for: preference, model: model, hardware: $0) != nil }
+      } ?? true
+      return EnigmaOption(preference, preference.title, isEnabled: allowed, accessibilityLabel: preference.accessibilityLabel)
+    }
+  }
+
+  private func choose(_ choice: LocalContextWindowPreference) {
+    guard choice != preference || unanswered != nil else { pending = nil; return }
+    guard Self.options(model: chat.installedModel, hardware: advisor.hardware).contains(where: { $0.value == choice && $0.isEnabled })
+    else { return }
+    if let model = chat.installedModel, let hardware = advisor.hardware,
+       LocalContextWindowChoice.needsWarning(choice, model: model, hardware: hardware),
+       !LocalContextWindowPreference.isAccepted(choice, modelID: model.id, in: accepted) {
+      pending = choice
+    } else {
+      apply(choice)
+    }
+  }
+
+  /// The runtime starts again at the next request, with the new size; nothing is downloaded. A
+  /// size this model hasn't been measured at gets the performance check, as after an install.
+  private func apply(_ choice: LocalContextWindowPreference) {
+    pending = nil
+    if let model = chat.installedModel, let hardware = advisor.hardware,
+       LocalContextWindowChoice.needsWarning(choice, model: model, hardware: hardware) {
+      accepted = LocalContextWindowPreference.accepting(choice, modelID: model.id, in: accepted)
+    }
+    preference = choice
+    let before = chat.installedModel?.contextWindow
+    Task {
+      await chat.refreshInstalledModel()
+      guard let model = chat.installedModel, model.contextWindow != before,
+            advisor.latestBenchmark(for: model) == nil else { return }
+      chat.runModelBenchmark()
+    }
   }
 }

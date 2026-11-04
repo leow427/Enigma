@@ -223,6 +223,12 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
             raise SystemExit(f"{label} is not a quantization label; pass --label after --file {file}.")
         packages.append((size, label, file, sha, largest, metadata))
     packages.sort(key=lambda package: package[0])
+    trained = set()
+    for _, _, file, _, _, metadata in packages:
+        length = metadata.get(f"{header_name(metadata, 'general.architecture')}.context_length")
+        if not isinstance(length, int) or isinstance(length, bool) or length <= 0:
+            raise SystemExit(f"{file} has no context_length in its header.")
+        trained.add(length)
 
     write = lambda line="": print(line, file=out)
     write("// Family entry for Enigma/LocalInference/BundledLocalModels.swift")
@@ -235,6 +241,7 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
     write(f'      repository: "{repo}", revision: "{revision}",')
     write(f'      projectorFile: "{swift_string(options.projector)}", projectorByteCount: {projector_bytes},')
     write(f'      projectorSHA256: "{projector_sha}", supportsAudio: {"true" if audio else "false"},')
+    write(f"      trainedContextLength: {min(trained)},")
     write("      packages: [")
     for size, label, file, sha, largest, _ in packages:
         write(f'        .init(id: "{stem}-{label.lower()}", quantization: "{label}", file: "{swift_string(file)}",')
@@ -246,6 +253,8 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
     write()
     write("// Cache layout for LocalMultimodalProfile.cacheLayout")
     write(swift_layout(layouts[0]))
+    if len(trained) > 1:
+        write("// warning: the packages' headers disagree on the trained context length; the smallest is shown")
     if any(layout != layouts[0] for layout in layouts):
         write("// warning: the packages' headers disagree on the cache layout; check by hand")
 

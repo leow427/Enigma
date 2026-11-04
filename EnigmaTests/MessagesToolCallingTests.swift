@@ -232,6 +232,31 @@ final class CloudToolLoopTests: XCTestCase {
     XCTAssertEqual((response["response"] as? [String: Any]).flatMap { ($0["result"] as? [String: Any])?["answer"] as? String }, "42")
   }
 
+  /// F35 CP0: each API tool loop counts its toolbox's prompt and tools when it trims history.
+  func testAPIToolLoopsTrimHistoryWithTheirToolbox() async throws {
+    let answers: [(CloudProviderID, String, [String: Any], String)] = [
+      (.openAI, "gpt-4.1", ["status": "completed", "output": [["type": "message", "role": "assistant",
+        "content": [["type": "output_text", "text": "Done."]]]]], "input"),
+      (.anthropic, "claude-sonnet-4-6", ["content": [["type": "text", "text": "Done."]], "stop_reason": "end_turn"], "messages"),
+      (.gemini, "gemini-3-flash", ["candidates": [["content": ["role": "model", "parts": [["text": "Done."]]], "finishReason": "STOP"]]], "contents"),
+    ]
+    for (provider, model, answer, key) in answers {
+      let transport = QueuedTransport([answer])
+      let request = ChatRequest(sessionID: UUID(), messages: longChat(),
+        route: Route(mode: .cloud, providerID: provider.rawValue, modelID: model, usesNetwork: true))
+      let client: any ToolCallingChatProvider = switch provider {
+      case .openAI: OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+      case .anthropic: AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+      default: GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
+      }
+      _ = try await collect(client.stream(request, toolbox: SampleToolbox()))
+      let sent = try XCTUnwrap(transport.bodies.first?[key] as? [[String: Any]], "\(provider)")
+      let withTools = try CloudContext.prepare(request, toolbox: SampleToolbox())
+      XCTAssertEqual(sent.count, withTools.messages.count, "\(provider)")
+      XCTAssertLessThan(sent.count, try CloudContext.prepare(request).messages.count, "\(provider)")
+    }
+  }
+
   func testLoopStopsAtTheStepLimit() async throws {
     let looping: [String: Any] = ["content": [["type": "tool_use", "id": "t", "name": "lookup", "input": ["query": "x"]]]]
     let transport = QueuedTransport(Array(repeating: looping, count: CloudToolLoop.maximumSteps))
@@ -475,6 +500,8 @@ private actor ScriptedToolInference: LocalToolInference {
   private func recordRequiredTool(_ name: String?) { requiredTools.append(name) }
 
   func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    // F35 CP3: a summary request (no tools) gets an unusable summary, so a long chat is trimmed as before.
+    if tools.isEmpty { return AgentInferenceMessage(role: "assistant", content: "") }
     requests.append(messages)
     if requests.count == 1 {
       return AgentInferenceMessage(role: "assistant", content: "ignored", toolCalls: [
@@ -606,6 +633,30 @@ final class MessagesRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.map(\.content), ["Who texted me last?", "Your latest chat is Weekend Trip."])
     XCTAssertEqual(toolbox.calls.map(\.0), ["list_conversations"])
     XCTAssertNil(chat.appleMessages.pendingSend)
+    await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  /// F35 CP1: a long chat drops older turns, so its tools stay offered for the whole turn.
+  func testLocalMessagesRequestTrimsALongChat() async throws {
+    let sessionStore = ChatSessionStore(applicationSupportDirectory: root)
+    var saved = ChatSession(title: "Long")
+    for turn in 0..<20 {
+      saved.append(ChatMessage(role: .user, content: "Question \(turn) " + String(repeating: "q", count: 1_500)))
+      saved.append(ChatMessage(role: .assistant, content: "Answer \(turn) " + String(repeating: "a", count: 1_500)))
+    }
+    try sessionStore.save([saved])
+    let inference = ScriptedToolInference()
+    let chat = LocalChatViewModel(engine: MessagesTestEngine(), messagesToolbox: { _ in RecordingToolbox() }, messagesAccess: {},
+      localToolRuntime: { _ in true }, fileInference: inference, sessionStore: sessionStore)
+    chat.selectSession(id: saved.id)
+    await chat.refreshInstalledModel()
+    chat.submitMessages("Who texted me last?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    await waitForTheRequestToFinish(chat)
+    let requests = await inference.requests
+    let first = try XCTUnwrap(requests.first)
+    XCTAssertLessThan(first.count, 42, "Older turns were dropped")
+    XCTAssertEqual(first.last?.content?.contains("Who texted me last?"), true)
+    XCTAssertNotNil(chat.contextNotice)
     await chat.sessionWriter.waitForPendingWrites()
   }
 
@@ -1292,5 +1343,449 @@ private final class LockedPhases: @unchecked Sendable {
   func append(_ event: AssistantActivityEvent) {
     guard case .phase(let phase) = event else { return }
     lock.withLock { phases.append(phase) }
+  }
+}
+
+// MARK: - F35 CP1: the per-step budget
+
+/// Search results of about `bytes` of excerpt text in all, over two sources.
+private func bulkySearchTool(bytes: Int = 2_000, sizes: LockedSizes? = nil, stepBudget: ToolStepBudget? = nil) -> WebSearchTool {
+  let results = (1...2).map { index in
+    WebSearchResult(source: WebSearchSource(title: "Result \(index)", url: URL(string: "https://example.com/\(index)")!),
+                    snippets: [String(repeating: "word ", count: bytes / 10)])
+  }
+  return WebSearchTool(search: { _, _, maximumTokens in sizes?.append(maximumTokens); return results },
+                       evidenceCap: 2_048, stepBudget: stepBudget, mayQuery: { _ in true }, onSources: { _ in })
+}
+
+final class LockedSizes: @unchecked Sendable {
+  private let lock = NSLock()
+  private var sizes: [Int] = []
+  var values: [Int] { lock.withLock { sizes } }
+  func append(_ size: Int) { lock.withLock { sizes.append(size) } }
+}
+
+/// Calls `web_search` whenever it is offered, and answers once tools are withdrawn.
+private actor SearchingInference: LocalToolInference {
+  /// Searches at most this many times.
+  private let limit: Int
+  /// Calls `web_search` even on a step sent without tools.
+  private let ignoresWithdrawal: Bool
+  private(set) var requests: [[AgentInferenceMessage]] = []
+  private(set) var tools: [[String]] = []
+  private(set) var requiredTools: [String?] = []
+
+  init(limit: Int = .max, ignoresWithdrawal: Bool = false) {
+    self.limit = limit
+    self.ignoresWithdrawal = ignoresWithdrawal
+  }
+
+  func completeTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel) async throws -> AgentInferenceMessage {
+    requests.append(messages)
+    self.tools.append(tools.map(\.name))
+    guard !tools.isEmpty || ignoresWithdrawal, requests.count <= limit else { return AgentInferenceMessage(role: "assistant", content: "Here is what I found.") }
+    return AgentInferenceMessage(role: "assistant", content: nil, toolCalls: [
+      AgentToolCall(id: "c", function: .init(name: "web_search", arguments: #"{"query":"news \#(requests.count)"}"#))])
+  }
+
+  nonisolated func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
+                               requiredTool: String?) -> AsyncThrowingStream<LocalToolStreamEvent, Error> {
+    AsyncThrowingStream { continuation in
+      Task {
+        await self.recordRequired(requiredTool)
+        do {
+          let message = try await self.completeTools(messages: messages, tools: tools, model: model)
+          if let content = message.content { continuation.yield(.text(content)) }
+          continuation.yield(.message(message))
+        } catch { continuation.finish(throwing: error); return }
+        continuation.finish()
+      }
+    }
+  }
+
+  private func recordRequired(_ tool: String?) { requiredTools.append(tool) }
+}
+
+extension MessagesRequestTests {
+  /// About 1,300 tokens, so a full-size first result leaves less than twice the cap.
+  private static let sizingQuestion = [ChatMessage(role: .user, content: "What's new? " + String(repeating: "context ", count: 490))]
+
+  /// Sized so the fourth search's result leaves no room for another.
+  private static let contextWords = 1_620
+
+  /// An 8,192-token local model, as catalogue packages run today.
+  private var smallModel: LocalModel {
+    LocalModel(id: "m", displayName: "M", fileURL: URL(fileURLWithPath: "/tmp/m.gguf"),
+               visionConfiguration: LocalVisionConfiguration(projectorURL: URL(fileURLWithPath: "/tmp/p.gguf"),
+                                                             serverExecutableURL: URL(fileURLWithPath: "/tmp/llama-server")))
+  }
+
+  private func searchTurn(streaming: Bool, thinks: Bool = false) async throws -> (SearchingInference, String) {
+    let inference = SearchingInference()
+    // About 1,000 tokens a result.
+    let toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 3_000)], requiredTool: "web_search", extraInstructions: [])
+    var question = ChatMessage(role: .user, content: "What's new? " + String(repeating: "context ", count: Self.contextWords))
+    question.extendedThinking = thinks
+    let shown = LockedText()
+    let agent = LocalToolAgent(inference: inference)
+    if streaming {
+      try await agent.runStreaming(messages: [question], model: smallModel, toolbox: toolbox, onActivity: { _ in }) { shown.append($0) }
+    } else {
+      try await agent.run(messages: [question], model: smallModel, toolbox: toolbox) { shown.append($0) }
+    }
+    return (inference, shown.value)
+  }
+
+  func testRepeatedSearchesShrinkThenAnswerLocal() async throws {
+    for streaming in [false, true] {
+      let (inference, answer) = try await searchTurn(streaming: streaming)
+      XCTAssertEqual(answer, "Here is what I found.", "The turn ends with the model's answer, never an error")
+      let tools = await inference.tools
+      XCTAssertEqual(tools.dropLast(), Array(repeating: ["web_search"], count: 4), "Four searches")
+      XCTAssertEqual(tools.last, [], "The last step is sent with no tools")
+      let requests = await inference.requests
+      let last = try XCTUnwrap(requests.last)
+      XCTAssertTrue(last[0].content?.hasSuffix("\n" + ToolStepBudget.answerInstruction) == true)
+      XCTAssertFalse(requests.dropLast().contains { $0[0].content?.contains(ToolStepBudget.answerInstruction) == true })
+      let results = last.filter { $0.role == "tool" }.compactMap(\.content)
+      XCTAssertEqual(results.count, 4)
+      XCTAssertTrue(results.dropLast().allSatisfy { $0.contains(ToolStepBudget.removedExcerpt) && !$0.contains("word word") },
+                    "Earlier results shrank")
+      XCTAssertTrue(results.dropLast().allSatisfy { $0.contains("https://example.com/1") && $0.contains("Result 2") })
+      XCTAssertLessThanOrEqual(LocalToolAgent.usedTokens(last), LocalToolAgent.budget([], model: smallModel,
+        toolbox: AssistantToolbox(parts: [bulkySearchTool()], requiredTool: nil, extraInstructions: [])).availableInputTokens)
+    }
+  }
+
+  func testShrinkNeverTouchesTheCurrentStep() async throws {
+    let (inference, _) = try await searchTurn(streaming: true)
+    let requests = await inference.requests
+    // The first step that shrank: its newest result is still whole, and the model reads it.
+    let shrinking = try XCTUnwrap(requests.first { $0.contains { $0.content?.contains(ToolStepBudget.removedExcerpt) == true } })
+    let results = shrinking.filter { $0.role == "tool" }.compactMap(\.content)
+    XCTAssertTrue(results.last?.contains("word word") == true)
+    XCTAssertFalse(results.last?.contains(ToolStepBudget.removedExcerpt) == true)
+  }
+
+  func testNoStepIsSentOverTheBudget() async throws {
+    let inference = SearchingInference()
+    // One result bigger than the whole window, from a search that ignores its size.
+    let toolbox = AssistantToolbox(parts: [OversizedSearch()], requiredTool: nil, extraInstructions: [])
+    let shown = LockedText()
+    let question = [ChatMessage(role: .user, content: "What's new?")]
+    try await LocalToolAgent(inference: inference).runStreaming(messages: question, model: smallModel, toolbox: toolbox,
+      onActivity: { _ in }) { shown.append($0) }
+    XCTAssertEqual(shown.value, "Here is what I found.")
+    let tools = await inference.tools
+    XCTAssertEqual(tools, [["web_search"], []])
+    let requests = await inference.requests
+    let last = try XCTUnwrap(requests.last)
+    XCTAssertTrue(last.last?.content?.contains(ToolStepBudget.removedExcerpt) == true, "The newest result shrank too")
+    XCTAssertTrue(last.last?.content?.contains("https://example.com/1") == true)
+    XCTAssertLessThanOrEqual(LocalToolAgent.usedTokens(last),
+                             LocalToolAgent.budget(question, model: smallModel, toolbox: toolbox).availableInputTokens)
+  }
+
+  func testThinkReserveCountsInLocalStepBudget() async throws {
+    let (plain, _) = try await searchTurn(streaming: true)
+    let (thinking, answer) = try await searchTurn(streaming: true, thinks: true)
+    XCTAssertEqual(answer, "Here is what I found.")
+    let plainSteps = await plain.tools.count
+    let thinkingSteps = await thinking.tools.count
+    XCTAssertLessThan(thinkingSteps, plainSteps, "/think's 2,048-token reserve leaves room for fewer steps")
+  }
+
+  func testWithdrawnToolsAreNotForcedRequiredLocal() async throws {
+    let (inference, _) = try await searchTurn(streaming: true)
+    let required = await inference.requiredTools
+    XCTAssertEqual(required.first, "web_search")
+    XCTAssertEqual(required.last, nil as String?, "A step without tools asks for none")
+  }
+
+  func testACallOnAWithdrawnStepEndsTheTurnUnrunLocal() async throws {
+    for streaming in [false, true] {
+      let inference = SearchingInference(ignoresWithdrawal: true)
+      let sizes = LockedSizes()
+      let toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 3_000, sizes: sizes)], requiredTool: nil, extraInstructions: [])
+      let question = [ChatMessage(role: .user, content: "What's new? " + String(repeating: "context ", count: Self.contextWords))]
+      let agent = LocalToolAgent(inference: inference)
+      do {
+        if streaming {
+          try await agent.runStreaming(messages: question, model: smallModel, toolbox: toolbox, onActivity: { _ in }) { _ in }
+        } else {
+          try await agent.run(messages: question, model: smallModel, toolbox: toolbox) { _ in }
+        }
+        XCTFail("Expected the step limit")
+      } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit) }
+      let tools = await inference.tools
+      XCTAssertEqual(tools.last, [], "The call came on a step sent without tools")
+      XCTAssertEqual(sizes.values.count, tools.count - 1, "It never ran")
+    }
+  }
+
+  func testStepLimitStillAppliesWithRoomLeft() async throws {
+    let inference = SearchingInference()
+    let toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 20)], requiredTool: nil, extraInstructions: [])
+    do {
+      try await LocalToolAgent(inference: inference, maximumSteps: 3).runStreaming(messages: [ChatMessage(role: .user, content: "Hi")],
+        model: smallModel, toolbox: toolbox, onActivity: { _ in }) { _ in }
+      XCTFail("Expected the step limit")
+    } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit) }
+    let tools = await inference.tools
+    XCTAssertEqual(tools, Array(repeating: ["web_search"], count: 3))
+  }
+
+  func testWebSearchUsesRoomLeft() async throws {
+    let sizes = LockedSizes()
+    let steps = ToolStepBudget()
+    var toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 9_000, sizes: sizes, stepBudget: steps)], requiredTool: nil, extraInstructions: [])
+    toolbox.stepBudget = steps
+    _ = try await searchTurn(inference: SearchingInference(limit: 2), toolbox: toolbox)
+    // The same through the whole-step loop.
+    try await LocalToolAgent(inference: SearchingInference(limit: 2)).run(
+      messages: Self.sizingQuestion, model: smallModel, toolbox: toolbox) { _ in }
+    XCTAssertEqual(sizes.values.count, 4)
+    for pair in [Array(sizes.values.prefix(2)), Array(sizes.values.suffix(2))] {
+      XCTAssertEqual(pair.first, 2_048, "With plenty of room, the cap")
+      XCTAssertLessThan(pair[1], pair[0], "A second call gets a smaller result than the first")
+      XCTAssertTrue(pair.allSatisfy { $0 >= ToolStepBudget.smallestResult })
+    }
+  }
+
+  private func searchTurn(inference: SearchingInference, toolbox: AssistantToolbox) async throws -> String {
+    let shown = LockedText()
+    try await LocalToolAgent(inference: inference).runStreaming(
+      messages: Self.sizingQuestion, model: smallModel, toolbox: toolbox, onActivity: { _ in }) { shown.append($0) }
+    return shown.value
+  }
+}
+
+extension CloudToolLoopTests {
+  nonisolated(unsafe) private static let searchCall: [CloudProviderID: [String: Any]] = [
+    .openAI: ["status": "completed", "output": [["type": "function_call", "call_id": "call", "name": "web_search",
+      "arguments": #"{"query":"news"}"#]]],
+    .anthropic: ["content": [["type": "thinking", "thinking": "Searching.", "signature": "sig"],
+      ["type": "tool_use", "id": "toolu", "name": "web_search", "input": ["query": "news"]]], "stop_reason": "tool_use"],
+    .gemini: ["candidates": [["content": ["role": "model", "parts": [["functionCall": ["name": "web_search", "args": ["query": "news"]],
+      "thoughtSignature": "sig"]]], "finishReason": "STOP"]]],
+  ]
+  nonisolated(unsafe) private static let searchAnswer: [CloudProviderID: [String: Any]] = [
+    .openAI: ["status": "completed", "output": [["type": "message", "role": "assistant",
+      "content": [["type": "output_text", "text": "Here is what I found."]]]]],
+    .anthropic: ["content": [["type": "text", "text": "Here is what I found."]], "stop_reason": "end_turn"],
+    .gemini: ["candidates": [["content": ["role": "model", "parts": [["text": "Here is what I found."]]], "finishReason": "STOP"]]],
+  ]
+  private func searchBodies(_ provider: CloudProviderID, thinks: Bool = false,
+                            toolbox: AssistantToolbox? = nil, limit: Int = .max,
+                            ignoresWithdrawal: Bool = false) async throws -> ([[String: Any]], [ChatEvent]) {
+    let transport = SearchingTransport(call: Self.searchCall[provider]!, answer: Self.searchAnswer[provider]!, limit: limit,
+                                       ignoresWithdrawal: ignoresWithdrawal)
+    let client: any ToolCallingChatProvider = switch provider {
+    case .openAI: OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    case .anthropic: AnthropicMessagesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    default: GeminiContentClient(credentialStore: ToolTestCredentials(), transport: transport)
+    }
+    // Padded so the room left is what an 8,192-token window left: every cloud model now has at
+    // least 256K, so the 65,536 input cap applies (61,952 estimated tokens of padding).
+    var question = ChatMessage(role: .user, content: "What's new?" + String(repeating: "x", count: 185_856))
+    question.extendedThinking = thinks
+    let request = ChatRequest(sessionID: UUID(), messages: [question],
+      route: Route(mode: .cloud, providerID: provider.rawValue, modelID: "manual-model", usesNetwork: true))
+    let toolbox = toolbox ?? AssistantToolbox(parts: [bulkySearchTool(bytes: 2_000)], requiredTool: "web_search", extraInstructions: [])
+    let events = try await collect(client.stream(request, toolbox: toolbox))
+    return (transport.bodies, events)
+  }
+
+  private func assertShrinksThenAnswers(_ provider: CloudProviderID, items key: String,
+                                        withdrawn: ([String: Any]) -> Bool, system: ([String: Any]) -> String?,
+                                        results: ([String: Any]) -> [String]) async throws {
+    let (bodies, events) = try await searchBodies(provider)
+    XCTAssertEqual(events.compactMap { event -> String? in if case .token(let text) = event { text } else { nil } }.last, "Here is what I found.")
+    XCTAssertEqual(events.last, .completed)
+    let searches = bodies.count - 1
+    XCTAssertGreaterThanOrEqual(searches, 3, "\(provider)")
+    XCTAssertLessThan(bodies.count, CloudToolLoop.maximumSteps, "\(provider)")
+    XCTAssertEqual(bodies.map(withdrawn), Array(repeating: false, count: searches) + [true], "\(provider)")
+    XCTAssertTrue(system(bodies.last!)?.hasSuffix("\n" + ToolStepBudget.answerInstruction) == true)
+    XCTAssertFalse(bodies.dropLast().contains { system($0)?.contains(ToolStepBudget.answerInstruction) == true })
+    let last = results(bodies.last!)
+    XCTAssertEqual(last.count, searches)
+    XCTAssertTrue(last.dropLast().allSatisfy { $0.contains(ToolStepBudget.removedExcerpt) && !$0.contains("word word") }, "\(provider)")
+    XCTAssertTrue(last.last?.contains("word word") == true, "The newest result stays whole")
+    let budget = ModelContextPolicy.cloud(provider: provider, modelID: "manual-model")
+    XCTAssertLessThan(CloudToolLoop.estimatedTokens(bodies.last![key] as! [[String: Any]]), budget.contextWindow)
+  }
+
+  func testRepeatedSearchesShrinkThenAnswerOpenAI() async throws {
+    try await assertShrinksThenAnswers(.openAI, items: "input", withdrawn: { $0["tool_choice"] as? String == "none" },
+      system: { $0["instructions"] as? String },
+      results: { ($0["input"] as? [[String: Any]] ?? []).filter { $0["type"] as? String == "function_call_output" }
+        .compactMap { $0["output"] as? String } })
+    let (bodies, _) = try await searchBodies(.openAI)
+    XCTAssertNotNil(bodies.last?["tools"], "Tools stay defined, so the calls in the input stay valid")
+  }
+
+  func testRepeatedSearchesShrinkThenAnswerAnthropic() async throws {
+    let results: ([String: Any]) -> [String] = { body in
+      (body["messages"] as? [[String: Any]] ?? []).flatMap { $0["content"] as? [[String: Any]] ?? [] }
+        .filter { $0["type"] as? String == "tool_result" }.compactMap { $0["content"] as? String }
+    }
+    try await assertShrinksThenAnswers(.anthropic, items: "messages",
+      withdrawn: { ($0["tool_choice"] as? [String: Any])?["type"] as? String == "none" },
+      system: { $0["system"] as? String }, results: results)
+    // With /think, the assistant's thinking blocks go back unchanged on the withdrawn step.
+    let (bodies, events) = try await searchBodies(.anthropic, thinks: true)
+    XCTAssertEqual(events.last, .completed)
+    let last = try XCTUnwrap(bodies.last)
+    XCTAssertEqual((last["tool_choice"] as? [String: Any])?["type"] as? String, "none")
+    XCTAssertNotNil(last["thinking"])
+    let assistant = (last["messages"] as? [[String: Any]] ?? []).filter { $0["role"] as? String == "assistant" }
+    XCTAssertEqual(assistant.count, bodies.count - 1)
+    for message in assistant {
+      let blocks = message["content"] as? [[String: Any]] ?? []
+      XCTAssertEqual(blocks.first?["type"] as? String, "thinking")
+      XCTAssertEqual(blocks.first?["signature"] as? String, "sig")
+    }
+  }
+
+  func testRepeatedSearchesShrinkThenAnswerGemini() async throws {
+    try await assertShrinksThenAnswers(.gemini, items: "contents",
+      withdrawn: { (($0["toolConfig"] as? [String: Any])?["functionCallingConfig"] as? [String: Any])?["mode"] as? String == "NONE" },
+      system: { ((($0["systemInstruction"] as? [String: Any])?["parts"] as? [[String: Any]])?.first)?["text"] as? String },
+      results: { body in
+        (body["contents"] as? [[String: Any]] ?? []).flatMap { $0["parts"] as? [[String: Any]] ?? [] }
+          .compactMap { ($0["functionResponse"] as? [String: Any])?["response"] }.map(CloudToolLoop.jsonString)
+      })
+  }
+
+  func testWithdrawnToolsAreNotForcedRequired() async throws {
+    for provider in [CloudProviderID.openAI, .anthropic, .gemini] {
+      let (bodies, _) = try await searchBodies(provider)
+      let last = try XCTUnwrap(bodies.last)
+      XCTAssertNotNil(bodies.first?[provider == .gemini ? "toolConfig" : "tool_choice"], "\(provider) forces the first step")
+      switch provider {
+      case .openAI: XCTAssertEqual(last["tool_choice"] as? String, "none")
+      case .anthropic: XCTAssertEqual(last["tool_choice"] as? [String: String], ["type": "none"])
+      default: XCTAssertEqual(CloudToolLoop.jsonString(last["toolConfig"] ?? [:]), #"{"functionCallingConfig":{"mode":"NONE"}}"#)
+      }
+    }
+  }
+
+  func testACallOnAWithdrawnStepEndsTheTurnUnrun() async throws {
+    for provider in [CloudProviderID.openAI, .anthropic, .gemini] {
+      let sizes = LockedSizes()
+      let toolbox = { AssistantToolbox(parts: [bulkySearchTool(bytes: 2_000, sizes: sizes)], requiredTool: "web_search",
+                                       extraInstructions: []) }
+      let (bodies, _) = try await searchBodies(provider, toolbox: toolbox())
+      let searches = bodies.count - 1
+      XCTAssertEqual(sizes.values.count, searches)
+      do {
+        _ = try await searchBodies(provider, toolbox: toolbox(), ignoresWithdrawal: true)
+        XCTFail("Expected the step limit")
+      } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit, "\(provider)") }
+      XCTAssertEqual(sizes.values.count, 2 * searches, "\(provider): the withdrawn step's call never ran")
+    }
+  }
+
+  func testAPILoopsShareTheTurnsBudgetWithTheirTools() async throws {
+    for provider in [CloudProviderID.openAI, .anthropic, .gemini] {
+      let sizes = LockedSizes()
+      let steps = ToolStepBudget()
+      var toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 2_000, sizes: sizes, stepBudget: steps)],
+                                     requiredTool: nil, extraInstructions: [])
+      toolbox.stepBudget = steps
+      _ = try await searchBodies(provider, toolbox: toolbox, limit: 2)
+      XCTAssertEqual(sizes.values.count, 2, "\(provider)")
+      XCTAssertLessThan(sizes.values[1], sizes.values[0], "\(provider): the loop measured the tools' budget")
+    }
+  }
+
+  func testParallelCallsAreSizedOneAfterAnother() async throws {
+    let sizes = LockedSizes()
+    let steps = ToolStepBudget()
+    var toolbox = AssistantToolbox(parts: [bulkySearchTool(bytes: 9_000, sizes: sizes, stepBudget: steps)],
+                                   requiredTool: nil, extraInstructions: [])
+    toolbox.stepBudget = steps
+    let budget = ContextBudget(contextWindow: 8_192, outputTokens: 1_024, overheadTokens: 1_024)
+    var step = 0
+    try await CloudToolLoop.run(toolbox: toolbox, budget: budget, count: { 100 }, shrink: { _ in }, emit: { _ in },
+      step: { _, _, _ in
+        step += 1
+        return step == 1 ? .init(text: "", calls: [.init(id: "1", name: "web_search", arguments: #"{"query":"a"}"#),
+                                                   .init(id: "2", name: "web_search", arguments: #"{"query":"b"}"#)])
+          : .init(text: "Done.", calls: [])
+      }, deliver: { _ in })
+    XCTAssertEqual(sizes.values.count, 2)
+    XCTAssertEqual(sizes.values.first, 2_048)
+    XCTAssertLessThan(sizes.values[1], sizes.values[0], "The second call of a step gets what the first left")
+  }
+
+  func testStepLimitStillApplies() async throws {
+    let looping = Self.searchCall[.openAI]!
+    let transport = QueuedTransport(Array(repeating: looping, count: CloudToolLoop.maximumSteps))
+    let client = OpenAIResponsesClient(credentialStore: ToolTestCredentials(), transport: transport)
+    let request = ChatRequest(sessionID: UUID(), messages: [ChatMessage(role: .user, content: "Hi")],
+      route: Route(mode: .cloud, providerID: CloudProviderID.openAI.rawValue, modelID: "gpt-4.1", usesNetwork: true))
+    do {
+      _ = try await collect(client.stream(request, toolbox: AssistantToolbox(parts: [bulkySearchTool(bytes: 20)],
+                                                                             requiredTool: nil, extraInstructions: [])))
+      XCTFail("Expected the step limit")
+    } catch { XCTAssertEqual(error as? AgentToolError, .stepLimit) }
+    XCTAssertEqual(transport.bodies.count, CloudToolLoop.maximumSteps)
+    XCTAssertTrue(transport.bodies.allSatisfy { $0["tool_choice"] as? String != "none" })
+  }
+}
+
+/// Calls `web_search` while tools are offered and answers once they are withdrawn, in each
+/// provider's stream format.
+private final class SearchingTransport: CloudNetworkTransport, @unchecked Sendable {
+  private let lock = NSLock()
+  private let call: [String: Any]
+  private let answer: [String: Any]
+  /// Searches at most this many times.
+  private let limit: Int
+  /// Calls `web_search` even on a step whose tools were withdrawn.
+  private let ignoresWithdrawal: Bool
+  private var recorded: [[String: Any]] = []
+  var bodies: [[String: Any]] { lock.withLock { recorded } }
+
+  init(call: [String: Any], answer: [String: Any], limit: Int = .max, ignoresWithdrawal: Bool = false) {
+    self.call = call
+    self.answer = answer
+    self.limit = limit
+    self.ignoresWithdrawal = ignoresWithdrawal
+  }
+
+  func data(for request: URLRequest) async throws -> CloudDataResponse { throw CloudProviderError.invalidResponse }
+
+  func stream(for request: URLRequest) -> AsyncThrowingStream<CloudNetworkEvent, Error> {
+    AsyncThrowingStream { continuation in
+      do {
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any] ?? [:]
+        let count = lock.withLock { recorded.append(body); return recorded.count }
+        let withdrawn = body["tool_choice"] as? String == "none" || (body["tool_choice"] as? [String: Any])?["type"] as? String == "none"
+          || CloudToolLoop.jsonString(body["toolConfig"] ?? [:]).contains("NONE")
+        continuation.yield(.response(statusCode: 200))
+        let answers = (withdrawn && !ignoresWithdrawal) || count > limit
+        continuation.yield(.data(Data(try QueuedTransport.stream(for: request.url!, response: answers ? answer : call).utf8)))
+        continuation.finish()
+      } catch { continuation.finish(throwing: error) }
+    }
+  }
+}
+
+extension QueuedTransport {
+  /// A whole response as its provider's stream.
+  static func stream(for url: URL, response: [String: Any]) throws -> String { try events(for: url, response: response) }
+}
+
+/// A `web_search` that returns about 10,000 tokens whatever it is asked for.
+private struct OversizedSearch: AgentToolbox {
+  let instructions = ""
+  var definitions: [AgentToolDefinition] { bulkySearchTool().definitions }
+  func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
+    let text = String(repeating: "word ", count: 6_000)
+    return AgentToolResult(text: #"{"results":[{"id":1,"kind":"page","site":"Example","text":"\#(text)","title":"Result 1","url":"https://example.com/1"}]}"#,
+                           success: true)
   }
 }

@@ -76,11 +76,13 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   `UI-Style.md` and to `EnigmaThemeTests` (≥ 3:1 against `surface` for the
   three fill colours, as non-text graphics).
 - **Hover and click:** hovering the ring shows a tooltip with the plan's
-  "Ring help" copy; clicking it shows the same text in a small popover. Its
+  "Ring help" copy; clicking it shows a small popover with the plan's "Ring
+  popover" token line (`12K of 32K tokens used`, owner request 2026-11-03)
+  above the same help text. Its
   hit area is the ring's stroke widened to 8 pt, outside the character's
   handle, so a click on the character still pokes it and dragging still
   drags. The ring is its own accessibility element, labelled
-  `Context` with the help text as its value.
+  `Context` with the popover's two lines as its value.
 - **Visibility:** shown when `contextUsage` is non-nil, the character is
   present and at rest in a reply or compact-panel slot, not on the empty
   page, not in the tour or welcome. While `isAwayFromSlot` it fades out over
@@ -99,7 +101,8 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   89.9% warning, 90% contextFull); `testRingFillIsExactFraction` (no
   steps); `testRingGapIsAtTheBottom`; `testNewTokensMeetContrast`; the help
   text at 71.4% used ("28% of context left") and at 92% used, with the
-  summary sentence.
+  summary sentence; `testRingTokenLineFormatsThousands` (640, 8,192 → `8.2K`,
+  12,345 → `12K`, 65,536 → `66K`, as `<U> of <L> tokens used`).
 
 ### Task 5.2: On the stage
 
@@ -107,7 +110,8 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
   `testRingFillIsThePreparedRequestsFraction` (a local and a cloud route);
   `testRingShowsBesideLatestReply` and `testRingShowsInCompactPanelSlot`;
   `testRingHiddenOnEmptyPageAndInTour`; `testRingFadesWhileDraggedAndReturns`;
-  `testClickOnCharacterStillPokes`; `testClickOnRingShowsShareLeft`;
+  `testClickOnCharacterStillPokes`; `testClickOnRingShowsShareLeft` (the token
+  line and the share left);
   `testRingDropsAfterCompaction`; `testRingChangesWithRoute`;
   `testRingUpdatesDuringToolTurn`; `testRingVoiceOverLabel`.
 
@@ -130,4 +134,57 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
 
 ## Hand-off
 
-_To be filled in by the CP5 worker._
+1. **Summary:** the context indicator is a small ring in the composer, not
+   around the character (owner, 2026-11-03, during CP5: "a ring near the
+   chatbar, not around the character"; also "be quick and don't complicate
+   things"). `ContextRing` fills clockwise from the top with
+   `ContextUsage.fraction`, coloured by level, with the plan's hover help,
+   click popover and VoiceOver copy. It sits before the mode and model menu in
+   the main window's composer.
+2. **Files:**
+   - `Enigma/App/ContextRing.swift` (new): the ring, its colours, help, token
+     line and number format.
+   - `Enigma/App/EnigmaComposer.swift`: `contextUsage`, the ring before the menu.
+   - `Enigma/App/AppShellView.swift`: `ringUsage` (hidden on the empty page and
+     in the tour), passed to the composer.
+   - `Enigma/App/EnigmaTheme.swift`: `contextHigh`, `contextFull`,
+     `contextTrack` in Paper and Ink.
+   - `EnigmaTests/EnigmaThemeTests.swift`: the three tokens in the palette table
+     (count 23 → 26); `ContextRingTests` (colours at the boundaries, exact
+     fraction, contrast, help, token line and its rounding, the VoiceOver value).
+   - `EnigmaTests/EnigmaMainWindowTests.swift`: `testRingShowsInComposerAfterASend`.
+   - `Enigma.xcodeproj/project.pbxproj`: the new file.
+   - Docs: `docs/Chat.md` (the ring), `docs/design/UI-Style.md` (the tokens).
+3. **Decisions:**
+   - **Placement and shape** (owner): a closed 14 pt circle in the composer
+     replaces the brief's open ellipse around the character, so the stage,
+     `isAwayFromSlot`, the fade while dragging, the poke/drag hit-testing and
+     the slot rules are all gone.
+   - **Not in the compact panel** (review round 1): the panel's chat is always
+     empty (a send moves it to the main window), so a ring there could never
+     show; it was removed rather than kept as dead code.
+   - **Yellow** (owner, 2026-11-03): `warning` (#E0A33B) is 2.1:1 on Paper's
+     surface, so the ring uses a new `contextHigh`, #B8800F in Paper (3.3:1),
+     #E0A33B in Ink.
+   - The ring shows `contextUsage` as the last preparation left it; it doesn't
+     recount on a route change without a send, and doesn't follow
+     `ToolStepBudget.usage` during a tool turn (skipped to keep it simple; it
+     catches up at the next send or compaction).
+   - **Review round 1** (no Blocker, 4 Should fixes, all small; fixed without a
+     second round): the panel ring removed; token counts round on the rounded
+     value, halves up (9,999 is `10K`, not `10.0K`); `accessibilityValue` tested;
+     the main window test checks the ring hides on a new chat; `UI-Style.md`'s
+     Composer bullet names the ring.
+4. **Verification:** `ContextRingTests`, `EnigmaThemeTests` and the main window
+   test pass (15 tests). Full suite: 2,351 tests, 46 skipped; the only failures
+   are the two `AppCommandTests` window-layout tests that fail on this Mac on
+   main too, and a CP4 selection test fixed in c00aa42. `analyze` succeeded.
+   - **Screenshot** (owner approved, 2026-11-03): `testScreenshots` saves
+     `conversation-context-ring` in Paper and Ink (`docs/images/`), linked from
+     `docs/Chat.md`; F35 moved to done in `to-do.md`.
+5. **Limitations:** the tour hiding isn't tested, and the empty-page guard in
+   `ringUsage` is a backstop (a new chat already clears `contextUsage`), so
+   removing it fails no test. Switching chats hides the ring until the next
+   send. No route-change recount or live tool-turn updates (above);
+   the live look at the real app wasn't done.
+6. **For the next step:** the merge to `main` and the screenshot wait on the owner.

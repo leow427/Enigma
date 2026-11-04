@@ -374,11 +374,12 @@ final class LocalInferenceTests: XCTestCase {
   @MainActor
   func testLocalTrimmingDoesNotDeletePersistedHistory() async throws {
     let store = makeSessionStore()
+    // F35 CP3: the oversized turn is the newest, so nothing fits a summary request and turns are dropped.
     let original = [
-      ChatMessage(role: .user, content: String(repeating: "old", count: 2_000)),
+      ChatMessage(role: .user, content: "old"),
       ChatMessage(role: .assistant, content: "old reply"),
-      ChatMessage(role: .user, content: "recent"),
-      ChatMessage(role: .assistant, content: "recent reply"),
+      ChatMessage(role: .user, content: String(repeating: "big", count: 2_000)),
+      ChatMessage(role: .assistant, content: "big reply"),
     ]
     try store.save([ChatSession(messages: original)])
     let persistedOriginal = store.load()[0].messages
@@ -387,7 +388,7 @@ final class LocalInferenceTests: XCTestCase {
     viewModel.selectSession(id: store.load()[0].id)
     viewModel.submit("current")
     await waitUntil { viewModel.state == .idle && engine.requests.count == 1 }
-    XCTAssertEqual(engine.requests[0].messages.map(\.content), ["recent", "recent reply", "current"])
+    XCTAssertEqual(engine.requests[0].messages.map(\.content), ["current"])
     await viewModel.sessionWriter.waitForPendingWrites()
     XCTAssertEqual(Array(store.load()[0].messages.prefix(4)), persistedOriginal)
     XCTAssertEqual(store.load()[0].messages.count, 6)
@@ -401,7 +402,8 @@ final class LocalInferenceTests: XCTestCase {
     let probe = ChatArchiveWriteProbe(store: store)
     let viewModel = LocalChatViewModel(engine: engine, sessionStore: store,
       sessionWriter: ChatSessionWriter(write: probe.write))
-    let original = "  " + String(repeating: "x", count: 40_000) + "\n"
+    // F35: past every cloud route's 65,536-token cap at about three bytes a token.
+    let original = "  " + String(repeating: "x", count: 200_000) + "\n"
     var draft = original
     viewModel.submit(draft, onAccepted: { draft = "" })
     await waitUntil { if case .failed = viewModel.state { return true }; return false }

@@ -175,7 +175,8 @@ final class SelectionContextTests: XCTestCase {
         observation.cancel()
         XCTAssertEqual(chat.selectionRevisions.count, 1)
       }
-      XCTAssertEqual(engine.requestCount, 2)
+      // The 4K fixture reaches 90% after a reply, so a background summary (F35 CP4) may also run.
+      XCTAssertEqual(engine.replyCount, 2)
     }
   }
 
@@ -2087,6 +2088,8 @@ private final class SelectionTestEngine: LocalModelEngine, @unchecked Sendable {
   private var requests: [LocalModelRequest] = []
   var lastRequest: LocalModelRequest? { lock.withLock { requests.last } }
   var requestCount: Int { lock.withLock { requests.count } }
+  /// Requests other than F35's background summaries.
+  var replyCount: Int { lock.withLock { requests.filter { $0.messages.last?.content.hasPrefix(ChatCompactor.instruction) != true }.count } }
   func installedModel() async -> LocalModel? { LocalModel(id: "selection-fixture", displayName: "Fixture", fileURL: URL(fileURLWithPath: "/tmp/fixture.gguf")) }
   func installedModels() async -> [LocalModel] { [await installedModel()!] }
   func install(_ model: LocalModel) async throws { }

@@ -158,11 +158,11 @@ final class CloudModelSelectionTests: XCTestCase {
   func testUnknownModelsAndUnreviewedSnapshotsAreNeverCertifiedByName() {
     for id in ["gpt-5.6-luna-2099-01-01", "gpt-4o-mini-custom", "GPT-4o-mini", "gpt-future", "ft:gpt-4o-mini:custom"] {
       XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .openAI, modelID: id), .unverified)
-      XCTAssertEqual(ModelContextPolicy.cloud(provider: .openAI, modelID: id).contextWindow, 8_192)
+      XCTAssertEqual(ModelContextPolicy.cloud(provider: .openAI, modelID: id).contextWindow, 262_144)
     }
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .openAI, modelID: " \n "), .unselected)
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .anthropic, modelID: "gpt-5.6-luna"), .unverified)
-    XCTAssertEqual(ModelContextPolicy.cloud(provider: .anthropic, modelID: "gpt-5.6-luna").contextWindow, 8_192)
+    XCTAssertEqual(ModelContextPolicy.cloud(provider: .anthropic, modelID: "gpt-5.6-luna").contextWindow, 262_144)
     XCTAssertEqual(CloudModelCapabilities.compatibility(provider: .chatGPT, modelID: "gpt-5.6"), .unverified)
   }
 
@@ -327,12 +327,15 @@ final class CloudModelSelectionTests: XCTestCase {
     ] {
       let model = CloudModel(id: id, displayName: id, provider: .openAI)
       let budget = model.contextBudget
-      XCTAssertEqual(budget.contextWindow, window)
-      XCTAssertEqual(AutoRouter.CloudConfiguration(provider: .openAI, modelID: id).capabilities.maximumContextTokens, window)
+      // Reviewed windows below the 256K minimum are raised to it (owner, 2026-11-03).
+      XCTAssertEqual(budget.contextWindow, max(window, 262_144))
+      XCTAssertEqual(AutoRouter.CloudConfiguration(provider: .openAI, modelID: id).capabilities.maximumContextTokens,
+                     max(window, 262_144))
       XCTAssertEqual(budget.outputTokens, 4_096)
       XCTAssertEqual(budget.overheadTokens, 512)
-      let wrapper = try CloudContext.inputTokenCount([ChatMessage(role: .user, content: "x")], provider: .openAI) - 1
-      let maximum = budget.availableInputTokens - wrapper
+      // F35: about three serialized bytes a token, after Enigma's own system prompt.
+      let wrapper = try CloudContext.encodedMessages([ChatMessage(role: .user, content: "x")]).count - 1
+      let maximum = 3 * (try CloudContext.prepare(request(modelID: id)).budget.availableInputTokens) - wrapper
       for length in [maximum - 1, maximum] {
         let prepared = try CloudContext.prepare(request(modelID: id, prompt: String(repeating: "x", count: length)))
         XCTAssertLessThanOrEqual(prepared.inputTokenCount + budget.outputTokens + budget.overheadTokens, window)
