@@ -1600,7 +1600,7 @@ extension CloudToolLoopTests {
                                         withdrawn: ([String: Any]) -> Bool, system: ([String: Any]) -> String?,
                                         results: ([String: Any]) -> [String]) async throws {
     let (bodies, events) = try await searchBodies(provider)
-    XCTAssertEqual(events.compactMap { if case .token(let text) = $0 { text } else { nil } }.last, "Here is what I found.")
+    XCTAssertEqual(events.compactMap { event -> String? in if case .token(let text) = event { text } else { nil } }.last, "Here is what I found.")
     XCTAssertEqual(events.last, .completed)
     let searches = bodies.count - 1
     XCTAssertGreaterThanOrEqual(searches, 3, "\(provider)")
