@@ -28,8 +28,13 @@ struct EnigmaMessageList<Revision: View>: View {
   var footnote: String? = nil
   /// Regenerates a reply from its question's id (F3), dropping what came after; nil draws no button.
   var regenerate: ((UUID) -> Void)? = nil
-  /// Whether Regenerate can run now: not while a reply runs or messages wait.
+  /// Whether Regenerate can run now: not while a reply runs or messages wait. Edit waits for the same.
   var canRegenerate = false
+  /// Sends a message again with new text (F9), dropping what came after; nil draws no pencil.
+  var edit: ((UUID, String) -> Void)? = nil
+  /// An edit whose reply never started, which reopens that message's editor, and how to take it.
+  var returnedEdit: LocalChatViewModel.ReturnedEdit? = nil
+  var takeReturnedEdit: (UUID) -> Void = { _ in }
   /// The /edit revision card under a reply, if it has one.
   @ViewBuilder let revision: (ChatMessage) -> Revision
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -89,7 +94,13 @@ struct EnigmaMessageList<Revision: View>: View {
   @ViewBuilder private func rowView(_ row: ConversationTranscript.Row) -> some View {
     switch row {
     case .message(let message):
-      EnigmaUserMessage(message: message)
+      EnigmaUserMessage(message: message,
+                        edit: transcript.editableMessageIDs.contains(message.id) ? edit.map { edit in { edit(message.id, $0) } } : nil,
+                        canEdit: canRegenerate,
+                        returnedText: returnedEdit?.messageID == message.id ? returnedEdit?.text : nil,
+                        takeReturnedText: { takeReturnedEdit(message.id) },
+                        editNote: transcript.editsKeepActions.contains(message.id)
+                          ? ConversationTranscript.editKeepsActionsNote : nil)
         .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 18)))
     case .summaryMarker:
       EnigmaFootnote(text: ConversationTranscript.summaryMarkerText)
@@ -125,8 +136,23 @@ struct EnigmaFootnote: View {
 /// Something the person sent: a `userBubble` on the right, with any attached
 /// files, sent image and the selection it carried above it.
 struct EnigmaUserMessage: View {
+  static let editLabel = "Edit message"
   let message: ChatMessage
+  /// Sends the message again with the edited text (F9); nil draws no pencil.
+  var edit: ((String) -> Void)? = nil
+  var canEdit = false
+  /// The text of an edit whose reply never started, which reopens the editor once taken.
+  var returnedText: String? = nil
+  var takeReturnedText: () -> Void = {}
+  /// Under the editor: what editing this message won't undo.
+  var editNote: String? = nil
   @Environment(\.enigmaPalette) private var palette
+  /// The text being edited in place; nil while the message is shown as sent.
+  @State private var editedText: String?
+  @State private var isHovered = false
+  @FocusState private var isEditorFocused: Bool
+  /// Only the pencil takes focus: a returned edit mustn't take the keys from the composer.
+  @State private var focusesEditor = false
 
   /// The mockup's 78% of the chat column.
   static let maximumWidth: CGFloat = 530
@@ -168,23 +194,108 @@ struct EnigmaUserMessage: View {
         .accessibilityLabel("Sent with your message: \(context.title). \(context.preview)")
         .enigmaTestMarker("Sent selection")
       }
-      if !message.content.isEmpty {
-        Text(verbatim: message.content)
-          .font(EnigmaTypography.ui(14))
-          .lineSpacing(3)
-          .foregroundStyle(palette.textPrimary.color)
-          .textSelection(.enabled)
-          .fixedSize(horizontal: false, vertical: true)
-          .padding(.horizontal, 13)
-          .padding(.vertical, 8)
-          .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-          .accessibilityLabel("You: " + message.content)
-          .enigmaTestMarker("Your message")
+      if let editedText {
+        editor(editedText)
+      } else if !message.content.isEmpty {
+        // Beside the bubble's last line, so the pencil adds no height to the chat.
+        HStack(alignment: .bottom, spacing: 6) {
+          if edit != nil {
+            ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered) {
+              focusesEditor = true
+              editedText = message.content
+            }
+            .disabled(!canEdit)
+            .padding(.bottom, 7)
+          }
+          Text(verbatim: message.content)
+            .font(EnigmaTypography.ui(14))
+            .lineSpacing(3)
+            .foregroundStyle(palette.textPrimary.color)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityLabel("You: " + message.content)
+            .enigmaTestMarker("Your message")
+        }
       }
     }
     .frame(maxWidth: Self.maximumWidth, alignment: .trailing)
     .padding(.leading, 48)
     .frame(maxWidth: .infinity, alignment: .trailing)
+    .contentShape(Rectangle())
+    .onHover { isHovered = $0 }
+    // An edit that failed, or was stopped, before its reply started comes back to be sent again.
+    .onChange(of: returnedText, initial: true) { _, text in
+      guard let text else { return }
+      focusesEditor = false
+      editedText = text
+      takeReturnedText()
+    }
+    // A message that stops being editable, such as one a summary now covers, closes its editor.
+    .onChange(of: edit == nil) { _, gone in if gone { editedText = nil } }
+  }
+
+  /// The message's text in its bubble, editable, with Cancel and Send under it. Return sends,
+  /// Escape cancels, and nothing changes until Send.
+  @ViewBuilder private func editor(_ text: String) -> some View {
+    let prompt = Self.editedPrompt(text)
+    TextField("", text: Binding(get: { editedText ?? "" }, set: { text in
+      // The field writes back as it ends editing; once sent or cancelled, that mustn't reopen it.
+      if editedText != nil { editedText = text }
+    }), axis: .vertical)
+      .textFieldStyle(.plain)
+      .font(EnigmaTypography.ui(14))
+      .lineSpacing(3)
+      .foregroundStyle(palette.textPrimary.color)
+      .tint(palette.accent.color)
+      .focused($isEditorFocused)
+      .onSubmit(send)
+      // As in the composer, Shift-Return starts a new line; Return alone sends.
+      .onKeyPress(.return, phases: .down) { press in
+        guard press.modifiers.contains(.shift), let field = NSApp.keyWindow?.firstResponder as? NSTextView else { return .ignored }
+        field.insertNewlineIgnoringFieldEditor(nil)
+        return .handled
+      }
+      .onExitCommand { editedText = nil }
+      .padding(.horizontal, 13)
+      .padding(.vertical, 8)
+      .frame(minWidth: 220, alignment: .leading)
+      .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .enigmaFocusRing(isEditorFocused, palette: palette, cornerRadius: 16, outset: 0)
+      .accessibilityLabel("Edit your message")
+      .enigmaTestMarker("Message editor")
+      .onAppear { if focusesEditor { isEditorFocused = true } }
+    if let editNote {
+      Text(editNote)
+        .font(EnigmaTypography.mono(11))
+        .foregroundStyle(palette.textTertiary.color)
+        .fixedSize(horizontal: false, vertical: true)
+        .enigmaTestMarker("Edit note")
+    }
+    HStack(spacing: 8) {
+      Button("Cancel") { editedText = nil }
+        .enigmaButtonStyle(.secondary)
+        .enigmaTestMarker("Cancel edit")
+      Button("Send", action: send)
+        .enigmaButtonStyle(.compactPrimary)
+        .disabled(prompt.isEmpty || !canEdit)
+        .enigmaTestMarker("Send edit")
+    }
+  }
+
+  /// Reads the text as typed now, which may be newer than the last render.
+  private func send() {
+    let prompt = Self.editedPrompt(editedText ?? "")
+    guard !prompt.isEmpty, canEdit, let edit else { return }
+    editedText = nil
+    edit(prompt)
+  }
+
+  /// An edit is a plain chat turn, as Regenerate replays: typed commands are dropped, not run.
+  static func editedPrompt(_ text: String) -> String {
+    ComposerCommands(text).prompt.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 }
 
@@ -345,12 +456,24 @@ struct ChatRegenerateButton: View {
   static let label = "Regenerate reply"
   var isEmphasized = true
   let action: () -> Void
+
+  var body: some View {
+    ChatIconButton(symbol: "arrow.clockwise", label: Self.label, isEmphasized: isEmphasized, action: action)
+  }
+}
+
+/// A small icon under a message or reply, brighter while the pointer is over it.
+struct ChatIconButton: View {
+  let symbol: String
+  let label: String
+  var isEmphasized = true
+  let action: () -> Void
   @FocusState private var isFocused: Bool
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     Button(action: action) {
-      Image(systemName: "arrow.clockwise")
+      Image(systemName: symbol)
         .font(EnigmaTypography.symbol(11.5))
     }
     .buttonStyle(EnigmaIconButtonStyle(size: CGSize(width: 24, height: 18), isFocused: isFocused))
@@ -358,9 +481,9 @@ struct ChatRegenerateButton: View {
     .focusEffectDisabled()
     .opacity(ChatCopyButton.opacity(isEmphasized: isEmphasized, isFocused: isFocused, copied: false))
     .animation(reduceMotion ? nil : EnigmaMotion.menu.animation, value: isEmphasized)
-    .help(Self.label)
-    .accessibilityLabel(Self.label)
-    .enigmaTestMarker(Self.label)
+    .help(label)
+    .accessibilityLabel(label)
+    .enigmaTestMarker(label)
   }
 }
 

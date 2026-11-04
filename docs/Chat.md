@@ -202,6 +202,38 @@ also drops every message after that reply once the new one starts:
   writes nothing. Actions a dropped reply took (File Mode edits, sent iMessages)
   aren't undone.
 
+### Editing a message
+
+Hover a message you sent and click the pencil (**Edit message**) beside it to
+change its text in place. Editing is how you go back in a chat: there's no
+separate Rewind. Shift-Return starts a new line, as in the composer. **Send**,
+or Return, replaces that message and everything
+after it with the edited message and a new reply to it. **Cancel**, or Escape,
+leaves the chat exactly as it was.
+
+- It runs on Regenerate's path and shows when Regenerate would: only plain
+  chat turns, not while a reply runs or messages are queued, not for turns
+  the chat's summary covers, and not during the tour. The `/think` choice is
+  kept; slash commands typed in the edit are dropped, so an edit is always a
+  plain chat turn.
+- Unlike Regenerate, an edit doesn't repeat the old reply's search: it's new
+  text, so it never searches unless the route's model chooses to (as with
+  any message on a model that chooses its own tools).
+- Nothing is removed until the new reply's first token. A failure, or Stop,
+  before then leaves the chat as it was and reopens the editor with your
+  edited text, until you leave that chat. Earlier versions aren't kept.
+- Editing the chat's first message retitles the chat from the new text,
+  unless it was renamed or already given a short title.
+- Actions later turns took can't be taken back. When a File Mode or
+  `/messages` turn, or a message whose reply sent an iMessage you approved,
+  comes after the message, the editor says so: "File Mode edits and sent
+  iMessages after this message aren't undone." A message that sent an
+  iMessage can't itself be edited or regenerated. After a relaunch only File
+  Mode turns are known (by their attachments).
+- It drops the removed messages' `/edit` revision cards and open activity
+  panels, works in temporary chats (which still write nothing), and saves the
+  edited chat only once its new reply starts.
+
 ### Activity and sources
 
 Each reply has a monospace status line that opens into its activity. While a
@@ -368,8 +400,11 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   `sessions` or the session writer.
 - Fragments append to the assistant message; `stopStreaming()` revokes ownership,
   cancels the task, and flushes history.
-- Regenerate (F3) is `resend(fromUserMessage:text:send:removed:)`, which F9's
-  edit will reuse (`text` is nil for a regenerate). It records a
+- Regenerate (F3) and editing a message (F9) are both
+  `resend(fromUserMessage:text:send:removed:)` (`text` is nil for a
+  regenerate). An edit's `PendingResend` has no `searched` and keeps its
+  text, which `restoreResend` (or a route that starts nothing) hands back
+  through `takeReturnedEdit(for:)`. It records a
   `PendingResend` (the chat as it was, the ids of that message and everything
   after it, and whether that question's own reply searched), so `messages`, and with it
   `presentationMessages` and the request history, leave them out. Then
@@ -547,8 +582,8 @@ overwrite a newer one. Streamed fragments are coalesced into a save every 500 ms
 A chat's first message, later accepted messages, and attachment changes on a
 chat with messages save right away; Stop, completion, failure and the app
 becoming inactive flush pending changes. A temporary chat is filtered out of
-every snapshot. While a reply is regenerated, the chat is saved as it was
-until the new reply's first token (`PendingResend.saved`).
+every snapshot. While a reply is regenerated, or a message edited, the chat is
+saved as it was until the new reply's first token (`PendingResend.saved`).
 
 Short titles (F38): `finishGeneration` calls `titleInBackground` after a
 successful reply, when it's the chat's first finished reply (earlier replies

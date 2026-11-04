@@ -414,6 +414,141 @@ final class ChatCopyTests: XCTestCase {
   }
 }
 
+extension ChatCopyTests {
+  @MainActor
+  func testThePencilEditsInPlaceAndCancelOrEscapeChangesNothing() async throws {
+    let message = ChatMessage(role: .user, content: "Old question")
+    let box = EditBox()
+    let host = CopyHost(EditHarness(box: box, message: message), pasteboard: scratchPasteboard(), test: self)
+    try await waitForUI("the pencil", in: host.view) { host.shows(EnigmaUserMessage.editLabel) }
+    let plain = CopyHost(EnigmaUserMessage(message: message), pasteboard: scratchPasteboard(), test: self)
+    try await waitForUI("the message", in: plain.view) { plain.shows("Your message") }
+    XCTAssertFalse(plain.shows(EnigmaUserMessage.editLabel), "No pencil without an edit action")
+
+    func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) throws {
+      host.window.sendEvent(try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+        timestamp: 1, windowNumber: host.window.windowNumber, context: nil, characters: characters,
+        charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)))
+    }
+    func openEditor() async throws -> NSTextView {
+      try await clickTestControl(EnigmaUserMessage.editLabel, in: host.view)
+      try await waitForUI("the editor", in: host.view) {
+        host.shows("Message editor") && (host.window.firstResponder as? NSTextView)?.string == "Old question"
+      }
+      XCTAssertFalse(host.shows("Your message"), "The bubble becomes the editor")
+      XCTAssertTrue(host.shows("Edit note"), "Says what editing won't undo")
+      return try XCTUnwrap(host.window.firstResponder as? NSTextView)
+    }
+    func replace(_ field: NSTextView, with text: String) {
+      field.selectAll(nil)
+      field.insertText(text, replacementRange: field.selectedRange())
+    }
+    func fieldTexts(in view: NSView) -> [String] {
+      ((view as? NSTextField).map { [$0.stringValue] } ?? []) + ((view as? NSTextView).map { [$0.string] } ?? [])
+        + view.subviews.flatMap(fieldTexts)
+    }
+    func closed() -> Bool { host.shows("Your message") && !host.shows("Message editor") }
+
+    var field = try await openEditor()
+    field.insertText(" edited", replacementRange: NSRange(location: (field.string as NSString).length, length: 0))
+    try await clickTestControl("Cancel edit", in: host.view)
+    try await waitForUI("the message again", in: host.view) { closed() }
+
+    field = try await openEditor()
+    try key("\u{1b}", code: 53)
+    try await waitForUI("Escape closes the editor", in: host.view) { closed() }
+    XCTAssertEqual(box.sent, [], "Cancel and Escape send nothing")
+
+    field = try await openEditor()
+    replace(field, with: "New")
+    try key("\r", code: 36, modifiers: [.shift])
+    try await waitForUI("Shift-Return starts a new line", in: host.view) { field.string == "New\n" }
+    XCTAssertEqual(box.sent, [], "Shift-Return doesn't send")
+    replace(field, with: "Return question")
+    try key("\r", code: 36)
+    try await waitForUI("Return sends", in: host.view) { box.sent == ["Return question"] && closed() }
+
+    // An edit whose reply never started reopens with its text, without taking the keys from
+    // another field, such as the composer.
+    // Focused through SwiftUI: a synthetic click on a text field waits for its mouse-up on macOS 26.
+    box.showsOther = true
+    box.focusesOther = true
+    func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.string == box.other }
+    try await waitForUI("the other field focused", in: host.view) { otherHasFocus() }
+    box.returned = "Kept edit"
+    try await waitForUI("the editor with the returned text", in: host.view) {
+      host.shows("Message editor") && box.returned == nil
+    }
+    try await Task.sleep(for: .milliseconds(200))
+    host.view.layoutSubtreeIfNeeded()
+    XCTAssertTrue(otherHasFocus(), "A returned edit leaves focus where it was")
+    box.focusesOther = false
+    box.showsOther = false
+    // Also when its row was gone meanwhile, as while the edit's reply was pending.
+    box.shown = false
+    try await waitForUI("the row gone", in: host.view) { !host.shows("Message editor") && !host.shows("Your message") }
+    box.returned = "Kept edit"
+    box.shown = true
+    try await waitForUI("the new row's editor with the returned text", in: host.view) {
+      host.shows("Message editor") && box.returned == nil
+    }
+    XCTAssertTrue(fieldTexts(in: host.view).contains("Kept edit"), "\(fieldTexts(in: host.view))")
+
+    // While it can't run, neither Send nor Return sends.
+    box.canEdit = false
+    try await Task.sleep(for: .milliseconds(50))
+    try key("\r", code: 36)
+    try await clickTestControl("Send edit", in: host.view)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(box.sent, ["Return question"])
+    box.canEdit = true
+    try await clickTestControl("Send edit", in: host.view)
+    try await waitForUI("Send sends", in: host.view) { box.sent == ["Return question", "Kept edit"] && closed() }
+
+    // A message that stops being editable closes its editor.
+    field = try await openEditor()
+    box.hasEdit = false
+    try await waitForUI("the editor closes", in: host.view) { closed() && !host.shows(EnigmaUserMessage.editLabel) }
+  }
+}
+
+@MainActor
+private final class EditBox: ObservableObject {
+  @Published var returned: String?
+  @Published var canEdit = true
+  @Published var hasEdit = true
+  @Published var shown = true
+  /// A field standing in for the composer.
+  @Published var showsOther = false
+  @Published var focusesOther = false
+  @Published var other = "Composer draft"
+  var sent: [String] = []
+}
+
+/// A message whose edit action, availability and returned edit a test changes while it's shown.
+private struct EditHarness: View {
+  @ObservedObject var box: EditBox
+  let message: ChatMessage
+  @FocusState private var isOtherFocused: Bool
+
+  var body: some View {
+    VStack {
+      if box.showsOther {
+        TextField("", text: $box.other)
+          .focused($isOtherFocused)
+          .onChange(of: box.focusesOther, initial: true) { _, focuses in isOtherFocused = focuses }
+      }
+      if box.shown { message(of: self.message) }
+    }
+  }
+
+  private func message(of message: ChatMessage) -> some View {
+    EnigmaUserMessage(message: message, edit: box.hasEdit ? { box.sent.append($0) } : nil, canEdit: box.canEdit,
+                      returnedText: box.returned, takeReturnedText: { box.returned = nil },
+                      editNote: ConversationTranscript.editKeepsActionsNote)
+  }
+}
+
 /// A view in a key window with the test markers, the Paper palette and its own pasteboard.
 @MainActor
 private final class CopyHost {

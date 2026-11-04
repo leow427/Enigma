@@ -951,8 +951,31 @@ final class RequestLifecycleTests: XCTestCase {
     await viewModel.stopStreaming()?.value
   }
 
+  func testEditingTheFirstMessageKeepsAChosenTitle() async throws {
+    let stream = ControlledStream<ChatEvent>()
+    let store = makeStore()
+    var saved = ChatSession(title: "Trip plans")
+    saved.append(ChatMessage(role: .user, content: "A"))
+    saved.append(ChatMessage(role: .assistant, content: "Reply"))
+    saved.title = "Trip plans"
+    try store.save([saved])
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
+                                       cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: [stream])),
+                                       sessionStore: store)
+    viewModel.selectSession(id: saved.id)
+    viewModel.resend(fromUserMessage: saved.messages[0].id, text: "A edited", send: {
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    await fulfillment(of: [stream.started], timeout: 2)
+    await receive(.token("New"), from: stream, in: viewModel, expecting: "New")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
+    XCTAssertEqual(viewModel.selectedSession?.title, "Trip plans", "A title that isn't the first question's stays")
+    stream.continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+  }
+
   func testRegeneratingInATemporaryChatWritesNothing() async throws {
-    let streams = (0..<2).map { _ in ControlledStream<ChatEvent>() }
+    let streams = (0..<3).map { _ in ControlledStream<ChatEvent>() }
     let writes = SavedSessions()
     let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
                                        cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: streams)),
@@ -971,8 +994,98 @@ final class RequestLifecycleTests: XCTestCase {
     streams[1].continuation.finish()
     await waitUntil("the new reply ends") { !viewModel.isBusy }
     XCTAssertEqual(viewModel.messages.map(\.content), ["A", "New"])
+    // Editing it (F9) writes nothing either.
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, text: "A edited", send: {
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    await receive(.token("Edited"), from: streams[2], in: viewModel, expecting: "Edited")
+    streams[2].continuation.finish()
+    await waitUntil("the edited reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "Edited"])
     viewModel.sessionWriter.flush()
     XCTAssertTrue(writes.all.allSatisfy { $0.isEmpty }, "\(writes.all)")
+  }
+
+  // MARK: Edit (F9)
+
+  func testEditingAMessageRewindsTheChatToItOnlyOnceTheNewReplyStarts() async throws {
+    let streams = (0..<3).map { _ in ControlledStream<ChatEvent>() }
+    let provider = LifecycleCloudProvider(streams: streams)
+    let writes = SavedSessions()
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(), cloudProviders: registry(chatGPT: provider),
+                                       sessionStore: makeStore(), sessionWriter: ChatSessionWriter { writes.append($0) })
+    viewModel.submitCloud("/think A", provider: .chatGPT, modelID: "model")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    await receive(.token("Reply 0"), from: streams[0], in: viewModel, expecting: "Reply 0")
+    streams[0].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    // A later turn whose reply searched.
+    let source = WebSearchSource(title: "Example", url: URL(string: "https://example.com")!)
+    var finished = false
+    viewModel.tourAppend(ChatMessage(role: .user, content: "B"),
+                         script: TourScript(reply: "Reply 1", phases: [], sources: [source], phaseDuration: 0)) { finished = true }
+    await waitUntil("the tour reply ends") { finished }
+    let old = viewModel.messages
+    XCTAssertEqual(old.map(\.content), ["A", "Reply 0", "B", "Reply 1"])
+    XCTAssertEqual(viewModel.selectedSession?.title, "A")
+
+    // An edit is new text: it never inherits the old reply's search.
+    var searched: [Bool] = []
+    viewModel.resend(fromUserMessage: old[2].id, text: "Private notes", send: { searched.append($1) })
+    XCTAssertEqual(searched, [false])
+    XCTAssertEqual(viewModel.takeReturnedEdit(for: old[2].id), "Private notes", "A route that starts nothing hands it back")
+    XCTAssertNil(viewModel.takeReturnedEdit(for: old[2].id), "Only once")
+    XCTAssertEqual(viewModel.messages, old)
+
+    let send = { (prompt: String, searches: Bool) in
+      viewModel.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: searches, allowsAutomaticSearch: false)
+    }
+
+    // Stop before the first token: nothing was lost.
+    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send)
+    XCTAssertEqual(viewModel.presentationMessages.map(\.content), ["A edited", ""], "Shown as edited meanwhile")
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertEqual(provider.requests[1].messages.filter { $0.role == .user }.count, 1, "History stops before the edited message")
+    await viewModel.stopStreaming()?.value
+    XCTAssertEqual(viewModel.messages, old)
+    XCTAssertNil(viewModel.takeReturnedEdit(for: old[2].id))
+    XCTAssertEqual(viewModel.returnedEdit, .init(messageID: old[0].id, text: "A edited"), "Stop hands the edited text back")
+
+    // After the first token the edited message and its reply replace it and everything after it.
+    var removed = Set<UUID>()
+    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send, removed: { removed = $0 })
+    XCTAssertNil(viewModel.returnedEdit, "A new resend drops an edit not taken back")
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    await receive(.token("New"), from: streams[2], in: viewModel, expecting: "New")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
+    XCTAssertEqual(viewModel.selectedSession?.title, "A edited", "An edited first message retitles the chat")
+    XCTAssertNil(viewModel.takeReturnedEdit(for: old[0].id), "A started edit hands nothing back")
+    XCTAssertEqual(viewModel.messages.first?.extendedThinking, true, "The /think choice is kept")
+    XCTAssertTrue(Set(old.map(\.id)).isDisjoint(with: viewModel.messages.map(\.id)))
+    XCTAssertTrue(removed.isSuperset(of: old.map(\.id)), "Every dropped message is reported, so its activity can close")
+    XCTAssertTrue(removed.isSuperset(of: old.compactMap(\.activity?.id)))
+    streams[2].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+
+    // The saved file held the old chat until the edited message's first token, and never both.
+    viewModel.sessionWriter.flush()
+    await waitUntil("the edit is saved") { writes.last?.first?.messages.map(\.content) == ["A edited", "New"] }
+    let newIDs = Set(viewModel.messages.map(\.id))
+    for saved in writes.all {
+      let messages = saved.first?.messages ?? []
+      if messages.contains(where: { newIDs.contains($0.id) }) {
+        XCTAssertEqual(messages.map(\.content).first, "A edited", "\(messages.map(\.content))")
+        XCTAssertFalse(messages.contains { Set(old.map(\.id)).contains($0.id) }, "\(messages.map(\.content))")
+        XCTAssertEqual(messages.last?.content.isEmpty, false, "Saved before the first token: \(messages.map(\.content))")
+      }
+    }
+
+    // Leaving the chat drops an edit not taken back.
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, text: "Again", send: { _, _ in })
+    XCTAssertNotNil(viewModel.returnedEdit)
+    viewModel.newChat()
+    XCTAssertNil(viewModel.returnedEdit)
   }
 
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,

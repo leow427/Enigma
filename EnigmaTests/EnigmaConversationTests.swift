@@ -168,6 +168,37 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(meta(nil), time, "A reply from an earlier session shows what it recorded")
   }
 
+  func testThePencilEditsTheMessagesRegenerateCouldReplay() {
+    func message(_ kind: ChatMessage.TurnKind?, _ content: String = "Question") -> ChatMessage {
+      var message = ChatMessage(role: .user, content: content)
+      message.turnKind = kind
+      return message
+    }
+    let first = message(.chat), files = message(.files), edit = message(nil, "/edit shorter"), last = message(nil)
+    let messages = [first, ChatMessage(role: .assistant, content: "A"), files, ChatMessage(role: .assistant, content: "B"),
+                    edit, ChatMessage(role: .assistant, content: "C"), last]
+    XCTAssertEqual(ConversationTranscript(messages: messages, activity: nil, isResponding: false).editableMessageIDs,
+                   [first.id, last.id], "Plain chat turns, including one with no reply yet")
+    XCTAssertEqual(ConversationTranscript(messages: messages, activity: nil, isResponding: false,
+                                          summarizedThrough: messages[1].id).editableMessageIDs,
+                   [last.id], "Not a message the chat's summary covers")
+    XCTAssertTrue(ConversationTranscript(messages: messages, activity: nil, isResponding: false)
+      .editableMessageIDs.allSatisfy { id in messages.contains { $0.id == id && $0.role == .user } })
+    let transcript = ConversationTranscript(messages: messages, activity: nil, isResponding: false)
+    XCTAssertEqual(transcript.editsKeepActions, [first.id], "A Files turn came after the first message only")
+    var reopened = message(nil)
+    reopened.attachments = [MessageAttachment(name: "notes.txt", isDirectory: false)]
+    let sentMessages = message(.messages)
+    XCTAssertEqual(ConversationTranscript(messages: [last, reopened], activity: nil, isResponding: false).editsKeepActions,
+                   [last.id], "A reopened Files turn keeps its attachments")
+    XCTAssertEqual(ConversationTranscript(messages: [last, sentMessages], activity: nil, isResponding: false).editsKeepActions,
+                   [last.id], "A /messages turn may have sent iMessages")
+    XCTAssertEqual(ConversationTranscript(messages: [first, last], activity: nil, isResponding: false).editsKeepActions, [])
+    XCTAssertEqual(EnigmaUserMessage.editedPrompt("  /search /edit Shorter please \n"), "Shorter please",
+                   "An edit is a plain chat turn: commands are dropped")
+    XCTAssertEqual(EnigmaUserMessage.editedPrompt("/think "), "")
+  }
+
   func testEveryPlainChatReplyCanBeRegenerated() {
     func turn(_ question: ChatMessage, reply: String = "Answer") -> [ChatMessage] {
       [question, ChatMessage(role: .assistant, content: reply)]
