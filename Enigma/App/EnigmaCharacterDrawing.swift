@@ -77,9 +77,19 @@ enum EnigmaCharacterRenderer {
     context.stroke(paths.antennaBall, with: .color(ink), lineWidth: frame.antennaBallLineWidth)
     context.fill(paths.body, with: .color(body), style: FillStyle(eoFill: true))
     context.stroke(paths.body, with: .color(ink), style: StrokeStyle(lineWidth: frame.lineWidth, lineJoin: .round))
+    drawEffects(frame, palette: palette, paths: paths, in: &context)
+  }
+
+  /// The puffs and impact lines, which go over the character and anything it wears.
+  static func drawEffects(_ frame: EnigmaCharacterFrame, palette: EnigmaPalette, paths: Paths? = nil,
+                          in context: inout GraphicsContext) {
+    guard !frame.puffs.isEmpty || !frame.impactLines.isEmpty else { return }
+    let paths = paths ?? Self.paths(for: frame)
+    let ink = palette.characterInk.color
     if !frame.puffs.isEmpty {
+      // Stroked at double width, then filled: one outline round puffs that overlap, like a cloud.
+      context.stroke(paths.puffs, with: .color(ink), lineWidth: frame.puffLineWidth * 2)
       context.fill(paths.puffs, with: .color(palette.background.color))
-      context.stroke(paths.puffs, with: .color(ink), lineWidth: frame.puffLineWidth)
     }
     if !frame.impactLines.isEmpty {
       context.stroke(paths.impactLines, with: .color(ink),

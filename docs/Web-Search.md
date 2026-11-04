@@ -134,6 +134,50 @@ of them. Scrolling over the map scrolls the chat. A reply stopped after it has
 text keeps its card. The card is for this session only: it isn't saved, so a
 chat reopened from Recents has none.
 
+**The weather card.** A weather answer starts with a card drawn by Enigma from
+Open-Meteo's forecast, never from the model's text, and the model's short
+description streams in under it. The card appears as soon as the forecast
+arrives. Its illustrated sky follows the condition and the time of day (blue by
+day, warm within 45 minutes of sunrise and sunset, dark with stars at night,
+grey for overcast and rain, pale for snow, dark for storms), with slow, cheap
+motion: drifting clouds, falling rain or snow, a turning sun, twinkling stars,
+rare dim lightning. It stops off screen, while the window is hidden, and under
+Reduce Motion. The place, the big temperature and the condition sit on the sky;
+the details sit on the card's surface, so they follow Paper and Ink.
+
+- **Today:** now, feels like, high and low, chance of rain and wind, and the
+  next 6 hours.
+- **One later day** (tomorrow, Friday): that day's high and low, its chance of
+  rain (or snow, with the amount in cm or inches), wind, sunset, and 6 AM to
+  9 PM in 3-hour steps. Times read with AM and PM ("4 PM", "5:49 PM").
+- **Several days** ("this weekend", "this week"): one column per day, which
+  fits 7 days in the compact panel.
+
+The tour's weather stop shows an example card for Chicago tomorrow above its
+example reply (`TourScript.weather`), so the character dresses for it there too.
+
+Capable models pick the days with `get_weather`'s dates; on the wording route
+they come from the question's time words: "tomorrow", "this weekend", "this
+week" or a weekday, and otherwise today. Each place looked up gets its own
+card ("Lisbon or Porto this weekend?" shows two). A lookup that fails or falls
+back to a web search, or dates outside the 7-day forecast, show no card. Units
+follow the forecast's. VoiceOver reads a card as one summary, such as "Lisbon,
+18 degrees, partly cloudy, high 21, low 14". Like the map card, it's for this
+session only: a chat reopened from Recents shows the text only.
+
+While a weather card shows on the latest reply, the character dresses for it:
+sunglasses in sun, a nightcap on a clear night, an umbrella in rain (blown
+inside out in a storm), a woolly hat and scarf in snow, a scarf when it's grey
+or foggy. Each moves a little. Putting it on, changing it, or taking it off
+when the next reply starts is a puff of smoke and a little hop; under Reduce
+Motion the outfit just changes.
+
+![A one-day weather card above its reply](design/ui-revamp/screenshots/f36/weather-one-day-paper.png)
+
+![A week's weather card](design/ui-revamp/screenshots/f36/weather-several-days-ink.png)
+
+![The character's weather costumes, and the puff of smoke as one goes on](design/ui-revamp/screenshots/f36/weather-costumes-paper.png)
+
 The places and weather answers are listed among the sources as **Apple Maps**
 and **Open-Meteo forecast**.
 
@@ -152,9 +196,13 @@ whether to call them and writes their arguments itself:
   ([below](#cloud-models-own-search)).
 - `find_places`: what to find, and optionally a named area; without one, it
   searches near you. It returns up to 10 places from Apple Maps.
-- `get_weather`: optionally a named place; without one, your location. It
-  returns the current weather, the next 24 hours and the next 7 days from
-  Open-Meteo.
+- `get_weather`: optionally a named place; without one, your location; and
+  optionally `start_date` and `end_date` (`YYYY-MM-DD`), the days its weather
+  card shows (today without them). It returns the current weather, the next 24
+  hours and the next 7 days from Open-Meteo, and tells the model the card
+  already shows the figures, so it writes a short description instead of
+  reciting them. The definition doesn't change with the date (the date is in
+  the search instructions), so a warmed local model's prompt cache still holds.
 
 A model may look up places or the weather near you without your wording asking
 for it. Apple Maps and Open-Meteo get only your city or a coordinate rounded to
@@ -490,7 +538,11 @@ The files:
   addresses. `ArticleExtractor.swift`: Readability in a sealed WebKit view.
 - `Enigma/Search/PassageRanker.swift`: splits and scores passages.
 - `Enigma/Search/PlaceSearch.swift` and `WeatherLookup.swift`: Apple Maps places,
-  and Open-Meteo's forecast and geocoder.
+  and Open-Meteo's forecast and geocoder. `WeatherLookup.swift` also builds the
+  weather card's model (`WeatherCardModel`) and its days (`WeatherDays`).
+- `Enigma/Chat/WeatherCard.swift` and `WeatherSky.swift`: the weather card and its
+  flat animated sky. `Enigma/App/EnigmaCharacterCostume.swift`: the character's
+  weather costumes, drawn by the stage.
 - `Enigma/Search/PlacesAndWeatherTools.swift`: `find_places` and `get_weather`.
 - `Enigma/Search/WebSearchTool.swift`: `web_search`. It turns the model's query
   into the card's one-line form, asks the card when the chat holds message text,
@@ -585,6 +637,8 @@ The files:
 - `SearchRoutingTests`, `PlacesAndWeatherTests` and `PlacesAndWeatherToolTests`:
   the three routes, Apple Maps and Open-Meteo, and the two tools.
 - `MapCardTests`: the card's pins, opening Maps and the session-only places.
+- `WeatherCardTests`: the weather card from fixture forecasts, its days, `get_weather`'s
+  dates, the card in the chat, Reduce Motion and the costumes.
 - `ComposerIntentTests`, `ComposerIntentPhrasingTests`, `ScreenViewTests`,
   `ScreenPipelineTests`, `NativeToolPartsTests`, `NativeToolPlanTests`,
   `NativeToolRequestTests` and `ToolPermissionTests`: the chip, `/maps`, the

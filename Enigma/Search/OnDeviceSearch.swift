@@ -183,7 +183,15 @@ struct OnDeviceSearchProvider: WebSearchProvider {
       }
       let forecast = try await weather.forecast(at: coordinate, units: units())
       try Task.checkCancellation()
-      let result = WeatherLookup.excerpt(forecast, placeName: name, now: now())
+      let moment = now()
+      var result = WeatherLookup.excerpt(forecast, placeName: name, now: moment)
+      if let card = WeatherCardModel(forecast: forecast, placeName: name, days: request.weatherDays, now: moment) {
+        // As get_weather tells capable models: the card shows the figures, so the reply needn't recite them.
+        var lines = result.snippets.joined(separator: "\n").components(separatedBy: "\n")
+        lines.insert(WeatherTool.cardNote(card, forecast: forecast), at: min(1, lines.count))
+        result = WebSearchResult(source: result.source, snippets: [lines.joined(separator: "\n")], site: result.site,
+                                 kind: result.kind, weatherCard: card)
+      }
       await onActivity(.sourcesDiscovered([result.source]))
       return [result]
     } catch is CancellationError {

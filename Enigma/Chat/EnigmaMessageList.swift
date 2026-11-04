@@ -266,6 +266,10 @@ struct EnigmaReplyView<Revision: View>: View {
         } else if reply.showsThinking {
           EnigmaThinkingLine()
         }
+        // Above the text, from the moment the forecast arrives; the description streams in under it.
+        ForEach(reply.weatherCards, id: \.place) { card in
+          WeatherCardView(model: card)
+        }
         if !reply.content.isEmpty {
           ChatMarkdownView(content: reply.content)
             .enigmaTestMarker("Reply")

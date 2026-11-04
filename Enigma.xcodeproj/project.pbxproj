@@ -14,7 +14,10 @@
 		E2241A085A8D332009EA72F6 /* EnigmaTests/ToolStepBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */; };
 		7102E1805226769007152A38 /* Enigma/Chat/ToolStepBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */; };
 		F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */; };
+		2B4D6297296D33B185A6DDFF /* EnigmaTests/WeatherCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B140E3B77B422B61B304713D /* EnigmaTests/WeatherCardTests.swift */; };
 		155304E6FA7871D103301197 /* Enigma/Chat/MapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */; };
+		7A86FC428CFAE912CA243608 /* Enigma/Chat/WeatherSky.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73FCFDE2F5957F6ED8FA12A /* Enigma/Chat/WeatherSky.swift */; };
+		550F0C7665EDF5C2DA996ECE /* Enigma/Chat/WeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F9E29EA8A53565E8167396 /* Enigma/Chat/WeatherCard.swift */; };
 		748A28DCE6D962A0B3CA7D80 /* EnigmaTests/CloudSearchTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */; };
 		B3763D9D0DAFE548AF09124A /* EnigmaTests/NativeWebSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */; };
 		C6664B5D7780927C52945DB1 /* Enigma/Cloud/NativeWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */; };
@@ -134,6 +137,7 @@
 		3B9BEECE1B12C4ACEFF1F6BC /* EnigmaTests/EnigmaCharacterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA15763D23F650DF10B635BE /* EnigmaTests/EnigmaCharacterTests.swift */; };
 		129D9E9EC86A78CDCC284517 /* Enigma/App/EnigmaCharacterStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0EC41772B49C9CA1833CC6 /* Enigma/App/EnigmaCharacterStage.swift */; };
 		F4FB6587E7FE28F291AFAC74 /* Enigma/App/EnigmaCharacterDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8CA5AAF19F884FF8DFBC0B /* Enigma/App/EnigmaCharacterDrawing.swift */; };
+		3A5844312C92949F4B1D5A09 /* Enigma/App/EnigmaCharacterCostume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8E687BAD18B170D613BF29 /* Enigma/App/EnigmaCharacterCostume.swift */; };
 		3A612105DC9148AA9A8FE283 /* Enigma/App/EnigmaCharacterModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126C7518154FF555075A4250 /* Enigma/App/EnigmaCharacterModel.swift */; };
 		BC98F7A133F41BA336F106D1 /* Enigma/App/ShellPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854085E31EB7F7858B10685A /* Enigma/App/ShellPresentation.swift */; };
 		422E561946FB6455B45F5292 /* Enigma/App/ComposerSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352A65893F57F955B6BAD0EE /* Enigma/App/ComposerSubmission.swift */; };
@@ -316,7 +320,10 @@
 		9A98A5C4E19BC7766A63F4E1 /* EnigmaTests/ToolStepBudgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/ToolStepBudgetTests.swift"; sourceTree = SOURCE_ROOT; };
 		6CB0CDD22A3FA77792EFCE87 /* Enigma/Chat/ToolStepBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/ToolStepBudget.swift"; sourceTree = SOURCE_ROOT; };
 		320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/MapCardTests.swift"; sourceTree = SOURCE_ROOT; };
+		B140E3B77B422B61B304713D /* EnigmaTests/WeatherCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/WeatherCardTests.swift"; sourceTree = SOURCE_ROOT; };
 		9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/MapCard.swift"; sourceTree = SOURCE_ROOT; };
+		B73FCFDE2F5957F6ED8FA12A /* Enigma/Chat/WeatherSky.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/WeatherSky.swift"; sourceTree = SOURCE_ROOT; };
+		D4F9E29EA8A53565E8167396 /* Enigma/Chat/WeatherCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Chat/WeatherCard.swift"; sourceTree = SOURCE_ROOT; };
 		774B7B5921C944F51BF02AF1 /* EnigmaTests/CloudSearchTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/CloudSearchTestSupport.swift"; sourceTree = SOURCE_ROOT; };
 		EFD457BA5A27EE8D750D85D7 /* EnigmaTests/NativeWebSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/NativeWebSearchTests.swift"; sourceTree = SOURCE_ROOT; };
 		19EE9E4FE42D07BDC9D83897 /* Enigma/Cloud/NativeWebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/Cloud/NativeWebSearch.swift"; sourceTree = SOURCE_ROOT; };
@@ -435,6 +442,7 @@
 		AA15763D23F650DF10B635BE /* EnigmaTests/EnigmaCharacterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnigmaTests/EnigmaCharacterTests.swift"; sourceTree = SOURCE_ROOT; };
 		7D0EC41772B49C9CA1833CC6 /* Enigma/App/EnigmaCharacterStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaCharacterStage.swift"; sourceTree = SOURCE_ROOT; };
 		AA8CA5AAF19F884FF8DFBC0B /* Enigma/App/EnigmaCharacterDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaCharacterDrawing.swift"; sourceTree = SOURCE_ROOT; };
+		2F8E687BAD18B170D613BF29 /* Enigma/App/EnigmaCharacterCostume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaCharacterCostume.swift"; sourceTree = SOURCE_ROOT; };
 		126C7518154FF555075A4250 /* Enigma/App/EnigmaCharacterModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/EnigmaCharacterModel.swift"; sourceTree = SOURCE_ROOT; };
 		854085E31EB7F7858B10685A /* Enigma/App/ShellPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ShellPresentation.swift"; sourceTree = SOURCE_ROOT; };
 		352A65893F57F955B6BAD0EE /* Enigma/App/ComposerSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enigma/App/ComposerSubmission.swift"; sourceTree = SOURCE_ROOT; };
@@ -636,7 +644,10 @@
 				000818C1D9A44B763D427E15 /* Enigma/Search/PlaceSearch.swift */,
 				4544A740BCD2AF5D2F58D9A3 /* Enigma/Search/PlacesAndWeatherTools.swift */,
 				320CE556D009B3A350E4BD43 /* EnigmaTests/MapCardTests.swift */,
+				B140E3B77B422B61B304713D /* EnigmaTests/WeatherCardTests.swift */,
 				9E64FDC93482DCA1A062E229 /* Enigma/Chat/MapCard.swift */,
+				B73FCFDE2F5957F6ED8FA12A /* Enigma/Chat/WeatherSky.swift */,
+				D4F9E29EA8A53565E8167396 /* Enigma/Chat/WeatherCard.swift */,
 				DF3108249CC4C7B4EA8E9204 /* EnigmaTests/PlacesAndWeatherTests.swift */,
 				64B5E4ECCA61666914C5FDB7 /* EnigmaTests/PlacesAndWeatherToolTests.swift */,
 				A699DB2C2D8F693E1B26CE71 /* EnigmaTests/OnDeviceSearchTests.swift */,
@@ -752,6 +763,7 @@
 				AA15763D23F650DF10B635BE /* EnigmaTests/EnigmaCharacterTests.swift */,
 				7D0EC41772B49C9CA1833CC6 /* Enigma/App/EnigmaCharacterStage.swift */,
 				AA8CA5AAF19F884FF8DFBC0B /* Enigma/App/EnigmaCharacterDrawing.swift */,
+				2F8E687BAD18B170D613BF29 /* Enigma/App/EnigmaCharacterCostume.swift */,
 				126C7518154FF555075A4250 /* Enigma/App/EnigmaCharacterModel.swift */,
 				C3B48F650A050EC4ABABFF6C /* EnigmaTests/MessagesToolCallingTests.swift */,
 				854085E31EB7F7858B10685A /* Enigma/App/ShellPresentation.swift */,
@@ -1108,6 +1120,8 @@
 				D034AC15158239A1877418FA /* Enigma/Search/PlaceSearch.swift in Sources */,
 				836ACFBD409F1C34C4DA1B8E /* Enigma/Search/PlacesAndWeatherTools.swift in Sources */,
 				155304E6FA7871D103301197 /* Enigma/Chat/MapCard.swift in Sources */,
+				7A86FC428CFAE912CA243608 /* Enigma/Chat/WeatherSky.swift in Sources */,
+				550F0C7665EDF5C2DA996ECE /* Enigma/Chat/WeatherCard.swift in Sources */,
 				AB7DD5054CD4D727F49946EB /* Enigma/Search/OnDeviceSearch.swift in Sources */,
 				E8FA758895582B17E6A22C19 /* Enigma/Search/PassageRanker.swift in Sources */,
 				0FD1311B36059806C45FC2D1 /* Enigma/Search/ArticleExtractor.swift in Sources */,
@@ -1186,6 +1200,7 @@
 				53096725D27629FE5D97C38A /* Enigma/App/EnigmaControls.swift in Sources */,
 				129D9E9EC86A78CDCC284517 /* Enigma/App/EnigmaCharacterStage.swift in Sources */,
 				F4FB6587E7FE28F291AFAC74 /* Enigma/App/EnigmaCharacterDrawing.swift in Sources */,
+				3A5844312C92949F4B1D5A09 /* Enigma/App/EnigmaCharacterCostume.swift in Sources */,
 				3A612105DC9148AA9A8FE283 /* Enigma/App/EnigmaCharacterModel.swift in Sources */,
 				BC98F7A133F41BA336F106D1 /* Enigma/App/ShellPresentation.swift in Sources */,
 				422E561946FB6455B45F5292 /* Enigma/App/ComposerSubmission.swift in Sources */,
@@ -1299,6 +1314,7 @@
 				65F0C8F49E823FF387443480 /* EnigmaTests/PlacesAndWeatherTests.swift in Sources */,
 				2C6E2C8B990B9DD175AA94D0 /* EnigmaTests/PlacesAndWeatherToolTests.swift in Sources */,
 				F229AD87E95DE5FA62EE693C /* EnigmaTests/MapCardTests.swift in Sources */,
+				2B4D6297296D33B185A6DDFF /* EnigmaTests/WeatherCardTests.swift in Sources */,
 				FC9A8E269D8CBE2A5D1000FD /* EnigmaTests/OnDeviceSearchTests.swift in Sources */,
 				5E0F1A2B3C4D5E6F7A8B9C01 /* EnigmaTests/WebSearchEvaluationTests.swift in Sources */,
 				0467C613B0DD60873025DB37 /* EnigmaTests/PassageRankerTests.swift in Sources */,

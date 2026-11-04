@@ -53,6 +53,9 @@ struct ConversationTranscript: Equatable {
       return MapCard.pins(for: places, reply: content)
     }
 
+    /// The weather cards (F36), one per place, shown as soon as the forecast arrives.
+    var weatherCards: [WeatherCardModel] { message?.weatherCards ?? [] }
+
     /// The reply used web sources.
     var searched: Bool {
       !(activity?.sources.isEmpty ?? true) || !(message?.searchSources?.isEmpty ?? true)
@@ -123,6 +126,14 @@ struct ConversationTranscript: Equatable {
     if let activity, messages.last?.role != .assistant { return slot(forReply: activity.id) }
     guard let reply = messages.last(where: { $0.role == .assistant }) else { return nil }
     return slot(forReply: reply.activity?.id ?? reply.id)
+  }
+
+  /// What the character wears beside the latest reply: a costume for its first weather card, while
+  /// that reply is the latest (F36). A newer request's reply, with no card yet, takes it off.
+  static func costume(messages: [ChatMessage], activity: AssistantActivity?) -> EnigmaCharacterCostume? {
+    if activity != nil, messages.last?.role != .assistant { return nil }
+    guard let card = messages.last(where: { $0.role == .assistant })?.weatherCards?.first else { return nil }
+    return EnigmaCharacterCostume.forWeather(card)
   }
 
   static func slot(forReply id: UUID) -> EnigmaCharacterSlotID {

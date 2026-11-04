@@ -40,6 +40,51 @@ it works. Tests go with F35's.
 
 **Depends on / blocks:** depends on F35.
 
+### B22. Removing a selection mid-chat makes the model forget what the chat was about
+
+**Problem (owner report, 0.13.2 build 8, Local · Bonsai 2 27B, 2026-11-03):**
+The owner sent a message with a selection attached, talked about it, then
+removed the selection and asked about it. The model no longer knew. Asked
+"what's the context of this chat?", "what were we just talking about" and
+"what was the last message I just sent", it answered each time that it can
+only see the user's list of conversations, not this chat. So it may not know
+its own chat at all, with or without a selection.
+
+Steps: send a message with context → talk about it → remove the context → ask
+about it.
+
+**Today:**
+
+- Removing a selection removes it from every later request, by design:
+  `requestMessages` in `LocalChatViewModel` keeps an earlier message's
+  `contexts` only while they are still in `attachedContexts`, and
+  `ConversationContextPrompt.expand` (`ConversationContext.swift`) adds them
+  to the request copy. Once removed, the model sees the earlier turns'
+  text and its replies, but not the selection they were about.
+- Unconfirmed lead for the "only your conversations list" answers: questions
+  about "this chat" or "the last message I sent" may be routed to the Messages
+  tools (`list_conversations` in `MessagesTools.swift`,
+  `MessagesIntentPolicy`), so the model reads them as being about the
+  Messages app. Check the route and tools for these prompts first, and
+  whether the plain chat history reaches the model at all.
+
+**Wanted (owner, 2026-11-03):**
+
+- The selection is part of the chat's context: it is appended to the first
+  message it was sent with and stays in every later request, like the rest of
+  the history. Nothing the user does later removes it from what the model
+  knows.
+- Remove the current context card (the owner finds it annoying). Instead,
+  show the selection as its own chat bubble directly above the first message's
+  bubble, so the user sees what was sent with it.
+- The model always knows the chat it is in and answers questions about it:
+  what was said, what the selection was, what the user last sent.
+- Same on local and cloud routes.
+
+**Depends on / blocks:** after F35 (owner), which changes how history and
+attached context are budgeted and compacted (`requestMessages`,
+`ChatContextPreparer`). Expand this item against F35's code once it lands.
+
 ### B1. ✅ Done: The chat jumps away from the conversation after sending a message
 
 > **Solved:** The cause was the `LazyVStack` in `EnigmaMessageList`, not the
@@ -1442,7 +1487,19 @@ model switch build on it.
 **Out of scope:** viewing or editing the summary, `/compact` with a focus
 argument, and windows above 32K on local models.
 
-### F36. Animated weather card for weather answers
+### F36. ✅ Done: Animated weather card for weather answers
+
+> **Solved:** Weather answers show the flat-sky card above the reply (now, one
+> day, or several days; times with AM and PM), built from the real forecast,
+> with `get_weather` taking optional dates. While the latest reply has a card
+> the character wears the weather's costume, changing in a puff of smoke with a
+> hop. The tour's weather stop shows an example card. See `docs/Web-Search.md`
+> and `docs/Chat.md`.
+
+**Design:** [docs/design/f36-weather-card/README.md](docs/design/f36-weather-card/README.md)
+(approved 2026-11-03: flat sky, split card, weather costumes; renders in Paper
+and Ink, reference SwiftUI). It decides the look; where it differs from the
+list below, the design wins.
 
 **Problem:** a weather answer is only text: the model reads Open-Meteo's
 numbers and types them out. The owner wants a fun, styled card that shows the
@@ -1640,6 +1697,51 @@ it goes unnoticed until the user happens to open the menu. See
 `pendingUpdate`. Add a main-window test that the item shows only with a
 pending update and calls `performPendingUpdate`. Update `docs/Updates.md` →
 What users see, with a screenshot.
+
+### F38. Short AI-written chat titles, like other chat apps
+
+**Today:** A chat's title is the first 48 characters of its first message
+(`ChatSession.title(for:)` in `Enigma/Chat/ChatDomain.swift`, set in
+`ChatSession.append` while the title is still "New Chat", and again in
+`LocalChatViewModel.openTemporaryChatInWindow` for panel chats moved to the
+window). Recents (`ChatHistoryList`, `EnigmaSidebar`) shows it as is, so long
+or rambling first prompts make cut-off, unhelpful titles. Documented in
+`docs/Chat.md` → Chat history.
+
+**Wanted:**
+
+- After the first reply of a chat finishes, the chat's own model writes a very
+  short title (about 2–6 words, no quotes or trailing punctuation) summing up
+  what the chat is about, e.g. "Fix Swift build error", "Weekend trip to
+  Lisbon". It replaces the 48-character title in Recents.
+- The 48-character title stays as the instant placeholder and the fallback
+  when the title call fails, is cancelled, returns nothing usable, or the
+  model is unavailable. A chat is titled once; later turns don't retitle it.
+- Latency first: the title call runs only after the reply has finished
+  (`finishGeneration`) and never delays, blocks or queues ahead of the user's
+  next message; a new send cancels a title call still in flight.
+- Privacy: the title is made by the same model and provider the chat already
+  uses, from the first question (and at most the start of the first reply),
+  so nothing goes anywhere the chat hasn't. No extra provider, no extra
+  history kept. Private/temporary selection chats ("Keep selection chats
+  private") are never titled this way, since they're never saved.
+- Reuse the one-shot completion pattern already used for search helpers
+  (`LocalModelSearchAssistant.complete(_:maximumTokens:)` in
+  `LocalChatViewModel.swift`; `SearchModelAssistant`), with a small token cap
+  and temperature 0, rather than a new pipeline. Cloud routes need the same
+  one-shot call through their existing transport.
+- Owner to confirm: whether cloud chats spend an extra (tiny) request on the
+  title (default: yes, same provider), and whether very small local models
+  that write poor titles should keep the 48-character title (default: use
+  the model's title only if it passes the clean-up check: 1–8 words, ≤ 48
+  characters).
+
+**Tests:** `ChatSession` tests for the placeholder and that a generated title
+replaces only the auto title once. `LocalChatViewModel` tests with a stub
+model: title set after the first reply, fallback on failure or empty output,
+cancelled by a new send, never requested for private selection chats, and the
+clean-up (quotes, punctuation, length) of model output. Update
+`docs/Chat.md` → Chat history.
 
 ### F3. Regenerate the latest reply
 

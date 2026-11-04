@@ -488,7 +488,7 @@ final class MapCardTests: XCTestCase {
 
 
 /// A small local model that answers `reply`, holding the stream open after it while `holds`.
-private actor MapCardEngine: LocalModelEngine {
+actor MapCardEngine: LocalModelEngine {
   /// A vision model whose files exist in `directory` (screen requests check them).
   static func visionModel(in directory: URL) throws -> LocalModel {
     let file = directory.appendingPathComponent("vision.gguf"), projector = directory.appendingPathComponent("vision-mmproj.gguf")
@@ -559,7 +559,7 @@ private final class SequencedPlaces: PlaceSearching, @unchecked Sendable {
 }
 
 /// A vision model's server that answers at once.
-private struct MapCardVision: LocalVisionServing {
+struct MapCardVision: LocalVisionServing {
   func prepare(messages: [ChatMessage], image: PreparedScreenImage?, model: LocalModel) async throws -> PreparedConversation {
     PreparedConversation(messages: messages, inputTokenCount: 0, omittedMessageCount: 0,
                          budget: ContextBudget(contextWindow: 8_192, outputTokens: 512, overheadTokens: 256))
@@ -571,7 +571,7 @@ private struct MapCardVision: LocalVisionServing {
 }
 
 /// A cloud model that answers at once.
-private struct MapCardCloud: ChatProvider {
+struct MapCardCloud: ChatProvider {
   func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
     AsyncThrowingStream { $0.yield(.token("Café de Flore, from the cloud.")); $0.yield(.completed); $0.finish() }
   }

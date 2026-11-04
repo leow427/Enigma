@@ -425,6 +425,8 @@ final class LocalChatViewModel: ObservableObject {
   /// The running request's places for its reply's map card, by message, until the reply ends.
   /// In memory only: never saved.
   private var replyPlaces: [UUID: [MapPlace]] = [:]
+  /// Weather cards for a reply that isn't in the chat yet; they go on it as it lands (F36).
+  private var pendingWeatherCards: [UUID: [WeatherCardModel]] = [:]
   /// On-device search, the default for everyone (D128).
   private let webSearch: any WebSearchProvider
   /// Brave, used only while a Brave key is saved (D128, D129). Nil in tests unless one injects it,
@@ -1275,7 +1277,10 @@ final class LocalChatViewModel: ObservableObject {
       }
       if plan.offeredParts.contains(.weather) {
         parts.append(WeatherTool(weather: weatherLookup, geocoder: weatherGeocoder, location: location, units: { .current },
-                                 mayQuery: { await mayLookUp(.weatherAfterMessages(title: $0)) }, onSources: onSources))
+                                 mayQuery: { await mayLookUp(.weatherAfterMessages(title: $0)) }, onSources: onSources,
+                                 onCard: { @MainActor [weak self] card in
+                                   self?.addWeatherCards([card], messageID: responseID, requestID: requestID)
+                                 }))
       }
     }
     if plan.parts.contains(.messages),
@@ -1393,6 +1398,36 @@ final class LocalChatViewModel: ObservableObject {
     addReplyPlaces(places, messageID: messageID, requestID: requestID)
   }
 
+  /// A search's weather card (F36), on the wording route: only when its result survived context
+  /// fitting. A fallback that grounds again replaces the first attempt's.
+  func addWeatherCards(_ results: [WebSearchResult], kept sources: [WebSearchSource], messageID: UUID,
+                               requestID: UUID) {
+    let kept = Set(sources.map(\.url))
+    let cards = results.filter { kept.contains($0.source.url) }.compactMap(\.weatherCard)
+    pendingWeatherCards[messageID] = nil
+    addWeatherCards(cards, messageID: messageID, requestID: requestID)
+  }
+
+  /// Puts weather cards on their reply at once, one per place (a later lookup for the same place
+  /// replaces its card). A reply that isn't in the chat yet gets them as it lands. Session-only.
+  func addWeatherCards(_ cards: [WeatherCardModel], messageID: UUID, requestID: UUID) {
+    guard !cards.isEmpty, activeRequest?.id == requestID else { return }
+    func merged(_ existing: [WeatherCardModel]?) -> [WeatherCardModel] {
+      var all = existing ?? []
+      for card in cards {
+        if let index = all.firstIndex(where: { $0.place == card.place }) { all[index] = card } else { all.append(card) }
+      }
+      return all
+    }
+    for sessionIndex in sessions.indices {
+      if let index = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) {
+        sessions[sessionIndex].messages[index].weatherCards = merged(sessions[sessionIndex].messages[index].weatherCards)
+        return
+      }
+    }
+    pendingWeatherCards[messageID] = merged(pendingWeatherCards[messageID])
+  }
+
   /// Merges places in arrival order without duplicates. They stay in memory until the reply ends;
   /// places for a request that's no longer running are dropped.
   func addReplyPlaces(_ places: [MapPlace], messageID: UUID, requestID: UUID) {
@@ -1430,9 +1465,11 @@ final class LocalChatViewModel: ObservableObject {
        let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) {
       sessions[sessionIndex].messages[messageIndex].content = ""
       sessions[sessionIndex].messages[messageIndex].searchSources = nil
+      sessions[sessionIndex].messages[messageIndex].weatherCards = nil
       persistSessions(immediately: false)
     }
     replyPlaces[messageID] = nil
+    pendingWeatherCards[messageID] = nil
     if nativeProposals?.requestID == requestID {
       nativeProposals?.edit = nil
       nativeProposals?.translations = []
@@ -1587,6 +1624,7 @@ final class LocalChatViewModel: ObservableObject {
           prepared = grounded.prepared
           sources = grounded.sources
           owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
+          owner.addWeatherCards(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
           owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
         }
         try Task.checkCancellation()
@@ -1773,6 +1811,7 @@ final class LocalChatViewModel: ObservableObject {
               // A fallback grounds again: its places replace the first attempt's.
               owner.replyPlaces[responseID] = nil
               owner.addReplyPlaces(searchResults!, kept: grounded.sources, messageID: responseID, requestID: active.id)
+              owner.addWeatherCards(searchResults!, kept: grounded.sources, messageID: responseID, requestID: active.id)
               owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
             }
             try Task.checkCancellation()
@@ -1978,6 +2017,7 @@ final class LocalChatViewModel: ObservableObject {
           prepared = grounded.prepared
           sources = grounded.sources
           owner.addReplyPlaces(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
+          owner.addWeatherCards(results, kept: grounded.sources, messageID: responseID, requestID: active.id)
           owner.receiveActivity(.sourcesSelected(grounded.sources), requestID: active.id)
         }
         try Task.checkCancellation()
@@ -2215,6 +2255,7 @@ final class LocalChatViewModel: ObservableObject {
       message.origin = ReplyOrigin(mode: activeRequest.route.mode, providerID: activeRequest.route.providerID,
                                    modelName: activity?.answeredBy ?? activeRequest.modelDisplayName,
                                    braveSearch: braveSearchRequest == activeRequest.id)
+      if let cards = pendingWeatherCards.removeValue(forKey: message.id) { message.weatherCards = cards }
     }
     sessions[index].append(message)
     if pendingUserMessage?.id == message.id { pendingUserMessage = nil }
@@ -2376,6 +2417,7 @@ final class LocalChatViewModel: ObservableObject {
     let decision = SearchRouting.decide(question: typedQuestion, maps: toolRecency == nil && ComposerCommands(prompt).maps)
     var request = WebSearchRequest(query: contextualQuery, route: decision.route, namedPlace: decision.namedPlace,
       recency: WebSearchPolicy.recency(typedQuestion), maximumTokens: maximumTokens)
+    request.weatherDays = WeatherDays(question: typedQuestion)
     if let toolRecency {
       request.route = .web
       request.namedPlace = nil
@@ -2480,6 +2522,7 @@ final class LocalChatViewModel: ObservableObject {
     requestLocationContext = nil
     let request = ActiveRequest(id: UUID(), route: route, modelDisplayName: modelDisplayName)
     replyPlaces = [:]
+    pendingWeatherCards = [:]
     pendingUserMessage = nil
     hasReceivedResponse = false
     activeRequest = request
@@ -3044,7 +3087,10 @@ extension LocalChatViewModel {
       // A cancel wakes the last phase's sleep; the reply must not take the chat back.
       guard !Task.isCancelled else { return }
       activity.apply(.phase(.generating))
-      update({ $0.activity = activity }, id: replyID)
+      update({
+        $0.activity = activity
+        if let card = script.weatherCard { $0.weatherCards = [card] }
+      }, id: replyID)
       state = .streaming
       var text = ""
       let replyText = approved ? script.reply : script.declined ?? script.reply

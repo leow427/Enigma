@@ -157,8 +157,10 @@ struct PlaceSearchTool: AgentToolbox {
     text: "Invalid tool arguments: call find_places with {\"query\": string, \"area\"?: string}.", success: false)
 }
 
-/// `get_weather(place?)` for capable models (spec §6.2): Open-Meteo for the user's rounded location
-/// or a place Open-Meteo geocodes. The card asks first in a chat that holds message text (gate 3).
+/// `get_weather(place?, start_date?, end_date?)` for capable models (spec §6.2): Open-Meteo for the
+/// user's rounded location or a place Open-Meteo geocodes. The card asks first in a chat that holds
+/// message text (gate 3). The model only picks the days; the weather card above the reply (F36)
+/// is filled from the forecast itself.
 struct WeatherTool: AgentToolbox {
   private let weather: any WeatherLooking
   private let geocoder: any Geocoding
@@ -166,11 +168,13 @@ struct WeatherTool: AgentToolbox {
   private let units: @Sendable () -> MeasurementUnits
   private let mayQuery: @Sendable (String) async -> Bool
   private let onSources: @Sendable ([WebSearchSource]) async -> Void
+  private let onCard: @Sendable (WeatherCardModel) async -> Void
   private let now: @Sendable () -> Date
 
   init(weather: any WeatherLooking, geocoder: any Geocoding, location: @escaping @Sendable () async -> ApproximateLocation?,
        units: @escaping @Sendable () -> MeasurementUnits, mayQuery: @escaping @Sendable (String) async -> Bool,
        onSources: @escaping @Sendable ([WebSearchSource]) async -> Void,
+       onCard: @escaping @Sendable (WeatherCardModel) async -> Void = { _ in },
        now: @escaping @Sendable () -> Date = Date.init) {
     self.weather = weather
     self.geocoder = geocoder
@@ -178,6 +182,7 @@ struct WeatherTool: AgentToolbox {
     self.units = units
     self.mayQuery = mayQuery
     self.onSources = onSources
+    self.onCard = onCard
     self.now = now
   }
 
@@ -186,17 +191,57 @@ struct WeatherTool: AgentToolbox {
 
   var definitions: [AgentToolDefinition] {
     [AgentToolDefinition(name: "get_weather",
-      description: "Get the current weather, the next 24 hours and the next 7 days from Open-Meteo.",
-      properties: ["place": .object(["type": .string("string"),
-        "description": .string("A named place, such as \"Paris\". Leave it out for the user's location.")])],
+      description: "Get the current weather, the next 24 hours and the next 7 days from Open-Meteo. The user sees a weather card for the days you choose.",
+      properties: [
+        "place": .object(["type": .string("string"),
+          "description": .string("A named place, such as \"Paris\". Leave it out for the user's location.")]),
+        "start_date": .object(["type": .string("string"),
+          "description": .string("The first day the weather card shows, as YYYY-MM-DD in the place's calendar, within the next 7 days. Leave it out for today.")]),
+        "end_date": .object(["type": .string("string"),
+          "description": .string("The last day the card shows, for a range such as a weekend (Saturday and Sunday) or a week. Leave it out for one day.")]),
+      ],
       required: [])]
+  }
+
+  private static let argumentNames: Set<String> = ["place", "start_date", "end_date"]
+
+  /// The card's days: today without dates, or the range; nil for a date that isn't `YYYY-MM-DD`,
+  /// an end without a start, or an end before the start.
+  static func days(start: String?, end: String?) -> WeatherDays? {
+    guard let start else { return end == nil ? .today : nil }
+    let last = end ?? start
+    guard isDate(start), isDate(last), start <= last else { return nil }
+    return .dates(start: start, end: last)
+  }
+
+  private static func isDate(_ text: String) -> Bool {
+    // The round trip turns away dates the parser would roll over, like 30 February.
+    let parser = WeatherLookup.dateParser
+    return text.wholeMatch(of: /\d{4}-\d{2}-\d{2}/) != nil && parser.date(from: text).map(parser.string(from:)) == text
+  }
+
+  /// What the model reads beside the forecast: the card already shows the figures.
+  static func cardNote(_ card: WeatherCardModel?, forecast: WeatherForecast) -> String {
+    guard let card else {
+      let dates = forecast.daily.time
+      return "No weather card is shown: those dates are outside the forecast, which covers \(dates.first ?? "") to \(dates.last ?? "")."
+    }
+    return "A weather card above your reply already shows the figures for \(card.place), \(card.caption.replacingOccurrences(of: " · ", with: ", ")). Write a short, friendly description under it: what it's like, and what to bring or plan for. Don't recite every figure."
+  }
+
+  private struct Answer: Encodable {
+    let card: String
+    let forecast: WeatherReport
   }
 
   func phase(for _: String) -> AssistantActivity.Phase { .checkingWeather }
 
   func execute(name: String, arguments: CodexValue) async -> AgentToolResult {
-    guard name == "get_weather", case .object(let fields) = arguments, fields.keys.allSatisfy({ $0 == "place" }),
-          case .some(let place) = PlacesAndWeatherTools.optionalText(fields["place"]) else {
+    guard name == "get_weather", case .object(let fields) = arguments, fields.keys.allSatisfy(Self.argumentNames.contains),
+          case .some(let place) = PlacesAndWeatherTools.optionalText(fields["place"]),
+          case .some(let start) = PlacesAndWeatherTools.optionalText(fields["start_date"]),
+          case .some(let end) = PlacesAndWeatherTools.optionalText(fields["end_date"]),
+          let days = Self.days(start: start, end: end) else {
       return Self.invalidArguments
     }
     var near: ApproximateLocation?
@@ -224,8 +269,12 @@ struct WeatherTool: AgentToolbox {
       let forecast = try await weather.forecast(at: coordinate, units: units())
       try Task.checkCancellation()
       await onSources([WeatherLookup.source])
-      let report = WeatherLookup.report(forecast, placeName: placeName, now: now())
-      return AgentToolResult(text: PlacesAndWeatherTools.json(["forecast": report]), success: true)
+      let moment = now()
+      let card = WeatherCardModel(forecast: forecast, placeName: placeName, days: days, now: moment)
+      if let card { await onCard(card) }
+      let report = WeatherLookup.report(forecast, placeName: placeName, now: moment)
+      return AgentToolResult(text: PlacesAndWeatherTools.json(Answer(card: Self.cardNote(card, forecast: forecast),
+                                                                     forecast: report)), success: true)
     } catch is CancellationError {
       return PlacesAndWeatherTools.stopped
     } catch {
@@ -235,5 +284,6 @@ struct WeatherTool: AgentToolbox {
   }
 
   private static let invalidArguments = AgentToolResult(
-    text: "Invalid tool arguments: call get_weather with {\"place\"?: string}.", success: false)
+    text: "Invalid tool arguments: call get_weather with {\"place\"?: string, \"start_date\"?: \"YYYY-MM-DD\", \"end_date\"?: \"YYYY-MM-DD\"}.",
+    success: false)
 }

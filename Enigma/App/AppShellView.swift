@@ -354,6 +354,7 @@ struct AppShellView: View {
       guard !welcomeSetup.isPresented else { return }
       character.state = state
     }
+    .onChange(of: windowCharacterCostume, initial: true) { _, costume in character.costume = costume }
     .onChange(of: isTypingInComposer) { _, typing in
       guard !welcomeSetup.isPresented else { return }
       character.attention = typing ? MainWindowCharacter.composerTarget : nil
@@ -874,6 +875,13 @@ struct AppShellView: View {
     guard !isChatEmpty else { return home }
     return ConversationTranscript.latestReplySlot(messages: localChat.presentationMessages,
                                                   activity: localChat.activity) ?? home
+  }
+
+  /// The character's costume while a weather card shows on the latest reply it sits beside (F36).
+  private var windowCharacterCostume: EnigmaCharacterCostume? {
+    guard !isChatEmpty, !welcomeSetup.isPresented,
+          !(guidedTour.isActive && guidedTour.characterOnCard && !shell.isSelectionComposer) else { return nil }
+    return ConversationTranscript.costume(messages: localChat.presentationMessages, activity: localChat.activity)
   }
 
   /// The tour's rail shows in the window, not the compact panel.
