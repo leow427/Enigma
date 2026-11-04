@@ -208,6 +208,6 @@ note stays in the brief.
 | CP0 | done | 3 | 65,536 cloud cap; `ceil(bytes / 3)` kept (owner); reserves measured: ChatGPT 3,840, Claude Code 1,280 |
 | CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole; live 8K check passed |
 | CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check passed on 3 models |
-| CP3 | done | 5 | Redesigned after round 3 (owner): every turn summarized as Codex and Claude Code do, latest user messages and attached context kept; at most 2 chunks; Auto keeps the latest exchange whole, else cloud with a notice; `/compact`; live checks not yet run |
+| CP3 | done | 5 | Redesigned after round 3 (owner): every turn summarized as Codex and Claude Code do, latest user messages and attached context kept; at most 2 chunks; Auto keeps the latest exchange whole, else cloud with a notice; `/compact`; live checks passed (Gemma 12B at 8K, Codex) |
 | CP4 | not started | | |
 | CP5 | not started | | |

@@ -382,8 +382,13 @@ func compactNow(route: Route) async                        // /compact; AppShell
      2 after the redesign; every Blocker and Should fix is fixed (Decisions).
      Mutations of the first design's checks were all caught; they weren't
      rerun after the redesign.
-   - Not run: the live `/compact` checks on a local model and a cloud route
-     (they need the owner's approval).
+   - Live checks (owner approved, 2026-11-03; `F35LiveTests`, opt-in with
+     `TEST_RUNNER_ENIGMA_F35_LIVE=1`): a 42,970-character trip-planning chat with
+     three facts in its older turns, then a follow-up that needs them. Gemma 4
+     12B at 8K: over budget, summarized in 2 chunks in 41 s, 10% used after,
+     187 words of notes, all three facts recalled. ChatGPT through Codex
+     (`gpt-5.6-luna`), as `/compact`: 1 chunk in 9 s, 1% used after, 156 words,
+     all three recalled.
 5. **Limitations:**
    - Screen with a screenshot is covered by the compactor's overhead test, not
      by a send test with a real image.
