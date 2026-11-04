@@ -1955,6 +1955,76 @@ now).
 **Out of scope:** more than one image, rendering PDFs as images, and drag out
 of the chat.
 
+### F39. Save answers as files, without attaching a folder
+
+**Spec:** [docs/superpowers/specs/2026-11-04-f39-save-files-design.md](docs/superpowers/specs/2026-11-04-f39-save-files-design.md)
+(draft, for the owner to review)
+
+**Today:** a file reaches the Mac only through File Mode, which needs an
+attached file or folder first (`FileModeCoordinator.activate(from:)`). A code
+block has only **Copy code** (`ChatMarkdownView`) and a reply only **Copy
+reply** (`EnigmaMessageList`, `ChatCopy`). Capable models get F32's
+`AssistantToolbox` (search, places, weather, Messages, selection) from
+`NativeToolPlan.make`, with no way to save. File Mode's `create_file`
+(`AgentFileTools`) writes UTF-8 or plain-text RTF only, and
+`WorkspaceWriteClassifier.classify` calls a new source file protected, so
+Local mode raises **Use Codex** for it. After sending, a chat forgets its
+attached folder: `consumeSelection` clears it and `MessageAttachment` keeps
+only names.
+
+**Wanted (owner, 2026-11-04):**
+
+- **Save buttons for every model:** a Save icon beside **Copy code** that
+  saves the block at once, and a Save icon beside **Copy reply** with a menu:
+  Word Document, PDF, Markdown, Plain Text.
+- **A `save_file` tool for capable models** (F32), offered on every flagged
+  turn, called only when the user asks for a file. It saves without asking,
+  then shows a card. No chips.
+- **Where files go:** the chat's latest folder attached with Read & Edit;
+  otherwise `~/Documents/Enigma`, with the folder changeable in **Settings →
+  Files**. No macOS or Codex prompt unless one is unavoidable; when it would
+  be (only files attached, a Read Only folder, a missing folder), files go to
+  Enigma's folder instead and the card says so. Inside a project folder,
+  `save_file` asks only for a hidden, agent-instruction, secret-like or config
+  path.
+- **Never overwrite**, except Enigma's own earlier save of the same name in
+  the same chat that nobody has changed since. Every save can be undone.
+- **Types:** code and other text formats (a full language map and extension
+  list), RTF, Word and PDF, made with Apple's frameworks. Anything Enigma
+  doesn't recognize saves as Markdown; in an attached project folder, other
+  text extensions are kept as written.
+- **File Mode:** a new file is safe unless its path is hidden, an agent
+  instruction file, secret-like or config, so creating code in an attached
+  folder no longer asks; `create_file` makes `.docx` and `.pdf` too.
+- A card per saved file: **Saved ‹name›**, where it went, **Open**, **Show in
+  Finder**, **Undo**.
+
+**Files:** new `Enigma/Files/SaveService.swift`, `SaveTools.swift`,
+`SaveDocumentRenderer.swift`, `SaveCards.swift` and the type and naming code;
+changes to `WorkspaceService.swift` (`saveData` mutation, new-file
+classification), `WorkspaceWritePolicy.swift`, `WorkspaceDocument.swift`,
+`AgentFileTools.swift`, `AssistantToolbox.swift`, `AssistantActivity.swift`,
+`ChatDomain.swift` (`saveFolders`), `ChatMarkdownView.swift`,
+`EnigmaMessageList.swift`, `SettingsPages.swift`, `LocalChatViewModel.swift`
+and `Info.plist`. The spec lists what each change does.
+
+**Tests:** new `SaveFileTypeTests`, `SaveNamingTests`, `SaveServiceTests`,
+`SaveDocumentRendererTests` and `SaveDestinationTests`, plus additions to
+`WorkspaceWritePolicyTests`, `FileAgentTests`, `NativeToolPlanTests`,
+`NativeToolsTests`, `ChatPersistenceTests` and a hosted UI test (spec,
+Testing).
+
+**Docs:** new `docs/Saving-Files.md` in `docs/README.md`; `File-Mode.md`,
+`Chat.md`, `Slash-Commands.md`, `Welcome-and-Settings.md`.
+
+**Depends on / blocks:** no dependency. Best after F4, since both change
+`FileModeCoordinator`'s attach code; dropped folders then work as save
+folders with nothing extra. Built in three checkpoints (spec, Delivery).
+
+**Out of scope:** Excel, PowerPoint, Keynote, Numbers, Pages and images;
+saving anywhere other than Enigma's folder or an attached folder; a save
+panel per save; a chip for small models; dragging out of the chat.
+
 ### F5. One shared system prompt: Enigma, a friendly personal assistant
 
 **Today:** `ChatResponseStyle.instructions` (`ChatContext.swift`) is a
