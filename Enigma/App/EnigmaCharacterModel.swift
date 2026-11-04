@@ -488,10 +488,20 @@ struct EnigmaCharacterModel: Sendable {
   mutating func updateSlot(_ slot: Slot) {
     guard slot != self.slot else { return }
     if slot.movesWithContent, let previous = self.slot, fall == nil, drag == nil {
-      x.value += slot.center.x - previous.center.x
-      y.value += slot.center.y - previous.center.y
+      let dx = slot.center.x - previous.center.x, dy = slot.center.y - previous.center.y
+      x.value += dx
+      y.value += dy
       x.target = slot.center.x
       y.target = slot.center.y
+      // The antenna and smoke scroll too, or the antenna whips back with what it holds (F36).
+      tipX.value += dx
+      tipY.value += dy
+      tipX.target += dx
+      tipY.target += dy
+      for index in puffs.indices {
+        puffs[index].origin.x += dx
+        puffs[index].origin.y += dy
+      }
     }
     self.slot = slot
     quietTime = 0
