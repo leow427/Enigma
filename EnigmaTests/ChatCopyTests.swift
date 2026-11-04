@@ -392,6 +392,26 @@ final class ChatCopyTests: XCTestCase {
     try await waitForUI("the blank reply", in: blankHost.view) { blankHost.shows("Reply meta") }
     XCTAssertFalse(blankHost.shows("Copy reply"), "Whitespace isn't worth replacing the clipboard with")
   }
+
+  @MainActor
+  func testRegenerateShowsOnTheLatestReplyOnly() async throws {
+    let board = scratchPasteboard()
+    let messages = [ChatMessage(role: .user, content: "One"), ChatMessage(role: .assistant, content: "First"),
+                    ChatMessage(role: .user, content: "Two"), ChatMessage(role: .assistant, content: "Second")]
+    let replies = ConversationTranscript(messages: messages, activity: nil, isResponding: false).rows.compactMap {
+      row -> ConversationTranscript.Reply? in
+      if case .reply(let reply) = row { return reply }
+      return nil
+    }
+    XCTAssertEqual(replies.count, 2)
+    let hosts = replies.map {
+      CopyHost(EnigmaReplyView(reply: $0, regenerate: { _ in }, canRegenerate: true) { EmptyView() }, pasteboard: board, test: self)
+    }
+    for host in hosts { try await waitForUI("the reply", in: host.view) { host.shows("Copy reply") } }
+    XCTAssertFalse(hosts[0].shows(ChatRegenerateButton.label), "An earlier reply can't be regenerated")
+    XCTAssertTrue(hosts[1].shows(ChatRegenerateButton.label))
+    XCTAssertEqual(replies[1].regeneratesFrom, messages[2].id)
+  }
 }
 
 /// A view in a key window with the test markers, the Paper palette and its own pasteboard.

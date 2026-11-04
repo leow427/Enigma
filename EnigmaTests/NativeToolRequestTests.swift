@@ -266,6 +266,37 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.origin?.mode, .local)
   }
 
+  /// F3: native turns say what they were, and regenerating a reply that didn't search offers no search.
+  func testNativeTurnKindsAndARegenerateAddsNoSearch() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Hello."), .text("Hello again."), .text("Nobody.")])
+    let chat = makeChat(inference: inference)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat)
+    XCTAssertEqual(chat.messages.first?.turnKind, .chat)
+    chat.resend(fromUserMessage: try XCTUnwrap(chat.messages.first?.id), send: { prompt, searches in
+      XCTAssertFalse(searches)
+      chat.submitNative(prompt, route: Self.localRoute, plan: self.plan(prompt, chat: chat))
+    })
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    XCTAssertEqual(chat.messages.map(\.content), ["Hi", "Hello again."])
+    var requests = await inference.requests
+    XCTAssertTrue(requests[0].tools.contains("web_search"), "Automatic search offers it on a new turn")
+    XCTAssertFalse(requests[1].tools.contains("web_search"), "The regenerated reply can't add a search")
+    try await send("/messages who texted me?", to: chat)
+    XCTAssertEqual(chat.messages.dropLast().last?.turnKind, .messages)
+
+    let selected = makeChat(inference: NativeScriptedInference(steps: [.text("Noted."), .text("Sure.")]))
+    await selected.refreshInstalledModel()
+    selected.startTemporaryChat(context: ConversationContext(sourceName: "Notes", text: "teh fox"))
+    try await send("what is this?", to: selected)
+    try await send("thanks", to: selected)
+    let later = try XCTUnwrap(selected.messages.dropLast().last)
+    XCTAssertNil(later.contexts, "The selection went with the first message")
+    XCTAssertEqual(later.turnKind, .selection, "A turn with the selection's tools isn't a plain chat turn")
+    requests = await inference.requests
+    XCTAssertEqual(requests.count, 3)
+  }
+
   func testFlaggedCloudTurnUsesToolStream() async throws {
     let provider = NativeToolProvider(steps: [[.token("From the cloud.")]])
     let chat = makeChat(cloud: provider)

@@ -151,7 +151,23 @@ final class LocalChatViewModel: ObservableObject {
   var historySessions: [ChatSession] {
     sessions.filter { $0.id != temporarySessionID && (!$0.messages.isEmpty || $0.id == selectionSessionID) }
   }
-  var messages: [ChatMessage] { selectedSession?.messages ?? [] }
+  /// The open chat's messages. While a reply is regenerated, the turn it replaces is left out
+  /// (F3): it stays in the chat, and on disk, until the new reply's first token.
+  var messages: [ChatMessage] {
+    let all = selectedSession?.messages ?? []
+    guard let pendingResend, pendingResend.saved.id == selectedSessionID else { return all }
+    return all.filter { !pendingResend.replacedIDs.contains($0.id) }
+  }
+
+  /// A resend under way (F3): the chat as saved before it, the messages it replaces, and
+  /// whether the replaced turn searched.
+  private struct PendingResend {
+    let saved: ChatSession
+    let replacedIDs: Set<UUID>
+    let searched: Bool
+    let removed: @MainActor (Set<UUID>) -> Void
+  }
+  private var pendingResend: PendingResend?
 
   /// The selected chat's summary, as requests send it.
   var appliedSummary: ChatSummary? { selectedSession?.summary }
@@ -227,6 +243,7 @@ final class LocalChatViewModel: ObservableObject {
     let contexts = Self.requestContexts(attached: attachedContexts, sent: sentContextIDs,
                                         resendsSelection: SelectionResponseMode.usesSelectionAgain(prompt: prompt))
     message.contexts = contexts.isEmpty ? nil : contexts
+    message.turnKind = contexts.isEmpty ? .chat : .selection
     if responseInstructions {
       message.selectionResponseMode = Self.responseMode(mode, attached: attachedContexts, request: contexts)
     }
@@ -729,6 +746,7 @@ final class LocalChatViewModel: ObservableObject {
     do { fileTools = try files.begin(access: level, isLocal: local, prompt: prompt, cloudAvailability: fileCloudAvailability) }
     catch { files.error = error.localizedDescription; return }
     var userMessage = contextualMessage(prompt)
+    userMessage.turnKind = .files
     userMessage.attachments = files.selection?.attachments.map { MessageAttachment(name: $0.name, isDirectory: $0.isDirectory) }
     let history = requestMessages + [userMessage]
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
@@ -820,7 +838,8 @@ final class LocalChatViewModel: ObservableObject {
       appleMessages.report(NativeToolsError.messageTextStays.localizedDescription)
       return
     }
-    let userMessage = contextualMessage(prompt)
+    var userMessage = contextualMessage(prompt)
+    userMessage.turnKind = .messages
     let history = requestMessages + [ConversationContextPrompt.expand(userMessage)]
     let toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
@@ -1004,7 +1023,8 @@ final class LocalChatViewModel: ObservableObject {
     // The selection tools replace the revision-block instructions a typed /edit gets today. The
     // latest draft still goes along, since it can hold the user's own changes to the card.
     let selection = plan.parts.contains(.selection) ? attachedContexts.first { $0.kind == .selectedText } : nil
-    let userMessage = contextualMessage(prompt, responseInstructions: selection == nil)
+    var userMessage = contextualMessage(prompt, responseInstructions: selection == nil)
+    if plan.messagesRequested { userMessage.turnKind = .messages } else if selection != nil { userMessage.turnKind = .selection }
     var requestMessage = ConversationContextPrompt.expand(userMessage)
     if selection != nil, let draft = userMessage.selectionDraft, let note = ConversationContextPrompt.draftNote(draft) {
       requestMessage.content += note
@@ -1014,7 +1034,9 @@ final class LocalChatViewModel: ObservableObject {
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : route.modelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
-    let plan = local ? plan : plan.remade(providerSearch: providerSearchAllowed(route: route))
+    let remade = local ? plan : plan.remade(providerSearch: providerSearchAllowed(route: route))
+    // A regenerated reply never searches when the reply it replaces didn't (F3).
+    let plan = pendingResend?.searched == false ? remade.withoutSearch() : remade
     if let selection {
       nativeProposals = NativeProposals(requestID: active.id, messageID: responseID, sessionID: sessionID,
                                         contextID: selection.id, editRequested: plan.editRequested)
@@ -1675,7 +1697,8 @@ final class LocalChatViewModel: ObservableObject {
       state = .failed(NativeToolsError.messageTextStays.localizedDescription)
       return
     }
-    let userMessage = contextualMessage(prompt)
+    var userMessage = contextualMessage(prompt)
+    if attachment != nil { userMessage.turnKind = .screen }
     let preferOCR = attachment.map {
       ScreenRoutingPolicy.hasConfidentTextForLookup(prompt: prompt,
         ocr: ScreenOCRResult(text: $0.ocrText, confidence: $0.ocrConfidence))
@@ -2099,6 +2122,49 @@ final class LocalChatViewModel: ObservableObject {
     autoRouteDecision = nil
   }
 
+  // MARK: Resend (F3, F9)
+
+  /// Sends the user message `id` again, as `text` or, when nil, as it was with its /think choice,
+  /// on the route `send` picks; `send` gets the prompt and whether the replaced turn searched.
+  /// The message and everything after it are hidden, and left out of the request, but stay in the
+  /// chat and on disk until the new reply's first token. A failure, or Stop, before that puts
+  /// them back. `removed` gets the ids, and activity ids, of the messages dropped then.
+  func resend(fromUserMessage id: UUID, text: String? = nil,
+              send: (_ prompt: String, _ searches: Bool) -> Void,
+              removed: @escaping @MainActor (Set<UUID>) -> Void = { _ in }) {
+    guard !isBusy, pendingResend == nil, let session = selectedSession,
+          let index = session.messages.firstIndex(where: { $0.id == id && $0.role == .user }) else { return }
+    let question = session.messages[index]
+    let replaced = session.messages[index...]
+    let searched = replaced.contains { !($0.searchSources?.isEmpty ?? true) }
+    pendingResend = PendingResend(saved: session, replacedIDs: Set(replaced.map(\.id)), searched: searched, removed: removed)
+    send((question.extendedThinking == true ? "/think " : "") + (text ?? question.content), searched)
+    // A route that started nothing leaves the chat as it was.
+    if activeRequest == nil { pendingResend = nil }
+  }
+
+  /// The new reply's first token: the replaced messages go, in memory and on disk.
+  private func commitResend() {
+    guard let resend = pendingResend else { return }
+    pendingResend = nil
+    guard let index = sessions.firstIndex(where: { $0.id == resend.saved.id }) else { return }
+    let dropped = sessions[index].messages.filter { resend.replacedIDs.contains($0.id) }
+    sessions[index].messages.removeAll { resend.replacedIDs.contains($0.id) }
+    for message in dropped { selectionRevisions[message.id] = nil }
+    resend.removed(Set(dropped.flatMap { [$0.id, $0.activity?.id].compactMap { $0 } }))
+  }
+
+  /// Before the first token: the chat goes back to how it was saved.
+  private func restoreResend() {
+    guard let resend = pendingResend else { return }
+    pendingResend = nil
+    guard let index = sessions.firstIndex(where: { $0.id == resend.saved.id }) else { return }
+    let kept = Set(resend.saved.messages.map(\.id))
+    sessions[index].messages.removeAll { !kept.contains($0.id) }
+    sessions[index].lastActivityAt = resend.saved.lastActivityAt
+    sortAndPersistSessions()
+  }
+
   /// Stops the running request and holds the message queue. The returned
   /// consumer task can be awaited to observe its shutdown.
   @discardableResult
@@ -2109,6 +2175,7 @@ final class LocalChatViewModel: ObservableObject {
     if let id = activeRequest?.id { receiveActivity(.phase(.cancelled), requestID: id) }
     // A stopped reply with text keeps its card (D146); finishGeneration won't run for it.
     attachReplyPlaces()
+    restoreResend()
     // Revoke ownership before cancellation can release any queued events or cleanup.
     activeRequest = nil
     activity = nil
@@ -2254,6 +2321,9 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   private func append(_ fragment: String, to messageID: UUID, in sessionID: UUID) {
+    if !fragment.isEmpty, pendingResend?.saved.id == sessionID, pendingResend?.replacedIDs.contains(messageID) == false {
+      commitResend()
+    }
     guard let sessionIndex = sessions.firstIndex(where: { $0.id == sessionID }),
           let messageIndex = sessions[sessionIndex].messages.firstIndex(where: { $0.id == messageID }) else { return }
     if !fragment.isEmpty {
@@ -2289,7 +2359,9 @@ final class LocalChatViewModel: ObservableObject {
     guard !isTemporaryChat else { return }
     sessionWriter.schedule(immediately: immediately) { [weak self] in
       guard let self else { return nil }
-      return self.sessions.filter { !self.isUnsaved($0) }
+      // A chat whose reply is being regenerated stays as it was until the new reply's first token (F3).
+      let saved = self.pendingResend?.saved
+      return self.sessions.filter { !self.isUnsaved($0) }.map { $0.id == saved?.id ? saved! : $0 }
     }
   }
 
@@ -2655,6 +2727,8 @@ final class LocalChatViewModel: ObservableObject {
     selectionEditRequest = nil
     attachReplyPlaces()
     receiveActivity(.phase(error == nil ? .completed : .failed), requestID: id)
+    // A regenerated reply that never wrote a word puts the old one back.
+    restoreResend()
     let finishedRoute = activeRequest?.route
     activeRequest = nil
     activity = nil

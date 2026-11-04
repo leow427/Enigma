@@ -176,6 +176,30 @@ guidance to the request and gives the model more room: local models reserve
 2,048 output tokens instead of 512, and models that support it get a thinking
 budget or a higher reasoning effort.
 
+### Regenerating a reply
+
+The latest reply has a **Regenerate reply** icon (↻) beside **Copy reply**, in
+the same style: dimmed at rest, brighter on hover, reachable with Tab and
+VoiceOver. It gets a new answer to the same question:
+
+- Only for a plain chat turn in Local, Cloud or Auto, with or without `/search`
+  or `/think`. It isn't shown for Files, `/messages`, Screen or selection
+  (`/edit`, `/translate`, or a message that carried a selection) turns. After
+  a relaunch it shows for turns with no attachments and no `/edit` or
+  `/translate`; `/think` isn't saved, so it can't be repeated then.
+- It's off while a reply runs, while messages are queued, and when the
+  current route can't send. It isn't shown once the chat's summary covers
+  that turn (see [Compaction](#compaction)), or during the welcome tour.
+- It replays the same text and `/think` choice on the current route; Auto
+  routes again. It searches again only if the old reply searched, and never
+  adds a search the old reply didn't have.
+- The old reply stays, in the chat and on disk, until the new reply's first
+  token; meanwhile it's hidden. A failure, or Stop, before that token puts it
+  back and shows the error as usual. Once the new reply starts, the old one is
+  gone; earlier versions aren't kept.
+- There's no shortcut, and nothing in the compact panel. A temporary chat still
+  writes nothing.
+
 ### Activity and sources
 
 Each reply has a monospace status line that opens into its activity. While a
@@ -332,6 +356,19 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
   `sessions` or the session writer.
 - Fragments append to the assistant message; `stopStreaming()` revokes ownership,
   cancels the task, and flushes history.
+- Regenerate (F3) is `resend(fromUserMessage:text:send:removed:)`, which F9's
+  edit will reuse (`text` is nil for a regenerate). It records a
+  `PendingResend` (the chat as it was, the ids of that message and everything
+  after it, and whether they searched), so `messages`, and with it
+  `presentationMessages` and the request history, leave them out. Then
+  AppShellView's `submitChat` runs the normal route. The first non-empty
+  fragment (`commitResend`) removes them, with their `selectionRevisions`, and
+  reports their ids so `shell.expandedActivities` drops them;
+  `finishGeneration` or `stopStreaming()` before that (`restoreResend`) removes
+  the new messages instead. A route that starts no request clears the mark. A
+  native turn whose old reply didn't search gets `plan.withoutSearch()`. Each
+  user message carries a session-only `turnKind`; the rule for which replies
+  can be regenerated is `ConversationTranscript.Reply.canRegenerate(from:)`.
 
 ### Native tool turns
 
@@ -497,7 +534,8 @@ overwrite a newer one. Streamed fragments are coalesced into a save every 500 ms
 A chat's first message, later accepted messages, and attachment changes on a
 chat with messages save right away; Stop, completion, failure and the app
 becoming inactive flush pending changes. A temporary chat is filtered out of
-every snapshot.
+every snapshot. While a reply is regenerated, the chat is saved as it was
+until the new reply's first token (`PendingResend.saved`).
 
 `LocalChatViewModel` starts with no selected chat; `ensureSelectedSession()`
 creates one, at the top, when sending or a file attachment needs it, without

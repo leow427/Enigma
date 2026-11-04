@@ -39,6 +39,17 @@ struct ConversationTranscript: Equatable {
     let isLatest: Bool
     /// The running request's reply, which has no meta line yet.
     let isInProgress: Bool
+    /// The question a finished latest reply can be regenerated from (F3); nil when it can't.
+    var regeneratesFrom: UUID? = nil
+
+    var canRegenerate: Bool { regeneratesFrom != nil }
+
+    /// Only a plain chat turn, with or without /search or /think, is replayed. A reopened chat
+    /// has no turn kind, so its saved text decides: no attachments and no /edit or /translate.
+    static func canRegenerate(from question: ChatMessage) -> Bool {
+      question.role == .user && (question.turnKind ?? .chat) == .chat && question.attachments == nil
+        && question.contexts == nil && SelectionResponseMode(prompt: question.content) == .answer
+    }
 
     var content: String { message?.content ?? "" }
 
@@ -77,9 +88,13 @@ struct ConversationTranscript: Equatable {
     // A selection's bubble goes over the first message that carried it: /edit and a retried
     // first message send it again (B22).
     var shownContexts = Set<UUID>()
+    var question: ChatMessage?
+    // The question before the last reply written, when it can be replayed.
+    var latestRegeneratesFrom: UUID?
     for message in messages {
       switch message.role {
       case .user:
+        question = message
         var shown = message
         let contexts = message.contexts?.filter { shownContexts.insert($0.id).inserted }
         shown.contexts = contexts?.isEmpty == false ? contexts : nil
@@ -90,6 +105,11 @@ struct ConversationTranscript: Equatable {
         }
         rows.append(.reply(Reply(id: message.activity?.id ?? message.id, message: message, activity: activity,
                                  isLatest: false, isInProgress: false)))
+        // Not once the chat's summary covers the turn: replacing it would orphan the summary (F35).
+        latestRegeneratesFrom = question.flatMap {
+          Reply.canRegenerate(from: $0) && summarizedThrough != $0.id && summarizedThrough != message.id ? $0.id : nil
+        }
+        question = nil
       }
     }
     // A request that's preparing has no reply yet: its activity stands in,
@@ -102,7 +122,8 @@ struct ConversationTranscript: Equatable {
        case .reply(let reply) = rows[index] {
       let running = isResponding && index == rows.count - 1
       rows[index] = .reply(Reply(id: reply.id, message: reply.message, activity: reply.activity, isLatest: true,
-                                 isInProgress: running))
+                                 isInProgress: running,
+                                 regeneratesFrom: !running && reply.message?.id == messages.last?.id ? latestRegeneratesFrom : nil))
     }
     if let through = summarizedThrough, let index = rows.firstIndex(where: {
       switch $0 {

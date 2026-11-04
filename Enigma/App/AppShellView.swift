@@ -1054,7 +1054,8 @@ struct AppShellView: View {
                       queued: localChat.messageQueue.messages,
                       sendQueuedNow: { localChat.sendQueuedMessageNow(id: $0) },
                       cancelQueued: { localChat.cancelQueuedMessage(id: $0) },
-                      footnote: openedSelectionChatNote) {
+                      footnote: openedSelectionChatNote,
+                      regenerate: regenerateAction, canRegenerate: canRegenerate) {
       revisionCard($0)
     }
     .id(localChat.selectedSessionID)
@@ -1091,6 +1092,25 @@ struct AppShellView: View {
   private var canSubmit: Bool {
     ComposerSubmission.canSubmit(mode: shell.selectedMode, hasLocalModel: localChat.installedModel != nil,
       isCloudConfigured: cloudSettings.isConfigured, hasAutoCloud: autoCloudConfiguration != nil, isBusy: localChat.isBusy)
+  }
+
+  /// Regenerate waits for the route, a running reply and anything queued (F3).
+  private var canRegenerate: Bool {
+    canSubmit && localChat.messageQueue.isEmpty && !screen.isBusy && !files.isWorking && !files.isPicking
+  }
+
+  /// None during the tour: its demo replies are never sent again.
+  private var regenerateAction: ((UUID) -> Void)? {
+    if guidedTour.isActive { return nil }
+    return { regenerateReply(from: $0) }
+  }
+
+  /// Gets a new answer to the latest question on the current route; the draft is left alone.
+  private func regenerateReply(from questionID: UUID) {
+    guard canRegenerate else { return }
+    localChat.resend(fromUserMessage: questionID, send: { prompt, searches in
+      submitChat(prompt, searchEnabled: searches, onAccepted: {})
+    }, removed: { shell.expandedActivities.subtract($0) })
   }
 
   private var fileAccess: FileAccessLevel {

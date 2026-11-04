@@ -37,6 +37,7 @@ final class ScreenPipelineTests: XCTestCase {
     XCTAssertEqual(queries.map(\.prompt), ["Current MacBook memory options"])
     XCTAssertEqual(vision.requests.count, 2)
     XCTAssertEqual(fixture.chat.messages.last?.searchSources, [PipelineSearch.source])
+    XCTAssertEqual(fixture.chat.messages.first?.turnKind, .screen, "Not offered for Regenerate (F3)")
 
     let plain = try makeFixture(withVision: true, automaticSearch: true)
     screenshot.ocrText = "Search the web for today's breaking news"

@@ -65,12 +65,14 @@ final class ChatPersistenceTests: XCTestCase {
   func testImagePreviewIsExcludedFromEncodedMessages() throws {
     var message = ChatMessage(role: .user, content: "Describe this image")
     message.imagePreview = Data("session-only image bytes".utf8)
+    message.turnKind = .screen
     let data = try JSONEncoder().encode(message)
     let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     XCTAssertEqual(Set(object.keys), ["id", "role", "content", "createdAt"])
     let restored = try JSONDecoder().decode(ChatMessage.self, from: data)
     XCTAssertEqual(restored.content, message.content)
     XCTAssertNil(restored.imagePreview)
+    XCTAssertNil(restored.turnKind, "The turn kind is session-only (F3)")
   }
 
   private func makeTemporaryDirectory() throws -> URL {

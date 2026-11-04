@@ -168,6 +168,46 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(meta(nil), time, "A reply from an earlier session shows what it recorded")
   }
 
+  func testOnlyTheLatestPlainChatReplyCanBeRegenerated() {
+    func turn(_ question: ChatMessage, reply: String = "Answer") -> [ChatMessage] {
+      [question, ChatMessage(role: .assistant, content: reply)]
+    }
+    func regenerates(_ messages: [ChatMessage], isResponding: Bool = false) -> [UUID?] {
+      ConversationTranscript(messages: messages, activity: nil, isResponding: isResponding).rows.compactMap { row -> UUID?? in
+        if case .reply(let reply) = row { return .some(reply.regeneratesFrom) }
+        return nil
+      }
+    }
+    func kind(_ kind: ChatMessage.TurnKind?, _ content: String = "Question") -> ChatMessage {
+      var message = ChatMessage(role: .user, content: content)
+      message.turnKind = kind
+      return message
+    }
+    let first = kind(.chat), latest = kind(.chat)
+    XCTAssertEqual(regenerates(turn(first) + turn(latest)), [nil, latest.id], "The latest reply only")
+    XCTAssertEqual(regenerates(turn(first) + turn(latest), isResponding: true), [nil, nil], "Not while it runs")
+    XCTAssertEqual(regenerates(turn(first) + [latest]), [nil], "Not once a newer question waits")
+    // A reopened chat has no turn kind; its saved text decides.
+    let reopened = kind(nil)
+    XCTAssertEqual(regenerates(turn(reopened)), [reopened.id])
+    for hidden in [kind(.files), kind(.messages), kind(.screen), kind(.selection), kind(nil, "/edit shorter"),
+                   kind(nil, "/translate to French"), kind(.chat, "/edit shorter")] {
+      XCTAssertEqual(regenerates(turn(hidden)), [nil], "\(String(describing: hidden.turnKind)) \(hidden.content)")
+    }
+    var files = kind(nil)
+    files.attachments = [MessageAttachment(name: "notes.txt", isDirectory: false)]
+    XCTAssertEqual(regenerates(turn(files)), [nil], "A reopened Files turn keeps its attachments")
+    var selection = kind(nil)
+    selection.contexts = [ConversationContext(sourceName: "Notes", text: "teh fox")]
+    XCTAssertEqual(regenerates(turn(selection)), [nil], "A message that carried a selection")
+    let summarized = turn(kind(.chat))
+    XCTAssertEqual(ConversationTranscript(messages: summarized, activity: nil, isResponding: false,
+                                          summarizedThrough: summarized[1].id).rows.compactMap { row -> UUID?? in
+      if case .reply(let reply) = row { return .some(reply.regeneratesFrom) }
+      return nil
+    }, [nil], "Not once the chat's summary covers the turn")
+  }
+
   @MainActor
   func testRepliesRecordWhereTheyRanForTheirMetaLine() async throws {
     let fixture = try await Fixture(test: self)

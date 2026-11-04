@@ -100,6 +100,10 @@ sending to cancel. `/search` combines with other commands, such as
 or `/messages`. It's always offered in suggestions, Help and the welcome tour.
 See [Slash commands](Slash-Commands.md).
 
+Regenerating a reply searches again, for fresh sources, only if the old reply
+searched; it never adds a search the old reply didn't have. See
+[Chat](Chat.md#regenerating-a-reply).
+
 ## Places and weather
 
 **On models without native tools,** Enigma sorts each searched question on this

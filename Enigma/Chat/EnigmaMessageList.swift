@@ -26,6 +26,10 @@ struct EnigmaMessageList<Revision: View>: View {
   /// like the note that a chat kept from the panel is now saved. It's never
   /// part of the transcript.
   var footnote: String? = nil
+  /// Regenerates the latest reply from its question's id (F3); nil draws no button.
+  var regenerate: ((UUID) -> Void)? = nil
+  /// Whether Regenerate can run now: not while a reply runs or messages wait.
+  var canRegenerate = false
   /// The /edit revision card under a reply, if it has one.
   @ViewBuilder let revision: (ChatMessage) -> Revision
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -91,7 +95,8 @@ struct EnigmaMessageList<Revision: View>: View {
       EnigmaFootnote(text: ConversationTranscript.summaryMarkerText)
         .transition(.opacity)
     case .reply(let reply):
-      EnigmaReplyView(reply: reply, expandedActivity: activityExpansion(reply.activity?.id ?? reply.id)) {
+      EnigmaReplyView(reply: reply, expandedActivity: activityExpansion(reply.activity?.id ?? reply.id),
+                      regenerate: regenerate, canRegenerate: canRegenerate) {
         if let message = reply.message { revision(message) }
       }
       // The reply follows its question a moment later, as in the mockup.
@@ -262,15 +267,20 @@ struct SentImagePreview: View {
 struct EnigmaReplyView<Revision: View>: View {
   let reply: ConversationTranscript.Reply
   var expandedActivity: Binding<Bool>?
+  var regenerate: ((UUID) -> Void)?
+  var canRegenerate = false
   @ViewBuilder var revision: () -> Revision
   @Environment(\.enigmaPalette) private var palette
-  /// Whether the pointer is over the reply, which brightens its copy button.
+  /// Whether the pointer is over the reply, which brightens its copy and regenerate buttons.
   @State private var isHovered = false
 
   init(reply: ConversationTranscript.Reply, expandedActivity: Binding<Bool>? = nil,
+       regenerate: ((UUID) -> Void)? = nil, canRegenerate: Bool = false,
        @ViewBuilder revision: @escaping () -> Revision) {
     self.reply = reply
     self.expandedActivity = expandedActivity
+    self.regenerate = regenerate
+    self.canRegenerate = canRegenerate
     self.revision = revision
   }
 
@@ -305,6 +315,10 @@ struct EnigmaReplyView<Revision: View>: View {
               .truncationMode(.middle)
               .enigmaTestMarker("Reply meta")
             Spacer(minLength: 0)
+            if let regenerate, let question = reply.regeneratesFrom {
+              ChatRegenerateButton(isEmphasized: isHovered) { regenerate(question) }
+                .disabled(!canRegenerate)
+            }
             if !reply.content.allSatisfy(\.isWhitespace) {
               ChatCopyButton(label: "Copy reply", isEmphasized: isHovered, size: CGSize(width: 24, height: 18)) {
                 .reply(reply.content)
@@ -321,6 +335,30 @@ struct EnigmaReplyView<Revision: View>: View {
     .overlay(alignment: .topLeading) {
       EnigmaReplySlot(reply: reply)
     }
+  }
+}
+
+/// Regenerate reply (F3), beside Copy reply and styled like it: dimmed until hover or focus.
+struct ChatRegenerateButton: View {
+  static let label = "Regenerate reply"
+  var isEmphasized = true
+  let action: () -> Void
+  @FocusState private var isFocused: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Button(action: action) {
+      Image(systemName: "arrow.clockwise")
+        .font(EnigmaTypography.symbol(11.5))
+    }
+    .buttonStyle(EnigmaIconButtonStyle(size: CGSize(width: 24, height: 18), isFocused: isFocused))
+    .focused($isFocused)
+    .focusEffectDisabled()
+    .opacity(ChatCopyButton.opacity(isEmphasized: isEmphasized, isFocused: isFocused, copied: false))
+    .animation(reduceMotion ? nil : EnigmaMotion.menu.animation, value: isEmphasized)
+    .help(Self.label)
+    .accessibilityLabel(Self.label)
+    .enigmaTestMarker(Self.label)
   }
 }
 

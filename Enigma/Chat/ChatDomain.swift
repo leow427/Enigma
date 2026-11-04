@@ -90,6 +90,11 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
     case assistant
   }
 
+  /// What a user message's turn was (F3). Session-only: a reopened chat has none.
+  enum TurnKind: Sendable {
+    case chat, files, messages, screen, selection
+  }
+
   let id: UUID
   let role: Role
   var content: String
@@ -111,6 +116,8 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   /// Session-only: the reply's weather cards (F36), one per place, shown as soon as the forecast
   /// arrives. Never saved; a reopened chat shows the text only.
   var weatherCards: [WeatherCardModel]? = nil
+  /// Session-only: the turn a user message started, for Regenerate (F3).
+  var turnKind: TurnKind? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, role, content, searchSources, createdAt, attachments

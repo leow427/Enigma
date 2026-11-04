@@ -825,6 +825,137 @@ final class RequestLifecycleTests: XCTestCase {
     return .data(Data("data: \(payload)\n\n".utf8))
   }
 
+  // MARK: Regenerate (F3)
+
+  func testRegenerateKeepsTheOldReplyUntilItsFirstTokenThenReplacesIt() async throws {
+    let streams = (0..<4).map { _ in ControlledStream<ChatEvent>() }
+    let provider = LifecycleCloudProvider(streams: streams)
+    let writes = SavedSessions()
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(), cloudProviders: registry(chatGPT: provider),
+                                       sessionStore: makeStore(), sessionWriter: ChatSessionWriter { writes.append($0) })
+    var prompts: [String] = []
+    let send = { (prompt: String, searches: Bool) in
+      prompts.append(prompt)
+      XCTAssertFalse(searches, "The old turn didn't search")
+      viewModel.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: searches, allowsAutomaticSearch: false)
+    }
+    viewModel.submitCloud("/think A", provider: .chatGPT, modelID: "model")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    await receive(.token("Old"), from: streams[0], in: viewModel, expecting: "Old")
+    streams[0].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    let old = viewModel.messages
+    let question = try XCTUnwrap(old.first)
+    XCTAssertEqual(old.map(\.content), ["A", "Old"])
+
+    // A plain-cloud offline error before the first token puts the old reply back, and shows the error.
+    viewModel.resend(fromUserMessage: question.id, send: send)
+    XCTAssertEqual(prompts, ["/think A"], "The same text and /think choice")
+    XCTAssertFalse(viewModel.presentationMessages.contains { $0.content == "Old" }, "The old reply is hidden meanwhile")
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertFalse(provider.requests[1].messages.contains { $0.content.contains("Old") }, "History stops before the question")
+    streams[1].continuation.finish(throwing: CloudProviderError.offline)
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.messages, old)
+    XCTAssertEqual(viewModel.state, .failed(CloudProviderError.offline.localizedDescription))
+
+    // So does Stop before the first token.
+    viewModel.resend(fromUserMessage: question.id, send: send)
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    await viewModel.stopStreaming()?.value
+    XCTAssertEqual(viewModel.messages, old)
+
+    // After the first token the new reply replaces the old turn, which is reported as removed.
+    var removed = Set<UUID>()
+    viewModel.resend(fromUserMessage: question.id, send: send, removed: { removed = $0 })
+    await fulfillment(of: [streams[3].started], timeout: 2)
+    await receive(.token("New"), from: streams[3], in: viewModel, expecting: "New")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A", "New"])
+    XCTAssertEqual(viewModel.messages.first?.extendedThinking, true)
+    XCTAssertTrue(Set(old.map(\.id)).isDisjoint(with: viewModel.messages.map(\.id)))
+    XCTAssertTrue(removed.isSuperset(of: old.map(\.id)))
+    streams[3].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.selectedSession?.messages.map(\.content), ["A", "New"])
+
+    // The saved file held the old turn until the new reply's first token, and never both.
+    viewModel.sessionWriter.flush()
+    await waitUntil("the new reply is saved") { writes.last?.first?.messages.map(\.content) == ["A", "New"] }
+    let newIDs = Set(viewModel.messages.map(\.id))
+    for saved in writes.all {
+      let messages = saved.first?.messages ?? []
+      XCTAssertLessThanOrEqual(messages.count, 2, "\(messages.map(\.content))")
+      if messages.contains(where: { newIDs.contains($0.id) }) {
+        XCTAssertEqual(messages.last?.content.isEmpty, false, "Saved before the first token: \(messages.map(\.content))")
+      }
+    }
+  }
+
+  func testRegenerateSearchesOnlyWhenTheOldReplyDidAndDropsItsRevision() async throws {
+    let streams = (0..<2).map { _ in ControlledStream<ChatEvent>() }
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
+                                       cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: streams)),
+                                       sessionStore: makeStore())
+    viewModel.submitCloud("A", provider: .chatGPT, modelID: "model")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    await receive(.token("First"), from: streams[0], in: viewModel, expecting: "First")
+    streams[0].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    // A turn whose reply searched and proposed a revision.
+    let source = WebSearchSource(title: "Example", url: URL(string: "https://example.com")!)
+    let question = ChatMessage(role: .user, content: "B")
+    var finished = false
+    viewModel.tourAppend(question, script: TourScript(reply: "Searched", phases: [], sources: [source], phaseDuration: 0,
+                                                      revision: "R")) { finished = true }
+    await waitUntil("the tour reply ends") { finished }
+    let reply = try XCTUnwrap(viewModel.messages.last)
+    XCTAssertNotNil(viewModel.selectionRevisions[reply.id])
+
+    var searched: [Bool] = []
+    viewModel.resend(fromUserMessage: question.id, send: { prompt, searches in
+      searched.append(searches)
+      viewModel.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: false, allowsAutomaticSearch: false)
+    })
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, send: { _, _ in XCTFail("One resend at a time") })
+    XCTAssertEqual(searched, [true], "Search runs again because the old reply searched")
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    XCTAssertNotNil(viewModel.selectionRevisions[reply.id], "Kept until the first token")
+    await receive(.token("Fresh"), from: streams[1], in: viewModel, expecting: "Fresh")
+    XCTAssertNil(viewModel.selectionRevisions[reply.id])
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A", "First", "B", "Fresh"])
+    await viewModel.stopStreaming()?.value
+
+    // A route that starts nothing leaves the chat as it was.
+    let before = viewModel.messages
+    viewModel.resend(fromUserMessage: before[2].id, send: { _, _ in })
+    XCTAssertEqual(viewModel.messages, before)
+    XCTAssertEqual(viewModel.presentationMessages, before)
+  }
+
+  func testRegeneratingInATemporaryChatWritesNothing() async throws {
+    let streams = (0..<2).map { _ in ControlledStream<ChatEvent>() }
+    let writes = SavedSessions()
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
+                                       cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: streams)),
+                                       sessionStore: makeStore(), sessionWriter: ChatSessionWriter { writes.append($0) })
+    viewModel.startTemporaryChat(context: nil)
+    viewModel.submitCloud("A", provider: .chatGPT, modelID: "model")
+    await fulfillment(of: [streams[0].started], timeout: 2)
+    await receive(.token("Old"), from: streams[0], in: viewModel, expecting: "Old")
+    streams[0].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, send: {
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    await fulfillment(of: [streams[1].started], timeout: 2)
+    await receive(.token("New"), from: streams[1], in: viewModel, expecting: "New")
+    streams[1].continuation.finish()
+    await waitUntil("the new reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A", "New"])
+    viewModel.sessionWriter.flush()
+    XCTAssertTrue(writes.all.allSatisfy { $0.isEmpty }, "\(writes.all)")
+  }
+
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,
                                 in viewModel: LocalChatViewModel, expecting content: String) async {
     let received = expectation(description: "Presented token: \(content)")
@@ -852,6 +983,15 @@ final class RequestLifecycleTests: XCTestCase {
     addTeardownBlock { try? FileManager.default.removeItem(at: root) }
     return root
   }
+}
+
+/// Every chat list the writer saved, in order.
+private final class SavedSessions: @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: [[ChatSession]] = []
+  func append(_ sessions: [ChatSession]) { lock.withLock { stored.append(sessions) } }
+  var all: [[ChatSession]] { lock.withLock { stored } }
+  var last: [ChatSession]? { all.last }
 }
 
 private enum LifecycleError: LocalizedError {

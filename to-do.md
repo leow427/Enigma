@@ -1765,7 +1765,7 @@ cancelled by a new send, never requested for private selection chats, and the
 clean-up (quotes, punctuation, length) of model output. Update
 `docs/Chat.md` → Chat history.
 
-### F3. Regenerate the latest reply
+### F3. ✅ Done: Regenerate the latest reply
 
 **Today:** a finished reply's meta line (`ReplyMetaLine.text` in
 `EnigmaConversationLogic.swift`, drawn by `EnigmaReplyView` in

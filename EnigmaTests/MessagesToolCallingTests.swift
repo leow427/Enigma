@@ -631,6 +631,7 @@ final class MessagesRequestTests: XCTestCase {
     await fulfillment(of: [finished], timeout: 3)
     token.cancel()
     XCTAssertEqual(chat.messages.map(\.content), ["Who texted me last?", "Your latest chat is Weekend Trip."])
+    XCTAssertEqual(chat.messages.first?.turnKind, .messages, "Not offered for Regenerate (F3)")
     XCTAssertEqual(toolbox.calls.map(\.0), ["list_conversations"])
     XCTAssertNil(chat.appleMessages.pendingSend)
     await chat.sessionWriter.waitForPendingWrites()
