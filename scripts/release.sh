@@ -13,7 +13,7 @@
 # A real release refuses it.
 #
 # Steps: preflight, bump the version, archive, sign with Developer ID and verify
-# the signature, notarize and staple, zip, sign the zip and add it to appcast.xml
+# the signature, notarize and staple, zip and DMG, sign the zip and add it to appcast.xml
 # with Sparkle's generate_appcast, then publish in an order that never leaves the
 # feed pointing at a missing file: commit and tag, push the tag, create the
 # GitHub release, push main.
@@ -360,6 +360,51 @@ mkdir -p "$feed"
 archive_name="Enigma-$version.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$feed/$archive_name"
 
+# First installs download a DMG: a small window with Enigma.app beside an
+# Applications shortcut to drag it onto. Sparkle keeps using the zip. The DMG
+# stays out of $feed so generate_appcast doesn't list it.
+dmg_name="Enigma-$version.dmg"
+dmg_root="$temporary/dmg"
+mkdir -p "$dmg_root"
+ditto "$app" "$dmg_root/Enigma.app"
+ln -s /Applications "$dmg_root/Applications"
+hdiutil create -quiet -volname Enigma -srcfolder "$dmg_root" -fs HFS+ -format UDRW "$temporary/layout.dmg" \
+  || fail "hdiutil could not create the DMG"
+mount_point="$temporary/layout"
+hdiutil attach -quiet -nobrowse -noautoopen -mountpoint "$mount_point" "$temporary/layout.dmg"
+# Finder saves the window's size and icon positions in the volume's .DS_Store.
+# It needs Automation permission for Terminal; without it the DMG still works,
+# just in a default-sized window.
+osascript - "$mount_point" <<'APPLESCRIPT' >/dev/null 2>&1 || say "warning: could not lay out the DMG window in Finder; it opens with Finder's default layout"
+on run arguments
+  tell application "Finder"
+    set dmgFolder to folder (POSIX file (item 1 of arguments) as alias)
+    open dmgFolder
+    tell container window of dmgFolder
+      set toolbar visible to false
+      set statusbar visible to false
+      set current view to icon view
+      set bounds to {200, 200, 740, 560}
+    end tell
+    set options to icon view options of container window of dmgFolder
+    set arrangement of options to not arranged
+    set icon size of options to 128
+    set position of item "Enigma.app" of dmgFolder to {140, 170}
+    set position of item "Applications" of dmgFolder to {400, 170}
+    update dmgFolder without registering applications
+    delay 1
+    close container window of dmgFolder
+  end tell
+end run
+APPLESCRIPT
+sync
+hdiutil detach -quiet "$mount_point" || fail "could not detach the DMG"
+mount_point=""
+hdiutil convert -quiet "$temporary/layout.dmg" -format UDZO -o "$temporary/$dmg_name" \
+  || fail "hdiutil could not compress the DMG"
+codesign -s "$signing_identity" --timestamp "$temporary/$dmg_name" || fail "signing the DMG failed"
+say "packaged $archive_name for updates and $dmg_name for first installs"
+
 # MARK: 6. Appcast
 
 cp "$notes" "$feed/Enigma-$version.md"
@@ -384,7 +429,7 @@ if [ "$dry_run" = true ]; then
   output="$work_directory/dry-run/$version"
   rm -rf "$output"
   mkdir -p "$output"
-  cp "$feed/$archive_name" "$feed/appcast.xml" "$source/$project" "$output/"
+  cp "$feed/$archive_name" "$temporary/$dmg_name" "$feed/appcast.xml" "$source/$project" "$output/"
   diff -u "$temporary/appcast.before" "$feed/appcast.xml" || true
   say "dry run finished; the build was notarized, but nothing was committed, tagged, pushed or published."
   say "results: $output"
@@ -398,17 +443,19 @@ remote_main=$(git -C "$repository_root" ls-remote origin refs/heads/main | cut -
   || fail "origin/main moved during the build; pull and run the release again"
 archive_copy="$work_directory/$archive_name"
 cp "$feed/$archive_name" "$archive_copy"
+dmg_copy="$work_directory/$dmg_name"
+cp "$temporary/$dmg_name" "$dmg_copy"
 git -C "$repository_root" add "$project" appcast.xml "docs/release-notes/$version.md"
 git -C "$repository_root" commit --quiet -m "Release $version"
 restore_checkout=false
 git -C "$repository_root" tag "$tag"
 say "pushing $tag"
 git -C "$repository_root" push --quiet origin "$tag" \
-  || fail "pushing $tag failed; nothing is published. Retry with: git push origin $tag, then gh release create $tag $archive_copy --notes-file docs/release-notes/$version.md --prerelease and git push origin main. Or undo with: git tag -d $tag && git reset --hard HEAD~1"
+  || fail "pushing $tag failed; nothing is published. Retry with: git push origin $tag, then gh release create $tag $archive_copy $dmg_copy --notes-file docs/release-notes/$version.md --prerelease and git push origin main. Or undo with: git tag -d $tag && git reset --hard HEAD~1"
 say "creating the GitHub release"
 # Every release is a pre-release while Enigma is in early development. Sparkle
 # reads the feed from main and downloads by tag, so it doesn't need a "Latest" release.
-(cd "$repository_root" && gh release create "$tag" "$archive_copy" --notes-file "docs/release-notes/$version.md" --prerelease) \
+(cd "$repository_root" && gh release create "$tag" "$archive_copy" "$dmg_copy" --notes-file "docs/release-notes/$version.md" --prerelease) \
   || fail "gh release create failed; re-run it, or delete the pushed tag. main and the live feed are unchanged."
 say "pushing main"
 git -C "$repository_root" push --quiet origin main \

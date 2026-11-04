@@ -306,8 +306,12 @@ builds an app that checks a test feed instead. A real release refuses this
 variable.
 
 Releases are zips from 0.10.0 on; 0.9.x shipped as DMGs without an updater.
-Friends install the newest release by hand once: download the zip, drag
-`Enigma.app` into Applications in Finder, and open it. Notarized releases
+From 0.13.3 on, each release also carries `Enigma-<version>.dmg` for first
+installs (Sparkle still updates from the zip). Friends install the newest
+release by hand once: open the DMG, drag `Enigma.app` onto the Applications
+shortcut beside it, and open it from Applications. The window layout is set by
+Finder during the release, which needs Automation permission for the terminal
+running `release.sh`; without it the DMG works with Finder's default layout. Notarized releases
 open after macOS's usual "downloaded from the Internet" confirmation. Releases
 before the first Developer ID release need **Open Anyway** in System
 Settings → Privacy & Security the first time.
