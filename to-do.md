@@ -2490,7 +2490,7 @@ Builds on F1's code block header.
   re-highlighting the whole block per token, without flicker or layout jumps.
 - F22's draft blocks aren't code and aren't highlighted.
 
-### F9. Edit a sent message
+### F9. ✅ Done: Edit a sent message
 
 **Today:** sent messages are static (`EnigmaUserMessage` in
 `EnigmaMessageList.swift`); there's no way to change one. F3's Regenerate
