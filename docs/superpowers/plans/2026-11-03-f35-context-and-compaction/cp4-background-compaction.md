@@ -84,4 +84,59 @@ made while it runs waits for it with `Summarizing earlier messages…`; after
 
 ## Hand-off
 
-_To be filled in by the CP4 worker._
+1. **Summary:** after a reply finishes normally, a chat whose usage is at 90% or
+   more is summarized in the background on the route that answered
+   (`compactInBackground`). A send made meanwhile waits in the one preparation
+   every send path runs (`compactedRequest`), showing "Summarizing earlier
+   messages…", for up to 30 s; on failure or timeout (the run is cancelled) it
+   drops turns instead of summarizing again. Stop cancels the wait and the run.
+2. **Files:**
+   - `Enigma/LocalInference/LocalChatViewModel.swift`: `CompactionSteps` and
+     `compactionSteps(route:localModel:sessionID:requestID:)` (factored out of
+     `compactNow`, same behaviour), `compactions`, `isCompacting`,
+     `compactionWait`, `compactInBackground(route:)`,
+     `waitForCompaction(of:requestID:)`; `compactedRequest` waits first;
+     `finishGeneration` triggers.
+   - `EnigmaTests/ChatCompactionTests.swift`: `BackgroundCompactionTests`
+     (13 tests), `Gate`, `GatedEngine`.
+   - `docs/Chat.md`: "In the background" under Compaction.
+3. **Decisions:**
+   - The injectable clock is the view model's existing `sleep` (also used for
+     idle unload); `compactionWait` is 30 s.
+   - `isCompacting` is computed from a published per-chat dictionary rather than
+     a stored `@Published` flag, so it follows chat switches by itself.
+   - Validity: the chat must exist and its messages must still start with the
+     ones summarized (`starts(with:)` on whole messages, so a changed message
+     also discards). Switching chats keeps the result for its own chat; the
+     selected chat's usage changes only when it is that chat.
+   - The trigger needs `messageTextMayGo(to:)` like every send, and skips while
+     a tour reply plays.
+   - A waited send whose run failed or timed out skips summarizing by making
+     its summarize step throw, which the compactor already treats as a failed
+     summary (tier 3).
+   - **Review round 1 fixes** (no Blocker, 5 Should fixes): the plain local and
+     Screen local sends wait (`waitBeforeEngine`) before their first engine
+     call, which would otherwise queue silently behind the run on the engine
+     actor; `/compact` during a run counts the run's summary as success; the
+     idle unload doesn't fire during a run and is re-armed after it; a reply
+     that applies a waiting model pick (B21) starts no run; `compactInBackground`
+     is internal so a test pins one run per chat. No second round (owner: be
+     quick; the fixes are narrow and each has a test that fails without it).
+4. **Verification:** `BackgroundCompactionTests`, `ChatCompactionTests`,
+   `ChatCompactionSendTests`, `LocalInferenceTests`: 70 tests, 0 failures after
+   the review fixes; the two new tests were mutation-checked. `EnigmaMainWindowTests`,
+   `EnigmaConversationTests`, `NativeToolRequestTests`, `LocalInferenceTests`,
+   `CloudModeTests`: 244 tests, 2 skipped, 0 failures.
+5. **Limitations:**
+   - The app can't edit a message, so `testCompactionResultAfterEditIsDiscarded`
+     covers the prefix check with a left temporary chat (gone, so nothing applies).
+   - A run for a chat that is left keeps running until it ends, then is discarded.
+   - On the embedded engine, generation runs on its actor, so cancelling a run
+     (timeout or Stop) takes effect between tokens, not during prefill; the
+     30 s bound can stretch by one prefill. A send in another chat, or a model
+     switch, delete or benchmark, waits behind a running summary with no status.
+   - The live run (a long local chat reaches 90%) needs the owner's approval and
+     wasn't run.
+6. **For the next checkpoint:** `isCompacting` is a computed `Bool` on the view
+   model; `contextUsage` drops when a background run's summary is kept for the
+   selected chat.

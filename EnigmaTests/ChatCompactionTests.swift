@@ -604,3 +604,326 @@ private final class CompactionSearch: WebSearchProvider, @unchecked Sendable {
                             snippets: ["A short excerpt."])]
   }
 }
+
+// MARK: Background compaction (F35 CP4)
+
+@MainActor
+final class BackgroundCompactionTests: XCTestCase {
+  private var root: URL!
+
+  override func setUp() {
+    root = FileManager.default.temporaryDirectory.appending(path: "BackgroundCompactionTests-\(UUID())")
+  }
+
+  override func tearDown() {
+    try? FileManager.default.removeItem(at: root)
+  }
+
+  /// Three turns of `bytes` each way. On the fixture's 3,328 tokens (a byte a token, 32 a message),
+  /// 470 sends "Now?" at 91.6%; 460 at 89.8%.
+  private func session(bytes: Int) -> ChatSession {
+    var session = ChatSession(title: "Long")
+    for turn in 0..<3 {
+      session.append(ChatMessage(role: .user, content: "Q\(turn)" + String(repeating: "q", count: bytes - 2)))
+      session.append(ChatMessage(role: .assistant, content: "A\(turn)" + String(repeating: "a", count: bytes - 2)))
+    }
+    return session
+  }
+
+  private func chat(_ engine: GatedEngine, bytes: Int = 470, timeout: Gate = Gate()) async throws -> LocalChatViewModel {
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    try store.save([session(bytes: bytes)])
+    let chat = LocalChatViewModel(engine: engine, sessionStore: store, sleep: { duration in
+      if duration == LocalChatViewModel.compactionWait { await timeout.wait() } else { try await Task.sleep(for: .seconds(3_600)) }
+    })
+    chat.selectSession(id: store.load()[0].id)
+    await chat.refreshInstalledModel()
+    return chat
+  }
+
+  private func waitUntil(_ condition: @MainActor () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    let deadline = ContinuousClock.now + .seconds(3)
+    while !condition() {
+      guard ContinuousClock.now < deadline else { return XCTFail("Timed out", file: file, line: line) }
+      try await Task.sleep(for: .milliseconds(5))
+    }
+  }
+
+  /// Sends "Now?" and waits for the reply; background compaction (gated) starts if usage is full.
+  private func reply(_ chat: LocalChatViewModel, _ prompt: String = "Now?") async throws {
+    let count = chat.messages.count
+    chat.submit(prompt)
+    try await waitUntil { !chat.isBusy && chat.messages.count == count + 2 }
+  }
+
+  func testCompactionStartsAfterReplyAtNinetyPercent() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    XCTAssertGreaterThanOrEqual(chat.contextUsage?.fraction ?? 0, 0.9)
+    XCTAssertTrue(chat.isCompacting)
+    try await waitUntil { engine.summaryRequests == 1 }
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.isCompacting }
+    XCTAssertEqual(chat.selectedSession?.summary?.text, GatedEngine.summary)
+  }
+
+  func testNoCompactionBelowNinetyPercent() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine, bytes: 460)
+    try await reply(chat)
+    let fraction = try XCTUnwrap(chat.contextUsage?.fraction)
+    XCTAssertLessThan(fraction, 0.9)
+    XCTAssertGreaterThan(fraction, 0.89)
+    XCTAssertFalse(chat.isCompacting)
+    XCTAssertEqual(engine.summaryRequests, 0)
+  }
+
+  func testNoCompactionAfterStopOrError() async throws {
+    let failing = GatedEngine(replyFails: true)
+    let failed = try await chat(failing)
+    failed.submit("Now?")
+    try await waitUntil { !failed.isBusy }
+    XCTAssertFalse(failed.isCompacting)
+
+    let stopped = GatedEngine(replyWaits: true)
+    let chat = try await chat(stopped)
+    chat.submit("Now?")
+    try await waitUntil { stopped.replies == 1 }
+    await chat.stopStreaming()?.value
+    XCTAssertFalse(chat.isCompacting)
+    XCTAssertEqual(failing.summaryRequests + stopped.summaryRequests, 0)
+  }
+
+  func testOneCompactionPerChat() async throws {
+    let engine = GatedEngine()
+    let timeout = Gate()
+    let chat = try await chat(engine, timeout: timeout)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    // The next send times out and cancels the run; only then can its reply, still at 90%, start another.
+    chat.submit("Again?")
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    XCTAssertEqual(engine.summaryRequests, 1, "The send doesn't summarize alongside the running one")
+    await timeout.open()
+    try await waitUntil { !chat.isBusy && chat.messages.count == 10 }
+    try await waitUntil { engine.summaryRequests == 2 }
+    XCTAssertTrue(chat.isCompacting)
+  }
+
+  func testASecondTriggerWhileOneRunsIsIgnored() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    // Another request finishing meanwhile, as a File Mode reply that doesn't wait.
+    chat.compactInBackground(route: Self.route)
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.summaryRequests, 1)
+  }
+
+  func testCompactCommandDuringARunReportsItsSummary() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    let command = Task { await chat.compactNow(route: Self.route) }
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    await engine.summaryGate.open()
+    await command.value
+    XCTAssertEqual(chat.selectedSession?.summary?.text, GatedEngine.summary)
+    XCTAssertNil(chat.contextNotice, "The run's summary counts")
+  }
+
+  private static let route = Route(mode: .local, providerID: "local", modelID: "gated", usesNetwork: false)
+
+  func testCompactionResultForAnotherChatIsDiscarded() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    let first = try XCTUnwrap(chat.selectedSessionID)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    chat.newChat()
+    chat.startTemporaryChat(context: nil)
+    await engine.summaryGate.open()
+    try await waitUntil { chat.sessions.first { $0.id == first }?.summary != nil }
+    XCTAssertNil(chat.selectedSession?.summary, "The other chat gets nothing")
+    XCTAssertNil(chat.contextUsage)
+  }
+
+  func testCompactionResultAfterEditIsDiscarded() async throws {
+    // A temporary chat that is left is gone, so its result has no prefix to apply to.
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    chat.startTemporaryChat(context: nil)
+    for turn in 0..<3 {
+      try await reply(chat, "Q\(turn)" + String(repeating: "q", count: 940))
+    }
+    try await waitUntil { engine.summaryRequests == 1 }
+    let temporary = try XCTUnwrap(chat.selectedSessionID)
+    chat.newChat()
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.sessions.contains { $0.id == temporary } }
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertTrue(chat.sessions.allSatisfy { $0.summary == nil })
+  }
+
+  func testTemporaryChatCompactsInMemory() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    chat.startTemporaryChat(context: nil)
+    for turn in 0..<3 {
+      try await reply(chat, "Q\(turn)" + String(repeating: "q", count: 940))
+    }
+    try await waitUntil { engine.summaryRequests == 1 }
+    await engine.summaryGate.open()
+    try await waitUntil { chat.selectedSession?.summary != nil }
+    let saved = ChatSessionStore(applicationSupportDirectory: root).load()
+    XCTAssertFalse(saved.contains { $0.id == chat.selectedSessionID })
+    XCTAssertTrue(saved.allSatisfy { $0.summary == nil })
+  }
+
+  func testUsageDropsAfterCompaction() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.isCompacting }
+    XCTAssertLessThan(chat.contextUsage?.fraction ?? 1, 0.5)
+  }
+
+  func testSendWaitsForRunningCompactionWithStatus() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    chat.submit("Next?")
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    XCTAssertEqual(chat.activity?.phase.label, "Summarizing earlier messages…")
+    XCTAssertEqual(engine.replies, 1, "The send waits")
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.isBusy && chat.messages.count == 10 }
+    let request = try XCTUnwrap(engine.requests.last)
+    XCTAssertTrue(request.messages[0].content.hasPrefix(ChatCompactor.summaryPrefix + "\n\n" + GatedEngine.summary))
+    XCTAssertNil(chat.contextNotice, "Summarized, not dropped")
+    XCTAssertEqual(chat.selectedSession?.summary?.text, GatedEngine.summary)
+  }
+
+  func testSendAfterTimeoutDropsTurns() async throws {
+    let engine = GatedEngine()
+    let timeout = Gate()
+    let chat = try await chat(engine, timeout: timeout)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    chat.submit("Next?" + String(repeating: "n", count: 400))
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    await timeout.open()
+    try await waitUntil { !chat.isBusy && chat.messages.count == 10 }
+    XCTAssertEqual(engine.summaryRequests, 1, "No second summary after the timeout")
+    XCTAssertNil(chat.selectedSession?.summary)
+    XCTAssertNotNil(chat.contextNotice, "Turns were dropped")
+    XCTAssertFalse(chat.isCompacting)
+  }
+
+  func testSendAfterFailedCompactionDropsTurns() async throws {
+    let engine = GatedEngine(summaryFails: true)
+    let chat = try await chat(engine)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    chat.submit("Next?" + String(repeating: "n", count: 400))
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.isBusy && chat.messages.count == 10 }
+    XCTAssertEqual(engine.summaryRequests, 1)
+    XCTAssertNil(chat.selectedSession?.summary)
+    XCTAssertNotNil(chat.contextNotice)
+  }
+
+  func testStopWhileWaitingForCompactionCancelsBoth() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine)
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    chat.submit("Next?")
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    await chat.stopStreaming()?.value
+    try await waitUntil { !chat.isCompacting }
+    await engine.summaryGate.open()
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertNil(chat.selectedSession?.summary, "Nothing half-written is kept")
+    XCTAssertNil(ChatSessionStore(applicationSupportDirectory: root).load().first?.summary)
+    XCTAssertEqual(engine.replies, 1)
+  }
+
+  func testSendWithoutCompactionDoesNotWait() async throws {
+    let engine = GatedEngine()
+    let chat = try await chat(engine, bytes: 100)
+    try await reply(chat)
+    XCTAssertFalse(chat.isCompacting)
+    try await reply(chat, "Next?")
+    XCTAssertEqual(engine.summaryRequests, 0)
+    XCTAssertEqual(engine.replies, 2)
+  }
+}
+
+/// Opens once; waiters before and after pass.
+private actor Gate {
+  private var isOpen = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  func wait() async {
+    if isOpen { return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+  func open() {
+    isOpen = true
+    waiters.forEach { $0.resume() }
+    waiters = []
+  }
+}
+
+/// Summaries wait for `summaryGate`; replies answer at once unless told to wait or fail.
+private final class GatedEngine: LocalModelEngine, @unchecked Sendable {
+  static let summary = "Gated notes."
+  let model = LocalModel(id: "gated", displayName: "Gated", fileURL: URL(fileURLWithPath: "/tmp/gated.gguf"))
+  let summaryGate = Gate()
+  private let replyGate = Gate()
+  private let summaryFails: Bool, replyFails: Bool, replyWaits: Bool
+  private let lock = NSLock()
+  private var recorded: [LocalModelRequest] = []
+  var requests: [LocalModelRequest] { lock.withLock { recorded } }
+  var summaryRequests: Int { requests.filter(Self.summarizes).count }
+  var replies: Int { requests.count - summaryRequests }
+
+  init(summaryFails: Bool = false, replyFails: Bool = false, replyWaits: Bool = false) {
+    (self.summaryFails, self.replyFails, self.replyWaits) = (summaryFails, replyFails, replyWaits)
+  }
+
+  private static func summarizes(_ request: LocalModelRequest) -> Bool {
+    request.messages.last?.content.hasPrefix(ChatCompactor.instruction) == true
+  }
+
+  func install(_ model: LocalModel) async throws {}
+  func installedModel() async -> LocalModel? { model }
+  func installedModels() async -> [LocalModel] { [model] }
+  func selectModel(id: String) async throws {}
+  func download(_ model: LocalModelDescriptor,
+                progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
+    throw LocalInferenceError.noModelInstalled
+  }
+  func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
+    lock.withLock { recorded.append(request) }
+    let summarizes = Self.summarizes(request)
+    let (gate, fails, waits) = summarizes ? (summaryGate, summaryFails, true) : (replyGate, replyFails, replyWaits)
+    return AsyncThrowingStream { continuation in
+      let task = Task {
+        if waits { await gate.wait() }
+        if Task.isCancelled { return continuation.finish(throwing: CancellationError()) }
+        if fails { return continuation.finish(throwing: LocalInferenceError.bridgeFailure("failed")) }
+        continuation.yield(summarizes ? Self.summary : "Reply.")
+        continuation.finish()
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+  func unload() async {}
+}

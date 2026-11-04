@@ -674,6 +674,17 @@ request (see [Slash-Commands.md](Slash-Commands.md)). `LocalChatViewModel.contex
 holds the selected chat's `ContextUsage` after each preparation, for the context
 ring (CP5).
 
+**In the background.** After a reply finishes normally (not on Stop or an
+error), a chat at 90% or more of its input budget is summarized right away, on
+the route that answered, so the next send needn't wait. One compaction runs per
+chat at a time. Its summary is kept only if the chat still exists and still
+starts with the messages it summarized; otherwise it's discarded silently. A
+send made while it runs waits for it with "Summarizing earlier messages…", for
+up to 30 seconds; Stop cancels both. If it fails or times out (it's cancelled
+then), that request drops turns as before instead of summarizing again. The log
+records its start, finish, failure and timeout with durations and token counts
+only.
+
 ## Limitations
 
 - History is best effort. There are no backups or retries, a failed save shows no
