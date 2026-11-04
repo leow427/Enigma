@@ -774,6 +774,10 @@ final class EnigmaConversationTests: XCTestCase {
     try await waitForUI("the composer", in: host.view) { composerEditor(in: host.view)?.isEditable == true }
     let context = ConversationContext(sourceName: "Mail", text: "send report now")
     fixture.chat.startTemporaryChat(context: context)
+    try await waitForUI("the selection chat's tag", in: host.view) {
+      host.shows("Window tag \(CompactPanelHints.temporaryTag)")
+    }
+    XCTAssertFalse(host.shows("Remove selected text"), "The window has no selected-text card, even before sending")
     fixture.chat.submit("/edit Make it formal")
     try await waitForUI("the reply's stream", in: host.view) { fixture.engine.requestCount == 1 }
     fixture.engine.send("Here it is, more formal.\n" + SelectionRevisionResponse.opening

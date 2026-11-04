@@ -1157,9 +1157,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
   }
 
   /// A first reply that fails, or is stopped before any text, leaves the
-  /// selection attached: its card stays in the window, and the next question
-  /// carries it with the first-message instructions. Once sent, the card gives
-  /// way to the selection's bubble (B22).
+  /// selection attached, and the next question carries it with the
+  /// first-message instructions. The window never shows its card, only the
+  /// selection's bubble (B22).
   @MainActor
   func testSelectionStaysAttachedWhenTheFirstReplyFailsOrIsStopped() async throws {
     for stops in [false, true] {
@@ -1170,8 +1170,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
       try await host.send("Explain this passage", fixture)
       if stops { fixture.chat.stopStreaming() } else { fixture.engine.finish(throwing: LocalInferenceError.invalidModelFile) }
       try await waitForUI("the first reply ended without text", in: host.view) {
-        fixture.chat.activeRequest == nil && host.shows("Remove selected text")
+        fixture.chat.activeRequest == nil && host.shows("Sent selection")
       }
+      XCTAssertFalse(host.shows("Remove selected text"))
       XCTAssertTrue(fixture.chat.sentContextIDs.isEmpty)
       try await host.send("Explain it again", fixture, fromPanel: false)
       let current = try XCTUnwrap(fixture.engine.lastRequest?.messages.last)

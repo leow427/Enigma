@@ -85,8 +85,8 @@ between Spaces or offer window tiling.
 ### Asking about the selection
 
 The selection goes with your **first message only**. In the window it shows as
-its own bubble directly above that message's bubble (a card over the composer
-shows it only until it's sent), and new questions are ordinary turns: the
+its own bubble directly above that message's bubble (there's no card over the
+window's composer), and new questions are ordinary turns: the
 selection stays part of the conversation the model sees on every route, but it
 isn't attached again. It's never written to disk, so a saved chat reopened after
 Enigma quits no longer has it. If the first
@@ -118,7 +118,7 @@ A question about the selection gets an ordinary answer. Typing **/edit** or
 **/edit** and **/search** together, the model searches first and then proposes.
 
 **Removing** the selection (the **×** on the panel's line or its selected-text
-card) drops any edited draft from later requests and turns off **Replace text**,
+card; the window has no ×) drops any edited draft from later requests and turns off **Replace text**,
 **/edit** and **/translate** on it for this chat. The selection itself stays in
 the earlier turn it went with, so the model still knows what the chat was about.
 
