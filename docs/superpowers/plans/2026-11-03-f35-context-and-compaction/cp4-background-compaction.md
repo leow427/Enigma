@@ -131,9 +131,15 @@ made while it runs waits for it with `Summarizing earlier messages…`; after
      call at a time like the real actor: the same-chat send shows the status, a
      new chat's send isn't held, the idle unload waits for the run, and a reply
      that applies a model pick starts no run. Each was mutation-checked.
+   - **Edited existing test:** `SelectionContextTests.testAutoAndScreenTextRoutesRequireEditOnEachRequest`
+     counts the fixture's replies (`replyCount`, new), not every request: its
+     4K fixture reaches 90% after a reply, so a background summary also runs.
 4. **Verification:** `BackgroundCompactionTests`, `ChatCompactionTests`,
    `ChatCompactionSendTests`, `LocalInferenceTests`: 74 tests, 0 failures after
-   both review rounds; every review-fix test was mutation-checked. `EnigmaMainWindowTests`,
+   both review rounds; every review-fix test was mutation-checked. Full suite
+   (with CP5's uncommitted ring): 2,351 tests, 46 skipped, 8 failures: the two
+   `AppCommandTests` window-layout tests that fail on this Mac on main too, and
+   the selection test above, fixed after. `EnigmaMainWindowTests`,
    `EnigmaConversationTests`, `NativeToolRequestTests`, `LocalInferenceTests`,
    `CloudModeTests`: 244 tests, 2 skipped, 0 failures.
 5. **Limitations:**
