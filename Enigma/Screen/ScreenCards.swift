@@ -3,8 +3,8 @@ import SwiftUI
 // Screen cards: the attached screenshot over the composer, the upload consent
 // sheet, and the uploads-off and error cards. They carry hosted-test markers.
 
-/// A screenshot waiting to be sent: a preview, what it captured, and Retake
-/// and Remove.
+/// A screenshot or attached image waiting to be sent: a preview, what it
+/// captured, and Retake (screenshots only) and Remove.
 struct ScreenAttachmentCard: View {
   @Environment(\.screenControlMarker) private var controlMarker
   @Environment(\.enigmaPalette) private var palette
@@ -21,7 +21,7 @@ struct ScreenAttachmentCard: View {
         .background(palette.background.color, in: shape)
         .clipShape(shape)
         .enigmaEdge(shape)
-        .accessibilityLabel("Captured \(attachment.source.captureScope)")
+        .accessibilityLabel(isAttachedImage ? "Attached image" : "Captured \(attachment.source.captureScope)")
       VStack(alignment: .leading, spacing: 3) {
         Text(attachment.source.label)
           .font(EnigmaTypography.ui(12.5, weight: .medium))
@@ -31,19 +31,23 @@ struct ScreenAttachmentCard: View {
           .foregroundStyle(palette.textSecondary.color)
       }
       Spacer(minLength: 0)
-      Button("Retake", action: retake)
-        .enigmaButtonStyle(.secondary)
-        .disabled(isBusy)
-        .accessibilityLabel("Retake screenshot")
-        .background { controlMarker?("Retake") }
+      if !isAttachedImage {
+        Button("Retake", action: retake)
+          .enigmaButtonStyle(.secondary)
+          .disabled(isBusy)
+          .accessibilityLabel("Retake screenshot")
+          .background { controlMarker?("Retake") }
+      }
       Button("Remove", action: remove)
         .enigmaButtonStyle(.secondary)
         .disabled(isBusy)
-        .accessibilityLabel("Remove screenshot")
+        .accessibilityLabel(isAttachedImage ? "Remove image" : "Remove screenshot")
         .background { controlMarker?("Remove") }
     }
     .enigmaCard(padding: 10)
   }
+
+  private var isAttachedImage: Bool { attachment.source == .attachedImage }
 }
 
 /// The question before a screenshot is first uploaded, as in

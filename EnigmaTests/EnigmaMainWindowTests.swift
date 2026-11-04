@@ -536,6 +536,26 @@ final class EnigmaMainWindowTests: XCTestCase {
     }
   }
 
+  /// Update available (F33) shows only while an update waits, beside the sidebar too, and does what
+  /// the menu bar's item does.
+  @MainActor
+  func testUpdateAvailableShowsOnlyWithAPendingUpdateAndPerformsIt() async throws {
+    let fixture = try await Fixture(test: self)
+    fixture.start.showsSidebar = true
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    try await waitForUI("the composer", in: host.view) { composerAcceptsClicks(in: host.view) }
+    XCTAssertFalse(host.shows("Update available"))
+
+    fixture.updater.backendUpdateAvailable(version: "0.10.1")
+    try await waitForUI("Update available beside the sidebar", in: host.view) { host.shows("Update available") }
+    try await clickTestControl("Update available", in: host.view)
+    XCTAssertEqual(fixture.updaterBackend.checkCount, 1, "Hands the update back to Sparkle, as the menu item does")
+
+    fixture.updater.backendSessionEnded()
+    try await waitForUI("Update available gone", in: host.view) { !host.shows("Update available") }
+    host.window.orderOut(nil)
+  }
+
   @MainActor
   func testUnderReduceMotionOpeningWhatsNewMovesTheComposerAtOnce() async throws {
     let size = CGSize(width: 1000, height: 660)
@@ -1934,6 +1954,12 @@ final class EnigmaMainWindowTests: XCTestCase {
         EnigmaTopBar(sidebarActions: actions, whatsNew: (label: "What's new", open: {}))
       }
     }
+    try EnigmaSnapshot.save("top-bar-update-available", size: CGSize(width: 480, height: EnigmaTopBar.height * 2)) {
+      VStack(spacing: 0) {
+        EnigmaTopBar(sidebarActions: nil, whatsNew: nil, update: {})
+        EnigmaTopBar(sidebarActions: actions, whatsNew: (label: "What's new", open: {}), update: {})
+      }
+    }
   }
 
   private struct CharacterSample {
@@ -2048,6 +2074,8 @@ extension EnigmaMainWindowTests {
     var animates = false
     /// What's new?, never showing unless a test gives it notes.
     var whatsNew = WhatsNew(version: "", build: "", notes: [], defaults: nil)
+    let updaterBackend = FakeUpdaterBackend()
+    lazy var updater = AppUpdater(backend: updaterBackend)
     /// Text that Replace text would have pasted into another app.
     let pastes = MainWindowTestPastes()
     /// Where Replace text would paste, never the Mac's real selection: none
@@ -2124,7 +2152,7 @@ extension EnigmaMainWindowTests {
     func shell() -> some View {
       AppShellView(cloudSettings: cloud,
         localChat: chat, screen: screen, modelAdvisor: advisor, searchSettings: search, startPreferences: start,
-        welcomeSetup: setup, whatsNew: whatsNew, appearance: appearance, character: character,
+        welcomeSetup: setup, whatsNew: whatsNew, updater: updater, appearance: appearance, character: character,
         selectionAccess: selectionAccess, selectionContext: selectionContext)
         .environment(\.enigmaTestMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
         .enigmaTestReduceMotion(reduceMotion)

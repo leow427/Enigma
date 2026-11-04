@@ -55,6 +55,7 @@ struct FileAttachmentCard: View {
                : "Notes and text files can be edited locally. Protected edits use Codex when available, with your permission.")
         }
       }
+      if let notice = files.notice { note(notice) }
       if let notice = files.protectedWrite {
         EnigmaStatusLine(.problem, notice.message)
         if case .cloudRequired = notice {

@@ -265,6 +265,16 @@ model gets it. See [Messages](Messages.md#permission-cards).
 
 - **Recents** lists your chats, newest activity first. A chat is titled with the
   first 48 characters of its first message ("New Chat" until then).
+- **Short titles.** Once a chat's first reply finishes (a failed or stopped
+  first try doesn't count), the chat's own model
+  writes a short title for it (about 2–6 words, such as "Weekend trip to
+  Lisbon"), which replaces the 48-character one. It uses the same model and
+  provider as the chat, and sends only the question that reply answered and
+  the start of the reply. It runs after the reply, so it never delays your next message;
+  sending one first cancels it. A chat is titled once. If the call fails, is
+  cancelled, or the model's answer isn't 1–8 words and at most 48 characters,
+  the first-message title stays. Temporary chats aren't titled, unless one
+  moves to the window as an ordinary chat.
 - Enigma keeps the **10 most recently active chats**. Older chats are dropped
   for good. A chat with no messages is never saved or counted.
 - **New chats.** Launch and **New chat** both open the empty chat page with no
@@ -537,6 +547,34 @@ becoming inactive flush pending changes. A temporary chat is filtered out of
 every snapshot. While a reply is regenerated, the chat is saved as it was
 until the new reply's first token (`PendingResend.saved`).
 
+Short titles (F38): `finishGeneration` calls `titleInBackground` after a
+successful reply, when it's the chat's first finished reply (earlier replies
+whose activity ended `.cancelled` or `.failed` don't count, with or without
+text) and its title is still `ChatSession.title(for:)` of the first question. The call reuses F35's
+`compactionSteps` for the reply's route, with a one-message request built by
+`titleRequest(question:reply:)` (the first 1,000 characters of the question,
+300 of the reply). On the embedded engine it has a 24-token cap and
+temperature 0. A model on the local server (vision, or native tools) gets it
+as a streamed step with no tools (`streamTools`), whose stop keeps the server
+loaded. When it ends, it clears `lastWarmUp` and, unless a request is running,
+warms the chat's next-turn prefix again (`warmNativeTurn`), as the title took
+the server's one prompt cache. A cloud route sends it through the provider's `textStream` with
+the provider's own output limit and temperature. On every route the text is
+read only until it's past 200 characters. No title starts while a message is
+queued, or, on a local model, while a local background summary runs: both
+would use the local server. The question sent is the one the first reply
+with text answered. `ChatSession.generatedTitle(from:)`
+cleans the output (a `<think>` block, quotes, a "Title:" label and trailing
+punctuation removed; 1–8 words, at most 48 characters, or nothing), and
+`applyGeneratedTitle` replaces only the first-question title. `beginGeneration`
+cancels a title still running, and a local send's `waitBeforeEngine` waits for
+it to let go of the engine; a model switch cancels it too, and idle unload
+waits for it. A temporary chat's first exchange is remembered, in memory, and
+titled only if `openTemporaryChatInWindow` makes it an ordinary chat. The
+title call follows the chat's Messages-text rule (`messageTextMayGo`) and is
+skipped during the tour. In the test host it's off unless a test passes
+`writesTitles: true`.
+
 `LocalChatViewModel` starts with no selected chat; `ensureSelectedSession()`
 creates one, at the top, when sending or a file attachment needs it, without
 writing it. `isUnsaved` covers every chat with no messages as well as the
@@ -783,7 +821,11 @@ only.
   lines, the palette colours, and the streaming cache matching a fresh
   highlight and reading only new lines.
 - `EnigmaTests/ChatPersistenceTests.swift`: retention, archive loading, excluded
-  fields, and `ChatSessionWriter` coalescing and write ordering.
+  fields, and `ChatSessionWriter` coalescing and write ordering;
+  (`ChatTitleTests`) the first-question placeholder, a model title replacing
+  only it and only once, the clean-up of model output, the title after the
+  first reply (saved, never retitled), the fallback on failure or unusable
+  output, a new send cancelling it, and temporary chats.
 - `EnigmaTests/RequestLifecycleTests.swift`: request ownership, Stop,
   replacement, draft preservation, partial output, and saves during streaming;
   the message queue draining in order, holding on failure and Stop, returning

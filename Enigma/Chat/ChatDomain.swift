@@ -172,4 +172,37 @@ struct ChatSession: Codable, Sendable, Equatable, Identifiable {
     guard !trimmed.isEmpty else { return "New Chat" }
     return String(trimmed.prefix(48))
   }
+
+  /// The model's title (F38) replaces the first-question title, and only that one: once replaced,
+  /// or renamed, the chat isn't retitled. False when nothing changed.
+  @discardableResult
+  mutating func applyGeneratedTitle(_ generated: String) -> Bool {
+    guard let question = messages.first(where: { $0.role == .user }),
+          title == Self.title(for: question.content), generated != title else { return false }
+    title = generated
+    return true
+  }
+
+  /// A model's reply cleaned into a title (F38): its first line without quotes, a "Title:" label or
+  /// trailing punctuation; nil unless 1–8 words and at most 48 characters.
+  static func generatedTitle(from reply: String) -> String? {
+    let reply = SearchQueryRewrite.stripThinking(reply)
+    // A reasoning model cut off mid-thought has no title.
+    let lines = reply.split(whereSeparator: \.isNewline)
+      .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    // "Here's a title:" introduces the title on the next line.
+    guard !reply.contains("<think>"), var line = lines.first.map({ $0.hasSuffix(":") && lines.count > 1 ? lines[1] : $0 })
+    else { return nil }
+    let wrapping = CharacterSet(charactersIn: "\"'`*_“”‘’«» ")
+    line = line.trimmingCharacters(in: wrapping)
+    // A Markdown heading's marks, but not C#'s.
+    while line.hasPrefix("#") { line.removeFirst() }
+    line = line.trimmingCharacters(in: wrapping)
+    if line.lowercased().hasPrefix("title:") { line = String(line.dropFirst(6)) }
+    line = line.trimmingCharacters(in: wrapping.union(CharacterSet(charactersIn: ".!?,;:…")))
+    let words = line.split(whereSeparator: \.isWhitespace)
+    let cleaned = words.joined(separator: " ")
+    guard (1...8).contains(words.count), cleaned.count <= 48 else { return nil }
+    return cleaned
+  }
 }

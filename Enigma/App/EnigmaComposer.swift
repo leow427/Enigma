@@ -45,6 +45,7 @@ struct EnigmaComposer: View {
   @Environment(\.enigmaPalette) private var palette
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.displayScale) private var displayScale
+  @Environment(\.composerDropTargeted) private var isDropTargeted
   /// The box's frame in the menu host's space, so the menu opens 8 pt clear of it.
   @State private var boxFrame: CGRect?
 
@@ -86,9 +87,10 @@ struct EnigmaComposer: View {
     .accessibilityLabel("Message composer")
   }
 
-  /// The edge picks up the accent while the field has focus, as in the mockup.
+  /// The edge picks up the accent while the field has focus, as in the mockup,
+  /// and while files or an image are dragged over the window (F4).
   private var edgeColor: EnigmaColor {
-    if isFocused && isEnabled { return palette.accent.withOpacity(0.5) }
+    if (isFocused && isEnabled) || isDropTargeted { return palette.accent.withOpacity(0.5) }
     return EnigmaEdge.border.color(in: palette, increasedContrast: contrast == .increased)
   }
 

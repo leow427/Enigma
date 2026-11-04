@@ -31,7 +31,7 @@ final class ScreenSettings: ObservableObject {
     allowCloudScreenshots = allow
   }
 
-  static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Cloud. Local mode keeps images on this Mac."
+  static let savedPermissionExplanation = "This saves permission for future region and full-desktop screenshots, including all displays, and attached images to whichever cloud provider you select in Auto or Cloud. Turn it off in Settings → Cloud. Local mode keeps images on this Mac."
   static let ocrExplanation = "OCR reads text on this Mac. In Auto or Cloud, extracted text may go to your text model without uploading an image."
   static let modelPickerNote = "The normal model picker selects the model for text and images. Install a recommended package in Settings → On this Mac for private visual analysis."
 }
@@ -44,10 +44,16 @@ struct ScreenUploadConsent: Identifiable {
   /// False when the request came straight from a typed capture, which runs only typed commands.
   var recognizesCommands = true
   var title: String {
-    "Send \(attachment.source == .fullDesktop ? "full desktop" : "selected region") to \(provider.recipientName)?"
+    let name = switch attachment.source {
+    case .fullDesktop: "full desktop"
+    case .screenRegion: "selected region"
+    case .attachedImage: "attached image"
+    }
+    return "Send \(name) to \(provider.recipientName)?"
   }
   var explanation: String {
-    "This image captures \(attachment.source.captureScope). It will be sent to \(provider.recipientName) for image analysis, under that provider’s data policies."
+    let sent = "will be sent to \(provider.recipientName) for image analysis, under that provider’s data policies."
+    return (attachment.source == .attachedImage ? "This image \(sent)" : "This image captures \(attachment.source.captureScope). It \(sent)")
       + (provider == .free ? " On Google's free tier, prompts may be used to improve Google's products." : "")
   }
 }
