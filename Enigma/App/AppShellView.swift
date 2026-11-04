@@ -8,6 +8,7 @@ struct AppShellView: View {
   /// The hands-on tour in the main window.
   @ObservedObject private var guidedTour = GuidedTour.shared
   @ObservedObject private var whatsNew: WhatsNew
+  @ObservedObject private var updater: AppUpdater
   /// System, Paper, or Ink.
   @ObservedObject private var appearance: EnigmaAppearancePreference
   /// The window's character: on the welcome, then on the main page. Owned
@@ -64,6 +65,7 @@ struct AppShellView: View {
     startPreferences: StartPreferences = .shared,
     welcomeSetup: WelcomeSetup = .shared,
     whatsNew: WhatsNew = .shared,
+    updater: AppUpdater = .shared,
     appearance: EnigmaAppearancePreference = .shared,
     character: EnigmaCharacterController? = nil,
     selectionAccess: SelectionAccessibilityAccess = .shared,
@@ -77,6 +79,7 @@ struct AppShellView: View {
     self.screenSettings = screenSettings
     self.welcomeSetup = welcomeSetup
     self.whatsNew = whatsNew
+    self.updater = updater
     self.appearance = appearance
     self.startPreferences = startPreferences
     _shell = State(initialValue: ShellPresentation(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar))
@@ -590,7 +593,8 @@ struct AppShellView: View {
   /// The top bar shows with the sidebar hidden or What's new? waiting, and also when the chat
   /// column is too wide for Report a bug to float clear of it.
   private func showsTopBar(mainWidth: CGFloat) -> Bool {
-    EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton)
+    EnigmaTopBar.isShown(isSidebarVisible: shell.isSidebarVisible, hasWhatsNew: whatsNew.showsButton,
+                         hasUpdate: updater.pendingUpdate != nil)
       || !ReportBugButton.floatsClear(ofChatIn: mainWidth)
   }
 
@@ -653,6 +657,7 @@ struct AppShellView: View {
     let reportBug: (() -> Void)? = guidedTour.isActive ? nil : { openBugReport() }
     return EnigmaTopBar(sidebarActions: shell.isSidebarVisible ? nil : sidebarActions,
                         whatsNew: whatsNew.showsButton ? (label: whatsNew.accessibilityLabel, open: openWhatsNew) : nil,
+                        update: updater.pendingUpdate == nil ? nil : { updater.performPendingUpdate() },
                         reportBug: reportBug)
   }
 

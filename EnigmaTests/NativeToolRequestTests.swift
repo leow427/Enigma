@@ -45,6 +45,7 @@ final class NativeToolRequestTests: XCTestCase {
                         braveSearch: (any WebSearchProvider)? = nil,
                         fileCodex: CodexSubscriptionClient = .fileMode,
                         locationProvider: (any LocationProviding)? = nil, sendRunner: RecordingRunner? = nil,
+                        writesTitles: Bool = false,
                         replace: (@MainActor (String) -> Void)? = nil) -> LocalChatViewModel {
     let provider = cloud ?? NativeToolProvider(steps: [])
     let registry = CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider,
@@ -77,7 +78,8 @@ final class NativeToolRequestTests: XCTestCase {
       locationProvider: locationProvider,
       sessionStore: sessionStore ?? ChatSessionStore(applicationSupportDirectory: root),
       nativeToolsEnabled: nativeToolsEnabled,
-      nativeWebSearchProviders: nativeWebSearchProviders)
+      nativeWebSearchProviders: nativeWebSearchProviders,
+      writesTitles: writesTitles)
   }
 
   private func plan(_ draft: String, chat: LocalChatViewModel) -> NativeToolPlan {
@@ -121,6 +123,79 @@ final class NativeToolRequestTests: XCTestCase {
       guard ContinuousClock.now < deadline else { return XCTFail("Timed out waiting for a warm-up") }
       try await Task.sleep(for: .milliseconds(5))
     }
+  }
+
+  // MARK: Chat titles (F38)
+
+  /// On the local server, a title is a streamed step with no tools, never a whole `completeTools` call.
+  func testLocalServerTitleIsAStreamedStepWithNoTools() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Hello there."), .text("Greeting and small talk")])
+    let chat = makeChat(inference: inference, writesTitles: true)
+    await chat.refreshInstalledModel()
+    try await send("Hi there, how are you doing today?", to: chat)
+    try await waitUntil { chat.selectedSession?.title == "Greeting and small talk" }
+    let requests = await inference.requests
+    let title = try XCTUnwrap(requests.last)
+    XCTAssertEqual(title.tools, [])
+    XCTAssertEqual(title.messages.count, 1)
+    XCTAssertTrue(title.messages[0].content?.hasPrefix("Write a title") == true)
+    let completeCalls = await inference.completeCalls
+    XCTAssertEqual(completeCalls, 0, "A stopped streamed step keeps the server; a stopped whole call unloads it")
+    // The title took the server's prompt cache, so the chat's next turn is warmed again without a keystroke.
+    try await waitForWarms(inference, count: 1)
+  }
+
+  /// A send stops a title still on the local server without unloading it, and the next keystroke warms
+  /// the prefix again, as the title took the server's prompt cache.
+  func testSendStopsALocalServerTitleAndTheNextKeystrokeWarmsAgain() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Hello there."), .hang, .text("Fine.")])
+    let chat = makeChat(inference: inference, writesTitles: true)
+    await chat.refreshInstalledModel()
+    try await send("Hi there, how are you doing today?", to: chat)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await inference.requests.count < 2 {
+      guard ContinuousClock.now < deadline else { return XCTFail("Timed out waiting for the title") }
+      try await Task.sleep(for: .milliseconds(5))
+    }
+    XCTAssertTrue(chat.warmNativeTurn(draft: "And you", mode: .local, hasScreenshot: false))
+    try await waitForWarms(inference, count: 1)
+    XCTAssertFalse(chat.warmNativeTurn(draft: "And you", mode: .local, hasScreenshot: false), "Warmed a moment ago")
+    let unloadsBefore = await inference.unloads
+    try await send("And you?", to: chat)
+    XCTAssertEqual(chat.messages.last?.content, "Fine.")
+    XCTAssertEqual(chat.selectedSession?.title, "Hi there, how are you doing today?")
+    let unloads = await inference.unloads
+    XCTAssertEqual(unloads, unloadsBefore)
+    XCTAssertTrue(chat.warmNativeTurn(draft: "And you", mode: .local, hasScreenshot: false))
+  }
+
+  /// A first exchange that fills the budget is summarized on the local server, and not titled
+  /// meanwhile: each would unload the server under the other.
+  func testNoLocalTitleWhileTheFirstExchangeIsCompacting() async throws {
+    let inference = NativeScriptedInference(steps: [.text("Hello there.")])
+    let chat = makeChat(inference: inference, writesTitles: true)
+    await chat.refreshInstalledModel()
+    try await send("Read this. " + String(repeating: "word ", count: 2_616), to: chat)
+    try await Task.sleep(for: .milliseconds(50))
+    let summaries = await inference.completeCalls
+    XCTAssertEqual(summaries, 1, "The first exchange was summarized")
+    let requests = await inference.requests
+    XCTAssertFalse(requests.contains { $0.messages.first?.content?.hasPrefix("Write a title") == true })
+  }
+
+  /// A cloud chat's title goes to its own provider as one plain message.
+  func testCloudTitleGoesToTheChatsOwnProviderAsOneMessage() async throws {
+    let provider = NativeToolProvider(steps: [[.token("From the cloud.")]])
+    provider.plainReply = "Cloud greeting"
+    let inference = NativeScriptedInference()
+    let chat = makeChat(inference: inference, cloud: provider, writesTitles: true)
+    await chat.refreshInstalledModel()
+    try await send("Hi there, how are you doing today?", to: chat, route: Self.cloudRoute)
+    try await waitUntil { chat.selectedSession?.title == "Cloud greeting" }
+    XCTAssertEqual(provider.plainStreams.values.count, 1)
+    XCTAssertTrue(provider.plainStreams.values.first?.hasPrefix("Write a title") == true)
+    let local = await inference.requests
+    XCTAssertTrue(local.isEmpty, "Nothing runs on this Mac's model")
   }
 
   // MARK: Warm-up while typing

@@ -326,6 +326,10 @@ final class LocalChatViewModel: ObservableObject {
     sessions[index].lastActivityAt = .now
     openedSelectionChat = OpenedSelectionChat(id: id, isPrivate: false)
     sortAndPersistSessions()
+    // Its first reply finished while it was temporary, so it's titled now (F38).
+    if let pending = untitledTemporaryChat, pending.id == id, activeRequest == nil {
+      titleInBackground(sessionID: id, route: pending.route)
+    }
   }
 
   // Presentation is immediate; persistence still waits for successful preparation.
@@ -376,6 +380,8 @@ final class LocalChatViewModel: ObservableObject {
   let toolPermissions: ToolPermissionCoordinator
   /// F32's switch for this chat: flagged routes take `submitNative` only while it's on.
   let nativeToolsEnabled: Bool
+  /// F38's model-written titles. Off in the test host unless a test asks, so other tests' stub engines see only their own requests.
+  private let writesTitles: Bool
   private var warmUpTask: Task<Void, Never>?
   /// When the last warm-up started, and the typed commands it read. Other commands change the
   /// prefix, so they warm again at once.
@@ -459,6 +465,7 @@ final class LocalChatViewModel: ObservableObject {
     sleep: @escaping Sleep = { duration in try await Task.sleep(for: duration) },
     nativeToolsEnabled: Bool = NativeTools.isEnabled,
     nativeWebSearchProviders: Set<CloudProviderID> = CloudProviderID.nativeWebSearchProviders,
+    writesTitles: Bool = !TestHost.isActive,
     log: EnigmaLog = .shared
   ) {
     self.log = log
@@ -469,6 +476,7 @@ final class LocalChatViewModel: ObservableObject {
     self.appleMessages = appleMessages ?? MessagesCoordinator()
     self.toolPermissions = toolPermissions ?? ToolPermissionCoordinator(store: .shared)
     self.nativeToolsEnabled = nativeToolsEnabled
+    self.writesTitles = writesTitles
     self.nativeWebSearchProviders = nativeWebSearchProviders
     makeMessagesToolbox = messagesToolbox ?? { confirm in MessagesTools(confirmSend: confirm) }
     self.messagesAccess = messagesAccess ?? { try MessagesDatabase().checkAccess() }
@@ -652,6 +660,7 @@ final class LocalChatViewModel: ObservableObject {
     clearModelFailure()
     // A background run on the old model would hold the engine the switch needs.
     for run in compactions.values where run.isLocal { run.task.cancel() }
+    if titleRun?.isLocal == true { titleRun?.task.cancel() }
     let settled: State = if keepsFailure, case .failed = state { state } else { .idle }
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
@@ -2202,7 +2211,7 @@ final class LocalChatViewModel: ObservableObject {
     // Focus changes and reading an open chat do not extend the model's lifetime.
     // File picking and applying a finished selection also do not use inference.
     // A download doesn't use the engine, so it doesn't keep the model loaded.
-    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, compactions.isEmpty,
+    guard idleUnloadTask == nil, activeRequest == nil, generationTask == nil, compactions.isEmpty, titleRun == nil,
           modelOperation?.blocksChat != true else { return }
     switch state {
     case .idle, .failed: break
@@ -2214,7 +2223,7 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         guard let self else { return }
         self.idleUnloadTask = nil
-        guard self.activeRequest == nil, self.generationTask == nil, self.compactions.isEmpty,
+        guard self.activeRequest == nil, self.generationTask == nil, self.compactions.isEmpty, self.titleRun == nil,
               self.modelOperation?.blocksChat != true else { return }
         // The server manages its own idle timer on its actor, where it can check
         // active inference atomically. A UI timer must not terminate a new request.
@@ -2510,6 +2519,8 @@ final class LocalChatViewModel: ObservableObject {
 
   private func beginGeneration(route: Route, modelDisplayName: String, userMessage: ChatMessage) -> ActiveRequest {
     cancelIdleUnload()
+    // A title still being written gives way to the new message (F38).
+    titleRun?.task.cancel()
     requestLocationContext = nil
     let request = ActiveRequest(id: UUID(), route: route, modelDisplayName: modelDisplayName)
     replyPlaces = [:]
@@ -2668,7 +2679,10 @@ final class LocalChatViewModel: ObservableObject {
     // A model pick waiting for this reply (B21) changes the route, so nothing compacts on the old one.
     let switchesModel = pendingModelID != nil
     applyPendingModelSelection()
-    if error == nil, !Task.isCancelled, !switchesModel, let finishedRoute { compactInBackground(route: finishedRoute) }
+    if error == nil, !Task.isCancelled, !switchesModel, let finishedRoute {
+      compactInBackground(route: finishedRoute)
+      if let sessionID = selectedSessionID { titleInBackground(sessionID: sessionID, route: finishedRoute) }
+    }
   }
 
   // MARK: Compaction (F35)
@@ -2775,7 +2789,10 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   /// How a chat on `route` is counted and summarized.
-  private func compactionSteps(route: Route, localModel: LocalModel?, sessionID: UUID, requestID: UUID) throws -> CompactionSteps {
+  /// `outputTokens` and `temperature` default to a summary's; a title (F38) asks for less.
+  private func compactionSteps(route: Route, localModel: LocalModel?, sessionID: UUID, requestID: UUID,
+                               outputTokens: Int = ChatCompactor.summaryOutputTokens,
+                               temperature: Float = 0.2) throws -> CompactionSteps {
     // A route whose turns have tools is counted with the toolbox its next turn would get, so the
     // usage shown is the next send's; a local one summarizes on the tool runtime, so the model
     // isn't loaded twice.
@@ -2798,14 +2815,14 @@ final class LocalChatViewModel: ObservableObject {
         try await visionEngine.prepare(messages: $0, image: nil, model: model)
       }
       return CompactionSteps(unloadsEngine: true, prepare: prepare, prepareSummary: prepare,
-                             summary: { visionEngine.stream(messages: $0.messages, image: nil, model: model, temperature: 0.2) })
+                             summary: { visionEngine.stream(messages: $0.messages, image: nil, model: model, temperature: temperature) })
     } else if localModel != nil {
       return CompactionSteps(
         unloadsEngine: false,
         prepare: { try await engine.prepare(LocalModelRequest(messages: $0)) },
-        prepareSummary: { try await engine.prepare(LocalModelRequest(messages: $0, maximumTokenCount: ChatCompactor.summaryOutputTokens)) },
-        summary: { engine.stream(LocalModelRequest(messages: $0.messages, maximumTokenCount: ChatCompactor.summaryOutputTokens,
-                                                   temperature: 0.2)) })
+        prepareSummary: { try await engine.prepare(LocalModelRequest(messages: $0, maximumTokenCount: outputTokens)) },
+        summary: { engine.stream(LocalModelRequest(messages: $0.messages, maximumTokenCount: outputTokens,
+                                                   temperature: temperature)) })
     }
     guard let providerID = CloudProviderID(rawValue: route.providerID) else { throw CloudProviderError.invalidResponse }
     let provider = cloudProviders.provider(for: providerID)
@@ -2889,6 +2906,8 @@ final class LocalChatViewModel: ObservableObject {
   private func waitBeforeEngine(_ sessionID: UUID?, requestID: UUID) async {
     // Another chat's run gives way: that chat compacts on its own next send instead.
     await cancelLocalCompactions(except: sessionID)
+    // A cancelled title call lets go of the engine first (F38).
+    if let run = titleRun, run.isLocal { await run.task.value }
     guard let sessionID, let waited = await waitForCompaction(of: sessionID, requestID: requestID) else { return }
     if !waited { skipsSummary.insert(requestID) }
   }
@@ -2955,6 +2974,130 @@ final class LocalChatViewModel: ObservableObject {
   private func show(_ prepared: PreparedConversation) {
     contextNotice = prepared.notice
     contextUsage = prepared.usage
+  }
+
+  // MARK: Chat titles (F38)
+
+  private struct TitleRun {
+    let id = UUID()
+    /// Runs on this Mac's model, so a send waits for it to let go of the engine once cancelled.
+    let isLocal: Bool
+    /// On the local server, whose one prompt cache the title takes from the chat.
+    let onServer: Bool
+    let task: Task<Void, Never>
+  }
+
+  /// At most one: only a chat's first reply is titled, and a new send cancels it.
+  private var titleRun: TitleRun?
+  /// A temporary chat's first exchange, titled only if it's opened in the window as an ordinary chat.
+  private var untitledTemporaryChat: (id: UUID, route: Route)?
+  static let titleOutputTokens = 24
+
+  /// The request for a title: the question the first reply answered and its start, nothing else.
+  static func titleRequest(question: String, reply: String) -> String {
+    """
+    Write a title of 2 to 6 words for a chat that starts with the message below. \
+    Reply with the title only: no quotes and no punctuation at the end.
+
+    Message:
+    \(question.prefix(1_000))
+
+    Start of the reply:
+    \(reply.prefix(300))
+    """
+  }
+
+  /// A title's text, read until it's past 200 characters: a usable title is far shorter, and the
+  /// routes that can't cap their output (the local server's, the cloud's) stop there.
+  private static func titleText<Fragments: AsyncSequence>(_ fragments: Fragments) async throws -> String
+  where Fragments.Element == String {
+    var text = ""
+    for try await fragment in fragments {
+      try Task.checkCancellation()
+      text += fragment
+      if text.count > 200 { break }
+    }
+    return text
+  }
+
+  /// After a chat's first reply: its own model, on `route`, writes a short title that replaces
+  /// the first-question one. Any failure keeps that one.
+  private func titleInBackground(sessionID: UUID, route: Route) {
+    // A queued message sends next, and would only cancel it.
+    guard writesTitles, tourReply == nil, messageQueue.isEmpty,
+          let session = sessions.first(where: { $0.id == sessionID }) else { return }
+    // The chat's first finished reply: an earlier one that failed or was stopped, with or without
+    // text, doesn't count. Replies restored after a relaunch carry no activity, so they count.
+    let finished = session.messages.filter {
+      $0.role == .assistant && !$0.content.isEmpty && ![.cancelled, .failed].contains($0.activity?.phase)
+    }
+    guard let reply = session.messages.last, reply.role == .assistant, finished.map(\.id) == [reply.id],
+          let first = session.messages.first(where: { $0.role == .user }),
+          let question = session.messages.last(where: { $0.role == .user }) else { return }
+    // Never saved, so never titled; unless it's opened in the window as an ordinary chat.
+    if isUnsaved(session) {
+      untitledTemporaryChat = (sessionID, route)
+      return
+    }
+    guard session.title == ChatSession.title(for: first.content), messageTextMayGo(to: route) else { return }
+    if untitledTemporaryChat?.id == sessionID { untitledTemporaryChat = nil }
+    let localModel = route.mode == .local ? installedModel : nil
+    if route.mode == .local, localModel == nil { return }
+    // A local summary running now would share the local server, and each would unload it under the other.
+    if localModel != nil, compactions.values.contains(where: \.isLocal) { return }
+    let prompt = ChatMessage(role: .user, content: Self.titleRequest(question: question.content, reply: reply.content))
+    titleRun?.task.cancel()
+    let onServer = localModel != nil
+      && (try? compactionSteps(route: route, localModel: localModel, sessionID: sessionID, requestID: UUID()).unloadsEngine) == true
+    let run = TitleRun(isLocal: localModel != nil, onServer: onServer, task: Task { [weak self] in
+      guard let self else { return }
+      do {
+        let steps = try compactionSteps(route: route, localModel: localModel, sessionID: sessionID, requestID: UUID(),
+                                        outputTokens: Self.titleOutputTokens, temperature: 0)
+        try Task.checkCancellation()
+        let text: String
+        if onServer, let localModel {
+          // The model runs on the local server the chat's turns use. A streamed step, stopped by a
+          // send or once read, keeps that server loaded rather than restarting it.
+          await engine.unload()
+          let events = fileInference.streamTools(messages: [AgentInferenceMessage(role: "user", content: prompt.content)],
+                                                 tools: [], model: localModel, requiredTool: nil)
+          text = try await Self.titleText(events.compactMap { event -> String? in
+            if case .text(let fragment) = event { fragment } else { nil }
+          })
+        } else {
+          let request = try await steps.prepareSummary([prompt])
+          text = try await Self.titleText(steps.summary(request))
+        }
+        try Task.checkCancellation()
+        guard let title = ChatSession.generatedTitle(from: text),
+              let index = sessions.firstIndex(where: { $0.id == sessionID }),
+              sessions[index].applyGeneratedTitle(title) else {
+          log.record("Chat title not used")
+          return
+        }
+        persistSessions()
+        log.record("Chat title written")
+      } catch is CancellationError {
+        log.record("Chat title cancelled")
+      } catch {
+        log.record("Chat title failed")
+      }
+    })
+    titleRun = run
+    cancelIdleUnload()
+    Task { [weak self] in
+      await run.task.value
+      guard let self, titleRun?.id == run.id else { return }
+      titleRun = nil
+      scheduleIdleUnload()
+      // The title took the server's prompt cache: the chat's next turn is read into it again now,
+      // as typing would. Only typed commands shape that prefix; "." stands in for a draft with none.
+      if run.onServer {
+        lastWarmUp = nil
+        if selectedSessionID == sessionID { warmNativeTurn(draft: ".", mode: .local, hasScreenshot: false) }
+      }
+    }
   }
 
   // MARK: Message queue

@@ -21,6 +21,16 @@ a release with one script, `scripts/release.sh`. The design is in
   needs an administrator), the same slot shows **Update to X Available…**,
   which opens Sparkle's update window. That item disappears once the user
   dismisses or skips the update; a downloaded update stays until it installs.
+- **Update available.** While an update waits (either menu item above), the
+  menu bar icon carries a small dot, drawn into its template image so it
+  follows the menu bar's light and dark appearance, and its tooltip and
+  VoiceOver label say "Enigma, update available". In the main window, a quiet
+  **Update available** item (secondary text with a small accent dot) sits at
+  the top right, beside the sidebar too, and does what the menu item does
+  (`AppUpdater.performPendingUpdate`). Both go once the update installs or is
+  dismissed. The compact panel doesn't show it, and nothing else alerts,
+  sounds or notifies beyond what Sparkle shows. `MenuBarController` follows
+  `AppUpdater.pendingUpdate`; `EnigmaTopBar` draws the item.
 - **Gentle reminders.** Sparkle shows a scheduled update alert itself only
   near launch or after the user has been idle. At other times Enigma offers
   the update in the menu instead of interrupting.
@@ -47,6 +57,8 @@ a release with one script, `scripts/release.sh`. The design is in
   `WhatsNew` in `Enigma/App/WhatsNew.swift` holds the logic.
 
 ![What's new? in the top bar, with the sidebar shown (top) and hidden](images/top-bar-whats-new-paper.png)
+
+![Update available in the top bar, with the sidebar shown (top) and hidden beside What's new?](images/top-bar-update-available-paper.png)
 
 ![The What's new sheet with the 0.11.0 notes](images/whats-new-paper.png)
 
