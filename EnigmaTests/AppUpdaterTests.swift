@@ -176,6 +176,33 @@ final class AppUpdaterTests: XCTestCase {
     XCTAssertEqual(fake.checkCount, 1)
   }
 
+  func testStatusIconCarriesABadgeWhileAnUpdateWaits() throws {
+    let (updater, controller, _) = makeMenu(FakeUpdaterBackend())
+    let button = NSButton()
+    controller.followPendingUpdate(on: button)
+    let plain = try XCTUnwrap(button.image?.tiffRepresentation)
+    XCTAssertEqual(button.toolTip, "Enigma")
+    XCTAssertEqual(button.accessibilityLabel(), "Enigma")
+
+    updater.backendUpdateAvailable(version: "0.10.1")
+    let badged = try XCTUnwrap(button.image)
+    XCTAssertTrue(badged.isTemplate, "Still follows the menu bar's light and dark appearance")
+    XCTAssertNotEqual(badged.tiffRepresentation, plain)
+    XCTAssertEqual(button.toolTip, "Enigma, update available")
+    XCTAssertEqual(button.accessibilityLabel(), "Enigma, update available")
+
+    updater.backendSessionEnded()
+    XCTAssertEqual(button.image?.tiffRepresentation, plain)
+    XCTAssertEqual(button.toolTip, "Enigma")
+
+    var installs = 0
+    updater.backendUpdateReady(version: "0.10.1") { installs += 1 }
+    XCTAssertEqual(button.toolTip, "Enigma, update available")
+    updater.performPendingUpdate()
+    XCTAssertEqual(installs, 1)
+    XCTAssertEqual(button.accessibilityLabel(), "Enigma", "The badge goes once the update does")
+  }
+
   func testMenuDropsAnAvailableUpdateWhenTheSessionEnds() throws {
     let (updater, controller, menu) = makeMenu(FakeUpdaterBackend())
     updater.backendUpdateAvailable(version: "0.10.1")

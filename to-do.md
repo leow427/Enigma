@@ -1664,7 +1664,14 @@ model waits for the `com.apple.developer.private-cloud-compute` entitlement
 **Out of scope:** 9router; OpenRouter sign-in (a later item if Apple and
 Gemini aren't enough); paid models in the pool.
 
-### F33. Show "Update available" on the menu bar icon and quietly in the app
+### F33. ✅ Done: Show "Update available" on the menu bar icon and quietly in the app
+
+> **Solved:** while `AppUpdater.pendingUpdate` is set, the menu bar icon
+> carries a dot drawn into its template image, with the tooltip and VoiceOver
+> label "Enigma, update available", and the main window's top bar shows a
+> quiet **Update available** (secondary text, accent dot), beside the sidebar
+> too, that calls `performPendingUpdate`. Main window only (the default); the
+> daily check is unchanged. See `docs/Updates.md` → What users see.
 
 **Today:** Enigma already checks for updates once a day through Sparkle
 (`SUScheduledCheckInterval` 86400 in `Info.plist`). Daily is Sparkle's default
