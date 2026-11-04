@@ -613,7 +613,9 @@ struct WeatherCardModel: Equatable, Sendable {
     let offset = TimeZone(secondsFromGMT: forecast.utcOffsetSeconds) ?? .gmt
     let local = TimeZone(identifier: forecast.timezone) ?? offset
     let parse = WeatherLookup.formatter("yyyy-MM-dd'T'HH:mm", offset)
-    let clock = WeatherLookup.formatter("HH:mm", local)
+    // "4 PM" on the strip, "5:49 PM" for sunset.
+    let clock = WeatherLookup.formatter("h a", local)
+    let sunsetClock = WeatherLookup.formatter("h:mm a", local)
     func element<T>(_ values: [T?]?, _ index: Int) -> T? {
       guard let values, values.indices.contains(index) else { return nil }
       return values[index]
@@ -686,7 +688,7 @@ struct WeatherCardModel: Equatable, Sendable {
       content = .day(high: high, low: low, rainChance: rainChance,
                      amount: snowy ? element(daily.snowfallSum, first) : element(daily.precipitationSum, first),
                      wind: element(daily.windSpeedMax, first),
-                     sunset: element(daily.sunset, first).flatMap(parse.date(from:)).map(clock.string(from:)), hours: hours)
+                     sunset: element(daily.sunset, first).flatMap(parse.date(from:)).map(sunsetClock.string(from:)), hours: hours)
     }
   }
 

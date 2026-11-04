@@ -148,10 +148,13 @@ the details sit on the card's surface, so they follow Paper and Ink.
 - **Today:** now, feels like, high and low, chance of rain and wind, and the
   next 6 hours.
 - **One later day** (tomorrow, Friday): that day's high and low, its chance of
-  rain (or snow, with the amount in cm or inches), wind, sunset, and 06:00 to
-  21:00 in 3-hour steps.
+  rain (or snow, with the amount in cm or inches), wind, sunset, and 6 AM to
+  9 PM in 3-hour steps. Times read with AM and PM ("4 PM", "5:49 PM").
 - **Several days** ("this weekend", "this week"): one column per day, which
   fits 7 days in the compact panel.
+
+The tour's weather stop shows an example card for Chicago tomorrow above its
+example reply (`TourScript.weather`), so the character dresses for it there too.
 
 Capable models pick the days with `get_weather`'s dates; on the wording route
 they come from the question's time words: "tomorrow", "this weekend", "this

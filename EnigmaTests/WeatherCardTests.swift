@@ -63,7 +63,7 @@ final class WeatherCardTests: XCTestCase {
     XCTAssertEqual([temperature, feelsLike, high, low], [63.1, 62.9, 63.7, 52.8])
     XCTAssertEqual(rainChance, 6)
     XCTAssertEqual(wind, 6.0)
-    XCTAssertEqual(hours.map(\.time), ["16:00", "17:00", "18:00", "19:00", "20:00", "21:00"])
+    XCTAssertEqual(hours.map(\.time), ["4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM"])
     XCTAssertEqual(card.speed(wind), "6 mph")
     XCTAssertEqual(card.accessibilityLabel, "Chicago, 63 degrees, overcast, high 64, low 53")
   }
@@ -105,8 +105,8 @@ final class WeatherCardTests: XCTestCase {
     XCTAssertEqual(rainChance, 3)
     XCTAssertEqual(amount, 0)
     XCTAssertEqual(wind, 11.0)
-    XCTAssertEqual(sunset, "17:49")
-    XCTAssertEqual(hours.map(\.time), ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"],
+    XCTAssertEqual(sunset, "5:49 PM")
+    XCTAssertEqual(hours.map(\.time), ["6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"],
                    "The forecast's 168 hours cover tomorrow's strip")
     XCTAssertTrue(card.accessibilityLabel.hasPrefix("Chicago, Tomorrow, Wed 28 Oct, overcast, high 75, low 51"))
   }
@@ -425,6 +425,26 @@ final class WeatherCardTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.weatherCards?.count, 1)
     _ = chat.stopStreaming()
     await engine.release()
+  }
+
+  /// The tour's weather stop shows a card above its example reply, and the character dresses for it.
+  @MainActor
+  func testTheToursWeatherReplyShowsACard() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: "WeatherTour-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let chat = LocalChatViewModel(
+      engine: LlamaCPPModelEngine(installationStore: LocalModelInstallationStore(modelsDirectory: root.appending(path: "models"))),
+      sessionStore: ChatSessionStore(applicationSupportDirectory: root), nativeToolsEnabled: false)
+    var script = TourScript.weather
+    script.phaseDuration = 1
+    let card = try XCTUnwrap(script.weatherCard)
+    XCTAssertTrue(card.caption.hasPrefix("Tomorrow · "))
+    await withCheckedContinuation { done in
+      chat.playTourExchange(TourDemo(prompt: "will it rain in Chicago tomorrow?", script: script), onFinish: { done.resume() })
+    }
+    let reply = try XCTUnwrap(chat.messages.last)
+    XCTAssertEqual(reply.weatherCards, [card])
+    XCTAssertEqual(ConversationTranscript.costume(messages: chat.messages, activity: chat.activity), .sunglasses)
   }
 
   // MARK: The character's costume

@@ -2701,7 +2701,10 @@ extension LocalChatViewModel {
       // A cancel wakes the last phase's sleep; the reply must not take the chat back.
       guard !Task.isCancelled else { return }
       activity.apply(.phase(.generating))
-      update({ $0.activity = activity }, id: replyID)
+      update({
+        $0.activity = activity
+        if let card = script.weatherCard { $0.weatherCards = [card] }
+      }, id: replyID)
       state = .streaming
       var text = ""
       let replyText = approved ? script.reply : script.declined ?? script.reply
