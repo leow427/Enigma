@@ -171,6 +171,18 @@ final class FileModeUITests: XCTestCase {
     XCTAssertTrue(editor.readSelection(from: pasteboard))
     XCTAssertEqual(editor.string, "cell text")
 
+    pasteboard.clearContents()
+    let jpeg = try XCTUnwrap(NSBitmapImageRep(data: png)?.representation(using: .jpeg, properties: [:]))
+    let link = "https://www.example.com/imgres?q=cow"
+    pasteboard.declareTypes([.string, .URL, NSPasteboard.PasteboardType("public.jpeg"), .tiff], owner: nil)
+    pasteboard.setString(link, forType: .string)
+    pasteboard.setString(link, forType: .URL)
+    pasteboard.setData(jpeg, forType: NSPasteboard.PasteboardType("public.jpeg"))
+    pasteboard.setData(Data(count: 10), forType: .tiff)
+    XCTAssertTrue(ComposerPasteboard.hasItem(pasteboard))
+    XCTAssertTrue(editor.attachItems(from: pasteboard), "A browser image drag carries its link as text, and still attaches")
+    XCTAssertEqual(box.items.last, .image(jpeg), "The JPEG, not the far larger TIFF")
+
     editor.attach = nil
     XCTAssertFalse(editor.attachItems(from: pasteboard), "Without a handler the field behaves as before")
     XCTAssertFalse(editor.readablePasteboardTypes.contains(.png))

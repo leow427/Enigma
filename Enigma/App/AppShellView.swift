@@ -400,7 +400,11 @@ struct AppShellView: View {
     // "Never use this site" on source rows, for the main window and the compact panel (spec §8).
     .environment(\.sourceBlocking, SourceBlocking(settings: searchSettings))
     // Drops on the window or panel outside the message field, which takes its own (F4).
-    .dropDestination(for: URL.self) { urls, _ in attachDropped(.files(urls)) } isTargeted: { isDropTargeted = $0 }
+    // shortcut: reads the system drag pasteboard (NSDraggingInfo's) so drops follow the field's
+    // rules; move to NSItemProvider loading if SwiftUI ever stops using it.
+    .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { _ in
+      ComposerPasteboard.item(in: NSPasteboard(name: .drag)).map(attachDropped) ?? false
+    }
     .environment(\.composerAttach, { attachDropped($0) })
     .environment(\.composerDropTarget, { isDropTargeted = $0 })
     .environment(\.composerDropTargeted, isDropTargeted)

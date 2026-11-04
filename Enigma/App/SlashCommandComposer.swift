@@ -262,7 +262,7 @@ final class SlashCommandTextView: NSTextView {
 
   override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
     // Keeps Paste enabled for image data and Finder files; `paste(_:)` takes them first.
-    super.readablePasteboardTypes + (attach == nil ? [] : [.fileURL, .png, .tiff])
+    super.readablePasteboardTypes + (attach == nil ? [] : [.fileURL, .png, NSPasteboard.PasteboardType(UTType.jpeg.identifier), .tiff])
   }
 
   /// Hands files or image data on `pasteboard` to `attach`. False leaves the
@@ -493,24 +493,31 @@ enum ComposerPasteboard {
   enum Item: Equatable, Sendable {
     /// Finder files or folders, routed by `ComposerDrop`.
     case files([URL])
-    /// Image data (PNG or TIFF), not yet decoded.
+    /// Image data (PNG, JPEG or TIFF), not yet decoded.
     case image(Data)
   }
 
-  /// File URLs first; image data only without text, so a copied spreadsheet
-  /// cell or styled text still pastes as text.
+  /// Smallest first: a browser image carries its JPEG and a far larger TIFF.
+  private static let imageTypes: [NSPasteboard.PasteboardType] = [.png, NSPasteboard.PasteboardType(UTType.jpeg.identifier), .tiff]
+
+  /// File URLs first. Image data with no text, or with a web link, as a
+  /// browser's image drag or Copy Image has; a spreadsheet cell or styled
+  /// text, which carries text without a link, still pastes as text.
   static func item(in pasteboard: NSPasteboard) -> Item? {
     let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
     if !urls.isEmpty { return .files(urls) }
-    guard pasteboard.availableType(from: [.string]) == nil,
-          let data = pasteboard.data(forType: .png) ?? pasteboard.data(forType: .tiff) else { return nil }
+    guard isImage(pasteboard), let data = imageTypes.lazy.compactMap({ pasteboard.data(forType: $0) }).first else { return nil }
     return .image(data)
   }
 
   /// `item(in:)` without reading the data, for a drag in progress.
   static func hasItem(_ pasteboard: NSPasteboard) -> Bool {
-    pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
-      || (pasteboard.availableType(from: [.string]) == nil && pasteboard.availableType(from: [.png, .tiff]) != nil)
+    pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) || isImage(pasteboard)
+  }
+
+  private static func isImage(_ pasteboard: NSPasteboard) -> Bool {
+    pasteboard.availableType(from: imageTypes) != nil
+      && (pasteboard.availableType(from: [.string]) == nil || pasteboard.availableType(from: [.URL]) != nil)
   }
 }
 

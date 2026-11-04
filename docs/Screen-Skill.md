@@ -39,9 +39,9 @@ After you send, the sent message shows a small preview of the image for the rest
 of the app session. A short note over the composer says how the capture was used,
 for example `Local OCR · Image not sent` or `Vision · Cloud`.
 
-You can also attach an image you already have: drag an image file onto the main
-window, the compact panel or the message field, or paste image data (**⌘V**), such
-as an image copied from a browser. Enigma accepts what macOS can decode,
+You can also attach an image you already have: drag an image file, or an image
+from a web page in Safari or Chrome, onto the main window, the compact panel or the
+message field, or paste image data (**⌘V**), such as an image copied from a browser. Enigma accepts what macOS can decode,
 including HEIC (a GIF uses its first frame), up to 50 MB; a PDF goes to
 [File Mode](File-Mode.md) instead. The card reads **Attached image** and has no
 **Retake**. It's read and sent exactly like a capture: the same OCR on your Mac,
@@ -254,8 +254,7 @@ Recording rows used in Settings and the welcome setup.
 - Search queries derived from a screenshot may contain on-screen details.
 - Exclusion from screen sharing is best effort, as described above.
 - One image per message. Drops and image pastes are refused while a reply runs, an
-  image is being read, or File Mode is busy. Dragging an image from a browser onto
-  the window outside the message field is ignored unless it's a file.
+  image is being read, or File Mode is busy.
 
 ## Tests
 
