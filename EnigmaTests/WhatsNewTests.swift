@@ -178,5 +178,7 @@ final class WhatsNewTests: XCTestCase {
     XCTAssertTrue(EnigmaTopBar.isShown(isSidebarVisible: false, hasWhatsNew: true))
     XCTAssertTrue(EnigmaTopBar.isShown(isSidebarVisible: true, hasWhatsNew: true))
     XCTAssertFalse(EnigmaTopBar.isShown(isSidebarVisible: true, hasWhatsNew: false))
+    XCTAssertTrue(EnigmaTopBar.isShown(isSidebarVisible: true, hasWhatsNew: false, hasUpdate: true),
+                  "Update available shows beside the sidebar too")
   }
 }

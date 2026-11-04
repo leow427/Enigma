@@ -137,12 +137,19 @@ struct EnigmaTopBar: View {
   let sidebarActions: SidebarActions?
   /// What's new?'s VoiceOver label and action, while an update's notes are unread.
   let whatsNew: (label: String, open: () -> Void)?
+  /// Update available's action (F33), while an update waits.
+  var update: (() -> Void)? = nil
   /// The bug report button, last in the slot; nil where it doesn't belong.
   var reportBug: (() -> Void)? = nil
+  @Environment(\.enigmaPalette) private var palette
 
   static let height: CGFloat = 44
 
-  static func isShown(isSidebarVisible: Bool, hasWhatsNew: Bool) -> Bool { !isSidebarVisible || hasWhatsNew }
+  static let updateTitle = "Update available"
+
+  static func isShown(isSidebarVisible: Bool, hasWhatsNew: Bool, hasUpdate: Bool = false) -> Bool {
+    !isSidebarVisible || hasWhatsNew || hasUpdate
+  }
 
   var body: some View {
     HStack(spacing: 4) {
@@ -173,6 +180,20 @@ struct EnigmaTopBar: View {
           .accessibilityLabel("Settings")
           .help("Settings · ⌘,")
           .enigmaTestMarker("Bar settings")
+      }
+      if let update {
+        // Quieter than What's new?: secondary text with a small accent dot.
+        Button(action: update) {
+          HStack(spacing: 5) {
+            Circle().fill(palette.accent.color).frame(width: 6, height: 6)
+            Text(Self.updateTitle)
+          }
+        }
+        .enigmaButtonStyle(.text)
+        .accessibilityLabel(Self.updateTitle)
+        .help("Install the new version of Enigma")
+        .enigmaTestMarker("Update available")
+        .transition(.opacity)
       }
       if let whatsNew {
         Button("What's new?", action: whatsNew.open)
