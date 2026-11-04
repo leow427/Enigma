@@ -892,7 +892,7 @@ final class RequestLifecycleTests: XCTestCase {
   }
 
   func testRegenerateSearchesOnlyWhenTheOldReplyDidAndDropsItsRevision() async throws {
-    let streams = (0..<2).map { _ in ControlledStream<ChatEvent>() }
+    let streams = (0..<3).map { _ in ControlledStream<ChatEvent>() }
     let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
                                        cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: streams)),
                                        sessionStore: makeStore())
@@ -930,6 +930,25 @@ final class RequestLifecycleTests: XCTestCase {
     viewModel.resend(fromUserMessage: before[2].id, send: { _, _ in })
     XCTAssertEqual(viewModel.messages, before)
     XCTAssertEqual(viewModel.presentationMessages, before)
+
+    // Regenerating an earlier reply drops everything after it, and searches only if that reply did.
+    let tour = ChatMessage(role: .user, content: "C")
+    finished = false
+    viewModel.tourAppend(tour, script: TourScript(reply: "Searched", phases: [], sources: [source], phaseDuration: 0)) {
+      finished = true
+    }
+    await waitUntil("the tour reply ends") { finished }
+    searched = []
+    viewModel.resend(fromUserMessage: before[0].id, send: {
+      searched.append($1)
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    XCTAssertEqual(searched, [false], "A later turn's search doesn't count")
+    XCTAssertEqual(viewModel.presentationMessages.map(\.content), ["A", ""], "Later turns are hidden meanwhile")
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    await receive(.token("Again"), from: streams[2], in: viewModel, expecting: "Again")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A", "Again"])
+    await viewModel.stopStreaming()?.value
   }
 
   func testRegeneratingInATemporaryChatWritesNothing() async throws {

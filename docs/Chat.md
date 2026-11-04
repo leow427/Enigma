@@ -178,9 +178,10 @@ budget or a higher reasoning effort.
 
 ### Regenerating a reply
 
-The latest reply has a **Regenerate reply** icon (↻) beside **Copy reply**, in
-the same style: dimmed at rest, brighter on hover, reachable with Tab and
-VoiceOver. It gets a new answer to the same question:
+Every reply has a **Regenerate reply** icon (↻) right under its text, styled
+like **Copy reply**: dimmed at rest, brighter on hover, reachable with Tab and
+VoiceOver. It gets a new answer to the same question. On an earlier reply, it
+also drops every message after that reply once the new one starts:
 
 - Only for a plain chat turn in Local, Cloud or Auto, with or without `/search`
   or `/think`. It isn't shown for Files, `/messages`, Screen or selection
@@ -193,12 +194,13 @@ VoiceOver. It gets a new answer to the same question:
 - It replays the same text and `/think` choice on the current route; Auto
   routes again. It searches again only if the old reply searched, and never
   adds a search the old reply didn't have.
-- The old reply stays, in the chat and on disk, until the new reply's first
-  token; meanwhile it's hidden. A failure, or Stop, before that token puts it
+- The old reply, and anything after it, stays in the chat and on disk until the
+  new reply's first token; meanwhile it's hidden. A failure, or Stop, before that token puts it
   back and shows the error as usual. Once the new reply starts, the old one is
   gone; earlier versions aren't kept.
 - There's no shortcut, and nothing in the compact panel. A temporary chat still
-  writes nothing.
+  writes nothing. Actions a dropped reply took (File Mode edits, sent iMessages)
+  aren't undone.
 
 ### Activity and sources
 
@@ -369,10 +371,11 @@ name it also drives cloud, Auto, Screen, File Mode and Messages requests.
 - Regenerate (F3) is `resend(fromUserMessage:text:send:removed:)`, which F9's
   edit will reuse (`text` is nil for a regenerate). It records a
   `PendingResend` (the chat as it was, the ids of that message and everything
-  after it, and whether they searched), so `messages`, and with it
+  after it, and whether that question's own reply searched), so `messages`, and with it
   `presentationMessages` and the request history, leave them out. Then
   AppShellView's `submitChat` runs the normal route. The first non-empty
-  fragment (`commitResend`) removes them, with their `selectionRevisions`, and
+  fragment (`commitResend`) removes them, with their `selectionRevisions` and
+  any summary that covered one of them, and
   reports their ids so `shell.expandedActivities` drops them;
   `finishGeneration` or `stopStreaming()` before that (`restoreResend`) removes
   the new messages instead. A route that starts no request clears the mark. A

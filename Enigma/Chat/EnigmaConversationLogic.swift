@@ -39,7 +39,8 @@ struct ConversationTranscript: Equatable {
     let isLatest: Bool
     /// The running request's reply, which has no meta line yet.
     let isInProgress: Bool
-    /// The question a finished latest reply can be regenerated from (F3); nil when it can't.
+    /// The question a finished reply can be regenerated from (F3); nil when it can't. Regenerating
+    /// an earlier reply drops every message after it.
     var regeneratesFrom: UUID? = nil
 
     var canRegenerate: Bool { regeneratesFrom != nil }
@@ -89,12 +90,16 @@ struct ConversationTranscript: Equatable {
     // first message send it again (B22).
     var shownContexts = Set<UUID>()
     var question: ChatMessage?
-    // The question before the last reply written, when it can be replayed.
-    var latestRegeneratesFrom: UUID?
+    // Turns the chat's summary covers can't be regenerated: replacing one would orphan it (F35).
+    // A summary whose last message is gone covers nothing, as `ChatCompactor.applying` treats it.
+    var inSummary = summarizedThrough.map { id in messages.contains { $0.id == id } } ?? false
+    var questionInSummary = false
     for message in messages {
+      defer { if message.id == summarizedThrough { inSummary = false } }
       switch message.role {
       case .user:
         question = message
+        questionInSummary = inSummary
         var shown = message
         let contexts = message.contexts?.filter { shownContexts.insert($0.id).inserted }
         shown.contexts = contexts?.isEmpty == false ? contexts : nil
@@ -103,12 +108,9 @@ struct ConversationTranscript: Equatable {
         let activity = message.activity ?? message.searchSources.flatMap { sources in
           sources.isEmpty ? nil : AssistantActivity.savedSources(sources, messageID: message.id)
         }
+        let regeneratesFrom = question.flatMap { Reply.canRegenerate(from: $0) && !questionInSummary ? $0.id : nil }
         rows.append(.reply(Reply(id: message.activity?.id ?? message.id, message: message, activity: activity,
-                                 isLatest: false, isInProgress: false)))
-        // Not once the chat's summary covers the turn: replacing it would orphan the summary (F35).
-        latestRegeneratesFrom = question.flatMap {
-          Reply.canRegenerate(from: $0) && summarizedThrough != $0.id && summarizedThrough != message.id ? $0.id : nil
-        }
+                                 isLatest: false, isInProgress: false, regeneratesFrom: regeneratesFrom)))
         question = nil
       }
     }
@@ -123,7 +125,7 @@ struct ConversationTranscript: Equatable {
       let running = isResponding && index == rows.count - 1
       rows[index] = .reply(Reply(id: reply.id, message: reply.message, activity: reply.activity, isLatest: true,
                                  isInProgress: running,
-                                 regeneratesFrom: !running && reply.message?.id == messages.last?.id ? latestRegeneratesFrom : nil))
+                                 regeneratesFrom: running ? nil : reply.regeneratesFrom))
     }
     if let through = summarizedThrough, let index = rows.firstIndex(where: {
       switch $0 {
