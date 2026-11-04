@@ -1372,6 +1372,26 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertNil(chat.messages.last?.mapPlaces)
   }
 
+  /// F36: a restarted reply drops the first run's weather cards too.
+  func testRestartDropsTheFirstRunsWeatherCards() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let provider = ScriptedSearchProvider(runs: [
+      [.activity(.phase(.searching)), .call("get_weather", #"{"place":"Chicago"}"#),
+       .call("get_messages", Self.aliceRead), .token("Never shown.")],
+      [.token("Done.")],
+    ])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, nativeWebSearchProviders: [.anthropic])
+    let weather = FakeWeather()
+    chat.weatherLookup = weather
+    chat.weatherGeocoder = FakeGeocoder((PlacesAndWeatherFixtures.chicago, "Chicago"))
+    try await send("What did Alice say? Weather in Chicago?", to: chat, route: Self.cloudRoute,
+                   answers: [.conversation, .conversation])
+    XCTAssertEqual(weather.calls.count, 1, "The first run checked the weather")
+    XCTAssertEqual(provider.runs.count, 2, "The reply restarted")
+    XCTAssertEqual(chat.messages.last?.content, "Done.")
+    XCTAssertNil(chat.messages.last?.weatherCards)
+  }
+
   func testDeclinedReadDoesNotRestart() async throws {
     let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
     let provider = ScriptedSearchProvider(runs: [[.call("get_messages", Self.aliceRead), .token("Okay.")]])

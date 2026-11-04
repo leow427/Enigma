@@ -277,6 +277,41 @@ final class EnigmaConversationTests: XCTestCase {
     }
   }
 
+  /// F36: a reply with a weather card dresses the character beside it, until the next message.
+  @MainActor
+  func testAWeatherCardDressesTheCharacterUntilTheNextMessage() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    let character = fixture.character
+    try await waitForUI("the character on the main page", in: host.view) {
+      character.activeSlot == MainWindowCharacter.mainSlot && character.isPresent
+        && composerEditor(in: host.view)?.isEditable == true
+    }
+    try await send("Explain actors", in: host, fixture)
+    try await waitForUI("the fall into the reply's slot", in: host.view, timeout: .seconds(4)) {
+      character.isPresent && character.model.slot?.size == ConversationTranscript.slotSize && !character.model.isFalling
+    }
+    try await waitForUI("the reply's stream", in: host.view) { fixture.engine.requestCount == 1 }
+    fixture.engine.send("Yes, take one.")
+    try await waitForUI("the reply", in: host.view) { character.state == .answering && host.shows("Reply") }
+    let request = try XCTUnwrap(fixture.chat.activeRequest?.id)
+    let reply = try XCTUnwrap(fixture.chat.messages.last?.id)
+    XCTAssertNil(character.costume)
+    fixture.chat.addWeatherCards([WeatherCardModel(place: "London", caption: "Now · Tue 3 Nov", code: 61, light: .day,
+      content: .now(temperature: 11, feelsLike: 8, high: 12, low: 7, rainChance: 80, wind: 24, hours: []))],
+      messageID: reply, requestID: request)
+    try await waitForUI("the card and the umbrella", in: host.view) {
+      host.shows("Weather card") && character.costume == .umbrella
+    }
+    fixture.engine.finish()
+    try await waitForUI("idle once the reply is done", in: host.view) {
+      character.state == .idle && fixture.chat.activeRequest == nil && host.shows("Reply meta")
+    }
+    XCTAssertEqual(character.costume, .umbrella, "It keeps the umbrella while the card is on the latest reply")
+    try await send("And isolation?", in: host, fixture)
+    try await waitForUI("the umbrella off for the next reply", in: host.view) { character.costume == nil }
+  }
+
   @MainActor
   func testCharacterFallsIntoTheFirstReplyFollowsTheRequestAndMovesToTheNewestReply() async throws {
     let fixture = try await Fixture(test: self)

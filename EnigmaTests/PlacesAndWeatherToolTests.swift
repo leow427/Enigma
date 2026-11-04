@@ -51,7 +51,7 @@ final class PlacesAndWeatherToolTests: XCTestCase {
     let weather = weatherTool(FakeWeather(), location: chicago, recorder: Recorder())
     XCTAssertEqual(weather.definitions.map(\.name), ["get_weather"])
     XCTAssertEqual(weather.definitions.first?.required, [])
-    XCTAssertEqual(weather.definitions.first.map { Set($0.properties.keys) }, ["place"])
+    XCTAssertEqual(weather.definitions.first.map { Set($0.properties.keys) }, ["place", "start_date", "end_date"])
     let invalid = await tool.execute(name: "find_places", arguments: .object(["area": .string("Soho")]))
     XCTAssertFalse(invalid.success)
   }

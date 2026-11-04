@@ -93,6 +93,10 @@ enum EnigmaCharacterTuning {
   /// A slot less than this many points higher still gets a hop and a fall.
   static let glideThreshold = 4.0
   static let puffLifetime = 0.55
+  /// A change of outfit's hop, in body radii.
+  static let outfitHopHeight = 1.4
+  /// Seconds into a change of outfit when the new one shows: in the smoke, before the hop.
+  static let outfitSwapDelay = 0.12
   static let impactLineDuration = 0.32
   /// The shadow fades out over this many points of height while falling.
   static let shadowFadeHeight = 260.0
@@ -526,6 +530,29 @@ struct EnigmaCharacterModel: Sendable {
     tipX.kick((random.unit() - 0.5) * 500, limit: 600)
     tipY.kick(-200, limit: 600)
     jitter.value = 0.06
+    quietTime = 0
+    return true
+  }
+
+  /// A change of outfit (F36): a puff of smoke round the body and a little hop in place. A fall
+  /// or drag under way keeps going and only gets the smoke.
+  @discardableResult
+  mutating func changeOutfit() -> Bool {
+    guard !reduceMotion, slot != nil else { return false }
+    let size = radius.value
+    // A ring round the body and its hat, and a few in the middle, so the swap is hidden.
+    let center = CGPoint(x: x.value, y: y.value - size * 0.25)
+    for index in 0..<11 {
+      let ring = index < 8
+      let angle = ring ? Double(index) / 8 * 2 * .pi : Double(index - 8) / 3 * 2 * .pi + 0.5
+      let reach = ring ? 0.75 : 0.3
+      puffs.append(Puff(origin: CGPoint(x: center.x + cos(angle) * size * reach, y: center.y + sin(angle) * size * reach),
+                        angle: angle, speed: size * (ring ? 1.1 : 0.4), radius: size * (ring ? 0.62 : 0.7)))
+    }
+    if fall == nil, drag == nil {
+      let rise = size * EnigmaCharacterTuning.outfitHopHeight
+      fall = Fall(y: y.value, launchSpeed: -(2 * EnigmaMotion.characterGravity * rise).squareRoot())
+    }
     quietTime = 0
     return true
   }

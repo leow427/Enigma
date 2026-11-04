@@ -35,7 +35,11 @@ character, and the conversation is saved to the sidebar's **Recents**.
   earlier replies show the outline mark instead. A finished reply that used
   places from Apple Maps shows a map card under it, with numbered pins that open
   the places in Apple Maps and **Open in Maps**; the card is for this session
-  only and isn't saved. See [Web Search](Web-Search.md#places-and-weather).
+  only and isn't saved. A weather answer starts with a weather card, one per
+  place, as soon as the forecast arrives, with the description streaming in
+  under it; while it shows on the latest reply the character wears something
+  for the weather, with a puff of smoke and a hop as it changes. Weather cards
+  aren't saved either. See [Web Search](Web-Search.md#places-and-weather).
 - **Over the composer.** The route's status line, plus any notices and cards:
   a trimmed-context notice, attached selection, screenshot, files, a Messages
   send approval, or errors.

@@ -18,11 +18,14 @@ struct WeatherForecast: Decodable, Equatable, Sendable {
     let precipitation: Double?
     let weatherCode: Int?
     let windSpeed: Double?
+    /// 1 by day, 0 at night (F36's sky).
+    var isDay: Int? = nil
 
     enum CodingKeys: String, CodingKey {
       case time, precipitation
       case temperature = "temperature_2m", apparentTemperature = "apparent_temperature"
       case relativeHumidity = "relative_humidity_2m", weatherCode = "weather_code", windSpeed = "wind_speed_10m"
+      case isDay = "is_day"
     }
   }
 
@@ -31,11 +34,13 @@ struct WeatherForecast: Decodable, Equatable, Sendable {
     let temperature: [Double?]
     let precipitationProbability: [Double?]
     let weatherCode: [Int?]
+    /// 1 by day, 0 at night, for the card's hourly icons.
+    var isDay: [Int?]? = nil
 
     enum CodingKeys: String, CodingKey {
       case time
       case temperature = "temperature_2m", precipitationProbability = "precipitation_probability"
-      case weatherCode = "weather_code"
+      case weatherCode = "weather_code", isDay = "is_day"
     }
   }
 
@@ -51,9 +56,12 @@ struct WeatherForecast: Decodable, Equatable, Sendable {
     let sunset: [String?]
     let uvIndexMax: [Double?]
     let windSpeedMax: [Double?]
+    /// Centimetres, or inches in US units (F36's snow amount).
+    var snowfallSum: [Double?]? = nil
 
     enum CodingKeys: String, CodingKey {
       case time, sunrise, sunset
+      case snowfallSum = "snowfall_sum"
       case weatherCode = "weather_code", temperatureMax = "temperature_2m_max", temperatureMin = "temperature_2m_min"
       case precipitationProbabilityMax = "precipitation_probability_max", precipitationSum = "precipitation_sum"
       case uvIndexMax = "uv_index_max", windSpeedMax = "wind_speed_10m_max"
@@ -163,10 +171,10 @@ struct OpenMeteoWeather: WeatherLooking {
       URLQueryItem(name: "latitude", value: rounded(coordinate.latitude)),
       URLQueryItem(name: "longitude", value: rounded(coordinate.longitude)),
       URLQueryItem(name: "current",
-                   value: "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m"),
-      URLQueryItem(name: "hourly", value: "temperature_2m,precipitation_probability,weather_code"),
+                   value: "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day"),
+      URLQueryItem(name: "hourly", value: "temperature_2m,precipitation_probability,weather_code,is_day"),
       URLQueryItem(name: "daily",
-                   value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_speed_10m_max"),
+                   value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_speed_10m_max,snowfall_sum"),
       URLQueryItem(name: "timezone", value: "auto"),
       URLQueryItem(name: "forecast_days", value: "7"),
     ]
@@ -459,7 +467,10 @@ enum WeatherLookup {
 
   // MARK: Formatting
 
-  private static func formatter(_ format: String, _ timeZone: TimeZone) -> DateFormatter {
+  /// Parses the forecast's calendar dates (`2026-11-02`).
+  static var dateParser: DateFormatter { formatter("yyyy-MM-dd", .gmt) }
+
+  static func formatter(_ format: String, _ timeZone: TimeZone) -> DateFormatter {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.calendar = Calendar(identifier: .gregorian)
@@ -483,4 +494,317 @@ enum WeatherLookup {
   private static func amount(_ value: Double?, _ unit: String) -> String {
     number(value, unit, decimals: unit == "inch" ? 2 : 1, spaced: true)
   }
+}
+
+// MARK: The weather card (F36)
+
+/// Which forecast days a weather card shows: from `get_weather`'s dates, or from the question's
+/// time words on the wording route. Days are the forecast's own dates, local to the place.
+enum WeatherDays: Equatable, Sendable {
+  case today, tomorrow, weekend, week
+  /// The next day with this weekday, today included: 1 is Sunday, 7 Saturday, as `Calendar`.
+  case weekday(Int)
+  /// `get_weather`'s range, as `YYYY-MM-DD`.
+  case dates(start: String, end: String)
+
+  private static let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+
+  /// "this weekend", "this week", "tomorrow" or a weekday name, also as "this weekend's" or
+  /// "tomorrow’s"; anything else is today.
+  init(question: String) {
+    let text = question.replacingOccurrences(of: "’", with: "'").lowercased()
+    // Simple word boundaries, so "weekend's" still has "weekend" as a word.
+    if text.contains(/\bweekend\b/.wordBoundaryKind(.simple)) {
+      self = .weekend
+    } else if text.contains(/\b(?:week|next (?:7|seven) days)\b/.wordBoundaryKind(.simple)) {
+      self = .week
+    } else if text.contains(/\btomorrow\b/.wordBoundaryKind(.simple)) {
+      self = .tomorrow
+    } else if let index = Self.weekdays.firstIndex(where: { text.contains($0) }) {
+      self = .weekday(index + 1)
+    } else {
+      self = .today
+    }
+  }
+
+  /// The days among the forecast's `dates`, or nil when none of them is in the forecast.
+  func indices(in dates: [String]) -> ClosedRange<Int>? {
+    guard let last = dates.indices.last else { return nil }
+    switch self {
+    case .today: return 0...0
+    case .tomorrow: return last >= 1 ? 1...1 : nil
+    case .week: return 0...last
+    case .weekend:
+      // Saturday and Sunday, or Sunday alone once Saturday has passed.
+      guard let start = dates.indices.first(where: { [7, 1].contains(Self.weekday(of: dates[$0])) }) else { return nil }
+      return start...(Self.weekday(of: dates[start]) == 7 ? min(start + 1, last) : start)
+    case .weekday(let day):
+      return dates.indices.first { Self.weekday(of: dates[$0]) == day }.map { $0...$0 }
+    case .dates(let start, let end):
+      // ISO dates sort as text.
+      guard let first = dates.firstIndex(where: { $0 >= start }), let final = dates.lastIndex(where: { $0 <= end }),
+            first <= final else { return nil }
+      return first...final
+    }
+  }
+
+  static func weekday(of date: String) -> Int? {
+    WeatherLookup.dateParser.date(from: date).map { Calendar.gregorianGMT.component(.weekday, from: $0) }
+  }
+}
+
+/// What a weather card shows. Every figure comes from the Open-Meteo forecast, never from the
+/// model's text, so the card can't show a made-up temperature. Session-only, like the map card.
+struct WeatherCardModel: Equatable, Sendable {
+  enum Sky: Equatable, Sendable, CaseIterable { case clear, partlyCloudy, overcast, fog, rain, snow, storm }
+  /// Twilight is the 45 minutes either side of the day's sunrise and sunset.
+  enum Light: Equatable, Sendable, CaseIterable { case day, twilight, night }
+
+  struct Hour: Equatable, Sendable {
+    var time: String
+    var code: Int
+    var isDay: Bool
+    var temperature: Double
+    var rainChance: Int?
+  }
+
+  struct Day: Equatable, Sendable {
+    /// "Today", "Sat".
+    var weekday: String
+    var code: Int
+    var high: Double
+    var low: Double
+    var rainChance: Int?
+    var wind: Double?
+  }
+
+  enum Content: Equatable, Sendable {
+    /// Today, from the current conditions.
+    case now(temperature: Double, feelsLike: Double, high: Double, low: Double, rainChance: Int?, wind: Double?,
+             hours: [Hour])
+    /// A later single day, like tomorrow: its high, low and chance of rain instead of now. The
+    /// amount is snow in snowy weather, otherwise rain.
+    case day(high: Double, low: Double, rainChance: Int?, amount: Double?, wind: Double?, sunset: String?,
+             hours: [Hour])
+    /// One column per day, up to the forecast's 7.
+    case days([Day])
+  }
+
+  var place: String
+  /// "Now · Tue 3 Nov", "This weekend · Sat 7 – Sun 8 Nov".
+  var caption: String
+  /// The sky's weather code: now's, the day's, or the first day's.
+  var code: Int
+  var light: Light
+  var units: MeasurementUnits = .metric
+  var content: Content
+
+  var sky: Sky { Self.sky(forCode: code) }
+
+  /// Steps of the hourly strip: the next 6 hours today, 06:00 to 21:00 on a later day.
+  static let hourCount = 6
+  static let laterDayHours = ["06", "09", "12", "15", "18", "21"]
+  static let twilight: TimeInterval = 45 * 60
+
+  /// The card for `days` of `forecast`, or nil when those days aren't in it or its figures are missing.
+  init?(forecast: WeatherForecast, placeName: String, days: WeatherDays, now: Date) {
+    let daily = forecast.daily
+    guard let range = days.indices(in: daily.time) else { return nil }
+    let offset = TimeZone(secondsFromGMT: forecast.utcOffsetSeconds) ?? .gmt
+    let local = TimeZone(identifier: forecast.timezone) ?? offset
+    let parse = WeatherLookup.formatter("yyyy-MM-dd'T'HH:mm", offset)
+    let clock = WeatherLookup.formatter("HH:mm", local)
+    func element<T>(_ values: [T?]?, _ index: Int) -> T? {
+      guard let values, values.indices.contains(index) else { return nil }
+      return values[index]
+    }
+    func chance(_ value: Double?) -> Int? { value.map { Int($0.rounded()) } }
+    func dayLabel(_ index: Int, _ format: String) -> String {
+      WeatherLookup.dateParser.date(from: daily.time[index])
+        .map(WeatherLookup.formatter(format, .gmt).string(from:)) ?? daily.time[index]
+    }
+    func hour(_ index: Int) -> Hour? {
+      let hourly = forecast.hourly
+      guard let temperature = element(hourly.temperature, index), let code = element(hourly.weatherCode, index),
+            let date = parse.date(from: hourly.time[index]) else { return nil }
+      return Hour(time: clock.string(from: date), code: code, isDay: element(hourly.isDay, index).map { $0 != 0 } ?? true,
+                  temperature: temperature, rainChance: chance(element(hourly.precipitationProbability, index)))
+    }
+
+    let first = range.lowerBound
+    let name = placeName.split(separator: ",").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? placeName
+    place = name.prefix(1).uppercased() + name.dropFirst()
+    units = forecast.currentUnits.temperature == "°F" ? .us : .metric
+    let dates = range.count == 1 ? dayLabel(first, "EEE d MMM")
+      : (dayLabel(first, "MMM") == dayLabel(range.upperBound, "MMM") ? dayLabel(first, "EEE d")
+        : dayLabel(first, "EEE d MMM")) + " – " + dayLabel(range.upperBound, "EEE d MMM")
+
+    if range.count > 1 {
+      var columns: [Day] = []
+      for index in range {
+        guard let code = element(daily.weatherCode, index), let high = element(daily.temperatureMax, index),
+              let low = element(daily.temperatureMin, index) else { return nil }
+        columns.append(Day(weekday: index == 0 ? "Today" : dayLabel(index, "EEE"), code: code, high: high, low: low,
+                           rainChance: chance(element(daily.precipitationProbabilityMax, index)),
+                           wind: element(daily.windSpeedMax, index)))
+      }
+      let weekend = range.count == 2 && WeatherDays.weekday(of: daily.time[first]) == 7
+      let week = range == 0...(daily.time.count - 1) && range.count == 7
+      caption = (weekend ? "This weekend · " : week ? "This week · " : "") + dates
+      code = columns[0].code
+      light = .day
+      content = .days(columns)
+      return
+    }
+
+    guard let high = element(daily.temperatureMax, first), let low = element(daily.temperatureMin, first) else { return nil }
+    let rainChance = chance(element(daily.precipitationProbabilityMax, first))
+    if first == 0 {
+      let current = forecast.current
+      guard let temperature = current.temperature, let code = current.weatherCode ?? element(daily.weatherCode, 0)
+      else { return nil }
+      let start = forecast.hourly.time.firstIndex { parse.date(from: $0).map { $0 > now } ?? false }
+        ?? forecast.hourly.time.count
+      let hours = (start..<forecast.hourly.time.count).lazy.compactMap(hour).prefix(Self.hourCount)
+      caption = "Now · " + dates
+      self.code = code
+      light = Self.light(isDay: current.isDay, now: now,
+                         sunrise: element(daily.sunrise, 0).flatMap(parse.date(from:)),
+                         sunset: element(daily.sunset, 0).flatMap(parse.date(from:)))
+      content = .now(temperature: temperature, feelsLike: current.apparentTemperature ?? temperature, high: high, low: low,
+                     rainChance: rainChance, wind: current.windSpeed, hours: Array(hours))
+    } else {
+      guard let code = element(daily.weatherCode, first) else { return nil }
+      let day = daily.time[first]
+      let hours = Self.laterDayHours.compactMap { mark in
+        forecast.hourly.time.firstIndex(of: "\(day)T\(mark):00").flatMap(hour)
+      }
+      caption = (first == 1 ? "Tomorrow · " : "") + dates
+      self.code = code
+      light = .day
+      let snowy = Self.sky(forCode: code) == .snow
+      content = .day(high: high, low: low, rainChance: rainChance,
+                     amount: snowy ? element(daily.snowfallSum, first) : element(daily.precipitationSum, first),
+                     wind: element(daily.windSpeedMax, first),
+                     sunset: element(daily.sunset, first).flatMap(parse.date(from:)).map(clock.string(from:)), hours: hours)
+    }
+  }
+
+  init(place: String, caption: String, code: Int, light: Light, units: MeasurementUnits = .metric, content: Content) {
+    self.place = place
+    self.caption = caption
+    self.code = code
+    self.light = light
+    self.units = units
+    self.content = content
+  }
+
+  /// Twilight near sunrise and sunset; otherwise Open-Meteo's `is_day`, or the sun's times.
+  static func light(isDay: Int?, now: Date, sunrise: Date?, sunset: Date?) -> Light {
+    for edge in [sunrise, sunset].compactMap({ $0 }) where abs(now.timeIntervalSince(edge)) <= twilight {
+      return .twilight
+    }
+    if let isDay { return isDay != 0 ? .day : .night }
+    guard let sunrise, let sunset else { return .day }
+    return now >= sunrise && now < sunset ? .day : .night
+  }
+
+  static func sky(forCode code: Int) -> Sky {
+    switch code {
+    case 0, 1: .clear
+    case 2: .partlyCloudy
+    case 3: .overcast
+    case 45, 48: .fog
+    case 71...77, 85, 86: .snow
+    case 95...99: .storm
+    default: .rain
+    }
+  }
+
+  /// How hard rain or snow falls; 1 is moderate.
+  static func intensity(forCode code: Int) -> Double {
+    switch code {
+    case 51, 56, 77: 0.45
+    case 61, 66, 71, 80, 85: 0.6
+    case 53, 57: 0.7
+    case 55: 0.9
+    case 65, 75, 82: 1.5
+    case 95...99: 1.3
+    default: 1
+    }
+  }
+
+  static func condition(forCode code: Int) -> String {
+    let words = WeatherLookup.description(forCode: code)
+    return words.prefix(1).uppercased() + words.dropFirst()
+  }
+
+  /// An outline SF Symbol for a weather code.
+  static func symbol(forCode code: Int, isDay: Bool) -> String {
+    switch code {
+    case 0, 1: isDay ? "sun.max" : "moon.stars"
+    case 2: isDay ? "cloud.sun" : "cloud.moon"
+    case 3: "cloud"
+    case 45, 48: "cloud.fog"
+    case 51...57: "cloud.drizzle"
+    case 65, 67: "cloud.heavyrain"
+    case 80...82: isDay ? "cloud.sun.rain" : "cloud.moon.rain"
+    case 71...77, 85, 86: "cloud.snow"
+    case 95...99: "cloud.bolt.rain"
+    default: "cloud.rain"
+    }
+  }
+
+  /// What falls, for the chance-of label.
+  var precipitationWord: String { sky == .snow ? "Snow" : "Rain" }
+
+  func degrees(_ value: Double) -> String {
+    let whole = Int(value.rounded())
+    return (whole < 0 ? "−" : "") + "\(abs(whole))°"
+  }
+
+  func percent(_ value: Int?) -> String { value.map { "\($0)%" } ?? "–" }
+
+  func speed(_ value: Double?) -> String {
+    guard let value else { return "–" }
+    return "\(Int(value.rounded())) \(units == .us ? "mph" : "km/h")"
+  }
+
+  /// Rain in mm and snow in cm, or both in inches.
+  func amount(_ value: Double) -> String {
+    if units == .us { return String(format: "%.2f in", locale: Locale(identifier: "en_US_POSIX"), value) }
+    let unit = sky == .snow ? "cm" : "mm"
+    return value > 0 && value < 1 ? String(format: "%.1f \(unit)", locale: Locale(identifier: "en_US_POSIX"), value)
+      : "\(Int(value.rounded())) \(unit)"
+  }
+
+  /// VoiceOver reads the card as one summary.
+  var accessibilityLabel: String {
+    let condition = Self.condition(forCode: code).lowercased()
+    let when = caption.replacingOccurrences(of: " · ", with: ", ")
+    func whole(_ value: Double) -> Int { Int(value.rounded()) }
+    func chanceOf(_ value: Int?, _ word: String) -> String {
+      value.map { ", \($0) percent chance of \(word)" } ?? ""
+    }
+    switch content {
+    case let .now(temperature, _, high, low, _, _, _):
+      return "\(place), \(whole(temperature)) degrees, \(condition), high \(whole(high)), low \(whole(low))"
+    case let .day(high, low, rainChance, _, _, _, _):
+      return "\(place), \(when), \(condition), high \(whole(high)), low \(whole(low))"
+        + chanceOf(rainChance, precipitationWord.lowercased())
+    case let .days(days):
+      return "\(place), \(when). " + days.map {
+        "\($0.weekday), \(Self.condition(forCode: $0.code).lowercased()), high \(whole($0.high)), low \(whole($0.low))"
+          + chanceOf($0.rainChance, Self.sky(forCode: $0.code) == .snow ? "snow" : "rain")
+      }.joined(separator: ". ")
+    }
+  }
+}
+
+extension Calendar {
+  static let gregorianGMT: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = .gmt
+    return calendar
+  }()
 }

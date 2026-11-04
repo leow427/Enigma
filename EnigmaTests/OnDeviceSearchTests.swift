@@ -121,11 +121,12 @@ final class OnDeviceSearchTests: XCTestCase {
 
     func search(_ query: String = OnDeviceSearchTests.question, route: SearchRoute = .web, recency: SearchRecency? = nil,
                 city: String? = nil, coordinate: SearchCoordinate? = nil, distanceOrigin: SearchCoordinate? = nil,
-                namedPlace: String? = nil,
+                namedPlace: String? = nil, weatherDays: WeatherDays = .today,
                 maximumTokens: Int = WebSearchLimits.evidenceTokens) async throws -> [WebSearchResult] {
       var request = WebSearchRequest(query: query, route: route, city: city, coordinate: coordinate, namedPlace: namedPlace,
                                      recency: recency, maximumTokens: maximumTokens)
       request.distanceOrigin = distanceOrigin
+      request.weatherDays = weatherDays
       let events = activity
       return try await provider().search(request) { events.append($0) }
     }
@@ -541,6 +542,27 @@ extension OnDeviceSearchTests {
     XCTAssertEqual(harness.weather.calls.map(\.coordinate), [PlacesAndWeatherFixtures.paris])
     XCTAssertTrue(results.first?.snippets.first?.hasPrefix("Forecast for Paris, Île-de-France Region, France") == true)
     XCTAssertTrue(harness.places.calls.isEmpty, "Weather never asks MapKit")
+  }
+
+  /// F36: the wording route's weather result carries the card for the question's days.
+  func testWeatherRouteCarriesTheCardForTheQuestionsDays() async throws {
+    let harness = Harness([])
+    harness.weather = FakeWeather()
+    let tomorrow = try await harness.search("will it rain tomorrow", route: .weather, city: "Chicago", coordinate: Self.chicago,
+                                            weatherDays: .tomorrow)
+    XCTAssertEqual(tomorrow.first?.weatherCard?.caption, "Tomorrow · Wed 28 Oct")
+    let lines = tomorrow.first?.snippets.first?.components(separatedBy: "\n") ?? []
+    XCTAssertEqual(lines.first, "Forecast for Chicago (local times).")
+    XCTAssertEqual(lines.dropFirst().first, "A weather card above your reply already shows the figures for Chicago, Tomorrow, Wed 28 Oct. Write a short, friendly description under it: what it's like, and what to bring or plan for. Don't recite every figure.",
+                   "Small models are told the card shows the figures too")
+    let weekend = try await harness.search("rain this weekend", route: .weather, city: "Chicago", coordinate: Self.chicago,
+                                           weatherDays: .weekend)
+    guard case .days(let days)? = weekend.first?.weatherCard?.content else { return XCTFail("A multi-day card") }
+    XCTAssertEqual(days.map(\.weekday), ["Sat", "Sun"])
+    let failed = Harness([("alpha", .article(Self.article("alpha")))])
+    let fallback = try await failed.search("will it rain tomorrow", route: .weather, city: "Chicago", coordinate: Self.chicago)
+    XCTAssertTrue(fallback.allSatisfy { $0.weatherCard == nil }, "A lookup that falls back to the web has no card")
+    XCTAssertFalse(fallback.contains { $0.snippets.joined().contains("weather card") })
   }
 
   func testWeatherFailureFallsBackToWeb() async throws {

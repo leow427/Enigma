@@ -27,10 +27,10 @@ final class PlacesAndWeatherTests: XCTestCase {
     XCTAssertEqual(items["latitude"], "41.88")
     XCTAssertEqual(items["longitude"], "-87.63")
     XCTAssertEqual(items["current"],
-                   "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m")
-    XCTAssertEqual(items["hourly"], "temperature_2m,precipitation_probability,weather_code")
+                   "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day")
+    XCTAssertEqual(items["hourly"], "temperature_2m,precipitation_probability,weather_code,is_day")
     XCTAssertEqual(items["daily"],
-                   "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_speed_10m_max")
+                   "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_speed_10m_max,snowfall_sum")
     XCTAssertEqual(items["timezone"], "auto")
     XCTAssertEqual(items["forecast_days"], "7")
     XCTAssertEqual(items["temperature_unit"], "fahrenheit")
