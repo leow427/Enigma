@@ -204,7 +204,7 @@ also drops every message after that reply once the new one starts:
 
 ### Editing a message
 
-Hover a message you sent and click the pencil (**Edit message**) under it to
+Hover a message you sent and click the pencil (**Edit message**) beside it to
 change its text in place. Editing is how you go back in a chat: there's no
 separate Rewind. Shift-Return starts a new line, as in the composer. **Send**,
 or Return, replaces that message and everything

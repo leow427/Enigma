@@ -197,24 +197,27 @@ struct EnigmaUserMessage: View {
       if let editedText {
         editor(editedText)
       } else if !message.content.isEmpty {
-        Text(verbatim: message.content)
-          .font(EnigmaTypography.ui(14))
-          .lineSpacing(3)
-          .foregroundStyle(palette.textPrimary.color)
-          .textSelection(.enabled)
-          .fixedSize(horizontal: false, vertical: true)
-          .padding(.horizontal, 13)
-          .padding(.vertical, 8)
-          .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-          .accessibilityLabel("You: " + message.content)
-          .enigmaTestMarker("Your message")
-        // Under the bubble, as Regenerate sits under a reply.
-        if let edit {
-          ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered) {
-            focusesEditor = true
-            editedText = message.content
+        // Beside the bubble's last line, so the pencil adds no height to the chat.
+        HStack(alignment: .bottom, spacing: 6) {
+          if edit != nil {
+            ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered) {
+              focusesEditor = true
+              editedText = message.content
+            }
+            .disabled(!canEdit)
+            .padding(.bottom, 7)
           }
-          .disabled(!canEdit)
+          Text(verbatim: message.content)
+            .font(EnigmaTypography.ui(14))
+            .lineSpacing(3)
+            .foregroundStyle(palette.textPrimary.color)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityLabel("You: " + message.content)
+            .enigmaTestMarker("Your message")
         }
       }
     }
