@@ -13,7 +13,7 @@ extension ScreenCapturing {
 }
 
 enum ScreenCaptureError: LocalizedError, Equatable {
-  case permissionDenied, restartRequired, invalidImage, alreadyCapturing
+  case permissionDenied, restartRequired, invalidImage, alreadyCapturing, unreadableImage, imageTooLarge
   var errorDescription: String? {
     switch self {
     case .permissionDenied:
@@ -22,6 +22,8 @@ enum ScreenCaptureError: LocalizedError, Equatable {
       "Screen Recording permission was granted. Quit and reopen Enigma to make screenshot pixels available, then try again. Your draft has been kept."
     case .invalidImage: "The screenshot could not be read. Please retake it."
     case .alreadyCapturing: "Finish the current screen selection first."
+    case .unreadableImage: "This image couldn't be read. Try a PNG, JPEG or HEIC image."
+    case .imageTooLarge: "Images over 50 MB can't be attached."
     }
   }
 }

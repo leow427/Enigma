@@ -25,6 +25,8 @@ struct AppShellView: View {
   /// Whether a selection chat stays private when opened in the window.
   @ObservedObject private var selectionEditing: SelectionEditingSettings
   @State private var isFileCloudConsentPresented = false
+  /// Files or an image are dragged over the window or panel (F4).
+  @State private var isDropTargeted = false
   /// Permissions an update cleared, for its one-time card.
   @State private var permissionsAgain: [MacPermission] = []
   @StateObject private var screen: ScreenComposerCoordinator
@@ -400,6 +402,14 @@ struct AppShellView: View {
     characterObservedShell
     // "Never use this site" on source rows, for the main window and the compact panel (spec §8).
     .environment(\.sourceBlocking, SourceBlocking(settings: searchSettings))
+    // Drops on the window or panel outside the message field, which takes its own (F4).
+    // shortcut: reads the system drag pasteboard (NSDraggingInfo's) so drops follow the field's
+    // rules; move to NSItemProvider loading if SwiftUI ever stops using it.
+    .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { _ in
+      ComposerPasteboard.item(in: NSPasteboard(name: .drag)).map(attachDropped) ?? false
+    }
+    .environment(\.composerDrops, ComposerDrops(attach: { attachDropped($0) }, targetChanged: { isDropTargeted = $0 }))
+    .environment(\.composerDropTargeted, isDropTargeted)
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
         .enigmaTheme(appearance.appearance)
@@ -1113,6 +1123,35 @@ struct AppShellView: View {
       }
       shell.isComposerFocused = true
     }
+  }
+
+  /// Files or an image dropped on the window, the panel or the field, or
+  /// pasted (F4): refused while Attach is, then attached as Attach or a
+  /// screenshot would be. False when nothing was attached.
+  private func attachDropped(_ item: ComposerPasteboard.Item) -> Bool {
+    guard !localChat.isBusy, !screen.isBusy, !files.isWorking, !files.isPicking, !guidedTour.isActive,
+          !welcomeSetup.isPresented else { return false }
+    let route: ComposerDrop?
+    switch item {
+    case .image(let data):
+      Task { await screen.attach(imageData: data); shell.isComposerFocused = true }
+      return true
+    case .files(let urls): route = ComposerDrop.route(urls)
+    }
+    switch route {
+    case .image(let url):
+      Task { await screen.attach(imageAt: url); shell.isComposerFocused = true }
+    case .files(let urls, let includesImages):
+      do { try files.attach(urls, imagesAsFiles: includesImages) } catch {
+        files.error = error.localizedDescription
+        return false
+      }
+      screen.removeAttachment()
+      draft = SlashCommand.removing([.search], from: draft)
+      shell.isComposerFocused = true
+    case nil: return false
+    }
+    return true
   }
 
   private func captureScreen() {

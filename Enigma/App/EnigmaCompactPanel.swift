@@ -29,6 +29,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
   @ViewBuilder let details: () -> Details
 
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.composerDropTargeted) private var isDropTargeted
   /// The open command list's frame, the input row's, and the details' height,
   /// in the panel's space.
   @State private var suggestions: CGRect = .zero
@@ -98,6 +99,10 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
     .background(palette.surface.color)
     .clipShape(shape)
     .enigmaEdge(shape)
+    // A drop over the panel gets the main composer's focus edge (F4).
+    .overlay {
+      if isDropTargeted { shape.strokeBorder(palette.accent.withOpacity(0.5).color, lineWidth: 1).allowsHitTesting(false) }
+    }
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Ask Enigma")
     .enigmaTestMarker("Compact panel")

@@ -5,12 +5,22 @@ import AppKit
 struct ScreenAttachment: Identifiable {
   enum Source: String {
     case screenRegion, fullDesktop
+    /// A dropped or pasted image (F4), not a capture: it has no Retake.
+    case attachedImage
 
     var label: String {
-      self == .fullDesktop ? "Full desktop · All displays" : "Screen region"
+      switch self {
+      case .screenRegion: "Screen region"
+      case .fullDesktop: "Full desktop · All displays"
+      case .attachedImage: "Attached image"
+      }
     }
     var captureScope: String {
-      self == .fullDesktop ? "the full desktop, including all displays" : "the selected region"
+      switch self {
+      case .screenRegion: "the selected region"
+      case .fullDesktop: "the full desktop, including all displays"
+      case .attachedImage: "the attached image"
+      }
     }
   }
   enum Status: String { case captured = "Screenshot", reading = "Reading text…", localOCR = "Local OCR", vision = "Vision" }
@@ -33,6 +43,28 @@ struct ScreenAttachment: Identifiable {
     originalImage = image
     pixelWidth = pixels.width
     pixelHeight = pixels.height
+  }
+
+  /// Refuses files over about 50 MB before decoding them.
+  static let imageByteLimit = 50 * 1024 * 1024
+
+  /// A dropped image file, decoded by `NSImage` (HEIC; a GIF's first frame).
+  static func image(at url: URL) throws -> NSImage {
+    let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+    guard (size ?? 0) <= imageByteLimit else { throw ScreenCaptureError.imageTooLarge }
+    return try decoded(NSImage(contentsOf: url))
+  }
+
+  /// Pasted image data (PNG or TIFF).
+  static func image(from data: Data) throws -> NSImage {
+    guard data.count <= imageByteLimit else { throw ScreenCaptureError.imageTooLarge }
+    return try decoded(NSImage(data: data))
+  }
+
+  private static func decoded(_ image: NSImage?) throws -> NSImage {
+    guard let image, let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+          pixels.width > 0, pixels.height > 0 else { throw ScreenCaptureError.unreadableImage }
+    return image
   }
 
   /// A bounded Retina preview retained only for the current app session.

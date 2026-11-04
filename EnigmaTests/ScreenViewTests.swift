@@ -937,6 +937,56 @@ final class ScreenViewTests: XCTestCase {
     }
   }
 
+  func testRealComposerAttachesPastedImageAndRefusesItDuringAReply() async throws {
+    let stream = AsyncThrowingStream<String, Error>.makeStream()
+    let started = expectation(description: "The reply streams")
+    let fixture = try await makeScreenshotComposer(response: stream.stream, streamStarted: { started.fulfill() })
+    defer { fixture.controller.hide(); fixture.window.contentView = nil; stream.continuation.finish() }
+    let pasteboard = NSPasteboard(name: NSPasteboard.Name("ScreenViewTests-\(UUID())"))
+    defer { pasteboard.releaseGlobally() }
+    pasteboard.clearContents()
+    pasteboard.setData(try ScreenCaptureTests.png(), forType: .png)
+    let field = try composerField(in: fixture.view)
+    XCTAssertTrue(field.attachItems(from: pasteboard))
+    try await waitForScreenshotState { fixture.screen.attachment?.source == .attachedImage && !fixture.screen.isBusy }
+    let attachedID = fixture.screen.attachment?.id
+
+    fixture.screen.removeAttachment()
+    try await editScreenshotComposer("Stream a response", in: fixture)
+    try submitComposer(in: fixture.view)
+    await fulfillment(of: [started], timeout: 3)
+    XCTAssertTrue(fixture.chat.isBusy)
+    _ = try composerField(in: fixture.view).attachItems(from: pasteboard)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertNil(fixture.screen.attachment, "Pastes are refused while a reply runs")
+    XCTAssertNotNil(attachedID)
+  }
+
+  func testAttachedImageLabelsNameTheImageAndTheCardHasNoRetake() async throws {
+    let image = try XCTUnwrap(NSImage(data: try ScreenCaptureTests.png()))
+    let attached = try ScreenAttachment(image: image, source: .attachedImage)
+    XCTAssertEqual(attached.source.label, "Attached image")
+    let consent = ScreenUploadConsent(attachment: attached, provider: .gemini)
+    XCTAssertEqual(consent.title, "Send attached image to Gemini?")
+    XCTAssertTrue(consent.explanation.hasPrefix("This image will be sent to Gemini for image analysis"), consent.explanation)
+    XCTAssertFalse(consent.explanation.contains("captures"), consent.explanation)
+    XCTAssertTrue(ScreenSettings.savedPermissionExplanation.contains("and attached images"))
+    let region = ScreenUploadConsent(attachment: try ScreenAttachment(image: image, source: .screenRegion), provider: .gemini)
+    XCTAssertEqual(region.title, "Send selected region to Gemini?")
+
+    for source in [ScreenAttachment.Source.attachedImage, .screenRegion] {
+      let card = ScreenAttachmentCard(attachment: try ScreenAttachment(image: image, source: source), isBusy: false,
+        remove: {}, retake: {})
+        .environment(\.screenControlMarker, { AnyView(TestControlMarker(name: $0).allowsHitTesting(false)) })
+      let view = NSHostingView(rootView: card.frame(width: 480))
+      view.frame = NSRect(x: 0, y: 0, width: 480, height: 90)
+      view.layoutSubtreeIfNeeded()
+      try await waitForUI("the image card", in: view) { EnigmaMainWindowTests.Host.marker("Remove", in: view) != nil }
+      XCTAssertEqual(EnigmaMainWindowTests.Host.marker("Retake", in: view) != nil, source != .attachedImage,
+        "Retake captures the screen again, so an attached image has none")
+    }
+  }
+
   func testRealComposerConsentNamesCaptureAndProviderAndDenialKeepsDraft() async throws {
     // Use unambiguous provider glyphs for exact native OCR assertions. The image
     // approval test separately verifies OpenAI as the actual request destination.

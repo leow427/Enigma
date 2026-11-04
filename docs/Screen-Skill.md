@@ -39,12 +39,24 @@ After you send, the sent message shows a small preview of the image for the rest
 of the app session. A short note over the composer says how the capture was used,
 for example `Local OCR · Image not sent` or `Vision · Cloud`.
 
+You can also attach an image you already have: drag an image file, or an image
+from a web page in Safari or Chrome, onto the main window, the compact panel or the
+message field, or paste image data (**⌘V**), such as an image copied from a browser. Enigma accepts what macOS can decode,
+including HEIC (a GIF uses its first frame), up to 50 MB; a PDF goes to
+[File Mode](File-Mode.md) instead. The card reads **Attached image** and has no
+**Retake**. It's read and sent exactly like a capture: the same OCR on your Mac,
+the same text-or-image choice and the same cloud upload permission. One image at a
+time: a new one, captured or attached, replaces the old. Pasted text, including a
+file path, stays text. Images dropped together with other files go to File Mode as
+files.
+
 A capture can't be combined with File Mode or **/messages**. Attaching files
 removes the screenshot, and sending `/messages` with a capture asks you to remove one.
 
 ### Text or image
 
-Enigma runs Apple's Vision text recognition (OCR) on every capture, on your Mac.
+Enigma runs Apple's Vision text recognition (OCR) on every capture and attached
+image, on your Mac.
 Then it decides what the selected model receives:
 
 - **Text only** when the capture has enough clearly read text and the question is
@@ -133,10 +145,11 @@ Uploading screenshots to a cloud model is off by default. The first time a reque
 needs to send an image to a cloud model, Enigma shows a sheet before anything is sent:
 
 - Its title names the scope and the provider, such as
-  **Send full desktop to Anthropic?** or **Send selected region to OpenAI?**
+  **Send full desktop to Anthropic?**, **Send selected region to OpenAI?** or
+  **Send attached image to Gemini?**
 - It previews the whole captured image.
 - It explains that the choice applies to future region and full-desktop
-  screenshots, to whichever cloud provider you select in Auto or Cloud, not only to
+  screenshots and attached images, to whichever cloud provider you select in Auto or Cloud, not only to
   this image or provider.
 - **Allow & Send** saves that permission and sends. **Keep Screenshots Local**
   (or Escape) saves a refusal and keeps the screenshot and draft so you can use
@@ -240,6 +253,8 @@ Recording rows used in Settings and the welcome setup.
 - Image requests need a text-and-image model; text-only models answer only from OCR.
 - Search queries derived from a screenshot may contain on-screen details.
 - Exclusion from screen sharing is best effort, as described above.
+- One image per message. Drops and image pastes are refused while a reply runs, an
+  image is being read, or File Mode is busy.
 
 ## Tests
 

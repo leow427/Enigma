@@ -50,17 +50,7 @@ final class ScreenComposerCoordinator: ObservableObject {
       lastCaptureWasDesktop = desktop
       isCapturing = false
       isReading = true
-      attachment?.status = .reading
-      if let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-        let result: ScreenOCRResult
-        do { result = try await recognize(pixels) ?? .empty } // A slow read is handled by vision, like a failed one.
-        catch is CancellationError { return nil }
-        catch { result = .empty } // An OCR failure can still be handled by vision.
-        guard revision == operation else { return nil }
-        attachment?.ocrText = result.text
-        attachment?.ocrConfidence = result.confidence
-        attachment?.status = result.isUsable ? .localOCR : .vision
-      }
+      guard await readText(of: image, operation: operation) else { return nil }
       guard draft == originalDraft else { return nil }
       if let remainder { draft = remainder }
       return remainder.flatMap { ComposerCommands($0).hasPrompt ? $0 : nil }
@@ -76,6 +66,49 @@ final class ScreenComposerCoordinator: ObservableObject {
       self.error = error.localizedDescription
       return nil
     }
+  }
+
+  /// Attach a dropped image file (F4) like a screenshot, replacing any image.
+  func attach(imageAt url: URL) async {
+    await attach { try ScreenAttachment.image(at: url) }
+  }
+
+  /// Attach pasted image data (F4) like a screenshot, replacing any image.
+  func attach(imageData data: Data) async {
+    await attach { try ScreenAttachment.image(from: data) }
+  }
+
+  private func attach(_ load: () throws -> NSImage) async {
+    guard !isBusy else { return }
+    let operation = UUID()
+    revision = operation
+    error = nil
+    needsScreenRecordingSettings = false
+    do {
+      let image = try load()
+      attachment = try ScreenAttachment(image: image, source: .attachedImage)
+      isReading = true
+      defer { isReading = false }
+      _ = await readText(of: image, operation: operation)
+    } catch {
+      self.error = error.localizedDescription
+    }
+  }
+
+  /// Reads the attachment's text on this Mac and sets its status. False when
+  /// the read was cancelled or the attachment changed meanwhile.
+  private func readText(of image: NSImage, operation: UUID) async -> Bool {
+    attachment?.status = .reading
+    guard let pixels = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return true }
+    let result: ScreenOCRResult
+    do { result = try await recognize(pixels) ?? .empty } // A slow read is handled by vision, like a failed one.
+    catch is CancellationError { return false }
+    catch { result = .empty } // An OCR failure can still be handled by vision.
+    guard revision == operation else { return false }
+    attachment?.ocrText = result.text
+    attachment?.ocrConfidence = result.confidence
+    attachment?.status = result.isUsable ? .localOCR : .vision
+    return true
   }
 
   /// Returns nil when OCR outlasts `ocrTimeout`. The read keeps running then:

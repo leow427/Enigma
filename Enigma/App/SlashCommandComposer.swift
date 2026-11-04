@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Text for the composer to insert at its caret, like `/` from the composer's
 /// command button. A new value inserts it again, even with the same text.
@@ -30,6 +31,7 @@ struct SlashCommandComposer: View {
   var submit: () -> Void
   @StateObject private var completion = CommandCompletionModel()
   @Environment(\.enigmaPalette) private var palette
+  @Environment(\.composerDrops) private var drops
 
   var body: some View {
     ZStack(alignment: .topLeading) {
@@ -38,7 +40,8 @@ struct SlashCommandComposer: View {
       }
       CommandTextEditor(text: $text, isFocused: $isFocused, isEnabled: isEnabled,
                         completion: completion, availableCommands: availableCommands,
-                        fontSize: fontSize, colors: colors, submit: submit)
+                        fontSize: fontSize, colors: colors, submit: submit,
+                        attach: drops?.attach, dropTarget: drops?.targetChanged)
         .frame(height: completion.height)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -248,6 +251,67 @@ final class SlashCommandTextView: NSTextView {
   var commandTextColor: NSColor = EnigmaPalette.paper.accentText.nsColor
   var submit: (() -> Void)?
   var focusChanged: ((Bool) -> Void)?
+  /// Files and images dropped or pasted on the field (F4). Returns whether
+  /// they were attached. Nil keeps AppKit's plain-text behavior.
+  var attach: (@MainActor @Sendable (ComposerPasteboard.Item) -> Bool)? {
+    didSet { if (attach == nil) != (oldValue == nil) { updateDragTypeRegistration() } }
+  }
+  /// A drag with files or an image is over the field, for the composer's highlight.
+  var dropTargetChanged: (@MainActor @Sendable (Bool) -> Void)?
+
+  override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+    // Keeps Paste enabled for image data and Finder files; `paste(_:)` takes them first.
+    super.readablePasteboardTypes + (attach == nil ? [] : [.fileURL, .png, NSPasteboard.PasteboardType(UTType.jpeg.identifier), .tiff])
+  }
+
+  /// Hands files or image data on `pasteboard` to `attach`. False leaves the
+  /// pasteboard to AppKit, as for text, including text that is a path.
+  @discardableResult
+  func attachItems(from pasteboard: NSPasteboard) -> Bool {
+    guard let attach, let item = ComposerPasteboard.item(in: pasteboard) else { return false }
+    _ = attach(item)
+    return true
+  }
+
+  override func paste(_ sender: Any?) {
+    if attachItems(from: .general) { return }
+    super.paste(sender)
+  }
+
+  override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    guard attach != nil, ComposerPasteboard.hasItem(sender.draggingPasteboard) else { return super.draggingEntered(sender) }
+    dropTargetChanged?(true)
+    return .copy
+  }
+
+  override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    guard attach != nil, ComposerPasteboard.hasItem(sender.draggingPasteboard) else { return super.draggingUpdated(sender) }
+    return .copy
+  }
+
+  override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+    dropTargetChanged?(false)
+    super.draggingExited(sender)
+  }
+
+  /// A plain-text view refuses image data here, so take what `attach` handles.
+  override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    (attach != nil && ComposerPasteboard.hasItem(sender.draggingPasteboard)) || super.prepareForDragOperation(sender)
+  }
+
+  /// A refused drop gets neither `performDragOperation` nor `draggingExited`.
+  override func draggingEnded(_ sender: any NSDraggingInfo) {
+    dropTargetChanged?(false)
+    super.draggingEnded(sender)
+  }
+
+  override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    dropTargetChanged?(false)
+    guard let attach, let item = ComposerPasteboard.item(in: sender.draggingPasteboard) else {
+      return super.performDragOperation(sender)
+    }
+    return attach(item)
+  }
 
   override func keyDown(with event: NSEvent) {
     if completion?.handle(event) == true { return }
@@ -319,6 +383,8 @@ private struct CommandTextEditor: NSViewRepresentable {
   var fontSize: CGFloat = 15
   var colors: Colors
   var submit: () -> Void
+  var attach: (@MainActor @Sendable (ComposerPasteboard.Item) -> Bool)?
+  var dropTarget: (@MainActor @Sendable (Bool) -> Void)?
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -357,6 +423,9 @@ private struct CommandTextEditor: NSViewRepresentable {
     editor.isEditable = isEnabled
     context.coordinator.rejectsEdits = context.environment.enigmaTourDemo
     editor.submit = submit
+    // The tour's read-only demo field takes no drops or pastes either.
+    if context.environment.enigmaTourDemo { editor.attach = nil } else { editor.attach = attach }
+    editor.dropTargetChanged = dropTarget
     if completion.availableCommands != availableCommands {
       completion.availableCommands = availableCommands
       DispatchQueue.main.async { completion.refresh() }
@@ -418,7 +487,77 @@ private struct CommandTextEditor: NSViewRepresentable {
   }
 }
 
+/// What a drop or paste on the composer carries (F4).
+enum ComposerPasteboard {
+  enum Item: Equatable, Sendable {
+    /// Finder files or folders, routed by `ComposerDrop`.
+    case files([URL])
+    /// Image data (PNG, JPEG or TIFF), not yet decoded.
+    case image(Data)
+  }
+
+  /// Smallest first: a browser image carries its JPEG and a far larger TIFF.
+  private static let imageTypes: [NSPasteboard.PasteboardType] = [.png, NSPasteboard.PasteboardType(UTType.jpeg.identifier), .tiff]
+
+  /// File URLs first. Image data with no text, or with a web link, as a
+  /// browser's image drag or Copy Image has; a spreadsheet cell or styled
+  /// text, which carries text without a link, still pastes as text.
+  static func item(in pasteboard: NSPasteboard) -> Item? {
+    let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    if !urls.isEmpty { return .files(urls) }
+    guard isImage(pasteboard), let data = imageTypes.lazy.compactMap({ pasteboard.data(forType: $0) }).first else { return nil }
+    return .image(data)
+  }
+
+  /// `item(in:)` without reading the data, for a drag in progress.
+  static func hasItem(_ pasteboard: NSPasteboard) -> Bool {
+    pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) || isImage(pasteboard)
+  }
+
+  private static func isImage(_ pasteboard: NSPasteboard) -> Bool {
+    pasteboard.availableType(from: imageTypes) != nil
+      && (pasteboard.availableType(from: [.string]) == nil || pasteboard.availableType(from: [.URL]) != nil)
+  }
+}
+
+/// Where dropped files go (F4): one image file to the image attachment,
+/// anything else, images included, to File Mode.
+enum ComposerDrop: Equatable {
+  case image(URL)
+  case files([URL], includesImages: Bool)
+
+  static func route(_ urls: [URL]) -> ComposerDrop? {
+    let files = urls.filter(\.isFileURL)
+    guard !files.isEmpty else { return nil }
+    let images = files.filter(isImage)
+    if files.count == 1, let image = images.first { return .image(image) }
+    return .files(files, includesImages: !images.isEmpty)
+  }
+
+  /// PDFs aren't images here: they go to File Mode.
+  static func isImage(_ url: URL) -> Bool {
+    let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+      ?? UTType(filenameExtension: url.pathExtension)
+    return type.map { $0.conforms(to: .image) && !$0.conforms(to: .pdf) } ?? false
+  }
+}
+
+/// The composer's drop and paste actions (F4). Always equal: the shell makes
+/// new closures on every render, and a changed environment value would update
+/// the field each time, which drops its focus while the binding still lags.
+struct ComposerDrops: Equatable, Sendable {
+  /// Attaches files or an image dropped or pasted on the composer.
+  let attach: @MainActor @Sendable (ComposerPasteboard.Item) -> Bool
+  /// A drag with files or an image entered or left the message field.
+  let targetChanged: @MainActor @Sendable (Bool) -> Void
+  static func == (_: Self, _: Self) -> Bool { true }
+}
+
 extension EnvironmentValues {
+  @Entry var composerDrops: ComposerDrops? = nil
+  /// A drop over the composer: its edge shows the focus accent.
+  @Entry var composerDropTargeted = false
+
   /// The window shows the tour's demo chat: it scrolls, but its composer takes
   /// no typing and its messages' buttons take no clicks.
   @Entry var enigmaTourDemo = false

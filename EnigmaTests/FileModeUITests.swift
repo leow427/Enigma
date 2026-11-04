@@ -83,6 +83,111 @@ final class FileModeUITests: XCTestCase {
     XCTAssertEqual(files.selection, previous)
   }
 
+  func testAttachKeepsTheCapDedupeAndFolderCoverageAndRejectsNonFileURLs() throws {
+    let files = FileModeCoordinator(picker: FileTestPicker(nil), journalDirectory: root.appendingPathComponent("Recovery"))
+    let hello = project.appendingPathComponent("hello.txt")
+    var changes = 0
+    files.onSelectionChange = { _ in changes += 1 }
+    try files.attach([hello, hello])
+    XCTAssertEqual(files.selection?.attachments.count, 1, "The same file dropped twice is one attachment")
+    try files.attach([project])
+    XCTAssertEqual(files.selection?.attachments.count, 1, "The folder covers the file inside it")
+    XCTAssertEqual(files.selection?.attachments.first?.isDirectory, true)
+    XCTAssertEqual(changes, 2)
+    let previous = files.selection
+    XCTAssertThrowsError(try files.attach([URL(string: "https://example.com/a.txt")!]))
+    XCTAssertEqual(files.selection, previous)
+    let others = root.appendingPathComponent("Others")
+    try FileManager.default.createDirectory(at: others, withIntermediateDirectories: true)
+    let many = try (1...16).map { index in
+      let url = others.appendingPathComponent("file\(index).txt")
+      try Data("\(index)".utf8).write(to: url)
+      return url
+    }
+    XCTAssertThrowsError(try files.attach(many)) { XCTAssertEqual($0 as? FileModeError, .tooManyAttachments) }
+    XCTAssertEqual(files.selection, previous, "A refused drop keeps the selection")
+  }
+
+  func testDropSplitSendsOneImageToTheImageAndEverythingElseToFileMode() throws {
+    let image = project.appendingPathComponent("photo.png")
+    let heic = project.appendingPathComponent("photo.heic")
+    let pdf = project.appendingPathComponent("paper.pdf")
+    let text = project.appendingPathComponent("hello.txt")
+    for url in [image, heic, pdf] { try Data().write(to: url) }
+    XCTAssertEqual(ComposerDrop.route([image]), .image(image))
+    XCTAssertEqual(ComposerDrop.route([heic]), .image(heic))
+    XCTAssertEqual(ComposerDrop.route([pdf]), .files([pdf], includesImages: false), "PDFs go to File Mode")
+    XCTAssertEqual(ComposerDrop.route([text, project]), .files([text, project], includesImages: false))
+    XCTAssertEqual(ComposerDrop.route([image, text]), .files([image, text], includesImages: true))
+    XCTAssertEqual(ComposerDrop.route([image, heic]), .files([image, heic], includesImages: true))
+    XCTAssertNil(ComposerDrop.route([URL(string: "https://example.com/photo.png")!]))
+    XCTAssertNil(ComposerDrop.route([]))
+  }
+
+  func testDroppingImagesWithFilesNotesThatTheyWentToFileMode() throws {
+    let files = FileModeCoordinator(picker: FileTestPicker(nil), journalDirectory: root.appendingPathComponent("Recovery"))
+    let image = project.appendingPathComponent("photo.png")
+    try Data().write(to: image)
+    try files.attach([image, project.appendingPathComponent("hello.txt")], imagesAsFiles: true)
+    XCTAssertEqual(files.notice, "The images were attached to File Mode as files.")
+    try files.attach([project])
+    XCTAssertNil(files.notice)
+  }
+
+  func testPastedImageDataAttachesAndPathTextPastesAsText() throws {
+    let editor = SlashCommandTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 40))
+    editor.isRichText = false
+    let box = PastedItems()
+    editor.attach = { box.items.append($0); return true }
+    let pasteboard = NSPasteboard(name: NSPasteboard.Name("FileModeUITests-\(UUID())"))
+    defer { pasteboard.releaseGlobally() }
+
+    pasteboard.clearContents()
+    let png = try ScreenCaptureTests.png()
+    pasteboard.setData(png, forType: .png)
+    XCTAssertTrue(editor.attachItems(from: pasteboard))
+    XCTAssertEqual(box.items, [.image(png)])
+    XCTAssertTrue(editor.readablePasteboardTypes.contains(.png), "Paste stays enabled for image data")
+
+    let path = project.appendingPathComponent("hello.txt").path
+    pasteboard.clearContents()
+    pasteboard.setString(path, forType: .string)
+    XCTAssertFalse(editor.attachItems(from: pasteboard), "Typed or pasted text never grants file access")
+    XCTAssertTrue(editor.readSelection(from: pasteboard))
+    XCTAssertEqual(editor.string, path)
+    XCTAssertEqual(box.items.count, 1)
+
+    pasteboard.clearContents()
+    let file = project.appendingPathComponent("hello.txt")
+    pasteboard.writeObjects([file as NSURL])
+    XCTAssertTrue(editor.attachItems(from: pasteboard))
+    XCTAssertEqual(box.items.last, .files([file]), "A Finder file follows the drop rules")
+
+    pasteboard.clearContents()
+    editor.string = ""
+    pasteboard.setString("cell text", forType: .string)
+    pasteboard.setData(png, forType: .png)
+    XCTAssertFalse(editor.attachItems(from: pasteboard), "Text with image data, like a spreadsheet cell, pastes as text")
+    XCTAssertTrue(editor.readSelection(from: pasteboard))
+    XCTAssertEqual(editor.string, "cell text")
+
+    pasteboard.clearContents()
+    let jpeg = try XCTUnwrap(NSBitmapImageRep(data: png)?.representation(using: .jpeg, properties: [:]))
+    let link = "https://www.example.com/imgres?q=cow"
+    pasteboard.declareTypes([.string, .URL, NSPasteboard.PasteboardType("public.jpeg"), .tiff], owner: nil)
+    pasteboard.setString(link, forType: .string)
+    pasteboard.setString(link, forType: .URL)
+    pasteboard.setData(jpeg, forType: NSPasteboard.PasteboardType("public.jpeg"))
+    pasteboard.setData(Data(count: 10), forType: .tiff)
+    XCTAssertTrue(ComposerPasteboard.hasItem(pasteboard))
+    XCTAssertTrue(editor.attachItems(from: pasteboard), "A browser image drag carries its link as text, and still attaches")
+    XCTAssertEqual(box.items.last, .image(jpeg), "The JPEG, not the far larger TIFF")
+
+    editor.attach = nil
+    XCTAssertFalse(editor.attachItems(from: pasteboard), "Without a handler the field behaves as before")
+    XCTAssertFalse(editor.readablePasteboardTypes.contains(.png))
+  }
+
   func testFilesInsideAnAttachedFolderDoNotCountTowardTheLimit() async throws {
     let inside = try (1...16).map { index in
       let url = project.appendingPathComponent("file\(index).txt")
@@ -440,6 +545,11 @@ final class FileModeUITests: XCTestCase {
     await files.undo(try XCTUnwrap(files.changes.first))
     XCTAssertTrue(files.changes.isEmpty)
   }
+}
+
+@MainActor
+private final class PastedItems {
+  var items: [ComposerPasteboard.Item] = []
 }
 
 @MainActor

@@ -43,6 +43,8 @@ final class FileModeCoordinator: ObservableObject {
   @Published private(set) var isPicking = false
   @Published private(set) var isWorking = false
   @Published var error: String?
+  /// A short note under the attachments, such as where a drop's images went.
+  @Published private(set) var notice: String?
   @Published private(set) var changes: [WorkspaceChangeSet] = []
   @Published private(set) var deletionPath: String?
   @Published var review: WorkspaceChangeSet?
@@ -78,23 +80,28 @@ final class FileModeCoordinator: ObservableObject {
     let revision = selectionRevision
     defer { isPicking = false }
     guard let urls = await picker.pick(), !urls.isEmpty, selectionRevision == revision else { return }
-    do {
-      // Selecting more locations is an explicit additional grant. Deduplicate canonical URLs.
-      var attachments = selection?.attachments ?? []
-      for url in urls {
-        let attachment = try WorkspaceAttachment.select(url)
-        if !attachments.contains(where: { $0.url == attachment.url }) { attachments.append(attachment) }
-      }
-      // Count after normalizing: a file inside an attached folder is covered by that folder.
-      let normalized = WorkspaceSelection.normalized(attachments)
-      guard normalized.attachments.count <= WorkspaceSelection.attachmentLimit else { throw FileModeError.tooManyAttachments }
-      protectedWrite = nil
-      protectedWritePrompt = nil
-      selection = normalized
-      selectionRevision = UUID()
-      error = nil
-      onSelectionChange?(selection)
-    } catch { self.error = error.localizedDescription }
+    do { try attach(urls) } catch { self.error = error.localizedDescription }
+  }
+
+  /// Add picked or dropped locations (F4). `imagesAsFiles` notes that a drop's
+  /// images went here as files. Throws without changing the selection.
+  func attach(_ urls: [URL], imagesAsFiles: Bool = false) throws {
+    // Selecting more locations is an explicit additional grant. Deduplicate canonical URLs.
+    var attachments = selection?.attachments ?? []
+    for url in urls {
+      let attachment = try WorkspaceAttachment.select(url)
+      if !attachments.contains(where: { $0.url == attachment.url }) { attachments.append(attachment) }
+    }
+    // Count after normalizing: a file inside an attached folder is covered by that folder.
+    let normalized = WorkspaceSelection.normalized(attachments)
+    guard normalized.attachments.count <= WorkspaceSelection.attachmentLimit else { throw FileModeError.tooManyAttachments }
+    protectedWrite = nil
+    protectedWritePrompt = nil
+    selection = normalized
+    selectionRevision = UUID()
+    error = nil
+    notice = imagesAsFiles ? "The images were attached to File Mode as files." : nil
+    onSelectionChange?(selection)
   }
 
   func remove(id: UUID) {
@@ -105,6 +112,7 @@ final class FileModeCoordinator: ObservableObject {
     let attachments = selection?.attachments.filter { $0.id != id } ?? []
     selection = attachments.isEmpty ? nil : WorkspaceSelection(attachments: attachments)
     error = nil
+    notice = nil
     onSelectionChange?(selection)
   }
 
@@ -116,6 +124,7 @@ final class FileModeCoordinator: ObservableObject {
     protectedWrite = nil
     protectedWritePrompt = nil
     error = nil
+    notice = nil
     // Bookmark scopes open only when the user sends a File Mode request.
   }
 
@@ -147,6 +156,7 @@ final class FileModeCoordinator: ObservableObject {
     guard activeWorkspace === workspace, isWorking else { return }
     submittedSelection = selection
     selection = nil
+    notice = nil
     onSelectionChange?(nil)
   }
 
