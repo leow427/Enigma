@@ -975,6 +975,45 @@ final class RequestLifecycleTests: XCTestCase {
     XCTAssertTrue(writes.all.allSatisfy { $0.isEmpty }, "\(writes.all)")
   }
 
+  // MARK: Edit (F9)
+
+  func testEditingAMessageRewindsTheChatToItOnlyOnceTheNewReplyStarts() async throws {
+    let streams = (0..<4).map { _ in ControlledStream<ChatEvent>() }
+    let provider = LifecycleCloudProvider(streams: streams)
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(), cloudProviders: registry(chatGPT: provider),
+                                       sessionStore: makeStore())
+    for (index, text) in ["/think A", "B"].enumerated() {
+      viewModel.submitCloud(text, provider: .chatGPT, modelID: "model")
+      await fulfillment(of: [streams[index].started], timeout: 2)
+      await receive(.token("Reply \(index)"), from: streams[index], in: viewModel, expecting: "Reply \(index)")
+      streams[index].continuation.finish()
+      await waitUntil("the reply ends") { !viewModel.isBusy }
+    }
+    let old = viewModel.messages
+    XCTAssertEqual(old.map(\.content), ["A", "Reply 0", "B", "Reply 1"])
+    let send = { (prompt: String, searches: Bool) in
+      viewModel.submitCloud(prompt, provider: .chatGPT, modelID: "model", searchEnabled: searches, allowsAutomaticSearch: false)
+    }
+
+    // Stop before the first token: nothing was lost.
+    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send)
+    XCTAssertEqual(viewModel.presentationMessages.map(\.content), ["A edited", ""], "Shown as edited meanwhile")
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    XCTAssertEqual(provider.requests[2].messages.filter { $0.role == .user }.count, 1, "History stops before the edited message")
+    await viewModel.stopStreaming()?.value
+    XCTAssertEqual(viewModel.messages, old)
+
+    // After the first token the edited message and its reply replace it and everything after it.
+    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send)
+    await fulfillment(of: [streams[3].started], timeout: 2)
+    await receive(.token("New"), from: streams[3], in: viewModel, expecting: "New")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
+    XCTAssertEqual(viewModel.messages.first?.extendedThinking, true, "The /think choice is kept")
+    XCTAssertTrue(Set(old.map(\.id)).isDisjoint(with: viewModel.messages.map(\.id)))
+    streams[3].continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+  }
+
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,
                                 in viewModel: LocalChatViewModel, expecting content: String) async {
     let received = expectation(description: "Presented token: \(content)")

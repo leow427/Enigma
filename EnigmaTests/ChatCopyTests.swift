@@ -414,6 +414,47 @@ final class ChatCopyTests: XCTestCase {
   }
 }
 
+extension ChatCopyTests {
+  @MainActor
+  func testThePencilEditsInPlaceAndCancelOrEscapeChangesNothing() async throws {
+    let message = ChatMessage(role: .user, content: "Old question")
+    var sent: [String] = []
+    let host = CopyHost(EnigmaUserMessage(message: message, edit: { sent.append($0) }, canEdit: true),
+                        pasteboard: scratchPasteboard(), test: self)
+    try await waitForUI("the pencil", in: host.view) { host.shows(EnigmaUserMessage.editLabel) }
+    let plain = CopyHost(EnigmaUserMessage(message: message), pasteboard: scratchPasteboard(), test: self)
+    try await waitForUI("the message", in: plain.view) { plain.shows("Your message") }
+    XCTAssertFalse(plain.shows(EnigmaUserMessage.editLabel), "No pencil without an edit action")
+
+    func openEditor() async throws -> NSTextView {
+      try await clickTestControl(EnigmaUserMessage.editLabel, in: host.view)
+      try await waitForUI("the editor", in: host.view) {
+        host.shows("Message editor") && (host.window.firstResponder as? NSTextView)?.string == "Old question"
+      }
+      XCTAssertFalse(host.shows("Your message"), "The bubble becomes the editor")
+      return try XCTUnwrap(host.window.firstResponder as? NSTextView)
+    }
+    var field = try await openEditor()
+    field.insertText(" edited", replacementRange: NSRange(location: (field.string as NSString).length, length: 0))
+    try await clickTestControl("Cancel edit", in: host.view)
+    try await waitForUI("the message again", in: host.view) { host.shows("Your message") && !host.shows("Message editor") }
+
+    field = try await openEditor()
+    field.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+      isARepeat: false, keyCode: 53)))
+    try await waitForUI("Escape closes the editor", in: host.view) { host.shows("Your message") && !host.shows("Message editor") }
+    XCTAssertEqual(sent, [], "Cancel and Escape send nothing")
+
+    field = try await openEditor()
+    field.selectAll(nil)
+    field.insertText("New question", replacementRange: field.selectedRange())
+    try await clickTestControl("Send edit", in: host.view)
+    try await waitForUI("the edit sent", in: host.view) { sent == ["New question"] }
+    XCTAssertTrue(host.shows("Your message"), "The editor closes on Send")
+  }
+}
+
 /// A view in a key window with the test markers, the Paper palette and its own pasteboard.
 @MainActor
 private final class CopyHost {

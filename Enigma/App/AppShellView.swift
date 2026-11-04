@@ -1070,7 +1070,8 @@ struct AppShellView: View {
                       sendQueuedNow: { localChat.sendQueuedMessageNow(id: $0) },
                       cancelQueued: { localChat.cancelQueuedMessage(id: $0) },
                       footnote: openedSelectionChatNote,
-                      regenerate: regenerateAction, canRegenerate: canRegenerate) {
+                      regenerate: regenerateAction, canRegenerate: canRegenerate,
+                      edit: guidedTour.isActive ? nil : { resend(from: $0, text: $1) }) {
       revisionCard($0)
     }
     .id(localChat.selectedSessionID)
@@ -1117,13 +1118,14 @@ struct AppShellView: View {
   /// None during the tour: its demo replies are never sent again.
   private var regenerateAction: ((UUID) -> Void)? {
     if guidedTour.isActive { return nil }
-    return { regenerateReply(from: $0) }
+    return { resend(from: $0, text: nil) }
   }
 
-  /// Gets a new answer to the latest question on the current route; the draft is left alone.
-  private func regenerateReply(from questionID: UUID) {
+  /// Sends a question again on the current route: as it was, regenerating its reply (F3), or as
+  /// edited `text`, rewinding the chat to it (F9). The draft is left alone.
+  private func resend(from questionID: UUID, text: String?) {
     guard canRegenerate else { return }
-    localChat.resend(fromUserMessage: questionID, send: { prompt, searches in
+    localChat.resend(fromUserMessage: questionID, text: text, send: { prompt, searches in
       submitChat(prompt, searchEnabled: searches, onAccepted: {})
     }, removed: { shell.expandedActivities.subtract($0) })
   }

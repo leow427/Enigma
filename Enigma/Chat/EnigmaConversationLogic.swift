@@ -80,6 +80,8 @@ struct ConversationTranscript: Equatable {
   static let markSize: CGFloat = 22
 
   let rows: [Row]
+  /// The person's messages the pencil can edit (F9): the turns Regenerate could replay (F3).
+  let editableMessageIDs: Set<UUID>
 
   /// `messages` are the chat's presentation messages, `activity` the running
   /// request's, and `isResponding` whether a request is running. `summarizedThrough` is the
@@ -94,12 +96,14 @@ struct ConversationTranscript: Equatable {
     // A summary whose last message is gone covers nothing, as `ChatCompactor.applying` treats it.
     var inSummary = summarizedThrough.map { id in messages.contains { $0.id == id } } ?? false
     var questionInSummary = false
+    var editable = Set<UUID>()
     for message in messages {
       defer { if message.id == summarizedThrough { inSummary = false } }
       switch message.role {
       case .user:
         question = message
         questionInSummary = inSummary
+        if Reply.canRegenerate(from: message) && !inSummary { editable.insert(message.id) }
         var shown = message
         let contexts = message.contexts?.filter { shownContexts.insert($0.id).inserted }
         shown.contexts = contexts?.isEmpty == false ? contexts : nil
@@ -139,6 +143,7 @@ struct ConversationTranscript: Equatable {
       rows.insert(.summaryMarker(UUID(uuid: marker)), at: index + 1)
     }
     self.rows = rows
+    editableMessageIDs = editable
   }
 
   /// The slot of the reply the character sits beside, if the chat has one.

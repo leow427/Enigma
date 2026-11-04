@@ -202,6 +202,22 @@ also drops every message after that reply once the new one starts:
   writes nothing. Actions a dropped reply took (File Mode edits, sent iMessages)
   aren't undone.
 
+### Editing a message
+
+Hover a message you sent and click the pencil (**Edit message**) under it to
+change its text in place. Editing is how you go back in a chat: there's no
+separate Rewind. **Send**, or Return, replaces that message and everything
+after it with the edited message and a new reply to it. **Cancel**, or Escape,
+leaves the chat exactly as it was.
+
+- It runs on Regenerate's path, with the same rules: only plain chat turns,
+  not while a reply runs or messages are queued, not for turns the chat's
+  summary covers, and not during the tour. The `/think` choice is kept; slash
+  commands typed in the edit are dropped, so an edit is always a plain chat
+  turn.
+- Nothing is removed until the new reply's first token; a failure, or Stop,
+  before then leaves the chat as it was. Earlier versions aren't kept.
+
 ### Activity and sources
 
 Each reply has a monospace status line that opens into its activity. While a
