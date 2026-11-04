@@ -151,6 +151,8 @@ struct EnigmaUserMessage: View {
   @State private var editedText: String?
   @State private var isHovered = false
   @FocusState private var isEditorFocused: Bool
+  /// Only the pencil takes focus: a returned edit mustn't take the keys from the composer.
+  @State private var focusesEditor = false
 
   /// The mockup's 78% of the chat column.
   static let maximumWidth: CGFloat = 530
@@ -209,6 +211,7 @@ struct EnigmaUserMessage: View {
         // Under the bubble, as Regenerate sits under a reply.
         if let edit {
           ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered) {
+            focusesEditor = true
             editedText = message.content
           }
           .disabled(!canEdit)
@@ -223,6 +226,7 @@ struct EnigmaUserMessage: View {
     // An edit that failed, or was stopped, before its reply started comes back to be sent again.
     .onChange(of: returnedText, initial: true) { _, text in
       guard let text else { return }
+      focusesEditor = false
       editedText = text
       takeReturnedText()
     }
@@ -259,7 +263,7 @@ struct EnigmaUserMessage: View {
       .enigmaFocusRing(isEditorFocused, palette: palette, cornerRadius: 16, outset: 0)
       .accessibilityLabel("Edit your message")
       .enigmaTestMarker("Message editor")
-      .onAppear { isEditorFocused = true }
+      .onAppear { if focusesEditor { isEditorFocused = true } }
     if let editNote {
       Text(editNote)
         .font(EnigmaTypography.mono(11))

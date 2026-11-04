@@ -1356,6 +1356,8 @@ final class LocalChatViewModel: ObservableObject {
   /// The running turn's question becomes a Messages turn: no pencil or Regenerate on it, and edits
   /// before it say its iMessages stay sent. Session-only, like every turn kind.
   private func markSentMessages(sessionID: UUID) {
+    // A sent iMessage can't be put back, so a resend's reply has started even with no text yet.
+    if pendingResend?.saved.id == sessionID { commitResend() }
     guard let index = sessions.firstIndex(where: { $0.id == sessionID }),
           let question = sessions[index].messages.lastIndex(where: { $0.role == .user }) else { return }
     sessions[index].messages[question].turnKind = .messages

@@ -464,12 +464,34 @@ extension ChatCopyTests {
     try key("\r", code: 36)
     try await waitForUI("Return sends", in: host.view) { box.sent == ["Return question"] && closed() }
 
-    // An edit whose reply never started reopens with its text, even while the row stays on screen.
+    // An edit whose reply never started reopens with its text, without taking the keys from
+    // another field, such as the composer.
+    let other = NSTextField(frame: NSRect(x: 0, y: 0, width: 80, height: 20))
+    host.view.addSubview(other)
+    host.window.makeFirstResponder(other)
+    func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.delegate === other }
+    try await waitForUI("the other field focused", in: host.view) { otherHasFocus() }
     box.returned = "Kept edit"
     try await waitForUI("the editor with the returned text", in: host.view) {
-      host.shows("Message editor") && (host.window.firstResponder as? NSTextView)?.string == "Kept edit"
+      host.shows("Message editor") && box.returned == nil
     }
-    XCTAssertNil(box.returned, "Taken once")
+    try await Task.sleep(for: .milliseconds(200))
+    host.view.layoutSubtreeIfNeeded()
+    XCTAssertTrue(otherHasFocus(), "A returned edit leaves focus where it was")
+    other.removeFromSuperview()
+    // Also when its row was gone meanwhile, as while the edit's reply was pending.
+    box.shown = false
+    try await waitForUI("the row gone", in: host.view) { !host.shows("Message editor") && !host.shows("Your message") }
+    box.returned = "Kept edit"
+    box.shown = true
+    try await waitForUI("the new row's editor with the returned text", in: host.view) {
+      host.shows("Message editor") && box.returned == nil
+    }
+    host.view.window?.makeFirstResponder(nil)
+    try await clickTestControl("Message editor", in: host.view)
+    try await waitForUI("the field focused", in: host.view) {
+      (host.window.firstResponder as? NSTextView)?.string == "Kept edit"
+    }
 
     // While it can't run, neither Send nor Return sends.
     box.canEdit = false
@@ -494,6 +516,7 @@ private final class EditBox: ObservableObject {
   @Published var returned: String?
   @Published var canEdit = true
   @Published var hasEdit = true
+  @Published var shown = true
   var sent: [String] = []
 }
 
@@ -503,6 +526,10 @@ private struct EditHarness: View {
   let message: ChatMessage
 
   var body: some View {
+    if box.shown { message(of: self.message) }
+  }
+
+  private func message(of message: ChatMessage) -> some View {
     EnigmaUserMessage(message: message, edit: box.hasEdit ? { box.sent.append($0) } : nil, canEdit: box.canEdit,
                       returnedText: box.returned, takeReturnedText: { box.returned = nil },
                       editNote: ConversationTranscript.editKeepsActionsNote)

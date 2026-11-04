@@ -1800,6 +1800,30 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(provider.delivered.last?.text, MessagesError.duplicateSend.localizedDescription)
   }
 
+  /// F9: an edit whose reply sent an iMessage keeps its turn, even with no text after the send.
+  func testAnEditThatSentAnIMessageStaysEvenWithoutText() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    let runner = RecordingRunner()
+    let sendCall = #"{"recipient":"\#(MessagesFixture.aliceChat)","text":"On my way"}"#
+    let provider = ScriptedSearchProvider(runs: [[.token("Hello.")], [.call("send_message", sendCall)]])
+    let chat = makeChat(cloud: provider, messagesDatabase: database, sendRunner: runner)
+    let token = chat.appleMessages.$pendingSend.compactMap { $0 }.sink { _ in
+      Task { @MainActor in chat.appleMessages.answer(true) }
+    }
+    try await send("Hi", to: chat, route: Self.cloudRoute)
+    let question = try XCTUnwrap(chat.messages.first)
+    chat.resend(fromUserMessage: question.id, text: "Tell Alice I'm on my way", send: { prompt, _ in
+      chat.submitNative(prompt, route: Self.cloudRoute, plan: self.plan(prompt, chat: chat))
+    })
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    token.cancel()
+    XCTAssertEqual(runner.invocations.count, 1)
+    XCTAssertEqual(chat.messages.first?.content, "Tell Alice I'm on my way", "The edit isn't put back as if nothing was sent")
+    XCTAssertFalse(chat.messages.contains { $0.id == question.id })
+    XCTAssertEqual(chat.messages.first?.turnKind, .messages)
+    XCTAssertNil(chat.returnedEdit, "Nothing to send again")
+  }
+
   func testRestartIsNotShownAsStop() async throws {
     let (chat, _) = try restartChat(second: [.token("Alice says hi.")])
     var phases: [AssistantActivity.Phase] = []

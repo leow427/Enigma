@@ -951,6 +951,29 @@ final class RequestLifecycleTests: XCTestCase {
     await viewModel.stopStreaming()?.value
   }
 
+  func testEditingTheFirstMessageKeepsAChosenTitle() async throws {
+    let stream = ControlledStream<ChatEvent>()
+    let store = makeStore()
+    var saved = ChatSession(title: "Trip plans")
+    saved.append(ChatMessage(role: .user, content: "A"))
+    saved.append(ChatMessage(role: .assistant, content: "Reply"))
+    saved.title = "Trip plans"
+    try store.save([saved])
+    let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
+                                       cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: [stream])),
+                                       sessionStore: store)
+    viewModel.selectSession(id: saved.id)
+    viewModel.resend(fromUserMessage: saved.messages[0].id, text: "A edited", send: {
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    await fulfillment(of: [stream.started], timeout: 2)
+    await receive(.token("New"), from: stream, in: viewModel, expecting: "New")
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
+    XCTAssertEqual(viewModel.selectedSession?.title, "Trip plans", "A title that isn't the first question's stays")
+    stream.continuation.finish()
+    await waitUntil("the reply ends") { !viewModel.isBusy }
+  }
+
   func testRegeneratingInATemporaryChatWritesNothing() async throws {
     let streams = (0..<3).map { _ in ControlledStream<ChatEvent>() }
     let writes = SavedSessions()
