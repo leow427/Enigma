@@ -443,6 +443,10 @@ extension ChatCopyTests {
       field.selectAll(nil)
       field.insertText(text, replacementRange: field.selectedRange())
     }
+    func fieldTexts(in view: NSView) -> [String] {
+      ((view as? NSTextField).map { [$0.stringValue] } ?? []) + ((view as? NSTextView).map { [$0.string] } ?? [])
+        + view.subviews.flatMap(fieldTexts)
+    }
     func closed() -> Bool { host.shows("Your message") && !host.shows("Message editor") }
 
     var field = try await openEditor()
@@ -466,8 +470,9 @@ extension ChatCopyTests {
 
     // An edit whose reply never started reopens with its text, without taking the keys from
     // another field, such as the composer.
+    // Focused through SwiftUI: a synthetic click on a text field waits for its mouse-up on macOS 26.
     box.showsOther = true
-    try await clickTestControl("Other field", in: host.view)
+    box.focusesOther = true
     func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.string == box.other }
     try await waitForUI("the other field focused", in: host.view) { otherHasFocus() }
     box.returned = "Kept edit"
@@ -477,6 +482,7 @@ extension ChatCopyTests {
     try await Task.sleep(for: .milliseconds(200))
     host.view.layoutSubtreeIfNeeded()
     XCTAssertTrue(otherHasFocus(), "A returned edit leaves focus where it was")
+    box.focusesOther = false
     box.showsOther = false
     // Also when its row was gone meanwhile, as while the edit's reply was pending.
     box.shown = false
@@ -486,11 +492,7 @@ extension ChatCopyTests {
     try await waitForUI("the new row's editor with the returned text", in: host.view) {
       host.shows("Message editor") && box.returned == nil
     }
-    host.view.window?.makeFirstResponder(nil)
-    try await clickTestControl("Message editor", in: host.view)
-    try await waitForUI("the field focused", in: host.view) {
-      (host.window.firstResponder as? NSTextView)?.string == "Kept edit"
-    }
+    XCTAssertTrue(fieldTexts(in: host.view).contains("Kept edit"), "\(fieldTexts(in: host.view))")
 
     // While it can't run, neither Send nor Return sends.
     box.canEdit = false
@@ -518,6 +520,7 @@ private final class EditBox: ObservableObject {
   @Published var shown = true
   /// A field standing in for the composer.
   @Published var showsOther = false
+  @Published var focusesOther = false
   @Published var other = "Composer draft"
   var sent: [String] = []
 }
@@ -526,11 +529,14 @@ private final class EditBox: ObservableObject {
 private struct EditHarness: View {
   @ObservedObject var box: EditBox
   let message: ChatMessage
+  @FocusState private var isOtherFocused: Bool
 
   var body: some View {
     VStack {
       if box.showsOther {
-        TextField("", text: $box.other).enigmaTestMarker("Other field")
+        TextField("", text: $box.other)
+          .focused($isOtherFocused)
+          .onChange(of: box.focusesOther, initial: true) { _, focuses in isOtherFocused = focuses }
       }
       if box.shown { message(of: self.message) }
     }
