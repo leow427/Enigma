@@ -222,6 +222,48 @@ final class EnigmaCharacterTests: XCTestCase {
     XCTAssertNotEqual(model.squashAmount, 0)
   }
 
+  /// Scrolling a reply carries the antenna with the body, so what a costume hangs on it doesn't
+  /// whip back as a streaming reply scrolls the chat (F36).
+  func testScrollingCarriesTheAntennaWithTheBody() {
+    let slot = Slot(center: CGPoint(x: 80, y: 520), size: 30, movesWithContent: true)
+    var model = makeModel(on: slot)
+    for _ in 0..<120 { model.step(dt: 1.0 / 60) }
+    func offset(_ frame: EnigmaCharacterFrame) -> CGVector {
+      CGVector(dx: frame.antennaBall.center.x - frame.calmBounds.midX, dy: frame.antennaBall.center.y - frame.calmBounds.midY)
+    }
+    var largest = 0.0
+    var still = model
+    model.updateSlot(Slot(center: CGPoint(x: 80, y: 480), size: 30, movesWithContent: true))
+    for _ in 0..<20 {
+      model.step(dt: 1.0 / 60)
+      still.step(dt: 1.0 / 60)
+      let a = offset(model.frame), b = offset(still.frame)
+      largest = max(largest, hypot(a.dx - b.dx, a.dy - b.dy))
+    }
+    XCTAssertLessThan(largest, 0.5, "The antenna sits where it would have, unscrolled")
+  }
+
+  /// A streamed token ripples the outline, but the box a costume sits on stays put (F36).
+  func testTokensRippleTheOutlineButNotTheCostumesBox() {
+    var calm = makeModel()
+    for _ in 0..<30 { calm.step(dt: 1.0 / 60) }
+    var rippled = calm
+    rippled.token()
+    for _ in 0..<6 {
+      calm.step(dt: 1.0 / 60)
+      rippled.step(dt: 1.0 / 60)
+    }
+    func box(_ points: [CGPoint]) -> CGRect {
+      let xs = points.map(\.x), ys = points.map(\.y)
+      return CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
+    }
+    func shift(_ a: CGRect, _ b: CGRect) -> Double { hypot(a.midX - b.midX, a.midY - b.midY) + abs(a.width - b.width) }
+    let outlineShift = shift(box(calm.frame.outline), box(rippled.frame.outline))
+    let costumeShift = shift(calm.frame.calmBounds, rippled.frame.calmBounds)
+    XCTAssertGreaterThan(outlineShift, 0.5, "The ripple bulges the outline")
+    XCTAssertLessThan(costumeShift, outlineShift / 4, "The costume's box only breathes with the body's pulse")
+  }
+
   // MARK: Reduce Motion
 
   func testReduceMotionMovesInstantlyAndFreezesTheOutline() {

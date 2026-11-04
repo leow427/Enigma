@@ -108,6 +108,9 @@ struct ChatMessage: Codable, Sendable, Equatable, Identifiable {
   /// Session-only: the places behind the reply's map card (spec §6.6). Never saved, so no
   /// coordinate reaches the disk; a reopened chat has no card.
   var mapPlaces: [MapPlace]? = nil
+  /// Session-only: the reply's weather cards (F36), one per place, shown as soon as the forecast
+  /// arrives. Never saved; a reopened chat shows the text only.
+  var weatherCards: [WeatherCardModel]? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, role, content, searchSources, createdAt, attachments

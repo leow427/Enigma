@@ -93,6 +93,10 @@ enum EnigmaCharacterTuning {
   /// A slot less than this many points higher still gets a hop and a fall.
   static let glideThreshold = 4.0
   static let puffLifetime = 0.55
+  /// A change of outfit's hop, in body radii.
+  static let outfitHopHeight = 1.4
+  /// Seconds into a change of outfit when the new one shows: in the smoke, before the hop.
+  static let outfitSwapDelay = 0.12
   static let impactLineDuration = 0.32
   /// The shadow fades out over this many points of height while falling.
   static let shadowFadeHeight = 260.0
@@ -213,6 +217,9 @@ struct EnigmaCharacterFrame: Equatable, Sendable {
   /// The closed outline, sampled evenly by angle. Drawn as a smooth curve
   /// through the midpoints between neighbors.
   var outline: [CGPoint] = []
+  /// The outline's box without the streamed tokens' ripples, which a costume sits on, so it
+  /// stays put while a reply streams (F36).
+  var calmBounds: CGRect = .zero
   /// One hole, or three while thinking. Drawn even-odd with the outline.
   var holes: [Circle] = []
   var legs: [Curve] = []
@@ -481,10 +488,20 @@ struct EnigmaCharacterModel: Sendable {
   mutating func updateSlot(_ slot: Slot) {
     guard slot != self.slot else { return }
     if slot.movesWithContent, let previous = self.slot, fall == nil, drag == nil {
-      x.value += slot.center.x - previous.center.x
-      y.value += slot.center.y - previous.center.y
+      let dx = slot.center.x - previous.center.x, dy = slot.center.y - previous.center.y
+      x.value += dx
+      y.value += dy
       x.target = slot.center.x
       y.target = slot.center.y
+      // The antenna and smoke scroll too, or the antenna whips back with what it holds (F36).
+      tipX.value += dx
+      tipY.value += dy
+      tipX.target += dx
+      tipY.target += dy
+      for index in puffs.indices {
+        puffs[index].origin.x += dx
+        puffs[index].origin.y += dy
+      }
     }
     self.slot = slot
     quietTime = 0
@@ -526,6 +543,29 @@ struct EnigmaCharacterModel: Sendable {
     tipX.kick((random.unit() - 0.5) * 500, limit: 600)
     tipY.kick(-200, limit: 600)
     jitter.value = 0.06
+    quietTime = 0
+    return true
+  }
+
+  /// A change of outfit (F36): a puff of smoke round the body and a little hop in place. A fall
+  /// or drag under way keeps going and only gets the smoke.
+  @discardableResult
+  mutating func changeOutfit() -> Bool {
+    guard !reduceMotion, slot != nil else { return false }
+    let size = radius.value
+    // A ring round the body and its hat, and a few in the middle, so the swap is hidden.
+    let center = CGPoint(x: x.value, y: y.value - size * 0.25)
+    for index in 0..<11 {
+      let ring = index < 8
+      let angle = ring ? Double(index) / 8 * 2 * .pi : Double(index - 8) / 3 * 2 * .pi + 0.5
+      let reach = ring ? 0.75 : 0.3
+      puffs.append(Puff(origin: CGPoint(x: center.x + cos(angle) * size * reach, y: center.y + sin(angle) * size * reach),
+                        angle: angle, speed: size * (ring ? 1.1 : 0.4), radius: size * (ring ? 0.62 : 0.7)))
+    }
+    if fall == nil, drag == nil {
+      let rise = size * EnigmaCharacterTuning.outfitHopHeight
+      fall = Fall(y: y.value, launchSpeed: -(2 * EnigmaMotion.characterGravity * rise).squareRoot())
+    }
     quietTime = 0
     return true
   }
@@ -800,10 +840,17 @@ struct EnigmaCharacterModel: Sendable {
 
     let count = EnigmaCharacterTuning.outlinePoints
     frame.outline.reserveCapacity(count)
+    var calm = outline
+    calm.ripples = []
+    var calmPoints: [CGPoint] = []
+    calmPoints.reserveCapacity(count)
     for index in 0..<count {
       let angle = Double(index) / Double(count) * 2 * .pi
       frame.outline.append(pose.point(at: angle, radius: outline.radius(at: angle) * s))
+      calmPoints.append(pose.point(at: angle, radius: calm.radius(at: angle) * s))
     }
+    let xs = calmPoints.map(\.x), ys = calmPoints.map(\.y)
+    frame.calmBounds = CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
 
     let holeCenter = CGPoint(x: pose.centerX + gazeX.value * s, y: pose.centerY + pose.lift + gazeY.value * s)
     let holeRadius = s * (0.2 - 0.05 * error.value) * (1 + pulse.value * 0.15) * pose.holeScale
@@ -959,7 +1006,7 @@ struct EnigmaCharacterModel: Sendable {
     let rotation: Double
     let bump: Double
     let aim: Double
-    let ripples: [Ripple]
+    var ripples: [Ripple]
     let jitter: Double
     let wobble: (phase: SIMD3<Double>, weight: SIMD3<Double>)
     let pulse: Double

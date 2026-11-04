@@ -82,6 +82,16 @@ final class EnigmaCharacterController: ObservableObject {
     didSet { if isPresent { wake() } }
   }
 
+  /// What the character wears, like an umbrella while a rainy weather card shows (F36). A
+  /// change puffs smoke and hops; the new outfit shows once the smoke hides the swap.
+  @Published var costume: EnigmaCharacterCostume? {
+    didSet { if costume != oldValue { changeOutfit() } }
+  }
+  /// The outfit the stage draws: `costume`, once a change's smoke is thick enough.
+  private(set) var wornCostume: EnigmaCharacterCostume?
+  private var outfitSwapAt: TimeInterval?
+  private var outfitSwapPending = false
+
   /// The slot the character is at or heading to.
   @Published private(set) var activeSlot: EnigmaCharacterSlotID?
   @Published private(set) var activity: Activity = .live
@@ -145,6 +155,19 @@ final class EnigmaCharacterController: ObservableObject {
     if model.poke() { wake() }
   }
 
+  /// Not drawn, or under Reduce Motion, the outfit changes at once. Otherwise the smoke starts on
+  /// the next frame, after a move sent in the same update has put the character on its new slot.
+  private func changeOutfit() {
+    if isPresent, !model.reduceMotion {
+      outfitSwapPending = true
+      wake()
+    } else {
+      wornCostume = costume
+      outfitSwapPending = false
+      outfitSwapAt = nil
+    }
+  }
+
   /// Grows the character from nothing at its slot, as on the welcome screen.
   /// Sent before the character is drawn, it plays once the slot is laid out.
   func assemble() {
@@ -167,7 +190,19 @@ final class EnigmaCharacterController: ObservableObject {
     // Long gaps, like a paused timeline resuming, advance at most one 20 fps frame.
     let dt = lastFrameTime.map { min(0.05, max(0, time - $0)) } ?? 0
     lastFrameTime = time
+    if outfitSwapPending {
+      outfitSwapPending = false
+      if isPresent, model.changeOutfit() {
+        outfitSwapAt = time + EnigmaCharacterTuning.outfitSwapDelay
+      } else {
+        wornCostume = costume
+      }
+    }
     model.step(dt: dt)
+    if let swap = outfitSwapAt, time >= swap || !isPresent || reduceMotion {
+      outfitSwapAt = nil
+      wornCostume = costume
+    }
     refreshActivityLater()
     recordedFrames?.append((isPresent, model.position, model.slot))
     return isPresent ? model.frame : .empty
@@ -416,6 +451,11 @@ extension View {
 struct EnigmaCharacterStage: ViewModifier {
   static let coordinateSpace = "EnigmaCharacterStage"
 
+  /// The clock a costume moves by; nil, a still costume, under Reduce Motion.
+  static func costumeTime(_ date: Date, reduceMotion: Bool) -> Double? {
+    reduceMotion ? nil : date.timeIntervalSinceReferenceDate
+  }
+
   @ObservedObject var controller: EnigmaCharacterController
   var tracksPointer = true
   @Environment(\.enigmaPalette) private var palette
@@ -466,7 +506,10 @@ private struct EnigmaCharacterLayer: View {
         Canvas { context, _ in
           // What covers the character hides it, as if drawn above it.
           for cover in places.covers { context.clip(to: cover.path, options: .inverse) }
-          EnigmaCharacterRenderer.draw(frame, palette: palette, in: &context)
+          // The stage isn't clipped to the slot, so hats and the umbrella draw above it.
+          EnigmaCharacterCostume.draw(frame, wearing: controller.wornCostume, palette: palette,
+                                      time: EnigmaCharacterStage.costumeTime(timeline.date, reduceMotion: reduceMotion),
+                                      in: &context)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -525,7 +568,7 @@ struct EnigmaCharacterHitShape: Shape {
 
 /// Reports whether the window is on screen and not fully covered, so the
 /// stage can pause its timeline.
-private struct EnigmaWindowVisibilityReader: NSViewRepresentable {
+struct EnigmaWindowVisibilityReader: NSViewRepresentable {
   let onChange: @MainActor (Bool) -> Void
 
   func makeNSView(context: Context) -> ReaderView {

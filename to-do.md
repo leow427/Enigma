@@ -1477,7 +1477,14 @@ model switch build on it.
 **Out of scope:** viewing or editing the summary, `/compact` with a focus
 argument, and windows above 32K on local models.
 
-### F36. Animated weather card for weather answers
+### F36. ✅ Done: Animated weather card for weather answers
+
+> **Solved:** Weather answers show the flat-sky card above the reply (now, one
+> day, or several days; times with AM and PM), built from the real forecast,
+> with `get_weather` taking optional dates. While the latest reply has a card
+> the character wears the weather's costume, changing in a puff of smoke with a
+> hop. The tour's weather stop shows an example card. See `docs/Web-Search.md`
+> and `docs/Chat.md`.
 
 **Design:** [docs/design/f36-weather-card/README.md](docs/design/f36-weather-card/README.md)
 (approved 2026-11-03: flat sky, split card, weather costumes; renders in Paper

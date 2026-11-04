@@ -18,6 +18,8 @@ struct WebSearchResult: Equatable, Sendable {
   var kind: EvidenceKind = .article
   /// A places result's places, for the map card (CP9). In memory only, never saved.
   var places: [MapPlace]? = nil
+  /// A weather result's card (F36). In memory only, never saved.
+  var weatherCard: WeatherCardModel? = nil
 }
 
 enum SearchRoute: String, Equatable, Sendable { case web, places, weather }
@@ -47,6 +49,8 @@ struct WebSearchRequest: Equatable, Sendable {
   /// The query is the user's typed question, not one a model wrote: the on-device provider turns
   /// it into keyword queries (D107).
   var isTypedQuestion = false
+  /// The days a weather route's card shows, from the question's time words (F36).
+  var weatherDays: WeatherDays = .today
 }
 
 typealias AssistantActivitySink = @Sendable (AssistantActivityEvent) async -> Void

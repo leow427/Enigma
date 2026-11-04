@@ -390,6 +390,8 @@ struct TourScript: Equatable {
   var phases: [AssistantActivity.Phase]
   var sources: [WebSearchSource] = []
   var places: [MapPlace]? = nil
+  /// Shown above the reply as its words start, as a real forecast's card is.
+  var weatherCard: WeatherCardModel? = nil
   /// How long each activity step shows, in milliseconds.
   var phaseDuration = 900
   /// A revision of the attached selection, for the reply's Revised text card.
@@ -415,9 +417,22 @@ struct TourScript: Equatable {
       MapPlace(id: "tour.adler", name: "Adler Planetarium", coordinate: SearchCoordinate(latitude: 41.8663, longitude: -87.6068), distanceMeters: nil),
     ])
 
-  static let weather = TourScript(
-    reply: "Tomorrow in Chicago looks breezy and mostly sunny: a high of 58° and a low of 44°, with a 10% chance of rain. Bring a jacket for the lakefront. (An example: I check the real forecast once the tour is over.)",
-    phases: [.checkingWeather])
+  /// Computed, so the card's date is always tomorrow's.
+  static var weather: TourScript { TourScript(
+    reply: "Breezy and mostly sunny, with little chance of rain. Bring a jacket for the lakefront. (An example: I check the real forecast once the tour is over.)",
+    phases: [.checkingWeather],
+    weatherCard: WeatherCardModel(
+      place: "Chicago",
+      caption: "Tomorrow · " + WeatherLookup.formatter("EEE d MMM", .current).string(from: .now.addingTimeInterval(86_400)),
+      code: 1, light: .day, units: .us,
+      content: .day(high: 58, low: 44, rainChance: 10, amount: 0, wind: 18, sunset: "4:41 PM", hours: [
+        .init(time: "6 AM", code: 1, isDay: false, temperature: 45, rainChance: 0),
+        .init(time: "9 AM", code: 1, isDay: true, temperature: 49, rainChance: 0),
+        .init(time: "12 PM", code: 1, isDay: true, temperature: 55, rainChance: 5),
+        .init(time: "3 PM", code: 2, isDay: true, temperature: 58, rainChance: 10),
+        .init(time: "6 PM", code: 2, isDay: false, temperature: 53, rainChance: 10),
+        .init(time: "9 PM", code: 1, isDay: false, temperature: 48, rainChance: 5),
+      ]))) }
 
   static let code = TourScript(
     reply: "Chicago’s grid counts out from State and Madison, 800 numbers to a mile:\n\n```python\ndef miles_from_downtown(number: int) -> float:\n    \"\"\"Miles from State and Madison for a Chicago address number.\"\"\"\n    return number / 800\n\nprint(miles_from_downtown(3600))  # 4.5: Addison, by Wrigley Field\n```",
