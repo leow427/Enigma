@@ -90,7 +90,9 @@ enum WeatherSky {
       let unit = 22 * scale * (layout.sizes.lowerBound + (layout.sizes.upperBound - layout.sizes.lowerBound) * cloud.size)
       // Clouds drift across the right side only, appearing beside the text and leaving off the edge.
       let zone = width * 0.46, span = width - zone + 3.5 * unit
-      let x = zone + (cloud.x * span + (2 + cloud.speed * 4) * t).truncatingRemainder(dividingBy: span) - unit
+      // Drift as a fraction of the span, so resizing the card moves clouds smoothly instead of reshuffling them.
+      let phase = (cloud.x + (2 + cloud.speed * 4) * t / 300).truncatingRemainder(dividingBy: 1)
+      let x = zone + phase * span - unit
       let y = height * (layout.heights.lowerBound + (layout.heights.upperBound - layout.heights.lowerBound) * cloud.y)
         + unit * 0.6
       // One layer, so a fading cloud doesn't show its puffs' inner outlines.
@@ -103,7 +105,7 @@ enum WeatherSky {
     if sky == .fog {
       for (index, bank) in banks.enumerated() {
         let bankWidth = bank.width * width, span = width + bankWidth
-        let x = (bank.x * span + bank.speed * 5 * t).truncatingRemainder(dividingBy: span) - bankWidth
+        let x = (bank.x + bank.speed * 5 * t / 700).truncatingRemainder(dividingBy: 1) * span - bankWidth
         let alpha = fade(x + bankWidth / 2)
         guard alpha > 0 else { continue }
         var layer = g
