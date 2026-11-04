@@ -952,7 +952,7 @@ final class RequestLifecycleTests: XCTestCase {
   }
 
   func testRegeneratingInATemporaryChatWritesNothing() async throws {
-    let streams = (0..<2).map { _ in ControlledStream<ChatEvent>() }
+    let streams = (0..<3).map { _ in ControlledStream<ChatEvent>() }
     let writes = SavedSessions()
     let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(),
                                        cloudProviders: registry(chatGPT: LifecycleCloudProvider(streams: streams)),
@@ -971,6 +971,15 @@ final class RequestLifecycleTests: XCTestCase {
     streams[1].continuation.finish()
     await waitUntil("the new reply ends") { !viewModel.isBusy }
     XCTAssertEqual(viewModel.messages.map(\.content), ["A", "New"])
+    // Editing it (F9) writes nothing either.
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, text: "A edited", send: {
+      viewModel.submitCloud($0, provider: .chatGPT, modelID: "model", searchEnabled: $1, allowsAutomaticSearch: false)
+    })
+    await fulfillment(of: [streams[2].started], timeout: 2)
+    await receive(.token("Edited"), from: streams[2], in: viewModel, expecting: "Edited")
+    streams[2].continuation.finish()
+    await waitUntil("the edited reply ends") { !viewModel.isBusy }
+    XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "Edited"])
     viewModel.sessionWriter.flush()
     XCTAssertTrue(writes.all.allSatisfy { $0.isEmpty }, "\(writes.all)")
   }
@@ -980,8 +989,9 @@ final class RequestLifecycleTests: XCTestCase {
   func testEditingAMessageRewindsTheChatToItOnlyOnceTheNewReplyStarts() async throws {
     let streams = (0..<4).map { _ in ControlledStream<ChatEvent>() }
     let provider = LifecycleCloudProvider(streams: streams)
+    let writes = SavedSessions()
     let viewModel = LocalChatViewModel(engine: LifecycleLocalEngine(), cloudProviders: registry(chatGPT: provider),
-                                       sessionStore: makeStore())
+                                       sessionStore: makeStore(), sessionWriter: ChatSessionWriter { writes.append($0) })
     for (index, text) in ["/think A", "B"].enumerated() {
       viewModel.submitCloud(text, provider: .chatGPT, modelID: "model")
       await fulfillment(of: [streams[index].started], timeout: 2)
@@ -1004,14 +1014,30 @@ final class RequestLifecycleTests: XCTestCase {
     XCTAssertEqual(viewModel.messages, old)
 
     // After the first token the edited message and its reply replace it and everything after it.
-    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send)
+    var removed = Set<UUID>()
+    viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send, removed: { removed = $0 })
     await fulfillment(of: [streams[3].started], timeout: 2)
     await receive(.token("New"), from: streams[3], in: viewModel, expecting: "New")
     XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
     XCTAssertEqual(viewModel.messages.first?.extendedThinking, true, "The /think choice is kept")
     XCTAssertTrue(Set(old.map(\.id)).isDisjoint(with: viewModel.messages.map(\.id)))
+    XCTAssertTrue(removed.isSuperset(of: old.map(\.id)), "Every dropped message is reported, so its activity can close")
+    XCTAssertTrue(removed.isSuperset(of: old.compactMap(\.activity?.id)))
     streams[3].continuation.finish()
     await waitUntil("the reply ends") { !viewModel.isBusy }
+
+    // The saved file held the old chat until the edited message's first token, and never both.
+    viewModel.sessionWriter.flush()
+    await waitUntil("the edit is saved") { writes.last?.first?.messages.map(\.content) == ["A edited", "New"] }
+    let newIDs = Set(viewModel.messages.map(\.id))
+    for saved in writes.all {
+      let messages = saved.first?.messages ?? []
+      if messages.contains(where: { newIDs.contains($0.id) }) {
+        XCTAssertEqual(messages.map(\.content).first, "A edited", "\(messages.map(\.content))")
+        XCTAssertFalse(messages.contains { Set(old.map(\.id)).contains($0.id) }, "\(messages.map(\.content))")
+        XCTAssertEqual(messages.last?.content.isEmpty, false, "Saved before the first token: \(messages.map(\.content))")
+      }
+    }
   }
 
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,

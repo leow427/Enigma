@@ -82,6 +82,10 @@ struct ConversationTranscript: Equatable {
   let rows: [Row]
   /// The person's messages the pencil can edit (F9): the turns Regenerate could replay (F3).
   let editableMessageIDs: Set<UUID>
+  /// The editable messages after which a turn may have acted (File Mode or Messages), which
+  /// editing them doesn't undo.
+  let editsKeepActions: Set<UUID>
+  static let editKeepsActionsNote = "File Mode edits and sent iMessages after this message aren't undone."
 
   /// `messages` are the chat's presentation messages, `activity` the running
   /// request's, and `isResponding` whether a request is running. `summarizedThrough` is the
@@ -144,6 +148,14 @@ struct ConversationTranscript: Equatable {
     }
     self.rows = rows
     editableMessageIDs = editable
+    var keepsActions = Set<UUID>()
+    var actedLater = false
+    for message in messages.reversed() where message.role == .user {
+      if editable.contains(message.id) && actedLater { keepsActions.insert(message.id) }
+      // A reopened Files turn keeps only its attachments.
+      if message.turnKind == .files || message.turnKind == .messages || message.attachments != nil { actedLater = true }
+    }
+    editsKeepActions = keepsActions
   }
 
   /// The slot of the reply the character sits beside, if the chat has one.

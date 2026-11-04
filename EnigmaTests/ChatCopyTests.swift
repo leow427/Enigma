@@ -419,7 +419,8 @@ extension ChatCopyTests {
   func testThePencilEditsInPlaceAndCancelOrEscapeChangesNothing() async throws {
     let message = ChatMessage(role: .user, content: "Old question")
     var sent: [String] = []
-    let host = CopyHost(EnigmaUserMessage(message: message, edit: { sent.append($0) }, canEdit: true),
+    let host = CopyHost(EnigmaUserMessage(message: message, edit: { sent.append($0) }, canEdit: true,
+                                          editNote: ConversationTranscript.editKeepsActionsNote),
                         pasteboard: scratchPasteboard(), test: self)
     try await waitForUI("the pencil", in: host.view) { host.shows(EnigmaUserMessage.editLabel) }
     let plain = CopyHost(EnigmaUserMessage(message: message), pasteboard: scratchPasteboard(), test: self)
@@ -432,6 +433,7 @@ extension ChatCopyTests {
         host.shows("Message editor") && (host.window.firstResponder as? NSTextView)?.string == "Old question"
       }
       XCTAssertFalse(host.shows("Your message"), "The bubble becomes the editor")
+      XCTAssertTrue(host.shows("Edit note"), "Says what editing won't undo")
       return try XCTUnwrap(host.window.firstResponder as? NSTextView)
     }
     var field = try await openEditor()

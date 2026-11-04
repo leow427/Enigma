@@ -93,7 +93,9 @@ struct EnigmaMessageList<Revision: View>: View {
     case .message(let message):
       EnigmaUserMessage(message: message,
                         edit: transcript.editableMessageIDs.contains(message.id) ? edit.map { edit in { edit(message.id, $0) } } : nil,
-                        canEdit: canRegenerate)
+                        canEdit: canRegenerate,
+                        editNote: transcript.editsKeepActions.contains(message.id)
+                          ? ConversationTranscript.editKeepsActionsNote : nil)
         .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 18)))
     case .summaryMarker:
       EnigmaFootnote(text: ConversationTranscript.summaryMarkerText)
@@ -134,6 +136,8 @@ struct EnigmaUserMessage: View {
   /// Sends the message again with the edited text (F9); nil draws no pencil.
   var edit: ((String) -> Void)? = nil
   var canEdit = false
+  /// Under the editor: what editing this message won't undo.
+  var editNote: String? = nil
   @Environment(\.enigmaPalette) private var palette
   /// The text being edited in place; nil while the message is shown as sent.
   @State private var editedText: String?
@@ -233,6 +237,13 @@ struct EnigmaUserMessage: View {
       .accessibilityLabel("Edit your message")
       .enigmaTestMarker("Message editor")
       .onAppear { isEditorFocused = true }
+    if let editNote {
+      Text(editNote)
+        .font(EnigmaTypography.mono(11))
+        .foregroundStyle(palette.textTertiary.color)
+        .fixedSize(horizontal: false, vertical: true)
+        .enigmaTestMarker("Edit note")
+    }
     HStack(spacing: 8) {
       Button("Cancel") { editedText = nil }
         .enigmaButtonStyle(.secondary)

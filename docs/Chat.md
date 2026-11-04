@@ -217,6 +217,13 @@ leaves the chat exactly as it was.
   turn.
 - Nothing is removed until the new reply's first token; a failure, or Stop,
   before then leaves the chat as it was. Earlier versions aren't kept.
+- Actions later turns took can't be taken back. When a File Mode or
+  `/messages` turn comes after the message, the editor says so: "File Mode
+  edits and sent iMessages after this message aren't undone." After a
+  relaunch only File Mode turns are known (by their attachments).
+- It drops the removed messages' `/edit` revision cards and open activity
+  panels, works in temporary chats (which still write nothing), and saves the
+  edited chat only once its new reply starts.
 
 ### Activity and sources
 
