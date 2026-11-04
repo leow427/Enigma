@@ -672,7 +672,17 @@ the summary covers. Summarized turns don't count as omitted: the notice appears
 only when the last-resort drop also left turns out. `/compact` summarizes on
 request (see [Slash-Commands.md](Slash-Commands.md)). `LocalChatViewModel.contextUsage`
 holds the selected chat's `ContextUsage` after each preparation, for the context
-ring (CP5).
+ring.
+
+**The context ring.** A small ring in the main window's composer, before the
+mode and model menu, fills clockwise from the top with the exact
+share of the input budget the chat's last prepared request used: green below
+70%, `contextHigh` yellow from 70%, `contextFull` red from 90%, the rest grey.
+Hovering shows "<N>% of context left", adding "Earlier messages will be
+summarized." from 90%; clicking it opens a popover with "<U> of <L> tokens
+used" above the same line. VoiceOver reads "Context" with both lines. It
+updates after each send and compaction (animated over 0.25 s, at once with
+Reduce Motion), and is hidden on the empty page and in the tour.
 
 **In the background.** After a reply finishes normally (not on Stop or an
 error), a chat at 90% or more of its input budget is summarized right away, on

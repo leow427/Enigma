@@ -245,7 +245,6 @@ struct EnigmaCompactComposer: View {
   /// Commands recognized from the draft's wording, shown as chips before the route chip.
   var inferredCommands: [SlashCommand] = []
   var dismissInferred: (SlashCommand) -> Void = { _ in }
-
   @Environment(\.enigmaPalette) private var palette
   /// The row's frame in the menu host's space, so the menu opens under the row.
   @State private var rowFrame: CGRect?

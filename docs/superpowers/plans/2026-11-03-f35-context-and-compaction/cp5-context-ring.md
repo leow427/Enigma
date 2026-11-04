@@ -134,4 +134,55 @@ var isAwayFromSlot: Bool { get }             // dragging, falling, thrown or mov
 
 ## Hand-off
 
-_To be filled in by the CP5 worker._
+1. **Summary:** the context indicator is a small ring in the composer, not
+   around the character (owner, 2026-11-03, during CP5: "a ring near the
+   chatbar, not around the character"; also "be quick and don't complicate
+   things"). `ContextRing` fills clockwise from the top with
+   `ContextUsage.fraction`, coloured by level, with the plan's hover help,
+   click popover and VoiceOver copy. It sits before the mode and model menu in
+   the main window's composer.
+2. **Files:**
+   - `Enigma/App/ContextRing.swift` (new): the ring, its colours, help, token
+     line and number format.
+   - `Enigma/App/EnigmaComposer.swift`: `contextUsage`, the ring before the menu.
+   - `Enigma/App/AppShellView.swift`: `ringUsage` (hidden on the empty page and
+     in the tour), passed to the composer.
+   - `Enigma/App/EnigmaTheme.swift`: `contextHigh`, `contextFull`,
+     `contextTrack` in Paper and Ink.
+   - `EnigmaTests/EnigmaThemeTests.swift`: the three tokens in the palette table
+     (count 23 → 26); `ContextRingTests` (colours at the boundaries, exact
+     fraction, contrast, help, token line and its rounding, the VoiceOver value).
+   - `EnigmaTests/EnigmaMainWindowTests.swift`: `testRingShowsInComposerAfterASend`.
+   - `Enigma.xcodeproj/project.pbxproj`: the new file.
+   - Docs: `docs/Chat.md` (the ring), `docs/design/UI-Style.md` (the tokens).
+3. **Decisions:**
+   - **Placement and shape** (owner): a closed 14 pt circle in the composer
+     replaces the brief's open ellipse around the character, so the stage,
+     `isAwayFromSlot`, the fade while dragging, the poke/drag hit-testing and
+     the slot rules are all gone.
+   - **Not in the compact panel** (review round 1): the panel's chat is always
+     empty (a send moves it to the main window), so a ring there could never
+     show; it was removed rather than kept as dead code.
+   - **Yellow** (owner, 2026-11-03): `warning` (#E0A33B) is 2.1:1 on Paper's
+     surface, so the ring uses a new `contextHigh`, #B8800F in Paper (3.3:1),
+     #E0A33B in Ink.
+   - The ring shows `contextUsage` as the last preparation left it; it doesn't
+     recount on a route change without a send, and doesn't follow
+     `ToolStepBudget.usage` during a tool turn (skipped to keep it simple; it
+     catches up at the next send or compaction).
+   - **Review round 1** (no Blocker, 4 Should fixes, all small; fixed without a
+     second round): the panel ring removed; token counts round on the rounded
+     value, halves up (9,999 is `10K`, not `10.0K`); `accessibilityValue` tested;
+     the main window test checks the ring hides on a new chat; `UI-Style.md`'s
+     Composer bullet names the ring.
+4. **Verification:** `ContextRingTests`, `EnigmaThemeTests` and the main window
+   test pass (15 tests). Full suite: 2,351 tests, 46 skipped; the only failures
+   are the two `AppCommandTests` window-layout tests that fail on this Mac on
+   main too, and a CP4 selection test fixed in c00aa42. `analyze` succeeded.
+5. **Limitations:** the tour hiding isn't tested, and the empty-page guard in
+   `ringUsage` is a backstop (a new chat already clears `contextUsage`), so
+   removing it fails no test. Switching chats hides the ring until the next
+   send. No route-change recount or live tool-turn updates (above);
+   no docs screenshot and no merge to `main` yet (both need the owner's
+   approval); F35 not yet moved to done in `to-do.md`.
+6. **For the next step:** the merge to `main` and the screenshot wait on the owner.

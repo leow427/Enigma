@@ -688,7 +688,7 @@ struct AppShellView: View {
       isResponding: localChat.activeRequest != nil, canSend: canSendDraft,
       send: { submitDraft() }, stop: { localChat.stopStreaming() },
       showsQueueButton: !visibleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, canQueue: canQueueDraft,
-      inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand)
+      inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand, contextUsage: ringUsage)
   }
 
   /// The selected route's state, for the status line on the main page and above the composer.
@@ -816,6 +816,9 @@ struct AppShellView: View {
       send: { submitDraft() }, stop: { localChat.stopStreaming() },
       inferredCommands: recognizedCommands, dismissInferred: dismissRecognizedCommand)
   }
+
+  /// The context ring's usage: hidden on the empty page and in the tour (F35).
+  private var ringUsage: ContextUsage? { guidedTour.isActive || isChatEmpty ? nil : localChat.contextUsage }
 
   /// The model a fixed mode uses, for the compact panel's route chip.
   private var compactModelName: String? {

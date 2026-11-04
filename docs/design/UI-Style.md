@@ -51,6 +51,9 @@ given opacity.
 | `characterBody` | `#C3DE5E` | `#8FAA6A` | Character fill |
 | `characterInk` | `#211E19` | `#BFC3B3` | Character outline, legs, antenna |
 | `warning` | `#E0A33B` | `#E0A33B` | The character's error state |
+| `contextHigh` | `#B8800F` | `#E0A33B` | The context ring from 70% (3:1 on `surface`) |
+| `contextFull` | `#B3261E` | `#E06C5F` | The context ring from 90% |
+| `contextTrack` | `#24201A` at 14% | `#C8CCBF` at 16% | The context ring's unfilled part |
 | `codeKeyword` | `#8A3B6E` | `#C09AB6` | Code keywords; terminal commands |
 | `codeString` | `#3F6B1A` | `#A7BF86` | Code strings; terminal paths |
 | `codeNumber` | `#A04A12` | `#D2A57E` | Code numbers |
@@ -108,8 +111,8 @@ glyph is Stop, on the solid Send button.
   On short windows the examples drop first, then the character.
 - **Composer.** One rounded opaque `surface` box with the message field,
   Attach and `/` on the left, a monospace `● local` or `○ cloud` indicator,
-  chips for any commands recognized from the wording, the mode and model
-  menu, and the `accent` Send button, which becomes Stop while a reply runs.
+  chips for any commands recognized from the wording, the context ring once
+  the chat has been measured, the mode and model menu, and the `accent` Send button, which becomes Stop while a reply runs.
   Typing goes on during a reply; once the field has text, an outlined icon
   Send beside Stop queues the message, so Stop stays the one `accent` control.
   After the first send it springs to the bottom. `⌘K` opens the mode and

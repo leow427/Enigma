@@ -2477,6 +2477,20 @@ extension EnigmaMainWindowTests {
   }
 
   @MainActor
+  func testRingShowsInComposerAfterASend() async throws {
+    let (fixture, host, editor) = try await openChat(Self.chatSession(turns: 1))
+    XCTAssertFalse(host.shows("Context ring"), "Nothing measured yet")
+    try await send("Next question", in: host, editor: editor, fixture: fixture)
+    try await answer("Reply.", request: 1, fixture: fixture, host: host)
+    try await waitForUI("the reply", in: host.view) { fixture.chat.activeRequest == nil }
+    XCTAssertNotNil(fixture.chat.contextUsage)
+    try await waitForUI("the ring", in: host.view) { host.shows("Context ring") }
+    // A new chat's empty page has nothing to measure.
+    fixture.chat.newChat()
+    try await waitForUI("the ring hides", in: host.view) { !host.shows("Context ring") }
+  }
+
+  @MainActor
   func testDroppedTurnsStillShowNotice() async throws {
     let (fixture, host, editor) = try await openChat(Self.chatSession(turns: 6, bytes: 400))
     try await send("Next question", in: host, editor: editor, fixture: fixture)

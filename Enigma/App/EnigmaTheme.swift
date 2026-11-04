@@ -75,6 +75,10 @@ struct EnigmaPalette: Equatable, Sendable {
   let characterBody: EnigmaColor
   let characterInk: EnigmaColor
   let warning: EnigmaColor
+  // The context ring (F35): its yellow and red, and its unfilled track.
+  let contextHigh: EnigmaColor
+  let contextFull: EnigmaColor
+  let contextTrack: EnigmaColor
   // Syntax colours in code blocks, all readable on `surface`.
   let codeKeyword: EnigmaColor
   let codeString: EnigmaColor
@@ -101,6 +105,9 @@ struct EnigmaPalette: Equatable, Sendable {
     characterBody: EnigmaColor(hex: 0xC3DE5E),
     characterInk: EnigmaColor(hex: 0x211E19),
     warning: EnigmaColor(hex: 0xE0A33B),
+    contextHigh: EnigmaColor(hex: 0xB8800F),
+    contextFull: EnigmaColor(hex: 0xB3261E),
+    contextTrack: EnigmaColor(hex: 0x24201A, opacity: 0.14),
     codeKeyword: EnigmaColor(hex: 0x8A3B6E),
     codeString: EnigmaColor(hex: 0x3F6B1A),
     codeNumber: EnigmaColor(hex: 0xA04A12),
@@ -127,6 +134,9 @@ struct EnigmaPalette: Equatable, Sendable {
     characterBody: EnigmaColor(hex: 0x8FAA6A),
     characterInk: EnigmaColor(hex: 0xBFC3B3),
     warning: EnigmaColor(hex: 0xE0A33B),
+    contextHigh: EnigmaColor(hex: 0xE0A33B),
+    contextFull: EnigmaColor(hex: 0xE06C5F),
+    contextTrack: EnigmaColor(hex: 0xC8CCBF, opacity: 0.16),
     codeKeyword: EnigmaColor(hex: 0xC09AB6),
     codeString: EnigmaColor(hex: 0xA7BF86),
     codeNumber: EnigmaColor(hex: 0xD2A57E),

@@ -209,5 +209,5 @@ note stays in the brief.
 | CP1 | done | 3 | Estimate + 2,560 / 8,704 reserve (owner), capped at half the budget; API loops withdraw tools with a "none" choice; results fitted whole; live 8K check passed |
 | CP2 | done | 2 | Automatic 8K/16K/32K within 4/5 of the budget; presets under Advanced, 4K text-only (owner); Use It per model; live check passed on 3 models |
 | CP3 | done | 5 | Redesigned after round 3 (owner): every turn summarized as Codex and Claude Code do, latest user messages and attached context kept; at most 2 chunks; Auto keeps the latest exchange whole, else cloud with a notice; `/compact`; live checks passed (Gemma 12B at 8K, Codex) |
-| CP4 | done | 1 | After a reply at 90%, on the route that answered; a send waits up to 30 s, else drops turns; Stop cancels both |
-| CP5 | not started | | |
+| CP4 | done | 2 | After a reply at 90%, on the route that answered; a send waits up to 30 s, else drops turns; Stop cancels both; another chat's local send cancels the run |
+| CP5 | ring done, merge pending | 1 | Moved to a small ring in the composer (owner); darker Paper yellow `contextHigh` (owner); no route-change recount |
