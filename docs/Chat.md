@@ -221,13 +221,15 @@ leaves the chat exactly as it was.
   any message on a model that chooses its own tools).
 - Nothing is removed until the new reply's first token. A failure, or Stop,
   before then leaves the chat as it was and reopens the editor with your
-  edited text. Earlier versions aren't kept.
+  edited text, until you leave that chat. Earlier versions aren't kept.
 - Editing the chat's first message retitles the chat from the new text,
   unless it was renamed or already given a short title.
 - Actions later turns took can't be taken back. When a File Mode or
-  `/messages` turn comes after the message, the editor says so: "File Mode
-  edits and sent iMessages after this message aren't undone." After a
-  relaunch only File Mode turns are known (by their attachments).
+  `/messages` turn, or a message whose reply sent an iMessage you approved,
+  comes after the message, the editor says so: "File Mode edits and sent
+  iMessages after this message aren't undone." A message that sent an
+  iMessage can't itself be edited or regenerated. After a relaunch only File
+  Mode turns are known (by their attachments).
 - It drops the removed messages' `/edit` revision cards and open activity
   panels, works in temporary chats (which still write nothing), and saves the
   edited chat only once its new reply starts.

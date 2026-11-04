@@ -343,7 +343,7 @@ final class NativeToolRequestTests: XCTestCase {
 
   /// F3: native turns say what they were, and regenerating a reply that didn't search offers no search.
   func testNativeTurnKindsAndARegenerateAddsNoSearch() async throws {
-    let inference = NativeScriptedInference(steps: [.text("Hello."), .text("Hello again."), .text("Nobody.")])
+    let inference = NativeScriptedInference(steps: [.text("Hello."), .text("Hello again."), .text("Edited."), .text("Nobody.")])
     let chat = makeChat(inference: inference)
     await chat.refreshInstalledModel()
     try await send("Hi", to: chat)
@@ -357,6 +357,15 @@ final class NativeToolRequestTests: XCTestCase {
     var requests = await inference.requests
     XCTAssertTrue(requests[0].tools.contains("web_search"), "Automatic search offers it on a new turn")
     XCTAssertFalse(requests[1].tools.contains("web_search"), "The regenerated reply can't add a search")
+    // F9: an edit is new text, so the route offers search as for any new turn.
+    chat.resend(fromUserMessage: try XCTUnwrap(chat.messages.first?.id), text: "Hi there", send: { prompt, searches in
+      XCTAssertFalse(searches)
+      chat.submitNative(prompt, route: Self.localRoute, plan: self.plan(prompt, chat: chat))
+    })
+    try await waitUntil { chat.activeRequest == nil && !chat.isBusy }
+    XCTAssertEqual(chat.messages.map(\.content), ["Hi there", "Edited."])
+    requests = await inference.requests
+    XCTAssertTrue(requests[2].tools.contains("web_search"), "An edit keeps automatic search")
     try await send("/messages who texted me?", to: chat)
     XCTAssertEqual(chat.messages.dropLast().last?.turnKind, .messages)
 
@@ -369,7 +378,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertNil(later.contexts, "The selection went with the first message")
     XCTAssertEqual(later.turnKind, .selection, "A turn with the selection's tools isn't a plain chat turn")
     requests = await inference.requests
-    XCTAssertEqual(requests.count, 3)
+    XCTAssertEqual(requests.count, 4)
   }
 
   func testFlaggedCloudTurnUsesToolStream() async throws {
@@ -1786,6 +1795,7 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(provider.runs.count, 2)
     XCTAssertEqual(approvals, 1, "The repeat asks nothing")
     XCTAssertEqual(runner.invocations.count, 1, "Alice gets one message")
+    XCTAssertEqual(chat.messages.first?.turnKind, .messages, "A plain message that sent an iMessage acted (F9)")
     XCTAssertEqual(provider.delivered.map(\.name), ["send_message", "send_message"])
     XCTAssertEqual(provider.delivered.last?.text, MessagesError.duplicateSend.localizedDescription)
   }

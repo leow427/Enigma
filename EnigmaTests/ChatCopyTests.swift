@@ -418,15 +418,18 @@ extension ChatCopyTests {
   @MainActor
   func testThePencilEditsInPlaceAndCancelOrEscapeChangesNothing() async throws {
     let message = ChatMessage(role: .user, content: "Old question")
-    var sent: [String] = []
-    let host = CopyHost(EnigmaUserMessage(message: message, edit: { sent.append($0) }, canEdit: true,
-                                          editNote: ConversationTranscript.editKeepsActionsNote),
-                        pasteboard: scratchPasteboard(), test: self)
+    let box = EditBox()
+    let host = CopyHost(EditHarness(box: box, message: message), pasteboard: scratchPasteboard(), test: self)
     try await waitForUI("the pencil", in: host.view) { host.shows(EnigmaUserMessage.editLabel) }
     let plain = CopyHost(EnigmaUserMessage(message: message), pasteboard: scratchPasteboard(), test: self)
     try await waitForUI("the message", in: plain.view) { plain.shows("Your message") }
     XCTAssertFalse(plain.shows(EnigmaUserMessage.editLabel), "No pencil without an edit action")
 
+    func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) throws {
+      host.window.sendEvent(try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+        timestamp: 1, windowNumber: host.window.windowNumber, context: nil, characters: characters,
+        charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)))
+    }
     func openEditor() async throws -> NSTextView {
       try await clickTestControl(EnigmaUserMessage.editLabel, in: host.view)
       try await waitForUI("the editor", in: host.view) {
@@ -436,40 +439,73 @@ extension ChatCopyTests {
       XCTAssertTrue(host.shows("Edit note"), "Says what editing won't undo")
       return try XCTUnwrap(host.window.firstResponder as? NSTextView)
     }
+    func replace(_ field: NSTextView, with text: String) {
+      field.selectAll(nil)
+      field.insertText(text, replacementRange: field.selectedRange())
+    }
+    func closed() -> Bool { host.shows("Your message") && !host.shows("Message editor") }
+
     var field = try await openEditor()
     field.insertText(" edited", replacementRange: NSRange(location: (field.string as NSString).length, length: 0))
     try await clickTestControl("Cancel edit", in: host.view)
-    try await waitForUI("the message again", in: host.view) { host.shows("Your message") && !host.shows("Message editor") }
+    try await waitForUI("the message again", in: host.view) { closed() }
 
     field = try await openEditor()
-    field.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1,
-      windowNumber: host.window.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
-      isARepeat: false, keyCode: 53)))
-    try await waitForUI("Escape closes the editor", in: host.view) { host.shows("Your message") && !host.shows("Message editor") }
-    XCTAssertEqual(sent, [], "Cancel and Escape send nothing")
+    try key("\u{1b}", code: 53)
+    try await waitForUI("Escape closes the editor", in: host.view) { closed() }
+    XCTAssertEqual(box.sent, [], "Cancel and Escape send nothing")
 
     field = try await openEditor()
-    field.selectAll(nil)
-    field.insertText("New", replacementRange: field.selectedRange())
-    host.window.sendEvent(try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.shift], timestamp: 1,
-      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
-      isARepeat: false, keyCode: 36)))
+    replace(field, with: "New")
+    try key("\r", code: 36, modifiers: [.shift])
     try await waitForUI("Shift-Return starts a new line", in: host.view) { field.string == "New\n" }
-    XCTAssertEqual(sent, [], "Shift-Return doesn't send")
-    field.selectAll(nil)
-    field.insertText("New question", replacementRange: field.selectedRange())
-    try await clickTestControl("Send edit", in: host.view)
-    try await waitForUI("the edit sent", in: host.view) { sent == ["New question"] }
-    XCTAssertTrue(host.shows("Your message"), "The editor closes on Send")
+    XCTAssertEqual(box.sent, [], "Shift-Return doesn't send")
+    replace(field, with: "Return question")
+    try key("\r", code: 36)
+    try await waitForUI("Return sends", in: host.view) { box.sent == ["Return question"] && closed() }
 
-    // An edit whose reply never started reopens with its text.
-    var returned: String? = "Kept edit"
-    let back = CopyHost(EnigmaUserMessage(message: message, edit: { _ in }, canEdit: true,
-                                          returnedEdit: { defer { returned = nil }; return returned }),
-                        pasteboard: scratchPasteboard(), test: self)
-    try await waitForUI("the editor with the returned text", in: back.view) {
-      back.shows("Message editor") && (back.window.firstResponder as? NSTextView)?.string == "Kept edit"
+    // An edit whose reply never started reopens with its text, even while the row stays on screen.
+    box.returned = "Kept edit"
+    try await waitForUI("the editor with the returned text", in: host.view) {
+      host.shows("Message editor") && (host.window.firstResponder as? NSTextView)?.string == "Kept edit"
     }
+    XCTAssertNil(box.returned, "Taken once")
+
+    // While it can't run, neither Send nor Return sends.
+    box.canEdit = false
+    try await Task.sleep(for: .milliseconds(50))
+    try key("\r", code: 36)
+    try await clickTestControl("Send edit", in: host.view)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(box.sent, ["Return question"])
+    box.canEdit = true
+    try await clickTestControl("Send edit", in: host.view)
+    try await waitForUI("Send sends", in: host.view) { box.sent == ["Return question", "Kept edit"] && closed() }
+
+    // A message that stops being editable closes its editor.
+    field = try await openEditor()
+    box.hasEdit = false
+    try await waitForUI("the editor closes", in: host.view) { closed() && !host.shows(EnigmaUserMessage.editLabel) }
+  }
+}
+
+@MainActor
+private final class EditBox: ObservableObject {
+  @Published var returned: String?
+  @Published var canEdit = true
+  @Published var hasEdit = true
+  var sent: [String] = []
+}
+
+/// A message whose edit action, availability and returned edit a test changes while it's shown.
+private struct EditHarness: View {
+  @ObservedObject var box: EditBox
+  let message: ChatMessage
+
+  var body: some View {
+    EnigmaUserMessage(message: message, edit: box.hasEdit ? { box.sent.append($0) } : nil, canEdit: box.canEdit,
+                      returnedText: box.returned, takeReturnedText: { box.returned = nil },
+                      editNote: ConversationTranscript.editKeepsActionsNote)
   }
 }
 

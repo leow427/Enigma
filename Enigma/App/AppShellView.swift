@@ -1072,7 +1072,8 @@ struct AppShellView: View {
                       footnote: openedSelectionChatNote,
                       regenerate: regenerateAction, canRegenerate: canRegenerate,
                       edit: guidedTour.isActive ? nil : { resend(from: $0, text: $1) },
-                      returnedEdit: { localChat.takeReturnedEdit(for: $0) }) {
+                      returnedEdit: localChat.returnedEdit,
+                      takeReturnedEdit: { _ = localChat.takeReturnedEdit(for: $0) }) {
       revisionCard($0)
     }
     .id(localChat.selectedSessionID)

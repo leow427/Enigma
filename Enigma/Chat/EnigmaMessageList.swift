@@ -32,8 +32,9 @@ struct EnigmaMessageList<Revision: View>: View {
   var canRegenerate = false
   /// Sends a message again with new text (F9), dropping what came after; nil draws no pencil.
   var edit: ((UUID, String) -> Void)? = nil
-  /// Takes back the text of an edit to a message whose reply never started, which reopens its editor.
-  var returnedEdit: (UUID) -> String? = { _ in nil }
+  /// An edit whose reply never started, which reopens that message's editor, and how to take it.
+  var returnedEdit: LocalChatViewModel.ReturnedEdit? = nil
+  var takeReturnedEdit: (UUID) -> Void = { _ in }
   /// The /edit revision card under a reply, if it has one.
   @ViewBuilder let revision: (ChatMessage) -> Revision
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -95,7 +96,9 @@ struct EnigmaMessageList<Revision: View>: View {
     case .message(let message):
       EnigmaUserMessage(message: message,
                         edit: transcript.editableMessageIDs.contains(message.id) ? edit.map { edit in { edit(message.id, $0) } } : nil,
-                        canEdit: canRegenerate, returnedEdit: { returnedEdit(message.id) },
+                        canEdit: canRegenerate,
+                        returnedText: returnedEdit?.messageID == message.id ? returnedEdit?.text : nil,
+                        takeReturnedText: { takeReturnedEdit(message.id) },
                         editNote: transcript.editsKeepActions.contains(message.id)
                           ? ConversationTranscript.editKeepsActionsNote : nil)
         .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 18)))
@@ -138,7 +141,9 @@ struct EnigmaUserMessage: View {
   /// Sends the message again with the edited text (F9); nil draws no pencil.
   var edit: ((String) -> Void)? = nil
   var canEdit = false
-  var returnedEdit: () -> String? = { nil }
+  /// The text of an edit whose reply never started, which reopens the editor once taken.
+  var returnedText: String? = nil
+  var takeReturnedText: () -> Void = {}
   /// Under the editor: what editing this message won't undo.
   var editNote: String? = nil
   @Environment(\.enigmaPalette) private var palette
@@ -216,7 +221,11 @@ struct EnigmaUserMessage: View {
     .contentShape(Rectangle())
     .onHover { isHovered = $0 }
     // An edit that failed, or was stopped, before its reply started comes back to be sent again.
-    .onAppear { if let text = returnedEdit() { editedText = text } }
+    .onChange(of: returnedText, initial: true) { _, text in
+      guard let text else { return }
+      editedText = text
+      takeReturnedText()
+    }
     // A message that stops being editable, such as one a summary now covers, closes its editor.
     .onChange(of: edit == nil) { _, gone in if gone { editedText = nil } }
   }
@@ -225,14 +234,17 @@ struct EnigmaUserMessage: View {
   /// Escape cancels, and nothing changes until Send.
   @ViewBuilder private func editor(_ text: String) -> some View {
     let prompt = Self.editedPrompt(text)
-    TextField("", text: Binding(get: { editedText ?? "" }, set: { editedText = $0 }), axis: .vertical)
+    TextField("", text: Binding(get: { editedText ?? "" }, set: { text in
+      // The field writes back as it ends editing; once sent or cancelled, that mustn't reopen it.
+      if editedText != nil { editedText = text }
+    }), axis: .vertical)
       .textFieldStyle(.plain)
       .font(EnigmaTypography.ui(14))
       .lineSpacing(3)
       .foregroundStyle(palette.textPrimary.color)
       .tint(palette.accent.color)
       .focused($isEditorFocused)
-      .onSubmit { send(prompt) }
+      .onSubmit(send)
       // As in the composer, Shift-Return starts a new line; Return alone sends.
       .onKeyPress(.return, phases: .down) { press in
         guard press.modifiers.contains(.shift), let field = NSApp.keyWindow?.firstResponder as? NSTextView else { return .ignored }
@@ -259,19 +271,19 @@ struct EnigmaUserMessage: View {
       Button("Cancel") { editedText = nil }
         .enigmaButtonStyle(.secondary)
         .enigmaTestMarker("Cancel edit")
-      Button("Send") { send(prompt) }
+      Button("Send", action: send)
         .enigmaButtonStyle(.compactPrimary)
         .disabled(prompt.isEmpty || !canEdit)
         .enigmaTestMarker("Send edit")
     }
   }
 
-  private func send(_ prompt: String) {
+  /// Reads the text as typed now, which may be newer than the last render.
+  private func send() {
+    let prompt = Self.editedPrompt(editedText ?? "")
     guard !prompt.isEmpty, canEdit, let edit else { return }
     editedText = nil
     edit(prompt)
-    // A route that starts nothing hands the text straight back.
-    if let text = returnedEdit() { editedText = text }
   }
 
   /// An edit is a plain chat turn, as Regenerate replays: typed commands are dropped, not run.

@@ -1027,11 +1027,12 @@ final class RequestLifecycleTests: XCTestCase {
     await viewModel.stopStreaming()?.value
     XCTAssertEqual(viewModel.messages, old)
     XCTAssertNil(viewModel.takeReturnedEdit(for: old[2].id))
-    XCTAssertEqual(viewModel.takeReturnedEdit(for: old[0].id), "A edited", "Stop hands the edited text back")
+    XCTAssertEqual(viewModel.returnedEdit, .init(messageID: old[0].id, text: "A edited"), "Stop hands the edited text back")
 
     // After the first token the edited message and its reply replace it and everything after it.
     var removed = Set<UUID>()
     viewModel.resend(fromUserMessage: old[0].id, text: "A edited", send: send, removed: { removed = $0 })
+    XCTAssertNil(viewModel.returnedEdit, "A new resend drops an edit not taken back")
     await fulfillment(of: [streams[2].started], timeout: 2)
     await receive(.token("New"), from: streams[2], in: viewModel, expecting: "New")
     XCTAssertEqual(viewModel.messages.map(\.content), ["A edited", "New"])
@@ -1056,6 +1057,12 @@ final class RequestLifecycleTests: XCTestCase {
         XCTAssertEqual(messages.last?.content.isEmpty, false, "Saved before the first token: \(messages.map(\.content))")
       }
     }
+
+    // Leaving the chat drops an edit not taken back.
+    viewModel.resend(fromUserMessage: viewModel.messages[0].id, text: "Again", send: { _, _ in })
+    XCTAssertNotNil(viewModel.returnedEdit)
+    viewModel.newChat()
+    XCTAssertNil(viewModel.returnedEdit)
   }
 
   private func receive<Element>(_ token: Element, from stream: ControlledStream<Element>,
