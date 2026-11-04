@@ -410,17 +410,18 @@ struct EnigmaReplyView<Revision: View>: View {
           ChatMarkdownView(content: reply.content)
             .enigmaTestMarker("Reply")
         }
-        // Right under the reply's text (owner, 2026-11-04).
-        if let regenerate, let question = reply.regeneratesFrom {
-          ChatRegenerateButton(isEmphasized: isHovered) { regenerate(question) }
-            .disabled(!canRegenerate)
-        }
         revision()
         if let pins = reply.mapPins {
           MapCardView(pins: pins)
         }
         if !reply.isInProgress, let message = reply.message {
           HStack(spacing: 8) {
+            // Right under the reply, at the start of its meta line (owner, 2026-11-04): a row of its
+            // own made every reply taller.
+            if let regenerate, let question = reply.regeneratesFrom {
+              ChatRegenerateButton(isEmphasized: isHovered) { regenerate(question) }
+                .disabled(!canRegenerate)
+            }
             Text(ReplyMetaLine.text(origin: message.origin, searched: reply.searched, date: message.createdAt))
               .font(EnigmaTypography.mono(11))
               .foregroundStyle(palette.textTertiary.color)
