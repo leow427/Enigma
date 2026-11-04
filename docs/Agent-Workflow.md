@@ -64,3 +64,17 @@ Never edit a file or touch git state. Never trim a review to save usage.
 - **Report** only Blocker and Should fix findings, ranked, each with
   file:line, what's wrong, a failure scenario and a fix. No nits. If nothing
   needs fixing, say so.
+
+## Sharing the Mac
+
+Several agents can work at once, but hosted tests share the screen, keyboard
+focus and, from the same checkout, the build folder. Workers and reviewers
+alike:
+
+- Run one test action at a time across all agents. Before starting one, check
+  `pgrep -f "xcodebuild test"`; if a run is going, wait for it to finish.
+- To work alongside another agent, use your own worktree, outside
+  `~/Documents` (for example under `/private/tmp/`), so builds and test
+  folders stay apart. The one-run-at-a-time rule still applies.
+- Never quit an Enigma or `xcodebuild` process you didn't start. A test copy
+  of Enigma running from `/tmp/Enigma-Verification-*` may be another agent's.
