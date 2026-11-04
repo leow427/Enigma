@@ -420,10 +420,8 @@ extension ChatCopyTests {
     let message = ChatMessage(role: .user, content: "Old question")
     let box = EditBox()
     let host = CopyHost(EditHarness(box: box, message: message), pasteboard: scratchPasteboard(), test: self)
-    print("F9STEP 1: try await waitForUI('the pencil', in: host.view) { host.show")
     try await waitForUI("the pencil", in: host.view) { host.shows(EnigmaUserMessage.editLabel) }
     let plain = CopyHost(EnigmaUserMessage(message: message), pasteboard: scratchPasteboard(), test: self)
-    print("F9STEP 2: try await waitForUI('the message', in: plain.view) { plain.s")
     try await waitForUI("the message", in: plain.view) { plain.shows("Your message") }
     XCTAssertFalse(plain.shows(EnigmaUserMessage.editLabel), "No pencil without an edit action")
 
@@ -449,102 +447,65 @@ extension ChatCopyTests {
 
     var field = try await openEditor()
     field.insertText(" edited", replacementRange: NSRange(location: (field.string as NSString).length, length: 0))
-    print("F9STEP 3: try await clickTestControl('Cancel edit', in: host.view)")
     try await clickTestControl("Cancel edit", in: host.view)
-    print("F9STEP 4: try await waitForUI('the message again', in: host.view) { cl")
     try await waitForUI("the message again", in: host.view) { closed() }
 
-    print("F9STEP 5: field = try await openEditor()")
     field = try await openEditor()
-    print("F9STEP 6: try key('\u{1b}', code: 53)")
     try key("\u{1b}", code: 53)
-    print("F9STEP 7: try await waitForUI('Escape closes the editor', in: host.vie")
     try await waitForUI("Escape closes the editor", in: host.view) { closed() }
     XCTAssertEqual(box.sent, [], "Cancel and Escape send nothing")
 
-    print("F9STEP 8: field = try await openEditor()")
     field = try await openEditor()
-    print("F9STEP 9: replace(field, with: 'New')")
     replace(field, with: "New")
-    print("F9STEP 10: try key('\r', code: 36, modifiers: [.shift])")
     try key("\r", code: 36, modifiers: [.shift])
-    print("F9STEP 11: try await waitForUI('Shift-Return starts a new line', in: ho")
     try await waitForUI("Shift-Return starts a new line", in: host.view) { field.string == "New\n" }
     XCTAssertEqual(box.sent, [], "Shift-Return doesn't send")
-    print("F9STEP 12: replace(field, with: 'Return question')")
     replace(field, with: "Return question")
-    print("F9STEP 13: try key('\r', code: 36)")
     try key("\r", code: 36)
-    print("F9STEP 14: try await waitForUI('Return sends', in: host.view) { box.sen")
     try await waitForUI("Return sends", in: host.view) { box.sent == ["Return question"] && closed() }
 
     // An edit whose reply never started reopens with its text, without taking the keys from
     // another field, such as the composer.
-    print("F9STEP 15: box.showsOther = true")
     box.showsOther = true
-    print("F9STEP 16: try await clickTestControl('Other field', in: host.view)")
     try await clickTestControl("Other field", in: host.view)
     func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.string == box.other }
-    print("F9STEP 17: try await waitForUI('the other field focused', in: host.view")
     try await waitForUI("the other field focused", in: host.view) { otherHasFocus() }
-    print("F9STEP 18: box.returned = 'Kept edit'")
     box.returned = "Kept edit"
-    print("F9STEP 19: try await waitForUI('the editor with the returned text', in:")
     try await waitForUI("the editor with the returned text", in: host.view) {
       host.shows("Message editor") && box.returned == nil
     }
-    print("F9STEP 20: try await Task.sleep(for: .milliseconds(200))")
     try await Task.sleep(for: .milliseconds(200))
     host.view.layoutSubtreeIfNeeded()
     XCTAssertTrue(otherHasFocus(), "A returned edit leaves focus where it was")
-    print("F9STEP 21: box.showsOther = false")
     box.showsOther = false
     // Also when its row was gone meanwhile, as while the edit's reply was pending.
-    print("F9STEP 22: box.shown = false")
     box.shown = false
-    print("F9STEP 23: try await waitForUI('the row gone', in: host.view) { !host.s")
     try await waitForUI("the row gone", in: host.view) { !host.shows("Message editor") && !host.shows("Your message") }
-    print("F9STEP 24: box.returned = 'Kept edit'")
     box.returned = "Kept edit"
-    print("F9STEP 25: box.shown = true")
     box.shown = true
-    print("F9STEP 26: try await waitForUI('the new row's editor with the returned ")
     try await waitForUI("the new row's editor with the returned text", in: host.view) {
       host.shows("Message editor") && box.returned == nil
     }
     host.view.window?.makeFirstResponder(nil)
-    print("F9STEP 27: try await clickTestControl('Message editor', in: host.view)")
     try await clickTestControl("Message editor", in: host.view)
-    print("F9STEP 28: try await waitForUI('the field focused', in: host.view) {")
     try await waitForUI("the field focused", in: host.view) {
       (host.window.firstResponder as? NSTextView)?.string == "Kept edit"
     }
 
     // While it can't run, neither Send nor Return sends.
-    print("F9STEP 29: box.canEdit = false")
     box.canEdit = false
-    print("F9STEP 30: try await Task.sleep(for: .milliseconds(50))")
     try await Task.sleep(for: .milliseconds(50))
-    print("F9STEP 31: try key('\r', code: 36)")
     try key("\r", code: 36)
-    print("F9STEP 32: try await clickTestControl('Send edit', in: host.view)")
     try await clickTestControl("Send edit", in: host.view)
-    print("F9STEP 33: try await Task.sleep(for: .milliseconds(100))")
     try await Task.sleep(for: .milliseconds(100))
     XCTAssertEqual(box.sent, ["Return question"])
-    print("F9STEP 34: box.canEdit = true")
     box.canEdit = true
-    print("F9STEP 35: try await clickTestControl('Send edit', in: host.view)")
     try await clickTestControl("Send edit", in: host.view)
-    print("F9STEP 36: try await waitForUI('Send sends', in: host.view) { box.sent ")
     try await waitForUI("Send sends", in: host.view) { box.sent == ["Return question", "Kept edit"] && closed() }
 
     // A message that stops being editable closes its editor.
-    print("F9STEP 37: field = try await openEditor()")
     field = try await openEditor()
-    print("F9STEP 38: box.hasEdit = false")
     box.hasEdit = false
-    print("F9STEP 39: try await waitForUI('the editor closes', in: host.view) { cl")
     try await waitForUI("the editor closes", in: host.view) { closed() && !host.shows(EnigmaUserMessage.editLabel) }
   }
 }
