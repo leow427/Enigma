@@ -84,10 +84,12 @@ between Spaces or offer window tiling.
 
 ### Asking about the selection
 
-The selection goes with your **first message only**. After a reply arrives, the
-selected-text card over the window's composer says it was sent with your first
-message, and new questions are ordinary turns: the model can still refer back to
-the selection in the conversation, but it isn't attached again. If the first
+The selection goes with your **first message only**. In the window it shows as
+its own bubble directly above that message's bubble (a card over the composer
+shows it only until it's sent), and new questions are ordinary turns: the
+selection stays part of the conversation the model sees on every route, but it
+isn't attached again. It's never written to disk, so a saved chat reopened after
+Enigma quits no longer has it. If the first
 reply fails, or is stopped before any text arrives, the next message carries the
 selection again.
 
@@ -115,9 +117,10 @@ A question about the selection gets an ordinary answer. Typing **/edit** or
 **/translate** withholds `propose_edit`, so the request stays read-only. With
 **/edit** and **/search** together, the model searches first and then proposes.
 
-**Removing** the selection (the **×** on the line or the selected-text card) takes
-it, its place in earlier turns and any edited draft out of every later request, and
-turns off **Replace text** for this chat.
+**Removing** the selection (the **×** on the panel's line or its selected-text
+card) drops any edited draft from later requests and turns off **Replace text**,
+**/edit** and **/translate** on it for this chat. The selection itself stays in
+the earlier turn it went with, so the model still knows what the chat was about.
 
 ### Editing with /edit
 
@@ -411,7 +414,7 @@ selection may shape the query.
 - **Panel views.** `EnigmaCompactPanel`, `EnigmaCompactSelectionLine`,
   `EnigmaCompactComposer`, `EnigmaCompactDetails` and `EnigmaCompactHints` are
   in `Enigma/App/EnigmaCompactPanel.swift`; their labels and rules
-  (`CompactPanelLayout`, `CompactSelectionStatus`, `CompactRouteChip`,
+  (`CompactPanelLayout`, `CompactRouteChip`,
   `CompactPanelHints`, `CompactPanelCharacter`) are in
   `Enigma/App/EnigmaCompactPanelLogic.swift`. `AppShellView` (`Enigma/App/AppShellView.swift`)
   owns the state and actions; `ShellPresentation` (`Enigma/App/ShellPresentation.swift`)

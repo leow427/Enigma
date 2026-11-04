@@ -28,15 +28,6 @@ enum CompactPanelLayout {
   }
 }
 
-/// The selection's part in the chat. It goes with the first message only;
-/// after that it stays in the conversation, where the model can refer back
-/// to it, and `/edit` and a standalone `/translate` still use it, but new
-/// questions don't carry it.
-enum CompactSelectionStatus {
-  /// The selected-text card's note, once the selection has been sent.
-  static let sentNote = "Sent with your first message. New questions don't attach it; /edit and /translate still use it."
-}
-
 /// The monospace chip beside the input: the mode, then where Auto runs or the
 /// model a fixed mode uses, like `auto · local`. It opens the mode and model menu.
 enum CompactRouteChip {

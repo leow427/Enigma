@@ -130,7 +130,9 @@ final class SelectionContextTests: XCTestCase {
     XCTAssertFalse(ChatReturnState(chat: chat, screen: nil).hasUnsentWork)
     await completeRevisionRequest(chat, prompt: "/translate Bonjour", cloud: true)
     let request = try XCTUnwrap(provider.requests.last)
-    XCTAssertFalse(request.messages.contains { $0.content.contains("Private captured source") })
+    // The selection stays in the chat's history (B22); the unapplied draft goes with it.
+    XCTAssertTrue(request.messages.dropLast().contains { $0.content.contains("Private captured source") })
+    XCTAssertFalse(request.messages.last?.content.contains("Private captured source") == true)
     XCTAssertFalse(request.messages.contains { $0.content.contains("Private manual draft") })
     XCTAssertTrue(request.messages.last?.content.contains(SelectionResponseMode.translate.instructions) == true)
     XCTAssertEqual(chat.selectionRevisions.count, 1)
@@ -1768,7 +1770,8 @@ final class SelectionContextTests: XCTestCase {
     chat.submitCloud("Another question", provider: .chatGPT, modelID: "fixture")
     await fulfillment(of: [done], timeout: 3)
     observation.cancel()
-    XCTAssertFalse(provider.requests.last?.messages.contains { $0.content.contains(context.text) } == true)
+    XCTAssertTrue(provider.requests.last?.messages.contains { $0.content.contains(context.text) } == true,
+                  "Removing it keeps it in the chat's history (B22)")
   }
 
   // MARK: The selection goes with the first message
@@ -1813,7 +1816,7 @@ final class SelectionContextTests: XCTestCase {
 
   /// On every route, the first message carries the selection and its
   /// instructions; a later one is an ordinary turn with the selection only in
-  /// the history, and nothing of it once it's removed.
+  /// the history, where it stays once it's removed (B22).
   func testSelectionGoesWithTheFirstMessageOnlyOnEveryRoute() async throws {
     for route in ["local", "cloud", "auto", "screen"] {
       let engine = SelectionTestEngine(output: "An answer.")
@@ -1857,7 +1860,8 @@ final class SelectionContextTests: XCTestCase {
 
       chat.removeContext(id: context.id)
       let third = try await ask("And dinner?")
-      XCTAssertFalse(third.contains { $0.content.contains(context.text) }, "\(route): removed means gone")
+      XCTAssertTrue(third.dropLast().contains { $0.content.contains(context.text) }, "\(route): removed, still in the history")
+      XCTAssertFalse(third.last?.content.contains(context.text) == true, "\(route): not attached again")
       XCTAssertFalse(third.last?.content.contains(SelectionResponseMode.followUp.instructions) == true, route)
     }
   }

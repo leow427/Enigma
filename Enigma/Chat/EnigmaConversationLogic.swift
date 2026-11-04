@@ -74,10 +74,16 @@ struct ConversationTranscript: Equatable {
   /// last message the chat's summary covers.
   init(messages: [ChatMessage], activity: AssistantActivity?, isResponding: Bool, summarizedThrough: UUID? = nil) {
     var rows: [Row] = []
+    // A selection's bubble goes over the first message that carried it: /edit and a retried
+    // first message send it again (B22).
+    var shownContexts = Set<UUID>()
     for message in messages {
       switch message.role {
       case .user:
-        rows.append(.message(message))
+        var shown = message
+        let contexts = message.contexts?.filter { shownContexts.insert($0.id).inserted }
+        shown.contexts = contexts?.isEmpty == false ? contexts : nil
+        rows.append(.message(shown))
       case .assistant:
         let activity = message.activity ?? message.searchSources.flatMap { sources in
           sources.isEmpty ? nil : AssistantActivity.savedSources(sources, messageID: message.id)

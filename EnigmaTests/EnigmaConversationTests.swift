@@ -14,6 +14,26 @@ final class EnigmaConversationTests: XCTestCase {
 
   // MARK: Transcript
 
+  /// B22: /edit sends the selection again, but its bubble shows over the first message only.
+  func testTranscriptShowsEachSelectionOverTheFirstMessageThatCarriedIt() {
+    let selection = ConversationContext(sourceName: "Notes", text: "selected")
+    let other = ConversationContext(sourceName: "Mail", text: "other")
+    var first = ChatMessage(role: .user, content: "/edit Formal")
+    first.contexts = [selection]
+    var second = ChatMessage(role: .user, content: "/edit Shorter")
+    second.contexts = [selection, other]
+    var third = ChatMessage(role: .user, content: "/edit Again")
+    third.contexts = [selection]
+    let transcript = ConversationTranscript(messages: [first, ChatMessage(role: .assistant, content: "A"), second,
+                                                       ChatMessage(role: .assistant, content: "B"), third],
+                                            activity: nil, isResponding: false)
+    let shown = transcript.rows.compactMap { row -> [ConversationContext]?? in
+      if case .message(let message) = row { return .some(message.contexts) }
+      return nil
+    }
+    XCTAssertEqual(shown, [[selection], [other], nil])
+  }
+
   func testTranscriptPutsTheCharacterBesideTheLatestReplyAndKeepsItsSlotAsTheReplyArrives() throws {
     let first = ChatMessage(role: .user, content: "One")
     let answer = ChatMessage(role: .assistant, content: "First answer")
@@ -763,7 +783,9 @@ final class EnigmaConversationTests: XCTestCase {
       fixture.chat.activeRequest == nil && host.shows("Replace text") && host.shows("Reply")
     }
     XCTAssertEqual(fixture.chat.selectionRevisions.values.first?.text, "Please send the report today.")
-    XCTAssertTrue(host.shows("Remove selected text"), "The selected text card stays over the composer")
+    // B22: the selection shows as its own bubble above the message it went with, not as a card.
+    XCTAssertTrue(host.shows("Sent selection"))
+    XCTAssertFalse(host.shows("Remove selected text"))
     try await waitForUI("Replace text clear of the composer", in: host.view) {
       testControlIsUncovered("Replace text", in: host.view)
     }

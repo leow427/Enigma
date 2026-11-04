@@ -1157,8 +1157,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
   }
 
   /// A first reply that fails, or is stopped before any text, leaves the
-  /// selection attached: its card in the window doesn't say it was sent, and
-  /// the next question carries it with the first-message instructions.
+  /// selection attached: its card stays in the window, and the next question
+  /// carries it with the first-message instructions. Once sent, the card gives
+  /// way to the selection's bubble (B22).
   @MainActor
   func testSelectionStaysAttachedWhenTheFirstReplyFailsOrIsStopped() async throws {
     for stops in [false, true] {
@@ -1171,7 +1172,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
       try await waitForUI("the first reply ended without text", in: host.view) {
         fixture.chat.activeRequest == nil && host.shows("Remove selected text")
       }
-      XCTAssertFalse(host.shows("Selection sent note"))
+      XCTAssertTrue(fixture.chat.sentContextIDs.isEmpty)
       try await host.send("Explain it again", fixture, fromPanel: false)
       let current = try XCTUnwrap(fixture.engine.lastRequest?.messages.last)
       XCTAssertTrue(current.content.contains("Please send the report today."), "Attached again")
@@ -1179,8 +1180,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
       fixture.engine.send("It asks for the report today.")
       fixture.engine.finish()
       try await waitForUI("the reply, and the selection now sent", in: host.view) {
-        fixture.chat.activeRequest == nil && host.shows("Selection sent note")
+        fixture.chat.activeRequest == nil && !fixture.chat.sentContextIDs.isEmpty && !host.shows("Remove selected text")
       }
+      XCTAssertTrue(host.shows("Sent selection"))
     }
   }
 

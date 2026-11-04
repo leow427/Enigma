@@ -175,10 +175,15 @@ final class NativeToolPartsTests: XCTestCase {
       tools.definitions.first { $0.name == name }?.description ?? ""
     }
     XCTAssertTrue(gated.instructions.contains(MessagesTools.namedChatInstruction))
+    // B22: offered on every turn, Messages mustn't stand in for the chat the user is in.
+    XCTAssertTrue(gated.instructions.contains(MessagesTools.thisChatInstruction))
     XCTAssertTrue(description(gated, "get_messages").contains("a person or group the user names"))
     XCTAssertTrue(description(gated, "search_messages").contains("Only for searching across all chats"))
     // Today's /messages on models without native tools keeps its wording.
     XCTAssertFalse(plain.instructions.contains(MessagesTools.namedChatInstruction))
+    XCTAssertFalse(plain.instructions.contains(MessagesTools.thisChatInstruction))
+    XCTAssertTrue(plain.instructions.hasPrefix("Messages is enabled for this request only. Use the Messages tools"))
+    XCTAssertTrue(gated.instructions.hasPrefix("Use the Messages tools"), "Offered on every turn, not for one request")
     XCTAssertEqual(description(plain, "get_messages"),
                    "Read messages from one conversation, oldest first within the page. For earlier messages, pass next_before from the previous result as before.")
     XCTAssertEqual(description(plain, "search_messages"),
