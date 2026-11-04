@@ -56,7 +56,7 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
   /// The whole character's motion, pivoting on its feet.
   private func move(_ context: inout GraphicsContext, frame: EnigmaCharacterFrame, t: Double) {
     let feet = CGPoint(x: frame.shadow.midX, y: frame.shadow.midY)
-    let size = frame.drawnBounds.height
+    let size = frame.calmBounds.height
     var angle = 0.0, shift = 0.0
     switch self {
     case .sunglasses:
@@ -99,13 +99,12 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
     let moving: Bool
 
     init?(_ frame: EnigmaCharacterFrame, palette: EnigmaPalette, t: Double = 0, moving: Bool = false) {
-      let xs = frame.outline.map(\.x), ys = frame.outline.map(\.y)
-      guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max(), maxX > minX else {
-        return nil
-      }
-      center = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
-      radius = (maxX - minX) / 2
-      halfHeight = (maxY - minY) / 2
+      // The calm box, not the rippling outline, so tokens streaming in don't shake the outfit.
+      let box = frame.calmBounds
+      guard box.width > 0 else { return nil }
+      center = CGPoint(x: box.midX, y: box.midY)
+      radius = box.width / 2
+      halfHeight = box.height / 2
       hole = frame.holes.first?.center ?? center
       tip = frame.antennaBall.center
       tipRadius = frame.antennaBall.radius

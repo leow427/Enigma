@@ -217,6 +217,9 @@ struct EnigmaCharacterFrame: Equatable, Sendable {
   /// The closed outline, sampled evenly by angle. Drawn as a smooth curve
   /// through the midpoints between neighbors.
   var outline: [CGPoint] = []
+  /// The outline's box without the streamed tokens' ripples, which a costume sits on, so it
+  /// stays put while a reply streams (F36).
+  var calmBounds: CGRect = .zero
   /// One hole, or three while thinking. Drawn even-odd with the outline.
   var holes: [Circle] = []
   var legs: [Curve] = []
@@ -827,10 +830,17 @@ struct EnigmaCharacterModel: Sendable {
 
     let count = EnigmaCharacterTuning.outlinePoints
     frame.outline.reserveCapacity(count)
+    var calm = outline
+    calm.ripples = []
+    var calmPoints: [CGPoint] = []
+    calmPoints.reserveCapacity(count)
     for index in 0..<count {
       let angle = Double(index) / Double(count) * 2 * .pi
       frame.outline.append(pose.point(at: angle, radius: outline.radius(at: angle) * s))
+      calmPoints.append(pose.point(at: angle, radius: calm.radius(at: angle) * s))
     }
+    let xs = calmPoints.map(\.x), ys = calmPoints.map(\.y)
+    frame.calmBounds = CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
 
     let holeCenter = CGPoint(x: pose.centerX + gazeX.value * s, y: pose.centerY + pose.lift + gazeY.value * s)
     let holeRadius = s * (0.2 - 0.05 * error.value) * (1 + pulse.value * 0.15) * pose.holeScale
@@ -986,7 +996,7 @@ struct EnigmaCharacterModel: Sendable {
     let rotation: Double
     let bump: Double
     let aim: Double
-    let ripples: [Ripple]
+    var ripples: [Ripple]
     let jitter: Double
     let wobble: (phase: SIMD3<Double>, weight: SIMD3<Double>)
     let pulse: Double
