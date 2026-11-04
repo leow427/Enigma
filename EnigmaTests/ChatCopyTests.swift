@@ -466,10 +466,9 @@ extension ChatCopyTests {
 
     // An edit whose reply never started reopens with its text, without taking the keys from
     // another field, such as the composer.
-    let other = NSTextField(frame: NSRect(x: 0, y: 0, width: 80, height: 20))
-    host.view.addSubview(other)
-    host.window.makeFirstResponder(other)
-    func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.delegate === other }
+    box.showsOther = true
+    try await clickTestControl("Other field", in: host.view)
+    func otherHasFocus() -> Bool { (host.window.firstResponder as? NSTextView)?.string == box.other }
     try await waitForUI("the other field focused", in: host.view) { otherHasFocus() }
     box.returned = "Kept edit"
     try await waitForUI("the editor with the returned text", in: host.view) {
@@ -478,7 +477,7 @@ extension ChatCopyTests {
     try await Task.sleep(for: .milliseconds(200))
     host.view.layoutSubtreeIfNeeded()
     XCTAssertTrue(otherHasFocus(), "A returned edit leaves focus where it was")
-    other.removeFromSuperview()
+    box.showsOther = false
     // Also when its row was gone meanwhile, as while the edit's reply was pending.
     box.shown = false
     try await waitForUI("the row gone", in: host.view) { !host.shows("Message editor") && !host.shows("Your message") }
@@ -517,6 +516,9 @@ private final class EditBox: ObservableObject {
   @Published var canEdit = true
   @Published var hasEdit = true
   @Published var shown = true
+  /// A field standing in for the composer.
+  @Published var showsOther = false
+  @Published var other = "Composer draft"
   var sent: [String] = []
 }
 
@@ -526,7 +528,12 @@ private struct EditHarness: View {
   let message: ChatMessage
 
   var body: some View {
-    if box.shown { message(of: self.message) }
+    VStack {
+      if box.showsOther {
+        TextField("", text: $box.other).enigmaTestMarker("Other field")
+      }
+      if box.shown { message(of: self.message) }
+    }
   }
 
   private func message(of message: ChatMessage) -> some View {
