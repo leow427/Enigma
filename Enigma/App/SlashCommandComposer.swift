@@ -31,8 +31,7 @@ struct SlashCommandComposer: View {
   var submit: () -> Void
   @StateObject private var completion = CommandCompletionModel()
   @Environment(\.enigmaPalette) private var palette
-  @Environment(\.composerAttach) private var attach
-  @Environment(\.composerDropTarget) private var dropTarget
+  @Environment(\.composerDrops) private var drops
 
   var body: some View {
     ZStack(alignment: .topLeading) {
@@ -42,7 +41,7 @@ struct SlashCommandComposer: View {
       CommandTextEditor(text: $text, isFocused: $isFocused, isEnabled: isEnabled,
                         completion: completion, availableCommands: availableCommands,
                         fontSize: fontSize, colors: colors, submit: submit,
-                        attach: attach, dropTarget: dropTarget)
+                        attach: drops?.attach, dropTarget: drops?.targetChanged)
         .frame(height: completion.height)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -543,11 +542,19 @@ enum ComposerDrop: Equatable {
   }
 }
 
-extension EnvironmentValues {
-  /// Attaches files or an image dropped or pasted on the composer (F4).
-  @Entry var composerAttach: (@MainActor @Sendable (ComposerPasteboard.Item) -> Bool)? = nil
+/// The composer's drop and paste actions (F4). Always equal: the shell makes
+/// new closures on every render, and a changed environment value would update
+/// the field each time, which drops its focus while the binding still lags.
+struct ComposerDrops: Equatable, Sendable {
+  /// Attaches files or an image dropped or pasted on the composer.
+  let attach: @MainActor @Sendable (ComposerPasteboard.Item) -> Bool
   /// A drag with files or an image entered or left the message field.
-  @Entry var composerDropTarget: (@MainActor @Sendable (Bool) -> Void)? = nil
+  let targetChanged: @MainActor @Sendable (Bool) -> Void
+  static func == (_: Self, _: Self) -> Bool { true }
+}
+
+extension EnvironmentValues {
+  @Entry var composerDrops: ComposerDrops? = nil
   /// A drop over the composer: its edge shows the focus accent.
   @Entry var composerDropTargeted = false
 

@@ -405,8 +405,7 @@ struct AppShellView: View {
     .onDrop(of: [.fileURL, .image], isTargeted: $isDropTargeted) { _ in
       ComposerPasteboard.item(in: NSPasteboard(name: .drag)).map(attachDropped) ?? false
     }
-    .environment(\.composerAttach, { attachDropped($0) })
-    .environment(\.composerDropTarget, { isDropTargeted = $0 })
+    .environment(\.composerDrops, ComposerDrops(attach: { attachDropped($0) }, targetChanged: { isDropTargeted = $0 }))
     .environment(\.composerDropTargeted, isDropTargeted)
     .sheet(isPresented: $modelAdvisor.isOnboardingPresented, onDismiss: { modelAdvisor.dismissOnboarding() }) {
       LocalModelOnboardingView(advisor: modelAdvisor, chat: localChat)
