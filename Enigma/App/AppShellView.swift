@@ -1071,7 +1071,8 @@ struct AppShellView: View {
                       cancelQueued: { localChat.cancelQueuedMessage(id: $0) },
                       footnote: openedSelectionChatNote,
                       regenerate: regenerateAction, canRegenerate: canRegenerate,
-                      edit: guidedTour.isActive ? nil : { resend(from: $0, text: $1) }) {
+                      edit: guidedTour.isActive ? nil : { resend(from: $0, text: $1) },
+                      returnedEdit: { localChat.takeReturnedEdit(for: $0) }) {
       revisionCard($0)
     }
     .id(localChat.selectedSessionID)

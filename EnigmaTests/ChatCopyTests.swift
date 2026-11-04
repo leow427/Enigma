@@ -450,10 +450,26 @@ extension ChatCopyTests {
 
     field = try await openEditor()
     field.selectAll(nil)
+    field.insertText("New", replacementRange: field.selectedRange())
+    host.window.sendEvent(try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.shift], timestamp: 1,
+      windowNumber: host.window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+      isARepeat: false, keyCode: 36)))
+    try await waitForUI("Shift-Return starts a new line", in: host.view) { field.string == "New\n" }
+    XCTAssertEqual(sent, [], "Shift-Return doesn't send")
+    field.selectAll(nil)
     field.insertText("New question", replacementRange: field.selectedRange())
     try await clickTestControl("Send edit", in: host.view)
     try await waitForUI("the edit sent", in: host.view) { sent == ["New question"] }
     XCTAssertTrue(host.shows("Your message"), "The editor closes on Send")
+
+    // An edit whose reply never started reopens with its text.
+    var returned: String? = "Kept edit"
+    let back = CopyHost(EnigmaUserMessage(message: message, edit: { _ in }, canEdit: true,
+                                          returnedEdit: { defer { returned = nil }; return returned }),
+                        pasteboard: scratchPasteboard(), test: self)
+    try await waitForUI("the editor with the returned text", in: back.view) {
+      back.shows("Message editor") && (back.window.firstResponder as? NSTextView)?.string == "Kept edit"
+    }
   }
 }
 

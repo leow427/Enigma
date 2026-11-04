@@ -160,14 +160,25 @@ final class LocalChatViewModel: ObservableObject {
   }
 
   /// A resend under way (F3): the chat as saved before it, the messages it replaces, and
-  /// whether the replaced turn searched.
+  /// whether the replaced turn searched (nil for an edit, which decides as typed text does).
   private struct PendingResend {
     let saved: ChatSession
     let replacedIDs: Set<UUID>
-    let searched: Bool
+    let searched: Bool?
+    /// An edit's message and text (F9), handed back if the edit's reply never starts.
+    let edit: (messageID: UUID, text: String)?
     let removed: @MainActor (Set<UUID>) -> Void
   }
   private var pendingResend: PendingResend?
+  /// An edit whose reply never started (F9): its message reopens its editor with this text.
+  private var returnedEdit: (messageID: UUID, text: String)?
+
+  /// The text of an edit to `messageID` that never started, once.
+  func takeReturnedEdit(for messageID: UUID) -> String? {
+    guard let returnedEdit, returnedEdit.messageID == messageID else { return nil }
+    self.returnedEdit = nil
+    return returnedEdit.text
+  }
 
   /// The selected chat's summary, as requests send it.
   var appliedSummary: ChatSummary? { selectedSession?.summary }
@@ -2134,7 +2145,8 @@ final class LocalChatViewModel: ObservableObject {
   // MARK: Resend (F3, F9)
 
   /// Sends the user message `id` again, as `text` or, when nil, as it was with its /think choice,
-  /// on the route `send` picks; `send` gets the prompt and whether the replaced turn searched.
+  /// on the route `send` picks; `send` gets the prompt and whether the replaced turn searched, which
+  /// only a regenerate repeats: an edit is new text, so it's always false and the route decides.
   /// The message and everything after it are hidden, and left out of the request, but stay in the
   /// chat and on disk until the new reply's first token. A failure, or Stop, before that puts
   /// them back. `removed` gets the ids, and activity ids, of the messages dropped then.
@@ -2148,10 +2160,15 @@ final class LocalChatViewModel: ObservableObject {
     // Only the replaced turn's own reply decides, not the later turns it drops.
     let searched = session.messages[(index + 1)...].prefix { $0.role != .user }
       .contains { !($0.searchSources?.isEmpty ?? true) }
-    pendingResend = PendingResend(saved: session, replacedIDs: Set(replaced.map(\.id)), searched: searched, removed: removed)
-    send((question.extendedThinking == true ? "/think " : "") + (text ?? question.content), searched)
+    returnedEdit = nil
+    pendingResend = PendingResend(saved: session, replacedIDs: Set(replaced.map(\.id)), searched: text == nil ? searched : nil,
+                                  edit: text.map { (id, $0) }, removed: removed)
+    send((question.extendedThinking == true ? "/think " : "") + (text ?? question.content), text == nil && searched)
     // A route that started nothing leaves the chat as it was.
-    if activeRequest == nil { pendingResend = nil }
+    if activeRequest == nil {
+      returnedEdit = pendingResend?.edit
+      pendingResend = nil
+    }
   }
 
   /// The new reply's first token: the replaced messages go, in memory and on disk.
@@ -2166,6 +2183,12 @@ final class LocalChatViewModel: ObservableObject {
       sessions[index].summary = nil
     }
     for message in dropped { selectionRevisions[message.id] = nil }
+    // An edited first message retitles the chat, unless it was renamed or titled already (F38).
+    if let first = dropped.first(where: { $0.role == .user }), first.id == resend.saved.messages.first(where: { $0.role == .user })?.id,
+       sessions[index].title == ChatSession.title(for: first.content),
+       let new = sessions[index].messages.first(where: { $0.role == .user }) {
+      sessions[index].title = ChatSession.title(for: new.content)
+    }
     resend.removed(Set(dropped.flatMap { [$0.id, $0.activity?.id].compactMap { $0 } }))
   }
 
@@ -2173,6 +2196,7 @@ final class LocalChatViewModel: ObservableObject {
   private func restoreResend() {
     guard let resend = pendingResend else { return }
     pendingResend = nil
+    returnedEdit = resend.edit
     guard let index = sessions.firstIndex(where: { $0.id == resend.saved.id }) else { return }
     let kept = Set(resend.saved.messages.map(\.id))
     sessions[index].messages.removeAll { !kept.contains($0.id) }
