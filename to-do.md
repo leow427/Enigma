@@ -1698,7 +1698,18 @@ it goes unnoticed until the user happens to open the menu. See
 pending update and calls `performPendingUpdate`. Update `docs/Updates.md` →
 What users see, with a screenshot.
 
-### F38. Short AI-written chat titles, like other chat apps
+### F38. ✅ Done: Short AI-written chat titles, like other chat apps
+
+> **Solved:** after a chat's first reply, its own model and provider write a
+> 2–6 word title from the first question and the start of the reply, which
+> replaces the 48-character one in Recents; the 48-character title stays on
+> failure, cancellation or unusable output. It runs after the reply, a new send
+> cancels it, and temporary chats aren't titled. Owner defaults taken: cloud
+> chats spend the tiny extra request, and a title is used only if it's 1–8
+> words and at most 48 characters. The 24-token cap and temperature 0 apply
+> on the embedded local engine; the local server and cloud routes keep their
+> own defaults and stop reading after 200 characters (owner's choice,
+> 2026-11-03). See `docs/Chat.md` → Chat history.
 
 **Today:** A chat's title is the first 48 characters of its first message
 (`ChatSession.title(for:)` in `Enigma/Chat/ChatDomain.swift`, set in
