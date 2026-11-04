@@ -251,7 +251,7 @@ struct LocalContextSizeRow: View {
     let asking = pending ?? unanswered
     VStack(alignment: .leading, spacing: 0) {
       EnigmaRow(Self.title, subtitle: Self.detail) {
-        EnigmaSegmentedControl(Self.title, selection: Binding(get: { pending ?? preference }, set: choose),
+        EnigmaSegmentedControl(Self.title, selection: Binding(get: { pending ?? preference }, set: { choose($0) }),
                                options: Self.options(model: chat.installedModel, hardware: advisor.hardware))
           .fixedSize()
       }
