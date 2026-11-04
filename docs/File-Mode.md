@@ -13,6 +13,17 @@ more, up to 16; a file inside a folder you've already attached is covered by tha
 folder and doesn't count toward the 16. Choosing more than that shows "You can
 attach up to 16 files or folders." and keeps the current attachments.
 
+You can also drag files or folders from Finder onto the main window, the compact
+panel or the message field; the composer's edge lights up while you drag. Dropped
+files are attached exactly as the picker attaches them, with the same 16-item
+limit. Copying files in Finder and pasting (**⌘V**) in the message field does the
+same. A single image file goes to the image attachment instead (see
+[Screen](Screen-Skill.md)); images dropped together with other files, or several
+images at once, all go to File Mode as files, with the note "The images were
+attached to File Mode as files." A typed or pasted path is just text: it never
+grants file access. Drops are refused while a reply runs, a screenshot is being
+read, or the picker is open.
+
 A card above the composer lists each attachment with its access, **read & edit**
 or **read only**, and an **×** to remove it. Removing the last one returns to
 ordinary chat. Then type what you want and send, for example "Fix the typos in
@@ -207,6 +218,8 @@ the file back to confirm it reached disk.
   or stop early. The checks confirm what was written, not that it was right, so
   review the changes.
 - Recovery copies are never pruned automatically.
+- Files you drop or paste aren't checked against the 2 MiB limit when attached,
+  only when read, as with the picker.
 
 ## Tests
 

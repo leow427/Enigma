@@ -270,6 +270,72 @@ final class ScreenCaptureTests: XCTestCase {
     XCTAssertFalse(screen.isEnabled)
   }
 
+  func testAttachingAnImageReadsItLocallyLikeACapture() async throws {
+    let usable = String(repeating: "readable words ", count: 6)
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub(),
+      ocrService: ImmediateOCR(result: ScreenOCRResult(text: usable, confidence: 0.9)), ocrTimeout: .seconds(30))
+    screen.draft = "keep this draft"
+    await screen.attach(imageData: try Self.png())
+    XCTAssertEqual(screen.attachment?.source, .attachedImage)
+    XCTAssertEqual(screen.attachment?.status, .localOCR)
+    XCTAssertEqual(screen.attachment?.ocrText, usable)
+    XCTAssertEqual(screen.draft, "keep this draft", "Attaching an image never touches the draft")
+    XCTAssertFalse(screen.isBusy)
+    XCTAssertNil(screen.error)
+  }
+
+  func testAttachingAnImageShowsReadingAndANewImageReplacesTheOld() async throws {
+    let ocr = SuspendedPanelOCR()
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub(), ocrService: ocr, ocrTimeout: .seconds(60))
+    let capture = Task { await screen.capture() }
+    await fulfillment(of: [ocr.started], timeout: 3)
+    await ocr.complete()
+    _ = await capture.value
+    let captured = try XCTUnwrap(screen.attachment?.id)
+    let png = try Self.png()
+    let task = Task { await screen.attach(imageData: png) }
+    try await waitForUI("the second read to start") { ocr.callCount == 2 }
+    XCTAssertTrue(screen.isReading)
+    XCTAssertEqual(screen.attachment?.status, .reading)
+    XCTAssertNotEqual(screen.attachment?.id, captured, "One image at a time: the new one replaces the screenshot")
+    await screen.attach(imageData: try Self.png())
+    XCTAssertEqual(ocr.callCount, 2, "An image is refused while another is being read")
+    await ocr.complete()
+    await task.value
+    XCTAssertEqual(screen.attachment?.source, .attachedImage)
+    XCTAssertEqual(screen.attachment?.ocrText, "late extracted text")
+    XCTAssertFalse(screen.isBusy)
+  }
+
+  func testOversizedAndUnreadableImagesAreRefusedBeforeDecoding() async throws {
+    let screen = ScreenComposerCoordinator(captureService: CaptureStub(),
+      ocrService: ImmediateOCR(result: .empty), ocrTimeout: .seconds(30))
+    await screen.attach(imageData: Data(count: ScreenAttachment.imageByteLimit + 1))
+    XCTAssertNil(screen.attachment)
+    XCTAssertEqual(screen.error, ScreenCaptureError.imageTooLarge.localizedDescription)
+
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).png")
+    defer { try? FileManager.default.removeItem(at: file) }
+    XCTAssertTrue(FileManager.default.createFile(atPath: file.path, contents: nil))
+    let handle = try FileHandle(forWritingTo: file)
+    try handle.truncate(atOffset: UInt64(ScreenAttachment.imageByteLimit + 1)) // Sparse: no 50 MB written.
+    try handle.close()
+    await screen.attach(imageAt: file)
+    XCTAssertNil(screen.attachment)
+    XCTAssertEqual(screen.error, ScreenCaptureError.imageTooLarge.localizedDescription)
+
+    await screen.attach(imageData: Data("not an image".utf8))
+    XCTAssertNil(screen.attachment)
+    XCTAssertEqual(screen.error, ScreenCaptureError.unreadableImage.localizedDescription)
+
+    let png = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).png")
+    defer { try? FileManager.default.removeItem(at: png) }
+    try Self.png().write(to: png)
+    await screen.attach(imageAt: png)
+    XCTAssertEqual(screen.attachment?.source, .attachedImage)
+    XCTAssertNil(screen.error)
+  }
+
   func testSlowOCRStopsBlockingTheTurnAtTheCapAndLetsVisionReadTheImage() async throws {
     let ocr = SuspendedPanelOCR()
     let screen = ScreenComposerCoordinator(captureService: CaptureStub(), ocrService: ocr, ocrTimeout: .milliseconds(50))

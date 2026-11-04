@@ -1878,7 +1878,7 @@ reuses `resend`. Off while F2's queue has messages.
 earlier replies; versions or branches; choosing a route or model; a keyboard
 shortcut.
 
-### F4. Drag and drop files, and paste images
+### F4. ✅ Done: Drag and drop files, and paste images
 
 **Today:** there is no drop or paste handling anywhere (no `onDrop`,
 `dropDestination`, `registerForDraggedTypes`, `performDragOperation` or
