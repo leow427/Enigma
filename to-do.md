@@ -22,7 +22,15 @@
 
 ## Bug fixes
 
-### B21. A long chat moved to a smaller model drops turns instead of compacting
+### B21. ✅ Done: A long chat moved to a smaller model drops turns instead of compacting
+
+> **Solved:** F35 already covers it: every send path except File Mode prepares
+> through the view model's one compaction step with the new route's own budget, so the first
+> request on a smaller model summarizes the chat with the "Summarizing earlier
+> messages…" status instead of dropping turns. A test moves a long chat from a
+> cloud model that took it whole to the small local fixture model and checks
+> that it is summarized there, not dropped.
+
 
 **Problem:** Picking another model mid-chat now switches to it and its mode,
 also during a reply (fixed with B20 and this item's switching part). But when the conversation so far
@@ -40,7 +48,21 @@ it works. Tests go with F35's.
 
 **Depends on / blocks:** depends on F35.
 
-### B22. Removing a selection mid-chat makes the model forget what the chat was about
+### B22. ✅ Done: Removing a selection mid-chat makes the model forget what the chat was about
+
+> **Solved:** Earlier messages keep the selection they were sent with in every
+> later request, and so does a summary's copy; removing the selection now only
+> drops edited drafts and stops **/edit**, **/translate** and **Replace text**
+> using it, until Enigma quits (selected text is never written to disk). In the
+> window the selection shows as its own bubble directly above the first message
+> it went with, and the context card over the composer shows only until it is
+> sent, so an unsent selection stays visible and removable (the panel keeps its
+> selection line and details card). The "only your conversations" answers came from the Messages tools,
+> offered on every native-tool turn: their instructions now say Messages is not
+> this chat and that questions about the chat are answered from the
+> conversation. Same on local and cloud routes. Not checked live with Bonsai 2
+> 27B.
+
 
 **Problem (owner report, 0.13.2 build 8, Local · Bonsai 2 27B, 2026-11-03):**
 The owner sent a message with a selection attached, talked about it, then

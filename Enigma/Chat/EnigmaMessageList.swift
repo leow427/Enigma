@@ -118,7 +118,7 @@ struct EnigmaFootnote: View {
 // MARK: The person's message
 
 /// Something the person sent: a `userBubble` on the right, with any attached
-/// files and sent image above it.
+/// files, sent image and the selection it carried above it.
 struct EnigmaUserMessage: View {
   let message: ChatMessage
   @Environment(\.enigmaPalette) private var palette
@@ -144,6 +144,24 @@ struct EnigmaUserMessage: View {
       }
       if let data = message.imagePreview, let image = NSImage(data: data) {
         SentImagePreview(image: image)
+      }
+      // The selection is its own bubble over the message it went with (B22).
+      ForEach(message.contexts ?? [], id: \.id) { context in
+        VStack(alignment: .leading, spacing: 3) {
+          Text(context.title)
+            .font(EnigmaTypography.mono(11.5, weight: .medium))
+            .foregroundStyle(palette.accentText.color)
+          Text(context.preview)
+            .font(EnigmaTypography.ui(12))
+            .foregroundStyle(palette.textSecondary.color)
+            .lineLimit(3)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 8)
+        .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Sent with your message: \(context.title). \(context.preview)")
+        .enigmaTestMarker("Sent selection")
       }
       if !message.content.isEmpty {
         Text(verbatim: message.content)

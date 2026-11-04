@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import XCTest
 @testable import Enigma
 
@@ -337,6 +338,38 @@ final class ChatCompactionSendTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.content, "Reply.")
   }
 
+  /// B21: a long chat the cloud model took whole, moved to a smaller local model, is summarized
+  /// on the local model, with the summarizing status, instead of losing its oldest turns.
+  func testLongChatMovedToASmallerModelCompactsInsteadOfDropping() async throws {
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    try store.save([longSession()])
+    let provider = SummaryProvider()
+    let registry = CloudProviderRegistry(openAI: provider, anthropic: provider, chatGPT: provider, gemini: provider,
+                                         claudeCode: provider)
+    let engine = SummaryEngine()
+    let chat = LocalChatViewModel(engine: engine, cloudProviders: registry, sessionStore: store)
+    chat.selectSession(id: store.load()[0].id)
+    await chat.refreshInstalledModel()
+    chat.submitCloud("First?", provider: .anthropic, modelID: "claude-sonnet-4-6")
+    try await waitUntil { !chat.isBusy && chat.messages.count == 14 }
+    XCTAssertEqual(provider.requests.count, 1, "The cloud model took the whole chat")
+    XCTAssertNil(chat.selectedSession?.summary)
+
+    var phases: [AssistantActivity.Phase] = []
+    let observation = chat.$activity.sink { if let phase = $0?.phase { phases.append(phase) } }
+    defer { observation.cancel() }
+    chat.submit("Now?")
+    try await waitUntil { !chat.isBusy && chat.messages.count == 16 }
+    XCTAssertTrue(phases.contains(.summarizing), "Shows F35's summarizing status")
+    let summaries = engine.requests.dropLast()
+    XCTAssertFalse(summaries.isEmpty)
+    XCTAssertTrue(summaries.allSatisfy { $0.messages.count == 1 && $0.messages[0].content.hasPrefix(ChatCompactor.instruction) })
+    let reply = try XCTUnwrap(engine.requests.last)
+    XCTAssertTrue(reply.messages[0].content.hasPrefix(ChatCompactor.summaryPrefix + "\n\n" + SummaryEngine.summary))
+    XCTAssertEqual(reply.messages.last?.content, "Now?")
+    XCTAssertNil(chat.contextNotice, "Summarized, not dropped")
+  }
+
   func testCloudSendCompactsInsteadOfDropping() async throws {
     let store = ChatSessionStore(applicationSupportDirectory: root)
     var session = ChatSession(title: "Long")
@@ -410,7 +443,8 @@ final class ChatCompactionSendTests: XCTestCase {
     XCTAssertTrue(store.load().isEmpty, "Nothing of the temporary chat reached the disk")
   }
 
-  func testRemovingASelectionRemovesTheSummarysCopy() async throws {
+  /// B22: the selection is part of the chat, so removing it keeps the summary's copy.
+  func testRemovingASelectionKeepsTheSummarysCopy() async throws {
     let engine = SummaryEngine()
     let chat = LocalChatViewModel(engine: engine, sessionStore: ChatSessionStore(applicationSupportDirectory: root))
     await chat.refreshInstalledModel()
@@ -422,10 +456,10 @@ final class ChatCompactionSendTests: XCTestCase {
     }
     XCTAssertEqual(chat.appliedSummary?.attached, [context], "Sent again after compaction")
     chat.removeContext(id: context.id)
-    XCTAssertEqual(chat.appliedSummary?.attached, [])
+    XCTAssertEqual(chat.appliedSummary?.attached, [context])
     chat.submit("And?")
     try await waitUntil { !chat.isBusy && chat.messages.count == 12 }
-    XCTAssertFalse(engine.requests.last?.messages.contains { $0.content.contains(context.text) } == true)
+    XCTAssertTrue(engine.requests.last?.messages.contains { $0.content.contains(context.text) } == true)
   }
 
   func testSavedChatSummaryPersists() async throws {

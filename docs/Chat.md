@@ -106,7 +106,9 @@ route can run). The empty page and the compact panel don't show it.
   apply to one message. See [Slash-Commands.md](Slash-Commands.md).
 - Choosing a mode or model while a request runs applies to the next request; the
   menu's mode section reads **Next request**. A local model picked then loads
-  once the reply ends.
+  once the reply ends. A chat too long for the new model is compacted on it
+  (see [Compaction](#compaction)) instead of losing its oldest turns, except in
+  File Mode.
 
 Other shortcuts in the window: **⌃Tab** opens the next recent chat, and **Esc**
 closes an open menu or, with none open, hides the window.
@@ -229,8 +231,9 @@ model gets it. See [Messages](Messages.md#permission-cards).
   [File-Mode.md](File-Mode.md).
 - **Screenshots** from **/screen** or **/snapshot** appear as a small preview above
   the message. See [Screen-Skill.md](Screen-Skill.md).
-- **Selected text** from another app appears as a card over the composer and goes
-  with the first message. See [Selection-Context.md](Selection-Context.md).
+- **Selected text** from another app goes with the first message and appears as
+  its own bubble above it; until it's sent, the window shows it as a card over
+  the composer. See [Selection-Context.md](Selection-Context.md).
 
 ![A sent screenshot](design/ui-revamp/screenshots/phase-7/sent-image-paper.png)
 
@@ -661,7 +664,8 @@ message's own) is
 kept with the chat, as the optional `summary` in `chats.json`, and in memory only
 for a temporary chat. It goes with every later request, on any route, until the
 chat needs compacting again; the new summary then folds the old one in. Its
-copy of attached context goes only while that context is still attached. A saved
+copy of attached context stays even after the selection is removed, like the
+message it came from. A saved
 summary is never shown or edited.
 
 In Auto, a long chat stays on this Mac and is compacted there, but Auto keeps

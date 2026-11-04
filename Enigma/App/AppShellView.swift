@@ -120,9 +120,9 @@ struct AppShellView: View {
       if !selectionAccess.isGranted && localChat.isSelectionChat && !guidedTour.isActive {
         AccessibilityNeededCard(appName: SelectionAccessibilityAccess.appName) { selectionAccess.requestAccess() }
       }
-      ForEach(localChat.attachedContexts) { context in
-        SelectionContextCard(context: context, isSent: localChat.sentContextIDs.contains(context.id),
-                             isBusy: localChat.isBusy || selectionContext.isWorking) {
+      // Once sent, the window shows the selection as a bubble in the chat instead (B22).
+      ForEach(localChat.attachedContexts.filter { shell.isSelectionComposer || !localChat.sentContextIDs.contains($0.id) }) { context in
+        SelectionContextCard(context: context, isBusy: localChat.isBusy || selectionContext.isWorking) {
           localChat.removeContext(id: context.id)
         }
       }

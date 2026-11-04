@@ -118,7 +118,9 @@ models have a **native tools** flag (see
 one of them selected, every message offers the Messages tools when no files or
 screenshot are attached. Just ask: "what did
 Sam say about Saturday?" Nothing is recognized from your wording and no chip is
-shown; the model decides. Typing `/messages` still works: the model is told you
+shown; the model decides. It's also told that Messages isn't the chat it's in,
+so "what were we just talking about?" is answered from the chat, not your
+Messages. Typing `/messages` still works: the model is told you
 asked for Messages, and in Auto the request stays on the local model, as above.
 
 Listing chats and looking up contacts are free: names, participants and times,

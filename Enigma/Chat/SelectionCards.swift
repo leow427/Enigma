@@ -67,7 +67,6 @@ struct SelectionRevisionCard: View {
 /// new questions don't carry it and /edit still revises it.
 struct SelectionContextCard: View {
   let context: ConversationContext
-  var isSent = false
   var isBusy = false
   let remove: () -> Void
   @Environment(\.enigmaPalette) private var palette
@@ -86,13 +85,6 @@ struct SelectionContextCard: View {
           .font(EnigmaTypography.ui(12))
           .foregroundStyle(palette.textSecondary.color)
           .lineLimit(2)
-        if isSent {
-          Text(CompactSelectionStatus.sentNote)
-            .font(EnigmaTypography.ui(11))
-            .foregroundStyle(palette.textTertiary.color)
-            .fixedSize(horizontal: false, vertical: true)
-            .enigmaTestMarker("Selection sent note")
-        }
       }
       Spacer(minLength: 0)
       Button(action: remove) { Image(systemName: "xmark").font(EnigmaTypography.smallIconButtonSymbol) }

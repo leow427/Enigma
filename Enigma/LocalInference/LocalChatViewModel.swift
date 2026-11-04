@@ -153,23 +153,14 @@ final class LocalChatViewModel: ObservableObject {
   }
   var messages: [ChatMessage] { selectedSession?.messages ?? [] }
 
-  /// The selected chat's summary as requests send it: its copy of attached context only while
-  /// that context is still attached, as `requestMessages` does for earlier messages.
-  var appliedSummary: ChatSummary? { summaryAsSent(selectedSession?.summary) }
-
-  private func summaryAsSent(_ summary: ChatSummary?) -> ChatSummary? {
-    guard var summary else { return nil }
-    summary.attached = summary.attached?.filter { context in attachedContexts.contains { $0.id == context.id } }
-    return summary
-  }
+  /// The selected chat's summary, as requests send it.
+  var appliedSummary: ChatSummary? { selectedSession?.summary }
 
   private var requestMessages: [ChatMessage] { messages.map { message in
     var copy = message
-    // Earlier messages keep the selection they were sent with, so the model
-    // can refer back to it, but only while it's still attached: removing it
-    // removes it from future requests. Request-only instructions never carry over.
-    let contexts = message.contexts?.filter { context in attachedContexts.contains { $0.id == context.id } }
-    copy.contexts = contexts?.isEmpty == false ? contexts : nil
+    // Earlier messages keep the selection they were sent with, as part of the
+    // chat: removing it later only stops /edit and /translate using it (B22).
+    // Request-only instructions never carry over.
     copy.selectionResponseMode = nil
     copy.selectionDraft = nil
     return copy
@@ -2708,7 +2699,7 @@ final class LocalChatViewModel: ObservableObject {
     if waited == nil, skipsSummary.remove(requestID) != nil { waited = false }
     try Task.checkCancellation()
     guard activeRequest?.id == requestID else { throw CancellationError() }
-    let existing = summaryAsSent(sessionID.flatMap { id in sessions.first { $0.id == id }?.summary })
+    let existing = sessionID.flatMap { id in sessions.first { $0.id == id }?.summary }
     let result = try await compactor.compact(history, existing: existing, force: force, prepare: prepare,
                                              prepareSummary: prepareSummary) { messages, existing in
       if waited == false { throw CompactionSkipped() }
@@ -2851,7 +2842,7 @@ final class LocalChatViewModel: ObservableObject {
     let history = requestMessages + [ChatMessage(role: .user, content: ".")]
     // The result is kept only while the chat still starts with what was summarized.
     let prefix = session.messages
-    let existing = summaryAsSent(session.summary)
+    let existing = session.summary
     let run = BackgroundCompaction(isLocal: localModel != nil, task: Task { [weak self] in
       guard let self else { return false }
       let started = ContinuousClock.now
