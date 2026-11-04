@@ -735,6 +735,74 @@ final class BackgroundCompactionTests: XCTestCase {
     XCTAssertNil(chat.contextNotice, "The run's summary counts")
   }
 
+  /// A send in the same chat shows the status at once, though the run holds the engine.
+  func testSendWaitsWithStatusWhileTheRunHoldsTheEngine() async throws {
+    let engine = SerialEngine()
+    let chat = try await serialChat(engine)
+    chat.submit("Next?")
+    try await waitUntil { chat.activity?.phase == .summarizing }
+    await engine.inner.summaryGate.open()
+    try await waitUntil { !chat.isBusy && chat.messages.count == 10 }
+  }
+
+  /// Another chat's run gives way to a send in a new chat.
+  func testSendInAnotherChatCancelsTheRunHoldingTheEngine() async throws {
+    let engine = SerialEngine()
+    let chat = try await serialChat(engine)
+    let first = chat.selectedSessionID
+    chat.newChat()
+    chat.submit("Hi")
+    try await waitUntil { !chat.isBusy && chat.messages.count == 2 }
+    XCTAssertFalse(chat.isCompacting)
+    XCTAssertNil(chat.sessions.first { $0.id == first }?.summary)
+  }
+
+  /// A reply that reaches 90% on `SerialEngine`, its run holding the engine.
+  private func serialChat(_ engine: SerialEngine) async throws -> LocalChatViewModel {
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    try store.save([session(bytes: 470)])
+    let chat = LocalChatViewModel(engine: engine, sessionStore: store, sleep: { _ in try await Task.sleep(for: .seconds(3_600)) })
+    chat.selectSession(id: store.load()[0].id)
+    await chat.refreshInstalledModel()
+    try await reply(chat)
+    try await waitUntil { engine.held }
+    XCTAssertTrue(chat.isCompacting)
+    return chat
+  }
+
+  func testIdleUnloadWaitsForTheRun() async throws {
+    let engine = GatedEngine()
+    let store = ChatSessionStore(applicationSupportDirectory: root)
+    try store.save([session(bytes: 470)])
+    // The idle delay passes at once; the compaction wait never does.
+    let chat = LocalChatViewModel(engine: engine, sessionStore: store, sleep: { duration in
+      if duration == LocalChatViewModel.compactionWait { try await Task.sleep(for: .seconds(3_600)) }
+    })
+    chat.selectSession(id: store.load()[0].id)
+    await chat.refreshInstalledModel()
+    try await reply(chat)
+    try await waitUntil { engine.summaryRequests == 1 }
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.unloads, 0, "Not while the run uses the model")
+    await engine.summaryGate.open()
+    try await waitUntil { !chat.isCompacting }
+    try await waitUntil { engine.unloads == 1 }
+  }
+
+  func testNoCompactionWhenTheReplyAppliesAModelPick() async throws {
+    let engine = GatedEngine(replyWaits: true)
+    let chat = try await chat(engine)
+    chat.submit("Now?")
+    try await waitUntil { engine.replies == 1 }
+    chat.selectModel(id: engine.other.id)
+    XCTAssertEqual(chat.pendingModelID, engine.other.id)
+    await engine.replyGate.open()
+    try await waitUntil { chat.pendingModelID == nil && !chat.isBusy }
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertEqual(engine.summaryRequests, 0)
+    XCTAssertFalse(chat.isCompacting)
+  }
+
   private static let route = Route(mode: .local, providerID: "local", modelID: "gated", usesNetwork: false)
 
   func testCompactionResultForAnotherChatIsDiscarded() async throws {
@@ -886,7 +954,10 @@ private final class GatedEngine: LocalModelEngine, @unchecked Sendable {
   static let summary = "Gated notes."
   let model = LocalModel(id: "gated", displayName: "Gated", fileURL: URL(fileURLWithPath: "/tmp/gated.gguf"))
   let summaryGate = Gate()
-  private let replyGate = Gate()
+  let replyGate = Gate()
+  let other = LocalModel(id: "other", displayName: "Other", fileURL: URL(fileURLWithPath: "/tmp/other.gguf"))
+  private var unloadCount = 0
+  var unloads: Int { lock.withLock { unloadCount } }
   private let summaryFails: Bool, replyFails: Bool, replyWaits: Bool
   private let lock = NSLock()
   private var recorded: [LocalModelRequest] = []
@@ -904,7 +975,7 @@ private final class GatedEngine: LocalModelEngine, @unchecked Sendable {
 
   func install(_ model: LocalModel) async throws {}
   func installedModel() async -> LocalModel? { model }
-  func installedModels() async -> [LocalModel] { [model] }
+  func installedModels() async -> [LocalModel] { [model, other] }
   func selectModel(id: String) async throws {}
   func download(_ model: LocalModelDescriptor,
                 progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
@@ -925,5 +996,54 @@ private final class GatedEngine: LocalModelEngine, @unchecked Sendable {
       continuation.onTermination = { _ in task.cancel() }
     }
   }
-  func unload() async {}
+  func unload() async { lock.withLock { unloadCount += 1 } }
+}
+
+/// Opens one call at a time, as `LlamaCPPModelEngine` (an actor) does: a summary holds it while it generates.
+private actor EngineLock {
+  private var busy = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  func acquire() async {
+    if !busy { busy = true; return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+  func release() {
+    if waiters.isEmpty { busy = false } else { waiters.removeFirst().resume() }
+  }
+}
+
+private final class SerialEngine: LocalModelEngine, @unchecked Sendable {
+  let inner = GatedEngine()
+  private let lock = EngineLock()
+  private let flag = NSLock()
+  private var holding = false
+  var held: Bool { flag.withLock { holding } }
+  private func serial<T>(_ body: () async throws -> T) async rethrows -> T {
+    await lock.acquire()
+    do { let value = try await body(); await lock.release(); return value } catch { await lock.release(); throw error }
+  }
+  func install(_ model: LocalModel) async throws { try await serial { try await inner.install(model) } }
+  func installedModel() async -> LocalModel? { await serial { await inner.installedModel() } }
+  func installedModels() async -> [LocalModel] { await serial { await inner.installedModels() } }
+  func selectModel(id: String) async throws { try await serial { try await inner.selectModel(id: id) } }
+  func download(_ model: LocalModelDescriptor,
+                progress: @escaping @Sendable (ModelDownloadProgress) async -> Void) async throws -> LocalModel {
+    throw LocalInferenceError.noModelInstalled
+  }
+  func unload() async { await serial { await inner.unload() } }
+  func stream(_ request: LocalModelRequest) -> AsyncThrowingStream<String, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task {
+        await lock.acquire()
+        flag.withLock { holding = true }
+        do {
+          for try await fragment in inner.stream(request) { continuation.yield(fragment) }
+          continuation.finish()
+        } catch { continuation.finish(throwing: error) }
+        flag.withLock { holding = false }
+        await lock.release()
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
 }

@@ -657,6 +657,8 @@ final class LocalChatViewModel: ObservableObject {
     pendingModelID = nil
     cancelIdleUnload()
     clearModelFailure()
+    // A background run on the old model would hold the engine the switch needs.
+    for run in compactions.values where run.isLocal { run.task.cancel() }
     let settled: State = if keepsFailure, case .failed = state { state } else { .idle }
     // Keep submission blocked until the engine and the displayed selection agree.
     state = .preparing
@@ -752,6 +754,8 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         self?.receiveActivity(.phase(.thinking), requestID: active.id)
         if local, let model {
+          // The engine may be busy with this chat's background run (F35).
+          await self?.waitBeforeEngine(sessionID, requestID: active.id)
           // The inference-only bridge releases its model before the tool-capable runtime loads it.
           await engine.unload()
           let owner = self
@@ -843,6 +847,8 @@ final class LocalChatViewModel: ObservableObject {
         try Task.checkCancellation()
         self?.receiveActivity(.phase(.thinking), requestID: active.id)
         if local, let model {
+          // The engine may be busy with this chat's background run (F35).
+          await self?.waitBeforeEngine(sessionID, requestID: active.id)
           // The inference-only bridge releases its model before the tool-capable runtime loads it.
           await engine.unload()
           let owner = self
@@ -1047,6 +1053,7 @@ final class LocalChatViewModel: ObservableObject {
         }
         if local, let model {
           guard let chat = owner else { throw CancellationError() }
+          await chat.waitBeforeEngine(sessionID, requestID: active.id)
           // The inference-only bridge lets go of its model before the server summarizes or answers.
           await engine.unload()
           let prepared = try await chat.compactedRequest(history, sessionID: sessionID, requestID: active.id,
@@ -2779,6 +2786,8 @@ final class LocalChatViewModel: ObservableObject {
 
   private struct BackgroundCompaction {
     let id = UUID()
+    /// Runs on this Mac's model, so it holds the local engine another chat's send or a model switch needs.
+    let isLocal: Bool
     /// True when a summary was kept with the chat.
     let task: Task<Bool, Never>
   }
@@ -2800,7 +2809,7 @@ final class LocalChatViewModel: ObservableObject {
     // The result is kept only while the chat still starts with what was summarized.
     let prefix = session.messages
     let existing = summaryAsSent(session.summary)
-    let run = BackgroundCompaction(task: Task { [weak self] in
+    let run = BackgroundCompaction(isLocal: localModel != nil, task: Task { [weak self] in
       guard let self else { return false }
       let started = ContinuousClock.now
       log.record("Background compaction started")
@@ -2844,8 +2853,18 @@ final class LocalChatViewModel: ObservableObject {
   /// Waits for the chat's background run before a send's first engine call, which would
   /// otherwise queue silently behind it on the engine actor.
   private func waitBeforeEngine(_ sessionID: UUID?, requestID: UUID) async {
+    // Another chat's run gives way: that chat compacts on its own next send instead.
+    await cancelLocalCompactions(except: sessionID)
     guard let sessionID, let waited = await waitForCompaction(of: sessionID, requestID: requestID) else { return }
     if !waited { skipsSummary.insert(requestID) }
+  }
+
+  /// Cancels the local runs of chats other than `sessionID`, and waits for them to let go of the engine.
+  private func cancelLocalCompactions(except sessionID: UUID? = nil) async {
+    for (id, run) in compactions where id != sessionID && run.isLocal {
+      run.task.cancel()
+      _ = await run.task.value
+    }
   }
 
   /// Waits up to 30 s for the chat's background compaction, cancelling it on timeout or Stop.

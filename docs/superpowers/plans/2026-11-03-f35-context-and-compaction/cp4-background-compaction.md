@@ -120,11 +120,20 @@ made while it runs waits for it with `Summarizing earlier messages…`; after
      actor; `/compact` during a run counts the run's summary as success; the
      idle unload doesn't fire during a run and is re-armed after it; a reply
      that applies a waiting model pick (B21) starts no run; `compactInBackground`
-     is internal so a test pins one run per chat. No second round (owner: be
-     quick; the fixes are narrow and each has a test that fails without it).
+     is internal so a test pins one run per chat. The first commit (fbe748e)
+     said each fix had a test that fails without it; only the `/compact` and
+     one-run fixes did. The owner asked for a second round for the send-wait fix.
+   - **Review round 2 fixes** (no Blocker, 2 Should fixes): the local File Mode,
+     `/messages` and native tool sends wait before their first engine call too;
+     a local send in another chat cancels other chats' local runs and waits for
+     them to let go of the engine (that chat compacts on its own next send), and
+     a model switch cancels local runs. Tests added with an engine that runs one
+     call at a time like the real actor: the same-chat send shows the status, a
+     new chat's send isn't held, the idle unload waits for the run, and a reply
+     that applies a model pick starts no run. Each was mutation-checked.
 4. **Verification:** `BackgroundCompactionTests`, `ChatCompactionTests`,
-   `ChatCompactionSendTests`, `LocalInferenceTests`: 70 tests, 0 failures after
-   the review fixes; the two new tests were mutation-checked. `EnigmaMainWindowTests`,
+   `ChatCompactionSendTests`, `LocalInferenceTests`: 74 tests, 0 failures after
+   both review rounds; every review-fix test was mutation-checked. `EnigmaMainWindowTests`,
    `EnigmaConversationTests`, `NativeToolRequestTests`, `LocalInferenceTests`,
    `CloudModeTests`: 244 tests, 2 skipped, 0 failures.
 5. **Limitations:**
@@ -133,8 +142,10 @@ made while it runs waits for it with `Summarizing earlier messages…`; after
    - A run for a chat that is left keeps running until it ends, then is discarded.
    - On the embedded engine, generation runs on its actor, so cancelling a run
      (timeout or Stop) takes effect between tokens, not during prefill; the
-     30 s bound can stretch by one prefill. A send in another chat, or a model
-     switch, delete or benchmark, waits behind a running summary with no status.
+     30 s bound can stretch by one prefill, and a send in another chat or a model
+     switch waits that long for a cancelled run. A model delete or benchmark
+     still waits behind a running summary with no status. The File Mode,
+     `/messages` and native tool waits have no test of their own.
    - The live run (a long local chat reaches 90%) needs the owner's approval and
      wasn't run.
 6. **For the next checkpoint:** `isCompacting` is a computed `Bool` on the view
