@@ -178,8 +178,8 @@ budget or a higher reasoning effort.
 
 ### Regenerating a reply
 
-Every reply has a **Regenerate reply** icon (↻) right under its text, styled
-like **Copy reply**: dimmed at rest, brighter on hover, reachable with Tab and
+Every reply has a **Regenerate reply** icon (↻) right under it, at the start
+of its meta line, styled like **Copy reply**: dimmed at rest, brighter on hover, reachable with Tab and
 VoiceOver. It gets a new answer to the same question. On an earlier reply, it
 also drops every message after that reply once the new one starts:
 
