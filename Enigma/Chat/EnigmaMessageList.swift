@@ -197,27 +197,25 @@ struct EnigmaUserMessage: View {
       if let editedText {
         editor(editedText)
       } else if !message.content.isEmpty {
-        // Beside the bubble's last line, so the pencil adds no height to the chat.
-        HStack(alignment: .bottom, spacing: 6) {
-          if edit != nil {
-            ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered) {
-              focusesEditor = true
-              editedText = message.content
-            }
-            .disabled(!canEdit)
-            .padding(.bottom, 7)
+        Text(verbatim: message.content)
+          .font(EnigmaTypography.ui(14))
+          .lineSpacing(3)
+          .foregroundStyle(palette.textPrimary.color)
+          .textSelection(.enabled)
+          .fixedSize(horizontal: false, vertical: true)
+          .padding(.horizontal, 13)
+          .padding(.vertical, 8)
+          .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .accessibilityLabel("You: " + message.content)
+          .enigmaTestMarker("Your message")
+        if edit != nil {
+          // Under the bubble's right edge, bolder than the other chat icons so it's easy to find.
+          ChatIconButton(symbol: "pencil", label: Self.editLabel, isEmphasized: isHovered, size: 13, weight: .bold) {
+            focusesEditor = true
+            editedText = message.content
           }
-          Text(verbatim: message.content)
-            .font(EnigmaTypography.ui(14))
-            .lineSpacing(3)
-            .foregroundStyle(palette.textPrimary.color)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 13)
-            .padding(.vertical, 8)
-            .background(palette.userBubble.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .accessibilityLabel("You: " + message.content)
-            .enigmaTestMarker("Your message")
+          .disabled(!canEdit)
+          .padding(.trailing, 4)
         }
       }
     }
@@ -467,6 +465,8 @@ struct ChatIconButton: View {
   let symbol: String
   let label: String
   var isEmphasized = true
+  var size: CGFloat = 11.5
+  var weight: Font.Weight = .regular
   let action: () -> Void
   @FocusState private var isFocused: Bool
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -474,7 +474,8 @@ struct ChatIconButton: View {
   var body: some View {
     Button(action: action) {
       Image(systemName: symbol)
-        .font(EnigmaTypography.symbol(11.5))
+        .font(EnigmaTypography.symbol(size))
+        .fontWeight(weight)
     }
     .buttonStyle(EnigmaIconButtonStyle(size: CGSize(width: 24, height: 18), isFocused: isFocused))
     .focused($isFocused)
