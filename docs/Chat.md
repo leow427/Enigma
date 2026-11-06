@@ -257,13 +257,14 @@ didn't allow. This happens at most once per reply, and Stop during it ends the
 turn. See
 [Web search](Web-Search.md#cloud-models-own-search).
 
-Click it to see the steps and, for searched replies, the **web sources**: each
-row shows the page title, the site, whether its excerpt was **Included in
+Click it to see the steps. A searched reply's web sources sit under it,
+collapsed: a link icon and a count (for example **3**) on its meta line, which VoiceOver
+reads as "3 sources, collapsed". Click it to open the list: each row shows the page title, the site, whether its excerpt was **Included in
 context**, and the address, and opens the page in your browser. The list scrolls
 when it's long. Only excerpts that fit in the model's context are listed; a
 listed source means its excerpt was sent, not that the full page was read.
 
-![Activity with its sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
+![A reply with its sources open](design/ui-revamp/screenshots/f11/reply-sources-paper.png)
 
 ### Permission cards
 
@@ -565,8 +566,10 @@ sources-discovered and sources-selected updates from search, local orchestration
 and cloud adapters (`ChatEvent.activity`). `AssistantActivity` reduces them into
 the snapshot that `AssistantActivityView` (`Enigma/Chat/AssistantActivityView.swift`)
 draws, independent of provider. Only safe http(s) links are listed, each URL once.
-Once sources are selected, only those appear. Activity is session-only; a saved
-reply's `searchSources` are shown through the same view without a step timeline.
+Once sources are selected, only those appear. The sources open from the reply's
+meta line (`ReplySourcesButton`, `ReplySourceList`), once the reply finishes.
+Activity is session-only; a saved reply's `searchSources` show only there, with
+no activity line.
 
 ### History
 

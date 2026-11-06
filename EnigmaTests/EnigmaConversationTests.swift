@@ -892,10 +892,11 @@ final class EnigmaConversationTests: XCTestCase {
     for size in [PanelSizeStore.minimumSize, CGSize(width: 1000, height: 660)] {
       host.window.setContentSize(size)
       try await waitForUI("the chat at \(size)", in: host.view) {
-        host.shows("Reply") && host.shows("Activity") && host.shows("Send message")
+        host.shows("Reply") && host.shows("Sources") && host.shows("Send message")
       }
+      XCTAssertFalse(host.shows("Activity"), "A saved reply has no steps to show")
       let bounds = host.view.bounds
-      for name in ["Reply", "Reply meta", "Activity", "Send message"] {
+      for name in ["Reply", "Reply meta", "Sources", "Send message"] {
         guard let marker = host.marker(name) else { continue }
         let frame = host.view.convert(marker.bounds, from: marker)
         XCTAssertLessThanOrEqual(frame.maxX, bounds.maxX + 0.5, "\(name) stays inside the window at \(size): \(frame)")
@@ -904,7 +905,8 @@ final class EnigmaConversationTests: XCTestCase {
       let editor = try XCTUnwrap(composerEditor(in: host.view))
       XCTAssertTrue(bounds.contains(host.view.convert(editor.bounds, from: editor)), "The composer fits at \(size)")
     }
-    try await clickTestControl("Activity", in: host.view)
+    XCTAssertFalse(host.shows("Activity sources"), "Sources start collapsed")
+    try await clickTestControl("Sources", in: host.view)
     try await waitForUI("the sources", in: host.view) { host.shows("Activity sources") }
   }
 
@@ -1213,7 +1215,7 @@ final class EnigmaConversationTests: XCTestCase {
     try await snapshot("conversation", host, fixture) {
       host.shows("Reply meta") && character.activeSlot == latest && character.isPresent && !character.model.isFalling
     }
-    try await clickTestControl("Activity", in: host.view)
+    try await clickTestControl("Sources", in: host.view)
     try await snapshot("activity-sources", host, fixture) { host.shows("Activity sources") }
 
     fixture.chat.newChat()

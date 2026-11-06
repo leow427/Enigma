@@ -762,10 +762,11 @@ final class ScreenViewTests: XCTestCase {
     view.layoutSubtreeIfNeeded()
     try pressActivityStatus(in: view)
     let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    let expectedLabels = ["web sources", "code reference"]
+    // The sources themselves open from the finished reply's meta line (F11).
+    let expectedLabels = ["selected 1 source"]
     var text = ""
     var png = Data()
-    // The section heading appears before the source finishes expanding into view.
+    // The panel can take a moment to expand into view.
     repeat {
       await Task.yield()
       view.layoutSubtreeIfNeeded()

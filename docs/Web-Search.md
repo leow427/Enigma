@@ -335,16 +335,20 @@ turns are unchanged.
 While a search runs, the reply's activity line moves through **Preparing search
 query…** (only when the query is written from attached text, below),
 **Searching…**, **Reading sources…**, **Finding places…** and **Checking the
-weather…**. When the answer is done, the line reads **Activity · N sources**;
-open it to see **web sources**, each with its title, site, URL and **Included in
-context**. Clicking a source opens it in your browser. The line under the reply
+weather…**. When the answer is done, the line reads **Activity · N sources**.
+Once the reply finishes, its sources sit under it, collapsed: a link icon and a count
+(for example **3**) on its meta line, labelled "3 sources, collapsed" for VoiceOver.
+Click it to open the list, each source with its title, site, URL and **Included
+in context**. Clicking a source opens it in your browser. The line under the reply
 includes **web search**, or **brave search** when Brave answered (**web search**
 once Enigma has restarted).
 
-![A reply with its web sources open](design/ui-revamp/screenshots/phase-7/activity-sources-paper.png)
+![A reply with its web sources open](design/ui-revamp/screenshots/f11/reply-sources-paper.png)
 
-The model is told to treat the excerpts as untrusted data and to cite only the
-supporting URLs it was given. Only sources that actually fit into the prompt
+The model is told to treat the excerpts as untrusted data and, unless asked, not to write out
+URLs or a list of sources, since the app shows them under the reply. (A cloud
+model's own search is still asked to link the pages it relies on: Codex and
+Claude Code sources come from those links.) Only sources that actually fit into the prompt
 are shown. A listed source means the model was given that excerpt, not that
 every claim in the answer was checked against it.
 
@@ -563,7 +567,8 @@ The files:
   query-writing prompt for screenshots and attached text, and checks the query
   it writes.
 - `Enigma/Chat/AssistantActivity.swift` and `AssistantActivityView.swift`: the
-  activity phases, the **web sources** list and **Never use this site**.
+  activity phases, the reply's sources icon and list (`ReplySourcesButton`,
+  `ReplySourceList`) and **Never use this site**.
 - `Enigma/Chat/MapCard.swift`: the map card, its pins and **Open in Maps**.
 - `Enigma/Cloud/NativeWebSearch.swift`, `CodexSubscriptionClient.swift` and
   `ClaudeCodeSubscriptionClient.swift`: providers' own search (F30).
