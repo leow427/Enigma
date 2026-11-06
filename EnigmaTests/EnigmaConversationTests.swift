@@ -906,6 +906,9 @@ final class EnigmaConversationTests: XCTestCase {
       XCTAssertTrue(bounds.contains(host.view.convert(editor.bounds, from: editor)), "The composer fits at \(size)")
     }
     XCTAssertFalse(host.shows("Activity sources"), "Sources start collapsed")
+    try await waitForUI("Sources clear of the composer", in: host.view) {
+      testControlIsUncovered("Sources", in: host.view)
+    }
     try await clickTestControl("Sources", in: host.view)
     try await waitForUI("the sources", in: host.view) { host.shows("Activity sources") }
   }
@@ -1214,6 +1217,9 @@ final class EnigmaConversationTests: XCTestCase {
     let latest = try XCTUnwrap(ConversationTranscript.latestReplySlot(messages: fixture.chat.messages, activity: nil))
     try await snapshot("conversation", host, fixture) {
       host.shows("Reply meta") && character.activeSlot == latest && character.isPresent && !character.model.isFalling
+    }
+    try await waitForUI("Sources clear of the composer", in: host.view) {
+      testControlIsUncovered("Sources", in: host.view)
     }
     try await clickTestControl("Sources", in: host.view)
     try await snapshot("activity-sources", host, fixture) { host.shows("Activity sources") }
