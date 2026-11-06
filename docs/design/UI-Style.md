@@ -126,7 +126,9 @@ glyph is Stop, on the solid Send button.
   is coloured with the `code…` tokens; a terminal block's header has a
   terminal glyph. Earlier
   replies keep the outline mark where the character stood. Request activity
-  is a monospace line that opens to show the steps and sources. Queued
+  is a monospace line that opens to show the steps. A searched reply's meta
+  line ends with a link glyph and its source count, which opens the sources
+  under it. Queued
   messages wait under the reply as unfilled bubbles with a dashed `border`
   outline (1 pt, 4 on 3 off, `EnigmaEdgeStroke(isDashed:)`), an x icon button
   to their left and a monospace "Send now" text button with a clock under

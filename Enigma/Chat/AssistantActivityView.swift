@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// A request's activity: one monospace status line that discloses the steps
-/// and the web sources as plain rows. Nothing is boxed; a hairline runs down
-/// the left of the open list.
+/// as plain rows (the web sources open from the reply's meta line instead).
+/// Nothing is boxed; a hairline runs down the left of the open list.
 struct AssistantActivityView: View {
   let activity: AssistantActivity
   var expanded: Binding<Bool>? = nil
@@ -73,7 +73,7 @@ struct AssistantActivityView: View {
     .onHover { isHovered = $0 }
     .accessibilityLabel(activity.status)
     .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
-    .accessibilityHint("Show or hide request activity and sources")
+    .accessibilityHint("Show or hide request activity")
     .accessibilityIdentifier("assistant-activity-toggle")
     .enigmaTestMarker("Activity")
   }
@@ -90,25 +90,7 @@ struct AssistantActivityView: View {
         }
         .font(EnigmaTypography.mono(11))
       }
-      if !activity.sources.isEmpty {
-        Text("web sources")
-          .font(EnigmaTypography.mono(11))
-          .foregroundStyle(palette.textTertiary.color)
-          .padding(.top, activity.phases.isEmpty ? 0 : 6)
-          .accessibilityAddTraits(.isHeader)
-          .accessibilityLabel("Web sources")
-        ScrollView {
-          VStack(alignment: .leading, spacing: 0) {
-            ForEach(activity.sources) { source in
-              ActivitySourceRow(source: source, detail: sourceDetail(source))
-            }
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .frame(height: min(CGFloat(activity.sources.count) * ActivitySourceRow.height, 260))
-        .enigmaTestMarker("Activity sources")
-      } else if activity.phase.isSearching {
+      if activity.sources.isEmpty && activity.phase.isSearching {
         Text("Waiting for search results…")
           .font(EnigmaTypography.mono(11))
           .foregroundStyle(palette.textSecondary.color)
@@ -122,6 +104,64 @@ struct AssistantActivityView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("assistant-activity-panel")
+  }
+}
+
+/// A reply's web sources, collapsed: a small link glyph and count on its meta
+/// line that opens `ReplySourceList` under it.
+struct ReplySourcesButton: View {
+  let activity: AssistantActivity
+  @Binding var isExpanded: Bool
+  @FocusState private var isFocused: Bool
+  @State private var isHovered = false
+  @Environment(\.enigmaPalette) private var palette
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Button {
+      withAnimation(reduceMotion ? nil : EnigmaMotion.pageChange.animation) { isExpanded.toggle() }
+    } label: {
+      HStack(spacing: 3) {
+        Image(systemName: "link").font(EnigmaTypography.symbol(10))
+        Text("\(activity.sources.count)")
+      }
+      .font(EnigmaTypography.mono(11))
+      .foregroundStyle((isHovered || isExpanded ? palette.textPrimary : palette.textTertiary).color)
+      .padding(.vertical, 2)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .focused($isFocused)
+    .focusEffectDisabled()
+    .enigmaFocusRing(isFocused, palette: palette, cornerRadius: 4, outset: 3)
+    .onHover { isHovered = $0 }
+    .help(activity.sourceSummary)
+    .accessibilityLabel(activity.sourceSummary)
+    .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+    .accessibilityHint("Show or hide web sources")
+    .enigmaTestMarker("Sources")
+  }
+
+}
+
+/// A reply's open web sources, as the rows the activity panel used to show.
+struct ReplySourceList: View {
+  let activity: AssistantActivity
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 0) {
+        ForEach(activity.sources) { source in
+          ActivitySourceRow(source: source, detail: sourceDetail(source))
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .scrollBounceBehavior(.basedOnSize)
+    .frame(height: min(CGFloat(activity.sources.count) * ActivitySourceRow.height, 260))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Web sources")
+    .enigmaTestMarker("Activity sources")
   }
 
   private func sourceDetail(_ source: WebSearchSource) -> String {
