@@ -906,6 +906,8 @@ final class EnigmaMainWindowTests: XCTestCase {
     NotificationCenter.default.post(name: .fileModeRequested, object: nil)
     try await waitForUI("files attached for the draft", in: host.view) { fixture.files.selection != nil }
     try await waitForSettledLayout(in: host, "the files card above the composer", markers: ["Send queued message now"])
+    // The files card makes the chat shorter; the end, with Send now, stays in view above it.
+    XCTAssertTrue(testControlIsUncovered("Send queued message now", in: host.view), "Send now isn't under the files card")
     try await clickTestControl("Send queued message now", in: host.view)
     try await waitForUI("the queued message sent as a plain question", in: host.view) {
       fixture.engine.requestCount == 4 && fixture.engine.lastRequest?.prompt == "Plain question"

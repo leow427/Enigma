@@ -662,9 +662,15 @@ struct ConversationScrollObserver: NSViewRepresentable {
       let center = NotificationCenter.default
       if let document = scroll.documentView {
         document.postsFrameChangedNotifications = true
-        center.addObserver(self, selector: #selector(documentLayoutChanged),
+        center.addObserver(self, selector: #selector(layoutChanged),
                            name: NSView.frameDidChangeNotification, object: document)
       }
+      // The list itself gets shorter when a card opens over the composer, such
+      // as attached files. The chat's top stays put then, so its end, and a
+      // queued message's Send now, would go out of view under the card.
+      scroll.contentView.postsFrameChangedNotifications = true
+      center.addObserver(self, selector: #selector(layoutChanged),
+                         name: NSView.frameDidChangeNotification, object: scroll.contentView)
       center.addObserver(self, selector: #selector(boundsChanged),
                          name: NSView.boundsDidChangeNotification, object: scroll.contentView)
       center.addObserver(self, selector: #selector(beginScrolling),
@@ -694,7 +700,8 @@ struct ConversationScrollObserver: NSViewRepresentable {
       previousDocumentSize = observedScroll?.documentView?.bounds.size ?? .zero
     }
 
-    @objc private func documentLayoutChanged() {
+    /// The chat or the list around it changed size: a reader at the end stays there.
+    @objc private func layoutChanged() {
       isSettlingDocumentLayout = followsLatest
       rememberGeometry()
       scheduleScroll()

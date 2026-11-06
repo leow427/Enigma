@@ -520,7 +520,10 @@ their own paths.
   the latest message you sent) changes to a message it hasn't shown, stops on
   live scrolling, wheel or key navigation, coalesces scroll corrections for
   30 ms, and treats layout changes (such as the waiting row being replaced) as
-  layout, not navigation. The list
+  layout, not navigation. That includes the list itself getting shorter, as when
+  a card such as attached files opens over the composer: a reader at the end
+  stays there, so the latest message and a queued message's Send now don't go
+  under the card. The list
   gets a new identity per chat, so each opens at its end.
 - `ChatMarkdownView` (`Enigma/Chat/ChatMarkdownView.swift`) renders Foundation's
   Markdown parse as native blocks. `ChatResponseNormalizer`
