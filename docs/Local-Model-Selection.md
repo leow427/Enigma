@@ -250,8 +250,8 @@ entry from its repository.
 ### File edits and sending messages
 
 Each family also says whether it may change files and send messages (F27,
-`allowsSensitiveTools`): about 9B total parameters or more and a quality score
-of at least 13.5, reviewed per family. Each model in Settings → Local models
+`allowsSensitiveTools`): every family except the 4B-and-under ones (Qwen3.5 2B
+and 4B, Gemma 4 E4B and Bonsai 2 4B). Each model in Settings → Local models
 says **Can change files and send messages** or **Can't change files or send
 messages**. When none of the models picked for this Mac may, and no cloud
 provider is connected, setup's model step and Settings suggest Free models or

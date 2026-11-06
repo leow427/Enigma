@@ -132,7 +132,7 @@ EXPECTED = """\
     LocalModelFamily(name: "Fixture 7B", publisher: "Fixture Labs", license: "Apache-2.0", profile: .fixture7B,
       // <source of the quality score, with its date>
       qualityScore: 12,
-      allowsSensitiveTools: false,  // <true after review: ~9B+ total parameters and a 13.5+ score>
+      allowsSensitiveTools: false,  // <true unless the family is about 4B or under>
       summary: "A fixture model for tests.",
       repository: "example/Fixture-GGUF", revision: "0123456789abcdef0123456789abcdef01234567",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 900000000,

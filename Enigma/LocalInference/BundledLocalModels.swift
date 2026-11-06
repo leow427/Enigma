@@ -14,8 +14,8 @@ struct LocalModelFamily: Sendable {
   let license: String
   let profile: LocalMultimodalProfile
   let qualityScore: Double
-  /// F27: may change files and send messages. Set per family after review: about 9B total
-  /// parameters or more and a quality score of at least 13.5.
+  /// F27: may change files and send messages. Off only for the 4B-and-under families (owner,
+  /// 2026-11-06), which make the most mistakes with tools.
   let allowsSensitiveTools: Bool
   let summary: String
   /// "owner/name" on Hugging Face; weights and projector always share it and the revision.
@@ -109,7 +109,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Ministral 3 8B", publisher: "Mistral AI", license: "Apache-2.0", profile: .ministral8B,
       // Assumption: the index lists no score we could confirm; 5 places it just below Ministral 3 14B (6).
       qualityScore: 5,
-      allowsSensitiveTools: false,
+      allowsSensitiveTools: true,
       summary: "Multilingual conversation, instruction following and screenshot questions.",
       repository: "mistralai/Ministral-3-8B-Instruct-2512-GGUF", revision: "0102285ad796bd99af90f58de616092e5630e970",
       projectorFile: "Ministral-3-8B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 858283168,
@@ -170,7 +170,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Ministral 3 14B", publisher: "Mistral AI", license: "Apache-2.0", profile: .ministral14B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 6.
       qualityScore: 6,
-      allowsSensitiveTools: false,
+      allowsSensitiveTools: true,
       summary: "Richer explanations and visual reasoning, with more memory required.",
       repository: "mistralai/Ministral-3-14B-Instruct-2512-GGUF", revision: "74fac473c43357d7fb2671713608183cc72496d0",
       projectorFile: "Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 879258784,
@@ -325,7 +325,7 @@ enum BundledLocalModels {
       // PrismML "Ternary Bonsai 2 2B/4B/9B" whitepaper, October 2026, Tables 6–7: vision
       // retention 92.5% (overall 95.1%; MMMU-Pro 68.73 against 72.43). 13.5 × 0.925.
       qualityScore: 12.5,
-      allowsSensitiveTools: false,
+      allowsSensitiveTools: true,
       summary: "A ternary build of Qwen3.5 9B, for detailed reasoning and documents in a small download.",
       repository: "prism-ml/Ternary-Bonsai-2-9B-gguf", revision: "5b2abb02362efbed46bbe204014b02837778b2c2",
       projectorFile: "Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf", projectorByteCount: 624229664,

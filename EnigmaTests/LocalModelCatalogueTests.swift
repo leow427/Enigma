@@ -56,13 +56,11 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertEqual(models.first { $0.id == "qwen3.5-4b-q4_k_m" }?.trainedContextLength, 262_144)
   }
 
-  /// F27: file edits and sending need about 9B total parameters and a 13.5 score, set per family.
-  func testSensitiveToolsFollowTheReview() throws {
-    XCTAssertEqual(Set(BundledLocalModels.families.filter(\.allowsSensitiveTools).map(\.name)),
-      ["Qwen3.5 9B", "Gemma 4 12B", "Gemma 4 26B-A4B", "Gemma 4 31B", "Qwen3.6 35B-A3B", "Qwen3.8 27B", "Bonsai 2 27B"])
-    for family in BundledLocalModels.families {
-      XCTAssertEqual(family.allowsSensitiveTools, family.parameters >= 9 && family.qualityScore >= 13.5, family.name)
-    }
+  /// F27: only the 4B-and-under families may not change files or send messages (owner, 2026-11-06).
+  func testSensitiveToolsAreOffOnlyForFourBAndUnder() throws {
+    XCTAssertEqual(Set(BundledLocalModels.families.filter { !$0.allowsSensitiveTools }.map(\.name)),
+      ["Qwen3.5 2B", "Qwen3.5 4B", "Gemma 4 E4B", "Bonsai 2 4B"])
+    XCTAssertEqual(BundledLocalModels.families.count, 14)
     XCTAssertTrue(models.allSatisfy { $0.allowsSensitiveTools != nil })
   }
 

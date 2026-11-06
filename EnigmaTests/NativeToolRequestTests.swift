@@ -341,10 +341,13 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.origin?.mode, .local)
   }
 
-  /// F27: a flagged model not reviewed to act reads Messages but is never offered send_message;
-  /// only a typed /messages says why.
+  /// F27: a flagged model that may not act reads Messages but is never offered send_message;
+  /// only a typed /messages says why. No blocked family has native tools today, so one is blocked by hand.
   func testFlaggedSmallModelIsNeverOfferedSendMessage() async throws {
-    let descriptor = try XCTUnwrap(BundledLocalModels.models.first { $0.inferenceProfile == .ministral14B })
+    let flagged = try XCTUnwrap(BundledLocalModels.models.first { $0.inferenceProfile == .ministral14B })
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(flagged)) as? [String: Any])
+    json["allowsSensitiveTools"] = false
+    let descriptor = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
     let model = LocalModel(id: "ministral", displayName: "Ministral", fileURL: URL(fileURLWithPath: "/tmp/m.gguf"),
                            catalogDescriptor: descriptor)
     let route = Route(mode: .local, providerID: "llama.cpp", modelID: "ministral", usesNetwork: false)

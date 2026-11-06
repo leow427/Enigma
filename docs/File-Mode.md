@@ -54,9 +54,8 @@ notes.md" or "Summarize what this project does".
 | **Cloud** with another provider | Nothing until you choose **Use Codex** | **read only** |
 
 Small local models make mistakes with tools, and people tend to approve what
-they're shown, so only catalogue families reviewed for it change files: about 9B
-total parameters or more and a quality score of at least 13.5 (Qwen3.5 9B,
-Gemma 4 12B, 26B-A4B and 31B, Qwen3.6 35B-A3B, Qwen3.8 27B and Bonsai 2 27B).
+they're shown, so the 4B-and-under families don't change files: Qwen3.5 2B and
+4B, Gemma 4 E4B and Bonsai 2 4B. Every other catalogue family does.
 Each family sets this in the catalogue (`allowsSensitiveTools`; missing means
 off), and imported GGUFs never may. With any other model the card says **read
 only** with the reason, "File edits and sending messages are off with ‹model›.
