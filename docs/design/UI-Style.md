@@ -127,8 +127,13 @@ glyph is Stop, on the solid Send button.
   terminal glyph. Earlier
   replies keep the outline mark where the character stood. Request activity
   is a monospace line that opens to show the steps. A searched reply's meta
-  line ends with a link glyph and its source count, which opens the sources
-  under it. Queued
+  line ends with a `userBubble` capsule (hairline edge, `hover` on hover or
+  while open) reading "Sources" in monospace, led by up to three distinct sites'
+  14 pt letter badges overlapping by 4 pt, which opens the sources under it.
+  A badge is the site's initial in semibold `background` on a colour hashed
+  from the site's name: `codeVariable`, `codeString`, `codeNumber`,
+  `codeKeyword`, `codeType` or `contextFull`. Each open source row leads with
+  an 18 pt badge. Queued
   messages wait under the reply as unfilled bubbles with a dashed `border`
   outline (1 pt, 4 on 3 off, `EnigmaEdgeStroke(isDashed:)`), an x icon button
   to their left and a monospace "Send now" text button with a clock under

@@ -258,8 +258,9 @@ turn. See
 [Web search](Web-Search.md#cloud-models-own-search).
 
 Click it to see the steps. A searched reply's web sources sit under it,
-collapsed: a link icon and a count (for example **3**) on its meta line, which VoiceOver
-reads as "3 sources, collapsed". Click it to open the list: each row shows the page title, the site, whether its excerpt was **Included in
+collapsed: a **Sources** bubble on its meta line, led by the first sites' letter
+badges (each site's initial, like **W** for Wikipedia, on a colour that site keeps),
+which VoiceOver reads as "3 sources, collapsed". Click it to open the list: each row shows the page title, the site, whether its excerpt was **Included in
 context**, and the address, and opens the page in your browser. The list scrolls
 when it's long. Only excerpts that fit in the model's context are listed; a
 listed source means its excerpt was sent, not that the full page was read.

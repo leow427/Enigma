@@ -336,9 +336,10 @@ While a search runs, the reply's activity line moves through **Preparing search
 query…** (only when the query is written from attached text, below),
 **Searching…**, **Reading sources…**, **Finding places…** and **Checking the
 weather…**. When the answer is done, the line reads **Activity · N sources**.
-Once the reply finishes, its sources sit under it, collapsed: a link icon and a count
-(for example **3**) on its meta line, labelled "3 sources, collapsed" for VoiceOver.
-Click it to open the list, each source with its title, site, URL and **Included
+Once the reply finishes, its sources sit under it, collapsed: a **Sources** bubble
+on its meta line, led by up to three sites' letter badges (the site's initial on a
+colour that site keeps), labelled "3 sources, collapsed" for VoiceOver.
+Click it to open the list, each source with its badge, title, site, URL and **Included
 in context**. Clicking a source opens it in your browser. The line under the reply
 includes **web search**, or **brave search** when Brave answered (**web search**
 once Enigma has restarted).
