@@ -382,6 +382,7 @@ struct EnigmaReplyView<Revision: View>: View {
   @Environment(\.enigmaPalette) private var palette
   /// Whether the pointer is over the reply, which brightens its copy and regenerate buttons.
   @State private var isHovered = false
+  @State private var sourcesExpanded = false
 
   init(reply: ConversationTranscript.Reply, expandedActivity: Binding<Bool>? = nil,
        regenerate: ((UUID) -> Void)? = nil, canRegenerate: Bool = false,
@@ -398,7 +399,8 @@ struct EnigmaReplyView<Revision: View>: View {
       // The slot's column; the slot itself rides in the overlay, which spans the reply's height.
       Color.clear.frame(width: ConversationTranscript.slotSize, height: 1)
       VStack(alignment: .leading, spacing: 8) {
-        if let activity = reply.activity {
+        // A saved reply's activity is only its sources, which open from the meta line instead.
+        if let activity = reply.activity, !activity.phases.isEmpty || activity.notice != nil {
           AssistantActivityView(activity: activity, expanded: expandedActivity)
         } else if reply.showsThinking {
           EnigmaThinkingLine()
@@ -429,6 +431,9 @@ struct EnigmaReplyView<Revision: View>: View {
               .lineLimit(1)
               .truncationMode(.middle)
               .enigmaTestMarker("Reply meta")
+            if let activity = reply.activity, !activity.sources.isEmpty {
+              ReplySourcesButton(activity: activity, isExpanded: $sourcesExpanded)
+            }
             Spacer(minLength: 0)
             if !reply.content.allSatisfy(\.isWhitespace) {
               ChatCopyButton(label: "Copy reply", isEmphasized: isHovered, size: CGSize(width: 24, height: 18)) {
@@ -437,6 +442,9 @@ struct EnigmaReplyView<Revision: View>: View {
             }
           }
           .padding(.top, 2)
+          if sourcesExpanded, let activity = reply.activity, !activity.sources.isEmpty {
+            ReplySourceList(activity: activity).transition(.opacity)
+          }
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -662,9 +670,15 @@ struct ConversationScrollObserver: NSViewRepresentable {
       let center = NotificationCenter.default
       if let document = scroll.documentView {
         document.postsFrameChangedNotifications = true
-        center.addObserver(self, selector: #selector(documentLayoutChanged),
+        center.addObserver(self, selector: #selector(layoutChanged),
                            name: NSView.frameDidChangeNotification, object: document)
       }
+      // The list itself gets shorter when a card opens over the composer, such
+      // as attached files. The chat's top stays put then, so its end, and a
+      // queued message's Send now, would go out of view under the card.
+      scroll.contentView.postsFrameChangedNotifications = true
+      center.addObserver(self, selector: #selector(layoutChanged),
+                         name: NSView.frameDidChangeNotification, object: scroll.contentView)
       center.addObserver(self, selector: #selector(boundsChanged),
                          name: NSView.boundsDidChangeNotification, object: scroll.contentView)
       center.addObserver(self, selector: #selector(beginScrolling),
@@ -694,7 +708,8 @@ struct ConversationScrollObserver: NSViewRepresentable {
       previousDocumentSize = observedScroll?.documentView?.bounds.size ?? .zero
     }
 
-    @objc private func documentLayoutChanged() {
+    /// The chat or the list around it changed size: a reader at the end stays there.
+    @objc private func layoutChanged() {
       isSettlingDocumentLayout = followsLatest
       rememberGeometry()
       scheduleScroll()

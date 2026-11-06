@@ -194,6 +194,47 @@ final class ScreenViewTests: XCTestCase {
     XCTAssertGreaterThan(document.bounds.maxY - scroll.contentView.bounds.maxY, 2)
   }
 
+  /// A card opening over the composer (attached files, an approval) makes the
+  /// list shorter without changing its content. A reader at the end stays at
+  /// the end, rather than the latest messages, and a queued message's Send
+  /// now, going out of view under the card.
+  func testShorterListKeepsAReaderAtTheEndThere() async throws {
+    let document = ConversationTestDocument(flipped: true)
+    document.frame = NSRect(x: 0, y: 0, width: 400, height: 1600)
+    let observer = ConversationScrollObserver.ObserverView()
+    observer.frame = document.bounds
+    document.addSubview(observer)
+    let scroll = NSScrollView(frame: NSRect(x: 0, y: 200, width: 400, height: 300))
+    scroll.documentView = document
+    let container = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 500))
+    container.addSubview(scroll)
+    let window = NSWindow(contentRect: container.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.contentView = container
+    defer { window.contentView = nil }
+    observer.scrollToBottomIfFollowing()
+    XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
+
+    scroll.frame = NSRect(x: 0, y: 320, width: 400, height: 180)
+    let followed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      abs(scroll.contentView.bounds.maxY - document.bounds.maxY) < 2
+    }, object: nil)
+    await fulfillment(of: [followed], timeout: 2)
+    XCTAssertTrue(observer.followsLatest)
+    scroll.frame = NSRect(x: 0, y: 200, width: 400, height: 300)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1, "Taller again, still at the end")
+
+    // A reader who scrolled up keeps their place.
+    NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+    scroll.contentView.scroll(to: NSPoint(x: 0, y: 400))
+    NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+    XCTAssertFalse(observer.followsLatest)
+    scroll.frame = NSRect(x: 0, y: 320, width: 400, height: 180)
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertFalse(observer.followsLatest)
+    XCTAssertEqual(scroll.contentView.bounds.minY, 400, accuracy: 1)
+  }
+
   func testOnlyANewSendBringsTheReaderBackToTheEnd() {
     let document = ConversationTestDocument(flipped: true)
     document.frame = NSRect(x: 0, y: 0, width: 400, height: 1600)
@@ -762,10 +803,11 @@ final class ScreenViewTests: XCTestCase {
     view.layoutSubtreeIfNeeded()
     try pressActivityStatus(in: view)
     let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    let expectedLabels = ["web sources", "code reference"]
+    // The sources themselves open from the finished reply's meta line (F11).
+    let expectedLabels = ["selected 1 source"]
     var text = ""
     var png = Data()
-    // The section heading appears before the source finishes expanding into view.
+    // The panel can take a moment to expand into view.
     repeat {
       await Task.yield()
       view.layoutSubtreeIfNeeded()

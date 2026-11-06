@@ -2544,7 +2544,7 @@ dropped message), and takes an optional `text`. `regenerateReply(from:)` in
   chats once their first question is sent, or on ⌘O; they open in this same
   mode and pick up its look.
 
-### F11. Sources as a small expandable icon, not typed out in the reply
+### F11. ✅ Done: Sources as a small expandable icon, not typed out in the reply
 
 **Today:** with web search, the prompt tells the model "Cite only supporting
 URLs below" (`WebSearchContext.swift`), so replies often spell out every URL
