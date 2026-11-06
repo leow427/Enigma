@@ -531,8 +531,13 @@ their own paths.
   Markdown parse as native blocks. `ChatResponseNormalizer`
   (`Enigma/Chat/ChatMarkdown.swift`) repairs clearly escaped formatting and odd
   whitespace for display only, leaving code, paths and URLs alone; stored text is
-  unchanged. `ChatResponseStyle` (`Enigma/Chat/ChatContext.swift`) asks every
-  provider for concise, standard Markdown. While a reply streams,
+  unchanged. `ChatResponseStyle.systemPrompt(additions:)`
+  (`Enigma/Chat/ChatContext.swift`) builds every chat route's system prompt: the
+  identity line "You are Enigma, a friendly, general personal assistant:
+  concise, yet always useful.", the response style (concise, standard
+  Markdown), then the route's own rules; `/think` guidance comes after it. The
+  performance benchmarks send the style text alone, so results stay
+  comparable. While a reply streams,
   `ChatMarkdownStream` keeps the reply parsed up to the last point where a new
   top-level block must start (an empty line outside code, before an unindented
   line that can't continue a list) and parses only the rest on each update, so

@@ -19,7 +19,7 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertEqual(value(after: "--tools", in: arguments), "")
     XCTAssertEqual(value(after: "--output-format", in: arguments), "stream-json")
     XCTAssertEqual(value(after: "--model", in: arguments), "opus")
-    XCTAssertEqual(value(after: "--system-prompt", in: arguments), ClaudeCodeRuntime.systemPrompt)
+    XCTAssertEqual(value(after: "--system-prompt", in: arguments), ClaudeCodeRuntime.systemPrompt())
     XCTAssertFalse(arguments.contains("--effort"))
     XCTAssertEqual(value(after: "--effort", in: ClaudeCodeRuntime.chatArguments(model: "opus", effort: .xhigh)), "xhigh")
     XCTAssertFalse(arguments.contains("--dangerously-skip-permissions"))
@@ -148,7 +148,7 @@ final class ClaudeCodeSubscriptionTests: XCTestCase {
     XCTAssertEqual(try ClaudeCodeSubscriptionClient.standardInput(prompt: "Hi", image: nil), Data("Hi".utf8),
                    "Text-only requests keep plain text")
     XCTAssertFalse(ClaudeCodeRuntime.chatArguments(model: "opus", effort: .automatic).contains("--input-format"))
-    XCTAssertFalse(ClaudeCodeRuntime.systemPrompt.contains("text-only"))
+    XCTAssertFalse(ClaudeCodeRuntime.systemPrompt().contains("text-only"))
   }
 
   func testALargeScreenshotSurvivesACLIThatExitsWithoutReadingIt() async throws {

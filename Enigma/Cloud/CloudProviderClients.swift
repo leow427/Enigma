@@ -98,7 +98,7 @@ struct OpenAIResponsesClient: ChatProvider {
     let prepared = try CloudContext.prepare(request)
     var body: [String: Any] = [
       "model": request.route.modelID,
-      "instructions": ChatResponseStyle.instructions,
+      "instructions": ChatResponseStyle.systemPrompt(),
       "input": try MultimodalSerialization.messages(prepared.messages, image: request.image, format: .openAIResponses),
       "stream": true, "store": false, "max_output_tokens": prepared.budget.outputTokens,
     ]
@@ -239,7 +239,7 @@ struct AnthropicMessagesClient: ChatProvider {
     let prepared = try CloudContext.prepare(request)
     var body: [String: Any] = [
       "model": request.route.modelID, "max_tokens": prepared.budget.outputTokens,
-      "system": ChatResponseStyle.instructions,
+      "system": ChatResponseStyle.systemPrompt(),
       "messages": try MultimodalSerialization.messages(prepared.messages, image: request.image, format: .anthropic),
       "stream": true,
     ]

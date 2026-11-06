@@ -42,6 +42,20 @@ final class FileAgentTests: XCTestCase {
     XCTAssertEqual(restored, "Before")
   }
 
+  /// F5: File Mode opens with the shared prompt, and `/think` comes after its identity line.
+  func testLocalFileModeStartsWithTheSharedPromptAndThinksAfterIt() async throws {
+    for thinks in [false, true] {
+      let inference = ScriptedFileInference([AgentInferenceMessage(role: "assistant", content: "Done")])
+      let message = thinks ? ThinkCommand.message("/think Look") : ChatMessage(role: .user, content: "Look")
+      try await LocalFileAgent(inference: inference).run(messages: [message], model: model,
+        tools: AgentFileTools(workspace: workspace)) { _ in }
+      let histories = await inference.histories
+      let system = try XCTUnwrap(histories.first?.first?.content)
+      XCTAssertTrue(system.hasPrefix(ChatResponseStyle.systemPrompt(additions: AgentFileTools.instructions)), "\(thinks)")
+      XCTAssertEqual(system.contains(ThinkCommand.guidance), thinks)
+    }
+  }
+
   func testToolIDsCanRepeatAcrossLocalCompletionsWithoutBreakingHistory() async throws {
     let inference = ScriptedFileInference([
       call("0", "read_file", #"{"path":"file.txt"}"#),

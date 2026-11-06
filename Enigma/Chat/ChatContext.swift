@@ -297,9 +297,9 @@ enum CloudContext {
   /// text the CLIs add themselves is the policy's reserve.
   static func promptTokens(provider: CloudProviderID, toolbox: (any AgentToolbox)?) -> Int {
     let system = switch (provider, toolbox) {
-    case (.chatGPT, nil), (.claudeCode, nil): ClaudeCodeRuntime.systemPrompt
+    case (.chatGPT, nil), (.claudeCode, nil): ClaudeCodeRuntime.systemPrompt()
     case (.chatGPT, let toolbox?), (.claudeCode, let toolbox?): ClaudeCodeToolMode.systemPrompt(toolbox, providerSearch: true)
-    case (_, nil): ChatResponseStyle.instructions
+    case (_, nil): ChatResponseStyle.systemPrompt()
     case (_, let toolbox?): CloudToolLoop.systemPrompt(toolbox)
     }
     let tools = toolbox.map { toolbox in
@@ -338,6 +338,14 @@ enum CloudContext {
 
 /// Shared response style guidance, independent of provider and persisted history.
 enum ChatResponseStyle {
+  static let identity = "You are Enigma, a friendly, general personal assistant: concise, yet always useful."
+
+  /// Every chat route's system prompt: identity, response style, then the route's own rules.
+  /// Helper prompts (benchmarks) send `instructions` alone.
+  static func systemPrompt(additions: String? = nil) -> String {
+    [identity, instructions, additions].compactMap { $0 }.joined(separator: "\n")
+  }
+
   static let instructions = """
     Be quick and helpful. Lead with the answer or requested edit. For everyday questions, aim for one short paragraph or 3–5 brief bullets, usually under 150 words. Include the details needed to act, but skip preambles, repeated conclusions, unsolicited follow-up offers, and unnecessary headings. For edits, return the revised text with only essential explanation. Expand when the user asks for depth or when accuracy, safety, or a complete deliverable requires it; never omit essential steps or truncate code to meet a length target.
     For nearby or local-weather questions, use a place named by the user or approximate location supplied for this request. If neither is available, ask for a city or area; never guess the user's location or invent current weather or opening hours.

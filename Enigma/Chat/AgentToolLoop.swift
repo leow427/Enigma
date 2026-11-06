@@ -85,11 +85,11 @@ struct LocalToolAgent: Sendable {
   /// The first step's messages: the system prompt with the toolbox's instructions, then the chat.
   static func history(_ messages: [ChatMessage], toolbox: any AgentToolbox) -> [AgentInferenceMessage] {
     var history = [AgentInferenceMessage(role: "system", content:
-      ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + localInstructions)]
+      ChatResponseStyle.systemPrompt(additions: toolbox.instructions + "\n" + localInstructions))]
       + messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
     if ThinkCommand.enabled(in: messages) {
       history[0].extendedThinking = true
-      history[0].content = ThinkCommand.guidance + "\n\n" + (history[0].content ?? "")
+      history[0].content = (history[0].content ?? "") + "\n\n" + ThinkCommand.guidance
     }
     return history
   }
@@ -154,7 +154,7 @@ extension LocalToolAgent {
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
     let tools = (try? encoder.encode(CodexValue.array(toolbox.definitions.map(\.llama)))).map { String(decoding: $0, as: UTF8.self) } ?? ""
-    let system = ChatResponseStyle.instructions + toolbox.instructions + localInstructions
+    let system = ChatResponseStyle.systemPrompt(additions: toolbox.instructions + localInstructions)
       + (ThinkCommand.enabled(in: messages) ? ThinkCommand.guidance : "")
     return ContextBudget(contextWindow: model.contextWindow, outputTokens: ThinkCommand.enabled(in: messages) ? 2_048 : 1_024,
                          overheadTokens: ContextEstimate.tokens(system + tools) + 64)

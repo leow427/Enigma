@@ -770,7 +770,10 @@ final class NativeToolRequestTests: XCTestCase {
     let search = NativeSearchProvider(results: Self.searchResults)
     // F35 CP3: an unusable summary first, so the chat is trimmed as before.
     let inference = NativeScriptedInference(steps: [.text(""), .call("web_search", #"{"query":"news"}"#), .text("Found.")])
-    let chat = makeChat(inference: inference, search: search, sessionStore: sessionStore)
+    // 16K, so the tools leave the full reserve; an 8K window caps it at half the budget.
+    var model = Self.flaggedModel
+    model.runtimeContextWindow = 16_384
+    let chat = makeChat(model: model, inference: inference, search: search, sessionStore: sessionStore)
     chat.selectSession(id: saved.id)
     await chat.refreshInstalledModel()
     try await send("/search What's new?", to: chat)

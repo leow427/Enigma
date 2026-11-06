@@ -67,7 +67,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
                             outputTokens: request.maximumTokenCount, overheadTokens: 1),
       countTokens: { messages in
         try Task.checkCancellation()
-        let count = try LocalChatBridge.withMessages(messages) { pointer, count in
+        let count = try LocalChatBridge.withMessages(messages, system: ChatResponseStyle.systemPrompt()) { pointer, count in
           AISLlamaEngineCountChatTokens(handle, pointer, count)
         }
         guard count > 0 else { throw bridgeError() }
@@ -113,13 +113,14 @@ actor LlamaCPPModelEngine: LocalModelEngine {
       The room is used for reading, writing, video meetings, and planning projects.
       The owner wants a quiet, comfortable place to focus and an easy cleanup routine.
       """, maximumTokenCount: 64, temperature: 0)
-    let promptTokens = try LocalChatBridge.withMessages(request.messages) {
+    // Benchmarks keep the style text alone, so results stay comparable across versions.
+    let promptTokens = try LocalChatBridge.withMessages(request.messages, system: ChatResponseStyle.instructions) {
       AISLlamaEngineCountChatTokens(handle, $0, $1)
     }
     guard promptTokens > 0 else { throw bridgeError() }
     var peak = AISLlamaProcessMemoryBytes()
     let start = clock()
-    try beginCompletion(request, with: handle)
+    try beginCompletion(request, with: handle, system: ChatResponseStyle.instructions)
     let promptSeconds = clock() - start
     peak = max(peak, AISLlamaProcessMemoryBytes())
     var generationSeconds = 0.0
@@ -164,7 +165,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
     do {
       try Task.checkCancellation()
       let handle = try loadEngineIfNeeded()
-      try beginCompletion(request, with: handle)
+      try beginCompletion(request, with: handle, system: ChatResponseStyle.systemPrompt())
 
       var pendingBytes = Data()
       var tokenBuffer = [UInt8](repeating: 0, count: 4_096)
@@ -240,9 +241,10 @@ actor LlamaCPPModelEngine: LocalModelEngine {
 
   private func beginCompletion(
     _ request: LocalModelRequest,
-    with handle: AISLlamaEngineHandle
+    with handle: AISLlamaEngineHandle,
+    system: String
   ) throws {
-    let didBegin = try LocalChatBridge.withMessages(request.messages) { messages, count in
+    let didBegin = try LocalChatBridge.withMessages(request.messages, system: system) { messages, count in
       AISLlamaEngineBeginCompletion(
         handle,
         messages,
@@ -283,7 +285,7 @@ actor LlamaCPPModelEngine: LocalModelEngine {
 /// retained here or in the native KV cache between completion requests.
 enum LocalChatBridge {
   static func formatted(_ messages: [ChatMessage], template: String) throws -> String {
-    try withMessages(messages) { pointer, count in
+    try withMessages(messages, system: ChatResponseStyle.systemPrompt()) { pointer, count in
       try template.withCString { template in
         let length = AISLlamaFormatChat(template, pointer, count, nil, 0)
         guard length > 0 else {
@@ -301,6 +303,8 @@ enum LocalChatBridge {
 
   static func withMessages<T>(
     _ messages: [ChatMessage],
+    // No default: benchmarks send the style text alone, chats the shared prompt.
+    system: String,
     _ body: (UnsafePointer<AISLlamaChatMessage>?, Int32) throws -> T
   ) throws -> T {
     guard messages.count <= Int(Int32.max),
@@ -310,7 +314,7 @@ enum LocalChatBridge {
     let roles = messages.map { Array($0.role.rawValue.utf8CString) }
     // Some bundled templates do not support a system role.
     let contents = messages.enumerated().map { index, message in
-      Array((index == 0 ? ChatResponseStyle.instructions + "\n\n" + message.content : message.content).utf8CString)
+      Array((index == 0 ? system + "\n\n" + message.content : message.content).utf8CString)
     }
     var allocations: [UnsafeMutablePointer<CChar>] = []
     defer { allocations.forEach { $0.deallocate() } }

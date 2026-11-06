@@ -274,11 +274,11 @@ struct LocalFileAgent: Sendable {
     let selection = tools.workspace.selection
     let level = tools.workspace.accessLevel
     var history = [AgentInferenceMessage(role: "system", content:
-      ChatResponseStyle.instructions + "\n" + AgentFileTools.instructions + "\n" + AgentFileTools.localInstructions + "\nAccess: \(level.rawValue)\n" + selection.context)]
+      ChatResponseStyle.systemPrompt(additions: AgentFileTools.instructions + "\n" + AgentFileTools.localInstructions + "\nAccess: \(level.rawValue)\n" + selection.context))]
       + messages.map { AgentInferenceMessage(role: $0.role.rawValue, content: $0.content) }
     if ThinkCommand.enabled(in: messages) {
       history[0].extendedThinking = true
-      history[0].content = ThinkCommand.guidance + "\n\n" + (history[0].content ?? "")
+      history[0].content = (history[0].content ?? "") + "\n\n" + ThinkCommand.guidance
     }
     let definitions = AgentFileTools.definitions(access: level)
     let mutationNames: Set<String> = ["apply_patch", "write_file", "append_file", "create_file", "move_file", "delete_file"]

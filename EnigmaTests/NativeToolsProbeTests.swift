@@ -162,7 +162,7 @@ final class NativeToolsProbeTests: XCTestCase {
       }
       func flagged(_ question: String, cache: Bool) -> [String: Any] {
         var payload = Self.todaysRequest([["role": "user", "content": question]], cache: cache,
-                                         instructions: ChatResponseStyle.instructions + "\n\n" + Self.realisticInstructions)
+                                         instructions: ChatResponseStyle.systemPrompt() + "\n\n" + Self.realisticInstructions)
         payload["tools"] = toolbox
         payload["parallel_tool_calls"] = false
         return payload
@@ -196,7 +196,7 @@ final class NativeToolsProbeTests: XCTestCase {
   /// Today's local chat request (`LocalMultimodalClient.makeRequest`): the response-style
   /// system prompt, no prompt cache, and thinking off unless `/think` is typed.
   private static func todaysRequest(_ messages: [[String: Any]], thinking: Bool = false, cache: Bool = false,
-                                    instructions: String = ChatResponseStyle.instructions) -> [String: Any] {
+                                    instructions: String = ChatResponseStyle.systemPrompt()) -> [String: Any] {
     // 2,048 output tokens with /think, as ThinkCommand.localOutputTokens gives.
     ["messages": [["role": "system", "content": instructions]] + messages, "stream": true, "max_tokens": thinking ? 2_048 : 512,
      "temperature": 0.7, "cache_prompt": cache, "stream_options": ["include_usage": true],
@@ -233,8 +233,8 @@ final class NativeToolsProbeTests: XCTestCase {
     let questions = ["What is the capital of Australia?", "How many legs does a spider have?",
                      "What is the boiling point of water in Fahrenheit?", "Who wrote Pride and Prejudice?",
                      "What is the largest planet in the solar system?", "What colour do you get mixing blue and yellow?"]
-    let plainSystem = ChatResponseStyle.instructions
-    let toolSystem = ChatResponseStyle.instructions + "\n" + Self.realisticInstructions + "\n" + LocalToolAgent.localInstructions
+    let plainSystem = ChatResponseStyle.systemPrompt()
+    let toolSystem = ChatResponseStyle.systemPrompt() + "\n" + Self.realisticInstructions + "\n" + LocalToolAgent.localInstructions
     var report = ""
     for model in models {
       let engine = LlamaServerVisionEngine()

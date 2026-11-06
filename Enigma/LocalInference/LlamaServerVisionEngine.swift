@@ -286,7 +286,7 @@ actor LlamaServerVisionEngine: LocalVisionServing, LocalToolInference {
         let start = ProcessInfo.processInfo.systemUptime
         var firstTokenSeconds: Double?
         for try await fragment in client.stream(messages: [ChatMessage(role: .user, content: prompt)], image: nil,
-          model: runtimeModel, maximumTokens: 64, temperature: 0, timings: { probe.record($0) }) {
+          model: runtimeModel, maximumTokens: 64, temperature: 0, system: ChatResponseStyle.instructions, timings: { probe.record($0) }) {
           try Task.checkCancellation()
           guard activeID == id else { throw CancellationError() }
           if !fragment.isEmpty && firstTokenSeconds == nil { firstTokenSeconds = ProcessInfo.processInfo.systemUptime - start }

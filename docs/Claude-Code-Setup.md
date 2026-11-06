@@ -104,8 +104,9 @@ out of both Enigma and the CLI.
   under `~/Library/Application Support/AI Spotlight/Claude Code`. It runs with
   `--safe-mode` (no CLAUDE.md files, skills, plugins, hooks, or custom agents),
   `--tools ""`, `--strict-mcp-config` with no MCP servers,
-  `--disable-slash-commands`, and `--no-session-persistence`. Enigma's system
-  prompt replaces Claude Code's own.
+  `--disable-slash-commands`, and `--no-session-persistence`. Enigma's shared
+  system prompt (`ChatResponseStyle.systemPrompt`, the one every chat route
+  sends) plus the chat or tool rules replaces Claude Code's own.
 - Enigma sends the conversation on standard input as a bounded JSON transcript,
   up to 65,536 input tokens, and reads streamed text deltas. **Stop**
   terminates the process. Anthropic's data policies apply.

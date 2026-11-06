@@ -141,10 +141,55 @@ final class ChatContextTests: XCTestCase {
       ChatMessage(role: .user, content: "What did I ask you to remember?"),
     ]
     let formatted = try format(messages, template: "chatml")
-    XCTAssertEqual(formatted, "<|im_start|>user\n\(ChatResponseStyle.instructions)\n\nRemember blåbær<|im_end|>\n<|im_start|>assistant\nI will remember blåbær<|im_end|>\n<|im_start|>user\nWhat did I ask you to remember?<|im_end|>\n<|im_start|>assistant\n")
+    XCTAssertEqual(formatted, "<|im_start|>user\n\(ChatResponseStyle.systemPrompt())\n\nRemember blåbær<|im_end|>\n<|im_start|>assistant\nI will remember blåbær<|im_end|>\n<|im_start|>user\nWhat did I ask you to remember?<|im_end|>\n<|im_start|>assistant\n")
     let other = try format([ChatMessage(role: .user, content: "Separate chat")], template: "chatml")
     XCTAssertFalse(other.contains("blåbær"))
-    XCTAssertEqual(other, "<|im_start|>user\n\(ChatResponseStyle.instructions)\n\nSeparate chat<|im_end|>\n<|im_start|>assistant\n")
+    XCTAssertEqual(other, "<|im_start|>user\n\(ChatResponseStyle.systemPrompt())\n\nSeparate chat<|im_end|>\n<|im_start|>assistant\n")
+  }
+
+  /// F5: every chat route opens with the one shared prompt, and `/think` comes after its identity line.
+  func testEveryChatRouteStartsWithTheSharedEnigmaPrompt() throws {
+    let identity = ChatResponseStyle.identity
+    let prompt = ChatResponseStyle.systemPrompt()
+    XCTAssertEqual(identity, "You are Enigma, a friendly, general personal assistant: concise, yet always useful.")
+    XCTAssertEqual(prompt, identity + "\n" + ChatResponseStyle.instructions)
+    XCTAssertEqual(ChatResponseStyle.systemPrompt(additions: "Rules."), prompt + "\nRules.")
+    let toolbox = SampleToolbox()
+    let chat = [ChatMessage(role: .user, content: "Hi")]
+
+    let vision = try LocalMultimodalClient(endpoint: URL(string: "http://127.0.0.1:1/v1/chat/completions")!,
+      api: .openAICompatible, transport: OfflineTransport()).makeRequest(messages: chat, image: nil,
+      model: ScreenModel(id: "m", provider: "llama.cpp", isLocal: true, capabilities: .textAndVision))
+    let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(vision.httpBody)) as? [String: Any])
+    XCTAssertEqual((body["messages"] as? [[String: Any]])?.first?["content"] as? String, prompt)
+
+    XCTAssertEqual(LocalToolAgent.history(chat, toolbox: toolbox).first?.content,
+                   ChatResponseStyle.systemPrompt(additions: toolbox.instructions + "\n" + LocalToolAgent.localInstructions))
+    let thinking = try XCTUnwrap(LocalToolAgent.history([ThinkCommand.message("/think Hi")], toolbox: toolbox).first?.content)
+    XCTAssertTrue(thinking.hasPrefix(identity))
+    XCTAssertTrue(thinking.contains(ThinkCommand.guidance))
+
+    XCTAssertTrue(CloudToolLoop.systemPrompt(toolbox).hasPrefix(prompt))
+    let chatArguments = ClaudeCodeRuntime.chatArguments(model: "sonnet", effort: .automatic)
+    XCTAssertTrue(chatArguments[chatArguments.firstIndex(of: "--system-prompt")! + 1].hasPrefix(prompt))
+    XCTAssertTrue(ClaudeCodeToolMode.systemPrompt(toolbox).hasPrefix(prompt))
+    XCTAssertEqual(CodexSubscriptionClient.threadParameters(model: "m")["baseInstructions"].string, prompt)
+    XCTAssertEqual(try CodexToolMode.threadParameters(model: "m", toolbox: toolbox)["baseInstructions"].string, prompt)
+    let folder = FileManager.default.temporaryDirectory.appending(path: "f5-\(UUID().uuidString)", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let selection = WorkspaceSelection(attachments: [try .select(folder)])
+    XCTAssertEqual(CodexFileMode.threadParameters(model: "m", selection: selection)["baseInstructions"].string, prompt)
+  }
+
+  /// F5: no route hard-codes its own identity line.
+  func testOnlyTheSharedPromptSaysYouAreEnigma() throws {
+    let sources = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "Enigma")
+    let files = try XCTUnwrap(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
+      .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+    XCTAssertGreaterThan(files.count, 50)
+    let hits = try files.filter { try String(contentsOf: $0, encoding: .utf8).contains("You are Enigma") }.map(\.lastPathComponent)
+    XCTAssertEqual(hits, ["ChatContext.swift"])
   }
 
   func testNativeFormatterDoesNotSilentlyDropHistoryForUnsupportedTemplates() throws {
@@ -255,7 +300,7 @@ final class ChatContextTests: XCTestCase {
     let messages = [ChatMessage(role: .user, content: "Hello")]
     for provider in CloudProviderID.allCases {
       let plain = try CloudContext.prepare(request(messages, provider: provider, model: "manual"))
-      XCTAssertGreaterThanOrEqual(plain.budget.promptTokens, ContextEstimate.tokens(ChatResponseStyle.instructions), "\(provider)")
+      XCTAssertGreaterThanOrEqual(plain.budget.promptTokens, ContextEstimate.tokens(ChatResponseStyle.systemPrompt()), "\(provider)")
       XCTAssertEqual(plain.usage.usedTokens, plain.inputTokenCount + plain.budget.promptTokens)
       let tools = try CloudContext.prepare(request(messages, provider: provider, model: "manual"), toolbox: SampleToolbox())
       let definitions = ContextEstimate.tokens(SampleToolbox.longDescription)
@@ -290,7 +335,7 @@ final class ChatContextTests: XCTestCase {
 
     for provider in [CloudProviderID.openAI, .anthropic, .gemini, .free] {
       XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: provider, toolbox: nil),
-                                  ContextEstimate.tokens(ChatResponseStyle.instructions))
+                                  ContextEstimate.tokens(ChatResponseStyle.systemPrompt()))
       XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: provider, toolbox: toolbox),
                                   ContextEstimate.tokens(CloudToolLoop.systemPrompt(toolbox)) + ContextEstimate.tokens(codexTools))
     }
@@ -309,7 +354,7 @@ final class ChatContextTests: XCTestCase {
     XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .chatGPT, toolbox: nil),
       ContextEstimate.tokens((thread["baseInstructions"].string ?? "") + (thread["developerInstructions"].string ?? "")))
     // `CodexToolMode.threadParameters` writes its workspace folder, so its text is rebuilt here from the same parts.
-    let toolBase = "You are Enigma, a helpful general-purpose assistant.\n" + ChatResponseStyle.instructions
+    let toolBase = ChatResponseStyle.systemPrompt()
     let toolDeveloper = toolbox.instructions + "\nUse only the supplied tools and web search. You cannot run commands or read files."
     XCTAssertGreaterThanOrEqual(CloudContext.promptTokens(provider: .chatGPT, toolbox: toolbox),
       ContextEstimate.tokens(toolBase + toolDeveloper) + ContextEstimate.tokens(codexTools))
