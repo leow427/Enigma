@@ -2193,7 +2193,7 @@ works", which describe the replaced prompts.
 **Out of scope:** the Personalization tab (F13), the occupation picker (F20)
 and context size (F35).
 
-### F27. Keep file edits and message sending off on small local models
+### F27. ✅ Done: Keep file edits and message sending off on small local models
 
 > **Check before starting:** this entry predates native tool calling (F32).
 > Messages and files now also reach models through the native toolbox
@@ -2237,29 +2237,19 @@ people tend to approve what they're shown.
 
 **Wanted:**
 
-- **Which models:** sensitive skills need a local model of about 9B total
-  parameters or more (so mixture-of-experts models qualify) that also scores
-  at least 13.5 `qualityScore`. Checked against today's catalogue:
+- **Which models:** only the 4B-and-under families lose the sensitive
+  skills (owner, 2026-11-06, replacing an earlier 9B / 13.5-score rule):
 
-  | Family | Total B | Score | Allowed |
-  | --- | --- | --- | --- |
-  | Qwen3.5 2B | 2.27 | 8 | no |
-  | Qwen3.5 4B | 4.66 | 13 | no |
-  | Gemma 4 E4B | 7.5 | 9 | no |
-  | Ministral 3 8B | 8.5 | 5 | no |
-  | Qwen3.5 9B | 9.65 | 13.5 | yes |
-  | Gemma 4 12B | 12 | 14 | yes |
-  | Ministral 3 14B | 13.5 | 6 | no |
-  | Gemma 4 26B-A4B | 25.2 | 17 | yes |
-  | Gemma 4 31B | 31 | 15 | yes |
-  | Qwen3.6 35B-A3B | 36 | 18 | yes |
-  | Qwen3.8 27B | 27.8 | 28 | yes |
+  | Family | Allowed |
+  | --- | --- |
+  | Qwen3.5 2B | no |
+  | Qwen3.5 4B | no |
+  | Gemma 4 E4B | no |
+  | Bonsai 2 4B | no |
+  | Every other catalogue family | yes |
 
-  Qwen3.5 9B's 13.5 was raised by hand from the index's 11 so it ranks above
-  the 4B; it stays allowed. The numbers are review guidance only, not
-  computed at run time or shown to users: each family sets the result, and
-  it is reviewed per model (for example with `scripts/evaluate-file-mode.py`
-  at the family's smallest quantization).
+  Each family sets the result in the catalogue; it isn't computed at run time
+  or shown as a threshold.
 - **Stored as:** an optional `allowsSensitiveTools: Bool?` on
   `LocalModelDescriptor`, filled from the family; missing means blocked, so
   older catalogues stay safe and the signature still verifies. Imported GGUFs
