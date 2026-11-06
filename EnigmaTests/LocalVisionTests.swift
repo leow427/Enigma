@@ -780,6 +780,20 @@ final class LocalVisionTests: XCTestCase {
                         size: CGSize(width: 680, height: height)).enigmaTheme(.paper)
   }
 
+  /// F5: the benchmark keeps the style text alone, so its results stay comparable.
+  func testBenchmarkSendsTheStyleTextAlone() async throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let model = try controlledRuntimeModel(in: directory)
+    let runtime = LlamaServerVisionEngine()
+    _ = try? await runtime.benchmark(model: model)  // The fixture sends no timings, so metrics throw after the request.
+    let log = try String(contentsOf: directory.appending(path: "requests.jsonl"), encoding: .utf8)
+      .split(separator: "\n").map { try JSONDecoder().decode(CodexValue.self, from: Data($0.utf8)) }
+    let completion = try XCTUnwrap(log.first { $0["path"].string == "/v1/chat/completions" })
+    XCTAssertEqual(completion["body"]["messages"].array?.first?["content"].string, ChatResponseStyle.instructions)
+    await runtime.unload()
+  }
+
   func testServerPreparationUsesRealTokenCountsAndReusesPreparedContextForGeneration() async throws {
     let directory = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -802,7 +816,7 @@ final class LocalVisionTests: XCTestCase {
     let completion = try XCTUnwrap(log.first { $0["path"].string == "/v1/chat/completions" })
     XCTAssertEqual(template["body"]["messages"], completion["body"]["messages"])
     XCTAssertEqual(template["body"]["chat_template_kwargs"], completion["body"]["chat_template_kwargs"])
-    XCTAssertEqual(template["body"]["messages"].array?.first?["content"].string, ChatResponseStyle.instructions)
+    XCTAssertEqual(template["body"]["messages"].array?.first?["content"].string, ChatResponseStyle.systemPrompt())
     let tokenize = try XCTUnwrap(log.first { $0["path"].string == "/tokenize" })
     XCTAssertEqual(tokenize["body"]["add_special"], .bool(true))
     XCTAssertEqual(tokenize["body"]["parse_special"], .bool(true))

@@ -56,7 +56,7 @@ final class NativeToolsLatencyTests: XCTestCase {
     switch run.target {
     case .local(let model):
       let engine = LlamaServerVisionEngine()
-      let toolSystem = ChatResponseStyle.instructions + "\n" + toolbox.instructions + "\n" + LocalToolAgent.localInstructions
+      let toolSystem = ChatResponseStyle.systemPrompt() + "\n" + toolbox.instructions + "\n" + LocalToolAgent.localInstructions
       func block(_ name: String, _ first: @escaping (String) async throws -> Double?) async throws -> Condition {
         let firstRequest = try await first(Self.questions[0])
         var runs: [Double?] = []
@@ -84,7 +84,7 @@ final class NativeToolsLatencyTests: XCTestCase {
         }
       }
       let without = try await block("streamTools without tools, cache on",
-                                    streamed(system: ChatResponseStyle.instructions, tools: []))
+                                    streamed(system: ChatResponseStyle.systemPrompt(), tools: []))
       let with = try await block("streamTools with \(toolbox.definitions.count) tools, cache on",
                                  streamed(system: toolSystem, tools: toolbox.definitions))
       // After a pause the server has stopped. Each run stops it first, so its time includes

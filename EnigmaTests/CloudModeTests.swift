@@ -38,7 +38,7 @@ final class CloudModeTests: XCTestCase {
     XCTAssertEqual(sentRequest.value(forHTTPHeaderField: "Authorization"), "Bearer openai-secret")
     let body = try XCTUnwrap(sentRequest.httpBody)
     let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
-    XCTAssertEqual(object["instructions"] as? String, ChatResponseStyle.instructions)
+    XCTAssertEqual(object["instructions"] as? String, ChatResponseStyle.systemPrompt())
     XCTAssertEqual(object["store"] as? Bool, false)
     XCTAssertEqual(object["stream"] as? Bool, true)
     XCTAssertNil(object["previous_response_id"])
@@ -69,8 +69,23 @@ final class CloudModeTests: XCTestCase {
     let body = try XCTUnwrap(sentRequest.httpBody)
     let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
     XCTAssertEqual(object["stream"] as? Bool, true)
-    XCTAssertEqual(object["system"] as? String, ChatResponseStyle.instructions)
+    XCTAssertEqual(object["system"] as? String, ChatResponseStyle.systemPrompt())
     XCTAssertEqual(object["max_tokens"] as? Int, 4_096)
+  }
+
+  func testGeminiSendsTheSharedPromptAsSystemInstruction() async throws {
+    let transport = MockCloudTransport(streamHandler: { _ in
+      AsyncThrowingStream { continuation in
+        continuation.yield(.response(statusCode: 200))
+        continuation.finish()
+      }
+    })
+    let client = GeminiContentClient(credentialStore: MockCredentialStore(keys: [.gemini: "gemini-secret"]), transport: transport)
+    _ = try? await collect(client.stream(makeRequest(provider: .gemini)))
+    let body = try XCTUnwrap(transport.streamRequests.first?.httpBody)
+    let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let parts = (object["systemInstruction"] as? [String: Any])?["parts"] as? [[String: Any]]
+    XCTAssertEqual(parts?.first?["text"] as? String, ChatResponseStyle.systemPrompt())
   }
 
   func testMissingCredentialsDoNotStartANetworkRequest() async {
