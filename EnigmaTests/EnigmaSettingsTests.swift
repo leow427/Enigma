@@ -770,11 +770,43 @@ final class EnigmaSettingsTests: XCTestCase {
     XCTAssertTrue(host.shows("On this Mac"))
     XCTAssertTrue(host.shows("Delete Google Gemma 4 12B"))
     XCTAssertEqual(LocalModelSettingsLogic.installedSubtitle(for: legacy, inCatalogue: false),
-                   "Legacy/imported image model · Select to use for all requests")
+                   "Legacy/imported image model · Select to use for all requests · Can't change files or send messages")
     let current = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.id == "gemma-4-12b-q5_k_m" })
     let installed = LocalModel(id: current.id, displayName: current.displayName, fileURL: file,
                                catalogDescriptor: current)
-    XCTAssertEqual(LocalModelSettingsLogic.installedSubtitle(for: installed, inCatalogue: true), "Q5_K_M · Google")
+    XCTAssertEqual(LocalModelSettingsLogic.installedSubtitle(for: installed, inCatalogue: true),
+                   "Q5_K_M · Google · Can change files and send messages")
+  }
+
+  /// F27 (was F6): Settings → Local models points a Mac that only runs small models at the cloud.
+  @MainActor
+  func testSmallModelMacIsPointedAtTheCloudInSettings() async throws {
+    let small = try await Fixture(test: self, memory: 8)
+    XCTAssertTrue(LocalModelSettingsLogic.suggestsCloud(roles: small.advisor.recommendations(installedModels: []).roles,
+                                                        cloudConnected: false), "An 8 GB Mac's picks are all small")
+    let host = Host(small.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the cloud note", in: host.view) { host.shows("Small model cloud note") }
+    let large = try await Fixture(test: self)
+    let largeHost = Host(large.settings(.local, size: Self.tall).enigmaTheme(.paper), size: Self.tall, test: self)
+    try await waitForUI("the picks", in: largeHost.view) { largeHost.shows("For this Mac") || largeHost.shows("Check this Mac") }
+    XCTAssertFalse(largeHost.shows("Small model cloud note"))
+  }
+
+  /// F27 (was F6): only when every model picked for this Mac is too small to act, and no cloud is connected.
+  @MainActor
+  func testSmallModelMacsAreSuggestedTheCloud() throws {
+    func role(_ family: String) throws -> LocalModelRoleChoice {
+      let model = try XCTUnwrap(LocalModelManifest.bundled.models.first { $0.familyID == family })
+      let assessment = LocalModelAssessment(model: model, fit: .good, reason: "", tokensPerSecond: 20,
+                                            timeToFirstToken: 1, isMeasured: false)
+      return LocalModelRoleChoice(role: .recommended, assessment: assessment)
+    }
+    let small = [try role("Qwen3.5 4B"), try role("Gemma 4 E4B")]
+    XCTAssertTrue(LocalModelSettingsLogic.suggestsCloud(roles: small, cloudConnected: false))
+    XCTAssertFalse(LocalModelSettingsLogic.suggestsCloud(roles: small, cloudConnected: true))
+    XCTAssertFalse(LocalModelSettingsLogic.suggestsCloud(roles: small + [try role("Gemma 4 12B")], cloudConnected: false))
+    XCTAssertFalse(LocalModelSettingsLogic.suggestsCloud(roles: [], cloudConnected: false),
+                   "No model fits: the empty-list note already offers Cloud")
   }
 
   @MainActor
@@ -1287,11 +1319,11 @@ final class EnigmaSettingsTests: XCTestCase {
     init(test: EnigmaSettingsTests, cloudCredentials: any CloudCredentialStore = ScreenTestCredentialStore(),
          transport: ScreenTestTransport = ScreenTestTransport(),
          searchCredentials: any WebSearchCredentialStore = MemorySearchCredentials(),
-         engine: any LocalModelEngine = SettingsTestEngine()) async throws {
+         engine: any LocalModelEngine = SettingsTestEngine(), memory: Int = 32) async throws {
       let root = FileManager.default.temporaryDirectory.appending(path: "EnigmaSettingsTests-\(UUID())")
       try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
       defaults = try test.makeDefaults()
-      let profile = test.hardware(memory: 32, bandwidth: 267)
+      let profile = test.hardware(memory: memory, bandwidth: 267)
       let probe = probe
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil,
                                   detect: { _ in profile }, measureBandwidth: { probe.measure() })

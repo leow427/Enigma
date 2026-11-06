@@ -21,6 +21,8 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
   let hints: [CompactPanelHints.Hint]
   /// The chat is temporary, as it is while it's in the panel: the hint row says so.
   var isTemporary = false
+  /// A short notice the hint row shows in place of its shortcuts (F27), since the details are hidden.
+  var notice: String? = nil
   @ViewBuilder let selection: () -> Selection
   @ViewBuilder let composer: () -> Composer
   /// Under the input while composing, like an attached screenshot.
@@ -81,7 +83,7 @@ struct EnigmaCompactPanel<Selection: View, Composer: View, Attachment: View, Det
       details()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailsHeight = $0 }
       Color.clear.frame(height: room.below)
-      EnigmaCompactHints(hints: hints, tag: isTemporary ? CompactPanelHints.temporaryTag : nil)
+      EnigmaCompactHints(hints: hints, tag: isTemporary ? CompactPanelHints.temporaryTag : nil, notice: notice)
     }
     .fixedSize(horizontal: false, vertical: true)
     .background {
@@ -361,29 +363,41 @@ struct EnigmaCompactDetails<Content: View>: View {
 struct EnigmaCompactHints: View {
   let hints: [CompactPanelHints.Hint]
   var tag: String? = nil
+  var notice: String? = nil
   @Environment(\.enigmaPalette) private var palette
 
   var body: some View {
     HStack(spacing: 14) {
-      ForEach(Array(hints.enumerated()), id: \.element.id) { index, hint in
-        if tag == nil && index == hints.count - 1 && hints.count > 1 { Spacer(minLength: 0) }
-        EnigmaKeyedText(hint.text, size: 11, symbolTracking: 1.5)
-          .enigmaTestMarker("Hint \(hint.text)")
-      }
-      if let tag {
-        Spacer(minLength: 0)
-        Text(tag)
-          .font(EnigmaTypography.mono(11))
-          .enigmaTestMarker("Hint tag \(tag)")
+      if let notice {
+        Text(notice)
+          .font(EnigmaTypography.ui(11))
+          .lineLimit(2)
+          .fixedSize(horizontal: false, vertical: true)
+          .enigmaTestMarker("Hint notice")
+      } else {
+        shortcuts.lineLimit(1)
       }
     }
     .foregroundStyle(palette.textTertiary.color)
-    .lineLimit(1)
     .padding(.horizontal, 16)
     .padding(.vertical, 8)
     .frame(maxWidth: .infinity, alignment: .leading)
     .overlay(alignment: .top) { EnigmaHairline() }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Shortcuts: " + hints.map(\.text).joined(separator: ", ") + (tag.map { ". " + $0 } ?? ""))
+    .accessibilityLabel(notice ?? ("Shortcuts: " + hints.map(\.text).joined(separator: ", ") + (tag.map { ". " + $0 } ?? "")))
+  }
+
+  @ViewBuilder private var shortcuts: some View {
+    ForEach(Array(hints.enumerated()), id: \.element.id) { index, hint in
+      if tag == nil && index == hints.count - 1 && hints.count > 1 { Spacer(minLength: 0) }
+      EnigmaKeyedText(hint.text, size: 11, symbolTracking: 1.5)
+        .enigmaTestMarker("Hint \(hint.text)")
+    }
+    if let tag {
+      Spacer(minLength: 0)
+      Text(tag)
+        .font(EnigmaTypography.mono(11))
+        .enigmaTestMarker("Hint tag \(tag)")
+    }
   }
 }

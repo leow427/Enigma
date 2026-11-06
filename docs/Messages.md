@@ -10,6 +10,20 @@ Messages tools on every message and use them when you ask about your messages,
 behind a card that asks before any chat is read. See
 [On models that choose their own tools](#on-models-that-choose-their-own-tools).
 
+## Small local models
+
+Sending needs a local model reviewed for it, the same rule as File Mode's edits
+(see [File Mode](File-Mode.md#local-auto-and-cloud)): any other local model can
+read and search, but isn't given `send_message` and is told to say that sending
+is off. A typed `/messages` on such a model shows "File edits and sending
+messages are off with ‹model›. Use Cloud or a larger model to turn them on." over
+the composer, with **Switch to Cloud** (or **Open Settings** while no cloud
+provider is set up). The same note, or "File edits and sending messages are back
+on.", appears when the selected model changes which skills are on; in the
+compact panel it takes the hint row. VoiceOver announces it, and the next send
+clears it. Cloud models keep sending. A send card already showing stays; the
+rule applies from the next request.
+
 ## Using `/messages`
 
 Type `/messages` anywhere in your message, followed or preceded by what you want:
@@ -275,7 +289,9 @@ different signing identity, such as the unsigned product of
 - **Local** keeps Messages on this Mac, and so does **Auto** for a typed
   `/messages` or a chat that already holds message text. They need an
   installed local model and the `llama-server` runtime: **Settings → On this
-  Mac → Files → Local file tools → Install**. When Auto picks the cloud for
+  Mac → Files → Local file tools → Install**. Only a model that may change
+  files and send messages gets `send_message`; any other reads and searches
+  (see [Small local models](#small-local-models)). When Auto picks the cloud for
   a message (a coding request, say), a model that chooses its own tools can
   read a chat there, after a card that names the company the text goes to.
 - **Cloud** uses the preferred cloud provider and model from
@@ -355,7 +371,7 @@ a second request is answered Don't allow) and `ToolPermissionCard.swift`.
 | `get_messages(chat_id, limit, before)` | Up to 100 messages from one conversation, oldest first within the page. `before` takes the `next_before` cursor from the previous page. |
 | `search_messages(query, limit)` | Case- and diacritic-insensitive text search across all conversations, newest first, up to 20 matches with two messages of context on each side. Scans at most the newest 100,000 messages and reports when it stopped early. |
 | `search_contacts(query)` | Name, phone, or email lookup across Contacts and known Messages handles. |
-| `send_message(recipient, text)` | Resolves the recipient (a `chat_id`, phone number, email, contact name, or group name), then waits for approval. Text is limited to 4,000 characters. |
+| `send_message(recipient, text)` | Resolves the recipient (a `chat_id`, phone number, email, contact name, or group name), then waits for approval. Text is limited to 4,000 characters. Left out on a local model that may not send (`MessagesTools.allowsSending`), and a call to it is refused. |
 
 Tapbacks are left out of previews and search, and shown in `get_messages` as a
 short description such as "loved a message".

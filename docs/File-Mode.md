@@ -49,9 +49,21 @@ notes.md" or "Summarize what this project does".
 
 | Mode | Who does the work | Access |
 | --- | --- | --- |
-| **Local** or **Auto** | Your selected local model, on this Mac. Auto always keeps File Mode local. | **read & edit**, with protected files handled as below |
+| **Local** or **Auto** | Your selected local model, on this Mac. Auto always keeps File Mode local. | **read & edit** on a model that may change files (below), with protected files handled as below; **read only** on any other |
 | **Cloud** with ChatGPT | Codex, using your ChatGPT plan | **read & edit** |
 | **Cloud** with another provider | Nothing until you choose **Use Codex** | **read only** |
+
+Small local models make mistakes with tools, and people tend to approve what
+they're shown, so the 4B-and-under families don't change files: Qwen3.5 2B and
+4B, Gemma 4 E4B and Bonsai 2 4B. Every other catalogue family does.
+Each family sets this in the catalogue (`allowsSensitiveTools`; missing means
+off), and imported GGUFs never may. With any other model the card says **read
+only** with the reason, "File edits and sending messages are off with ‹model›.
+Use Cloud or a larger model to turn them on.", and **Switch to Cloud** goes
+through the Codex consent. Edits already made keep their Review and Undo. When
+the selected model changes this (another local model, Local and Cloud, or an
+install finishing), a short note over the composer says so; see
+[Messages](Messages.md#small-local-models).
 
 Without a local model, Local and Auto ask you to choose one or to use Codex.
 Local File Mode also needs the small `llama-server` runtime: install it from
@@ -66,7 +78,8 @@ Other cloud providers can still be used for ordinary chat.
 
 ## Safe and protected edits
 
-In Local and Auto, Enigma classifies every change before writing it.
+In Local and Auto, on a model that may change files, Enigma classifies every
+change before writing it. Any other local model reads only.
 
 | Kind | Examples | What happens |
 | --- | --- | --- |

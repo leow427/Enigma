@@ -585,7 +585,9 @@ private actor FileUITestInference: LocalToolInference {
 }
 
 private actor FileTestEngine: LocalModelEngine {
-  let model = LocalModel(id: "test", displayName: "Test local model", fileURL: URL(fileURLWithPath: "/tmp/model.gguf"))
+  /// A family reviewed to change files (F27).
+  let model = LocalModel(id: "test", displayName: "Test local model", fileURL: URL(fileURLWithPath: "/tmp/model.gguf"),
+                         catalogDescriptor: BundledLocalModels.models.first { $0.familyID == "Gemma 4 12B" })
   func install(_ model: LocalModel) async throws {}
   func installedModel() async -> LocalModel? { model }
   func installedModels() async -> [LocalModel] { [model] }

@@ -88,9 +88,16 @@ final class FileAgentTests: XCTestCase {
     XCTAssertEqual(text, "Before")
   }
 
-  func testProductionLocalAccessIncludesAllFileToolsForImportedModels() {
+  /// F27: only catalogue families reviewed to act get the write tools; imports and small models read.
+  func testProductionLocalAccessFollowsTheModelReview() throws {
     XCTAssertNil(model.catalogDescriptor)
-    let access = LocalFileCapabilities.production.access(for: model)
+    XCTAssertEqual(LocalFileCapabilities.production.access(for: model), .readOnly, "Imported models never edit")
+    let small = try XCTUnwrap(BundledLocalModels.models.first { $0.familyID == "Qwen3.5 4B" })
+    XCTAssertEqual(LocalFileCapabilities.production.access(for: LocalModel(id: small.id, displayName: small.displayName,
+      fileURL: model.fileURL, catalogDescriptor: small)), .readOnly)
+    let large = try XCTUnwrap(BundledLocalModels.models.first { $0.familyID == "Gemma 4 12B" })
+    let access = LocalFileCapabilities.production.access(for: LocalModel(id: large.id, displayName: large.displayName,
+      fileURL: model.fileURL, catalogDescriptor: large))
     XCTAssertEqual(access, .readWrite)
     XCTAssertEqual(Set(AgentFileTools.definitions(access: access).map(\.name)),
       Set(["list_files", "read_file", "search_files", "get_file_metadata", "apply_patch", "write_file", "append_file", "create_file", "move_file", "delete_file"]))

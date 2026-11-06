@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct LocalModelManagerSection: View {
   @ObservedObject var advisor: LocalModelAdvisor
   @ObservedObject var chat: LocalChatViewModel
+  @ObservedObject var cloud: CloudSettingsModel = .shared
   @State private var isImporterPresented = false
   @State private var pendingDeletion: LocalModel?
   @AppStorage(LocalContextWindowPreference.key) private var contextPreference = LocalContextWindowPreference.automatic
@@ -37,6 +38,9 @@ struct LocalModelManagerSection: View {
       }
       VStack(alignment: .leading, spacing: 6) {
         EnigmaNote("One selected model handles chat, screenshots and search answers. Every recommended package includes image support.")
+        if LocalModelSettingsLogic.suggestsCloud(roles: recommendations.roles, cloudConnected: cloud.hasAnyCloudAccess) {
+          EnigmaNote(LocalModelSettingsLogic.smallModelsCloudNote).enigmaTestMarker("Small model cloud note")
+        }
         if chat.installedModel?.supportsVision == false {
           EnigmaStatusLine(.problem, "Your selected model supports text and OCR only. Install a recommended package to answer visual questions. Your existing files stay available below.")
         }
@@ -140,6 +144,7 @@ struct LocalModelManagerSection: View {
           EnigmaStatusLine(.problem, assessment.fit.rawValue)
         }
         mono("\(model.maker) · \(model.downloadByteCount.formatted(.byteCount(style: .file))) · \(model.license)")
+        mono(LocalModelSettingsLogic.sensitiveToolsLine(allowed: model.allowsSensitiveTools == true))
         // When the model can't run here, this is the reason, which people need to read.
         mono(assessment.performanceDescription, color: assessment.fit.canRun ? nil : palette.textSecondary)
         if let range = model.advertisedMemoryRange {

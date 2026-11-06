@@ -35,6 +35,18 @@ enum LocalModelSettingsLogic {
     return parts.joined(separator: " · ")
   }
 
+  /// F27: on each model, whether it may change files and send messages.
+  static func sensitiveToolsLine(allowed: Bool) -> String {
+    allowed ? "Can change files and send messages" : "Can't change files or send messages"
+  }
+
+  /// F27 (was F6): setup and Settings point Macs that only run small models at the cloud.
+  static let smallModelsCloudNote = "The models that suit this Mac can't change files or send messages. Free models or another cloud provider can."
+
+  static func suggestsCloud(roles: [LocalModelRoleChoice], cloudConnected: Bool) -> Bool {
+    !cloudConnected && !roles.isEmpty && !roles.contains { $0.assessment.model.allowsSensitiveTools == true }
+  }
+
   static let memoryWarning = "Memory warning: this model may run slowly, use swap or fail to load on this Mac. You can still install it."
 
   /// The measured bandwidth for the Local models summary.
@@ -46,11 +58,12 @@ enum LocalModelSettingsLogic {
   /// The line under an installed model in On this Mac.
   static func installedSubtitle(for model: LocalModel, inCatalogue: Bool) -> String {
     if inCatalogue, let descriptor = model.catalogDescriptor {
-      return "\(descriptor.quantization) · \(descriptor.maker)"
+      return "\(descriptor.quantization) · \(descriptor.maker) · \(sensitiveToolsLine(allowed: model.allowsSensitiveTools))"
     }
-    return model.supportsVision
+    return (model.supportsVision
       ? "Legacy/imported image model · Select to use for all requests"
-      : "Legacy/imported text-only model · OCR available, images unsupported"
+      : "Legacy/imported text-only model · OCR available, images unsupported") + " · "
+      + sensitiveToolsLine(allowed: model.allowsSensitiveTools)
   }
 
   /// Local models: use or update an installed package, or install one. A

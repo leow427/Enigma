@@ -1112,6 +1112,19 @@ final class EnigmaConversationTests: XCTestCase {
     XCTAssertEqual(calls, ["remove", "settings"])
   }
 
+  /// F27: a local model that can't change files says so, and Switch to Cloud goes through the Codex consent.
+  @MainActor
+  func testReadOnlyCardNamesTheSmallModelAndOffersCloud() async throws {
+    let (files, _) = try await Self.changedFiles(test: self)
+    var codex = 0
+    let card = CardHost(FileAttachmentCard(files: files, access: .readOnly, isCloud: false, isBusy: false,
+                                           blockedModelName: "Qwen3.5 4B") { codex += 1 }, test: self)
+    XCTAssertFalse(card.shows("Use Codex"))
+    XCTAssertTrue(card.shows("Read only reason"))
+    try await clickTestControl("Switch to Cloud", in: card.view)
+    XCTAssertEqual(codex, 1)
+  }
+
   @MainActor
   func testFileCardsRemoveReviewUndoAndOfferCodex() async throws {
     let (files, root) = try await Self.changedFiles(test: self)

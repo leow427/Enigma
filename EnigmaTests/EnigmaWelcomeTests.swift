@@ -407,6 +407,22 @@ final class EnigmaWelcomeTests: XCTestCase {
     }
   }
 
+  /// F27 (was F6): setup's model step points a Mac that only runs small models at the cloud.
+  @MainActor
+  func testTheModelStepPointsSmallModelMacsAtTheCloud() async throws {
+    let small = try await Fixture(test: self, memory: 8)
+    small.setup.replay()
+    small.setup.step = .models
+    let host = Host(small, test: self)
+    try await waitForUI("the cloud note", in: host.view) { small.setup.hasCheckedMac && host.shows("Small model cloud note") }
+    let large = try await Fixture(test: self)
+    large.setup.replay()
+    large.setup.step = .models
+    let largeHost = Host(large, test: self)
+    try await waitForUI("the choices", in: largeHost.view) { large.setup.hasCheckedMac && largeHost.shows("Install model") }
+    XCTAssertFalse(largeHost.shows("Small model cloud note"))
+  }
+
   // MARK: Helpers
 
   @MainActor
@@ -457,11 +473,11 @@ final class EnigmaWelcomeTests: XCTestCase {
 
     init(test: EnigmaWelcomeTests, engine: any LocalModelEngine = WelcomeTestEngine(),
          searchCredentials: any WebSearchCredentialStore = WelcomeTestSearchCredentials(),
-         measureBandwidth: (@Sendable () -> Double?)? = nil) async throws {
+         measureBandwidth: (@Sendable () -> Double?)? = nil, memory: Int = 32) async throws {
       let root = FileManager.default.temporaryDirectory.appending(path: "EnigmaWelcomeTests-\(UUID())")
       try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
       defaults = try test.defaults()
-      let profile = test.hardware(memory: 32)
+      let profile = test.hardware(memory: memory)
       advisor = LocalModelAdvisor(directory: root, modelsDirectory: root, defaults: defaults, trust: nil,
                                   detect: { _ in profile }, measureBandwidth: measureBandwidth)
       await advisor.detectHardware()

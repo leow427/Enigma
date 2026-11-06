@@ -341,6 +341,29 @@ final class NativeToolRequestTests: XCTestCase {
     XCTAssertEqual(chat.messages.last?.origin?.mode, .local)
   }
 
+  /// F27: a flagged model that may not act reads Messages but is never offered send_message;
+  /// only a typed /messages says why. No blocked family has native tools today, so one is blocked by hand.
+  func testFlaggedSmallModelIsNeverOfferedSendMessage() async throws {
+    let flagged = try XCTUnwrap(BundledLocalModels.models.first { $0.inferenceProfile == .ministral14B })
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(flagged)) as? [String: Any])
+    json["allowsSensitiveTools"] = false
+    let descriptor = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: json))
+    let model = LocalModel(id: "ministral", displayName: "Ministral", fileURL: URL(fileURLWithPath: "/tmp/m.gguf"),
+                           catalogDescriptor: descriptor)
+    let route = Route(mode: .local, providerID: "llama.cpp", modelID: "ministral", usesNetwork: false)
+    let inference = NativeScriptedInference(steps: [.text("Hello."), .text("Sending is off.")])
+    let chat = makeChat(model: model, inference: inference)
+    await chat.refreshInstalledModel()
+    try await send("Hi", to: chat, route: route)
+    XCTAssertNil(chat.contextNotice)
+    try await send("/messages text Alice hi", to: chat, route: route)
+    XCTAssertEqual(chat.contextNotice, SensitiveTools.offNotice("Ministral"))
+    let requests = await inference.requests
+    XCTAssertEqual(requests.count, 2)
+    XCTAssertTrue(requests[0].tools.contains("get_messages"))
+    XCTAssertFalse(requests.flatMap(\.tools).contains("send_message"))
+  }
+
   /// F3: native turns say what they were, and regenerating a reply that didn't search offers no search.
   func testNativeTurnKindsAndARegenerateAddsNoSearch() async throws {
     let inference = NativeScriptedInference(steps: [.text("Hello."), .text("Hello again."), .text("Edited."), .text("Nobody.")])

@@ -146,6 +146,54 @@ final class EnigmaMainWindowTests: XCTestCase {
     try await waitForUI("the cloud notice", in: host.view) { host.shows(cloud) && !host.shows(local) }
   }
 
+  // MARK: F27 notice
+
+  @MainActor
+  func testSensitiveToolsAreClaimedOnlyWhereKnownAndAnnouncedOnlyOnAChange() throws {
+    let file = URL(fileURLWithPath: "/tmp/m.gguf")
+    let large = try XCTUnwrap(BundledLocalModels.models.first { $0.familyID == "Gemma 4 12B" })
+    let allowed = LocalModel(id: large.id, displayName: large.displayName, fileURL: file, catalogDescriptor: large)
+    let blocked = LocalModel(id: "import", displayName: "Import", fileURL: file)
+    XCTAssertEqual(SensitiveTools.allowed(mode: .local, model: allowed), true)
+    XCTAssertEqual(SensitiveTools.allowed(mode: .auto, model: blocked), false)
+    XCTAssertNil(SensitiveTools.allowed(mode: .local, model: nil))
+    XCTAssertEqual(SensitiveTools.allowed(mode: .cloud, model: blocked), true, "Cloud is never blocked")
+    XCTAssertEqual(SensitiveTools.allowed(mode: .cloud, model: nil), true)
+    XCTAssertNil(SensitiveTools.change(from: nil, to: false), "The model arriving at launch")
+    XCTAssertNil(SensitiveTools.change(from: false, to: false))
+    XCTAssertEqual(SensitiveTools.change(from: true, to: false), false, "A smaller model, or Cloud to Local")
+    XCTAssertEqual(SensitiveTools.change(from: false, to: true), true, "An install finishing, or Local to Cloud")
+  }
+
+  /// F27: Local to Cloud and back says so, and the off note offers Cloud's settings with no provider set up.
+  @MainActor
+  func testSensitiveToolsNoticeFollowsTheModeAndOffersCloud() async throws {
+    let fixture = try await Fixture(test: self, sessions: [Fixture.savedSession("Earlier chat")])
+    let host = Host(fixture, size: CGSize(width: 1200, height: 780), test: self)
+    fixture.chat.selectSession(id: fixture.earlierSessionID!)
+    try await waitForUI("the docked composer", in: host.view) { host.shows("Mode and model") }
+    try await waitForSettledLayout(in: host, "the docked composer", markers: ["Mode and model"])
+    XCTAssertNil(fixture.chat.contextNotice, "Not at launch")
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Cloud") }
+    try await clickTestControl("Menu item Cloud", in: host.view)
+    try await waitForUI("the back-on note and the menu closed", in: host.view) {
+      fixture.chat.contextNotice == SensitiveTools.backOn && !host.shows("Menu item Cloud")
+    }
+    XCTAssertFalse(host.shows("Switch to Cloud"))
+    try await waitForSettledLayout(in: host, "the cloud route", markers: ["Mode and model"])
+    try await clickTestControl("Mode and model", in: host.view)
+    try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Local") }
+    try await clickTestControl("Menu item Local", in: host.view)
+    try await waitForUI("the off note and its button", in: host.view) {
+      fixture.chat.contextNotice == SensitiveTools.offNotice("Fixture 8B") && host.shows("Switch to Cloud")
+    }
+    try await waitForSettledLayout(in: host, "the off note", markers: ["Switch to Cloud"])
+    let settings = expectation(forNotification: .settingsRequested, object: nil)
+    try await clickTestControl("Switch to Cloud", in: host.view)
+    await fulfillment(of: [settings], timeout: 3)
+  }
+
   // MARK: Character
 
   func testCharacterStateFollowsTheWindow() {

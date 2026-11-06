@@ -14,6 +14,9 @@ struct LocalModelFamily: Sendable {
   let license: String
   let profile: LocalMultimodalProfile
   let qualityScore: Double
+  /// F27: may change files and send messages. Off only for the 4B-and-under families (owner,
+  /// 2026-11-06), which make the most mistakes with tools.
+  let allowsSensitiveTools: Bool
   let summary: String
   /// "owner/name" on Hugging Face; weights and projector always share it and the revision.
   let repository: String
@@ -48,7 +51,8 @@ struct LocalModelFamily: Sendable {
         parameterBillions: parameters, minimumMemory: memory, recommendedMemory: memory, projector: projector,
         runtimeBuild: LocalVisionRuntime.build, publisher: publisher, modelSummary: summary,
         inferenceProfile: profile, advertisedMemoryRange: nil, modelSupportsAudio: supportsAudio,
-        activeParameterBillions: activeParameters, trainedContextLength: trainedContextLength)
+        activeParameterBillions: activeParameters, trainedContextLength: trainedContextLength,
+        allowsSensitiveTools: allowsSensitiveTools)
     }
   }
 }
@@ -60,6 +64,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Qwen3.5 2B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen35_2B,
       // No index score; placed below Qwen3.5 4B by size (assumption).
       qualityScore: 8,
+      allowsSensitiveTools: false,
       summary: "A compact model for quick questions and screenshots on smaller Macs.",
       repository: "unsloth/Qwen3.5-2B-GGUF", revision: "f6d5376be1edb4d416d56da11e5397a961aca8ae",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 668227264,
@@ -74,6 +79,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Qwen3.5 4B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen35_4B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 13 (estimate); MMMU-Pro 66.3.
       qualityScore: 13,
+      allowsSensitiveTools: false,
       summary: "Efficient reasoning, writing and screenshot understanding.",
       repository: "unsloth/Qwen3.5-4B-GGUF", revision: "e87f176479d0855a907a41277aca2f8ee7a09523",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 672423616,
@@ -90,6 +96,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Gemma 4 E4B", publisher: "Google", license: "Apache-2.0", profile: .gemma4E4B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 9.
       qualityScore: 9,
+      allowsSensitiveTools: false,
       summary: "A versatile model for everyday writing, reasoning and visual questions.",
       repository: "unsloth/gemma-4-E4B-it-GGUF", revision: "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 990372672,
@@ -102,6 +109,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Ministral 3 8B", publisher: "Mistral AI", license: "Apache-2.0", profile: .ministral8B,
       // Assumption: the index lists no score we could confirm; 5 places it just below Ministral 3 14B (6).
       qualityScore: 5,
+      allowsSensitiveTools: true,
       summary: "Multilingual conversation, instruction following and screenshot questions.",
       repository: "mistralai/Ministral-3-8B-Instruct-2512-GGUF", revision: "0102285ad796bd99af90f58de616092e5630e970",
       projectorFile: "Ministral-3-8B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 858283168,
@@ -116,6 +124,7 @@ enum BundledLocalModels {
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: raised from 11 so the
       // larger model of the line ranks above Qwen3.5 4B; MMMU-Pro 70.1.
       qualityScore: 13.5,
+      allowsSensitiveTools: true,
       summary: "More capacity for detailed reasoning and document understanding.",
       repository: "unsloth/Qwen3.5-9B-GGUF", revision: "3885219b6810b007914f3a7950a8d1b469d598a5",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 918166080,
@@ -138,6 +147,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Gemma 4 12B", publisher: "Google", license: "Apache-2.0", profile: .gemma4_12B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 14 (estimate); MMMU-Pro 69.1.
       qualityScore: 14,
+      allowsSensitiveTools: true,
       summary: "Stronger reasoning and image understanding for demanding questions.",
       repository: "unsloth/gemma-4-12b-it-GGUF", revision: "fc034cfff751157913579611efad8462ac1be606",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 175115840,
@@ -160,6 +170,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Ministral 3 14B", publisher: "Mistral AI", license: "Apache-2.0", profile: .ministral14B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 6.
       qualityScore: 6,
+      allowsSensitiveTools: true,
       summary: "Richer explanations and visual reasoning, with more memory required.",
       repository: "mistralai/Ministral-3-14B-Instruct-2512-GGUF", revision: "74fac473c43357d7fb2671713608183cc72496d0",
       projectorFile: "Ministral-3-14B-Instruct-2512-BF16-mmproj.gguf", projectorByteCount: 879258784,
@@ -176,6 +187,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Gemma 4 26B-A4B", publisher: "Google", license: "Apache-2.0", profile: .gemma4A4B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 17 (estimate); MMMU-Pro 73.8.
       qualityScore: 17,
+      allowsSensitiveTools: true,
       summary: "A larger mixture-of-experts model for complex text and visual reasoning.",
       repository: "bartowski/google_gemma-4-26B-A4B-it-GGUF", revision: "10f3b41bcf8d3047f4e136e7197ffc2dd1654c9d",
       projectorFile: "mmproj-google_gemma-4-26B-A4B-it-f16.gguf", projectorByteCount: 1193058528,
@@ -205,6 +217,7 @@ enum BundledLocalModels {
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 15. Below the
       // mixture-of-experts 26B-A4B's estimated 17, as the index has it.
       qualityScore: 15,
+      allowsSensitiveTools: true,
       summary: "Google's largest dense Gemma 4 model, for careful text and visual reasoning.",
       repository: "bartowski/google_gemma-4-31B-it-GGUF", revision: "619aca7589c72be65dd968de8602ad23d68b5c14",
       projectorFile: "mmproj-google_gemma-4-31B-it-f16.gguf", projectorByteCount: 1198956736,
@@ -233,6 +246,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Qwen3.6 35B-A3B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen36_35BA3B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 18.
       qualityScore: 18,
+      allowsSensitiveTools: true,
       summary: "A large mixture-of-experts model that stays quick on high-memory Macs.",
       repository: "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF", revision: "5c2410d71524f4f72b023ce8daf7a80528226d5f",
       projectorFile: "mmproj-Qwen_Qwen3.6-35B-A3B-f16.gguf", projectorByteCount: 899283296,
@@ -261,6 +275,7 @@ enum BundledLocalModels {
     LocalModelFamily(name: "Qwen3.8 27B", publisher: "Alibaba / Qwen", license: "Apache-2.0", profile: .qwen38_27B,
       // Artificial Analysis Intelligence Index v4.3.2, October 2026: 34 at xhigh reasoning; 28 at medium.
       qualityScore: 28,
+      allowsSensitiveTools: true,
       summary: "The strongest model here, for detailed reasoning on Max and Ultra chips.",
       repository: "unsloth/Qwen3.8-27B-GGUF", revision: "4ca720788d1e01f1bff70c033e0d0028fd02e502",
       projectorFile: "mmproj-F16.gguf", projectorByteCount: 927607488,
@@ -295,6 +310,7 @@ enum BundledLocalModels {
       // PrismML "Ternary Bonsai 2 2B/4B/9B" whitepaper, October 2026, Tables 6–7: vision
       // retention 91.3% (overall 94.6%; MMMU-Pro 64.86 against 68.09). 13 × 0.913.
       qualityScore: 11.9,
+      allowsSensitiveTools: false,
       summary: "A ternary build of Qwen3.5 4B, small and fast for quick questions and screenshots.",
       repository: "prism-ml/Ternary-Bonsai-2-4B-gguf", revision: "8d6557168168f91ea6697a4a49ed2ef622b53adb",
       projectorFile: "Ternary-Bonsai-2-4B-mmproj-Q8_0.gguf", projectorByteCount: 366894624,
@@ -309,6 +325,7 @@ enum BundledLocalModels {
       // PrismML "Ternary Bonsai 2 2B/4B/9B" whitepaper, October 2026, Tables 6–7: vision
       // retention 92.5% (overall 95.1%; MMMU-Pro 68.73 against 72.43). 13.5 × 0.925.
       qualityScore: 12.5,
+      allowsSensitiveTools: true,
       summary: "A ternary build of Qwen3.5 9B, for detailed reasoning and documents in a small download.",
       repository: "prism-ml/Ternary-Bonsai-2-9B-gguf", revision: "5b2abb02362efbed46bbe204014b02837778b2c2",
       projectorFile: "Ternary-Bonsai-2-9B-mmproj-Q8_0.gguf", projectorByteCount: 624229664,
@@ -324,6 +341,7 @@ enum BundledLocalModels {
       // retention 92.8% (overall 98.2%, thinking-mode average of 14 benchmarks; MMMU-Pro 75.49
       // against 81.73). 28 × 0.928.
       qualityScore: 26,
+      allowsSensitiveTools: true,
       summary: "A ternary build of Qwen3.8 27B that brings strong reasoning to Macs with 24 GB or more.",
       repository: "prism-ml/Ternary-Bonsai-2-27B-gguf", revision: "94dd51cdbbec5309ed8b76a12f3268bc4fdceb93",
       projectorFile: "Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf", projectorByteCount: 629246976,

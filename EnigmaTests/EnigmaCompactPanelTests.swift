@@ -600,6 +600,20 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertFalse(host.shows("Route status \(message)"), "No second line over the composer")
   }
 
+  /// F27: the panel's details are hidden, so its hint row says when file edits and sending turn off or on.
+  @MainActor
+  func testHintRowShowsTheSensitiveToolsNotice() async throws {
+    let fixture = try await Fixture(test: self)
+    let host = try await CompactPanelHost(fixture, test: self, visible: Self.testScreen)
+    host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
+    try await host.waitForComposer()
+    XCTAssertFalse(host.shows("Hint notice"))
+    fixture.chat.noteSensitiveTools(allowed: true)
+    try await waitForUI("the notice in the hint row", in: host.view) {
+      host.shows("Hint notice") && !host.shows("Hint tag \(CompactPanelHints.temporaryTag)")
+    }
+  }
+
   /// A fixed screen for the tests that move the panel or open it in the window, whatever
   /// the Mac's displays: GitHub's runners have small screens.
   static let testScreen = NSRect(x: 0, y: 0, width: 1280, height: 800)

@@ -56,6 +56,33 @@ final class LocalModelCatalogueTests: XCTestCase {
     XCTAssertEqual(models.first { $0.id == "qwen3.5-4b-q4_k_m" }?.trainedContextLength, 262_144)
   }
 
+  /// F27: only the 4B-and-under families may not change files or send messages (owner, 2026-11-06).
+  func testSensitiveToolsAreOffOnlyForFourBAndUnder() throws {
+    XCTAssertEqual(Set(BundledLocalModels.families.filter { !$0.allowsSensitiveTools }.map(\.name)),
+      ["Qwen3.5 2B", "Qwen3.5 4B", "Gemma 4 E4B", "Bonsai 2 4B"])
+    XCTAssertEqual(BundledLocalModels.families.count, 14)
+    XCTAssertTrue(models.allSatisfy { $0.allowsSensitiveTools != nil })
+  }
+
+  /// F27: imports never act; an install saved before the field goes by its family's current entry,
+  /// and a package no longer in the catalogue stays blocked.
+  func testOnlyReviewedCatalogueModelsMayActOnTheirOwn() throws {
+    let file = URL(fileURLWithPath: "/tmp/m.gguf")
+    let large = try XCTUnwrap(models.first { $0.familyID == "Gemma 4 12B" })
+    let small = try XCTUnwrap(models.first { $0.familyID == "Qwen3.5 4B" })
+    XCTAssertTrue(LocalModel(id: large.id, displayName: "", fileURL: file, catalogDescriptor: large).allowsSensitiveTools)
+    XCTAssertFalse(LocalModel(id: small.id, displayName: "", fileURL: file, catalogDescriptor: small).allowsSensitiveTools)
+    XCTAssertFalse(LocalModel(id: large.id, displayName: "", fileURL: file).allowsSensitiveTools)
+    var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(large)) as? [String: Any])
+    XCTAssertNotNil(object.removeValue(forKey: "allowsSensitiveTools"))
+    let saved = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: object))
+    XCTAssertNil(saved.allowsSensitiveTools)
+    XCTAssertTrue(LocalModel(id: large.id, displayName: "", fileURL: file, catalogDescriptor: saved).allowsSensitiveTools)
+    object["id"] = "retired-package"
+    let retired = try JSONDecoder().decode(LocalModelDescriptor.self, from: JSONSerialization.data(withJSONObject: object))
+    XCTAssertFalse(LocalModel(id: retired.id, displayName: "", fileURL: file, catalogDescriptor: retired).allowsSensitiveTools)
+  }
+
   func testDescriptorDecodesWithoutTrainedContextLength() throws {
     let model = try XCTUnwrap(models.first)
     var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(model)) as? [String: Any])

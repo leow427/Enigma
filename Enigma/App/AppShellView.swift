@@ -108,7 +108,17 @@ struct AppShellView: View {
                               performAction: performRouteAction)
       }
       if let notice = localChat.contextNotice {
-        EnigmaChatNote(notice)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+          EnigmaChatNote(notice)
+          if notice.hasPrefix(SensitiveTools.off) && shell.selectedMode != .cloud {
+            Button(cloudSettings.isConfigured ? "Switch to Cloud" : "Open Settings", action: switchToCloud)
+              .enigmaButtonStyle(.text)
+              .disabled(localChat.isBusy)
+              .accessibilityLabel(cloudSettings.isConfigured ? "Switch to Cloud" : "Open Cloud settings")
+              .enigmaTestMarker("Switch to Cloud")
+          }
+        }
+        .transition(.opacity)
       }
       if let decision = localChat.screenRouteDecision {
         EnigmaChatNote(decision.status + (decision.sendsImage ? "" : " · Image not sent"), monospaced: true)
@@ -156,10 +166,14 @@ struct AppShellView: View {
       }
       if files.selection != nil || files.error != nil || files.protectedWrite != nil {
         FileAttachmentCard(files: files, access: fileAccess, isCloud: shell.selectedMode == .cloud,
-          isBusy: localChat.isBusy, useCodex: { isFileCloudConsentPresented = true })
+          isBusy: localChat.isBusy, blockedModelName: shell.selectedMode == .cloud ? nil
+            : localChat.installedModel.flatMap { $0.allowsSensitiveTools ? nil : $0.displayName },
+          useCodex: { isFileCloudConsentPresented = true })
       }
       FileChangeSummary(files: files, isBusy: localChat.isBusy)
     }
+    // Notices fade in and out; Reduce Motion keeps them still.
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: localChat.contextNotice)
   }
 
   /// The attached screenshot, with the consent sheet that asks before a cloud
@@ -340,6 +354,12 @@ struct AppShellView: View {
     observedShell
     .onChange(of: localChat.state) { _, state in
       if shell.isSelectionComposer, case .failed = state { shell.revealSelectionProblem() }
+    }
+    // Only on a change, never at launch, when the model arrives after the window (F27).
+    .onChange(of: sensitiveToolsAllowed) { old, new in
+      guard let allowed = SensitiveTools.change(from: old, to: new) else { return }
+      localChat.noteSensitiveTools(allowed: allowed)
+      if let notice = localChat.contextNotice { AccessibilityNotification.Announcement(notice).post() }
     }
     .onChange(of: screen.error) { _, error in
       if shell.isSelectionComposer, error != nil { shell.revealSelectionProblem() }
@@ -781,6 +801,8 @@ struct AppShellView: View {
       opensOverlaysAbove: compactOpensOverlaysAbove,
       hints: CompactPanelHints.hints(isResponding: localChat.activeRequest != nil),
       isTemporary: localChat.isTemporaryChat,
+      // The details are hidden, so the hint row says when file edits and sending turn off or on (F27).
+      notice: SensitiveTools.isNotice(localChat.contextNotice) ? localChat.contextNotice : nil,
       selection: {
         EnigmaCompactSelectionLine(
           contexts: localChat.attachedContexts,
@@ -1130,6 +1152,16 @@ struct AppShellView: View {
     localChat.resend(fromUserMessage: questionID, text: text, send: { prompt, searches in
       submitChat(prompt, searchEnabled: searches, onAccepted: {})
     }, removed: { shell.expandedActivities.subtract($0) })
+  }
+
+  private var sensitiveToolsAllowed: Bool? {
+    SensitiveTools.allowed(mode: shell.selectedMode, model: localChat.installedModel)
+  }
+
+  /// Auto keeps File Mode and Messages on this Mac, so a model that can't change files or send
+  /// offers the cloud instead (F27), or its settings while no provider is connected.
+  private func switchToCloud() {
+    if cloudSettings.isConfigured { shell.selectedMode = .cloud } else { openConnectionSettings() }
   }
 
   private var fileAccess: FileAccessLevel {

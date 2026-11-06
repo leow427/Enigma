@@ -336,6 +336,8 @@ final class CloudSettingsModel: ObservableObject {
     usage.earliestReset(among: freeModelIDs, now: now)
   }
 
+  var hasAnyCloudAccess: Bool { CloudProviderID.allCases.contains(where: hasCloudAccess) }
+
   func hasCloudAccess(for provider: CloudProviderID) -> Bool {
     switch provider {
     case .chatGPT: chatGPTAccount != nil

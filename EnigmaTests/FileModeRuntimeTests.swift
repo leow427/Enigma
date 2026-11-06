@@ -93,7 +93,7 @@ final class FileModeRuntimeTests: XCTestCase {
     let model = LocalModelInstallationStore().installedModels().first { $0.fileURL == modelURL }
       ?? LocalModel(id: "file-mode-smoke", displayName: "File Mode test model", fileURL: modelURL)
     let workspace = try WorkspaceService(selection: .init(attachments: [.select(project)]),
-      accessLevel: LocalFileCapabilities.production.access(for: model), journalDirectory: root.appendingPathComponent("Recovery"), writePolicy: policy)
+      accessLevel: .readWrite, journalDirectory: root.appendingPathComponent("Recovery"), writePolicy: policy)
     do {
       try await LocalFileAgent(inference: FileSmokeLocalInference(engine: engine, trace: trace)).run(messages: [.init(role: .user, content: instruction ??
         "Use list_files and read_file to inspect \(fileName). Replace the entire contents of that existing file with exactly the lowercase word \"after\" (five letters, no newline). Call write_file with path \"\(fileName)\" and content \"after\". Read it again to verify. Do not create other files.")],
@@ -221,7 +221,7 @@ final class FileModeReliabilityEvaluationTests: XCTestCase {
           let engine = LlamaServerVisionEngine(fileMaximumTokens: limit, fileContextOverride: context,
             fileDiagnostics: { await trace.diagnostic($0) })
           let workspace = try WorkspaceService(selection: .init(attachments: [.select(project)]),
-            accessLevel: LocalFileCapabilities.production.access(for: model), journalDirectory: root.appendingPathComponent("Recovery"),
+            accessLevel: .readWrite, journalDirectory: root.appendingPathComponent("Recovery"),
             writePolicy: .local(cloudAvailability: { .unavailable(reason: "Offline synthetic evaluation") },
               notice: { _ in await trace.notice() }))
           let started = ProcessInfo.processInfo.systemUptime

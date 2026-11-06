@@ -325,7 +325,7 @@ struct SettingsView: View {
     case .shortcuts:
       ShortcutEditor()
     case .local:
-      LocalModelManagerSection(advisor: advisor, chat: chat)
+      LocalModelManagerSection(advisor: advisor, chat: chat, cloud: settings)
     case .cloud:
       CloudSettingsPage(settings: settings)
     case .search:

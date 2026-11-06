@@ -33,6 +33,9 @@ struct LocalModelDescriptor: Codable, Sendable, Equatable, Identifiable {
   var activeParameterBillions: Double? = nil
   /// The GGUF's `<arch>.context_length` (F35); nil in records and catalogues saved before it.
   var trainedContextLength: Int? = nil
+  /// F27: the family was reviewed as reliable enough to change files and send messages. Nil
+  /// (catalogues from before it) means blocked.
+  var allowsSensitiveTools: Bool? = nil
 
   var summary: String {
     modelSummary ?? (supportsVision ? "A local model for general text answers and screenshot understanding."

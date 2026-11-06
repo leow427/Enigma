@@ -446,6 +446,22 @@ final class MessagesToolsTests: XCTestCase {
     XCTAssertEqual(runner.invocations.count, 1, "An identical second send is refused")
   }
 
+  /// F27: a model not reviewed to act reads and searches, but has no send_message and can't call it.
+  func testSendingOffDropsSendMessageAndRefusesIt() async throws {
+    let runner = RecordingRunner()
+    var tools = tools(runner: runner)
+    tools.allowsSending = false
+    XCTAssertEqual(tools.definitions.map(\.name), ["list_conversations", "get_messages", "search_messages", "search_contacts"])
+    XCTAssertTrue(tools.instructions.contains(MessagesTools.sendingOffInstruction))
+    XCTAssertFalse(tools.instructions.contains("send_message"))
+    let result = await tools.execute(name: "send_message",
+      arguments: .object(["recipient": .string("Alice"), "text": .string("hi")]))
+    XCTAssertFalse(result.success)
+    XCTAssertTrue(runner.invocations.isEmpty)
+    tools.allowsSending = true
+    XCTAssertTrue(tools.instructions.contains(MessagesTools.sendInstruction))
+  }
+
   func testDeclinedSendNeverRunsOsascript() async throws {
     let runner = RecordingRunner()
     let result = await tools(runner: runner) { _ in false }.execute(name: "send_message",
