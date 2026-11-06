@@ -10,6 +10,8 @@ struct FileAttachmentCard: View {
   let access: FileAccessLevel
   let isCloud: Bool
   let isBusy: Bool
+  /// The local model that can't change files (F27), so read only says why.
+  var blockedModelName: String? = nil
   let useCodex: () -> Void
   @Environment(\.enigmaPalette) private var palette
 
@@ -44,11 +46,21 @@ struct FileAttachmentCard: View {
         }
         if access == .readOnly {
           HStack(alignment: .firstTextBaseline, spacing: 6) {
-            note(isCloud ? "Choose Codex to work with these files." : "Choose a local model to work with these files.")
-            Button("Use Codex", action: useCodex)
-              .enigmaButtonStyle(.text)
-              .disabled(isBusy || files.isWorking)
-              .enigmaTestMarker("Use Codex")
+            if let blockedModelName {
+              note(SensitiveTools.offNotice(blockedModelName))
+                .enigmaTestMarker("Read only reason")
+              // Through the Codex consent sheet, which then switches to Cloud.
+              Button("Switch to Cloud", action: useCodex)
+                .enigmaButtonStyle(.text)
+                .disabled(isBusy || files.isWorking)
+                .enigmaTestMarker("Switch to Cloud")
+            } else {
+              note(isCloud ? "Choose Codex to work with these files." : "Choose a local model to work with these files.")
+              Button("Use Codex", action: useCodex)
+                .enigmaButtonStyle(.text)
+                .disabled(isBusy || files.isWorking)
+                .enigmaTestMarker("Use Codex")
+            }
           }
         } else {
           note(isCloud ? "Relevant file contents may be sent to Codex when you send a request."

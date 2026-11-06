@@ -237,6 +237,7 @@ def main(argv=None, fetch_json=fetch_json, open_reader=gguf_header.RemoteFile, o
           f'license: "{license}", profile: .{options.profile},')
     write("      // <source of the quality score, with its date>")
     write(f"      qualityScore: {options.quality},")
+    write("      allowsSensitiveTools: false,  // <true after review: ~9B+ total parameters and a 13.5+ score>")
     write(f'      summary: "{swift_string(options.summary)}",')
     write(f'      repository: "{repo}", revision: "{revision}",')
     write(f'      projectorFile: "{swift_string(options.projector)}", projectorByteCount: {projector_bytes},')

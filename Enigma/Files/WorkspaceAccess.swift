@@ -118,12 +118,12 @@ struct WorkspaceSelection: Codable, Equatable, Sendable {
 
 enum FileAccessLevel: String, Sendable { case readOnly = "Read Only", readWrite = "Read & Edit" }
 
-/// Explicit File Mode grants local models the same scoped editing access as Codex. The grant
-/// is independent of model size or catalog metadata; filesystem validation still applies to every tool.
+/// Explicit File Mode grants local models reviewed for it (F27) the same scoped editing access as
+/// Codex; any other model reads only. Filesystem validation still applies to every tool.
 struct LocalFileCapabilities: Sendable {
   static let production = LocalFileCapabilities(accessLevel: .readWrite)
   let accessLevel: FileAccessLevel
-  func access(for _: LocalModel) -> FileAccessLevel { accessLevel }
+  func access(for model: LocalModel) -> FileAccessLevel { model.allowsSensitiveTools ? accessLevel : .readOnly }
 }
 
 /// Scoped descriptors are retained for a task. Every descendant is opened relative to a verified

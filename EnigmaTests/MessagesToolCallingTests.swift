@@ -475,6 +475,7 @@ final class ClaudeCodeToolModeTests: XCTestCase {
 private actor ScriptedToolInference: LocalToolInference {
   private(set) var requests: [[AgentInferenceMessage]] = []
   private(set) var requiredTools: [String?] = []
+  private(set) var offeredTools: [[String]] = []
 
   /// Streams each scripted step's text in two deltas, recording the required tool.
   nonisolated func streamTools(messages: [AgentInferenceMessage], tools: [AgentToolDefinition], model: LocalModel,
@@ -503,6 +504,7 @@ private actor ScriptedToolInference: LocalToolInference {
     // F35 CP3: a summary request (no tools) gets an unusable summary, so a long chat is trimmed as before.
     if tools.isEmpty { return AgentInferenceMessage(role: "assistant", content: "") }
     requests.append(messages)
+    offeredTools.append(tools.map(\.name))
     if requests.count == 1 {
       return AgentInferenceMessage(role: "assistant", content: "ignored", toolCalls: [
         AgentToolCall(id: "a", function: .init(name: "list_conversations", arguments: #"{"limit":2}"#)),
@@ -553,7 +555,10 @@ private final class CancelledResultToolbox: AgentToolbox, @unchecked Sendable {
 }
 
 private actor MessagesTestEngine: LocalModelEngine {
-  let model = LocalModel(id: "test", displayName: "Test local model", fileURL: URL(fileURLWithPath: "/tmp/model.gguf"))
+  let model: LocalModel
+  init(model: LocalModel = LocalModel(id: "test", displayName: "Test local model", fileURL: URL(fileURLWithPath: "/tmp/model.gguf"))) {
+    self.model = model
+  }
   func install(_ model: LocalModel) async throws {}
   func installedModel() async -> LocalModel? { model }
   func installedModels() async -> [LocalModel] { [model] }
@@ -635,6 +640,40 @@ final class MessagesRequestTests: XCTestCase {
     XCTAssertEqual(toolbox.calls.map(\.0), ["list_conversations"])
     XCTAssertNil(chat.appleMessages.pendingSend)
     await chat.sessionWriter.waitForPendingWrites()
+  }
+
+  /// F27: a model not reviewed to act reads Messages, is never offered send_message, and says why.
+  func testSmallLocalModelReadsMessagesButCannotSend() async throws {
+    let database = MessagesDatabase(url: try MessagesFixture(directory: root).url)
+    func chat(_ model: LocalModel, _ inference: ScriptedToolInference) async -> LocalChatViewModel {
+      let chat = LocalChatViewModel(engine: MessagesTestEngine(model: model), messagesToolbox: { confirm in
+          MessagesTools(database: database, contacts: FixtureContacts(), confirmSend: confirm) }, messagesAccess: {},
+        localToolRuntime: { _ in true }, fileInference: inference, sessionStore: .init(applicationSupportDirectory: root))
+      await chat.refreshInstalledModel()
+      return chat
+    }
+    let inference = ScriptedToolInference()
+    let small = await chat(LocalModel(id: "test", displayName: "Test local model", fileURL: URL(fileURLWithPath: "/tmp/model.gguf")), inference)
+    small.submitMessages("Text Alice hi", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    XCTAssertEqual(small.contextNotice, SensitiveTools.offNotice("Test local model"))
+    await waitForTheRequestToFinish(small)
+    let offered = await inference.offeredTools
+    XCTAssertEqual(offered.first, ["list_conversations", "get_messages", "search_messages", "search_contacts"])
+    XCTAssertNil(small.appleMessages.pendingSend, "The scripted send_message call was refused")
+    XCTAssertEqual(small.contextNotice, SensitiveTools.offNotice("Test local model"), "Still showing after the reply")
+    await small.sessionWriter.waitForPendingWrites()
+
+    let reviewed = try XCTUnwrap(BundledLocalModels.models.first { $0.familyID == "Gemma 4 12B" })
+    let largeInference = ScriptedToolInference()
+    let large = await chat(LocalModel(id: reviewed.id, displayName: reviewed.displayName, fileURL: URL(fileURLWithPath: "/tmp/model.gguf"),
+                                      catalogDescriptor: reviewed), largeInference)
+    large.submitMessages("Who texted me last?", mode: .local, cloudProvider: .anthropic, cloudModelID: "")
+    XCTAssertNil(large.contextNotice)
+    large.appleMessages.answer(false)
+    await waitForTheRequestToFinish(large)
+    let largeOffered = await largeInference.offeredTools
+    XCTAssertEqual(largeOffered.first?.contains("send_message"), true)
+    await large.sessionWriter.waitForPendingWrites()
   }
 
   /// F35 CP1: a long chat drops older turns, so its tools stay offered for the whole turn.

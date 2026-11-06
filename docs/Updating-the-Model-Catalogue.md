@@ -118,6 +118,11 @@ It prints the largest tensor and `context_length`, `block_count`, `attention.hea
 - Within one model line, a larger model of the same generation never scores
   below a smaller one; correct the score and say so in the comment.
 
+- Set `allowsSensitiveTools` (F27): `true` only for about 9B total parameters
+  or more and a score of at least 13.5, after checking file edits with
+  `scripts/evaluate-file-mode.py` at the family's smallest quantization. The
+  script prints `false`; `LocalModelCatalogueTests` checks the rule.
+
 ## 6. Test
 
 Run the catalogue, estimate and selection suites:

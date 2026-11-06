@@ -960,6 +960,39 @@ final class LocalModelSelectionTests: XCTestCase {
     XCTAssertEqual(rollback, next)
   }
 
+  /// F27: the signature covers the raw payload, so a catalogue with or without `allowsSensitiveTools` verifies,
+  /// and one without it allows no model to change files or send messages.
+  func testSignedCatalogueVerifiesWithAndWithoutSensitiveTools() async throws {
+    let root = try temporaryDirectory()
+    let key = Curve25519.Signing.PrivateKey()
+    let url = URL(string: "https://example.com/\(UUID())/catalog.json")!
+    let session = fixtureSession()
+    defer { session.invalidateAndCancel() }
+    let updater = LocalCatalogUpdater(directory: root, trust: LocalCatalogTrust(url: url, publicKey: key.publicKey.rawRepresentation),
+                                      session: session)
+    let with = LocalModelManifest(version: catalog.version + 1, models: catalog.models)
+    ModelTransportProtocol.responses.set(url, body: try signedData(with, key: key))
+    let refreshed = await updater.catalog(force: true)
+    XCTAssertEqual(refreshed, with)
+    XCTAssertTrue(refreshed.models.contains { $0.allowsSensitiveTools == true })
+    let without = LocalModelManifest(version: catalog.version + 2, models: catalog.models)
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(without)) as? [String: Any])
+    json["models"] = try XCTUnwrap(json["models"] as? [[String: Any]]).map { model in
+      var model = model
+      model["allowsSensitiveTools"] = nil
+      return model
+    }
+    let payload = try JSONSerialization.data(withJSONObject: json)
+    ModelTransportProtocol.responses.set(url, body: try JSONEncoder().encode(
+      SignedLocalModelCatalog(payload: payload, signature: key.signature(for: payload))))
+    let older = await updater.catalog(force: true)
+    XCTAssertEqual(older.version, catalog.version + 2)
+    XCTAssertTrue(older.models.allSatisfy { $0.allowsSensitiveTools == nil })
+    let model = try XCTUnwrap(older.models.first { $0.familyID == "Gemma 4 12B" })
+    let renamed = try modifying(model, ["id": "unreviewed-package"])
+    XCTAssertFalse(LocalModel(id: renamed.id, displayName: "", fileURL: root, catalogDescriptor: renamed).allowsSensitiveTools)
+  }
+
   private func fixtureSession() -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [ModelTransportProtocol.self]

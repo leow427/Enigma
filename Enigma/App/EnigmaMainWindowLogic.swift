@@ -571,3 +571,18 @@ enum KeyboardShortcutsHelp {
   /// The double-tap speeds, with the seconds they allow between taps.
   static let intervals: [(title: String, seconds: Double)] = [("Fast", 0.25), ("Normal", 0.35), ("Relaxed", 0.5)]
 }
+
+extension SensitiveTools {
+  /// Whether the next request may change files and send messages (F27). Cloud is never blocked
+  /// (its file card offers Codex where needed); nil while there's no local model yet.
+  static func allowed(mode: ChatMode, model: LocalModel?) -> Bool? {
+    mode == .cloud ? true : model.map(\.allowsSensitiveTools)
+  }
+
+  /// What to announce: only a change between two known values, so never at launch, when the
+  /// model arrives after the window.
+  static func change(from old: Bool?, to new: Bool?) -> Bool? {
+    guard let old, let new, old != new else { return nil }
+    return new
+  }
+}

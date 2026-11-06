@@ -295,6 +295,11 @@ final class LocalChatViewModel: ObservableObject {
     SelectionContextService.shared.discardTarget()
   }
 
+  /// F27: the selected model turned file edits and sending messages off or on. Cleared on the next send.
+  func noteSensitiveTools(allowed: Bool) {
+    contextNotice = allowed ? SensitiveTools.backOn : installedModel.map { SensitiveTools.offNotice($0.displayName) }
+  }
+
   func startTemporaryChat(context: ConversationContext?) {
     stopStreaming()
     clearQueue()
@@ -871,12 +876,18 @@ final class LocalChatViewModel: ObservableObject {
     var userMessage = contextualMessage(prompt)
     userMessage.turnKind = .messages
     let history = requestMessages + [ConversationContextPrompt.expand(userMessage)]
-    let toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
+    var toolbox = makeMessagesToolbox { [weak appleMessages] approval in await appleMessages?.confirm(approval) ?? false }
+    let sendingOff = local && model?.allowsSensitiveTools != true
+    if sendingOff, var messages = toolbox as? MessagesTools {
+      messages.allowsSending = false
+      toolbox = messages
+    }
     let active = beginGeneration(route: route, modelDisplayName: local ? model!.displayName : cloudModelID, userMessage: userMessage)
     let sessionID = ensureSelectedSession()
     let responseID = UUID()
     state = .preparing
-    contextNotice = nil
+    // Says why before the model can't send (F27); the shell offers Switch to Cloud beside it.
+    contextNotice = sendingOff ? model.map { SensitiveTools.offNotice($0.displayName) } : nil
     autoRouteDecision = nil
     screenRouteDecision = nil
     // A typed /messages reads freely, so later searches by a capable model ask first (gate 3).
@@ -1082,7 +1093,9 @@ final class LocalChatViewModel: ObservableObject {
     let toolNames = toolbox.definitions.map(\.name).joined(separator: ",")
     NativeTools.logger.info("Native turn: \(route.mode.rawValue, privacy: .public) \(route.providerID, privacy: .public); tools \(toolNames, privacy: .public); required \(toolbox.offeredRequiredTool ?? "none", privacy: .public); provider search \(plan.searchBackend == .provider, privacy: .public)")
     state = .preparing
-    contextNotice = nil
+    // A typed /messages on a model that can't send says why (F27); other turns offer Messages quietly.
+    contextNotice = plan.messagesRequested && local && model?.allowsSensitiveTools != true
+      ? model.map { SensitiveTools.offNotice($0.displayName) } : nil
     // Shown at once; it lands in the chat, and the draft clears, only once the request is under
     // way, as on plain turns. A failure before that keeps the draft.
     pendingUserMessage = userMessage
@@ -1341,6 +1354,8 @@ final class LocalChatViewModel: ObservableObject {
         await self?.saveMessageTextMark(sessionID)
       }
       if let sendLedger { messages.ledger = sendLedger }
+      // Every local route runs on the installed model (F27).
+      messages.allowsSending = destination != .thisMac || installedModel?.allowsSensitiveTools == true
       parts.append(messages)
     }
     if plan.parts.contains(.selection) {
@@ -3100,7 +3115,8 @@ final class LocalChatViewModel: ObservableObject {
 
   /// The request a send prepared: its omitted-messages notice, and its usage for the context ring.
   private func show(_ prepared: PreparedConversation) {
-    contextNotice = prepared.notice
+    // The send's own F27 notice stays unless the request has one of its own.
+    contextNotice = prepared.notice ?? (SensitiveTools.isNotice(contextNotice) ? contextNotice : nil)
     contextUsage = prepared.usage
   }
 

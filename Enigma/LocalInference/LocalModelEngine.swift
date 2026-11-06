@@ -25,6 +25,26 @@ struct LocalModel: Codable, Sendable, Equatable, Identifiable {
   }
 }
 
+/// F27: small local models make mistakes with tools, and people tend to approve what they're shown,
+/// so only catalogue families reviewed for it may change files or send messages. Imports never may.
+enum SensitiveTools {
+  static let off = "File edits and sending messages are off"
+  static let backOn = "File edits and sending messages are back on."
+  static func isNotice(_ text: String?) -> Bool { text == backOn || text?.hasPrefix(off) == true }
+  static func offNotice(_ modelName: String) -> String {
+    "\(off) with \(modelName). Use Cloud or a larger model to turn them on."
+  }
+}
+
+extension LocalModel {
+  var allowsSensitiveTools: Bool {
+    guard let descriptor = catalogDescriptor else { return false }
+    // An install saved before F27 has no value; its family's current catalogue entry decides.
+    return descriptor.allowsSensitiveTools
+      ?? BundledLocalModels.models.first { $0.id == descriptor.id }?.allowsSensitiveTools ?? false
+  }
+}
+
 struct LocalModelRequest: Sendable, Equatable {
   let messages: [ChatMessage]
 

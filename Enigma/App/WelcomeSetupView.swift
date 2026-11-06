@@ -349,6 +349,9 @@ struct WelcomeSetupView: View {
       if setup.hasCheckedMac && advisor.hardware != nil && choices.isEmpty {
         note("No supported model fits the available memory and storage. You can continue with Cloud.")
           .padding(.top, 10)
+      } else if setup.hasCheckedMac && LocalModelSettingsLogic.suggestsCloud(roles: roles,
+                                                                                    cloudConnected: cloud.hasAnyCloudAccess) {
+        note(LocalModelSettingsLogic.smallModelsCloudNote).padding(.top, 10).enigmaTestMarker("Small model cloud note")
       }
       LocalModelOperationView(chat: chat, advisor: advisor)
         .padding(.top, 14)

@@ -247,6 +247,19 @@ MiniCPM-V 4.7, Muse Glimmer 30B and Qwen3.8-Flash-Next.
 checklist for a refresh; `scripts/add-catalogue-model.py` prints a family's
 entry from its repository.
 
+### File edits and sending messages
+
+Each family also says whether it may change files and send messages (F27,
+`allowsSensitiveTools`): about 9B total parameters or more and a quality score
+of at least 13.5, reviewed per family. Each model in Settings → Local models
+says **Can change files and send messages** or **Can't change files or send
+messages**. When none of the models picked for this Mac may, and no cloud
+provider is connected, setup's model step and Settings suggest Free models or
+another cloud provider. See [File Mode](File-Mode.md#local-auto-and-cloud).
+Imported GGUFs never may. An install saved before the field existed goes by its
+family's current catalogue entry, and a package no longer in the catalogue
+without the field may not.
+
 ### Native tools
 
 Each family has a **native tools** flag (`LocalMultimodalProfile.nativeTools`,
@@ -610,7 +623,9 @@ configured, it checks at most every 30 days (**Check this Mac** forces a check),
 limits responses to 1 MB, verifies the signature, rejects older versions, and
 falls back to the cached or bundled catalogue when offline. A signed catalogue
 cannot add architectures, runtime builds, contexts or Hugging Face accounts
-the app hasn't reviewed. Never bundle the private key.
+the app hasn't reviewed. A signed catalogue without `allowsSensitiveTools` still
+verifies, and its models may not change files or send messages. Never bundle the
+private key.
 
 ### Key files
 
