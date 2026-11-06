@@ -2512,7 +2512,7 @@ dropped message), and takes an optional `text`. `regenerateReply(from:)` in
   pencil is disabled while a reply is streaming, when Regenerate would be
   (`canRegenerate`), and in the tour; history saving and temporary chats.
 
-### F10. Temporary chat (ghost mode)
+### F10. ✅ Done: Temporary chat (ghost mode)
 
 - Works like temporary chat in other chat apps: a tiny ghost button in the
   top-right of the main window starts a temporary chat. It shares F25's slot
