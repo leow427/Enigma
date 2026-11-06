@@ -123,8 +123,9 @@ struct EnigmaSidebar<DeveloperTools: View>: View {
 /// The slim bar at the top of the main page. With the sidebar hidden it keeps
 /// the sidebar's actions in reach: show the sidebar, New chat, Help, and
 /// Settings. Its right end is the window's top-right slot, for What's new?
-/// after an update; while the sidebar is shown, the bar is there only when
-/// that slot has something in it.
+/// after an update, the ghost button and Report a bug; while the sidebar is
+/// shown, the bar is there only when that slot has more than those two, or
+/// they can't float clear of the chat.
 struct EnigmaTopBar: View {
   struct SidebarActions {
     let show: () -> Void
@@ -139,6 +140,8 @@ struct EnigmaTopBar: View {
   let whatsNew: (label: String, open: () -> Void)?
   /// Update available's action (F33), while an update waits.
   var update: (() -> Void)? = nil
+  /// The ghost button (F10): whether a temporary chat is open, and its action; nil where it doesn't belong.
+  var temporaryChat: (isOn: Bool, toggle: () -> Void)? = nil
   /// The bug report button, last in the slot; nil where it doesn't belong.
   var reportBug: (() -> Void)? = nil
   @Environment(\.enigmaPalette) private var palette
@@ -203,6 +206,7 @@ struct EnigmaTopBar: View {
           .padding(.leading, sidebarActions == nil ? 0 : 4)
           .transition(.opacity)
       }
+      if let temporaryChat { TemporaryChatButton(isOn: temporaryChat.isOn, action: temporaryChat.toggle) }
       if let reportBug { ReportBugButton(action: reportBug) }
     }
     .padding(.horizontal, 12)
@@ -210,12 +214,33 @@ struct EnigmaTopBar: View {
   }
 }
 
+/// F10: the ghost in the chat's top-right corner starts a temporary chat; in one, it's
+/// highlighted and leaves it for an ordinary new chat.
+struct TemporaryChatButton: View {
+  static let markerName = "Temporary chat"
+  let isOn: Bool
+  let action: () -> Void
+  /// Over the chat rather than in the top bar: an opaque backing, as Report a bug has.
+  var isFloating = false
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    Button(action: action) { GhostShape().fill(style: FillStyle(eoFill: true)).frame(width: 13, height: 14) }
+      .enigmaIconButtonStyle(isActive: isOn)
+      .background { if isFloating { RoundedRectangle(cornerRadius: 8, style: .continuous).fill(palette.background.color) } }
+      .accessibilityLabel(isOn ? "Leave temporary chat" : "Start temporary chat")
+      .help(isOn ? "Leave temporary chat" : "Temporary chat · not saved")
+      .enigmaTestMarker(Self.markerName)
+  }
+}
+
 /// Report a bug, in the chat's top-right corner: a ladybug whose label slides out
 /// toward the chat on hover.
 struct ReportBugButton: View {
   static let title = "Report a bug"
-  /// The corner it takes from the page's right edge: 12 pt inset and a 30 pt button, plus a little air.
-  static let cornerWidth: CGFloat = 46
+  /// The corner it and the ghost button take from the page's right edge: 12 pt inset and two
+  /// 30 pt buttons 4 pt apart, plus a little air.
+  static let cornerWidth: CGFloat = 80
 
   /// Whether, floating in the corner, it stays clear of the chat column (680 pt at most, centred) in a
   /// main page this wide; if not, the top bar holds it instead, so it never covers a message.

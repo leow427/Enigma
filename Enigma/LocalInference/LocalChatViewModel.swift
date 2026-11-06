@@ -300,7 +300,14 @@ final class LocalChatViewModel: ObservableObject {
     contextNotice = allowed ? SensitiveTools.backOn : installedModel.map { SensitiveTools.offNotice($0.displayName) }
   }
 
-  func startTemporaryChat(context: ConversationContext?) {
+  /// F10: the ghost button's temporary chat. Temporary like a selection's, but not a selection
+  /// chat, so none of the selection's behaviour, such as the Accessibility card.
+  func startGhostChat() {
+    SelectionContextService.shared.discardTarget()
+    startTemporaryChat(context: nil, isSelectionChat: false)
+  }
+
+  func startTemporaryChat(context: ConversationContext?, isSelectionChat: Bool = true) {
     stopStreaming()
     clearQueue()
     leaveEmptyChat(for: nil)
@@ -311,7 +318,7 @@ final class LocalChatViewModel: ObservableObject {
     screenRouteDecision = nil
     let session = ChatSession(title: "Temporary chat")
     temporarySessionID = session.id
-    selectionSessionID = session.id
+    selectionSessionID = isSelectionChat ? session.id : nil
     sessions.append(session)
     selectedSessionID = session.id
     messagesFollowUpSessionID = nil

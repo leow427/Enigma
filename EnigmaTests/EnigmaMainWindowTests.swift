@@ -606,7 +606,8 @@ final class EnigmaMainWindowTests: XCTestCase {
 
   @MainActor
   func testUnderReduceMotionOpeningWhatsNewMovesTheComposerAtOnce() async throws {
-    let size = CGSize(width: 1000, height: 660)
+    // Wide enough for the corner to float beside the sidebar, so only What's new? brings the bar.
+    let size = CGSize(width: MainPageLayout.sidebarWidth(for: 1100) + 680 + 2 * ReportBugButton.cornerWidth + 20, height: 660)
     let rest = try await restingComposerFrames(size: size, sidebar: true, docked: false)
     let fixture = try await Fixture(test: self)
     fixture.reduceMotion = true
@@ -1749,11 +1750,14 @@ final class EnigmaMainWindowTests: XCTestCase {
       let button = try XCTUnwrap(host.marker("What's new"))
       let frame = host.view.convert(button.bounds, from: button)
       let top = host.view.isFlipped ? frame.minY : size.height - frame.maxY
-      // Report a bug keeps the corner; What's new? comes and goes just left of it.
+      // Report a bug keeps the corner with the ghost button just left of it; What's new? comes and goes left of those.
       let bug = try XCTUnwrap(host.marker(ReportBugButton.title))
       let bugFrame = host.view.convert(bug.bounds, from: bug)
+      let ghost = try XCTUnwrap(host.marker(TemporaryChatButton.markerName))
+      let ghostFrame = host.view.convert(ghost.bounds, from: ghost)
       XCTAssertEqual(size.width - bugFrame.maxX, 12, accuracy: 2, "Report a bug at the right edge \(label): \(bugFrame)")
-      XCTAssertEqual(bugFrame.minX - frame.maxX, 4, accuracy: 2, "Just left of Report a bug \(label): \(frame)")
+      XCTAssertEqual(bugFrame.minX - ghostFrame.maxX, 4, accuracy: 2, "The ghost just left of Report a bug \(label): \(ghostFrame)")
+      XCTAssertEqual(ghostFrame.minX - frame.maxX, 4, accuracy: 2, "Just left of the ghost \(label): \(frame)")
       XCTAssertLessThan(top, EnigmaTopBar.height, "In the top bar \(label): \(frame)")
       if !sidebar {
         let settings = try XCTUnwrap(host.marker("Bar settings"))
@@ -1809,10 +1813,43 @@ final class EnigmaMainWindowTests: XCTestCase {
     }
   }
 
+  /// F10: the ghost button sits in the top-right corner beside the sidebar, floating or in the
+  /// bar, and with the sidebar hidden. It starts a temporary chat, where the character wears its
+  /// ghost sheet, and clicked again leaves it for an ordinary new chat.
+  @MainActor
+  func testGhostButtonTogglesATemporaryChatInTheCorner() async throws {
+    let wide = MainPageLayout.sidebarWidth(for: 1100) + 680 + 2 * ReportBugButton.cornerWidth + 20
+    for (width, sidebar) in [(wide, true), (CGFloat(820), true), (CGFloat(820), false)] {
+      let label = "at \(width), sidebar \(sidebar)"
+      let fixture = try await Fixture(test: self)
+      fixture.start.showsSidebar = sidebar
+      let host = Host(fixture, size: CGSize(width: width, height: 660), test: self)
+      try await waitForUI("the ghost button \(label)", in: host.view) {
+        host.shows(TemporaryChatButton.markerName) && composerAcceptsClicks(in: host.view)
+      }
+      XCTAssertNil(fixture.character.costume)
+
+      try await clickTestControl(TemporaryChatButton.markerName, in: host.view)
+      try await waitForUI("a temporary chat in its sheet \(label)", in: host.view) {
+        fixture.chat.isTemporaryChat && fixture.character.costume == .ghost
+          && host.shows("Window tag \(CompactPanelHints.temporaryTag)")
+      }
+      XCTAssertFalse(fixture.chat.isSelectionChat)
+
+      try await clickTestControl(TemporaryChatButton.markerName, in: host.view)
+      try await waitForUI("back to an ordinary chat \(label)", in: host.view) {
+        !fixture.chat.isTemporaryChat && fixture.character.costume == nil
+          && !host.shows("Window tag \(CompactPanelHints.temporaryTag)")
+      }
+    }
+  }
+
   @MainActor
   func testComposerMenuOpensClearOfTheComposerBox() async throws {
     let fixture = try await Fixture(test: self)
-    let host = Host(fixture, size: CGSize(width: 1000, height: 660), test: self)
+    // Wide enough for the corner to float, with no top bar holding the page lower.
+    let width = MainPageLayout.sidebarWidth(for: 1100) + 680 + 2 * ReportBugButton.cornerWidth + 20
+    let host = Host(fixture, size: CGSize(width: width, height: 660), test: self)
     try await clickTestControl("Mode and model", in: host.view)
     try await waitForUI("the open menu", in: host.view) { host.shows("Menu item Auto") }
     let send = try XCTUnwrap(host.marker("Send message"))

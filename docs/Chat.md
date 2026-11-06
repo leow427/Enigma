@@ -342,6 +342,15 @@ model gets it. See [Messages](Messages.md#permission-cards).
   lists it at the top of Recents, written once its first question lands, unless
   **Keep selection chats private** is on in **Settings → Selection**. A private chat stays temporary, stays out of
   Recents, and is gone when you start another chat.
+- **Ghost mode (F10).** The small ghost button in the main window's top-right
+  corner (`TemporaryChatButton`, beside Report a bug, with the sidebar shown or
+  hidden) starts a temporary chat the same way: marked **temporary · not
+  saved**, never written or titled, out of Recents, and gone when you leave it.
+  It isn't a selection chat (`startGhostChat()`), so it has none of the
+  selection's behaviour. While a temporary chat is open in the window, private
+  selection chats included, the character wears a bedsheet ghost costume and
+  the button is highlighted; clicking it again starts an ordinary new chat.
+  It's hidden during the guided tour, whose demo chats don't wear the sheet.
 
 ## Privacy
 

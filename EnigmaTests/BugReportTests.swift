@@ -134,9 +134,9 @@ final class BugReportTests: XCTestCase {
   }
 
   func testFloatsOnlyWhereTheChatColumnLeavesTheCornerFree() {
-    // The column is 680 pt at most, centred; the button takes 46 pt from the right edge.
-    XCTAssertTrue(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 46))
-    XCTAssertFalse(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 46 - 1))
+    // The column is 680 pt at most, centred; it and the ghost button take 80 pt from the right edge.
+    XCTAssertTrue(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 80))
+    XCTAssertFalse(ReportBugButton.floatsClear(ofChatIn: 680 + 2 * 80 - 1))
     XCTAssertFalse(ReportBugButton.floatsClear(ofChatIn: 640))
   }
 
