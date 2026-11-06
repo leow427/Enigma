@@ -107,9 +107,11 @@ struct AssistantActivityView: View {
   }
 }
 
-/// A reply's web sources, collapsed: a small link glyph and count on its meta
-/// line that opens `ReplySourceList` under it.
+/// A reply's web sources, collapsed: a "Sources" bubble on its meta line, led by
+/// the first sites' letter badges, that opens `ReplySourceList` under it.
 struct ReplySourcesButton: View {
+  static let badgeCount = 3
+
   let activity: AssistantActivity
   @Binding var isExpanded: Bool
   @FocusState private var isFocused: Bool
@@ -118,22 +120,35 @@ struct ReplySourcesButton: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
+    let isLit = isHovered || isExpanded
     Button {
       withAnimation(reduceMotion ? nil : EnigmaMotion.pageChange.animation) { isExpanded.toggle() }
     } label: {
-      HStack(spacing: 3) {
-        Image(systemName: "link").font(EnigmaTypography.symbol(10))
-        Text("\(activity.sources.count)")
+      HStack(spacing: 5) {
+        HStack(spacing: -4) {
+          ForEach(SourceBadge.leading(activity.sources, count: Self.badgeCount)) { source in
+            SourceBadgeView(source: source, size: 14)
+              .overlay { Circle().stroke(palette.userBubble.color, lineWidth: 1.5) }
+          }
+        }
+        Text("Sources")
       }
       .font(EnigmaTypography.mono(11))
-      .foregroundStyle((isHovered || isExpanded ? palette.textPrimary : palette.textTertiary).color)
+      .foregroundStyle((isLit ? palette.textPrimary : palette.textSecondary).color)
+      .padding(.leading, 3)
+      .padding(.trailing, 8)
       .padding(.vertical, 2)
-      .contentShape(Rectangle())
+      .background {
+        Capsule().fill(palette.userBubble.color)
+        if isLit { Capsule().fill(palette.hover.color) }
+      }
+      .overlay { Capsule().strokeBorder(palette.hairline.color, lineWidth: 1) }
+      .contentShape(Capsule())
     }
     .buttonStyle(.plain)
     .focused($isFocused)
     .focusEffectDisabled()
-    .enigmaFocusRing(isFocused, palette: palette, cornerRadius: 4, outset: 3)
+    .enigmaFocusRing(isFocused, palette: palette, cornerRadius: 9, outset: 2)
     .onHover { isHovered = $0 }
     .help(activity.sourceSummary)
     .accessibilityLabel(activity.sourceSummary)
@@ -141,7 +156,63 @@ struct ReplySourcesButton: View {
     .accessibilityHint("Show or hide web sources")
     .enigmaTestMarker("Sources")
   }
+}
 
+/// A source's letter badge (owner, 2026-11-06): the site's initial, like W for
+/// Wikipedia, on a theme colour picked from the site's name, so a site keeps its
+/// colour from reply to reply.
+enum SourceBadge {
+  /// The site's own name from its host: "en.wikipedia.org" and "www.bbc.co.uk" give "wikipedia" and "bbc".
+  static func name(for source: WebSearchSource) -> String {
+    var labels = source.siteName.lowercased().split(separator: ".").map(String.init)
+    if labels.count > 1 { labels.removeLast() }
+    if labels.count > 1, let last = labels.last, ["co", "com", "org", "net", "gov", "ac", "edu"].contains(last) {
+      labels.removeLast()
+    }
+    return labels.last ?? source.siteName.lowercased()
+  }
+
+  static func letter(for source: WebSearchSource) -> String {
+    name(for: source).first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "?"
+  }
+
+  /// The badge colours: the theme's code colours and its red, each dark on Paper
+  /// and light on Ink, so `letterColor` reads on all of them.
+  static func colors(in palette: EnigmaPalette) -> [EnigmaColor] {
+    [palette.codeVariable, palette.codeString, palette.codeNumber, palette.codeKeyword, palette.codeType, palette.contextFull]
+  }
+
+  static func letterColor(in palette: EnigmaPalette) -> EnigmaColor { palette.background }
+
+  static func color(for source: WebSearchSource, in palette: EnigmaPalette) -> EnigmaColor {
+    // FNV-1a, since `hashValue` changes from launch to launch.
+    var hash: UInt32 = 2_166_136_261
+    for byte in name(for: source).utf8 { hash = (hash ^ UInt32(byte)) &* 16_777_619 }
+    let colors = colors(in: palette)
+    return colors[Int(hash % UInt32(colors.count))]
+  }
+
+  /// The first `count` sources from different sites, for the collapsed bubble.
+  static func leading(_ sources: [WebSearchSource], count: Int) -> [WebSearchSource] {
+    var seen = Set<String>()
+    return Array(sources.filter { seen.insert(name(for: $0)).inserted }.prefix(count))
+  }
+}
+
+/// A source's letter on its colour, in a circle.
+struct SourceBadgeView: View {
+  let source: WebSearchSource
+  let size: CGFloat
+  @Environment(\.enigmaPalette) private var palette
+
+  var body: some View {
+    Text(SourceBadge.letter(for: source))
+      .font(EnigmaTypography.ui(size * 0.6, weight: .semibold))
+      .foregroundStyle(SourceBadge.letterColor(in: palette).color)
+      .frame(width: size, height: size)
+      .background { Circle().fill(SourceBadge.color(for: source, in: palette).color) }
+      .accessibilityHidden(true)
+  }
 }
 
 /// A reply's open web sources, as the rows the activity panel used to show.
@@ -226,6 +297,7 @@ private struct ActivitySourceRow: View {
     let line = blockedDomain == nil ? source.siteName + " · " + detail : source.siteName + " · blocked"
     return Link(destination: source.url) {
       HStack(alignment: .top, spacing: 8) {
+        SourceBadgeView(source: source, size: 18).padding(.top, 1)
         VStack(alignment: .leading, spacing: 2) {
           Text(source.title.isEmpty ? source.siteName : source.title)
             .font(EnigmaTypography.ui(12.5, weight: .medium))

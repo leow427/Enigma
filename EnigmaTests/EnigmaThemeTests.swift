@@ -177,3 +177,37 @@ final class ContextRingTests: XCTestCase {
                    "92 of 100 tokens used\n8% of context left. Earlier messages will be summarized.")
   }
 }
+
+final class SourceBadgeTests: XCTestCase {
+  private let palettes: [(String, EnigmaPalette)] = [("Paper", .paper), ("Ink", .ink)]
+
+  private func source(_ address: String) -> WebSearchSource {
+    WebSearchSource(title: "", url: URL(string: address)!)
+  }
+
+  func testSourceBadgesTakeTheSitesInitial() {
+    XCTAssertEqual(SourceBadge.letter(for: source("https://en.wikipedia.org/wiki/Willis_Tower")), "W")
+    XCTAssertEqual(SourceBadge.letter(for: source("https://www.bbc.co.uk/news")), "B")
+    XCTAssertEqual(SourceBadge.letter(for: source("https://maps.apple.com/?q=cafe")), "A")
+    XCTAssertEqual(SourceBadge.letter(for: source("https://localhost/page")), "L")
+  }
+
+  func testSourceBadgesKeepASitesColourAndShowDistinctSites() {
+    let wiki = source("https://en.wikipedia.org/a"), otherWiki = source("https://de.wikipedia.org/b")
+    for (name, palette) in palettes {
+      XCTAssertEqual(SourceBadge.color(for: wiki, in: palette), SourceBadge.color(for: otherWiki, in: palette), name)
+      XCTAssertTrue(SourceBadge.colors(in: palette).contains(SourceBadge.color(for: wiki, in: palette)), name)
+    }
+    let leading = SourceBadge.leading(
+      [wiki, otherWiki, source("https://bbc.co.uk"), source("https://nasa.gov"), source("https://apple.com")], count: 3)
+    XCTAssertEqual(leading.map(SourceBadge.letter(for:)), ["W", "B", "N"])
+  }
+
+  func testSourceBadgeLettersReadOnEveryBadgeColour() {
+    for (name, palette) in palettes {
+      for colour in SourceBadge.colors(in: palette) {
+        XCTAssertGreaterThanOrEqual(SourceBadge.letterColor(in: palette).contrastRatio(on: colour), 4.5, "\(name) \(colour)")
+      }
+    }
+  }
+}
