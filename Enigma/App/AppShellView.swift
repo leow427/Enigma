@@ -685,20 +685,38 @@ struct AppShellView: View {
       withAnimation(reduceMotion ? nil : EnigmaMotion.screenChange.animation) { whatsNew.open() }
     }
     let reportBug: (() -> Void)? = guidedTour.isActive ? nil : { openBugReport() }
+    let temporaryChat: (isOn: Bool, toggle: () -> Void)? = guidedTour.isActive ? nil
+      : (isOn: localChat.isTemporaryChat, toggle: { toggleTemporaryChat() })
     return EnigmaTopBar(sidebarActions: shell.isSidebarVisible ? nil : sidebarActions,
                         whatsNew: whatsNew.showsButton ? (label: whatsNew.accessibilityLabel, open: openWhatsNew) : nil,
                         update: updater.pendingUpdate == nil ? nil : { updater.performPendingUpdate() },
+                        temporaryChat: temporaryChat,
                         reportBug: reportBug)
   }
 
-  /// Report a bug in the top-right corner while the top bar is hidden, where the bar would put it.
+  /// The ghost button and Report a bug in the top-right corner while the top bar is hidden, where the bar would put them.
   @ViewBuilder private func floatingReportBug(mainWidth: CGFloat) -> some View {
     if !showsTopBar(mainWidth: mainWidth), !guidedTour.isActive {
-      ReportBugButton(action: openBugReport, isFloating: true)
-        .enigmaTestMarker("Floating report a bug")
-        .padding(.horizontal, 12)
-        .frame(height: EnigmaTopBar.height)
+      HStack(spacing: 4) {
+        TemporaryChatButton(isOn: localChat.isTemporaryChat, action: toggleTemporaryChat, isFloating: true)
+        ReportBugButton(action: openBugReport, isFloating: true)
+          .enigmaTestMarker("Floating report a bug")
+      }
+      .padding(.horizontal, 12)
+      .frame(height: EnigmaTopBar.height)
     }
+  }
+
+  /// F10: the ghost button starts a temporary chat, reset as ⌘N resets a new chat; in one, it
+  /// leaves it for an ordinary new chat.
+  private func toggleTemporaryChat() {
+    guard !localChat.isTemporaryChat else {
+      NotificationCenter.default.post(name: .newChatRequested, object: nil)
+      return
+    }
+    screen.clearDraft()
+    shell.startNewChat(mode: startPreferences.mode, showsSidebar: startPreferences.showsSidebar)
+    localChat.startGhostChat()
   }
 
   private func openBugReport() {
@@ -914,9 +932,13 @@ struct AppShellView: View {
                                                   activity: localChat.activity) ?? home
   }
 
-  /// The character's costume while a weather card shows on the latest reply it sits beside (F36).
+  /// The character's costume: its ghost sheet in a temporary chat in the window (F10), or one for
+  /// a weather card on the latest reply it sits beside (F36).
   private var windowCharacterCostume: EnigmaCharacterCostume? {
-    guard !isChatEmpty, !welcomeSetup.isPresented,
+    guard !welcomeSetup.isPresented else { return nil }
+    // The tour's demo chats are temporary too, but aren't ghost mode.
+    if localChat.isTemporaryChat, !shell.isSelectionComposer, !guidedTour.isActive { return .ghost }
+    guard !isChatEmpty,
           !(guidedTour.isActive && guidedTour.characterOnCard && !shell.isSelectionComposer) else { return nil }
     return ConversationTranscript.costume(messages: localChat.presentationMessages, activity: localChat.activity)
   }

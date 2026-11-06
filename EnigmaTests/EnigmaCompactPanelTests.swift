@@ -971,6 +971,9 @@ final class EnigmaCompactPanelTests: XCTestCase {
     XCTAssertEqual(fixture.chat.selectedSessionID, id, "The same chat (\(label))")
     XCTAssertEqual(fixture.chat.attachedContexts.count, 1, "The selection stays for /edit (\(label))")
     XCTAssertEqual(fixture.chat.isTemporaryChat, keepsPrivate, label)
+    try await waitForUI("the ghost sheet only while private (\(label))", in: host.view) {
+      fixture.character.costume == (keepsPrivate ? .ghost : nil)
+    }
     XCTAssertEqual(fixture.chat.openedSelectionChat, LocalChatViewModel.OpenedSelectionChat(id: id, isPrivate: keepsPrivate),
                    label)
     if !sends {
@@ -1033,6 +1036,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
     host.present("Please send the report today.", cursor: NSPoint(x: 640, y: 700))
     try await host.waitForComposer()
     XCTAssertTrue(host.shows("Hint tag \(CompactPanelHints.temporaryTag)"))
+    XCTAssertNil(fixture.character.costume, "No ghost sheet in the panel (F10)")
     let id = try XCTUnwrap(fixture.chat.selectedSessionID)
     try await host.send("Explain this passage", fixture)
     fixture.engine.send("It asks for the report today.")
@@ -1041,6 +1045,7 @@ final class EnigmaCompactPanelTests: XCTestCase {
       fixture.chat.activeRequest == nil && !host.shows("Compact panel") && host.shows("Your message")
         && host.shows("Window tag \(CompactPanelHints.temporaryTag)")
         && host.shows("Chat footnote \(CompactPanelHints.privateNote)")
+        && fixture.character.costume == .ghost
     }
     XCTAssertTrue(fixture.chat.isTemporaryChat)
     XCTAssertEqual(fixture.chat.selectedSessionID, id)

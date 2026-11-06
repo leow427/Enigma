@@ -376,6 +376,25 @@ final class ChatTitleTests: XCTestCase {
     XCTAssertTrue(chat.isTemporaryChat)
   }
 
+  /// F10: the ghost button's temporary chat is never written, titled or listed, isn't a selection
+  /// chat, and goes when you leave it.
+  func testGhostChatIsTemporaryAndGoesWhenYouLeaveIt() async throws {
+    let engine = TitleEngine(title: "Explain the passage")
+    let chat = await chat(engine)
+    chat.startGhostChat()
+    XCTAssertTrue(chat.isTemporaryChat)
+    XCTAssertFalse(chat.isSelectionChat, "No selection behaviour, such as the Accessibility card")
+    try await reply(chat, Self.question)
+    try await Task.sleep(for: .milliseconds(50))
+    XCTAssertTrue(engine.titleRequests.isEmpty, "Never titled")
+    XCTAssertTrue(chat.historySessions.isEmpty, "Out of Recents")
+    await chat.sessionWriter.waitForPendingWrites()
+    XCTAssertTrue(ChatSessionStore(applicationSupportDirectory: root).load().isEmpty, "Nothing written")
+    chat.newChat()
+    XCTAssertFalse(chat.isTemporaryChat)
+    XCTAssertTrue(chat.sessions.isEmpty, "Discarded on leaving it")
+  }
+
   func testTemporaryChatOpenedAsAnOrdinaryChatIsTitled() async throws {
     let engine = TitleEngine(title: "Explain the passage")
     let chat = await chat(engine)

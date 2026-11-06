@@ -98,13 +98,17 @@ glyph is Stop, on the solid Send button.
   window's top-right slot, for things that come and go, like **What's new?**
   after an update: an outlined button with an `accentText` label
   (`EnigmaButtonKind.notice`), since the palette has no blue. While the
-  sidebar is shown, the bar appears only when the slot has something in it.
+  sidebar is shown, the bar appears only when the slot has more than its two
+  permanent buttons (below), or they can't float clear of the chat.
   When it's opened, the button fades out; with the sidebar shown the whole
   bar goes and the page moves up into its place. Under Reduce Motion both
-  happen at once. The slot always ends with a ladybug icon button, Report a
-  bug, whose label slides out on hover. Beside the sidebar it floats in the
-  same corner on an opaque `background` backing while the chat column leaves
-  the corner free, and the bar comes back to hold it when it doesn't.
+  happen at once. The slot always ends with two icon buttons: the ghost
+  (`TemporaryChatButton`, F10), which starts a temporary chat and is
+  highlighted in one, and a ladybug, Report a bug, whose label slides out on
+  hover. Left to right: Update available, What's new?, the ghost, Report a
+  bug. Beside the sidebar the two float in the same corner on opaque
+  `background` backings while the chat column leaves the corner free, and the
+  bar comes back to hold them when it doesn't.
 - **Main page.** The character centered, a time-of-day greeting, a monospace
   status line built from the real route state, the Auto / Local / Cloud text
   control, the composer, and the slash commands as monospace example lines.

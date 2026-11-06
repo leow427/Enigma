@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// What the character wears while a weather card shows on the latest reply (F36). Each costume
-/// is drawn from the live frame's own geometry, so it follows any pose; F10's ghost sheet would
-/// be one more case.
+/// What the character wears while a weather card shows on the latest reply (F36), or in a
+/// temporary chat (F10's ghost sheet). Each costume is drawn from the live frame's own geometry,
+/// so it follows any pose.
 enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
-  case sunglasses, umbrella, umbrellaInsideOut, woollyHat, scarf, nightcap
+  case sunglasses, umbrella, umbrellaInsideOut, woollyHat, scarf, nightcap, ghost
 
   /// The costume for a card's sky: the first card's, when a reply has several.
   static func forWeather(_ card: WeatherCardModel) -> Self { forWeather(card.sky, light: card.light) }
@@ -50,6 +50,7 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
       Self.drawWoollyHat(figure, in: &context)
     case .scarf: Self.drawScarf(figure, color: Self.blue, in: &context)
     case .nightcap: Self.drawNightcap(figure, in: &context)
+    case .ghost: Self.drawGhostSheet(figure, in: &context)
     }
   }
 
@@ -72,6 +73,8 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
       angle = sin(t * 0.7) * 0.02
     case .nightcap:
       angle = sin(t * 0.5) * 0.04                        // a sleepy nod
+    case .ghost:
+      angle = sin(t * 1.1) * 0.06                        // a spooky wobble
     }
     context.translateBy(x: feet.x + shift, y: feet.y)
     context.rotate(by: .radians(angle))
@@ -148,6 +151,7 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
   private static let night = EnigmaColor(hex: 0x5D6FA6)
   private static let nightLight = EnigmaColor(hex: 0x8191C4)
   private static let lens = EnigmaColor(hex: 0x1E2126)
+  private static let sheet = EnigmaColor(hex: 0xFAF7F0)
 
   // MARK: Sunglasses
 
@@ -406,5 +410,53 @@ enum EnigmaCharacterCostume: String, CaseIterable, Equatable, Sendable {
       z.draw(Text("z").font(.system(size: max(6, r * (0.42 + rise * 0.25)), weight: .semibold, design: .rounded))
         .foregroundStyle(f.ink), at: point)
     }
+  }
+
+  // MARK: Ghost sheet
+
+  /// A bedsheet thrown over the whole body, its feet and antenna ball poking out, with two eye
+  /// holes either side of the porthole, dark on either canvas.
+  private static func drawGhostSheet(_ f: Figure, in context: inout GraphicsContext) {
+    let r = f.radius
+    let box = CGRect(x: f.center.x - 1.15 * r, y: f.top - 0.2 * r, width: 2.3 * r, height: 2 * f.halfHeight + 0.3 * r)
+    let sheet = GhostShape.sheet(in: box)
+    context.fill(sheet, with: .color(f.fill(Self.sheet)))
+    f.outline(sheet, in: &context)
+    let eyeWidth = 0.24 * r, eyeHeight = 0.34 * r
+    for side in [-1.0, 1] {
+      let eye = CGRect(x: f.hole.x + side * 0.36 * r - eyeWidth / 2, y: f.hole.y - eyeHeight / 2,
+                       width: eyeWidth, height: eyeHeight)
+      context.fill(Path(ellipseIn: eye), with: .color(lens.color))
+    }
+  }
+}
+
+/// A little bedsheet ghost: a dome with a wavy hem and two eye holes, cut out even-odd. The ghost
+/// button's glyph (F10), and the sheet the character wears in a temporary chat.
+struct GhostShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    var path = Self.sheet(in: rect)
+    for x in [0.33, 0.67] {
+      path.addEllipse(in: CGRect(x: rect.minX + (x - 0.08) * rect.width, y: rect.minY + 0.3 * rect.height,
+                                 width: 0.16 * rect.width, height: 0.22 * rect.height))
+    }
+    return path
+  }
+
+  /// The sheet alone, filling `rect`: a round top and three scallops along the hem.
+  static func sheet(in rect: CGRect) -> Path {
+    func p(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height) }
+    var path = Path()
+    path.move(to: p(0, 0.88))
+    path.addLine(to: p(0, 0.45))
+    path.addCurve(to: p(0.5, 0), control1: p(0, 0.15), control2: p(0.22, 0))
+    path.addCurve(to: p(1, 0.45), control1: p(0.78, 0), control2: p(1, 0.15))
+    path.addLine(to: p(1, 0.88))
+    for step in 1...3 {
+      let x = 1 - Double(step) / 3
+      path.addQuadCurve(to: p(x, 0.88), control: p(x + 1.0 / 6, 1.08))
+    }
+    path.closeSubpath()
+    return path
   }
 }

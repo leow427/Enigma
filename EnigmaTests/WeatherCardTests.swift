@@ -568,14 +568,14 @@ final class WeatherCardTests: XCTestCase {
     }
     // A change of outfit as the new one goes on, inside the smoke.
     let controller = EnigmaCharacterController(seed: 3)
-    let slot = EnigmaCharacterModel.Slot(center: CGPoint(x: cell * 6.5, y: 110), size: 60)
+    let slot = EnigmaCharacterModel.Slot(center: CGPoint(x: cell * Double(EnigmaCharacterCostume.allCases.count) + cell / 2, y: 110), size: 60)
     controller.move(to: "slot")
     var time = 10.0
     for _ in 0..<120 { time += 1.0 / 60; _ = controller.frame(at: time, slots: ["slot": slot], targets: [:], reduceMotion: false) }
     controller.costume = .umbrella
     var puff = EnigmaCharacterFrame.empty
     for _ in 0..<7 { time += 1.0 / 60; puff = controller.frame(at: time, slots: ["slot": slot], targets: [:], reduceMotion: false) }
-    try EnigmaSnapshot.save("weather-costumes", size: CGSize(width: cell * 7, height: 190)) {
+    try EnigmaSnapshot.save("weather-costumes", size: CGSize(width: cell * Double(EnigmaCharacterCostume.allCases.count + 1), height: 190)) {
       CostumeLineUp(frames: still + [(puff, nil)], labels: EnigmaCharacterCostume.allCases.map(\.rawValue) + ["changing"], cell: cell)
     }
   }
